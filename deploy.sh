@@ -56,12 +56,13 @@ if [ -z "$AAVS_PATH" ]; then
     echo -e "AAVS_PATH not set. Please set AAVS_PATH to the top level AAVS directory"
     exit 1
 fi
-cd $AAVS_PATH
 
 # Installing required system packages
 echo "Installing required system packages"
-#sudo apt-get -qq update
-#sudo apt-get -q install --force-yes --yes $(grep -vE "^\s*#" requirements.apt  | tr "\n" " ")
+sudo apt-get -q install --force-yes --yes $(grep -vE "^\s*#" requirements.apt  | tr "\n" " ")
+
+# Install python virtual environment
+sudo pip install virtualenv
 
 # Create installation directory
 create_install
@@ -70,7 +71,11 @@ echo "Created installed directory tree"
 # Activate Python virtual environment
 source $AAVS_PYTHON/bin/activate
 
+# Installing required python packages
+pip install -r requirements.pip
+
 # Loop over all required repos
+cd $AAVS_PATH
 current=`pwd`
 for repo in "${repos[@]}"; do
 
