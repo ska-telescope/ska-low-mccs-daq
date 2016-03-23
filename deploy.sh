@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Declare array containing repositories to clone
-declare -a repos=("aavs-access-layer" "aavs-tango" "aavs-daq")
+declare -a repos=("aavs-access-layer" "aavs-tango" "aavs-daq" "aavs-backend")
 
 # Helper function to install required package
 function install_package(){
@@ -68,6 +68,11 @@ sudo pip install virtualenv
 create_install
 echo "Created installed directory tree"
 
+# Add AAVS virtual env alias to .bashrc
+if [ -z "aavs_env" ]; then
+  echo "alias aavs_env=\"source \$AAVS_PYTHON/bin/activate\"" >> ~/.bashrc
+fi
+
 # Activate Python virtual environment
 source $AAVS_PYTHON/bin/activate
 
@@ -89,6 +94,9 @@ for repo in "${repos[@]}"; do
 
   # Repository cloned, pull to latest
   cd $AAVS_PATH/$repo
+  if [ $repo == "aavs-backend" ]; then
+      git checkout tango_integration
+  fi
   git pull
 
   # Repository pulled, call deployment script
