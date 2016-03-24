@@ -61,12 +61,11 @@ if [ -z "$AAVS_PATH" ]; then
     exit 1
 fi
 
-# Installing required system packages
+# Installing required system packages (including virtualenv)
 echo "Installing required system packages"
+sudo apt-get -qq update
+sudo apt-get -qq -y upgrade
 sudo apt-get -q install --force-yes --yes $(grep -vE "^\s*#" requirements.apt  | tr "\n" " ")
-
-# Install python virtual environment
-sudo pip install virtualenv
 
 # Create installation directory
 create_install
@@ -92,7 +91,7 @@ for repo in "${repos[@]}"; do
   # Check if directory already exists
   if [ ! -d $repo ]; then
     echo -e "\nCloning $repo"
-    git clone https://lessju@bitbucket.org/aavslmc/$repo.git
+    git clone https://bitbucket.org/aavslmc/$repo.git
   else
     echo -e "\n$repo already cloned"
   fi
