@@ -3,48 +3,52 @@
 # Declare array containing repositories to clone
 declare -a repos=("aavs-access-layer" "aavs-tango" "aavs-daq" "aavs-backend")
 
-# Helper function to install required package
-function install_package(){
-    PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
-    if [ "" == "$PKG_OK" ]; then
-      echo "Installing $1."
-      sudo apt-get --force-yes --yes install $1
-    else
-      echo "$1 already installed"
-    fi
-}
-
 # Create installation directory tree
 function create_install() {
   # Create install directory if it does not exist
   if [ ! -d $AAVS_INSTALL ]; then
       mkdir -p $AAVS_INSTALL
+  fi
 
-      # Create subdirectories in install dir
-      if [ ! -d "$AAVS_INSTALL/python" ]; then
-          mkdir -p $AAVS_INSTALL/python
-          echo "export AAVS_PYTHON=$AAVS_INSTALL/python" >> ~/.bashrc 
-          export AAVS_PYTHON=$AAVS_INSTALL/python
-      fi
-      
-      if [ ! -d "$AAVS_INSTALL/lib" ]; then
-          mkdir -p $AAVS_INSTALL/lib
-          echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$AAVS_INSTALL/lib" >> ~/.bashrc
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$AAVS_INSTALL/python
-      fi
+  # Create subdirectories in install dir
+  if [ ! -d "$AAVS_INSTALL/python" ]; then
+    mkdir -p $AAVS_INSTALL/python
+
+    # Create Python virtual environment
+    virtualenv $AAVS_INSTALL/python
+  fi
+
+  if [ -z "$AAVS_PYTHON" ]; then
+    echo "export AAVS_PYTHON=$AAVS_INSTALL/python" >> ~/.bashrc 
+    export AAVS_PYTHON=$AAVS_INSTALL/python
+  fi
+
+  if [ ! -d "$AAVS_INSTALL/lib" ]; then
+    mkdir -p $AAVS_INSTALL/lib
+  fi
+
+  if [[ ! ":$LD_LIBRARY_PATH:" == *"aavs"* ]]; then
+    echo "export LD_LIBRARY_PATH=$AAVS_INSTALL/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> ~/.bashrc
+    export LD_LIBRARY_PATH=$AAVS_INSTALL/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} 
+  fi
   
-      if [ ! -d "$AAVS_INSTALL/bin" ]; then
-          mkdir -p $AAVS_INSTALL/bin
-          echo "export PATH=\$PATH:$AAVS_INSTALL/bin" >> ~/.bashrc
-          echo "export AAVS_BIN=$AAVS_INSTALL/bin" >> ~/.bashrc  
-          export AAVS_BIN=$AAVS_INSTALL/bin
-      fi
+  if [ ! -d "$AAVS_INSTALL/bin" ]; then
+    mkdir -p $AAVS_INSTALL/bin
+  fi
 
-      # Create Python virtual environment
-      echo $AAVS_PYTHON
-      virtualenv $AAVS_PYTHON
-  else
-    echo "Install directory already exists, skipping creation"
+  if [ -z "$AAVS_BIN" ]; then
+    echo "export PATH=\$PATH:$AAVS_INSTALL/bin" >> ~/.bashrc
+    echo "export AAVS_BIN=$AAVS_INSTALL/bin" >> ~/.bashrc  
+    export AAVS_BIN=$AAVS_INSTALL/bin
+  fi
+
+  if [ ! -d "$AAVS_INSTALL/log" ]; then
+    mkdir -p $AAVS_INSTALL/log
+  fi
+
+  if [ -z "$AAVS_LOG" ]; then
+    echo "export AAVS_LOG=$AAVS_INSTALL/log" >> ~/.bashrc  
+    export AAVS_LOG=$AAVS_INSTALL/log
   fi
 }
 
@@ -68,9 +72,10 @@ sudo pip install virtualenv
 create_install
 echo "Created installed directory tree"
 
-# Add AAVS virtual env alias to .bashrc
-if [ -z "aavs_env" ]; then
+# Add AAVS virtual environment alias to .bashrc
+if [ ! -n "`cat ~/.bashrc | grep aavs_env`" ]; then
   echo "alias aavs_env=\"source \$AAVS_PYTHON/bin/activate\"" >> ~/.bashrc
+  echo "Setting virtual environment alias"
 fi
 
 # Activate Python virtual environment
