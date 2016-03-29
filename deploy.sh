@@ -98,9 +98,9 @@ for repo in "${repos[@]}"; do
 
   # Repository cloned, pull to latest
   cd $AAVS_PATH/$repo
-  if [ $repo == "aavs-backend" ]; then
-      git checkout tango_integration
-  fi
+  #if [ $repo == "aavs-backend" ]; then
+  #    git checkout tango_integration
+  #fi
   git pull
 
   # Repository pulled, call deployment script
