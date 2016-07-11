@@ -63,8 +63,8 @@ fi
 
 # Installing required system packages (including virtualenv)
 echo "Installing required system packages"
-sudo apt-get -qq update
-sudo apt-get -qq -y upgrade
+#sudo apt-get -qq update
+#sudo apt-get -qq -y upgrade
 sudo apt-get -q install --force-yes --yes $(grep -vE "^\s*#" requirements.apt  | tr "\n" " ")
 
 # Create installation directory
