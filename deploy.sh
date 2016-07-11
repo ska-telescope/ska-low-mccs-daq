@@ -84,4 +84,10 @@ source $AAVS_PYTHON/bin/activate
 pip install -r requirements.pip
 
 # If required, build other repos
-
+if [[ $2 -eq "y" ]]; then
+  echo "AND HERE"
+  ./install_repos.sh
+fi
+if [[ $# -eq "y" ]]; then
+  ./install_repos.sh
+fi
