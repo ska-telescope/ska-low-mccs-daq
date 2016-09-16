@@ -50,6 +50,11 @@ function create_install() {
     echo "export AAVS_LOG=$AAVS_INSTALL/log" >> ~/.bashrc  
     export AAVS_LOG=$AAVS_INSTALL/log
   fi
+
+  if [ -z "$AAVS_DATA" ]; then
+    echo "export AAVS_LOG=$AAVS_INSTALL/data" >> ~/.bashrc
+    export AAVS_DATA=$AAVS_INSTALL/data
+  fi
 }
 
 echo -e "\n==== Configuring System for AAVS ====\n"
