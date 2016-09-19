@@ -59,7 +59,7 @@ function create_install() {
 
 echo -e "\n==== Configuring System for AAVS ====\n"
 
-# Check if AAVS_PATH exist, and if so cd to it
+# Check if AAVS_PATH exists, and if so cd to it
 source ~/.bashrc
 if [ -z "$AAVS_PATH" ]; then 
     echo -e "AAVS_PATH not set. Please set AAVS_PATH to the top level AAVS directory"
@@ -68,8 +68,6 @@ fi
 
 # Installing required system packages (including virtualenv)
 echo "Installing required system packages"
-#sudo apt-get -qq update
-#sudo apt-get -qq -y upgrade
 sudo apt-get -q install --force-yes --yes $(grep -vE "^\s*#" requirements.apt  | tr "\n" " ")
 
 # Create installation directory
@@ -89,6 +87,6 @@ source $AAVS_PYTHON/bin/activate
 pip install -r requirements.pip
 
 # If required, build other repos
-if [[ $2 = "y" ]]; then
+if [[ $1 = "y" ]]; then
   ./install_repos.sh
 fi
