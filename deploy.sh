@@ -52,7 +52,7 @@ function create_install() {
   fi
 
   if [ -z "$AAVS_DATA" ]; then
-    echo "export AAVS_LOG=$AAVS_INSTALL/data" >> ~/.bashrc
+    echo "export AAVS_DATA=$AAVS_INSTALL/data" >> ~/.bashrc
     export AAVS_DATA=$AAVS_INSTALL/data
   fi
 }
