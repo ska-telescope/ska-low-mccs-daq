@@ -53,6 +53,7 @@ function create_install() {
 
   if [ -z "$AAVS_DATA" ]; then
     echo "export AAVS_DATA=$AAVS_INSTALL/data" >> ~/.bashrc
+    chmod a+w $AAVS_INSTALL
     export AAVS_DATA=$AAVS_INSTALL/data
   fi
 }
