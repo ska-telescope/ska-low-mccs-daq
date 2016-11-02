@@ -51,10 +51,24 @@ function create_install() {
     export AAVS_LOG=$AAVS_INSTALL/log
   fi
 
+  if [ ! -d "$AAVS_INSTALL/data" ]; then
+    mkdir -p $AAVS_INSTALL/data
+  fi
+
   if [ -z "$AAVS_DATA" ]; then
     echo "export AAVS_DATA=$AAVS_INSTALL/data" >> ~/.bashrc
-    chmod a+w $AAVS_INSTALL
+    chmod a+w $AAVS_INSTALL/data
     export AAVS_DATA=$AAVS_INSTALL/data
+  fi
+
+  if [ ! -d "$AAVS_INSTALL/config" ]; then
+    mkdir -p $AAVS_INSTALL/config
+  fi
+
+  if [ -z "$AAVS_CONFIG" ]; then
+    echo "export AAVS_CONFIG=$AAVS_INSTALL/config" >> ~/.bashrc
+    chmod a+w $AAVS_INSTALL/config
+    export AAVS_CONFIG=$AAVS_INSTALL/config
   fi
 }
 
