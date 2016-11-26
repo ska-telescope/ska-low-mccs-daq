@@ -101,6 +101,17 @@ source $AAVS_PYTHON/bin/activate
 # Installing required python packages
 pip install -r requirements.pip
 
+# Install 3rd party software
+pushd 3rdparty
+
+# Install Git LFS extension
+tar -xvf git-lfs-linux-amd64-1.5.2.tar.gz
+pushd git-lfs-1.5.2
+sudo ./install.sh
+sudo git lfs install
+popd
+popd
+
 # If required, build other repos
 if [[ $1 = "y" ]]; then
   ./install_repos.sh
