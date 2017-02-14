@@ -98,6 +98,10 @@ fi
 # Activate Python virtual environment
 source $AAVS_PYTHON/bin/activate
 
+# TEMPORARY HACK TO FIX PYTHON PIP ISSUE
+wget https://bootstrap.pypa.io/get-pip.py
+python ./get-pip.py
+
 # Installing required python packages
 pip install -r requirements.pip
 
