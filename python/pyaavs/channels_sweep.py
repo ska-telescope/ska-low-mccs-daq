@@ -7,7 +7,7 @@
 # to collected correlated data 
 # 
 
-from pyaavs.station import Station, load_station_configuration
+from pyaavs import station
 
 import logging
 import time
@@ -39,18 +39,14 @@ if __name__ == "__main__":
     ch.setFormatter(line_format)
     log.addHandler(ch)
 
-    # Load station configuration
-    configuration = load_station_configuration(conf)
-
-    # Create station
-    station = Station(configuration)
-
-    # Connect station (program, initialise and configure if required)
-    station.connect()
+    # Connect to station
+    station.load_configuration_file(conf.config)
+    aavs_station = station.Station(station.configuration)
+    aavs_station.connect()
 
     # running a loop over specified channel range :
     logging.info("Running a loop over channels %d - %d" % (conf.start_channel, conf.stop_channel))
     for channel in range(conf.start_channel, conf.stop_channel):
-        station.send_channelised_data_continuous(channel)
+        aavs_station.send_channelised_data_continuous(channel)
         logging.info("Staying on channel %d for %d seconds ..." % (channel, conf.time_per_channel))
         time.sleep(conf.time_per_channel)

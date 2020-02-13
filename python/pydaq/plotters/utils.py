@@ -17,7 +17,7 @@ import os
 
 # This is used to re-map ADC channels index to the RX
 # number going into the TPM
-from pydaq.persisters import CorrelationFormatFileManager
+from pydaq.persisters import CorrelationFormatFileManager,RawFormatFileManager
 
 antenna_rx_mapping = {0: 1, 1: 2, 2: 3, 3: 4,
                       8: 5, 9: 6, 10: 7, 11: 8,
@@ -100,9 +100,9 @@ def get_plotting_parameters(file_manager, conf):
     try:
         # Hack due to incorrect use of tile_id for correlation files
         if type(file_manager) == CorrelationFormatFileManager:
-            metadata = file_manager.get_metadata(timestamp=conf.timestamp, object_id=conf.channels)
+            metadata = file_manager.get_metadata(timestamp=conf.timestamp, tile_id=conf.channels)
         else:
-            metadata = file_manager.get_metadata(timestamp=conf.timestamp, object_id=conf.tile_id)
+            metadata = file_manager.get_metadata(timestamp=conf.timestamp, tile_id=conf.tile_id)
         if metadata is None:
             raise IOError()
     except IOError:
@@ -113,18 +113,19 @@ def get_plotting_parameters(file_manager, conf):
     plotting_parameters = {}
 
     # Check nof_channels
-    if type(file_manager) == CorrelationFormatFileManager:
-        # Correlator special case, ignore channels since it's defined in the filename
-        plotting_parameters['channels'] = conf.channels
-    elif conf.channels == 'all':
-        plotting_parameters['channels'] = list(range(metadata['n_chans']))
-    else:
-        channels_to_plot = extract_values(conf.channels)
-        if max(channels_to_plot) >= metadata['n_chans'] or min(channels_to_plot) < 0:
-            logging.error("Cannot plot channels {}, file has {} channels".format(conf.channels, metadata['n_chans']))
-            exit(-1)
+    if type(file_manager) is not RawFormatFileManager:
+        if type(file_manager) == CorrelationFormatFileManager:
+            # Correlator special case, ignore channels since it's defined in the filename
+            plotting_parameters['channels'] = conf.channels
+        elif conf.channels == 'all':
+            plotting_parameters['channels'] = list(range(metadata['n_chans']))
         else:
-            plotting_parameters['channels'] = channels_to_plot
+            channels_to_plot = extract_values(conf.channels)
+            if max(channels_to_plot) >= metadata['n_chans'] or min(channels_to_plot) < 0:
+                logging.error("Cannot plot channels {}, file has {} channels".format(conf.channels, metadata['n_chans']))
+                exit(-1)
+            else:
+                plotting_parameters['channels'] = channels_to_plot
 
     # Check nof_antennas
     if type(file_manager) == CorrelationFormatFileManager:

@@ -1,20 +1,16 @@
 from __future__ import division
-from builtins import str
-from builtins import range
-from builtins import object
-from past.utils import old_div
+
 import functools
 import logging
+import os
 import socket
 import threading
-import os
-
-from datetime import datetime
-from sys import stdout
-import numpy as np
 import time
-import struct
+from builtins import range
+from builtins import str
 
+import numpy as np
+from past.utils import old_div
 from pyfabil.base.definitions import *
 from pyfabil.base.utils import ip2long
 from pyfabil.boards.tpm import TPM
@@ -25,7 +21,7 @@ def connected(f):
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
         if self.tpm is None:
-            logging.warn("Cannot call function {} on unconnected TPM".format(f.__name__))
+            logging.warning("Cannot call function {} on unconnected TPM".format(f.__name__))
             raise LibraryError("Cannot call function {} on unconnected TPM".format(f.__name__))
         else:
             return f(self, *args, **kwargs)
@@ -1361,3 +1357,8 @@ class Tile(object):
             return getattr(self.tpm, name)
         else:
             raise AttributeError("'Tile' or 'TPM' object have no attribute {}".format(name))
+
+
+if __name__ == "__main__":
+    tile = Tile(ip="10.0.10.2", port=10000)
+    tile.connect()

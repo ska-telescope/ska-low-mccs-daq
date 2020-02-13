@@ -5,13 +5,13 @@ import datetime
 import time
 import numpy as np
 
-# Data type mape
+# Data type map
 FILE_NAME_MAP = {b'type': 0,
                  b'mode': 1,
                  b'objectid': 2,
-                 b'time1':  3,
-		         b'time2' : 4,
-		         b'partition' : 5}
+                 b'time1': 3,
+                 b'time2': 4,
+                 b'partition': 5}
 
 
 def complex_imaginary(value):

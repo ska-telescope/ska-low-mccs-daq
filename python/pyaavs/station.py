@@ -60,7 +60,7 @@ configuration = {'tiles': None,
                          'dst_port': 4660,
                          'dst_ip': "10.0.10.200",
                          'src_mac': None}
-                    }
+                 }
                  }
 
 
@@ -189,9 +189,9 @@ class Station(object):
         # destination port to integrated_data_port
         dst_port = self.configuration['network']['lmc']['lmc_port']
         lmc_ip = self.configuration['network']['lmc']['lmc_ip']
-        
+
         if not self.configuration['network']['lmc']['use_teng_integrated'] and \
-            self.configuration['network']['lmc']['use_teng']:
+                self.configuration['network']['lmc']['use_teng']:
             dst_port = self.configuration['network']['lmc']['integrated_data_port']
             lmc_ip = self.configuration['network']['lmc']['integrated_data_ip']
 
@@ -208,8 +208,8 @@ class Station(object):
 
         # Create a pool of nof_tiles processes
         pool = None
-        if any([self.configuration['station']['program_cpld'], 
-                self.configuration['station']['program'], 
+        if any([self.configuration['station']['program_cpld'],
+                self.configuration['station']['program'],
                 self.configuration['station']['initialise']]):
             pool = Pool(len(self.tiles))
 
@@ -262,11 +262,13 @@ class Station(object):
                     logging.warning("Incorrect number of time delays specified, must match number of TPMs. Ignoring")
                 else:
                     for i, tile in enumerate(self.tiles):
-                        logging.info("Setting a delay of {}ns to tile {}".format(self.configuration['time_delays'][i], i))
+                        logging.info(
+                            "Setting a delay of {}ns to tile {}".format(self.configuration['time_delays'][i], i))
                         tile.set_time_delays(self.configuration['time_delays'][i])
 
             logging.info("Initializing tile and station beamformer")
-            start_channel = int(round(old_div(self.configuration['observation']['start_frequency_channel'], (400e6 / 512.0))))
+            start_channel = int(
+                round(old_div(self.configuration['observation']['start_frequency_channel'], (400e6 / 512.0))))
             nof_channels = max(int(round(old_div(self.configuration['observation']['bandwidth'], (400e6 / 512.0)))), 8)
 
             for i, tile in enumerate(self.tiles):
@@ -324,7 +326,6 @@ class Station(object):
         else:
             self.check_station_status()
 
-
     def check_station_status(self):
         """ Check that the station is still valid """
         tile_ids = []
@@ -342,7 +343,6 @@ class Station(object):
 
         if not self.properly_formed_station:
             logging.warning("Station configuration is incorrect (unreachable TPMs or incorrect tile ids)!")
-
 
     def equalize_preadu_gain(self, required_rms=20):
         """ Equalize the preadu gain to get target RMS"""
@@ -401,10 +401,10 @@ class Station(object):
 
                 # Apply attenuation
                 pid = preadu_signal_map[channel]['preadu_id']
-                ch = preadu_signal_map[channel]['channel']
+                channel = preadu_signal_map[channel]['channel']
 
-                attenuation = (tile.tpm.preadu[pid].channel_filters[ch] >> 3) + attenuation
-                tile.tpm.preadu[pid].set_attenuation(int(round(attenuation)), [ch])
+                attenuation = (tile.tpm.preadu[pid].channel_filters[channel] >> 3) + attenuation
+                tile.tpm.preadu[pid].set_attenuation(int(round(attenuation)), [channel])
 
             for preadu in tile.tpm.preadu:
                 preadu.write_configuration()
@@ -421,7 +421,6 @@ class Station(object):
                 preadu.read_configuration()
                 preadu.set_attenuation(int(round(attenuation)), list(range(16)))
                 preadu.write_configuration()
-
 
     def _form_station(self):
         """ Forms the station """
@@ -520,18 +519,17 @@ class Station(object):
                 # Configure integrated data streams
                 logging.info("Using 1G for LMC traffic")
                 tile.set_lmc_download("1g")
-                
+
             # Configure integrated data streams
             if self.configuration['network']['lmc']['use_teng_integrated']:
                 logging.info("Using 10G for integrated LMC traffic")
-                tile.set_lmc_integrated_download("10g", 1024, 2048, 
+                tile.set_lmc_integrated_download("10g", 1024, 2048,
                                                  dst_ip=self.configuration['network']['lmc']['lmc_ip'],
                                                  lmc_mac=self.configuration['network']['lmc']['lmc_mac'])
             else:
                 # Configure integrated data streams
-                logging.info("Using 1G for integrated LMC traffic")                
+                logging.info("Using 1G for integrated LMC traffic")
                 tile.set_lmc_integrated_download("1g", 1024, 2048)
-                
 
         # Start data acquisition on all boards
         delay = 2
@@ -554,7 +552,9 @@ class Station(object):
         pps_delays = [0] * len(self.tiles)
         if self.configuration['station'].get('pps_delays', None) is not None:
             logging.info("Loading PPS delays")
-            if len(self.configuration['station']['pps_delays']) != len(self.tiles):
+            if type(self.configuration['station']['pps_delays']) is int:
+                pps_delays = [self.configuration['station']['pps_delays']] * len(self.tiles)
+            elif len(self.configuration['station']['pps_delays']) != len(self.tiles):
                 logging.warning("Incorrect number of pps delays specified, must match number of TPMs. Ignoring")
             else:
                 pps_delays = self.configuration['station']['pps_delays']
@@ -571,8 +571,7 @@ class Station(object):
             delay = list(map(add, delay, pps_delays))
 
             for n in range(len(self.tiles)):
-                self.tiles[n].set_phase_terminal_count(self.tiles[n].calculate_delay(delay[n], current_tc[n],
-                                                                                     16, 24))
+                self.tiles[n].set_phase_terminal_count(self.tiles[n].calculate_delay(delay[n], current_tc[n], 16, 24))
 
             self.tiles[0].wait_pps_event()
 
@@ -956,7 +955,8 @@ class Station(object):
         except KeyboardInterrupt:
             pass
 
-    def check_adc_sysref(self):
+    @staticmethod
+    def check_adc_sysref():
         for adc in range(16):
             error = 0
             values = station['adc' + str(adc), 0x128]
@@ -1007,7 +1007,7 @@ def load_configuration_file(filepath):
 
         # Configuration file defined, load and update default configuration
         with open(filepath, 'r') as f:
-            c = yaml.load(f)
+            c = yaml.load(f, Loader=yaml.FullLoader)
             apply_config_file(c, configuration)
 
             # Fix beam bandwidth and start frequency (in case they were written in scientific notation)

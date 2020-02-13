@@ -1,17 +1,15 @@
 #! /usr/bin/python
 
-from builtins import range
-from builtins import object
-
-from datetime import datetime
 import logging
 import os
 import time
 import warnings
+from builtins import object
+from builtins import range
+from datetime import datetime
 
 import numpy as np
 from astropy import constants
-from astropy import units as u
 from astropy.coordinates import Angle, AltAz, SkyCoord, EarthLocation, get_sun
 from astropy.time import TimeDelta
 from astropy.time.core import Time
@@ -20,17 +18,15 @@ from astropy.utils.exceptions import AstropyWarning
 from pyaavs import station
 
 try:
-    from aavs_calibration.common import *
+    import aavs_calibration.common as calib_utils
 except ImportError:
-    logging.warning("Could not load calibration database. This script cannot be used")
-
+    logging.debug("Could not load calibration database. Pointing cannot be performed")
 
 warnings.simplefilter('ignore', category=AstropyWarning)
 
 __author__ = 'Alessio Magro'
 
 antennas_per_tile = 16
-
 
 class Pointing(object):
     """ Helper class for generating beamforming coefficients """
@@ -46,13 +42,13 @@ class Pointing(object):
         self._station_config = station_config
 
         # Get station location
-        info = get_station_information(self._station_id)
+        info = calib_utils.get_station_information(self._station_id)
         self._longitude = info.longitude
         self._latitude = info.latitude
         self._nof_antennas = info.nof_antennas
 
         # Grab antenna locations and create displacement vectors
-        _, x, y = get_antenna_positions(self._station_id)
+        _, x, y = calib_utils.get_antenna_positions(self._station_id)
 
         self._displacements = np.full([self._nof_antennas, 3], np.nan)
         for i in range(self._nof_antennas):
@@ -105,7 +101,6 @@ class Pointing(object):
         # Compute the delays
         self._delays = self._delays_from_altitude_azimuth(altitude.rad, azimuth.rad)
         self._delay_rate = self._delays * 0
-
 
     def point_array(self, right_ascension, declination, pointing_time=None, delta_time=1.0):
         """ Calculate the phase shift between two antennas which is given by the phase constant (2 * pi / wavelength)
@@ -194,23 +189,24 @@ class Pointing(object):
             station.load_configuration_file(self._station_config)
             aavs_station = station.Station(station.configuration)
             aavs_station.connect()
+
+            # Form TPM-compatible delays
+            tpm_delays = np.zeros((self._nof_antennas, 2))
+            tpm_delays[:, 0] = self._delays
+            tpm_delays[:, 1] = self._delay_rate
+
+            # Download to tiles
+            t0 = time.time()
+            for i, tile in enumerate(aavs_station.tiles):
+                tile.set_pointing_delay(tpm_delays[i * antennas_per_tile: (i + 1) * antennas_per_tile], 0)
+            t1 = time.time()
+            logging.info("Downloaded delays to tiles in {0:.2}s".format(t1 - t0))
+
+            # Load downloaded delays
+            aavs_station.load_pointing_delay(2048)
+
         except Exception as e:
-            logging.error("Could not configure or connect to station: {}".format(e))
-
-        # Form TPM-compatible delays
-        tpm_delays = np.zeros((self._nof_antennas, 2))
-        tpm_delays[:, 0] = self._delays
-        tpm_delays[:, 1] = self._delay_rate
-
-        # Download to tiles
-        t0 = time.time()
-        for i, tile in enumerate(aavs_station.tiles):
-            tile.set_pointing_delay(tpm_delays[i * antennas_per_tile: (i + 1) * antennas_per_tile], 0)
-        t1 = time.time()
-        logging.info("Downloaded delays to tiles in {0:.2}s".format(t1 - t0))
-
-        # Load downloaded delays
-        aavs_station.load_pointing_delay(2048)
+            logging.error("Could not configure or connect to station, not loading delays ({})".format(e))
 
     def _delays_from_altitude_azimuth(self, altitude, azimuth):
         """
@@ -221,8 +217,8 @@ class Pointing(object):
         """
 
         # Calculate transformation
-        scale = np.array([np.cos(altitude) * np.sin(azimuth), 
-                          np.cos(altitude) * np.cos(azimuth), 
+        scale = np.array([np.cos(altitude) * np.sin(azimuth),
+                          np.cos(altitude) * np.cos(azimuth),
                           np.sin(altitude)])
 
         # Apply to antenna displacements
@@ -267,6 +263,7 @@ class Pointing(object):
                                          self._reference_antenna_loc)
 
         return alt > 0.0
+
 
 
 if __name__ == "__main__":
