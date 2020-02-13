@@ -1,3 +1,6 @@
+from __future__ import print_function
+from builtins import str
+from builtins import range
 from pydaq.persisters.aavs_file import *
 from pydaq.persisters.utils import *
 import numpy
@@ -106,7 +109,7 @@ class StationBeamFormatFileManager(AAVSFileManager):
         self.ts_start = self.main_dset.attrs['ts_start']
         self.ts_end = self.main_dset.attrs['ts_end']
         self.station_id = self.main_dset.attrs['station_id']
-        if 'nsamp' in self.main_dset.attrs.keys():
+        if 'nsamp' in list(self.main_dset.attrs.keys()):
             self.nsamp = self.main_dset.attrs['nsamp']
 
         if self.n_samples == 1:
@@ -148,9 +151,9 @@ class StationBeamFormatFileManager(AAVSFileManager):
 
         metadata_dict = self.get_metadata(timestamp=timestamp, object_id=station_id)
         if channels is None:
-            channels = range(0, metadata_dict["n_chans"])
+            channels = list(range(0, metadata_dict["n_chans"]))
         if polarizations is None:
-            polarizations = range(0, metadata_dict["n_pols"])
+            polarizations = list(range(0, metadata_dict["n_pols"]))
 
         if n_samples is not None:
             sample_based_read = True
@@ -220,9 +223,9 @@ class StationBeamFormatFileManager(AAVSFileManager):
         """
         metadata_dict = self.get_metadata(timestamp=timestamp, object_id=station_id)
         if channels is None:
-            channels = range(0, metadata_dict["n_chans"])
+            channels = list(range(0, metadata_dict["n_chans"]))
         if polarizations is None:
-            polarizations = range(0, metadata_dict["n_pols"])
+            polarizations = list(range(0, metadata_dict["n_pols"]))
 
         try:
             file_obj = self.load_file(timestamp=timestamp, object_id=station_id, partition=partition_id, mode='r')
@@ -386,8 +389,8 @@ if __name__ == '__main__':
 
     data, timestamps, packets = beam_file_mgr.read_data(timestamp=0,
                             station_id=1,
-                            channels=range(0, channels),
-                            polarizations=range(0, pols),
+                            channels=list(range(0, channels)),
+                            polarizations=list(range(0, pols)),
                             n_samples=2,
                             sample_offset=-2)
     print(timestamps)

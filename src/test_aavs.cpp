@@ -2,7 +2,7 @@
 // Created by Alessio Magro on 30/04/2018.
 //
 
-#include "../daq_backend/DAQ.h"
+#include "DAQ.h"
 
 void test_raw_data()
 {

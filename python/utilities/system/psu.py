@@ -1,10 +1,11 @@
+from builtins import object
 import sys
 import socket
 from optparse import OptionParser
 import time
 
 
-class Psu:
+class Psu(object):
     def __init__(self, **kwargs):
         self.ip = kwargs.get('ip', None)
         self.port = kwargs.get('port', None)
@@ -14,13 +15,13 @@ class Psu:
         try:
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except socket.error:
-            print 'Failed to create socket'
+            print('Failed to create socket')
             return -1
-        print 'Socket Created'
+        print('Socket Created')
         self.s.connect((self.ip, int(self.port)))
         self.s.setblocking(1)
         self.s.settimeout(2)
-        print 'Socket Connected to ' + self.ip + " using port " + self.port
+        print('Socket Connected to ' + self.ip + " using port " + self.port)
         return 0
 
     def send_cmd(self, cmd):
@@ -35,7 +36,7 @@ class Psu:
                 return 0
         except socket.error:
             # Send failed
-            print 'Send failed'
+            print('Send failed')
             return -1
 
     # ###get_voltage
@@ -350,17 +351,17 @@ if __name__ == "__main__":
     (options, args) = parser.parse_args()
 
     if args == []:
-        print "Specify command!"
-        print "Supported commands: "
-        print supported_cmd
+        print("Specify command!")
+        print("Supported commands: ")
+        print(supported_cmd)
         sys.exit(-1)
 
     cmd = args[0]
 
     if cmd not in supported_cmd:
-        print "Command not supported."
-        print "Supported commands: "
-        print supported_cmd
+        print("Command not supported.")
+        print("Supported commands: ")
+        print(supported_cmd)
         sys.exit(-1)
     else:
         psu_inst = Psu(ip=options.ip, port=options.port)
@@ -371,4 +372,4 @@ if __name__ == "__main__":
         if cmd == "off":
             psu_inst.output_stat_off()
         if cmd == "read_all":
-            print psu_inst.get_stat()
+            print(psu_inst.get_stat())

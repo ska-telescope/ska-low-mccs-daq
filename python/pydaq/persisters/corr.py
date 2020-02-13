@@ -1,3 +1,6 @@
+from __future__ import print_function
+from builtins import str
+from builtins import range
 from pydaq.persisters.aavs_file import *
 from pydaq.persisters.utils import *
 import numpy
@@ -106,7 +109,7 @@ class CorrelationFormatFileManager(AAVSFileManager):
         self.n_baselines = self.main_dset.attrs['n_baselines']
         self.n_stokes = self.main_dset.attrs['n_stokes']
         self.channel_id = self.main_dset.attrs['channel_id']
-        if 'nsamp' in self.main_dset.attrs.keys():
+        if 'nsamp' in list(self.main_dset.attrs.keys()):
             self.nsamp = self.main_dset.attrs['nsamp']
 
         self.resize_factor = self.n_baselines
@@ -145,15 +148,15 @@ class CorrelationFormatFileManager(AAVSFileManager):
         metadata_dict = self.get_metadata(timestamp=timestamp, object_id=channel_id)
         if metadata_dict is not None:
             if "n_baselines" not in kwargs:
-                baselines = range(0, metadata_dict["n_baselines"])
+                baselines = list(range(0, metadata_dict["n_baselines"]))
             else:
                 baselines = kwargs["n_baselines"]
             if "n_stokes" not in kwargs:
-                stokes = range(0, metadata_dict["n_stokes"])
+                stokes = list(range(0, metadata_dict["n_stokes"]))
             else:
                 stokes = kwargs["n_stokes"]
             if channels is None:
-                channels = range(0, metadata_dict["n_chans"])
+                channels = list(range(0, metadata_dict["n_chans"]))
 
             options = {"baselines": baselines, "stokes": stokes}
 
@@ -230,7 +233,7 @@ class CorrelationFormatFileManager(AAVSFileManager):
         baselines = kwargs["baselines"]
         stokes = kwargs["stokes"]
         if channels is None:
-            channels = range(0, metadata_dict["n_chans"])
+            channels = list(range(0, metadata_dict["n_chans"]))
 
         try:
             file_obj = self.load_file(timestamp=timestamp, object_id=channel_id, partition=partition_id, mode='r')

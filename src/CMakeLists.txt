@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 2.8)
 
+# Add include and lib directories
+link_directories(/usr/local /usr/lib/x86_64-linux-gnu/lib ${DAQ_DIRECTORY}/lib)
+include_directories(/usr/lib/x86_64-linux-gnu/include )
+include_directories(${DAQ_DIRECTORY}/include)
+
 project(AAVS_DAQ C CXX)
 
 # Add option to compile correlator
@@ -9,6 +14,9 @@ message(STATUS "Correlator compilation: ${WITH_CORRELATOR}")
 message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")
 
 link_directories(/opt/aavs/lib)
+
+# CMAKE compilation flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx -g")
 
 # Souce files
 set(AAVS_FILES RawData.cpp

@@ -15,7 +15,7 @@
 #include <sys/mman.h>
 #include <cfloat>
 
-#include "../daq_backend/DAQ.h"
+#include "DAQ.h"
 
 // ----------------------- Channelised Data Container and Helpers ---------------------------------
 

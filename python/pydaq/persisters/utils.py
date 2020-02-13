@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import range
 import math
 import datetime
 import time
@@ -64,7 +66,7 @@ def range_array(start_idx, end_idx):
     :param end_idx: End of range
     :return:
     """
-    return range(start_idx, end_idx)
+    return list(range(start_idx, end_idx))
 
 
 def step_range(low, up, leng):

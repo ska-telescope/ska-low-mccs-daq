@@ -13,7 +13,7 @@
 #include <cmath>
 #include <string>
 
-#include "../daq_backend/DAQ.h"
+#include "DAQ.h"
 #include "DoubleBuffer.h"
 
 #ifdef WITH_CHANNELISER

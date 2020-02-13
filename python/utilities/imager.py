@@ -1,5 +1,9 @@
+from __future__ import division
 # from aavs_calibration.common import *
 
+from builtins import range
+from builtins import object
+from past.utils import old_div
 from matplotlib import pyplot as plt
 from datetime import datetime, timedelta
 import shutil
@@ -17,7 +21,7 @@ antenna_locations = "/home/lessju/Desktop/antenna_locations.txt"
 calibration_solutions = "/home/lessju/Desktop/calib_solutions.txt"
 
 
-class AAVSImager:
+class AAVSImager(object):
 
     def __init__(self, correlation_file, station_name="AAVS1", calibrate=False):
         """ Class constructor"""
@@ -33,7 +37,7 @@ class AAVSImager:
         self._aavs_station_latitude = np.deg2rad(-26.7040)  # station.latitude
         self._aavs_station_longitude = np.deg2rad(116.6702)  # station.longitude
         self._nof_antennas = 256
-        self._nof_baselines = self._nof_antennas * (self._nof_antennas + 1) / 2
+        self._nof_baselines = old_div(self._nof_antennas * (self._nof_antennas + 1), 2)
 
         # Load HDF file
         self._calibrate = calibrate

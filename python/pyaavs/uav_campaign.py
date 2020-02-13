@@ -1,4 +1,6 @@
 #!/usr/bin/env python2
+from builtins import input
+from builtins import range
 from pydaq import daq_receiver as receiver
 from pyaavs import station
 
@@ -174,7 +176,7 @@ if __name__ == "__main__":
     # If directory contains data, check if user want to delete them. If not, exit
     elif len(os.listdir(data_directory)) != 0 :
         while True:
-            response = raw_input("Data directory {} already exists. Overwrite? [Y / N]: ".format(data_directory))
+            response = input("Data directory {} already exists. Overwrite? [Y / N]: ".format(data_directory))
             response = response.strip().upper()
             if response not in ['Y', 'N']:
                 continue
@@ -251,7 +253,7 @@ if __name__ == "__main__":
         plotting_thread.start()
     
     # Wait for exit
-    while raw_input("").strip().upper() != "Q":
+    while input("").strip().upper() != "Q":
         pass
 
     # Clean up

@@ -10,7 +10,7 @@
 #include <float.h>
 
 #include "DoubleBuffer.h"
-#include "../daq_backend/DAQ.h"
+#include "DAQ.h"
 
 // Default double buffer constructor
 DoubleBuffer::DoubleBuffer(uint16_t nof_antennas, uint32_t nof_samples,

@@ -1,4 +1,13 @@
 #! /usr/bin/env python
+from __future__ import division
+from builtins import input
+from builtins import map
+from builtins import hex
+from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
+
 from pyaavs.tile import Tile
 from pyfabil import Device
 
@@ -257,8 +266,8 @@ class Station(object):
                         tile.set_time_delays(self.configuration['time_delays'][i])
 
             logging.info("Initializing tile and station beamformer")
-            start_channel = int(round(self.configuration['observation']['start_frequency_channel'] / (400e6 / 512.0)))
-            nof_channels = max(int(round(self.configuration['observation']['bandwidth'] / (400e6 / 512.0))), 8)
+            start_channel = int(round(old_div(self.configuration['observation']['start_frequency_channel'], (400e6 / 512.0))))
+            nof_channels = max(int(round(old_div(self.configuration['observation']['bandwidth'], (400e6 / 512.0)))), 8)
 
             for i, tile in enumerate(self.tiles):
                 # Initialise beamformer
@@ -293,8 +302,8 @@ class Station(object):
 
                 for tile in self.tiles:
                     for gen in tile.tpm.test_generator:
-                        gen.set_tone(0, 100 * 800e6 / 1024, 1)
-                        gen.set_tone(1, 100 * 800e6 / 1024, 0)
+                        gen.set_tone(0, old_div(100 * 800e6, 1024), 1)
+                        gen.set_tone(1, old_div(100 * 800e6, 1024), 0)
                         gen.channel_select(0xFFFF)
 
             # If initialising, synchronise all tiles in station
@@ -383,10 +392,10 @@ class Station(object):
             rms = tile.get_adc_rms()
 
             # Loop over all signals
-            for channel in preadu_signal_map.keys():
+            for channel in list(preadu_signal_map.keys()):
                 # Calculate required attenuation difference
-                if rms[channel] / required_rms > 0:
-                    attenuation = 20 * math.log10(rms[channel] / required_rms)
+                if old_div(rms[channel], required_rms) > 0:
+                    attenuation = 20 * math.log10(old_div(rms[channel], required_rms))
                 else:
                     attenuation = 0
 
@@ -410,7 +419,7 @@ class Station(object):
             for preadu in tile.tpm.preadu:
                 preadu.select_low_passband()
                 preadu.read_configuration()
-                preadu.set_attenuation(int(round(attenuation)), range(16))
+                preadu.set_attenuation(int(round(attenuation)), list(range(16)))
                 preadu.write_configuration()
 
 
@@ -681,7 +690,7 @@ class Station(object):
             for i, tile in enumerate(self.tiles):
                 logging.debug("Tile " + str(i) + " MII test result:")
                 tile.mii_show_result()
-                k = raw_input("Enter quit to exit. Any other key to continue.")
+                k = input("Enter quit to exit. Any other key to continue.")
                 if k == "quit":
                     return
 
@@ -739,7 +748,7 @@ class Station(object):
             3: Y polarization direct element"""
 
         # Check that we have the correct coefficients shape 
-        nof_channels = int(round(self.configuration['observation']['bandwidth'] / (400e6 / 512.0)))
+        nof_channels = int(round(old_div(self.configuration['observation']['bandwidth'], (400e6 / 512.0))))
         if coefficients.shape != (len(self.tiles) * 16, nof_channels, 4):
             logging.error("Coefficients shape mismatch. Should be ({},{},4), is ({}). Not calibrating".format(
                 len(self.tiles) * 16, nof_channels, coefficients.shape))
@@ -880,7 +889,7 @@ class Station(object):
 
     def _check_data_sync(self, t0):
         """ Check whether data synchronisation worked """
-        delay = self._seconds * (1 / (1080 * 1e-9) / 256)
+        delay = self._seconds * (old_div(old_div(1, (1080 * 1e-9)), 256))
         timestamps = [tile.get_fpga_timestamp(Device.FPGA_1) for tile in self.tiles]
         logging.debug("Data sync check: timestamp={}, delay={}".format(str(timestamps), delay))
         return all([(t0 + delay) > t1 for t1 in timestamps])
@@ -891,7 +900,7 @@ class Station(object):
         ba = self.tiles[0].tpm.register_list['%s.pattern_gen.%s_data' % ('fpga1', "beamf")]['address']
 
         for n in range(1024):
-            self.tiles[0][ba] = range(256)
+            self.tiles[0][ba] = list(range(256))
 
         end = time.time()
         logging.debug("test_wr_exec: {}".format((end - start)))
@@ -980,10 +989,10 @@ class Station(object):
 
 def apply_config_file(input_dict, output_dict):
     """ Recursively copy value from input_dict to output_dict"""
-    for k, v in input_dict.iteritems():
+    for k, v in input_dict.items():
         if type(v) is dict:
             apply_config_file(v, output_dict[k])
-        elif k not in output_dict.keys():
+        elif k not in list(output_dict.keys()):
             logging.warning("{} not a valid configuration item. Skipping".format(k))
         else:
             output_dict[k] = v
@@ -1101,6 +1110,7 @@ if __name__ == "__main__":
                       type="float", default=None, help="Beamformer scaling [default: None]")
     parser.add_option("--beam-bandwidth", action="store", dest="beam_bandwidth",
                       type="float", default=None, help="Beamformer scaling [default: None]")
+
     (conf, args) = parser.parse_args(argv[1:])
 
     # Set logging

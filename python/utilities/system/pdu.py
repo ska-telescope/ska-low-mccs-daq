@@ -1,5 +1,8 @@
 #! /usr/bin/python
 
+from builtins import str
+from builtins import range
+from builtins import object
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 from pysnmp.proto import rfc1902
 import logging
@@ -134,7 +137,7 @@ class PDU(object):
 
     def __getitem__(self, key):
         """ Get value for a particular variables """
-        if key not in self._device_variables.keys():
+        if key not in list(self._device_variables.keys()):
             raise ValueError("Variable %s does not exist" % key)
 
         vals = self._get_command(self._device_variables[key][0])
@@ -164,7 +167,7 @@ if __name__ == "__main__":
                 index = item.find(":")
                 lower = item[:index]
                 upper = item[index + 1:]
-                converted.extend(range(int(lower), int(upper)))
+                converted.extend(list(range(int(lower), int(upper))))
             else:
                 converted.append(int(item))
         return converted
@@ -222,10 +225,10 @@ if __name__ == "__main__":
     # Check what action needs to be performed
     if config.action == "info":
         for port in config.ports:
-            print "\nInfo for port {}".format(port + 1)
-            print "     Name: {}".format(pdu.port_info(port, 'name'))
-            print "  Enabled: {}".format(pdu.port_info(port, 'enabled'))
-            print "  Current: {}".format(pdu.port_info(port, 'current')) 
+            print("\nInfo for port {}".format(port + 1))
+            print("     Name: {}".format(pdu.port_info(port, 'name')))
+            print("  Enabled: {}".format(pdu.port_info(port, 'enabled')))
+            print("  Current: {}".format(pdu.port_info(port, 'current'))) 
             
     elif config.action == "switch_on":
         for port in config.ports:

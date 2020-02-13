@@ -13,8 +13,8 @@
 #include <unordered_map>
 #include <mutex>
 
-#include "../daq_backend/Utils.h"
-#include "../daq_backend/DAQ.h"
+#include "Utils.h"
+#include "DAQ.h"
 
 /* This class implements a double buffering system */
 

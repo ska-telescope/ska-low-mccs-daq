@@ -1,3 +1,6 @@
+from __future__ import print_function
+from builtins import str
+from builtins import range
 from pydaq.persisters.aavs_file import *
 from pydaq.persisters.utils import *
 import numpy
@@ -107,7 +110,7 @@ class ChannelFormatFileManager(AAVSFileManager):
         self.date_time = self.main_dset.attrs['date_time']
         self.ts_start = self.main_dset.attrs['ts_start']
         self.ts_end = self.main_dset.attrs['ts_end']
-        if 'nsamp' in self.main_dset.attrs.keys():
+        if 'nsamp' in list(self.main_dset.attrs.keys()):
             self.nsamp = self.main_dset.attrs['nsamp']
 
         if self.n_samples == 1:
@@ -149,11 +152,11 @@ class ChannelFormatFileManager(AAVSFileManager):
         metadata_dict = self.get_metadata(timestamp=timestamp, object_id=tile_id)
         if metadata_dict is not None:
             if channels is None:
-                channels = range(0, metadata_dict["n_chans"])
+                channels = list(range(0, metadata_dict["n_chans"]))
             if antennas is None:
-                antennas = range(0, metadata_dict["n_antennas"])
+                antennas = list(range(0, metadata_dict["n_antennas"]))
             if polarizations is None:
-                polarizations = range(0, metadata_dict["n_pols"])
+                polarizations = list(range(0, metadata_dict["n_pols"]))
 
             if n_samples is not None:
                 sample_based_read = True
@@ -221,11 +224,11 @@ class ChannelFormatFileManager(AAVSFileManager):
         """
         metadata_dict = self.get_metadata(timestamp=timestamp, object_id=tile_id)
         if channels is None:
-            channels = range(0, metadata_dict["n_chans"])
+            channels = list(range(0, metadata_dict["n_chans"]))
         if antennas is None:
-            antennas = range(0, metadata_dict["n_antennas"])
+            antennas = list(range(0, metadata_dict["n_antennas"]))
         if polarizations is None:
-            polarizations = range(0, metadata_dict["n_pols"])
+            polarizations = list(range(0, metadata_dict["n_pols"]))
 
         output_buffer = []
         timestamp_buffer = []
@@ -396,9 +399,9 @@ if __name__ == '__main__':
 
     data, ts = channel_file.read_data(timestamp=None,
                                      tile_id=0,
-                                     channels=range(0,conf_channels),
-                                     antennas=range(0,conf_antennas),
-                                     polarizations=range(0,conf_pols),
+                                     channels=list(range(0,conf_channels)),
+                                     antennas=list(range(0,conf_antennas)),
+                                     polarizations=list(range(0,conf_pols)),
                                      n_samples=samples)
 
     fig = plt.figure()

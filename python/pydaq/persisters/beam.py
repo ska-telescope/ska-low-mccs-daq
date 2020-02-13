@@ -1,3 +1,6 @@
+from __future__ import print_function
+from builtins import str
+from builtins import range
 from pydaq.persisters.aavs_file import *
 from pydaq.persisters.utils import *
 import numpy
@@ -107,7 +110,7 @@ class BeamFormatFileManager(AAVSFileManager):
         self.date_time = self.main_dset.attrs['date_time']
         self.ts_start = self.main_dset.attrs['ts_start']
         self.ts_end = self.main_dset.attrs['ts_end']
-        if 'nsamp' in self.main_dset.attrs.keys():
+        if 'nsamp' in list(self.main_dset.attrs.keys()):
             self.nsamp = self.main_dset.attrs['nsamp']
 
         if self.n_samples == 1:
@@ -149,11 +152,11 @@ class BeamFormatFileManager(AAVSFileManager):
         metadata_dict = self.get_metadata(timestamp=timestamp, object_id=tile_id)
         if metadata_dict is not None:
             if channels is None:
-                channels = range(0, metadata_dict["n_chans"])
+                channels = list(range(0, metadata_dict["n_chans"]))
             if polarizations is None:
-                polarizations = range(0, metadata_dict["n_pols"])
+                polarizations = list(range(0, metadata_dict["n_pols"]))
             if beams is None:
-                beams = range(0, metadata_dict["n_beams"])
+                beams = list(range(0, metadata_dict["n_beams"]))
 
             if n_samples is not None:
                 sample_based_read = True
@@ -222,11 +225,11 @@ class BeamFormatFileManager(AAVSFileManager):
         """
         metadata_dict = self.get_metadata(timestamp=timestamp, object_id=tile_id)
         if channels is None:
-            channels = range(0, metadata_dict["n_chans"])
+            channels = list(range(0, metadata_dict["n_chans"]))
         if polarizations is None:
-            polarizations = range(0, metadata_dict["n_pols"])
+            polarizations = list(range(0, metadata_dict["n_pols"]))
         if beams is None:
-            beams = range(0, metadata_dict["n_beams"])
+            beams = list(range(0, metadata_dict["n_beams"]))
 
         try:
             file_obj = self.load_file(timestamp=timestamp, object_id=tile_id, partition=partition_id, mode='r')
@@ -356,8 +359,8 @@ if __name__ == '__main__':
 
     data, timestamps = beam_file_mgr.read_data(timestamp=None,
                             tile_id=0,
-                            channels=range(0, channels),
-                            polarizations=range(0, pols),
-                            beams=range(0,beams),
+                            channels=list(range(0, channels)),
+                            polarizations=list(range(0, pols)),
+                            beams=list(range(0,beams)),
                             n_samples=8)
     print(data)

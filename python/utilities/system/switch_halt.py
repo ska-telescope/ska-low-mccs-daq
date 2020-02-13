@@ -1,4 +1,3 @@
-import subprocess
 import os
 
 
@@ -11,7 +10,7 @@ for i in range(len(switch_ip_list)):
     cmd += '\\\"' + "reload halt" + '\\\" '
     
     cmd = "/usr/bin/sshpass -p admin ssh " + username + "@" + switch_ip_list[i] + " cli  \\\"enable\\\" \\\"configure terminal\\\"  " + cmd
-    print cmd
+    print(cmd)
    
     os.system(cmd)
 

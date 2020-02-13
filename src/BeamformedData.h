@@ -14,7 +14,7 @@
 #include <netinet/in.h>
 #include <unordered_map>
 
-#include "../daq_backend/DAQ.h"
+#include "DAQ.h"
 
 // ----------------------- Beam Data Container and Helpers ---------------------------------
 // Class which will hold the raw antenna data

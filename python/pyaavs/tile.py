@@ -1,3 +1,8 @@
+from __future__ import division
+from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import functools
 import logging
 import socket
@@ -135,7 +140,7 @@ class Tile(object):
             # Test pattern. Tones on channels 72 & 75 + pseudo-random noise
             logging.info("Enabling test pattern")
             for generator in self.tpm.test_generator:
-                generator.set_tone(0, 72 * self._sampling_rate / 1024, 0.0)
+                generator.set_tone(0, old_div(72 * self._sampling_rate, 1024), 0.0)
                 generator.enable_prdg(0.4)
                 generator.channel_select(0xFFFF)
 
@@ -579,7 +584,7 @@ class Tile(object):
                 # possible problem to fix here :
 #                delays_hw = [int(round(delays / frame_length))] * 32
                 # Test from Riccardo :
-                delays_hw = [int(round(delays / frame_length) + 128)] * 32
+                delays_hw = [int(round(old_div(delays, frame_length)) + 128)] * 32
             else:
                 logging.warning("Specified delay {} out of range [{:.2f}, {:.2f}], skipping".format(delays, min_delay, max_delay))
                 return False
@@ -588,7 +593,7 @@ class Tile(object):
             # Check that all delays are valid
             delays = np.array(delays, dtype=np.float)
             if np.all(min_delay <= delays) and np.all(delays <= max_delay):
-                delays_hw = np.clip((np.round(delays / frame_length) + 128).astype(np.int), 4, 255).tolist()
+                delays_hw = np.clip((np.round(old_div(delays, frame_length)) + 128).astype(np.int), 4, 255).tolist()
             else:
                 logging.warning("Specified delays {} out of range [{:.2f}, {:.2f}], skipping".format(delays, min_delay, max_delay))
                 return False
@@ -803,7 +808,7 @@ class Tile(object):
         devices = ["fpga1", "fpga2"]
 
         for f in devices:
-            self.tpm['%s.pps_manager.pps_gen_tc' % f] = int(self._sampling_rate) / 4 - 1
+            self.tpm['%s.pps_manager.pps_gen_tc' % f] = old_div(int(self._sampling_rate), 4) - 1
 
         # Setting sync time
         for f in devices:
@@ -918,7 +923,7 @@ class Tile(object):
 
         # Set arm timestamp
         # delay = number of frames to delay * frame time (shift by 8)
-        delay = seconds * (1 / (1080 * 1e-9) / 256)
+        delay = seconds * (old_div(old_div(1, (1080 * 1e-9)), 256))
         for fpga in self.tpm.tpm_fpga:
             fpga.fpga_apply_sync_delay(t0 + int(delay))
 
@@ -936,7 +941,7 @@ class Tile(object):
 
         # Set arm timestamp
         # delay = number of frames to delay * frame time (shift by 8)
-        delay = seconds * (1 / (1080 * 1e-9) / 256)
+        delay = seconds * (old_div(old_div(1, (1080 * 1e-9)), 256))
         for f in ["fpga1", "fpga2"]:
             self.tpm["%s.beamf.timestamp_req" % f] = t0 + int(delay)
 
@@ -1080,7 +1085,7 @@ class Tile(object):
 
     def stop_raw_data(self):
         """ Stop sending raw data """
-        if 'RAW' in self._daq_threads.keys():
+        if 'RAW' in list(self._daq_threads.keys()):
             self._daq_threads['RAW'] = self._STOP
 
     # ---------------------------- Wrapper for data acquisition: CHANNEL ------------------------------------
@@ -1123,7 +1128,7 @@ class Tile(object):
 
         # Check if number of samples is a multiple of 32
         if number_of_samples % 32 != 0:
-            new_value = (int(number_of_samples / 32) + 1) * 32
+            new_value = (int(old_div(number_of_samples, 32)) + 1) * 32
             logging.warn("{} is not a multiple of 32, using {}".format(number_of_samples, new_value))
             number_of_samples = new_value
 
@@ -1149,7 +1154,7 @@ class Tile(object):
 
     def stop_channelised_data(self):
         """ Stop sending channelised data """
-        if 'CHANNEL' in self._daq_threads.keys():
+        if 'CHANNEL' in list(self._daq_threads.keys()):
             self._daq_threads['CHANNEL'] = self._STOP
 
     # ---------------------------- Wrapper for data acquisition: BEAM ------------------------------------
@@ -1206,7 +1211,7 @@ class Tile(object):
 
     def stop_beam_data(self):
         """ Stop sending raw data """
-        if 'BEAM' in self._daq_threads.keys():
+        if 'BEAM' in list(self._daq_threads.keys()):
             self._daq_threads['BEAM'] = self._STOP
 
     # ---------------------------- Wrapper for data acquisition: CONT CHANNEL ----------------------------
@@ -1268,7 +1273,7 @@ class Tile(object):
         """ Stop all data transmission from TPM"""
 
         logging.info("Stopping all transmission")
-        for k, v in self._daq_threads.iteritems():
+        for k, v in self._daq_threads.items():
             if v == self._RUNNING:
                 self._daq_threads[k] = self._STOP
         self.stop_channelised_data_continuous()
@@ -1283,12 +1288,12 @@ class Tile(object):
 
         for n in range(5):
             if current_delay <= ref_low:
-                new_delay = current_delay + n * 40 / 5
+                new_delay = current_delay + old_div(n * 40, 5)
                 new_tc = (current_tc + n) % 5
                 if new_delay >= ref_low:
                     return new_tc
             elif current_delay >= ref_hi:
-                new_delay = current_delay - n * 40 / 5
+                new_delay = current_delay - old_div(n * 40, 5)
                 new_tc = current_tc - n
                 if new_tc < 0:
                     new_tc += 5

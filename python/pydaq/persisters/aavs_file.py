@@ -1,3 +1,8 @@
+from __future__ import division
+from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import h5py
 import fnmatch
 import os
@@ -53,7 +58,7 @@ class AAVSFileManager(object):
         if data_type is None:
             self.data_type = complex_8t
             self.data_type_name = b'complex'
-        elif data_type in DATA_TYPE_MAP.keys():
+        elif data_type in list(DATA_TYPE_MAP.keys()):
             self.data_type = DATA_TYPE_MAP[data_type]
             self.data_type_name = data_type
         else:
@@ -127,18 +132,18 @@ class AAVSFileManager(object):
         """
 
         # for correlator files
-        if 'channel_id' in kwargs.keys():
+        if 'channel_id' in list(kwargs.keys()):
             if kwargs["channel_id"] is not None:
                 object_id = kwargs["channel_id"]
                 self.channel_id = kwargs["channel_id"]
 
-        if 'tile_id' in kwargs.keys():
+        if 'tile_id' in list(kwargs.keys()):
             if kwargs["tile_id"] is not None:
                 object_id = kwargs["tile_id"]
                 self.tile_id = kwargs["tile_id"]
 
         # for stationbeam files
-        if 'station_id' in kwargs.keys():
+        if 'station_id' in list(kwargs.keys()):
             if kwargs["station_id"] is not None:
                 object_id = kwargs["station_id"]
                 self.station_id = kwargs["station_id"]
@@ -204,7 +209,7 @@ class AAVSFileManager(object):
             file_obj.require_dataset("root", shape=(1,), dtype='float16', exact=True)
             file_dset = file_obj.get("root", default=None)
             if file_dset is not None:
-                attrs_found = file_dset.attrs.items()
+                attrs_found = list(file_dset.attrs.items())
                 dict_attrs_found = dict(attrs_found)
 
                 if len(dict_attrs_found) >= len(self.metadata_list):
@@ -249,7 +254,7 @@ class AAVSFileManager(object):
                 with self.file_exception_handler(file_obj=file_obj):
                     file_dset = file_obj.get("root", default=None)
                     if file_dset is not None:
-                        attrs_found = file_dset.attrs.items()
+                        attrs_found = list(file_dset.attrs.items())
                         dict_attrs_found = dict(attrs_found)
 
                         for metadata_attr in self.metadata_list:
@@ -387,8 +392,8 @@ class AAVSFileManager(object):
         samples_per_partition = self.n_samples * self.n_blocks
 
         # Get partition number given file offset
-        start_partition = int(query_sample_offset / samples_per_partition)
-        end_partition = int((query_sample_offset + query_samples_read) / (samples_per_partition + 1))
+        start_partition = int(old_div(query_sample_offset, samples_per_partition))
+        end_partition = int(old_div((query_sample_offset + query_samples_read), (samples_per_partition + 1)))
 
         # Check whether partitions exist
         if end_partition >= nof_partitions or start_partition >= nof_partitions:

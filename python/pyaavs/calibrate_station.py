@@ -1,4 +1,10 @@
-import urllib
+#! /usr/bin/env python
+
+from __future__ import division
+from future import standard_library
+standard_library.install_aliases()
+
+import urllib.request, urllib.parse, urllib.error
 from datetime import datetime
 from glob import glob
 import numpy as np
@@ -30,7 +36,7 @@ def antenna_coordinates():
         antenna_mapping.append([[]] * nof_antennas_per_tile)
 
     # Read antenna location spreadsheet
-    response = urllib.urlopen('https://docs.google.com/spreadsheets/d/e/2PACX-1vQTo60lZmrvBfT0gpa4BwyaB_QkPplqfHga'
+    response = urllib.request.urlopen('https://docs.google.com/spreadsheets/d/e/2PACX-1vQTo60lZmrvBfT0gpa4BwyaB_QkPplqfHga'
                               '7RCsLDR9J_lv15BQTqb3loBHFhMp6U0X_FIwyByfFCwG/pub?gid=220529610&single=true&output=tsv')
     html = response.read().split('\n')
 
@@ -60,7 +66,7 @@ def antenna_coordinates():
     # Create lookup table (uses preadu mapping)
     antenna_positions = np.zeros((nof_antennas, 3))
     for i in range(nof_antennas):
-        tile_number = i / nof_antennas_per_tile
+        tile_number = i // nof_antennas_per_tile
         rx_number = antenna_preadu_mapping[i % nof_antennas_per_tile] - 1
         antenna_positions[i] = (antenna_mapping[tile_number][rx_number])
 
@@ -220,5 +226,5 @@ if __name__ == "__main__":
         while True:
             logging.info("Waiting for {} seconds".format(opts.period))
             time.sleep(opts.period)
-            download_coefficients(opts.config, load_coefficients(opts.config, opts.directory, opts.prefix,
+            download_coefficients(opts.config, load_coefficients(opts.directory, opts.prefix,
                                                                  opts.nof_channels, opts.channel, opts.skip_amp))

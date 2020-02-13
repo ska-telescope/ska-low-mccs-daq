@@ -1,5 +1,8 @@
 #! /usr/bin/python
 
+from builtins import range
+from builtins import object
+
 from datetime import datetime
 import logging
 import os

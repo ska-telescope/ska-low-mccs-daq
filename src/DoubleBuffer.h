@@ -5,7 +5,7 @@
 #ifndef _DOUBLEBUFFER_H
 #define _DOUBLEBUFFER_H
 
-#include "../daq_backend/Utils.h"
+#include "Utils.h"
 
 #include <cstdint>
 #include <cstddef>

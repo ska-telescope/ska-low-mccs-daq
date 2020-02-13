@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "../daq_backend/DAQ.h"
+#include "DAQ.h"
 
 // ----------------------- Antenna Data Container and Helpers ---------------------------------
 

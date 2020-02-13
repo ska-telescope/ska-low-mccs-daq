@@ -1,3 +1,6 @@
+from __future__ import division
+from builtins import range
+from past.utils import old_div
 import numpy as np
 import threading
 import datetime
@@ -71,9 +74,9 @@ def generate_spectra(tile_id):
     # Read data
     channel_file_mgr = ChannelFormatFileManager(root_path=data_directory, daq_mode=FileDAQModes.Burst)
     data, timestamps = channel_file_mgr.read_data(tile_id=tile_id,
-                                                  antennas=range(16),
-                                                  polarizations=range(2),
-                                                  channels=range(512),
+                                                  antennas=list(range(16)),
+                                                  polarizations=list(range(2)),
+                                                  channels=list(range(512)),
                                                   n_samples=daq_config['nof_channel_samples'])
 
     # Convert to complex
@@ -88,7 +91,7 @@ def generate_spectra(tile_id):
     # Generate spectrum
     data = np.abs(data)**2
     data[np.where(data < 0.0000001)] = 0.00001
-    data = 10 * np.log10(np.sum(data, axis=3) / daq_config['nof_channel_samples'])
+    data = 10 * np.log10(old_div(np.sum(data, axis=3), daq_config['nof_channel_samples']))
 
     # Return data
     return data, rfi

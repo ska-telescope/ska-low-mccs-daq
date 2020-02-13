@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import range
 from pydaq.persisters.aavs_file import *
 from pydaq.persisters.utils import *
 import logging
@@ -101,7 +103,7 @@ class RawFormatFileManager(AAVSFileManager):
         self.date_time = self.main_dset.attrs['date_time']
         self.ts_start = self.main_dset.attrs['ts_start']
         self.ts_end = self.main_dset.attrs['ts_end']
-        if 'nsamp' in self.main_dset.attrs.keys():
+        if 'nsamp' in list(self.main_dset.attrs.keys()):
             self.nsamp = self.main_dset.attrs['nsamp']
 
         if self.n_samples == 1:
@@ -143,9 +145,9 @@ class RawFormatFileManager(AAVSFileManager):
         metadata_dict = self.get_metadata(timestamp=timestamp, object_id=tile_id)
         if metadata_dict is not None:
             if antennas is None:
-                antennas = range(0, metadata_dict["n_antennas"])
+                antennas = list(range(0, metadata_dict["n_antennas"]))
             if polarizations is None:
-                polarizations = range(0, metadata_dict["n_pols"])
+                polarizations = list(range(0, metadata_dict["n_pols"]))
 
             if n_samples is not None:
                 sample_based_read = True
@@ -211,9 +213,9 @@ class RawFormatFileManager(AAVSFileManager):
 
         metadata_dict = self.get_metadata(timestamp=timestamp, object_id=tile_id)
         if antennas is None:
-            antennas = range(0, metadata_dict["n_antennas"])
+            antennas = list(range(0, metadata_dict["n_antennas"]))
         if polarizations is None:
-            polarizations = range(0, metadata_dict["n_pols"])
+            polarizations = list(range(0, metadata_dict["n_pols"]))
 
         output_buffer = []
         timestamp_buffer = []
