@@ -1,26 +1,29 @@
 #!/bin/bash
 
-# Declare array containing repositories to clone
-declare -a repos=("aavs-access-layer" "aavs-tango" "aavs-daq" "aavs-backend")
+echo -e "\n==== Configuring AAVS DAQ ====\n"
+
+# Currently, AAVS LMC has to be installed in this directory
+# DO NOT CHANGE!
+export AAVS_INSTALL_DIRECTORY=/opt/aavs
 
 # Create installation directory tree
 function create_install() {
+
   # Create install directory if it does not exist
-  if [ ! -d $AAVS_INSTALL ]; then
-      mkdir -p $AAVS_INSTALL
-  fi
+  if [ -z "$AAVS_INSTALL" ]; then
+    export AAVS_INSTALL=$AAVS_INSTALL_DIRECTORY
 
-  # Create subdirectories in install dir
-  if [ ! -d "$AAVS_INSTALL/python" ]; then
-    mkdir -p $AAVS_INSTALL/python
-
-    # Create Python virtual environment
-    virtualenv $AAVS_INSTALL/python
-  fi
-
-  if [ -z "$AAVS_PYTHON" ]; then
-    echo "export AAVS_PYTHON=$AAVS_INSTALL/python" >> ~/.bashrc 
-    export AAVS_PYTHON=$AAVS_INSTALL/python
+    # Check whether directory already exists
+    if [ ! -d "$AAVS_INSTALL_DIRECTORY" ]; then
+      # Check whether we have write persmission
+      parent_dir="$(dirname "$AAVS_INSTALL_DIRECTORY")"
+      if [ -w "$parent_dir" ]; then
+        mkdir -p $AAVS_INSTALL_DIRECTORY
+      else
+        sudo mkdir -p $AAVS_INSTALL_DIRECTORY
+        sudo chown $USER $AAVS_INSTALL_DIRECTORY
+      fi
+    fi
   fi
 
   if [ ! -d "$AAVS_INSTALL/lib" ]; then
@@ -28,7 +31,6 @@ function create_install() {
   fi
 
   if [[ ! ":$LD_LIBRARY_PATH:" == *"aavs"* ]]; then
-    echo "export LD_LIBRARY_PATH=$AAVS_INSTALL/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> ~/.bashrc
     export LD_LIBRARY_PATH=$AAVS_INSTALL/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} 
   fi
   
@@ -37,86 +39,85 @@ function create_install() {
   fi
 
   if [ -z "$AAVS_BIN" ]; then
-    echo "export PATH=\$PATH:$AAVS_INSTALL/bin" >> ~/.bashrc
-    echo "export AAVS_BIN=$AAVS_INSTALL/bin" >> ~/.bashrc  
     export AAVS_BIN=$AAVS_INSTALL/bin
-  fi
-
-  if [ ! -d "$AAVS_INSTALL/log" ]; then
-    mkdir -p $AAVS_INSTALL/log
-  fi
-
-  if [ -z "$AAVS_LOG" ]; then
-    echo "export AAVS_LOG=$AAVS_INSTALL/log" >> ~/.bashrc  
-    export AAVS_LOG=$AAVS_INSTALL/log
-  fi
-
-  if [ ! -d "$AAVS_INSTALL/data" ]; then
-    mkdir -p $AAVS_INSTALL/data
-  fi
-
-  if [ -z "$AAVS_DATA" ]; then
-    echo "export AAVS_DATA=$AAVS_INSTALL/data" >> ~/.bashrc
-    chmod a+w $AAVS_INSTALL/data
-    export AAVS_DATA=$AAVS_INSTALL/data
-  fi
-
-  if [ ! -d "$AAVS_INSTALL/config" ]; then
-    mkdir -p $AAVS_INSTALL/config
-  fi
-
-  if [ -z "$AAVS_CONFIG" ]; then
-    echo "export AAVS_CONFIG=$AAVS_INSTALL/config" >> ~/.bashrc
-    chmod a+w $AAVS_INSTALL/config
-    export AAVS_CONFIG=$AAVS_INSTALL/config
   fi
 }
 
-echo -e "\n==== Configuring System for AAVS ====\n"
-
-# Check if AAVS_PATH exists, and if so cd to it
-source ~/.bashrc
-if [ -z "$AAVS_PATH" ]; then 
-    echo -e "AAVS_PATH not set. Please set AAVS_PATH to the top level AAVS directory"
-    exit 1
-fi
-
-# Installing required system packages (including virtualenv)
+# Installing required system packages
 echo "Installing required system packages"
 sudo apt-get -q install --force-yes --yes $(grep -vE "^\s*#" requirements.apt  | tr "\n" " ")
+
+# DAQ needs gcc-5+
+# Todo, check installed gcc version
+#sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+#sudo apt-get update
+#sudo apt-get -q install --force-yes --yes gcc-5 g++-5
+
+# Set CXX compiler
+#export CXX=/usr/bin/g++-5
 
 # Create installation directory
 create_install
 echo "Created installed directory tree"
 
-# Add AAVS virtual environment alias to .bashrc
-if [ ! -n "`cat ~/.bashrc | grep aavs_env`" ]; then
-  echo "alias aavs_env=\"source \$AAVS_PYTHON/bin/activate\"" >> ~/.bashrc
-  echo "Setting virtual environment alias"
+# Installing requirements for eBPF
+CODENAME=`lsb_release -c`
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D4284CDD
+echo "deb https://repo.iovisor.org/apt "${CODENAME//Codename:}" main" | sudo tee /etc/apt/sources.list.d/iovisor.list
+sudo apt-get update
+sudo apt-get -q install --force-yes --yes binutils bcc bcc-tools libbcc-examples python-bcc
+
+# Build C++ library
+echo "Building C++ library"
+pushd src
+if [ ! -d build ]; then
+  mkdir build
+fi
+pushd build
+
+# Check if AAVS_PATH exists, and if so cd to it
+if [ -z $AAVS_INSTALL ]; then
+    echo "AAVS_INSTALL not set in termninal"
+    exit 1
+else
+  # Build library
+  cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL/lib -DWITH_CORRELATOR=OFF ..
+  make -B -j4 install
+fi
+popd
+popd
+
+# Install required python packages
+pushd python
+
+# Check if we are using python in virtual env, if not we need to install
+# numpy via synaptic (not sure why)
+if [ `python -c "import sys; print hasattr(sys, 'real_prefix')"` = "False" ]; then  
+    sudo apt-get -q install --force-yes --yes python-numpy
 fi
 
-# Activate Python virtual environment
-source $AAVS_PYTHON/bin/activate
-
-# TEMPORARY HACK TO FIX PYTHON PIP ISSUE
-wget https://bootstrap.pypa.io/get-pip.py
-python ./get-pip.py
-
-# Installing required python packages
 pip install -r requirements.pip
 
-# Install 3rd party software
-pushd 3rdparty
+# Give python interpreter required capabilities for accessing raw sockets and kernel space
+PYTHON=`which python`
+sudo setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep `readlink -f $PYTHON`
 
-# Install Git LFS extension
-tar -xvf git-lfs-linux-amd64-1.5.2.tar.gz
-pushd git-lfs-1.5.2
-sudo ./install.sh
-sudo git lfs install
-popd
-popd
+# Install DAQ python library
+python setup.py install
 
-# If required, build other repos
-if [[ $1 = "y" ]]; then
-  ./install_repos.sh
+# Link required scripts to bin directory
+pushd pydaq
+FILE=$AAVS_BIN/daq_plotter.py
+if [ ! -e $FILE ]; then
+  ln -s $PWD/daq_plotter.py $FILE
 fi
+
+FILE=$AAVS_BIN/daq_receiver.py
+if [ ! -e $FILE ]; then
+  ln -s $PWD/daq_receiver.py $FILE
+fi
+
+popd
+
+# Finished with python
+popd
