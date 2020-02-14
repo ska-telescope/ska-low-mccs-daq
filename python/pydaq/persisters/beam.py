@@ -11,7 +11,7 @@ class BeamFormatFileManager(AAVSFileManager):
     """
     A subclass of AAVSFileManager for Beamformed files. Inherits all behaviour and implements abstract functionality.
     """
-    def __init__(self, root_path=None, daq_mode=None, data_type=b'complex16'):
+    def __init__(self, root_path=None, daq_mode=None, data_type='complex16'):
         """
         Constructor for Beamformed file manager.
         :param root_path: Directory where all file operations will take place.

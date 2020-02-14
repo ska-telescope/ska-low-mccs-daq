@@ -7,7 +7,8 @@ class StationBeamFormatFileManager(AAVSFileManager):
     """
     A subclass of AAVSFileManager for StationBeam files. Inherits all behaviour and implements abstract functionality.
     """
-    def __init__(self, root_path=None, daq_mode=None, data_type=b'complex16'):
+
+    def __init__(self, root_path=None, daq_mode=None, data_type='complex16'):
         """
         Constructor for Beamformed file manager.
         :param root_path: Directory where all file operations will take place.
@@ -15,9 +16,9 @@ class StationBeamFormatFileManager(AAVSFileManager):
         :param data_type: The data type for all data in this file set/sequence.
         """
         super(StationBeamFormatFileManager, self).__init__(root_path=root_path,
-                                                    file_type=FileTypes.StationBeamformed,
-                                                    daq_mode=daq_mode,
-                                                    data_type=data_type)
+                                                           file_type=FileTypes.StationBeamformed,
+                                                           daq_mode=daq_mode,
+                                                           data_type=data_type)
 
     def configure(self, file_obj):
         """
@@ -44,10 +45,9 @@ class StationBeamFormatFileManager(AAVSFileManager):
         timestamp_grp.create_dataset("data", (0, 1), chunks=(self.resize_factor, 1),
                                      dtype=numpy.float64, maxshape=(None, 1))
 
-
         packet_grp = file_obj.create_group("sample_packets")
         packet_grp.create_dataset("data", (0, 1), chunks=(self.resize_factor, 1),
-                                     dtype=numpy.uint32, maxshape=(None, 1))
+                                  dtype=numpy.uint32, maxshape=(None, 1))
 
         file_obj.flush()
 
@@ -100,9 +100,9 @@ class StationBeamFormatFileManager(AAVSFileManager):
         result = []
         if not sample_based_read:
             result = self.get_file_partition_indexes_to_read_given_ts(timestamp=timestamp,
-                                                             tile_id=station_id,
-                                                             query_ts_start=start_ts,
-                                                             query_ts_end=end_ts)
+                                                                      tile_id=station_id,
+                                                                      query_ts_start=start_ts,
+                                                                      query_ts_end=end_ts)
 
         if sample_based_read:
             result = self.get_file_partition_indexes_to_read_given_samples(timestamp=timestamp,
@@ -115,13 +115,13 @@ class StationBeamFormatFileManager(AAVSFileManager):
             partition = part["partition"]
             indexes = part["indexes"]
             partition_data, partition_timestamps, partition_packets = self._read_data(timestamp=timestamp,
-                                                                   station_id=station_id,
-                                                                   channels=channels,
-                                                                   polarizations=polarizations,
-                                                                   beams=beams,
-                                                                   n_samples=indexes[1] - indexes[0],
-                                                                   sample_offset=indexes[0],
-                                                                   partition_id=partition)
+                                                                                      station_id=station_id,
+                                                                                      channels=channels,
+                                                                                      polarizations=polarizations,
+                                                                                      beams=beams,
+                                                                                      n_samples=indexes[1] - indexes[0],
+                                                                                      sample_offset=indexes[0],
+                                                                                      partition_id=partition)
             if concat_cnt < 1:
                 output_buffer = partition_data
                 timestamp_buffer = partition_timestamps
@@ -135,7 +135,7 @@ class StationBeamFormatFileManager(AAVSFileManager):
         return output_buffer, timestamp_buffer, packets_buffer
 
     def _read_data(self, timestamp=0, station_id=0, channels=None, polarizations=None, n_samples=0,
-                  beams = None, sample_offset=0, partition_id=None, **kwargs):
+                   beams=None, sample_offset=0, partition_id=None, **kwargs):
         """
         A helper for the read_data() method. This method performs a read operation based on a sample offset and a
         requested number of samples to be read. If the read_data() method has been called with start and end timestamps
@@ -194,13 +194,16 @@ class StationBeamFormatFileManager(AAVSFileManager):
                             dset_columns = dset.shape[1]
                             nof_items = dset_rows
                             if (dset_columns == temp_dset.attrs["n_chans"]) and \
-                                (dset_rows >= temp_dset.attrs["n_samples"]):
+                                    (dset_rows >= temp_dset.attrs["n_samples"]):
                                 for channel_idx in AAVSFileManager.range_array(0, len(channels)):
                                     current_channel = channels[channel_idx]
                                     if sample_offset + n_samples > nof_items:
-                                        output_buffer[polarization_idx, 0:nof_items, channel_idx] = dset[0:nof_items, current_channel]
+                                        output_buffer[polarization_idx, 0:nof_items, channel_idx] = dset[0:nof_items,
+                                                                                                    current_channel]
                                     else:
-                                        output_buffer[polarization_idx, :, channel_idx] = dset[sample_offset:sample_offset + n_samples, current_channel]
+                                        output_buffer[polarization_idx, :, channel_idx] = dset[
+                                                                                          sample_offset:sample_offset + n_samples,
+                                                                                          current_channel]
 
                 # extracting timestamps
                 if sample_offset + n_samples > nof_items:
@@ -211,7 +214,6 @@ class StationBeamFormatFileManager(AAVSFileManager):
                     timestamp_grp = file_obj["sample_timestamps"]
                     dset = timestamp_grp["data"]
                     timestamp_buffer[:] = dset[sample_offset:sample_offset + n_samples]
-
 
                 # extracting packets
                 if sample_offset + n_samples > nof_items:
@@ -279,7 +281,7 @@ class StationBeamFormatFileManager(AAVSFileManager):
         padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
         if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp # since it has already been added for append by the timestap_pad value
+            padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
 
         sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
         if sampling_time not in [0, None]:
@@ -305,7 +307,6 @@ class StationBeamFormatFileManager(AAVSFileManager):
         if dset.shape[0] < (n_blocks + 1) * n_samp:
             dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
         dset[ds_last_size:ds_last_size + n_samp, 0] = sample_packets_list
-
 
         # set new number of written blocks
         n_blocks += 1
@@ -358,7 +359,6 @@ class StationBeamFormatFileManager(AAVSFileManager):
             if dset.shape[0] < (n_blocks + 1) * n_samp:
                 dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
 
-
             # Pre-format data
             pol_start_idx = (polarization * n_chans * n_samp)
             pol_end_idx = (polarization + 1) * n_chans * n_samp
@@ -375,7 +375,7 @@ class StationBeamFormatFileManager(AAVSFileManager):
         padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
         if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp # since it has already been added for append by the timestap_pad value
+            padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
 
         sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
         if sampling_time not in [0, None]:

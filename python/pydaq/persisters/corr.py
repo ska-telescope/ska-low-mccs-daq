@@ -9,7 +9,7 @@ class CorrelationFormatFileManager(AAVSFileManager):
     abstract functionality.
     """
 
-    def __init__(self, root_path=None, daq_mode=None, data_type=b'complex64'):
+    def __init__(self, root_path=None, daq_mode=None, data_type='complex64'):
         """
         Constructor for Correlation file manager.
         :param root_path: Directory where all file operations will take place.

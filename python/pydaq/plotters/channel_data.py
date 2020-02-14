@@ -1,9 +1,7 @@
 from __future__ import division
-from past.utils import old_div
+
 from pydaq.persisters import ChannelFormatFileManager, FileDAQModes
 from pydaq.plotters.utils import *
-from matplotlib import pyplot as plt
-import logging
 
 
 def plot_channel_data(conf, integrated=False, continuous=False):

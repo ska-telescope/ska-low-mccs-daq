@@ -13,7 +13,6 @@ import time
 import sys
 
 import numpy as np
-# from ctypeslib.contrib.pythonhdr import Py_ssize_t
 
 from pydaq.interface import *
 from pydaq.persisters import *
@@ -253,9 +252,9 @@ def channel_data_callback(data, timestamp, tile, packets, mode='burst'):
 
     else:
         filename = persisters[DaqModes.CHANNEL_DATA].ingest_data(
-            data_ptr=values,
-            timestamp=timestamp, sampling_time=sampling_time[DaqModes.CHANNEL_DATA],
-            tile_id=tile)
+                                                data_ptr=values,
+                                                timestamp=timestamp, sampling_time=sampling_time[DaqModes.CHANNEL_DATA],
+                                                tile_id=tile)
         if LOG:
             logging.info("Received burst channel data for tile {}".format(tile))
 
@@ -478,7 +477,7 @@ def station_callback(data, timestamp, nof_packets, nof_saturations):
 
     # Call external callback
     if external_callbacks[DaqModes.STATION_BEAM_DATA] is not None:
-        external_callbacks[DaqModes.STATION_BEAM_DATA]("station", filename, nof_packets * 256)
+        external_callbacks[DaqModes.STATION_BEAM_DATA]("station", filename, nof_packets * 512)
 
     if LOG:
         logging.info(

@@ -1,13 +1,13 @@
-from ctypes.util import find_library
-from enum import Enum
-import logging
 import ctypes
 import json
 import os
+from ctypes.util import find_library
+
+from enum import Enum
+
 
 # AAVS DAQ library
 # TODO: make this nicer
-import time
 
 # ------------------------------ Enumerations --------------------------------
 

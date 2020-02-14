@@ -10,7 +10,7 @@ class ChannelFormatFileManager(AAVSFileManager):
     A subclass of AAVSFileManager for Channel files. Inherits all behaviour and implements abstract functionality.
     """
 
-    def __init__(self, root_path=None, daq_mode=None, data_type=b'complex'):
+    def __init__(self, root_path=None, daq_mode=None, data_type='complex'):
         """
         Constructor for Channel file manager.
         :param root_path: Directory where all file operations will take place.

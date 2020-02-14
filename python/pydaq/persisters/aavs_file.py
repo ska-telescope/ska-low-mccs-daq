@@ -291,8 +291,8 @@ class AAVSFileManager(object):
         full_seconds = seconds + (minutes * 60) + (hours * 60 * 60)
         full_seconds_formatted = format(full_seconds, '05')
         base_date_string = datetime.datetime.fromtimestamp(timestamp).strftime('%Y%m%d')
-        full_date_string = base_date_string + '_' + str(full_seconds_formatted)
-        return str(full_date_string)
+        full_date_string = base_date_string + '_' + full_seconds_formatted
+        return full_date_string
 
     @staticmethod
     def range_array(start_idx, end_idx):

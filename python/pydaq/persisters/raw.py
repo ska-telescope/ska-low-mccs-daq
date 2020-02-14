@@ -8,7 +8,7 @@ class RawFormatFileManager(AAVSFileManager):
     A subclass of AAVSFileManager for Raw files. Inherits all behaviour and implements abstract functionality.
     """
 
-    def __init__(self, root_path=None, daq_mode=None, data_type=b"int8"):
+    def __init__(self, root_path=None, daq_mode=None, data_type="int8"):
         """
         Constructor for Raw file manager.
         :param root_path: Directory where all file operations will take place.

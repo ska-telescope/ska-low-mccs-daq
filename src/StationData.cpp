@@ -32,7 +32,6 @@ bool StationData::initialiseConsumer(json configuration)
     this -> packet_size  = configuration["max_packet_size"];
 
     // Create ring buffer
-
     initialiseRingBuffer(packet_size, (size_t) nof_samples / 2);
 
     // Create double buffer

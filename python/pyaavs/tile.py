@@ -1111,7 +1111,7 @@ class Tile(object):
         self._daq_threads.pop('CHANNEL')
 
     @connected
-    def send_channelised_data(self, number_of_samples=128, first_channel=0, last_channel=511, period=0,
+    def send_channelised_data(self, number_of_samples=1024, first_channel=0, last_channel=511, period=0,
                               timeout=0, timestamp=None, seconds=0.2):
         """ Send channelised data from the TPM
         :param number_of_samples: Number of spectra to send

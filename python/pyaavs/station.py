@@ -817,7 +817,7 @@ class Station(object):
             tile.send_raw_data_synchronised(period=period, timeout=timeout, timestamp=t0, seconds=self._seconds)
         return self._check_data_sync(t0)
 
-    def send_channelised_data(self, number_of_samples=128, first_channel=0, last_channel=511, period=0, timeout=0):
+    def send_channelised_data(self, number_of_samples=1024, first_channel=0, last_channel=511, period=0, timeout=0):
         """ Send channelised data from all Tiles """
         self._wait_available()
         t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
