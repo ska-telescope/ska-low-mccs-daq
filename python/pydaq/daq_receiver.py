@@ -334,7 +334,7 @@ def beam_integrated_data_callback(data, timestamp, tile, arg2):
         return
 
     # Extract data sent by DAQ
-    values = get_numpy_from_ctypes(data, complex_16t, conf['nof_beams'] * conf['nof_polarisations'] * 384)
+    values = get_numpy_from_ctypes(data, np.uint32, conf['nof_beams'] * conf['nof_polarisations'] * 384)
 
     # Re-arrange data
     values = np.reshape(values,
@@ -481,7 +481,7 @@ def station_callback(data, timestamp, nof_packets, nof_saturations):
 
     # Call external callback
     if external_callbacks[DaqModes.STATION_BEAM_DATA] is not None:
-        external_callbacks[DaqModes.STATION_BEAM_DATA]("station", filename, nof_packets * 512)
+        external_callbacks[DaqModes.STATION_BEAM_DATA]("station", filename, nof_packets * 256)
 
     if LOG:
         logging.info(
@@ -705,12 +705,15 @@ def start_integrated_beam_data_consumer(callback=None):
 
     # Create data persister
     persisters[DaqModes.INTEGRATED_BEAM_DATA] = []
-    beam_file = BeamFormatFileManager(root_path=conf['directory'], data_type='uint32',
+    beam_file = BeamFormatFileManager(root_path=conf['directory'], 
+                                      data_type='uint32',
                                       daq_mode=FileDAQModes.Integrated)
+
     beam_file.set_metadata(n_chans=384,
                            n_pols=conf['nof_polarisations'],
                            n_samples=1,
                            n_beams=conf['nof_beams'])
+
     persisters[DaqModes.INTEGRATED_BEAM_DATA] = beam_file
 
     # Set sampling time

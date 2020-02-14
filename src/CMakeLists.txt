@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 # Add include and lib directories
 link_directories(/usr/local /usr/lib/x86_64-linux-gnu/lib ${DAQ_DIRECTORY}/lib)
-include_directories(/usr/lib/x86_64-linux-gnu/include )
+include_directories(/usr/lib/x86_64-linux-gnu/include /opt/aavs/include)
 include_directories(${DAQ_DIRECTORY}/include)
 
 project(AAVS_DAQ C CXX)
