@@ -40,13 +40,14 @@ class AAVSFileManager(object):
     # following an append operation, the next append operation will be placed in a new partition.
     FILE_SIZE_GIGABYTES = 4.0  # 0.1GB
 
-    def __init__(self, root_path=None, file_type=None, daq_mode=None, data_type=None):
+    def __init__(self, root_path=None, file_type=None, daq_mode=None, data_type=None, observation_metadata=None):
         """
         Constructor for the AAVSFileManager
         :param root_path: Directory where all file operations will take place.
         :param file_type: The file type for this manager (RAW, CHANNEL or BEAM)
         :param daq_mode: The DAQ type (e.g. normal (none), integrated, etc.
         :param data_type: The data type for all data in this file set/sequence.
+        :param observation_metadata: A dictionary with observation related metadata which will be stored in the file
         """
 
         # check root path and set default if no path is provided
@@ -70,6 +71,9 @@ class AAVSFileManager(object):
         else:
             logging.error("Invalid data type specified")
             return
+
+        # Store observation meta data
+        self.observation_metadata = observation_metadata
 
         self.type = file_type
 
@@ -914,6 +918,7 @@ class AAVSFileManager(object):
         file_obj = self.open_file(full_filename, 'w')
         os.chmod(first_full_filename, 0o776)
 
+        # Create dataset with data content metadata
         self.main_dset = file_obj.create_dataset("root", (1,), chunks=True, dtype='float16')
         self.n_blocks = 0
 
@@ -937,6 +942,12 @@ class AAVSFileManager(object):
         self.main_dset.attrs['station_id'] = self.station_id
         if self.tsamp is not None:
             self.main_dset.attrs['tsamp'] = self.tsamp
+
+        # Create dataset with observation related meta data
+        if self.observation_metadata is not None:
+            obs_info = file_obj.create_group("observation_info")
+            for k, v in self.observation_metadata.items():
+                obs_info.attrs[k] = v
 
         self.configure(file_obj)
         return file_obj

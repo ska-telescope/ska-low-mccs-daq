@@ -34,15 +34,6 @@ class DaqModes(Enum):
 # Custom numpy type for creating complex signed 8-bit data
 complex_8t = np.dtype([('real', np.int8), ('imag', np.int8)])
 
-# Flag specifying whether to log or not
-LOG = True
-
-# Flag to for specifying whether files should be generated
-WRITE_TO_DISK = True
-
-# Get Python version
-PYTHON_VERSION = sys.version_info[0] + 0.1 * sys.version_info[1]
-
 # Global configuration dictionary
 conf = {"nof_antennas": 16,
         "nof_channels": 512,
@@ -69,8 +60,12 @@ conf = {"nof_antennas": 16,
         "receiver_frames_per_block": 32,
         "receiver_nof_blocks": 256,
         "directory": ".",
+        "logging": True,
+        "write_to_disk": True,
+        "station_config": None,
         "max_filesize": None,
-        "acquisition_duration": -1
+        "acquisition_duration": -1,
+        "description": ""
         }
 
 # Global DAQ modes
@@ -101,8 +96,10 @@ def logging_callback(level, message):
     """ Wrapper to logging function in DAQ """
     if level == LogLevel.Fatal.value:
         logging.fatal(message)
+        exit()
     elif level == LogLevel.Error.value:
         logging.error(message)
+        exit()
     elif level == LogLevel.Warning.value:
         logging.warning(message)
     elif level == LogLevel.Info.value:
@@ -127,7 +124,7 @@ def raw_data_callback(data, timestamp, tile, arg2):
     :param timestamp: Timestamp of first data point in data
     """
 
-    if not WRITE_TO_DISK:
+    if not conf['write_to_disk']:
         return
 
     # Extract data sent by DAQ
@@ -151,7 +148,7 @@ def raw_data_callback(data, timestamp, tile, arg2):
     if external_callbacks[DaqModes.RAW_DATA] is not None:
         external_callbacks[DaqModes.RAW_DATA]("burst_raw", filename, tile)
 
-    if LOG:
+    if conf['logging']:
         logging.info("Received raw data for tile {}".format(tile))
 
 
@@ -169,7 +166,7 @@ def channel_data_callback(data, timestamp, tile, channel_id, mode='burst'):
 
     global cont_data_dumped
 
-    if not WRITE_TO_DISK:
+    if not conf['write_to_disk']:
         return
 
     # Ignore first two buffers
@@ -220,7 +217,7 @@ def channel_data_callback(data, timestamp, tile, channel_id, mode='burst'):
                                                                          DaqModes.CONTINUOUS_CHANNEL_DATA],
                                                                      channel_id=channel_id,
                                                                      buffer_timestamp=timestamp, tile_id=tile)
-        if LOG:
+        if conf['logging']:
             logging.info("Received continuous channel data for tile {} - channel {}".format(tile, channel_id))
 
         if external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] is not None:
@@ -248,7 +245,7 @@ def channel_data_callback(data, timestamp, tile, channel_id, mode='burst'):
                                                                                 buffer_timestamp=timestamp,
                                                                                 tile_id=tile)
 
-        if LOG:
+        if conf['logging']:
             logging.info("Received integrated channel data for tile {}".format(tile))
 
         if external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None:
@@ -259,7 +256,7 @@ def channel_data_callback(data, timestamp, tile, channel_id, mode='burst'):
             data_ptr=values,
             timestamp=timestamp, sampling_time=sampling_time[DaqModes.CHANNEL_DATA],
             tile_id=tile)
-        if LOG:
+        if conf['logging']:
             logging.info("Received burst channel data for tile {}".format(tile))
 
         if external_callbacks[DaqModes.CHANNEL_DATA] is not None:
@@ -304,7 +301,7 @@ def beam_burst_data_callback(data, timestamp, tile, arg2):
 
     """
 
-    if not WRITE_TO_DISK:
+    if not conf['write_to_disk']:
         return
 
     # Extract data sent by DAQ
@@ -316,7 +313,7 @@ def beam_burst_data_callback(data, timestamp, tile, arg2):
                                                           sampling_time=sampling_time[DaqModes.BEAM_DATA],
                                                           tile_id=tile)
 
-    if LOG:
+    if conf['logging']:
         logging.info("Received beam data for tile {}".format(tile))
 
     if external_callbacks[DaqModes.BEAM_DATA] is not None:
@@ -330,7 +327,7 @@ def beam_integrated_data_callback(data, timestamp, tile, arg2):
     :param timestamp: Timestamp of first data point in data
     """
 
-    if not WRITE_TO_DISK:
+    if not conf['write_to_disk']:
         return
 
     # Extract data sent by DAQ
@@ -354,7 +351,7 @@ def beam_integrated_data_callback(data, timestamp, tile, arg2):
                                                                      buffer_timestamp=timestamp,
                                                                      tile_id=tile)
 
-    if LOG:
+    if conf['logging']:
         logging.info("Received integrated beam data for tile {}".format(tile))
 
     if external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] is not None:
@@ -367,7 +364,7 @@ def correlator_callback(data, timestamp, channel, arg2):
     :param data: Received data
     :param timestamp: Timestamp of first sample in data """
 
-    if not WRITE_TO_DISK:
+    if not conf['write_to_disk']:
         return
 
     if conf['nof_correlator_channels'] == 1:
@@ -439,7 +436,7 @@ def correlator_callback(data, timestamp, channel, arg2):
     if external_callbacks[DaqModes.CORRELATOR_DATA] is not None:
         external_callbacks[DaqModes.CORRELATOR_DATA]("correlator", filename)
 
-    if LOG:
+    if conf['logging']:
         logging.info("Received correlated data for channel {}".format(channel))
 
 
@@ -451,7 +448,7 @@ def station_callback(data, timestamp, nof_packets, nof_saturations):
     :param data: Received data
     :param timestamp: Timestamp of first sample in data """
 
-    if not WRITE_TO_DISK:
+    if not conf['write_to_disk']:
         return
 
     if 'station' not in list(cont_data_dumped.keys()):
@@ -483,16 +480,17 @@ def station_callback(data, timestamp, nof_packets, nof_saturations):
     if external_callbacks[DaqModes.STATION_BEAM_DATA] is not None:
         external_callbacks[DaqModes.STATION_BEAM_DATA]("station", filename, nof_packets * 256)
 
-    if LOG:
+    if conf['logging']:
         logging.info(
             "Received station beam data (nof saturations: {}, nof_packets: {})".format(nof_saturations, nof_packets))
 
 
 # ------------------------------------ Start consumer functions ------------------------------------------
 
-def start_raw_data_consumer(callback=None):
+def start_raw_data_consumer(callback=None, metadata=None):
     """ Start raw data consumer
     :param callback: Caller callback
+    :param metadata: Any observation metadata to be added to the generated data files
     """
 
     global callbacks
@@ -507,13 +505,16 @@ def start_raw_data_consumer(callback=None):
 
     # Start raw data consumer
     if start_consumer("rawdata", params, callbacks[DaqModes.RAW_DATA]) != Result.Success:
-        if LOG:
+        if conf['logging']:
             logging.info("Failed to start raw data consumer")
         raise Exception("Failed to start raw data consumer")
     running_consumers[DaqModes.RAW_DATA] = True
 
     # Create data persister
-    raw_file = RawFormatFileManager(root_path=conf['directory'], daq_mode=FileDAQModes.Burst)
+    raw_file = RawFormatFileManager(root_path=conf['directory'],
+                                    daq_mode=FileDAQModes.Burst,
+                                    observation_metadata=metadata)
+
     raw_file.set_metadata(n_antennas=conf['nof_antennas'],
                           n_pols=conf['nof_polarisations'],
                           n_samples=conf['nof_raw_samples'])
@@ -522,13 +523,14 @@ def start_raw_data_consumer(callback=None):
     # Set external callback
     external_callbacks[DaqModes.RAW_DATA] = callback
 
-    if LOG:
+    if conf['logging']:
         logging.info("Started raw data consumer")
 
 
-def start_channel_data_consumer(callback=None):
+def start_channel_data_consumer(callback=None, metadata=None):
     """ Start channel data consumer
         :param callback: Caller callback
+        :param metadata: Any observation metadata to be added to the generated data files
     """
 
     global callbacks
@@ -548,7 +550,10 @@ def start_channel_data_consumer(callback=None):
     running_consumers[DaqModes.CHANNEL_DATA] = True
 
     # Create data persister
-    channel_file = ChannelFormatFileManager(root_path=conf['directory'], daq_mode=FileDAQModes.Burst)
+    channel_file = ChannelFormatFileManager(root_path=conf['directory'],
+                                            daq_mode=FileDAQModes.Burst,
+                                            observation_metadata=metadata)
+
     channel_file.set_metadata(n_chans=conf['nof_channels'],
                               n_antennas=conf['nof_antennas'],
                               n_pols=conf['nof_polarisations'],
@@ -562,13 +567,14 @@ def start_channel_data_consumer(callback=None):
     # Set external callback
     external_callbacks[DaqModes.CHANNEL_DATA] = callback
 
-    if LOG:
+    if conf['logging']:
         logging.info("Started channel data consumer")
 
 
-def start_continuous_channel_data_consumer(callback=None):
+def start_continuous_channel_data_consumer(callback=None, metadata=None):
     """ Start continuous channel data consumer
         :param callback: Caller callback
+        :param metadata: Any observation metadata to be added to the generated data files
     """
 
     global callbacks
@@ -593,7 +599,9 @@ def start_continuous_channel_data_consumer(callback=None):
     running_consumers[DaqModes.CONTINUOUS_CHANNEL_DATA] = True
 
     # Create data persister 
-    channel_file = ChannelFormatFileManager(root_path=conf['directory'], daq_mode=FileDAQModes.Continuous)
+    channel_file = ChannelFormatFileManager(root_path=conf['directory'],
+                                            daq_mode=FileDAQModes.Continuous,
+                                            observation_metadata=metadata)
     channel_file.set_metadata(n_chans=1,
                               n_antennas=conf['nof_antennas'],
                               n_pols=conf['nof_polarisations'],
@@ -603,13 +611,14 @@ def start_continuous_channel_data_consumer(callback=None):
     # Set external callback
     external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] = callback
 
-    if LOG:
+    if conf['logging']:
         logging.info("Started continuous channel data consumer")
 
 
-def start_integrated_channel_data_consumer(callback=None):
+def start_integrated_channel_data_consumer(callback=None, metadata=None):
     """ Start integrated channel data consumer
         :param callback: Caller callback
+        :param metadata: Any observation metadata to be added to the generated data files
     """
 
     global callbacks
@@ -629,7 +638,8 @@ def start_integrated_channel_data_consumer(callback=None):
 
     # Create data persister
     channel_file = ChannelFormatFileManager(root_path=conf['directory'], data_type='uint16',
-                                            daq_mode=FileDAQModes.Integrated)
+                                            daq_mode=FileDAQModes.Integrated,
+                                            observation_metadata=metadata)
     channel_file.set_metadata(n_chans=conf['nof_channels'],
                               n_antennas=conf['nof_antennas'],
                               n_pols=conf['nof_polarisations'],
@@ -642,13 +652,14 @@ def start_integrated_channel_data_consumer(callback=None):
     # Set external callback
     external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] = callback
 
-    if LOG:
+    if conf['logging']:
         logging.info("Started integrated channel data consumer")
 
 
-def start_beam_data_consumer(callback=None):
+def start_beam_data_consumer(callback=None, metadata=None):
     """ Start beam data consumer
         :param callback: Caller callback
+        :param metadata: Any observation metadata to be added to the generated data files
     """
 
     global callbacks
@@ -667,7 +678,9 @@ def start_beam_data_consumer(callback=None):
     running_consumers[DaqModes.BEAM_DATA] = True
 
     # Create data persister
-    beam_file = BeamFormatFileManager(root_path=conf['directory'], data_type='complex16', daq_mode=FileDAQModes.Burst)
+    beam_file = BeamFormatFileManager(root_path=conf['directory'], data_type='complex16',
+                                      daq_mode=FileDAQModes.Burst,
+                                      observation_metadata=metadata)
 
     beam_file.set_metadata(n_chans=conf['nof_beam_channels'],
                            n_pols=conf['nof_polarisations'],
@@ -679,13 +692,14 @@ def start_beam_data_consumer(callback=None):
     # Set external callback
     external_callbacks[DaqModes.BEAM_DATA] = callback
 
-    if LOG:
+    if conf['logging']:
         logging.info("Started beam data consumer")
 
 
-def start_integrated_beam_data_consumer(callback=None):
+def start_integrated_beam_data_consumer(callback=None, metadata=None):
     """ Start integrated beam data consumer
         :param callback: Caller callback
+        :param metadata: Any observation metadata to be added to the generated data files
     """
 
     global callbacks
@@ -707,7 +721,8 @@ def start_integrated_beam_data_consumer(callback=None):
     persisters[DaqModes.INTEGRATED_BEAM_DATA] = []
     beam_file = BeamFormatFileManager(root_path=conf['directory'], 
                                       data_type='uint32',
-                                      daq_mode=FileDAQModes.Integrated)
+                                      daq_mode=FileDAQModes.Integrated,
+                                      observation_metadata=metadata)
 
     beam_file.set_metadata(n_chans=384,
                            n_pols=conf['nof_polarisations'],
@@ -722,13 +737,14 @@ def start_integrated_beam_data_consumer(callback=None):
     # Set external callback
     external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] = callback
 
-    if LOG:
+    if conf['logging']:
         logging.info("Started integrated beam data consumer")
 
 
-def start_station_beam_data_consumer(callback=None):
+def start_station_beam_data_consumer(callback=None, metadata=None):
     """ Start station beam data consumer
         :param callback: Caller callback
+        :param metadata: Any observation metadata to be added to the generated data files
     """
 
     global callbacks
@@ -745,7 +761,9 @@ def start_station_beam_data_consumer(callback=None):
 
     # Create data persister
     beam_file_mgr = StationBeamFormatFileManager(root_path=conf['directory'], data_type='double',
-                                                 daq_mode=FileDAQModes.Integrated)
+                                                 daq_mode=FileDAQModes.Integrated,
+                                                 observation_metadata=metadata)
+
     beam_file_mgr.set_metadata(n_chans=conf['nof_beam_channels'],
                                n_pols=conf['nof_polarisations'],
                                n_samples=1)
@@ -757,13 +775,14 @@ def start_station_beam_data_consumer(callback=None):
     # Set external callback
     external_callbacks[DaqModes.STATION_BEAM_DATA] = callback
 
-    if LOG:
+    if conf['logging']:
         logging.info("Started station beam data consumer")
 
 
-def start_correlator(callback=None):
+def start_correlator(callback=None, metadata=None):
     """ Start correlator
         :param callback: Caller callback
+        :param metadata: Any observation metadata to be added to the generated data files
     """
 
     global callbacks
@@ -783,7 +802,10 @@ def start_correlator(callback=None):
     running_consumers[DaqModes.CORRELATOR_DATA] = True
 
     # Create data persister
-    corr_file = CorrelationFormatFileManager(root_path=conf['directory'], data_type=b"complex64")
+    corr_file = CorrelationFormatFileManager(root_path=conf['directory'],
+                                             data_type=b"complex64",
+                                             observation_metadata=metadata)
+
     nof_baselines = int((conf['nof_tiles'] * conf['nof_antennas'] + 1) * 0.5 * conf['nof_tiles'] * conf['nof_antennas'])
     corr_file.set_metadata(n_chans=1,
                            n_pols=conf['nof_polarisations'],
@@ -799,7 +821,7 @@ def start_correlator(callback=None):
     # Set external callback
     external_callbacks[DaqModes.CORRELATOR_DATA] = callback
 
-    if LOG:
+    if conf['logging']:
         logging.info("Started correlator")
 
 
@@ -813,7 +835,7 @@ def stop_raw_data_consumer():
         raise Exception("Failed to stop raw data consumer")
     running_consumers[DaqModes.RAW_DATA] = False
 
-    if LOG:
+    if conf['logging']:
         logging.info("Stopped raw data consumer")
 
 
@@ -824,7 +846,7 @@ def stop_channel_data_consumer():
         raise Exception("Failed to stop channel data consumer")
     running_consumers[DaqModes.CHANNEL_DATA] = False
 
-    if LOG:
+    if conf['logging']:
         logging.info("Stopped channel data consumer")
 
 
@@ -835,7 +857,7 @@ def stop_continuous_channel_data_consumer():
         raise Exception("Failed to stop continuous channel data consumer")
     running_consumers[DaqModes.CONTINUOUS_CHANNEL_DATA] = False
 
-    if LOG:
+    if conf['logging']:
         logging.info("Stopped continuous channel data consumer")
 
 
@@ -846,7 +868,7 @@ def stop_integrated_channel_data_consumer():
         raise Exception("Failed to stop integrated channel data consumer")
     running_consumers[DaqModes.INTEGRATED_CHANNEL_DATA] = False
 
-    if LOG:
+    if conf['logging']:
         logging.info("Stopped integrated channel consumer")
 
 
@@ -857,7 +879,7 @@ def stop_beam_data_consumer():
         raise Exception("Failed to stop beam data consumer")
     running_consumers[DaqModes.BEAM_DATA] = False
 
-    if LOG:
+    if conf['logging']:
         logging.info("Stopped beam data consumer")
 
 
@@ -868,7 +890,7 @@ def stop_integrated_beam_data_consumer():
         raise Exception("Failed to stop integrated beam data consumer")
     running_consumers[DaqModes.INTEGRATED_BEAM_DATA] = False
 
-    if LOG:
+    if conf['logging']:
         logging.info("Stopped integrated beam data consumer")
 
 
@@ -879,7 +901,7 @@ def stop_station_beam_data_consumer():
         raise Exception("Failed to stop station beam data consumer")
     running_consumers[DaqModes.STATION_BEAM_DATA] = False
 
-    if LOG:
+    if conf['logging']:
         logging.info("Stopped station beam data consumer")
 
 
@@ -890,7 +912,7 @@ def stop_correlator():
         raise Exception("Failed to stop correlator")
     running_consumers[DaqModes.CORRELATOR_DATA] = False
 
-    if LOG:
+    if conf['logging']:
         logging.info("Stopped correlator")
 
 
@@ -914,13 +936,13 @@ def populate_configuration(configuration):
 
     # Check if invalid parameters were passed in
     if len(set(configuration.keys()) - (set(conf.keys()).union(set(modes)))) != 0:
-        if LOG:
+        if conf['logging']:
             logging.warning("Invalid configuration")
         raise Exception("Invalid configuration")
 
     # Check if data directory exists
     if not os.path.exists(configuration['directory']):
-        if LOG:
+        if conf['logging']:
             logging.info("Specified data directory [%s] does not exist" % configuration['directory'])
         raise Exception("Specified data directory [%s] does not exist" % configuration['directory'])
 
@@ -944,12 +966,12 @@ def initialise_daq():
     """ Initialise DAQ library """
 
     # Remove any locks
-    if LOG:
+    if conf['logging']:
         logging.info("Removing locks on files in output directory")
     os.system("rm -fr %s/*.lock" % conf['directory'])
 
     # Initialise AAVS DAQ library
-    if LOG:
+    if conf['logging']:
         logging.info("Initialising library")
 
     # NOTE: Hardcoded case for 48-element stations in AAVS
@@ -967,7 +989,7 @@ def initialise_daq():
                            conf['receiver_frame_size'],
                            conf['receiver_frames_per_block'],
                            conf['receiver_nof_blocks']) != Result.Success.value:
-        if LOG:
+        if conf['logging']:
             logging.info("Failed to start receiver with conf:")
             logging.info(str(conf))
             logging.info("Failed to start receiver")
@@ -976,7 +998,7 @@ def initialise_daq():
     # Set receiver ports
     for port in conf['receiver_ports']:
         if call_add_receiver_port(port) != Result.Success.value:
-            if LOG:
+            if conf['logging']:
                 logging.info("Failed to set receiver port %d" % port)
             raise Exception("Failed to set receiver port %d" % port)
 
@@ -1010,8 +1032,50 @@ def stop_daq():
     # Stop DAQ receiver thread
     if call_stop_receiver() != Result.Success.value:
         raise Exception("Failed to stop receiver")
-    elif LOG:
+    elif conf['logging']:
         logging.info("Stopped DAQ")
+
+
+def get_station_information(station_config):
+    """ If a station configuration file is provided, connect to
+        station and get required information """
+
+    # Dictionary containing required metadata
+    metadata = {'firmware_version': 0,
+                'station_config': ""
+                }
+
+    # Grab file content as string and save it as metadata
+    with open(station_config) as f:
+        metadata['station_config'] = f.read()
+
+    try:
+        from pyaavs import station
+
+        # Load station configuration file
+        station.load_configuration_file(station_config)
+
+        # Create station
+        aavs_station = station.Station(station.configuration)
+        aavs_station.connect()
+
+        # Get firmware version
+        metadata['firmware_version'] = aavs_station[0x0][0]
+    except Exception as e:
+        logging.warning("Could not get station information. Skipping. {}".format(e))
+
+    return metadata
+
+
+def get_software_version():
+    """ Get current software version. This will get the latest git commit hash"""
+    try:
+        import git
+        repo = git.Repo(search_parent_directories=True)
+        return repo.head.object.hexsha
+    except Exception as e:
+        logging.warning("Could not get software git hash. Skipping")
+        return 0
 
 
 # ----------------------------------------- Script Body ------------------------------------------------
@@ -1136,12 +1200,20 @@ if __name__ == "__main__":
     # Persister options
     parser.add_option("-d", "--data-directory", action="store", dest="directory",
                       default=".", help="Parent directory where data will be stored [default: current directory]")
+    parser.add_option("--disable-writing-to-disk", action="store_false", dest="write_to_disk",
+                      default=True, help="Write files to disk [default: Enabled]")
     parser.add_option("-m", "--max-filesize", "--max-filesize_gb", action="store", dest="max_filesize",
                       default=None,
-                      help="Maximum file size in GB, set 0 to save each data set to a separate hdf5 file [default: 4 GB ]",
+                      help="Maximum file size in GB, set 0 to save each data set to a separate hdf5 file [default: 4 GB]",
                       type="float")
+    parser.add_option("--disable-logging", action="store_false", dest="logging", default=True,
+                      help="Disable logging [default: Enabled]")
 
-    # specifying acquisition duration rather than waiting for "quit" from the keyboard :
+    # Observation options
+    parser.add_option("--description", action="store", dest="description", default="",
+                      help="Observation description, stored in file metadata (default: "")")
+    parser.add_option("--station-config", action="store", dest="station_config", default=None,
+                      help="Station configuration file, to extract additional metadata (default: None)")
     parser.add_option("--acquisition_duration", "--runtime", "--duration", "--dt", action="store",
                       dest="acquisition_duration",
                       default=-1, help="Duration of data acquisiton in seconds [default: %default]", type="int")
@@ -1150,7 +1222,7 @@ if __name__ == "__main__":
 
     # Set logging
     log = logging.getLogger('')
-    log.setLevel(logging.DEBUG)
+    log.setLevel(logging.INFO)
     str_format = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     from sys import stdout
 
@@ -1158,8 +1230,8 @@ if __name__ == "__main__":
     ch.setFormatter(str_format)
     log.addHandler(ch)
 
-    if config.max_filesize is not None:
-        aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = config.max_filesize
+    # if config.max_filesize is not None:
+    #     aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = config.max_filesize
 
     # Populate configuration
     populate_configuration(config)
@@ -1170,40 +1242,46 @@ if __name__ == "__main__":
         logging.error("No DAQ mode was set. Exiting")
         exit(0)
 
+    # Get metadata
+    metadata = {'software_version':  get_software_version(),
+                'description': config.description}
+    if config.station_config is not None:
+        metadata.update(get_station_information(config.station_config))
+
     # Initialise library
     initialise_daq()
 
     # ------------------------------- Raw data consumer ------------------------------------------
     if config.read_raw_data:
-        start_raw_data_consumer()
+        start_raw_data_consumer(metadata=metadata)
 
     # ----------------------------- Channel data consumers ----------------------------------------
     # Running in integrated data mode
     if config.integrated_channel:
-        start_integrated_channel_data_consumer()
+        start_integrated_channel_data_consumer(metadata=metadata)
 
     # Running in continuous channel mode
     if config.continuous_channel:
-        start_continuous_channel_data_consumer()
+        start_continuous_channel_data_consumer(metadata=metadata)
 
     # Running in burst mode
     if config.read_channel_data:
-        start_channel_data_consumer()
+        start_channel_data_consumer(metadata=metadata)
 
     # ------------------------------- Beam data consumers -----------------------------------------
     if config.read_beam_data:
-        start_beam_data_consumer()
+        start_beam_data_consumer(metadata=metadata)
 
     if config.integrated_beam:
-        start_integrated_beam_data_consumer()
+        start_integrated_beam_data_consumer(metadata=metadata)
 
     if config.station_beam:
-        start_station_beam_data_consumer()
+        start_station_beam_data_consumer(metadata=metadata)
 
     # --------------------------------------- Correlator ------------------------------------------
     # Correlator mode
     if config.correlator:
-        start_correlator()
+        start_correlator(metadata=metadata)
 
     logging.info("Ready to receive data. Enter 'quit' to quit")
 
@@ -1211,9 +1289,9 @@ if __name__ == "__main__":
         logging.info("Collecting data for {} seconds requested".format(config.acquisition_duration))
         time.sleep(config.acquisition_duration)
     else:
-        # if not acquisition time interval is explicitly specified will wait for "quit" command from the command line
-        # Wait until "quit" is input
-        while input("").replace(" ", "").upper() != "QUIT":
+        # If acquisition time interval is not explicitly specified will wait for "quit" command from the command line
+        # wait until "q" is input
+        while input("").strip().upper() != "Q":
             pass
 
     # Stop all running consumers and DAQ

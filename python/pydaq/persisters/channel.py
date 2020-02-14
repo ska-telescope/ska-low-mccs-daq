@@ -10,17 +10,19 @@ class ChannelFormatFileManager(AAVSFileManager):
     A subclass of AAVSFileManager for Channel files. Inherits all behaviour and implements abstract functionality.
     """
 
-    def __init__(self, root_path=None, daq_mode=None, data_type='complex'):
+    def __init__(self, root_path=None, daq_mode=None, data_type='complex', observation_metadata=None):
         """
         Constructor for Channel file manager.
         :param root_path: Directory where all file operations will take place.
         :param daq_mode: The DAQ type (e.g. normal (none), integrated, etc.
         :param data_type: The data type for all data in this file set/sequence.
+        :param observation_metadata: A dictionary with observation related metadata which will be stored in the file
         """
         super(ChannelFormatFileManager, self).__init__(root_path=root_path,
                                                        file_type=FileTypes.Channel,
                                                        daq_mode=daq_mode,
-                                                       data_type=data_type)
+                                                       data_type=data_type,
+                                                       observation_metadata=observation_metadata)
 
     def configure(self, file_obj):
         """

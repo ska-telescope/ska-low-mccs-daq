@@ -9,6 +9,6 @@ setup(
     author='Alessio Magro',
     author_email='alessio.magro@um.edu.mt',
     description='AAVS Software',
-    install_requires=['h5py', 'pyyaml', 'lockfile', 'scapy', 'numpy',
+    install_requires=['h5py', 'pyyaml', 'lockfile', 'scapy', 'numpy', 'gitpython',
                       'future', 'astropy', 'matplotlib', 'scipy']
 )
