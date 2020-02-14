@@ -383,6 +383,7 @@ bool ContinuousChannelisedData::processPacket()
     packet_index = static_cast<uint32_t>((packet_counter - reference_counter) % (this->nof_samples / samples_in_packet));
 
     // Set start channel ID to 1 (otherwise it will mess with buffer indexing)
+    auto cont_channel_id = start_channel_id;
     start_channel_id = 0;
 
     // Check if packet belongs to current buffer
@@ -400,7 +401,7 @@ bool ContinuousChannelisedData::processPacket()
             containers[index]->add_data(tile_id, start_channel_id, packet_index * samples_in_packet,
                                         samples_in_packet, start_antenna_id,
                                         (uint16_t *) (payload + payload_offset), packet_time,
-                                        nof_included_channels, nof_included_antennas);
+                                        nof_included_channels, nof_included_antennas, cont_channel_id);
         }
 
         // Ready from packet
@@ -457,7 +458,7 @@ bool ContinuousChannelisedData::processPacket()
     containers[current_container] -> add_data(tile_id, start_channel_id, packet_index * samples_in_packet, 
                                               samples_in_packet, start_antenna_id,
                                               (uint16_t *) (payload + payload_offset), packet_time, 
-                                              nof_included_channels, nof_included_antennas);
+                                              nof_included_channels, nof_included_antennas, cont_channel_id);
 
     // Ready from packet
     ring_buffer -> pull_ready();

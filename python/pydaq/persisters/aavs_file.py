@@ -284,13 +284,13 @@ class AAVSFileManager(object):
         if timestamp is None:
             timestamp = 0
 
-        datetime_object = datetime.datetime.fromtimestamp(timestamp)
+        datetime_object = datetime.datetime.utcfromtimestamp(timestamp)
         hours = datetime_object.hour
         minutes = datetime_object.minute
         seconds = datetime_object.second
         full_seconds = seconds + (minutes * 60) + (hours * 60 * 60)
         full_seconds_formatted = format(full_seconds, '05')
-        base_date_string = datetime.datetime.fromtimestamp(timestamp).strftime('%Y%m%d')
+        base_date_string = datetime.datetime.utcfromtimestamp(timestamp).strftime('%Y%m%d')
         full_date_string = base_date_string + '_' + full_seconds_formatted
         return full_date_string
 
@@ -325,8 +325,9 @@ class AAVSFileManager(object):
         # for correlator files
         if 'channel_id' in list(kwargs.keys()):
             if kwargs["channel_id"] is not None:
-                tile_id = kwargs["channel_id"]
                 self.channel_id = kwargs["channel_id"]
+                if self.type == FileTypes.Correlation:
+                    tile_id = self.channel_id
 
         # for stationbeam files
         if 'station_id' in list(kwargs.keys()):
@@ -936,20 +937,6 @@ class AAVSFileManager(object):
         self.main_dset.attrs['station_id'] = self.station_id
         if self.tsamp is not None:
             self.main_dset.attrs['tsamp'] = self.tsamp
-
-        # TODO: REMOVE MARCIN'S CODE BELOW
-        # this is only a temporary code to make sure the channel is filled when we call the script ~/aavs-calibration/sensitivity/daq/channels_sweep.py which writes current channel to a local file current_channel.txt
-        # if int( self.main_dset.attrs['channel_id'] ) <= 0 :
-        #    channel_file = "current_channel.txt"
-        #    if os.path.exists( channel_file ) :
-        #       file=open( channel_file , 'r' )
-        #       data=file.readlines()
-        #       if len(data) >= 1 :
-        #          words = data[0].split(' ')
-        #          if len(words) > 0 :
-        #             channel_id = int( words[0] )
-        #             self.main_dset.attrs['channel_id'] = channel_id
-        #             print "Set HDF5 attribute channel_id = %d" % (channel_id)
 
         self.configure(file_obj)
         return file_obj

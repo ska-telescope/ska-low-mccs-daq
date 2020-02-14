@@ -79,7 +79,7 @@ public:
     // Add data to buffer
     void add_data(uint16_t tile, uint16_t channel, uint32_t start_sample_index, uint32_t samples,
                   uint16_t start_antenna_id, T *data_ptr, double timestamp, uint16_t included_channels,
-                  uint16_t nof_included_antennas)
+                  uint16_t nof_included_antennas, uint32_t cont_channel_id = 0)
     {
         // Get current tile index
         unsigned int tile_index = 0;
@@ -118,6 +118,7 @@ public:
         // Update timing
         if (this->timestamp > timestamp) {
             this->timestamp = timestamp;
+            this->cont_channel_id = cont_channel_id;
         }
 
         // Update number of packets in container
@@ -146,7 +147,7 @@ public:
             // Call callback for every tile (if buffer has some content)
             for(unsigned i = 0; i < nof_tiles; i++)
                     callback((uint32_t *) channel_data[i].data, this->timestamp,
-                             channel_data[i].tile, nof_packets);
+                             channel_data[i].tile, cont_channel_id);
             clear();
             return;
         }
@@ -166,6 +167,7 @@ private:
     uint32_t nof_samples;
     uint16_t nof_channels;
     uint8_t  nof_pols;
+    uint32_t cont_channel_id = 0;
 
     // Tile map
     std::unordered_map<uint16_t, unsigned int> tile_map;

@@ -116,6 +116,7 @@ def get_numpy_from_ctypes(pointer, dtype, nof_values):
     value_buffer = ctypes.c_char * np.dtype(dtype).itemsize * nof_values
     return np.frombuffer(value_buffer.from_address(ctypes.addressof(pointer.contents)), dtype)
 
+
 # -------------------------------------------------- RAW DATA ---------------------------------------------
 
 
@@ -159,7 +160,7 @@ def raw_data_callback(data, timestamp, tile, arg2):
 cont_data_dumped = {}
 
 
-def channel_data_callback(data, timestamp, tile, packets, mode='burst'):
+def channel_data_callback(data, timestamp, tile, channel_id, mode='burst'):
     """ Channel data callback
     :param data: Received data
     :param timestamp: Timestamp of first data point in data
@@ -208,16 +209,19 @@ def channel_data_callback(data, timestamp, tile, packets, mode='burst'):
                                                                          DaqModes.CONTINUOUS_CHANNEL_DATA],
                                                                      sampling_time=sampling_time[
                                                                          DaqModes.CONTINUOUS_CHANNEL_DATA],
-                                                                     buffer_timestamp=timestamp, tile_id=tile)
+                                                                     buffer_timestamp=timestamp,
+                                                                     channel_id=channel_id,
+                                                                     tile_id=tile)
         else:
             filename = persisters[DaqModes.CHANNEL_DATA].ingest_data(append=False,
                                                                      data_ptr=values,
                                                                      timestamp=timestamp,
                                                                      sampling_time=sampling_time[
                                                                          DaqModes.CONTINUOUS_CHANNEL_DATA],
+                                                                     channel_id=channel_id,
                                                                      buffer_timestamp=timestamp, tile_id=tile)
         if LOG:
-            logging.info("Received continuous channel data for tile {} - {} packets".format(tile, packets))
+            logging.info("Received continuous channel data for tile {} - channel {}".format(tile, channel_id))
 
         if external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] is not None:
             external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA]("cont_channel", filename, tile)
@@ -252,9 +256,9 @@ def channel_data_callback(data, timestamp, tile, packets, mode='burst'):
 
     else:
         filename = persisters[DaqModes.CHANNEL_DATA].ingest_data(
-                                                data_ptr=values,
-                                                timestamp=timestamp, sampling_time=sampling_time[DaqModes.CHANNEL_DATA],
-                                                tile_id=tile)
+            data_ptr=values,
+            timestamp=timestamp, sampling_time=sampling_time[DaqModes.CHANNEL_DATA],
+            tile_id=tile)
         if LOG:
             logging.info("Received burst channel data for tile {}".format(tile))
 
@@ -262,31 +266,31 @@ def channel_data_callback(data, timestamp, tile, packets, mode='burst'):
             external_callbacks[DaqModes.CHANNEL_DATA]("burst_channel", filename, tile)
 
 
-def channel_burst_data_callback(data, timestamp, tile, packets):
+def channel_burst_data_callback(data, timestamp, tile, _):
     """ Channel callback wrapper for burst data mode
     :param data: Received data
     :param tile: The tile from which the data was acquired
     :param timestamp: Timestamp of first data point in data
     """
-    channel_data_callback(data, timestamp, tile, packets)
+    channel_data_callback(data, timestamp, tile, _)
 
 
-def channel_continuous_data_callback(data, timestamp, tile, packets):
+def channel_continuous_data_callback(data, timestamp, tile, channel_id):
     """ Channel callback wrapper for continuous data mode
     :param data: Received data
     :param tile: The tile from which the data was acquired
     :param timestamp: Timestamp of first data point in data
     """
-    channel_data_callback(data, timestamp, tile, packets, "continuous")
+    channel_data_callback(data, timestamp, tile, channel_id, "continuous")
 
 
-def channel_integrated_data_callback(data, timestamp, tile, packets):
+def channel_integrated_data_callback(data, timestamp, tile, _):
     """ Channel callback wrapper for integrated data mode
     :param data: Received data
     :param tile: The tile from which the data was acquired
     :param timestamp: Timestamp of first data point in data
     """
-    channel_data_callback(data, timestamp, tile, packets, "integrated")
+    channel_data_callback(data, timestamp, tile, _, "integrated")
 
 
 # -------------------------------------------------- BEAM DATA --------------------------------------------
@@ -305,7 +309,7 @@ def beam_burst_data_callback(data, timestamp, tile, arg2):
 
     # Extract data sent by DAQ
     values = get_numpy_from_ctypes(data, complex_16t, conf['nof_beams'] * conf['nof_polarisations'] * \
-                                                      conf['nof_beam_samples'] * conf['nof_beam_channels'])
+                                   conf['nof_beam_samples'] * conf['nof_beam_channels'])
 
     filename = persisters[DaqModes.BEAM_DATA].ingest_data(data_ptr=values,
                                                           timestamp=timestamp,
@@ -580,7 +584,7 @@ def start_continuous_channel_data_consumer(callback=None):
               "nof_tiles": conf['nof_tiles'],
               "nof_pols": conf['nof_polarisations'],
               "nof_buffer_skips": conf['continuous_period'] // (
-                          sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * conf['nof_channel_samples']),
+                      sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * conf['nof_channel_samples']),
               "max_packet_size": conf['receiver_frame_size']}
 
     # Start channel data consumer
