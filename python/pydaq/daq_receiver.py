@@ -8,9 +8,6 @@ from builtins import range
 import fcntl
 import socket
 import struct
-import ctypes
-import time
-import sys
 
 import numpy as np
 
@@ -65,7 +62,8 @@ conf = {"nof_antennas": 16,
         "station_config": None,
         "max_filesize": None,
         "acquisition_duration": -1,
-        "description": ""
+        "description": "",
+        "observation_metadata": {}  # This is populdated automatically
         }
 
 # Global DAQ modes
@@ -487,7 +485,7 @@ def station_callback(data, timestamp, nof_packets, nof_saturations):
 
 # ------------------------------------ Start consumer functions ------------------------------------------
 
-def start_raw_data_consumer(callback=None, metadata=None):
+def start_raw_data_consumer(callback=None):
     """ Start raw data consumer
     :param callback: Caller callback
     :param metadata: Any observation metadata to be added to the generated data files
@@ -513,7 +511,7 @@ def start_raw_data_consumer(callback=None, metadata=None):
     # Create data persister
     raw_file = RawFormatFileManager(root_path=conf['directory'],
                                     daq_mode=FileDAQModes.Burst,
-                                    observation_metadata=metadata)
+                                    observation_metadata=conf['observation_metadata'])
 
     raw_file.set_metadata(n_antennas=conf['nof_antennas'],
                           n_pols=conf['nof_polarisations'],
@@ -527,7 +525,7 @@ def start_raw_data_consumer(callback=None, metadata=None):
         logging.info("Started raw data consumer")
 
 
-def start_channel_data_consumer(callback=None, metadata=None):
+def start_channel_data_consumer(callback=None):
     """ Start channel data consumer
         :param callback: Caller callback
         :param metadata: Any observation metadata to be added to the generated data files
@@ -552,7 +550,7 @@ def start_channel_data_consumer(callback=None, metadata=None):
     # Create data persister
     channel_file = ChannelFormatFileManager(root_path=conf['directory'],
                                             daq_mode=FileDAQModes.Burst,
-                                            observation_metadata=metadata)
+                                            observation_metadata=conf['observation_metadata'])
 
     channel_file.set_metadata(n_chans=conf['nof_channels'],
                               n_antennas=conf['nof_antennas'],
@@ -571,7 +569,7 @@ def start_channel_data_consumer(callback=None, metadata=None):
         logging.info("Started channel data consumer")
 
 
-def start_continuous_channel_data_consumer(callback=None, metadata=None):
+def start_continuous_channel_data_consumer(callback=None):
     """ Start continuous channel data consumer
         :param callback: Caller callback
         :param metadata: Any observation metadata to be added to the generated data files
@@ -601,7 +599,7 @@ def start_continuous_channel_data_consumer(callback=None, metadata=None):
     # Create data persister 
     channel_file = ChannelFormatFileManager(root_path=conf['directory'],
                                             daq_mode=FileDAQModes.Continuous,
-                                            observation_metadata=metadata)
+                                            observation_metadata=conf['observation_metadata'])
     channel_file.set_metadata(n_chans=1,
                               n_antennas=conf['nof_antennas'],
                               n_pols=conf['nof_polarisations'],
@@ -615,7 +613,7 @@ def start_continuous_channel_data_consumer(callback=None, metadata=None):
         logging.info("Started continuous channel data consumer")
 
 
-def start_integrated_channel_data_consumer(callback=None, metadata=None):
+def start_integrated_channel_data_consumer(callback=None):
     """ Start integrated channel data consumer
         :param callback: Caller callback
         :param metadata: Any observation metadata to be added to the generated data files
@@ -639,7 +637,7 @@ def start_integrated_channel_data_consumer(callback=None, metadata=None):
     # Create data persister
     channel_file = ChannelFormatFileManager(root_path=conf['directory'], data_type='uint16',
                                             daq_mode=FileDAQModes.Integrated,
-                                            observation_metadata=metadata)
+                                            observation_metadata=conf['observation_metadata'])
     channel_file.set_metadata(n_chans=conf['nof_channels'],
                               n_antennas=conf['nof_antennas'],
                               n_pols=conf['nof_polarisations'],
@@ -656,7 +654,7 @@ def start_integrated_channel_data_consumer(callback=None, metadata=None):
         logging.info("Started integrated channel data consumer")
 
 
-def start_beam_data_consumer(callback=None, metadata=None):
+def start_beam_data_consumer(callback=None):
     """ Start beam data consumer
         :param callback: Caller callback
         :param metadata: Any observation metadata to be added to the generated data files
@@ -680,7 +678,7 @@ def start_beam_data_consumer(callback=None, metadata=None):
     # Create data persister
     beam_file = BeamFormatFileManager(root_path=conf['directory'], data_type='complex16',
                                       daq_mode=FileDAQModes.Burst,
-                                      observation_metadata=metadata)
+                                      observation_metadata=conf['observation_metadata'])
 
     beam_file.set_metadata(n_chans=conf['nof_beam_channels'],
                            n_pols=conf['nof_polarisations'],
@@ -696,7 +694,7 @@ def start_beam_data_consumer(callback=None, metadata=None):
         logging.info("Started beam data consumer")
 
 
-def start_integrated_beam_data_consumer(callback=None, metadata=None):
+def start_integrated_beam_data_consumer(callback=None):
     """ Start integrated beam data consumer
         :param callback: Caller callback
         :param metadata: Any observation metadata to be added to the generated data files
@@ -722,7 +720,7 @@ def start_integrated_beam_data_consumer(callback=None, metadata=None):
     beam_file = BeamFormatFileManager(root_path=conf['directory'], 
                                       data_type='uint32',
                                       daq_mode=FileDAQModes.Integrated,
-                                      observation_metadata=metadata)
+                                      observation_metadata=conf['observation_metadata'])
 
     beam_file.set_metadata(n_chans=384,
                            n_pols=conf['nof_polarisations'],
@@ -741,7 +739,7 @@ def start_integrated_beam_data_consumer(callback=None, metadata=None):
         logging.info("Started integrated beam data consumer")
 
 
-def start_station_beam_data_consumer(callback=None, metadata=None):
+def start_station_beam_data_consumer(callback=None):
     """ Start station beam data consumer
         :param callback: Caller callback
         :param metadata: Any observation metadata to be added to the generated data files
@@ -762,7 +760,7 @@ def start_station_beam_data_consumer(callback=None, metadata=None):
     # Create data persister
     beam_file_mgr = StationBeamFormatFileManager(root_path=conf['directory'], data_type='double',
                                                  daq_mode=FileDAQModes.Integrated,
-                                                 observation_metadata=metadata)
+                                                 observation_metadata=conf['observation_metadata'])
 
     beam_file_mgr.set_metadata(n_chans=conf['nof_beam_channels'],
                                n_pols=conf['nof_polarisations'],
@@ -779,7 +777,7 @@ def start_station_beam_data_consumer(callback=None, metadata=None):
         logging.info("Started station beam data consumer")
 
 
-def start_correlator(callback=None, metadata=None):
+def start_correlator(callback=None):
     """ Start correlator
         :param callback: Caller callback
         :param metadata: Any observation metadata to be added to the generated data files
@@ -804,7 +802,7 @@ def start_correlator(callback=None, metadata=None):
     # Create data persister
     corr_file = CorrelationFormatFileManager(root_path=conf['directory'],
                                              data_type=b"complex64",
-                                             observation_metadata=metadata)
+                                             observation_metadata=conf['observation_metadata'])
 
     nof_baselines = int((conf['nof_tiles'] * conf['nof_antennas'] + 1) * 0.5 * conf['nof_tiles'] * conf['nof_antennas'])
     corr_file.set_metadata(n_chans=1,
@@ -960,6 +958,19 @@ def populate_configuration(configuration):
             conf['receiver_ip'] = get_ip_address(conf['receiver_interface'].encode())
         except IOError as e:
             logging.error("Interface does not exist or could not get it's IP: {}".format(e))
+
+    # Get metadata
+    metadata = {'software_version': get_software_version(),
+                'description': conf['description']}
+    if conf['station_config'] is not None:
+        if os.path.exists(conf['station_config']) and os.path.isfile(conf['station_config']):
+            metadata.update(get_station_information(conf['station_config']))
+        else:
+            logging.warning(
+                "Provided station config file ({}) in invalid, ignoring.".format(conf['station_config']))
+
+    # Set metadata
+    conf['observation_metadata'] = metadata
 
 
 def initialise_daq():
@@ -1230,8 +1241,8 @@ if __name__ == "__main__":
     ch.setFormatter(str_format)
     log.addHandler(ch)
 
-    # if config.max_filesize is not None:
-    #     aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = config.max_filesize
+    if config.max_filesize is not None:
+        aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = config.max_filesize
 
     # Populate configuration
     populate_configuration(config)
@@ -1242,46 +1253,40 @@ if __name__ == "__main__":
         logging.error("No DAQ mode was set. Exiting")
         exit(0)
 
-    # Get metadata
-    metadata = {'software_version':  get_software_version(),
-                'description': config.description}
-    if config.station_config is not None:
-        metadata.update(get_station_information(config.station_config))
-
     # Initialise library
     initialise_daq()
 
     # ------------------------------- Raw data consumer ------------------------------------------
     if config.read_raw_data:
-        start_raw_data_consumer(metadata=metadata)
+        start_raw_data_consumer()
 
     # ----------------------------- Channel data consumers ----------------------------------------
     # Running in integrated data mode
     if config.integrated_channel:
-        start_integrated_channel_data_consumer(metadata=metadata)
+        start_integrated_channel_data_consumer()
 
     # Running in continuous channel mode
     if config.continuous_channel:
-        start_continuous_channel_data_consumer(metadata=metadata)
+        start_continuous_channel_data_consumer()
 
     # Running in burst mode
     if config.read_channel_data:
-        start_channel_data_consumer(metadata=metadata)
+        start_channel_data_consumer()
 
     # ------------------------------- Beam data consumers -----------------------------------------
     if config.read_beam_data:
-        start_beam_data_consumer(metadata=metadata)
+        start_beam_data_consumer()
 
     if config.integrated_beam:
-        start_integrated_beam_data_consumer(metadata=metadata)
+        start_integrated_beam_data_consumer()
 
     if config.station_beam:
-        start_station_beam_data_consumer(metadata=metadata)
+        start_station_beam_data_consumer()
 
     # --------------------------------------- Correlator ------------------------------------------
     # Correlator mode
     if config.correlator:
-        start_correlator(metadata=metadata)
+        start_correlator()
 
     logging.info("Ready to receive data. Enter 'quit' to quit")
 
