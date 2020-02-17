@@ -1,35 +1,42 @@
+from __future__ import division
+
+import datetime
+import logging
+import os
+import re
+import shutil
+import signal
+import sys
+import tempfile
+import threading
+from builtins import range
+from builtins import str
+from math import floor
+from multiprocessing import Process
+from time import sleep
+
+import h5py
+import numpy as np
+import pexpect
+from past.utils import old_div
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
+
+from pyaavs import station
+from pydaq import daq_receiver as receiver
+
 # This script is meant to run in the background and intercepts integrated channelised data
 # from a single station. The script does not control the data transmission, it just listed
 # wait for incoming data. An instance of this script is meant to be associated with a single
 # station. This means that different data streams need to be transmitted to different
 # ports. This port is defined in the provided configuration file for the station
-#!/usr/bin/env python2
-
-from pydaq import daq_receiver as receiver
-from pyaavs import station
-
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
-from multiprocessing import Process
-from math import floor
-from time import sleep
-import numpy as np
-import threading
-import datetime
-import tempfile
-import logging
-import pexpect
-import signal
-import shutil
-import h5py
-import sys
-import os
-import re
+# !/usr/bin/env python2
 
 try:
     from aavs_calibration.common import *
-except:
-    pass
+except ImportError:
+    print("AAVS Calibration need to be installed to use monitor_bandpasses. Exiting")
+    exit()
 
 
 # Global parameters
@@ -119,7 +126,7 @@ def monitor_delays(frequency, reference_antenna, test_antenna, reference_pol, te
         return
 
     # Define readout register pointer
-    channel = int(floor(frequency / (400 / 512.0)))
+    channel = int(floor(old_div(frequency, (400 / 512.0))))
     readout_ptr_register = (channel << 16) + (input_1_ptr << 8) + input_0_ptr
     logging.info("Delay measurement using channel {}".format(channel))
 
@@ -191,10 +198,9 @@ def plotting_thread_function(plotting_directory, station_name):
     # Import and setup matplotlib
     from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
     from matplotlib.figure import Figure
-    import matplotlib.colors as colors
 
     _directory = plotting_directory
-    _freq_range = np.arange(1, nof_channels) * (bandwidth / nof_channels)
+    _freq_range = np.arange(1, nof_channels) * (old_div(bandwidth, nof_channels))
     _filename_expression = re.compile(r"channel_integ_(?P<tile>\d+)_(?P<timestamp>\d+_\d+)_0.hdf5")
 
     # Define fibre - antenna mapping
@@ -219,7 +225,7 @@ def plotting_thread_function(plotting_directory, station_name):
     for antenna in range(nof_antennas_per_tile):
         tpm_input = _fibre_preadu_mapping[antenna]
         plot_lines.append(ax.plot(_freq_range,
-                          range(511),
+                          list(range(511)),
                           label="Antenna {} (RX {})".format(antenna, tpm_input),
                           color=_ribbon_color[tpm_input],
                           linewidth=0.6)[0])
@@ -304,7 +310,6 @@ def generate_rms_plots(config, directory):
     # Import and setup matplotlib
     from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
     from matplotlib.figure import Figure
-    import matplotlib.colors as colors
 
     def _connect_station():
         """ Return a connected station """
@@ -538,7 +543,7 @@ def bandpass_monitor(config_path, plot_directory, interface, monitor_rms=False):
 
 if __name__ == "__main__":
     from optparse import OptionParser
-    from sys import argv, stdout
+    from sys import argv
 
     parser = OptionParser(usage="usage: %monitor_bandpasses [options]")
     parser.add_option("--config", action="store", dest="config",

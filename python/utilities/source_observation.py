@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 from pydaq import daq_receiver as receiver
-from .offline_correlator import *
+from offline_correlator import *
 from datetime import datetime, timedelta
 from pyaavs import station
 from time import sleep

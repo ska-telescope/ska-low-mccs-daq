@@ -1,3 +1,7 @@
+from __future__ import print_function
+from __future__ import division
+from builtins import range
+from past.utils import old_div
 from aavs_calibration.models import FibreDelay
 from pyaavs import station
 
@@ -77,7 +81,7 @@ def monitor_delays(frequency, reference_antenna, test_antenna, reference_pol, te
         return
 
     # Define readout register pointer
-    channel = int(floor(frequency / (400 / 512.0)))
+    channel = int(floor(old_div(frequency, (400 / 512.0))))
     readout_ptr_register = (channel << 16) + (input_1_ptr << 8) + input_0_ptr
     _change_frequency(int(round(frequency)))
     logging.info("Delay measurement using channel {}".format(channel))
@@ -137,7 +141,7 @@ def monitor_delays(frequency, reference_antenna, test_antenna, reference_pol, te
         # Save the median to the database
 #        new_delay = FibreDelay(frequency=frequency, delay=np.median(phase_diffs), measurement_time=datetime.now())
  #       new_delay.save()
-	print np.median(phase_diffs)
+	print(np.median(phase_diffs))
 
         # Sleep for a while
         sleep(cadence)

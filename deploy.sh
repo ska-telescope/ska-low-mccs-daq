@@ -1,6 +1,9 @@
 #!/bin/bash
 
-echo -e "\n==== Configuring AAVS DAQ ====\n"
+echo "This script has not been updated yet. Do not use."
+exit
+
+echo -e "\n==== Configuring AAVS System  ====\n"
 
 # Currently, AAVS LMC has to be installed in this directory
 # DO NOT CHANGE!
@@ -47,33 +50,24 @@ function create_install() {
 echo "Installing required system packages"
 sudo apt-get -q install --force-yes --yes $(grep -vE "^\s*#" requirements.apt  | tr "\n" " ")
 
-# DAQ needs gcc-5+
-# Todo, check installed gcc version
-#sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-#sudo apt-get update
-#sudo apt-get -q install --force-yes --yes gcc-5 g++-5
-
-# Set CXX compiler
-#export CXX=/usr/bin/g++-5
-
 # Create installation directory
 create_install
 echo "Created installed directory tree"
 
 # Installing requirements for eBPF
-CODENAME=`lsb_release -c`
-sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D4284CDD
-echo "deb https://repo.iovisor.org/apt "${CODENAME//Codename:}" main" | sudo tee /etc/apt/sources.list.d/iovisor.list
-sudo apt-get update
-sudo apt-get -q install --force-yes --yes binutils bcc bcc-tools libbcc-examples python-bcc
+#CODENAME=`lsb_release -c`
+#sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D4284CDD
+#echo "deb https://repo.iovisor.org/apt "${CODENAME//Codename:}" main" | sudo tee /etc/apt/sources.list.d/iovisor.list
+#sudo apt-get update
+#sudo apt-get -q install --force-yes --yes binutils bcc bcc-tools libbcc-examples python-bcc
 
 # Build C++ library
-echo "Building C++ library"
-pushd src
+echo "Building Source"
+pushd src || exit
 if [ ! -d build ]; then
   mkdir build
 fi
-pushd build
+pushd build || exit
 
 # Check if AAVS_PATH exists, and if so cd to it
 if [ -z $AAVS_INSTALL ]; then
@@ -84,11 +78,11 @@ else
   cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL/lib -DWITH_CORRELATOR=OFF ..
   make -B -j4 install
 fi
-popd
-popd
+popd || exit
+popd || exit
 
 # Install required python packages
-pushd python
+pushd python || exit
 
 # Check if we are using python in virtual env, if not we need to install
 # numpy via synaptic (not sure why)
@@ -106,7 +100,7 @@ sudo setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep `rea
 python setup.py install
 
 # Link required scripts to bin directory
-pushd pydaq
+pushd pydaq || exit
 FILE=$AAVS_BIN/daq_plotter.py
 if [ ! -e $FILE ]; then
   ln -s $PWD/daq_plotter.py $FILE
@@ -117,7 +111,8 @@ if [ ! -e $FILE ]; then
   ln -s $PWD/daq_receiver.py $FILE
 fi
 
-popd
+popd || exit
 
 # Finished with python
-popd
+popd || exit
+

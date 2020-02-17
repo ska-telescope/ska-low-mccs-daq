@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import range
 from pydaq.persisters import ChannelFormatFileManager, FileDAQModes
 from aavs_calibration.common import get_antenna_positions
 from pydaq import daq_receiver as receiver
