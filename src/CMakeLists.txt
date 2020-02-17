@@ -26,7 +26,9 @@ set(AAVS_FILES RawData.cpp
         BeamformedData.cpp
         BeamformedData.h
         StationData.cpp
-        StationData.h)
+        StationData.h
+        StationDataRaw.h
+        StationDataRaw.cpp)
 
 # Add correlator if required
 if (WITH_CORRELATOR)
@@ -62,6 +64,10 @@ endif()
 # Create executable
 add_executable(test_aavs test_aavs.cpp)
 target_link_libraries(test_aavs aavsdaq)
+
+# Create executable
+add_executable(acquire_station_beam acquire_station_beam.cpp)
+target_link_libraries(acquire_station_beam aavsdaq)
 
 # Install library
 install(TARGETS "aavsdaq" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
