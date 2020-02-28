@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='aavs-system',
     version='1.0',
-    packages=['pydaq', 'pydaq.persisters', 'pydaq.plotters', 'pyaavs', 'aavs_calibration'],
+    packages=['pydaq', 'pydaq.persisters', 'pydaq.plotters', 'pyaavs', 'aavs_calibration', "aavs_subrack"],
     url='https://bitbucket.org/aavslmc/aavs-system',
     license='',
     author='Alessio Magro',
