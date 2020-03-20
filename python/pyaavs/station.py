@@ -37,7 +37,8 @@ configuration = {'tiles': None,
                      'channel_truncation': 5,
                      'channel_integration_time': -1,
                      'beam_integration_time': -1,
-                     'equalize_preadu': True,
+                     'equalize_preadu': 0,
+                     'default_preadu_attenuation': 0,
                      'beamformer_scaling': 4,
                      'pps_delays': 0},
                  'observation': {
@@ -313,11 +314,18 @@ class Station(object):
             self._station_post_synchronisation()
             self._synchronise_tiles(self.configuration['network']['lmc']['use_teng'])
 
-            # Equalize signals
-            if not self.configuration['station']['enable_test'] and self.configuration['station']['equalize_preadu']:
-                logging.info("Equalizing PREADU signals")
+            # Setting PREADU values
+            att_value = self.configuration['station']['default_preadu_attenuation']
+            if not (self.configuration['station']['enable_test'] or att_value == -1):
+                # Set default preadu attenuation
                 time.sleep(1)
-                self.equalize_preadu_gain()
+                logging.info("Setting default PREADU attenuation to {}".format(att_value))
+                self.set_preadu_attenuation(att_value)
+
+                # If equalization is required, do it
+                if self.configuration['station']['equalize_preadu'] != 0:
+                    logging.info("Equalizing PREADU signals")
+                    self.equalize_preadu_gain()
 
         elif not self.properly_formed_station:
             logging.warning("Some tiles were not initialised or programmed. Not forming station")
