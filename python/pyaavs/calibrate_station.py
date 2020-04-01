@@ -13,6 +13,7 @@ import time
 import os
 
 from pyaavs import station
+import pyaavs.logging
 
 antenna_preadu_mapping = {0: 1, 1: 2, 2: 3, 3: 4,
                           8: 5, 9: 6, 10: 7, 11: 8,
@@ -202,14 +203,6 @@ if __name__ == "__main__":
     parser.add_option("--skip-amp", action="store_true", dest="skip_amp", default=False,
                       help="Ignore amplitude coefficient (set to 1) [default: False]")
     (opts, args) = parser.parse_args(argv[1:])
-
-    # Set logging
-    log = logging.getLogger('')
-    log.setLevel(logging.INFO)
-    line_format = logging.Formatter("%(asctime)s - %(levelname)s - %(threadName)s - %(message)s")
-    ch = logging.StreamHandler(stdout)
-    ch.setFormatter(line_format)
-    log.addHandler(ch)
 
     # Check if a configuration file was defined
     if opts.config is None:

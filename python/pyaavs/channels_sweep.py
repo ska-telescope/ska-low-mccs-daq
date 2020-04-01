@@ -8,6 +8,7 @@
 # 
 
 from pyaavs import station
+import pyaavs.logging
 
 import logging
 import time
@@ -30,14 +31,6 @@ if __name__ == "__main__":
                       type="int", default=15, help="Time on channel in seconds [default: %default seconds]")
 
     (conf, args) = parser.parse_args(argv[1:])
-
-    # Set logging
-    log = logging.getLogger('')
-    log.setLevel(logging.INFO)
-    line_format = logging.Formatter("%(asctime)s - %(levelname)s - %(threadName)s - %(message)s")
-    ch = logging.StreamHandler(stdout)
-    ch.setFormatter(line_format)
-    log.addHandler(ch)
 
     # Connect to station
     station.load_configuration_file(conf.config)

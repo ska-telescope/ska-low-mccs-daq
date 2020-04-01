@@ -3,6 +3,7 @@ from builtins import input
 from builtins import range
 from pydaq import daq_receiver as receiver
 from pyaavs import station
+import pyaavs.logging
 
 from matplotlib import pyplot as plt
 from threading import Thread
@@ -130,14 +131,6 @@ if __name__ == "__main__":
                       default=False, help="Show live plot (default: False)")
 
     (opts, args) = parser.parse_args(argv[1:])
-
-    # Set logging
-    log = logging.getLogger('')
-    log.setLevel(logging.INFO)
-    line_format = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    ch = logging.StreamHandler(stdout)
-    ch.setFormatter(line_format)
-    log.addHandler(ch)
 
     # Check if a configuration file was defined
     if opts.config is None or not os.path.exists(opts.config):

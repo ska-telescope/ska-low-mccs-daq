@@ -5,6 +5,7 @@ from __future__ import division
 from builtins import input
 from builtins import str
 from builtins import range
+import threading
 import fcntl
 import socket
 import struct
@@ -13,7 +14,7 @@ import numpy as np
 
 from pydaq.interface import *
 from pydaq.persisters import *
-
+import pyaavs.logging
 
 # Define consumer types enum
 class DaqModes(Enum):
@@ -1081,8 +1082,15 @@ def get_station_information(station_config):
 def get_software_version():
     """ Get current software version. This will get the latest git commit hash"""
     try:
+
+        if "AAVS_SOFTWARE_DIRECTORY" not in os.environ:
+            logging.error("AAVS_SOFTWARE_DIRECTORY not defined, cannot write software version")
+            return 0x0
+
+        path = os.path.expanduser(os.environ['AAVS_SOFTWARE_DIRECTORY'])
+
         import git
-        repo = git.Repo(search_parent_directories=True)
+        repo = git.Repo(path)
         return repo.head.object.hexsha
     except Exception as e:
         logging.warning("Could not get software git hash. Skipping")
@@ -1231,15 +1239,8 @@ if __name__ == "__main__":
 
     (config, args) = parser.parse_args(argv[1:])
 
-    # Set logging
-    log = logging.getLogger('')
-    log.setLevel(logging.INFO)
-    str_format = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    from sys import stdout
-
-    ch = logging.StreamHandler(stdout)
-    ch.setFormatter(str_format)
-    log.addHandler(ch)
+    # Set current thread name
+    threading.currentThread().name = "DAQ"
 
     if config.max_filesize is not None:
         aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = config.max_filesize

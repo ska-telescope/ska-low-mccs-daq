@@ -15,6 +15,7 @@ from astropy.time import TimeDelta
 from astropy.time.core import Time
 from astropy.utils.exceptions import AstropyWarning
 
+from pyaavs import logging
 from pyaavs import station
 
 try:
@@ -291,14 +292,6 @@ if __name__ == "__main__":
                       help="Time at which to generate pointing delays. Format: dd/mm/yyyy_hh:mm [default: now]")
 
     (opts, args) = parser.parse_args(argv[1:])
-
-    # Set logging
-    log = logging.getLogger('')
-    log.setLevel(logging.INFO)
-    line_format = logging.Formatter("%(asctime)s - %(levelname)s - %(threadName)s - %(message)s")
-    ch = logging.StreamHandler(stdout)
-    ch.setFormatter(line_format)
-    log.addHandler(ch)
 
     # Check if a configuration file was defined
     if opts.config is None or not os.path.exists(opts.config):

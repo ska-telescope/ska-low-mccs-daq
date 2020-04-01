@@ -10,6 +10,7 @@ from past.utils import old_div
 
 from pyaavs.tile import Tile
 from pyfabil import Device
+import pyaavs.logging
 
 from multiprocessing import Pool
 from threading import Thread
@@ -62,7 +63,7 @@ configuration = {'tiles': None,
                          'dst_ip': "10.0.10.200",
                          'src_mac': None}
                  }
-                 }
+                }
 
 
 def create_tile_instance(config, tile_number):
@@ -416,6 +417,8 @@ class Station(object):
 
             for preadu in tile.tpm.preadu:
                 preadu.write_configuration()
+
+        logging.info("Equalized station")
 
     def set_preadu_attenuation(self, attenuation):
         """ Set same preadu attenuation in all preadus """
@@ -1120,14 +1123,6 @@ if __name__ == "__main__":
                       type="float", default=None, help="Beamformer scaling [default: None]")
 
     (conf, args) = parser.parse_args(argv[1:])
-
-    # Set logging
-    log = logging.getLogger('')
-    log.setLevel(logging.INFO)
-    line_format = logging.Formatter("%(asctime)s - %(levelname)s - %(threadName)s - %(message)s")
-    ch = logging.StreamHandler(stdout)
-    ch.setFormatter(line_format)
-    log.addHandler(ch)
 
     # Set current thread name
     threading.currentThread().name = "Station"
