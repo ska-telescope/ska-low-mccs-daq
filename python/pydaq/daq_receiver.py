@@ -802,7 +802,7 @@ def start_correlator(callback=None):
 
     # Create data persister
     corr_file = CorrelationFormatFileManager(root_path=conf['directory'],
-                                             data_type=b"complex64",
+                                             data_type="complex64",
                                              observation_metadata=conf['observation_metadata'])
 
     nof_baselines = int((conf['nof_tiles'] * conf['nof_antennas'] + 1) * 0.5 * conf['nof_tiles'] * conf['nof_antennas'])
@@ -813,7 +813,7 @@ def start_correlator(callback=None):
                            n_stokes=conf['nof_polarisations'] * conf['nof_polarisations'],
                            n_baselines=nof_baselines)
     persisters[DaqModes.CORRELATOR_DATA] = corr_file
-
+    
     # Set sampling time
     sampling_time[DaqModes.CORRELATOR_DATA] = conf['nof_correlator_samples'] / float(conf['sampling_rate'])
 
