@@ -47,7 +47,7 @@ static void print_usage(char *name)
 std::cerr << "Usage: " << name << " <option(s)>\n"
           << "Options:\n"
           << "\t-d DIRECTORY \t\tBase directory where to store data\n"
-          << "\t-d DURATION \t\tDuration to acquire in seconds\n"
+          << "\t-t DURATION \t\tDuration to acquire in seconds\n"
           << "\t-s NOF_SAMPLES\tNumber of samples\n"
           << "\t-c CHANNEL\tLogical channel ID to store\n"
           << "\t-i INTERFACE\tNetwork interface to use\n"

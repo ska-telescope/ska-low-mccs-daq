@@ -5,7 +5,7 @@ import mongoengine
 from aavs_calibration.models import CalibrationSolution, CalibrationCoefficient, Antenna, Station
 
 DB_NAME = 'aavs'    # change name to create another database
-HOST = 'localhost'  # insert IP address or url here
+HOST = '10.0.10.200'  # insert IP address or url here
 PORT = 27017        # mongodb standard port
 
 

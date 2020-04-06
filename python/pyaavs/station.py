@@ -8,6 +8,7 @@ from builtins import range
 from builtins import object
 from past.utils import old_div
 
+from pyaavs.slack import get_slack_instance
 from pyaavs.tile import Tile
 from pyfabil import Device
 import pyaavs.logging
@@ -63,7 +64,7 @@ configuration = {'tiles': None,
                          'dst_ip': "10.0.10.200",
                          'src_mac': None}
                  }
-                }
+            }
 
 
 def create_tile_instance(config, tile_number):
@@ -168,6 +169,13 @@ class Station(object):
         self.configuration = config
         self._station_id = config['station']['id']
 
+        # Check if station name is specified
+        self._slack = None
+        if config['station']['name'] == "":
+            logging.warning("Station name not defined, will be able to push notifications to Slack")
+        else:
+            self._slack = get_slack_instance(config['station']['name'])
+
         # Add tiles to station
         self.tiles = []
         for tile in config['tiles']:
@@ -221,6 +229,7 @@ class Station(object):
         # Check if we are programming the CPLD, and if so program
         if self.configuration['station']['program_cpld']:
             logging.info("Programming CPLD")
+            self._slack.info("CPLD is being updated for tiles: {}".format(self.tiles))
             res = pool.map(program_cpld, params)
 
             if not all(res):
@@ -230,6 +239,7 @@ class Station(object):
         # Check if programming is required, and if so program
         if self.configuration['station']['program'] and self.properly_formed_station:
             logging.info("Programming tiles")
+            self._slack.info("Station is being programmed")
             res = pool.map(program_fpgas, params)
 
             if not all(res):
@@ -239,6 +249,7 @@ class Station(object):
         # Check if initialisation is required, and if so initialise
         if self.configuration['station']['initialise'] and self.properly_formed_station:
             logging.info("Initialising tiles")
+            self._slack.info("Station is being initialised")
             res = pool.map(initialise_tile, params)
 
             if not all(res):
@@ -273,6 +284,12 @@ class Station(object):
                 round(old_div(self.configuration['observation']['start_frequency_channel'], (400e6 / 512.0))))
             nof_channels = max(int(round(old_div(self.configuration['observation']['bandwidth'], (400e6 / 512.0)))), 8)
 
+            if self.configuration['station']['start_beamformer']:
+                logging.info("Station beamformer enabled")
+                self._slack.info("Station beamformer enabled with start frequency {:.2f} MHz and bandwidth {:.2f} MHz".format(
+                    self.configuration['observation']['start_frequency_channel'] * 1e-6,
+                    self.configuration['observation']['bandwidth'] * 1e-6))
+
             for i, tile in enumerate(self.tiles):
                 # Initialise beamformer
                 tile.initialise_beamformer(start_channel, nof_channels, i == 0, i == len(self.tiles) - 1)
@@ -285,7 +302,6 @@ class Station(object):
 
                 # Start beamformer
                 if self.configuration['station']['start_beamformer']:
-                    logging.info("Starting station beamformer")
                     tile.start_beamformer(start_time=0, duration=-1)
 
                     # Set beamformer scaling
@@ -356,6 +372,8 @@ class Station(object):
     def equalize_preadu_gain(self, required_rms=20):
         """ Equalize the preadu gain to get target RMS"""
 
+        self._slack.info("Station gains are being equalized to ADU RMS {}".format(required_rms))
+
         preadu_signal_map = {0: {'preadu_id': 1, 'channel': 14},
                              1: {'preadu_id': 1, 'channel': 15},
                              2: {'preadu_id': 1, 'channel': 12},
@@ -422,6 +440,8 @@ class Station(object):
 
     def set_preadu_attenuation(self, attenuation):
         """ Set same preadu attenuation in all preadus """
+
+        self._slack.info("Station attenuations are being set to {}".format(attenuation))
 
         # Loop over all tiles
         for tile in self.tiles:
@@ -777,6 +797,7 @@ class Station(object):
 
         # Done downloading coefficient, switch calibration bank
         self.switch_calibration_banks(2048)
+        self._slack.info("Calibration coefficients loaded to station")
         logging.info("Switched calibration banks")
 
     def switch_calibration_banks(self, switch_time=0):
@@ -809,6 +830,8 @@ class Station(object):
 
         if load_time < self.tiles[0].current_tile_beamformer_frame():
             logging.warning("Delay loading not synchronised!")
+
+        self._slack.info("Pointing delays loaded to station")
 
     # ------------------------------------ DATA OPERATIONS -------------------------------------------
 

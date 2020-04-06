@@ -9,9 +9,12 @@ import threading
 import fcntl
 import socket
 import struct
+import signal
+import yaml
 
 import numpy as np
 
+from pyaavs.slack import get_slack_instance
 from pydaq.interface import *
 from pydaq.persisters import *
 import pyaavs.logging
@@ -73,6 +76,9 @@ modes = ["read_raw_data", "read_beam_data", "integrated_beam", "station_beam", "
 
 # Logging function
 logging_function = None
+
+# Global slack reference
+slack = get_slack_instance("")
 
 
 # -------------------------------------------------- HELPERS ---------------------------------------------
@@ -959,6 +965,7 @@ def populate_configuration(configuration):
             conf['receiver_ip'] = get_ip_address(conf['receiver_interface'].encode())
         except IOError as e:
             logging.error("Interface does not exist or could not get it's IP: {}".format(e))
+            exit()
 
     # Get metadata
     metadata = {'software_version': get_software_version(),
@@ -1099,6 +1106,9 @@ def get_software_version():
 
 # ----------------------------------------- Script Body ------------------------------------------------
 
+# Signal handler for handling Ctrl-C
+def _signal_handler(signum, frame):
+    logging.info("Ctrl-C detected. Please press 'q' then Enter to quit")
 
 # Callbacks
 callbacks = {DaqModes.RAW_DATA: DATA_CALLBACK(raw_data_callback),
@@ -1248,11 +1258,22 @@ if __name__ == "__main__":
     # Populate configuration
     populate_configuration(config)
 
+    # If station configuration is defined, then we can push updates to slack
+    station_name = ""
+    if 'station_config' in conf['observation_metadata'].keys():
+        with open(config.station_config, 'r') as f:
+            c = yaml.load(f, Loader=yaml.FullLoader)
+            station_name = c['station']['name']
+    slack = get_slack_instance(station_name)
+
     # Check if any mode was chosen
     if not any([config.read_beam_data, config.read_channel_data, config.read_raw_data, config.correlator,
                 config.continuous_channel, config.integrated_beam, config.integrated_channel, config.station_beam]):
         logging.error("No DAQ mode was set. Exiting")
         exit(0)
+
+    # Push command to slack
+    slack.info("DAQ running with command:\n {}".format(' '.join(argv)))
 
     # Initialise library
     initialise_daq()
@@ -1289,7 +1310,10 @@ if __name__ == "__main__":
     if config.correlator:
         start_correlator()
 
-    logging.info("Ready to receive data. Enter 'quit' to quit")
+    logging.info("Ready to receive data. Enter 'q' to quit")
+
+    # Setup signal handler
+    signal.signal(signal.SIGINT, _signal_handler)
 
     if config.acquisition_duration > 0:
         logging.info("Collecting data for {} seconds requested".format(config.acquisition_duration))
@@ -1302,3 +1326,5 @@ if __name__ == "__main__":
 
     # Stop all running consumers and DAQ
     stop_daq()
+
+    slack.info("DAQ acquisition stopped")
