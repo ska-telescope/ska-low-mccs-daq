@@ -41,7 +41,7 @@ function create_install() {
   # Create bin directory and add to path
   if [ ! -d "$AAVS_INSTALL/bin" ]; then
     mkdir -p $AAVS_INSTALL/bin
-    export PATH=$AAVS_INSTALL/bin${PATH:+:$PATH}
+    export PATH=$AAVS_INSTALL/bin:$PATH
   fi
 
   # Export AAVS bin directory
@@ -69,7 +69,7 @@ function create_install() {
 
     # Add AAVS virtual environment alias to .bashrc
     if [[ ! -n "`cat ~/.bashrc | grep aavs_python3`" ]]; then
-      echo "alias aavs_python3=\"source \$AAVS_INSTALL/python3/bin/activate\"" >> ~/.bashrc
+      echo "alias aavs_python3=\"source \opt/aavs/python3/bin/activate\"" >> ~/.bashrc
       echo "aavs_python3" >> ~/.bashrc
       echo "Setting virtual environment alias"
     fi
@@ -107,6 +107,9 @@ source $AAVS_INSTALL/python3/bin/activate
 
 # Update pip
 pip install -U pip
+
+# Install ipython
+pip install ipython
 
 # Give python interpreter required capabilities for accessing raw sockets and kernel space
 sudo setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep $AAVS_INSTALL/python3/bin/python3
@@ -169,18 +172,21 @@ if [ -e $FILE ]; then
   sudo rm $FILE
 fi
 sudo ln -s $PWD/python/pydaq/daq_plotter.py $FILE
+chmod u+x $FILE
 
 FILE=$AAVS_BIN/daq_receiver.py
 if [ -e $FILE ]; then
   sudo rm $FILE
 fi
 ln -s $PWD/python/pydaq/daq_receiver.py $FILE
+chmod u+x $FILE
 
 FILE=$AAVS_BIN/station.py
 if [ -e $FILE ]; then
   sudo rm $FILE
 fi
 ln -s $PWD/python/pyaavs/station.py $FILE
+chmod u+x $FILE
 
 echo ""
 echo "Installation finished. Please check your .bashrc file and source it to update your environment"

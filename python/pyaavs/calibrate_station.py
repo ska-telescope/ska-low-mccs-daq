@@ -13,7 +13,7 @@ import time
 import os
 
 from pyaavs import station
-import pyaavs.logging
+import pyaavs.logger
 
 antenna_preadu_mapping = {0: 1, 1: 2, 2: 3, 3: 4,
                           8: 5, 9: 6, 10: 7, 11: 8,

@@ -3,7 +3,7 @@ from builtins import input
 from builtins import range
 from pydaq import daq_receiver as receiver
 from pyaavs import station
-import pyaavs.logging
+import pyaavs.logger
 
 from matplotlib import pyplot as plt
 from threading import Thread

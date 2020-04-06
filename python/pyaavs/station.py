@@ -11,7 +11,7 @@ from past.utils import old_div
 from pyaavs.slack import get_slack_instance
 from pyaavs.tile import Tile
 from pyfabil import Device
-import pyaavs.logging
+import pyaavs.logger
 
 from multiprocessing import Pool
 from threading import Thread

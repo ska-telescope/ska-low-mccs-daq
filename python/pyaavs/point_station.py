@@ -15,8 +15,8 @@ from astropy.time import TimeDelta
 from astropy.time.core import Time
 from astropy.utils.exceptions import AstropyWarning
 
-from pyaavs import logging
 from pyaavs import station
+import pyaavs.logger
 
 try:
     import aavs_calibration.common as calib_utils

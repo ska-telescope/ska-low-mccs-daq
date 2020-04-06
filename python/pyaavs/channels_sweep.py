@@ -8,7 +8,7 @@
 # 
 
 from pyaavs import station
-import pyaavs.logging
+import pyaavs.logger
 
 import logging
 import time
