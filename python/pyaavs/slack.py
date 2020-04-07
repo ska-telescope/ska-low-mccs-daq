@@ -103,6 +103,6 @@ def get_slack_instance(station_name):
     if station_name == "AAVS2":
         return AavsSlack(station="AAVS2")
     elif station_name == "EDA2":
-        return EDA2Slack(station="EDA2")
+        return AavsSlack(station="EDA2")
     else:
         return DummySlack()
