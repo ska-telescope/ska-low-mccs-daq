@@ -340,7 +340,7 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
 
     // Copy data from packet to buffer
     // TODO: compute index
-    memcpy(this->double_buffer[producer_index].data + (packet_counter - this->double_buffer[producer_index].index) * samples,
+    memcpy(this->double_buffer[producer_index].data + (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols,
            data_ptr,
            nof_pols * samples * sizeof(uint16_t));
 
