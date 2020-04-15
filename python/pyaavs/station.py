@@ -342,7 +342,7 @@ class Station(object):
                 # If equalization is required, do it
                 if self.configuration['station']['equalize_preadu'] != 0:
                     logging.info("Equalizing PREADU signals")
-                    self.equalize_preadu_gain()
+                    self.equalize_preadu_gain(self.configuration['station']['equalize_preadu'])
 
         elif not self.properly_formed_station:
             logging.warning("Some tiles were not initialised or programmed. Not forming station")
