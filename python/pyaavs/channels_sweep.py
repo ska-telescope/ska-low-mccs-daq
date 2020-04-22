@@ -62,28 +62,28 @@ if __name__ == "__main__":
     #    aavs_station.send_channelised_data_continuous(channel)
     #    logging.info("Staying on channel %d for %d seconds ..." % (channel, conf.time_per_channel))
     #    time.sleep(conf.time_per_channel)
-    print "Running channels_sweep for station %s" % (configuration['station']['name'])
+    logging.info("Running channels_sweep for station %s" % (configuration['station']['name']))
     
     if conf.initialise :
        if configuration['station']['name'].upper() == "EDA2" :
-          print "Initialisation required calling set_preadu_attenuation(0) (as for EDA2) :"
+          logging.info("Initialisation required calling set_preadu_attenuation(0) (as for EDA2) :")
           aavs_station.set_preadu_attenuation(0)
-          print "set_preadu_attenuation(0) executed"
+          logging.info("set_preadu_attenuation(0) executed")
        elif configuration['station']['name'].upper() == "AAVS2":
-          print "Initialisation required calling set_preadu_attenuation(0) (as for AAVS2) :"
+          logging.info("Initialisation required calling set_preadu_attenuation(0) (as for AAVS2) :")
           aavs_station.set_preadu_attenuation(10)
-          print "set_preadu_attenuation(10) executed"
+          logging.info("set_preadu_attenuation(10) executed")
           
           aavs_station.equalize_preadu_gain(16)
-          print "aavs_station.equalize_preadu_gain(16) executed"
+          logging.info("aavs_station.equalize_preadu_gain(16) executed")
        else :
-          print "WARNING : unknown station name = %s -> dont know how to optimally initialise" % (configuration['station']['name'])
+          logging.warning("WARNING : unknown station name = %s -> dont know how to optimally initialise" % (configuration['station']['name']))
           
     
     # first wait until specified time 
     if conf.start_unixtime > 0 :
        wait_time = int( conf.start_unixtime - time.time() )
-       print "Waiting %d seconds to start data acuisition ..." % (wait_time)
+       logging.info("Waiting %d seconds to start data acuisition ..." % (wait_time))
        time.sleep( wait_time )   
 
     # just to collect some initial data which is bad before collecting proper data later in the loop        
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     
     
     # running a loop over specified channel range :
-    print "Running a loop over channels %d - %d" % (conf.start_channel,conf.stop_channel)
+    logging.info("Running a loop over channels %d - %d" % (conf.start_channel,conf.stop_channel))
     channel_list = numpy.arange( conf.start_channel,conf.stop_channel,conf.step_channel )
     
     if conf.add_uav_channels :
@@ -109,7 +109,7 @@ if __name__ == "__main__":
        channel_file.close()
        
        last_channel = int( data[0] ) 
-       print "Detected %s file and read last channel = %d -> starting from next channel" % (conf.channel_file,last_channel)
+       logging.info("Detected %s file and read last channel = %d -> starting from next channel" % (conf.channel_file,last_channel))
     
     iterations = 0
     start_time = time.time()
@@ -118,18 +118,18 @@ if __name__ == "__main__":
        end_time   = start_time + conf.total_time_seconds
     curr_time = start_time
 
-    print "Start time ux = %d , end_time = %d , curr_time = %d" % (start_time,end_time,curr_time)
+    logging.info("Start time ux = %d , end_time = %d , curr_time = %d" % (start_time,end_time,curr_time))
     
     continue_loop = True
     while continue_loop and ( iterations < conf.n_iterations or conf.n_iterations <= 0 ) and curr_time < end_time :
-        print "%d - iteration over channels" % (iterations)
+        logging.info("%d - iteration over channels" % (iterations))
     
         for channel in channel_list :
-            print "Stopping previous and starting channel %d" % (channel)
+            logging.info("Stopping previous and starting channel %d" % (channel))
             aavs_station.send_channelised_data_continuous( channel )
             
             if channel > last_channel :            
-               print "%.4f : Staying on channel %d for %d seconds ..." % (time.time(),channel,conf.time_per_channel)
+               logging.info("%.4f : Staying on channel %d for %d seconds ..." % (time.time(),channel,conf.time_per_channel))
         
                # saving current channel to file :
                channel_f = open( conf.channel_file , "w")
@@ -140,27 +140,27 @@ if __name__ == "__main__":
         
                # stop transimission is commented out because it stops and then aavs_station.send_channelised_data_continuous does not wake it up again (see e-mails with Alessio starting on Thu 8/29/2019 3:20 PM )
                # aavs_station.stop_data_transmission()
-               # print "Waiting 5 seconds for things to settle down ..."
+               # logging.info("Waiting 5 seconds for things to settle down ...")
                # time.sleep( 5 )
             else :
-               print "Channel %d skipped because smaller than last_channel = %d (continuation of the interrupted loop)" % (last_channel)
+               logging.info("Channel %d skipped because smaller than last_channel = %d (continuation of the interrupted loop)" % (last_channel))
                 
         # reseting last_channel - it is only for the first iteration in case continuing "broken" iteration
         last_channel = -1
 
         iterations += 1
         curr_time = time.time()
-        print "current ux time = %d vs. end time = %d" % (curr_time,end_time)
+        logging.info("current ux time = %d vs. end time = %d" % (curr_time,end_time))
         
         # checking for existance of a "STOP_FILE"
         if os.path.exists( conf.daq_exit_file ) :
-           print "File %s found -> exiting loop now" % (conf.daq_exit_file)
+           logging.info("File %s found -> exiting loop now" % (conf.daq_exit_file))
            continue_loop = False
 
     
     # stop transimissions before exit   
     aavs_station.stop_data_transmission()
     
-    print "Loop over channels executed -> exiting script now"
+    logging.info("Loop over channels executed -> exiting script now")
     exit()
     
