@@ -372,15 +372,15 @@ def correlator_callback(data, timestamp, channel, arg2):
     if not conf['write_to_disk']:
         return
 
-    if conf['nof_correlator_channels'] == 1:
-        if channel not in list(cont_data_dumped.keys()):
-            cont_data_dumped[channel] = 1
-            logging.info("Ignoring first integration for channel {}".format(channel))
-            return
-        elif cont_data_dumped[channel] == 1:
-            logging.info("Ignoring second integration for channel {}".format(channel))
-            cont_data_dumped[channel] += 1
-            return
+    # if conf['nof_correlator_channels'] == 1:
+    #     if channel not in list(cont_data_dumped.keys()):
+    #         cont_data_dumped[channel] = 1
+    #         logging.info("Ignoring first integration for channel {}".format(channel))
+    #         return
+    #     elif cont_data_dumped[channel] == 1:
+    #         logging.info("Ignoring second integration for channel {}".format(channel))
+    #         cont_data_dumped[channel] += 1
+    #         return
 
     # Extract data sent by DAQ
     nof_antennas = conf['nof_tiles'] * conf['nof_antennas']

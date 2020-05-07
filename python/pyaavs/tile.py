@@ -1267,8 +1267,6 @@ class Tile(object):
     @connected
     def stop_data_transmission(self):
         """ Stop all data transmission from TPM"""
-
-        logging.info("Stopping all transmission")
         for k, v in self._daq_threads.items():
             if v == self._RUNNING:
                 self._daq_threads[k] = self._STOP

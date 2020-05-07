@@ -906,6 +906,7 @@ class Station(object):
 
     def stop_data_transmission(self):
         """ Stop data transmission """
+        logging.info("Stopping data transmission")
         for tile in self.tiles:
             tile.stop_data_transmission()
 
