@@ -17,6 +17,7 @@ int fd = 0;
 
 uint32_t counter = 0;
 uint32_t cutoff_counter = 0;
+int max_file_size_gb = 1;
 
 void pharos_beam_callback(void *data, double timestamp, unsigned int nof_packets, unsigned int nof_samples)
 {
@@ -52,6 +53,7 @@ std::cerr << "Usage: " << name << " <option(s)>\n"
           << "\t-c CHANNEL\tLogical channel ID to store\n"
           << "\t-i INTERFACE\tNetwork interface to use\n"
           << "\t-p IP\tInterface IP\n"
+          << "\t-m MAX_FILE_SIZE in GP\n"
           << std::endl;
 }
 
@@ -59,10 +61,13 @@ std::cerr << "Usage: " << name << " <option(s)>\n"
 static void parse_arguments(int argc, char *argv[])
 {
     int opt;
-    while ((opt = getopt(argc, argv, "d:t:s:i:p:c:")) != -1) {
+    while ((opt = getopt(argc, argv, "d:t:s:i:p:c:m:")) != -1) {
         switch (opt) {
             case 'd':
                 base_directory = string(optarg);
+                break;
+            case 'm':
+                max_file_size_gb = atoi(optarg);
                 break;
             case 't':
                 duration = (uint32_t) atoi(optarg);
@@ -87,6 +92,7 @@ static void parse_arguments(int argc, char *argv[])
 
     printf("Running acquire_station_beam with %d for logical channel %d channels and saving in directory %s for %ds\n",
             nof_samples, channel_to_store, base_directory.c_str(), duration);
+    printf("Maximum file size = %d GB\n",max_file_size_gb);
 }
 
 
@@ -95,8 +101,8 @@ int main(int argc, char *argv[])
     // Process command-line argument
     parse_arguments(argc, argv);
 
-    // Split files into 1G
-    cutoff_counter = (1024 * 1024 * 1024) / (nof_samples * 2 * sizeof(uint16_t));
+    // Split files into max_file_size_gb x 1G 
+    cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * 2 * sizeof(uint16_t));
 
     // Telescope information
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
