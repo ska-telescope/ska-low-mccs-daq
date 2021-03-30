@@ -1,20 +1,13 @@
 #! /usr/bin/env python
-from __future__ import division
-from builtins import input
-from builtins import map
-from builtins import hex
-from builtins import str
-from builtins import range
-from builtins import object
-from past.utils import old_div
-
 from pyaavs.slack import get_slack_instance
-from pyaavs.tile import Tile
+from pyaavs.tile_wrapper import Tile
 from pyfabil import Device
 import pyaavs.logger
 
+from future.utils import iteritems
 from multiprocessing import Pool
 from threading import Thread
+from builtins import input
 import threading
 import logging
 import yaml
@@ -63,8 +56,8 @@ configuration = {'tiles': None,
                          'dst_port': 4660,
                          'dst_ip': "10.0.10.200",
                          'src_mac': None}
+                    }
                  }
-            }
 
 
 def create_tile_instance(config, tile_number):
@@ -188,7 +181,7 @@ class Station(object):
         self.properly_formed_station = None
 
         # Cache plugin directory
-        __import__("pyaavs.tpm_test_firmware", fromlist=[None])
+        # __import__("pyaavs.tpm_test_firmware", fromlist=[None])
 
     def add_tile(self, tile_ip):
         """ Add a new tile to the station
@@ -280,9 +273,8 @@ class Station(object):
                         tile.set_time_delays(self.configuration['time_delays'][i])
 
             logging.info("Initializing tile and station beamformer")
-            start_channel = int(
-                round(old_div(self.configuration['observation']['start_frequency_channel'], (400e6 / 512.0))))
-            nof_channels = max(int(round(old_div(self.configuration['observation']['bandwidth'], (400e6 / 512.0)))), 8)
+            start_channel = int(round(self.configuration['observation']['start_frequency_channel'] / (400e6 / 512.0)))
+            nof_channels = max(int(round(self.configuration['observation']['bandwidth'] / (400e6 / 512.0))), 8)
 
             if self.configuration['station']['start_beamformer']:
                 logging.info("Station beamformer enabled")
@@ -302,6 +294,7 @@ class Station(object):
 
                 # Start beamformer
                 if self.configuration['station']['start_beamformer']:
+                    logging.info("Starting station beamformer")
                     tile.start_beamformer(start_time=0, duration=-1)
 
                     # Set beamformer scaling
@@ -322,9 +315,13 @@ class Station(object):
 
                 for tile in self.tiles:
                     for gen in tile.tpm.test_generator:
-                        gen.set_tone(0, old_div(100 * 800e6, 1024), 1)
-                        gen.set_tone(1, old_div(100 * 800e6, 1024), 0)
+                        gen.set_tone(0, 100 * 800e6 / 1024, 1)
+                        gen.set_tone(1, 100 * 800e6 / 1024, 0)
                         gen.channel_select(0xFFFF)
+
+            if self['fpga1.regfile.feature.xg_eth_implemented'] == 1:
+                for tile in self.tiles:
+                    tile.check_arp_table()
 
             # If initialising, synchronise all tiles in station
             logging.info("Synchronising station")
@@ -411,7 +408,7 @@ class Station(object):
         for tt, tile in enumerate(self.tiles):
 
             # Get current preadu settings
-            for preadu in tile.tpm.preadu:
+            for preadu in tile.tpm.tpm_preadu:
                 preadu.select_low_passband()
                 preadu.read_configuration()
 
@@ -421,8 +418,8 @@ class Station(object):
             # Loop over all signals
             for channel in list(preadu_signal_map.keys()):
                 # Calculate required attenuation difference
-                if old_div(rms[channel], required_rms) > 0:
-                    attenuation = 20 * math.log10(old_div(rms[channel], required_rms))
+                if rms[channel] / required_rms > 0:
+                    attenuation = 20 * math.log10(rms[channel] / required_rms)
                 else:
                     attenuation = 0
 
@@ -430,10 +427,10 @@ class Station(object):
                 pid = preadu_signal_map[channel]['preadu_id']
                 channel = preadu_signal_map[channel]['channel']
 
-                attenuation = (tile.tpm.preadu[pid].channel_filters[channel] >> 3) + attenuation
-                tile.tpm.preadu[pid].set_attenuation(int(round(attenuation)), [channel])
+                attenuation = (tile.tpm.tpm_preadu[pid].channel_filters[channel] >> 3) + attenuation
+                tile.tpm.tpm_preadu[pid].set_attenuation(int(round(attenuation)), [channel])
 
-            for preadu in tile.tpm.preadu:
+            for preadu in tile.tpm.tpm_preadu:
                 preadu.write_configuration()
 
         logging.info("Equalized station")
@@ -447,7 +444,7 @@ class Station(object):
         for tile in self.tiles:
 
             # Get current preadu settings
-            for preadu in tile.tpm.preadu:
+            for preadu in tile.tpm.tpm_preadu:
                 preadu.select_low_passband()
                 preadu.read_configuration()
                 preadu.set_attenuation(int(round(attenuation)), list(range(16)))
@@ -461,6 +458,14 @@ class Station(object):
             tile.set_station_id(self._station_id, i)
             tile.tweak_transceivers()
 
+        if self.tiles[0]['fpga1.regfile.feature.xg_eth_implemented'] == 0:
+            station['fpga1.regfile.reset.eth10g_rst'] = 0
+            station['fpga2.regfile.reset.eth10g_rst'] = 0
+            station['fpga1.regfile.reset.eth10g_rst'] = 1
+            station['fpga2.regfile.reset.eth10g_rst'] = 1
+            station['fpga1.regfile.reset.eth10g_rst'] = 0
+            station['fpga2.regfile.reset.eth10g_rst'] = 0
+
         # Loop over tiles and configure 10g cores
         # Note that 10G lanes already have a correct source IP, MAC and port,
         # all that is required is to change their destination parameters
@@ -469,14 +474,20 @@ class Station(object):
         if len(self.tiles) > 1:
             # Chain up TPMs
             for i in range(len(self.tiles) - 1):
-                for core_id in range(8):
-                    next_tile_config = self.tiles[i + 1].get_10g_core_configuration(core_id)
-                    self.tiles[i].configure_10g_core(core_id,
-                                                     dst_mac=next_tile_config['src_mac'],
-                                                     dst_ip=next_tile_config['src_ip'])
+                for core_id in range(len(self.tiles[0].tpm.tpm_10g_core)):
+                    if self.tiles[0].tpm.tpm_test_firmware[0].xg_40g_eth:
+                        next_tile_config = self.tiles[i + 1].get_40g_core_configuration(core_id)
+                        self.tiles[i].configure_40g_core(core_id, 0,
+                                                         dst_ip=next_tile_config['src_ip'])
+                    else:
+                        next_tile_config = self.tiles[i + 1].get_10g_core_configuration(core_id)
+                        self.tiles[i].configure_10g_core(core_id,
+                                                         dst_mac=next_tile_config['src_mac'],
+                                                         dst_ip=next_tile_config['src_ip'])
+
         # Create initialise configuration
         csp_ingest_network = {}
-        for core_id in range(8):
+        for core_id in range(len(self.tiles[0].tpm.tpm_10g_core)):
             csp_ingest_network[core_id] = {'dst_mac': self.configuration['network']['csp_ingest']['dst_mac'],
                                            'dst_ip': self.configuration['network']['csp_ingest']['dst_ip'],
                                            'dst_port': self.configuration['network']['csp_ingest']['dst_port'],
@@ -486,20 +497,33 @@ class Station(object):
 
         # For the last TPM, if CSP ingest parameters are not specified for the lanes
         # loop them back to the first TPM in the chain
-        for core_id in range(8):
+        for core_id in range(len(self.tiles[0].tpm.tpm_10g_core)):
             if csp_ingest_network[core_id]['dst_ip'] == "0.0.0.0":
                 next_tile_config = self.tiles[0].get_10g_core_configuration(core_id)
-                self.tiles[-1].configure_10g_core(core_id,
-                                                  dst_mac=next_tile_config['src_mac'],
-                                                  dst_ip=next_tile_config['src_ip'])
+                if self.tiles[0].tpm.tpm_test_firmware[0].xg_40g_eth:
+                    self.tiles[-1].configure_40g_core(core_id, 0,
+                                                      dst_ip=next_tile_config['src_ip'])
+                else:
+                    self.tiles[-1].configure_10g_core(core_id,
+                                                      dst_mac=next_tile_config['src_mac'],
+                                                      dst_ip=next_tile_config['src_ip'])
+
             else:
-                self.tiles[-1].configure_10g_core(core_id,
-                                                  dst_mac=csp_ingest_network[core_id]['dst_mac'],
-                                                  dst_ip=csp_ingest_network[core_id]['dst_ip'],
-                                                  dst_port=csp_ingest_network[core_id]['dst_port'],
-                                                  src_mac=csp_ingest_network[core_id]['src_mac'],
-                                                  src_ip=csp_ingest_network[core_id]['src_ip'],
-                                                  src_port=csp_ingest_network[core_id]['src_port'])
+                if self.tiles[0].tpm.tpm_test_firmware[0].xg_40g_eth:
+                    self.tiles[-1].configure_40g_core(core_id, 0,
+                                                      dst_ip=csp_ingest_network[core_id]['dst_ip'],
+                                                      dst_port=csp_ingest_network[core_id]['dst_port'],
+                                                      src_mac=csp_ingest_network[core_id]['src_mac'],
+                                                      src_ip=csp_ingest_network[core_id]['src_ip'],
+                                                      src_port=csp_ingest_network[core_id]['src_port'])
+                else:
+                    self.tiles[-1].configure_10g_core(core_id,
+                                                      dst_mac=csp_ingest_network[core_id]['dst_mac'],
+                                                      dst_ip=csp_ingest_network[core_id]['dst_ip'],
+                                                      dst_port=csp_ingest_network[core_id]['dst_port'],
+                                                      src_mac=csp_ingest_network[core_id]['src_mac'],
+                                                      src_ip=csp_ingest_network[core_id]['src_ip'],
+                                                      src_port=csp_ingest_network[core_id]['src_port'])
 
     def _synchronise_tiles(self, use_teng=False):
         """ Synchronise time on all tiles """
@@ -561,6 +585,13 @@ class Station(object):
                 # Configure integrated data streams
                 logging.info("Using 1G for integrated LMC traffic")
                 tile.set_lmc_integrated_download("1g", 1024, 2048)
+                
+        if self.tiles[0]['fpga1.regfile.feature.xg_eth_implemented'] == 0:
+            logging.info("Waiting for 10G Ethernet link...")
+            time.sleep(5)
+        else:
+            for tile in self.tiles:
+                tile.check_arp_table()
 
         # Start data acquisition on all boards
         delay = 2
@@ -755,17 +786,17 @@ class Station(object):
             for tile in self.tiles:
 
                 # Get current preadu settings
-                for preadu in tile.tpm.preadu:
+                for preadu in tile.tpm.tpm_preadu:
                     preadu.select_low_passband()
                     #  preadu.read_configuration()
 
-                    #  attenuation = (tile.tpm.preadu[i / 16].channel_filters[i % 16] >> 3) + att
+                    #  attenuation = (tile.tpm.tpm_preadu[i / 16].channel_filters[i % 16] >> 3) + att
                     preadu.set_attenuation(int(round(attenuation)))
                     preadu.write_configuration()
             time.sleep(delay)
 
     # --------------------------------- CALIBRATION OPERATIONS ---------------------------------------
-    def calibrate_station(self, coefficients):
+    def calibrate_station(self, coefficients, switch_time=2048):
         """Coefficients is a 3D complex array of the form [antenna, channel, polarization], with each 
             element representing a  normalized coefficient, with (1.0, 0.0) the normal, expected response 
             for an ideal antenna. Antenna is the index specifying the antenna within the index (using 
@@ -778,7 +809,7 @@ class Station(object):
             3: Y polarization direct element"""
 
         # Check that we have the correct coefficients shape 
-        nof_channels = int(round(old_div(self.configuration['observation']['bandwidth'], (400e6 / 512.0))))
+        nof_channels = int(round(self.configuration['observation']['bandwidth'] / (400e6 / 512.0)))
         if coefficients.shape != (len(self.tiles) * 16, nof_channels, 4):
             logging.error("Coefficients shape mismatch. Should be ({},{},4), is ({}). Not calibrating".format(
                 len(self.tiles) * 16, nof_channels, coefficients.shape))
@@ -796,7 +827,7 @@ class Station(object):
         logging.info("Downloaded coefficients to tiles in {0:.2}s".format(t1 - t0))
 
         # Done downloading coefficient, switch calibration bank
-        self.switch_calibration_banks(2048)
+        self.switch_calibration_banks(switch_time)
         self._slack.info("Calibration coefficients loaded to station")
         logging.info("Switched calibration banks")
 
@@ -923,7 +954,7 @@ class Station(object):
 
     def _check_data_sync(self, t0):
         """ Check whether data synchronisation worked """
-        delay = self._seconds * (old_div(old_div(1, (1080 * 1e-9)), 256))
+        delay = self._seconds * (1 / (1080 * 1e-9) / 256)
         timestamps = [tile.get_fpga_timestamp(Device.FPGA_1) for tile in self.tiles]
         logging.debug("Data sync check: timestamp={}, delay={}".format(str(timestamps), delay))
         return all([(t0 + delay) > t1 for t1 in timestamps])
@@ -1024,7 +1055,7 @@ class Station(object):
 
 def apply_config_file(input_dict, output_dict):
     """ Recursively copy value from input_dict to output_dict"""
-    for k, v in input_dict.items():
+    for k, v in iteritems(input_dict):
         if type(v) is dict:
             apply_config_file(v, output_dict[k])
         elif k not in list(output_dict.keys()):

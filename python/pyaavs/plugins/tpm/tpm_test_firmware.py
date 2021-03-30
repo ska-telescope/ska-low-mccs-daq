@@ -1,7 +1,3 @@
-from __future__ import division
-from builtins import hex
-from builtins import range
-from past.utils import old_div
 from math import ceil
 
 __author__ = 'Alessio Magro'
@@ -41,21 +37,28 @@ class TpmTestFirmware(FirmwareBlock):
 
         try:
             if self.board['fpga1.regfile.feature.xg_eth_implemented'] == 1:
-                xg_eth = True
+                self.xg_eth = True
             else:
-                xg_eth = False
+                self.xg_eth = False
+            if self.board['fpga1.regfile.feature.xg_eth_40g_implemented'] == 1:
+                self.xg_40g_eth = True
+            else:
+                self.xg_40g_eth = False
         except:
-            xg_eth = False
+            self.xg_eth = False
+            self.xg_40g_eth = False
 
         # Load required plugins
         self._jesd1 = self.board.load_plugin("TpmJesd", device=self._device, core=0)
         self._jesd2 = self.board.load_plugin("TpmJesd", device=self._device, core=1)
         self._fpga = self.board.load_plugin('TpmFpga', device=self._device)
-        if xg_eth:
+        if self.xg_eth and not self.xg_40g_eth:
             self._teng = [self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=0),
                           self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=1),
                           self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=2),
                           self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=3)]
+        elif self.xg_eth and self.xg_40g_eth:
+            self._fortyg = self.board.load_plugin("TpmFortyGCoreXg", device=self._device, core=0)
         else:
             self._teng = [self.board.load_plugin("TpmTenGCore", device=self._device, core=0),
                           self.board.load_plugin("TpmTenGCore", device=self._device, core=1),
@@ -188,7 +191,7 @@ class TpmTestFirmware(FirmwareBlock):
 
             # Initialise FPGAs
             # I have no idea what these ranges are
-            self._fpga.fpga_start(list(range(16)), list(range(16)))
+            self._fpga.fpga_start(range(16), range(16))
 
             retries += 1
             sleep(0.2)
@@ -202,9 +205,14 @@ class TpmTestFirmware(FirmwareBlock):
         # Initialise power meter
         self._power_meter.initialise()
 
-        # Initialise 10G cores
-        for teng in self._teng:
-            teng.initialise_core()
+        # Initialise 10G/40G cores
+        if self.xg_40g_eth:
+            self._fortyg.initialise_core()
+        else:
+            for teng in self._teng:
+                teng.initialise_core()
+
+        self._patterngen.initialise()
 
     #######################################################################################
 
@@ -232,7 +240,7 @@ class TpmTestFirmware(FirmwareBlock):
             if last_channel != 511:
                 logging.warning("Burst channel data in chunk mode is not supported by the running FPGA firmware")
         if len(self.board.find_register("%s.lmc_gen.channelized_ddc_mode" % self._device_name)) != 0:
-            self.board["%s.lmc_gen.channelized_ddc_mode" % self._device_name] = 0x0 
+            self.board["%s.lmc_gen.channelized_ddc_mode" % self._device_name] = 0x0
         self.board["%s.lmc_gen.request.channelized_data" % self._device_name] = 0x1
 
     def send_channelised_data_continuous(self, channel_id, number_of_samples=128):
@@ -245,22 +253,22 @@ class TpmTestFirmware(FirmwareBlock):
         self.board["%s.lmc_gen.channelized_pkt_length" % self._device_name] = number_of_samples - 1
         self.board["%s.lmc_gen.request.channelized_data" % self._device_name] = 0x1
         if len(self.board.find_register("%s.lmc_gen.channelized_ddc_mode" % self._device_name)) != 0:
-            self.board["%s.lmc_gen.channelized_ddc_mode" % self._device_name] = 0x0 
+            self.board["%s.lmc_gen.channelized_ddc_mode" % self._device_name] = 0x0
 
     def send_channelised_data_narrowband(self, band_frequency, round_bits, number_of_samples=128):
         """ Continuously send channelised data from a single channel in narrowband mode
-        :param band_frequency: central frequency (in Hz) of narrowband 
+        :param band_frequency: central frequency (in Hz) of narrowband
         :param round_bits: number of bits rounded after filter
         :param number_of_samples: samples per lmc packet
         """
-        channel_spacing = old_div(800e6,1024)
+        channel_spacing = 800e6/1024
         downsampling_factor = 128
         # Number of LO steps in the channel spacing
-        lo_steps_per_channel = 2.**24/32.*27    
-        if band_frequency < 50e6 or band_frequency > 350e6: 
+        lo_steps_per_channel = 2.**24/32.*27
+        if band_frequency < 50e6 or band_frequency > 350e6:
             logging.error("Invalid frequency for narrowband lmc. Must be between 50e6 and 350e6")
             return
-        hw_frequency = old_div(band_frequency,channel_spacing)
+        hw_frequency = band_frequency/channel_spacing
         channel_id = int(round(hw_frequency))
         lo_frequency = int(round((hw_frequency - channel_id)*lo_steps_per_channel)) &0xffffff
         # self.board["%s.lmc_gen.channelized_single_channel_mode.enable" % self._device_name] = 1
