@@ -458,14 +458,14 @@ class Station(object):
             tile.set_station_id(self._station_id, i)
             tile.tweak_transceivers()
 
-        if self.tiles[0]['fpga1.regfile.feature.xg_eth_implemented'] == 0:
-            for tile in self.tiles:
-                tile['fpga1.regfile.reset.eth10g_rst'] = 0
-                tile['fpga2.regfile.reset.eth10g_rst'] = 0
-                tile['fpga1.regfile.reset.eth10g_rst'] = 1
-                tile['fpga2.regfile.reset.eth10g_rst'] = 1
-                tile['fpga1.regfile.reset.eth10g_rst'] = 0
-                tile['fpga2.regfile.reset.eth10g_rst'] = 0
+        #if self.tiles[0]['fpga1.regfile.feature.xg_eth_implemented'] == 0:
+        #    for tile in self.tiles:
+        #        tile['fpga1.regfile.reset.eth10g_rst'] = 0
+        #        tile['fpga2.regfile.reset.eth10g_rst'] = 0
+        #        tile['fpga1.regfile.reset.eth10g_rst'] = 1
+        #        tile['fpga2.regfile.reset.eth10g_rst'] = 1
+        #        tile['fpga1.regfile.reset.eth10g_rst'] = 0
+        #        tile['fpga2.regfile.reset.eth10g_rst'] = 0
 
         # Loop over tiles and configure 10g cores
         # Note that 10G lanes already have a correct source IP, MAC and port,
