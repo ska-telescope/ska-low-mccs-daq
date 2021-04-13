@@ -145,7 +145,7 @@ class Tile(object):
         ip_octets = self._ip.split('.')
         for n in range(len(self.tpm.tpm_10g_core)):
             if self['fpga1.regfile.feature.xg_eth_implemented'] == 1:
-                src_ip = "10.10.{}.{}".format(n + 1, ip_octets[3])
+                src_ip = "10.0.{}.{}".format(n + 1, ip_octets[3])
             else:
                 src_ip = "10.{}.{}.{}".format(n + 1, ip_octets[2], ip_octets[3])
             # dst_ip = "10.{}.{}.{}".format((1 + n) + (4 if n < 4 else -4), ip_octets[2], ip_octets[3])
@@ -408,6 +408,7 @@ class Tile(object):
 
         ip0 = int(self.get_10g_core_configuration(0)['src_ip'])
         ip1 = int(self.get_10g_core_configuration(1)['src_ip'])
+
         ret = 0
         ret += eth0.test_start_tx(ip1, ipg=ipg)
         ret += eth1.test_start_tx(ip0, ipg=ipg)
@@ -1612,3 +1613,4 @@ class Tile(object):
 if __name__ == "__main__":
     tile = Tile(ip="10.0.10.2", port=10000)
     tile.connect()
+

@@ -122,11 +122,11 @@ class TestWrapper():
         self.log_filter()
         return ret
 
-    def initialise_station(self, max_power=False):
+    def initialise_station(self, max_power=False, start_beamformer=True):
         station_config = self.tpm_config
         station_config['station']['program'] = True
         station_config['station']['initialise'] = True
-        station_config['station']['start_beamformer'] = True
+        station_config['station']['start_beamformer'] = start_beamformer
         if max_power:
             station_config['observation']['start_frequency_channel'] = 50e6
             station_config['observation']['bandwidth'] = 300e6
@@ -231,6 +231,7 @@ class UI:
         table.append(["A)", "Execute all tests"])
         table.append(["C)", "Configure test parameters"])
         table.append(["I)", "Initialise station"])
+        table.append(["L)", "Initialise station without starting beamformer"])
         table.append(["P)", "Maximum power"])
         table.append(["D)", "ADCs power down"])
         table.append(["Q)", "Quit"])
@@ -245,9 +246,11 @@ class UI:
             elif user_input.upper() == "C":
                 self.configuration_menu()
             elif user_input.upper() == "I":
-                test_wrapper.initialise_station(max_power=False)
+                test_wrapper.initialise_station(max_power=False, start_beamformer=True)
+            elif user_input.upper() == "L":
+                test_wrapper.initialise_station(max_power=False, start_beamformer=False)
             elif user_input.upper() == "P":
-                test_wrapper.initialise_station(max_power=True)
+                test_wrapper.initialise_station(max_power=True, start_beamformer=True)
             elif user_input.upper() == "D":
                 test_wrapper.adc_power_down()
             elif user_input.upper() == "A":

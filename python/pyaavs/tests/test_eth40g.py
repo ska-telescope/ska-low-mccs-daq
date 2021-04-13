@@ -31,8 +31,8 @@ class TestEth40g():
         self._logger.debug("Preparing 40G test, duration %d seconds" % duration)
 
         # Resetting DSP to get exclusive access to DDR
-        self._test_station['fpga1.regfile.reset.dsp_rst'] = 1
-        self._test_station['fpga2.regfile.reset.dsp_rst'] = 1
+        # self._test_station['fpga1.regfile.reset.dsp_rst'] = 1
+        # self._test_station['fpga2.regfile.reset.dsp_rst'] = 1
 
         time.sleep(0.5)
 
