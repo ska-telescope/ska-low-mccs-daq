@@ -9,14 +9,15 @@ from pydaq.persisters import *
 from pyaavs import station
 from config_manager import ConfigManager
 from numpy import random
-from spead_beam_power import spead_rx
-from spead_beam_power_offline import spead_rx_offline
+from spead_beam_power_realtime import SpeadRxBeamPowerRealtime
+from spead_beam_power_offline import SpeadRxBeamPowerOffline
 import test_functions as tf
 import numpy as np
 import tempfile
 import logging
 import shutil
 import time
+import os
 
 # Number of samples to process
 nof_samples = 256*1024
@@ -353,7 +354,7 @@ class TestFullStation():
                     tile.set_channeliser_truncation(scale)
                 while target_power < 42 or target_power > 50 and scale >= 0:
                     tf.accurate_sleep(1)
-                    spead_rx_offline_inst = spead_rx_offline(4660, self._daq_eth_if)
+                    spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, self._daq_eth_if)
                     self._test_station.send_channelised_data_continuous(channelised_channel, daq_config['nof_channel_samples'])
                     offline_beam_power = spead_rx_offline_inst.get_power()
                     self._logger.info("Offline beamformed channel power: {}".format(str(offline_beam_power)))
@@ -371,7 +372,7 @@ class TestFullStation():
                 scale_power.append(scale)
                 tf.accurate_sleep(2)
 
-                spead_rx_realtime_inst = spead_rx(4660, self._daq_eth_if)
+                spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
                 realtime_beam_power = np.asarray(spead_rx_realtime_inst.get_power(8 * nof_samples, beamformed_channel))
                 self._logger.info("Realtime beamformed channel power: {}".format(str(realtime_beam_power)))
                 delete_files(data_directory)

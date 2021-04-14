@@ -8,7 +8,8 @@ from multiprocessing import Process
 
 raw_socket = True
 
-class spead_rx(Process):
+
+class SpeadRxBeamPowerRealtime(Process):
     def __init__(self, port, eth_if="eth2", *args, **kwargs):
         self.port = port
 
@@ -187,10 +188,14 @@ if __name__ == "__main__":
                       dest="nof_samples",
                       default="131072",
                       help="Number of samples to integrate")
+    parser.add_option("-i",
+                      dest="eth_if",
+                      default="eth0",
+                      help="Ethrnet Interface")
 
     (options, args) = parser.parse_args()
 
-    spead_rx_inst = spead_rx(int(options.port))
+    spead_rx_inst = SpeadRxBeamPowerRealtime(int(options.port), options.eth_if)
     #x, y = spead_rx_inst.get_power(int(options.nof_samples), int(options.logic_channel))
     while True:
         print(spead_rx_inst.get_power(256*1024, 0))
