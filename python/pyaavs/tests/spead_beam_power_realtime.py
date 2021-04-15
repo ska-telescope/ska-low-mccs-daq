@@ -3,17 +3,44 @@ import socket
 import numpy as np
 from struct import *
 from builtins import input
+from time import perf_counter
 from optparse import OptionParser
-from multiprocessing import Process
+from multiprocessing import Process, Pool
 
-raw_socket = True
+realtime_nof_processes = 8
+realtime_pkt_buff = bytearray(16384 * 16384)
+real_time_timestamp_idx_list = []
 
+def power(id):
+    global realtime_nof_processes
+    global realtime_pkt_buffpkt_buff
+    global realtime_timestamp_idx_list
+
+    power = np.zeros(2, dtype=np.uint64)
+    nof_saturation = np.zeros(2, dtype=np.uint64)
+    nof_sample = np.zeros(2, dtype=np.uint64)
+
+    for n, pkt_idx in enumerate(realtime_timestamp_idx_list):
+        if n % realtime_nof_processes == id:
+            # print("%d %d" % (id, n))
+            pkt_reassembled = unpack('b' * 8192, realtime_pkt_buff[pkt_idx : pkt_idx + 8192])
+            for p in range(2):
+                for k in range(2 * p, 8192, 4):
+                    if int(pkt_reassembled[k]) == -128 or int(pkt_reassembled[k+1]) == -128:
+                        nof_saturation[p] += 1
+                    else:
+                        power[p] += int(pkt_reassembled[k]) ** 2 + int(pkt_reassembled[k+1]) ** 2
+                        nof_sample[p] += 1
+
+    return power[0], power[1], nof_saturation[0], nof_saturation[1], nof_sample[0], nof_sample[1]
 
 class SpeadRxBeamPowerRealtime(Process):
     def __init__(self, port, eth_if="eth2", *args, **kwargs):
         self.port = port
+        self.raw_socket = True
+        self.channel_id = 0
 
-        if not raw_socket:
+        if not self.raw_socket:
             self.sock = socket.socket(socket.AF_INET,      # Internet
                                 socket.SOCK_DGRAM)   # UDP
             self.sock.settimeout(1)
@@ -56,7 +83,7 @@ class SpeadRxBeamPowerRealtime(Process):
         self.sock.close()
 
     def recv(self):
-        if not raw_socket:
+        if not self.raw_socket:
             pkt, addr = self.sock.recvfrom(1024 * 10)
             return pkt
         else:
@@ -67,6 +94,14 @@ class SpeadRxBeamPowerRealtime(Process):
                 #     print(hex(header[n]))
                 if header[18] == self.port:
                     return pkt[42:]
+
+    def recv2(self, buffer):
+        while True:
+            nbytes = self.sock.recv_into(buffer, 1024 * 10)
+            if nbytes > 8192:
+                header = unpack('!' + 'H'*20, buffer[:40])
+                if header[18] == self.port:
+                    return
 
     def spead_header_decode(self, pkt, first_channel = -1):
         items = unpack('>' + 'Q'*9, pkt[0:8*9])
@@ -125,54 +160,127 @@ class SpeadRxBeamPowerRealtime(Process):
                 break
         return is_csp_packet
 
-    def process_buffer(self, channel_id):
-        if self.logical_channel_id == channel_id:
-            values = np.asarray(self.data_buff)
-            deinterleaved_pols = np.zeros((2,4096), dtype=np.int32)
-            idx0 = 0
-            idx1 = 0
-            for n in range(len(self.data_buff)):
-                if n % 4 == 0:
-                    deinterleaved_pols[0, idx0] = values[n]
-                    idx0 += 1
-                elif n % 4 == 1:
-                    deinterleaved_pols[0, idx0] = values[n]
-                    idx0 += 1
-                elif n % 4 == 2:
-                    deinterleaved_pols[1, idx1] = values[n]
-                    idx1 += 1
-                elif n % 4 == 3:
-                    deinterleaved_pols[1, idx1] = values[n]
-                    idx1 += 1
+    def process_buffer(self, max_packets):
 
-            self.accu_x += np.sum(np.power(deinterleaved_pols[0, :], 2))
-            self.accu_y += np.sum(np.power(deinterleaved_pols[1, :], 2))
+        global realtime_pkt_buff
+        global realtime_nof_processes
+        global realtime_timestamp_idx_list
 
-            self.nof_processed_samples += int(len(self.data_buff) / 4)
+        realtime_timestamp_idx_list = []
+        pkt_buffer_idx = 0
+        nof_full_buff = 0
+        for n in range(max_packets):
+            # print(n)
+            if self.spead_header_decode(realtime_pkt_buff[pkt_buffer_idx+42:pkt_buffer_idx+42+72]):
+                # print(self.lmc_capture_mode)
+                # print(self.lmc_tpm_id)
 
-    def get_power(self, nof_samples, channel_id):
+                if self.logical_channel_id == self.channel_id:
+                    pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72
+                    realtime_timestamp_idx_list.append(pkt_buffer_idx_offset)
+                    nof_full_buff += 1
+            pkt_buffer_idx += 16384
+
+        print(nof_full_buff)
+
+
+        t1_start = perf_counter()
+        with Pool(realtime_nof_processes) as p:
+             beam_list = p.map(power, list(range(realtime_nof_processes)))
+        # beam_list = beamformer(0)
+        t1_stop = perf_counter()
+        elapsed = t1_stop - t1_start
+        print(elapsed)
+
+        if np.ndim(beam_list) > 1:
+            beam = np.sum(np.asarray(beam_list), axis=0)
+        else:
+            beam = beam_list
+
+        power_accu_0 = beam[0]
+        power_accu_1 = beam[1]
+        nof_saturation_0 = beam[2]
+        nof_saturation_1 = beam[3]
+        nof_sample_0 = beam[4]
+        nof_sample_1 = beam[5]
+
+        power_0 = power_accu_0 / nof_sample_0
+        power_1 = power_accu_1 / nof_sample_1
+        power_0_db = 10 * np.log10(power_0)
+        power_1_db = 10 * np.log10(power_1)
+
+        # print(nof_full_buff)
+        # print(nof_samples)
+        # print(nof_saturation_0)
+        # print(nof_saturation_1)
+        # print(nof_sample_0)
+        # print(nof_sample_1)
+        # print(power_0_db)
+        # print(power_1_db)
+        return [power_0_db, power_1_db] #, nof_saturation_0, nof_saturation_1, nof_sample_0, nof_sample_1
+
+
+    # def process_buffer(self, channel_id):
+    #     if self.logical_channel_id == channel_id:
+    #         values = np.asarray(self.data_buff)
+    #         deinterleaved_pols = np.zeros((2,4096), dtype=np.int32)
+    #         idx0 = 0
+    #         idx1 = 0
+    #         for n in range(len(self.data_buff)):
+    #             if n % 4 == 0:
+    #                 deinterleaved_pols[0, idx0] = values[n]
+    #                 idx0 += 1
+    #             elif n % 4 == 1:
+    #                 deinterleaved_pols[0, idx0] = values[n]
+    #                 idx0 += 1
+    #             elif n % 4 == 2:
+    #                 deinterleaved_pols[1, idx1] = values[n]
+    #                 idx1 += 1
+    #             elif n % 4 == 3:
+    #                 deinterleaved_pols[1, idx1] = values[n]
+    #                 idx1 += 1
+    #
+    #         self.accu_x += np.sum(np.power(deinterleaved_pols[0, :], 2))
+    #         self.accu_y += np.sum(np.power(deinterleaved_pols[1, :], 2))
+    #
+    #         self.nof_processed_samples += int(len(self.data_buff) / 4)
+
+    # def get_power(self, nof_samples, channel_id):
+    #     while True:
+    #         while True:
+    #             try:
+    #                 _pkt = self.recv()
+    #                 # print("pkt")
+    #                 # print(_pkt[0:128])
+    #                 break
+    #             except socket.timeout:
+    #                 print("socket timeout!")
+    #                 pass
+    #
+    #         if len(_pkt) > 8192:
+    #             if self.spead_header_decode(_pkt):
+    #                 self.data_buff = unpack('b' * self.payload_length, _pkt[self.offset:])
+    #                 self.process_buffer(channel_id)
+    #         if self.nof_processed_samples >= nof_samples:
+    #             ret_x = int(self.accu_x / self.nof_processed_samples)
+    #             ret_y = int(self.accu_y / self.nof_processed_samples)
+    #             self.accu_x = 0
+    #             self.accu_y = 0
+    #             self.nof_processed_samples = 0
+    #             return 10 * np.log10(ret_x), 10 * np.log10(ret_y)
+
+    def get_power(self, channel_id, max_packets=4096):
+        global realtime_pkt_buff
+        self.channel_id = channel_id
         while True:
-            while True:
-                try:
-                    _pkt = self.recv()
-                    # print("pkt")
-                    # print(_pkt[0:128])
-                    break
-                except socket.timeout:
-                    print("socket timeout!")
-                    pass
-
-            if len(_pkt) > 8192:
-                if self.spead_header_decode(_pkt):
-                    self.data_buff = unpack('b' * self.payload_length, _pkt[self.offset:])
-                    self.process_buffer(channel_id)
-            if self.nof_processed_samples >= nof_samples:
-                ret_x = int(self.accu_x / self.nof_processed_samples)
-                ret_y = int(self.accu_y / self.nof_processed_samples)
-                self.accu_x = 0
-                self.accu_y = 0
-                self.nof_processed_samples = 0
-                return 10*np.log10(ret_x), 10*np.log10(ret_y)
+            pkt_buff_ptr = memoryview(realtime_pkt_buff)
+            pkt_buff_idx = 0
+            for n in range(max_packets):
+                self.recv2(pkt_buff_ptr)
+                pkt_buff_idx += 16384
+                pkt_buff_ptr = pkt_buff_ptr[16384:]
+            print("Got buffer")
+            return self.process_buffer(max_packets)
 
 if __name__ == "__main__":
     parser = OptionParser()
@@ -198,5 +306,5 @@ if __name__ == "__main__":
     spead_rx_inst = SpeadRxBeamPowerRealtime(int(options.port), options.eth_if)
     #x, y = spead_rx_inst.get_power(int(options.nof_samples), int(options.logic_channel))
     while True:
-        print(spead_rx_inst.get_power(256*1024, 0))
+        print(spead_rx_inst.get_power(0))
     #print(x, y)

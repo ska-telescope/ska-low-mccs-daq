@@ -8,67 +8,60 @@ from time import perf_counter
 from optparse import OptionParser
 from multiprocessing import Process, Pool
 
-nof_processes = 8
-raw_socket = True
-timestamp_idx_dict = {}
+nof_packets = 16384
 sample_per_pkt = 8192 // (2 * 2 * 8)
+nof_processes = 8
 pkt_buff = bytearray(16384 * 16384)
-
-
+timestamp_idx_list = []
 
 def beamformer(id):
-    global timestamp_idx_dict
+    global nof_processes
+    global sample_per_pkt
     global pkt_buff
+    global timestamp_idx_list
 
-    power_accu_0 = 0
-    power_accu_1 = 0
-    nof_saturation_0 = 0
-    nof_saturation_1 = 0
-    for t, ts in enumerate(list(timestamp_idx_dict)):
-        if t % id == 0:
-            pkt_idx_list = timestamp_idx_dict[ts]
-            if len(pkt_idx_list) == 32:
-                for sample_idx in range(sample_per_pkt):
-                    sum_0_re = 0
-                    sum_0_im = 0
-                    sum_1_re = 0
-                    sum_1_im = 0
-                    sample_pow_0 = 0
-                    sample_pow_1 = 0
-                    for pkt_idx in pkt_idx_list:
-                        pkt_data = unpack('b' * 32, pkt_buff[pkt_idx + sample_idx * 32: pkt_idx + (sample_idx + 1) * 32])
-                        for k in range(0, 32, 4):
-                            if pkt_data[k] != 0x80 and pkt_data[k + 1] != 0x80:
-                                sum_0_re += pkt_data[k]
-                                sum_0_im += pkt_data[k + 1]
-                            else:
-                                nof_saturation_0 += 1
-                        for k in range(2, 32, 4):
-                            if pkt_data[k] != 0x80 and pkt_data[k + 1] != 0x80:
-                                sum_1_re += pkt_data[k]
-                                sum_1_im += pkt_data[k + 1]
-                            else:
-                                nof_saturation_1 += 1
-                        # for k in range(0, 32, 4):
-                        #     sum_0_re += pkt_data[k]
-                        # for k in range(1, 32, 4):
-                        #     sum_0_im += pkt_data[k]
-                        # for k in range(2, 32, 4):
-                        #     sum_1_re += pkt_data[k]
-                        # for k in range(3, 32, 4):
-                        #     sum_1_im += pkt_data[k]
-                    sample_pow_0 += sum_0_re ** 2 + sum_0_im ** 2
-                    sample_pow_1 += sum_1_re ** 2 + sum_1_im ** 2
-                    power_accu_0 += sample_pow_0
-                    power_accu_1 += sample_pow_1
-    return power_accu_0, power_accu_1, nof_saturation_0, nof_saturation_1
+    power = np.zeros(2, dtype=np.uint64)
+    nof_saturation = np.zeros(2, dtype=np.uint64)
+    nof_sample = np.zeros(2, dtype=np.uint64)
 
+    nof_tpm = len(timestamp_idx_list[0]) // 2
+
+    for n, pkt_idx_list in enumerate(timestamp_idx_list):
+        if n % nof_processes == id:
+            # print("%d %d" % (id, n))
+            for sample_idx in range(sample_per_pkt):
+                pkt_reassembled = []
+                for i, pkt_idx in enumerate(pkt_idx_list):
+                    pkt_reassembled += unpack('b' * 32,
+                                              pkt_buff[pkt_idx + sample_idx * 32: pkt_idx + (sample_idx + 1) * 32])
+                sum = np.zeros(4, dtype=np.int64)
+                for p in range(4):
+                    for k in range(p, 32 * 2 * nof_tpm, 4):
+                        if int(pkt_reassembled[k]) == -128:
+                            sum[p] = -2 ** 31
+                        else:
+                            sum[p] += int(pkt_reassembled[k])
+                for p in range(2):
+                    if sum[2 * p] == -2 ** 31 or sum[2 * p + 1] == -2 ** 31:
+                        nof_saturation[p] += 1
+                    else:
+                        power[p] += sum[2 * p] ** 2 + sum[2 * p + 1] ** 2
+                        nof_sample[p] += 1
+
+    return power[0], power[1], nof_saturation[0], nof_saturation[1], nof_sample[0], nof_sample[1]
 
 class SpeadRxBeamPowerOffline(Process):
-    def __init__(self, port, eth_if="enp216s0f0", *args, **kwargs):
-        self.port = port
+    def __init__(self, port, nof_tpm=16, eth_if="enp216s0f0", *args, **kwargs):
+        global nof_processes
+        global sample_per_pkt
+        global pkt_buff
+        global timestamp_idx_list
 
-        if not raw_socket:
+        self.port = port
+        self.nof_tpm = nof_tpm
+        self.raw_socket = True
+
+        if not self.raw_socket:
             self.sock = socket.socket(socket.AF_INET,      # Internet
                                 socket.SOCK_DGRAM)   # UDP
             self.sock.settimeout(1)
@@ -114,7 +107,7 @@ class SpeadRxBeamPowerOffline(Process):
         self.sock.close()
 
     def recv(self):
-        if not raw_socket:
+        if not self.raw_socket:
             pkt, addr = self.sock.recvfrom(1024 * 10)
             return pkt
         else:
@@ -199,20 +192,22 @@ class SpeadRxBeamPowerOffline(Process):
                 break
         return is_lmc_packet and self.is_spead
 
-    @property
     def process_buffer(self):
 
-        global timestamp_idx_dict
+        global nof_packets
         global pkt_buff
+        global nof_processes
+        global timestamp_idx_list
 
         timestamp_idx_dict = {}
         pkt_buffer_idx = 0
         nof_full_buff = 0
-        for n in range(16384):
+        for n in range(nof_packets):
+            # print(n)
             if self.spead_header_decode(pkt_buff[pkt_buffer_idx+42:pkt_buffer_idx+42+72]):
-                #print(self.lmc_capture_mode)
-                #print(self.lmc_tpm_id)
-                #print
+                # print(self.lmc_capture_mode)
+                # print(self.lmc_tpm_id)
+
                 if self.lmc_capture_mode == 5:
                     pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72
                     if self.timestamp not in list(timestamp_idx_dict.keys()):
@@ -221,90 +216,65 @@ class SpeadRxBeamPowerOffline(Process):
                         l = timestamp_idx_dict[self.timestamp]
                         l.append(pkt_buffer_idx_offset)
                         timestamp_idx_dict[self.timestamp] = l
-                        if len(l) == 32:
-                            nof_full_buff += 1
             pkt_buffer_idx += 16384
-        nof_samples = nof_full_buff * sample_per_pkt
+
+        timestamp_idx_list = []
+        for t, ts in enumerate(list(timestamp_idx_dict)):
+            pkt_idx_list = timestamp_idx_dict[ts]
+            if len(pkt_idx_list) == 2 * self.nof_tpm:
+                timestamp_idx_list.append(pkt_idx_list)
+                nof_full_buff += 1
+
+        print(nof_full_buff)
+
 
         t1_start = perf_counter()
-
         with Pool(nof_processes) as p:
-            beam_list = p.map(beamformer, list(range(nof_processes)))
-        beam = np.sum(np.asarray(beam_list), range(4))
+             beam_list = p.map(beamformer, list(range(nof_processes)))
+        # beam_list = beamformer(0)
+        t1_stop = perf_counter()
+        elapsed = t1_stop - t1_start
+        print(elapsed)
+
+        if np.ndim(beam_list) > 1:
+            beam = np.sum(np.asarray(beam_list), axis=0)
+        else:
+            beam = beam_list
 
         power_accu_0 = beam[0]
         power_accu_1 = beam[1]
         nof_saturation_0 = beam[2]
         nof_saturation_1 = beam[3]
+        nof_sample_0 = beam[4]
+        nof_sample_1 = beam[5]
 
-        # power_accu_0 = 0
-        # power_accu_1 = 0
-        # nof_saturation_0 = 0
-        # nof_saturation_1 = 0
-        # for t, ts in enumerate(list(timestamp_idx_dict)):
-        #     pkt_idx_list = timestamp_idx_dict[ts]
-        #     if len(pkt_idx_list) == 32:
-        #         for sample_idx in range(sample_per_pkt):
-        #             sum_0_re = 0
-        #             sum_0_im = 0
-        #             sum_1_re = 0
-        #             sum_1_im = 0
-        #             sample_pow_0 = 0
-        #             sample_pow_1 = 0
-        #             for pkt_idx in pkt_idx_list:
-        #                 pkt_data = unpack('b' * 32, pkt_buff[pkt_idx + sample_idx * 32: pkt_idx + (sample_idx + 1) * 32])
-        #                 for k in range(0, 32, 4):
-        #                     if pkt_data[k] != 0x80 and pkt_data[k+1] != 0x80:
-        #                         sum_0_re += pkt_data[k]
-        #                         sum_0_im += pkt_data[k+1]
-        #                     else:
-        #                         nof_saturation_0 += 1
-        #                 for k in range(2, 32, 4):
-        #                     if pkt_data[k] != 0x80 and pkt_data[k+1] != 0x80:
-        #                         sum_1_re += pkt_data[k]
-        #                         sum_1_im += pkt_data[k+1]
-        #                     else:
-        #                         nof_saturation_1 += 1
-        #                 # for k in range(0, 32, 4):
-        #                 #     sum_0_re += pkt_data[k]
-        #                 # for k in range(1, 32, 4):
-        #                 #     sum_0_im += pkt_data[k]
-        #                 # for k in range(2, 32, 4):
-        #                 #     sum_1_re += pkt_data[k]
-        #                 # for k in range(3, 32, 4):
-        #                 #     sum_1_im += pkt_data[k]
-        #             sample_pow_0 += sum_0_re ** 2 + sum_0_im ** 2
-        #             sample_pow_1 += sum_1_re ** 2 + sum_1_im ** 2
-        #             power_accu_0 += sample_pow_0
-        #             power_accu_1 += sample_pow_1
-        t1_stop = perf_counter()
-
-        elapsed = t1_stop - t1_start
-
-        power_0 = power_accu_0 / nof_saturation_0
-        power_1 = power_accu_1 / nof_saturation_1
+        power_0 = power_accu_0 / nof_sample_0
+        power_1 = power_accu_1 / nof_sample_1
         power_0_db = 10 * np.log10(power_0)
         power_1_db = 10 * np.log10(power_1)
 
-        print(elapsed)
-        print(nof_full_buff)
-        print(nof_samples)
-        print(nof_saturation_0)
-        print(nof_saturation_1)
-        print(power_0_db)
-        print(power_1_db)
-        return power_0_db, power_1_db, nof_saturation_0, nof_saturation_1
+        # print(nof_full_buff)
+        # print(nof_samples)
+        # print(nof_saturation_0)
+        # print(nof_saturation_1)
+        # print(nof_sample_0)
+        # print(nof_sample_1)
+        # print(power_0_db)
+        # print(power_1_db)
+        return [power_0_db, power_1_db] #, nof_saturation_0, nof_saturation_1, nof_sample_0, nof_sample_1
 
     def get_power(self):
         global pkt_buff
+        global nof_packets
         while True:
             pkt_buff_ptr = memoryview(pkt_buff)
             pkt_buff_idx = 0
-            for n in range(16384):
+            for n in range(nof_packets):
                 self.recv2(pkt_buff_ptr)
                 pkt_buff_idx += 16384
                 pkt_buff_ptr = pkt_buff_ptr[16384:]
-            return self.process_buffer
+            print("Got buffer")
+            return self.process_buffer()
 
 
 if __name__ == "__main__":
@@ -312,15 +282,15 @@ if __name__ == "__main__":
     parser.add_option("-p",
                       dest="port",
                       default="4660",
-                      help="UDP port")
-    parser.add_option("-c",
-                      dest="logic_channel",
-                      default="0",
-                      help="Logical Channel ID")
-    parser.add_option("-n",
-                      dest="nof_samples",
-                      default="131072",
-                      help="Number of samples to integrate")
+                      help="UDP port [Default: 4660]")
+    parser.add_option("-t",
+                      dest="nof_tpm",
+                      default="2",
+                      help="Number of TPMs [Default: 2]")
+    # parser.add_option("-n",
+    #                   dest="nof_samples",
+    #                   default="131072",
+    #                   help="Number of samples to integrate")
     parser.add_option("-i",
                       dest="eth_if",
                       default="eth0",
@@ -328,7 +298,7 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
 
-    spead_rx_inst = SpeadRxBeamPowerOffline(int(options.port), options.eth_if)
+    spead_rx_inst = SpeadRxBeamPowerOffline(int(options.port), int(options.nof_tpm), options.eth_if)
     #x, y = spead_rx_inst.get_power(int(options.nof_samples), int(options.logic_channel))
     while True:
         print(spead_rx_inst.get_power())

@@ -161,8 +161,7 @@ class TestChannelizer():
                                     phase_value_360 = phase_value % 360
                                     applied_delay = delays[2*a+p] * 1.25e-9
                                     phase_delay = np.modf(applied_delay / (1.0 / frequency))[0]
-                                    #expected_phase_delay = 360 - phase_delay * 360   # before channelizer phase inversion it was:  phase_delay*360
-                                    expected_phase_delay = phase_delay * 360
+                                    expected_phase_delay = 360 - phase_delay*360   # before channelizer phase inversion it was:  phase_delay*360
                                     expected_phase = (ref_phase_value_360 + expected_phase_delay) % 360
                                     diff = abs(expected_phase - phase_value_360) % 360
                                     if diff > 3 and 360-diff > 3:
