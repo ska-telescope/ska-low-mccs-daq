@@ -175,7 +175,7 @@ class Station(object):
             self.add_tile(tile)
 
         # Default duration of sleeps
-        self._seconds = 0.5
+        self._seconds = 1.0
 
         # Set if the station is properly configured
         self.properly_formed_station = None

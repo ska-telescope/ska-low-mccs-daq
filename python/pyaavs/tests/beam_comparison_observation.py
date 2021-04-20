@@ -19,6 +19,40 @@ import h5py
 import time
 import os
 
+def set_data_request(station, channel_id, number_of_samples):
+    for tile in station.tiles:
+        for fpga in ["fpga1", "fpga2"]:
+            tile["%s.lmc_gen.channelized_single_channel_mode" % fpga] = (channel_id & 0x1FF) | 0x80000000
+            tile["%s.lmc_gen.channelized_pkt_length" % fpga] = number_of_samples - 1
+        
+def send_channelised_data_continuous(station, channel_id, number_of_samples=65536, seconds=0.5):
+    """ Send continuous channelised data from all Tiles """
+    station.stop_data_transmission()
+    station._wait_available()
+    for tile in station.tiles:
+        for i in range(len(tile.tpm.tpm_test_firmware)):
+            tile.tpm.tpm_test_firmware[i].send_channelised_data_continuous(channel_id, number_of_samples=128)
+            
+    delay = seconds * (1 / (1080 * 1e-9) / 256)
+    t0 = station.tiles[0].get_fpga_timestamp()
+    t1 = t0 + int(delay)
+    
+    for tile in station.tiles:
+        tile["fpga1.pps_manager.timestamp_req_val"] = t1
+        tile["fpga2.pps_manager.timestamp_req_val"] = t1
+      
+    #for tile in station.tiles:  
+    #    tile["fpga1.lmc_gen.request"] = 0x2
+    #    tile["fpga2.lmc_gen.request"] = 0x2
+     
+    t2 = station.tiles[0].get_fpga_timestamp()
+    print(t0, t1, t2)
+    if t2 >= t1:
+        print("Synchronised operation failed!")
+        return -1
+    else:
+        return 0
+
 
 class BeamComparisonObservation():
     def __init__(self, station_config, logger):
@@ -55,6 +89,15 @@ class BeamComparisonObservation():
         channelised_channel = test_channel + int((self._station_config['observation']['start_frequency_channel']) / channel_bandwidth)
         beamformed_channel = test_channel
 
+        # set_data_request(self._test_station, channelised_channel, 1024)
+        
+        #self._test_station.send_channelised_data_continuous(channelised_channel, 1024)
+        #print("Sending some data")
+        #time.sleep(2)
+        #input()
+        #self._test_station.stop_data_transmission()
+        
+
         try:
             iter = 0
             while True:
@@ -67,11 +110,18 @@ class BeamComparisonObservation():
                 time.sleep(1)
 
                 self._logger.info("Acquiring channelised data, channel %d" % channelised_channel)
+                while True:
+                    sync_good = self._test_station.send_channelised_data_continuous(channelised_channel, 1024)
+                    if sync_good:
+                        break
+                # while send_channelised_data_continuous(self._test_station, channelised_channel, 1024, 0.5) != 0:
+                # send_channelised_data_continuous(self._test_station, channelised_channel, 1024, 0.5)
+                # print("Data Request retry!")
+                print("Waiting for channelised data...")
+                time.sleep(2)
                 spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles), self._daq_eth_if)
-                self._test_station.send_channelised_data_continuous(channelised_channel, 1024)
-                time.sleep(1)
                 offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
-                self._logger.info("Offline beamformed channel power: {}".format(str(offline_beam_power)))
+                self._logger.info("Offline beamformed channel power: %f %f %d %d %d %d" % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2], offline_beam_power[3], offline_beam_power[4], offline_beam_power[5]))
                 self._test_station.stop_data_transmission()
                 offline_power = offline_beam_power
                 dt = datetime.datetime.now(timezone.utc)
@@ -82,7 +132,7 @@ class BeamComparisonObservation():
                 self._logger.info("Acquiring realtime beamformed data")
                 spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
                 realtime_beam_power = np.asarray(spead_rx_realtime_inst.get_power(beamformed_channel))
-                self._logger.info("Realtime beamformed channel power: {}".format(str(realtime_beam_power)))
+                self._logger.info("Realtime beamformed channel power: %f %f %d %d %d %d" % (realtime_beam_power[0], realtime_beam_power[1], realtime_beam_power[2], realtime_beam_power[3], realtime_beam_power[4], realtime_beam_power[5]))
                 realtime_power = realtime_beam_power
                 dt = datetime.datetime.now(timezone.utc)
                 utc_time = dt.replace(tzinfo=timezone.utc)

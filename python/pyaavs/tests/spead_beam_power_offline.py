@@ -35,18 +35,27 @@ def beamformer(id):
                     pkt_reassembled += unpack('b' * 32,
                                               pkt_buff[pkt_idx + sample_idx * 32: pkt_idx + (sample_idx + 1) * 32])
                 sum = np.zeros(4, dtype=np.int64)
+                saturated_sample = 0
                 for p in range(4):
                     for k in range(p, 32 * 2 * nof_tpm, 4):
                         if int(pkt_reassembled[k]) == -128:
-                            sum[p] = -2 ** 31
+                            saturated_sample = 1
                         else:
                             sum[p] += int(pkt_reassembled[k])
-                for p in range(2):
-                    if sum[2 * p] == -2 ** 31 or sum[2 * p + 1] == -2 ** 31:
-                        nof_saturation[p] += 1
-                    else:
-                        power[p] += sum[2 * p] ** 2 + sum[2 * p + 1] ** 2
-                        nof_sample[p] += 1
+                if saturated_sample == 1:
+                    nof_saturation[0] += 1
+                    nof_saturation[1] += 1
+                else:
+                    power[0] += sum[0] ** 2 + sum[1] ** 2
+                    power[1] += sum[2] ** 2 + sum[3] ** 2
+                    nof_sample[0] += 1
+                    nof_sample[1] += 1
+                #for p in range(2):
+                #    if sum[2 * p] == -2 ** 31 or sum[2 * p + 1] == -2 ** 31:
+                #        nof_saturation[p] += 1
+                #    else:
+                #        power[p] += sum[2 * p] ** 2 + sum[2 * p + 1] ** 2
+                #        nof_sample[p] += 1
 
     return power[0], power[1], nof_saturation[0], nof_saturation[1], nof_sample[0], nof_sample[1]
 
@@ -192,7 +201,7 @@ class SpeadRxBeamPowerOffline(Process):
                 break
         return is_lmc_packet and self.is_spead
 
-    def process_buffer(self):
+    def check_buffer(self):
 
         global nof_packets
         global pkt_buff
@@ -226,8 +235,11 @@ class SpeadRxBeamPowerOffline(Process):
                 nof_full_buff += 1
 
         print(nof_full_buff)
+        return nof_full_buff
 
 
+
+    def process_buffer(self):
         t1_start = perf_counter()
         with Pool(nof_processes) as p:
              beam_list = p.map(beamformer, list(range(nof_processes)))
@@ -247,26 +259,25 @@ class SpeadRxBeamPowerOffline(Process):
         nof_saturation_1 = beam[3]
         nof_sample_0 = beam[4]
         nof_sample_1 = beam[5]
-
+        
         power_0 = power_accu_0 / nof_sample_0
         power_1 = power_accu_1 / nof_sample_1
         power_0_db = 10 * np.log10(power_0)
         power_1_db = 10 * np.log10(power_1)
 
         # print(nof_full_buff)
-        # print(nof_samples)
         # print(nof_saturation_0)
         # print(nof_saturation_1)
         # print(nof_sample_0)
         # print(nof_sample_1)
         # print(power_0_db)
         # print(power_1_db)
-        return [power_0_db, power_1_db] #, nof_saturation_0, nof_saturation_1, nof_sample_0, nof_sample_1
+        return [power_0_db, power_1_db, nof_saturation_0, nof_saturation_1, nof_sample_0, nof_sample_1]
 
     def get_power(self):
         global pkt_buff
         global nof_packets
-        while True:
+        for n in range(16):
             pkt_buff_ptr = memoryview(pkt_buff)
             pkt_buff_idx = 0
             for n in range(nof_packets):
@@ -274,7 +285,9 @@ class SpeadRxBeamPowerOffline(Process):
                 pkt_buff_idx += 16384
                 pkt_buff_ptr = pkt_buff_ptr[16384:]
             print("Got buffer")
-            return self.process_buffer()
+            if self.check_buffer() > 100:
+                return self.process_buffer()
+        return -1
 
 
 if __name__ == "__main__":

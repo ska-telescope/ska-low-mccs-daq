@@ -24,13 +24,15 @@ def power(id):
         if n % realtime_nof_processes == id:
             # print("%d %d" % (id, n))
             pkt_reassembled = unpack('b' * 8192, realtime_pkt_buff[pkt_idx : pkt_idx + 8192])
-            for p in range(2):
-                for k in range(2 * p, 8192, 4):
-                    if int(pkt_reassembled[k]) == -128 or int(pkt_reassembled[k+1]) == -128:
-                        nof_saturation[p] += 1
-                    else:
-                        power[p] += int(pkt_reassembled[k]) ** 2 + int(pkt_reassembled[k+1]) ** 2
-                        nof_sample[p] += 1
+            for k in range(0, 8192, 4):
+                if int(pkt_reassembled[k]) == -128 or int(pkt_reassembled[k+1]) == -128 or int(pkt_reassembled[k+2]) == -128 or int(pkt_reassembled[k+3]) == -128 :
+                    nof_saturation[0] += 1
+                    nof_saturation[1] += 1
+                else:
+                    power[0] += int(pkt_reassembled[k+0]) ** 2 + int(pkt_reassembled[k+1]) ** 2
+                    power[1] += int(pkt_reassembled[k+2]) ** 2 + int(pkt_reassembled[k+3]) ** 2
+                    nof_sample[0] += 1
+                    nof_sample[1] += 1
 
     return power[0], power[1], nof_saturation[0], nof_saturation[1], nof_sample[0], nof_sample[1]
 
@@ -217,7 +219,7 @@ class SpeadRxBeamPowerRealtime(Process):
         # print(nof_sample_1)
         # print(power_0_db)
         # print(power_1_db)
-        return [power_0_db, power_1_db] #, nof_saturation_0, nof_saturation_1, nof_sample_0, nof_sample_1
+        return [power_0_db, power_1_db, nof_saturation_0, nof_saturation_1, nof_sample_0, nof_sample_1]
 
 
     # def process_buffer(self, channel_id):
