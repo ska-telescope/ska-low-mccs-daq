@@ -960,7 +960,7 @@ def populate_configuration(configuration):
         conf['receiver_ports'] = [int(x) for x in conf['receiver_ports'].split(',')]
 
     # Check if an IP address was provided, and if not get the assigned address to the interface
-    if conf['receiver_ip'] is "":
+    if conf['receiver_ip'] == "":
         try:
             conf['receiver_ip'] = get_ip_address(conf['receiver_interface'].encode())
         except IOError as e:

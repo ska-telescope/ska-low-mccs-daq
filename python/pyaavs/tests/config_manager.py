@@ -31,14 +31,14 @@ class ConfigManager():
 
         tpm_ip = self.get_test_tpm_ip(station.configuration)
         try:
-            if command_line_configuration.tpm_ip is not "":
+            if command_line_configuration.tpm_ip != "":
                 tpm_ip = command_line_configuration.tpm_ip
         except:
             pass
 
         tpm_port = station.configuration['network']['lmc']['tpm_cpld_port']
         try:
-            if command_line_configuration.tpm_port is not "":
+            if command_line_configuration.tpm_port != "":
                 tpm_port = command_line_configuration.tpm_ip
         except:
             pass
