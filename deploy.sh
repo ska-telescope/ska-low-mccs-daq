@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+export PYTHON=/usr/bin/python3
+
 # Function to display installer help
 function display_help(){
     echo "This script will install the AAVS system software in /opt/aavs. Arguments:"
@@ -104,7 +106,7 @@ function create_install() {
 
     # Create python virtual environment
     # virtualenv -p python3 $AAVS_INSTALL/python
-    python3 -m venv $AAVS_INSTALL/python
+    $PYTHON -m venv $AAVS_INSTALL/python
 
     # Add AAVS virtual environment alias to .bashrc
     if [[ ! -n "`cat ~/.bashrc | grep aavs_python`" ]]; then
