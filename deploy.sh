@@ -103,7 +103,8 @@ function create_install() {
     mkdir -p $AAVS_INSTALL/python
 
     # Create python virtual environment
-    virtualenv -p python3 $AAVS_INSTALL/python
+    # virtualenv -p python3 $AAVS_INSTALL/python
+    python3 -m venv $AAVS_INSTALL/python
 
     # Add AAVS virtual environment alias to .bashrc
     if [[ ! -n "`cat ~/.bashrc | grep aavs_python`" ]]; then
