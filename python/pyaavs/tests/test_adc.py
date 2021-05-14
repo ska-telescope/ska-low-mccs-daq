@@ -14,6 +14,7 @@ from pydaq.persisters import *
 from builtins import input
 from sys import stdout
 
+import test_requirements as tr
 import test_functions as tf
 import numpy as np
 import os.path
@@ -21,46 +22,51 @@ import logging
 import random
 import time
 
-def data_callback(mode, filepath, tile):
-    # Note that this will be called asynchronosuly from the C code when a new file is generated
-    # If you want to control the flow of the main program as data comes in, then you need to synchronise
-    # with a global variable. In this example, there will be an infinite loop between sending data and receiving data
-    global data_received
-    global data
+nof_tiles = 1
+nof_antennas = 16
+tiles_processed = None
 
-    # If you want to perform some checks in the data here, you will need to use the persisters scrips to read the
-    # data. Note that the persister will read the latest file if no specific timestamp is provided
-    # filename will contain the full path
+def data_callback(mode, filepath, tile):
+    global data
+    global nof_tiles
+    global data_received
+    global tiles_processed
 
     if mode == "burst_raw":
-        raw_file = RawFormatFileManager(root_path=os.path.dirname(filepath))
-        data, timestamps = raw_file.read_data(antennas=range(16),  # List of channels to read (not use in raw case)
-                                           polarizations=[0, 1],
-                                           n_samples=32*1024)
-    data_received = True
+        tiles_processed[tile] = 1
+        if np.all(tiles_processed >= 1):
+            data = np.zeros((nof_tiles * nof_antennas, 2, 32 * 1024), dtype=np.int8)
+            raw_file = RawFormatFileManager(root_path=os.path.dirname(filepath))
+            for tile_id in list(range(nof_tiles)):
+                tile_data, timestamps = raw_file.read_data(antennas=range(nof_antennas),
+                                                           polarizations=[0, 1],
+                                                           n_samples=32 * 1024,
+                                                           tile_id=tile_id)
+                data[nof_antennas * tile_id:nof_antennas * (tile_id + 1), :, :] = tile_data
+            data_received = True
 
 
 class TestAdc():
-    def __init__(self, tpm_config, logger):
+    def __init__(self, station_config, logger):
         self._logger = logger
-        self._tpm_config = tpm_config
+        self._station_config = station_config
 
-    def clean_up(self, tile):
+    def clean_up(self, test_station):
         daq.stop_daq()
-        tf.disable_adc_test_pattern(tile, list(range(16)))
-        del tile
+        for tile in test_station.tiles:
+            tf.disable_adc_test_pattern(tile, list(range(16)))
 
     def check_adc_pattern(self, pattern_type, fixed_pattern):
 
         global data
 
         self._logger.debug("Checking " + pattern_type + " ADC pattern")
-        if pattern_type == "fixed":
-            self._logger.debug("Pattern data: ")
-            for n in range(16):
-                self._logger.debug(fixed_pattern[n])
+        # if pattern_type == "fixed":
+        #     self._logger.debug("Pattern data: ")
+        #     for n in range(16):
+        #         self._logger.debug(fixed_pattern[n])
 
-        for a in range(16):
+        for a in range(data.shape[0]):
             for p in range(2):
                 buffer = np.array(data[a, p, 0:32768], dtype='uint8')
                 if pattern_type == "ramp":
@@ -69,6 +75,7 @@ class TestAdc():
                         exp_value = (seed + n) % 256
                         if buffer[n] != exp_value:
                             self._logger.error("Error detected, ramp pattern")
+                            self._logger.error("Antenna index: " + str(a))
                             self._logger.error("Buffer position: " + str(n))
                             self._logger.error("Expected value: " + str(exp_value))
                             self._logger.error("Received value: " + str(buffer[n]))
@@ -88,6 +95,7 @@ class TestAdc():
                         if buffer[n] != exp_value:
                             self._logger.error("Error detected, fixed pattern")
                             self._logger.error(fixed_pattern[a])
+                            self._logger.error("Antenna index: " + str(a))
                             self._logger.error("Buffer position: " + str(n))
                             self._logger.error("Expected value: " + str(fixed_pattern[a][(n + m) % 4]))
                             self._logger.error("Received value: " + str(buffer[n]))
@@ -95,26 +103,37 @@ class TestAdc():
                             self._logger.error("ADC TEST FAILED!")
                             return 1
 
-        self._logger.debug("Data pattern checked!\n")
+        self._logger.info("Data pattern check OK!")
         return 0
 
-    def execute(self, iterations=8):
+    def execute(self, iterations=4):
+        global tiles_processed
         global data_received
+        global nof_tiles
+        global nof_antennas
+
+        # Connect to tile (and do whatever is required)
+        test_station = station.Station(self._station_config)
+        test_station.connect()
+        tiles = test_station.tiles
+        nof_tiles = len(tiles)
+        nof_antennas = self._station_config['test_config']['antennas_per_tile']
+
+        if not tr.check_eth(self._station_config, "lmc", 1500, self._logger):
+            return 1
+        self._logger.info("Using Ethernet Interface %s" % self._station_config['eth_if'])
+
         temp_dir = "./temp_daq_test"
         data_received = False
-        fixed_pattern = [[191, 254, 16, 17]] * 16
+        fixed_pattern = [[191, 254, 16, 17]] * (nof_antennas * nof_tiles)
 
         tf.remove_hdf5_files(temp_dir)
 
-        # Connect to tile (and do whatever is required)
-        tile = Tile(ip=self._tpm_config['single_tpm_config']['ip'], port=self._tpm_config['single_tpm_config']['port'])
-        tile.connect()
-
         self._logger.debug("Disable test and pattern generators...")
-        tf.disable_test_generator_and_pattern(tile)
         self._logger.debug("Setting 0 delays...")
-        tf.set_delay(tile, [0] * 32)
-
+        for tile in tiles:
+            tf.disable_test_generator_and_pattern(tile)
+            tf.set_delay(tile, [0] * 32)
         time.sleep(0.2)
 
         iter = int(iterations)
@@ -124,11 +143,12 @@ class TestAdc():
         # Initialise DAQ. For now, this needs a configuration file with ALL the below configured
         # I'll change this to make it nicer
         daq_config = {
-            'receiver_interface': self._tpm_config['eth_if'],  # CHANGE THIS if required
+            'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
             'directory': temp_dir,  # CHANGE THIS if required
             'nof_beam_channels': 384,
             'nof_beam_samples': 32,
-            'receiver_frame_size': 9000
+            'receiver_frame_size': 9000,
+            'nof_tiles': len(tiles)
         }
 
         # Configure the DAQ receiver and start receiving data
@@ -148,12 +168,14 @@ class TestAdc():
         k = 0
         while k != iter:
             pattern_type = "ramp"
-            tf.enable_adc_test_pattern(tile, range(16), pattern_type)
+            for tile in tiles:
+                tf.enable_adc_test_pattern(tile, range(nof_antennas), pattern_type)
             time.sleep(0.1)
 
             data_received = False
+            tiles_processed = np.zeros(nof_tiles)
             # Send data from tile
-            tile.send_raw_data()
+            test_station.send_raw_data()
             # Wait for data to be received
             while not data_received:
                 time.sleep(0.1)
@@ -162,15 +184,17 @@ class TestAdc():
                 errors += 1
                 break
 
-            for n in range(16):
+            for n in range(nof_antennas * nof_tiles):
                 fixed_pattern[n] = [random.randrange(0, 255, 1) for x in range(4)]
             pattern_type = "fixed"
-            tf.enable_adc_test_pattern(tile, range(16), pattern_type, fixed_pattern)
+            for tile_id, tile in enumerate(tiles):
+                tf.enable_adc_test_pattern(tile, range(nof_antennas), pattern_type, fixed_pattern[nof_antennas * tile_id : nof_antennas * (tile_id + 1)])
             time.sleep(0.1)
 
             data_received = False
+            tiles_processed = np.zeros(nof_tiles)
             # Send data from tile
-            tile.send_raw_data()
+            test_station.send_raw_data()
             # Wait for data to be received
             while not data_received:
                 time.sleep(0.1)
@@ -183,7 +207,7 @@ class TestAdc():
 
             self._logger.info("Iteration %d PASSED!" % k)
 
-        self.clean_up(tile)
+        self.clean_up(test_station)
         return errors
 
 
@@ -199,7 +223,7 @@ if __name__ == "__main__":
     (conf, args) = parser.parse_args(argv[1:])
 
     config_manager = ConfigManager(conf.test_config)
-    tpm_config = config_manager.apply_test_configuration(conf)
+    station_config = config_manager.apply_test_configuration(conf)
 
     # set up logging to file - see previous section for more details
     logging_format = "%(name)-12s - %(asctime)s - %(levelname)s - %(message)s"
@@ -219,5 +243,5 @@ if __name__ == "__main__":
 
     test_logger = logging.getLogger('TEST_ADC')
 
-    test_adc = TestAdc(tpm_config, test_logger)
+    test_adc = TestAdc(station_config, test_logger)
     test_adc.execute(conf.iteration)

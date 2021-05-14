@@ -224,6 +224,19 @@ fi
 ln -s $PWD/python/pyaavs/station.py $FILE
 chmod u+x $FILE
 
+DIR=$AAVS_INSTALL/bitfiles
+if [ -d $DIR ]; then
+  sudo rm -r $DIR
+fi
+ln -s $PWD/bitfiles $DIR
+
+DIR=$AAVS_INSTALL/config
+if [ -d $DIR ]; then
+  sudo rm -r $DIR
+fi
+ln -s $PWD/config $DIR
+
+
 echo ""
 echo "Installation finished. Please check your .bashrc file and source it to update your environment"
 echo ""

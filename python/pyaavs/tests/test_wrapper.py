@@ -17,12 +17,12 @@ import os
 
 class TestWrapper():
     def __init__(self, tpm_config, log_file):
-        self._tests = {'adc': "Check JESD link setting test patterns in the ADCs and verifying data recevied by FPGAs",
+        self._tests = {'adc': "Check JESD link setting test patterns in the ADCs and verifying data received by FPGAs",
                        'daq': "Check data transfer from FPGAs to LMC using DAQ software. All data format checked: raw, channel, tile beam and integrated data.",
                        'channelizer': "Check channelizer output using the FPGA internal tone generator.",
                        'tile_beamformer': "Check if the beamformer corrects for time domain delays applied to the internally generated tone.",
                        'full_station': "Check operation of networked beamformer comparing offline and realtime beam power.",
-                       'ddr': "Check on board DDR using FPGA embedded test.",
+                       'ddr': "Check on-board DDR using FPGA embedded test.",
                        'f2f': "Check fast data link between FPGAs using FPGA embedded test.",
                        'eth40g': "Check 40G UDP using FPGA embedded test."}
 
@@ -150,6 +150,8 @@ class TestWrapper():
     def log_filter(self, log_file_name=None):
         if log_file_name is None:
             log_file_name = self.log_file
+        if not os.path.isfile(log_file_name):
+            return
         log_str_filtered = ""
         log_file = open(log_file_name, "r")
         for line in log_file:

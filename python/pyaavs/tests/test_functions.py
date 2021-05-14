@@ -8,7 +8,10 @@ from sys import stdout
 import numpy as np
 import os.path
 import logging
+import socket
 import random
+import psutil
+import shutil
 import math
 import time
 
@@ -303,11 +306,11 @@ def ddr_reset(station):
 
 
 def remove_hdf5_files(temp_dir):
-    # create temp directory
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
     if not os.path.exists(temp_dir):
-        print("Creating temp folder: " + temp_dir)
+        # print("Creating temp folder: " + temp_dir)
         os.system("mkdir " + temp_dir)
-    os.system("rm " + temp_dir + "/*.hdf5")
 
 
 def add_default_parser_options(parser):

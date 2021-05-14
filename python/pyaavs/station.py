@@ -1158,15 +1158,15 @@ if __name__ == "__main__":
     parser.add_option("-I", "--initialise", action="store_true", dest="initialise",
                       default=False, help="Initialise TPM [default: False]")
     parser.add_option("-C", "--program_cpld", action="store_true", dest="program_cpld",
-                      default=False, help="Update CPLD firmware (requires -f option)")
+                      default=False, help="Update CPLD firmware (requires -f option) [default: False]")
     parser.add_option("-T", "--enable-test", action="store_true", dest="enable_test",
-                      default=False, help="Enable test pattern (default: False)")
+                      default=False, help="Enable test pattern [default: False]")
     parser.add_option("--use_teng", action="store_true", dest="use_teng",
-                      default=None, help="Use 10G for LMC (default: None)")
+                      default=None, help="Use 10G for LMC [default: None]")
     parser.add_option("--chan-trunc", action="store", dest="chan_trunc",
                       default=None, type="int", help="Channeliser truncation [default: None]")
     parser.add_option("-B", "--beamf_start", action="store_true", dest="beamf_start",
-                      default=False, help="Start network beamformer")
+                      default=False, help="Start network beamformer [default: False]")
     parser.add_option("--channel-integration-time", action="store", dest="channel_integ",
                       type="float", default=None, help="Integrated channel integration time [default: None]")
     parser.add_option("--beam-integration-time", action="store", dest="beam_integ",
