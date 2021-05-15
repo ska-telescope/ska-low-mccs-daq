@@ -8,7 +8,7 @@ class ConfigManager():
         self.test_config_file = test_config_file
         fo = open(self.test_config_file, "r+")
         stream = fo.read()
-        self.config_dict = yaml.load(stream)
+        self.config_dict = yaml.safe_load(stream)
 
     def get_test_config_param(self, param):
         if param in self.config_dict.keys():

@@ -55,13 +55,23 @@ def check_eth(station_config, data_type, mtu, logger=None):
     return True
 
 
-def check_integrated_data_enabled(station, stage, logger):
+def check_integrated_data_enabled(station, stage, logger=None, tpm_id=None):
     for fpga in ['fpga1', 'fpga2']:
         enabled = station["%s.lmc_integrated_gen.%s_enable" % (fpga, stage)]
-        if any(enabled) != 1:
+        if tpm_id is None:
+            enabled_check = enabled
+        elif 0 <= tpm_id <= len(station.tiles) - 1:
+            enabled_check = [enabled[tpm_id]]
+        else:
+            if logger is not None:
+                logger.error("TPM Id %i does not belong to station!" % tpm_id)
+            return False
+
+        if any(enabled_check) != 1:
             if logger is not None:
                 logger.error("Integrator stage %s is not enabled!" % stage)
             return False
+
     return True
 
 

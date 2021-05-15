@@ -106,7 +106,7 @@ class TestAdc():
         self._logger.info("Data pattern check OK!")
         return 0
 
-    def execute(self, iterations=4):
+    def execute(self, iterations=4, single_tpm_id=0):
         global tiles_processed
         global data_received
         global nof_tiles
@@ -115,8 +115,20 @@ class TestAdc():
         # Connect to tile (and do whatever is required)
         test_station = station.Station(self._station_config)
         test_station.connect()
-        tiles = test_station.tiles
+
+        if single_tpm_id >= 0:
+            if single_tpm_id >= len(test_station.tiles):
+                self._logger.error("Required TPM Id for single TPM test does not belong to station.")
+                return 1
+            else:
+                self._logger.info("Executing test on tile %d" % single_tpm_id)
+                dut = test_station.tiles[single_tpm_id]
+                tiles = [test_station.tiles[single_tpm_id]]
+        else:
+            dut = station
+            tiles = test_station.tiles
         nof_tiles = len(tiles)
+
         nof_antennas = self._station_config['test_config']['antennas_per_tile']
 
         if not tr.check_eth(self._station_config, "lmc", 1500, self._logger):
@@ -175,7 +187,7 @@ class TestAdc():
             data_received = False
             tiles_processed = np.zeros(nof_tiles)
             # Send data from tile
-            test_station.send_raw_data()
+            dut.send_raw_data()
             # Wait for data to be received
             while not data_received:
                 time.sleep(0.1)
@@ -194,7 +206,7 @@ class TestAdc():
             data_received = False
             tiles_processed = np.zeros(nof_tiles)
             # Send data from tile
-            test_station.send_raw_data()
+            dut.send_raw_data()
             # Wait for data to be received
             while not data_received:
                 time.sleep(0.1)

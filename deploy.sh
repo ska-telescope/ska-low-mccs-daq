@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
-
-export PYTHON=/usr/bin/python3
+#
+# This script should be executed with sudo.
+#
+# This script uses /usr/bin/python3 as default Python interpreter. To use another interpreter, for instance python3.8
+# instead of default python3, do as follows:
+#
+#   AAVS_PYTHON_BIN=/usr/bin/python3.8
+#   export AAVS_PYTHON_BIN
+#   sudo -E deploy.sh
+#
+echo "${AAVS_PYTHON_BIN}"
+if [[ -z "${AAVS_PYTHON_BIN}" ]]; then
+  export PYTHON=/usr/bin/python3
+else
+  export PYTHON=${AAVS_PYTHON_BIN}
+fi
+echo "Using python $PYTHON"
 
 # Function to display installer help
 function display_help(){

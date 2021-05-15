@@ -268,7 +268,7 @@ class TestDaq():
                             return 1
         return 0
 
-    def execute(self, test_type="all"):
+    def execute(self, test_type="all", single_tpm_id=0):
         global tiles_processed
         global data_received
         global data
@@ -287,8 +287,20 @@ class TestDaq():
         # Connect to tile (and do whatever is required)
         test_station = station.Station(self._station_config)
         test_station.connect()
-        tiles = test_station.tiles
+
+        if single_tpm_id >= 0:
+            if single_tpm_id >= len(test_station.tiles):
+                self._logger.error("Required TPM Id for single TPM test does not belong to station.")
+                return 1
+            else:
+                self._logger.info("Executing test on tile %d" % single_tpm_id)
+                dut = test_station.tiles[single_tpm_id]
+                tiles = [test_station.tiles[single_tpm_id]]
+        else:
+            dut = station
+            tiles = test_station.tiles
         nof_tiles = len(tiles)
+
         nof_antennas_per_tile = self._station_config['test_config']['antennas_per_tile']
 
         if not tr.check_eth(self._station_config, "lmc", 1500, self._logger):
@@ -347,7 +359,7 @@ class TestDaq():
                 for tile in tiles:
                     tf.set_pattern(tile, "jesd", test_pattern, test_adders, start=True)
                 # Send data from station
-                test_station.send_raw_data()
+                dut.send_raw_data()
 
                 # Wait for data to be received
                 while not data_received:
@@ -379,7 +391,7 @@ class TestDaq():
                 for tile in tiles:
                     tf.set_pattern(tile, "jesd", test_pattern, test_adders, start=True)
                 # Send data from station
-                test_station.send_raw_data_synchronised()
+                dut.send_raw_data_synchronised()
 
                 # Wait for data to be received
                 while not data_received:
@@ -411,7 +423,7 @@ class TestDaq():
                 for tile in tiles:
                     tf.set_pattern(tile, "channel", test_pattern, test_adders, start=True)
                 # Send data from station
-                test_station.send_channelised_data(1024)
+                dut.send_channelised_data(1024)
 
                 # Wait for data to be received
                 while not data_received:
@@ -444,7 +456,7 @@ class TestDaq():
                     tf.set_pattern(tile, "beamf", test_pattern, test_adders, start=True)
                 time.sleep(1)
                 # Send data from station
-                test_station.send_beam_data()
+                dut.send_beam_data()
 
                 # Wait for data to be received
                 while not data_received:
@@ -472,24 +484,26 @@ class TestDaq():
 
             test_station = station.Station(self._station_config)
             test_station.connect()
-            # for n, _tile in enumerate(test_station.tiles):
-            #     if self._station_config['tiles'][n] != self._station_config['single_tpm_config']['ip']:
-            #         self._logger.info("Stopping integrated data on Tile %s" % self._station_config['tiles'][n])
-            #         _tile.stop_integrated_data()
+            if single_tpm_id >= 0:
+                if not tr.check_integrated_data_enabled(test_station, "channel", self._logger, single_tpm_id) or \
+                   not tr.check_integrated_data_enabled(test_station, "beamf", self._logger, single_tpm_id):
+                    return 1
+                for n, _tile in enumerate(test_station.tiles):
+                    #if self._station_config['tiles'][n] != self._station_config['single_tpm_config']['ip']:
+                    if n != single_tpm_id:
+                        self._logger.info("Stopping integrated data on Tile %s" % self._station_config['tiles'][n])
+                        _tile.stop_integrated_data()
+            else:
+                if not tr.check_integrated_data_enabled(test_station, "channel", self._logger) or \
+                   not tr.check_integrated_data_enabled(test_station, "beamf", self._logger):
+                    return 1
 
-            if not tr.check_integrated_data_enabled(test_station, "channel", self._logger) or \
-               not tr.check_integrated_data_enabled(test_station, "beamf", self._logger):
-                return 1
-
-            tile = test_station.tiles[0]
-
-            channel_integration_length = tile['fpga1.lmc_integrated_gen.channel_integration_length']
-            channel_accumulator_width = tile['fpga1.lmc_integrated_gen.channel_accumulator_width']
-            channel_round_bits = tile['fpga1.lmc_integrated_gen.channel_scaling_factor']
-
-            beamf_integration_length = tile['fpga1.lmc_integrated_gen.beamf_integration_length']
-            beamf_accumulator_width = tile['fpga1.lmc_integrated_gen.beamf_accumulator_width']
-            beamf_round_bits = tile['fpga1.lmc_integrated_gen.beamf_scaling_factor']
+            channel_integration_length = tiles[0]['fpga1.lmc_integrated_gen.channel_integration_length']
+            channel_accumulator_width = tiles[0]['fpga1.lmc_integrated_gen.channel_accumulator_width']
+            channel_round_bits = tiles[0]['fpga1.lmc_integrated_gen.channel_scaling_factor']
+            beamf_integration_length = tiles[0]['fpga1.lmc_integrated_gen.beamf_integration_length']
+            beamf_accumulator_width = tiles[0]['fpga1.lmc_integrated_gen.beamf_accumulator_width']
+            beamf_round_bits = tiles[0]['fpga1.lmc_integrated_gen.beamf_scaling_factor']
 
             daq.populate_configuration(daq_config)
             daq.initialise_daq()
