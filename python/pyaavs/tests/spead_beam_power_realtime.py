@@ -103,7 +103,7 @@ class SpeadRxBeamPowerRealtime(Process):
             if nbytes > 8192:
                 header = unpack('!' + 'H'*20, buffer[:40])
                 if header[18] == self.port:
-                    return
+                    return nbytes
 
     def spead_header_decode(self, pkt, first_channel = -1):
         items = unpack('>' + 'Q'*9, pkt[0:8*9])
@@ -283,6 +283,20 @@ class SpeadRxBeamPowerRealtime(Process):
                 pkt_buff_ptr = pkt_buff_ptr[16384:]
             print("Got buffer")
             return self.process_buffer(max_packets)
+
+    def get_data_rate(self, bytes):
+        global realtime_pkt_buff
+        pkt_buff_ptr = memoryview(realtime_pkt_buff)
+        self.recv2(pkt_buff_ptr)
+        nbytes = 0
+        t1_start = perf_counter()
+        while True:
+            nbytes += self.recv2(pkt_buff_ptr)
+            if nbytes > bytes:
+                t1_stop = perf_counter()
+                data_rate = nbytes / (t1_stop - t1_start)
+                return data_rate
+
 
 if __name__ == "__main__":
     parser = OptionParser()
