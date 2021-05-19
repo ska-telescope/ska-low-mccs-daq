@@ -47,15 +47,15 @@ class TestInitStation():
 
         # Expected data rate in byte/s
         expected_data_rate = self._observation_bandwidth * 32.0 / 27.0 * 2 * 2
-        expected_data_rate_low = expected_data_rate * 13.0 / 16.0
-        expected_data_rate_hi = expected_data_rate * 16.0 / 13.0
-
-        spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
+        expected_data_rate_low = expected_data_rate * 14.0 / 16.0
+        expected_data_rate_hi = expected_data_rate * 16.0 / 14.0
 
         for iter in range(1, iteration + 1):
             self._logger.info("Initialising station. Iteration %d" % iter)
             self._test_station = station.Station(station_config)
             self._test_station.connect()
+            time.sleep(4)
+            spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
             received_data_rate = np.asarray(spead_rx_realtime_inst.get_data_rate(expected_data_rate))
             self._logger.info("Station beam data rate: %d bytes/s" % int(received_data_rate))
 
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     from optparse import OptionParser
     from sys import argv, stdout
-    
+
     parser = OptionParser(usage="usage: %test_init_station [options]")
     parser = tf.add_default_parser_options(parser)
     parser.add_option("--iteration", action="store", dest="iteration",
