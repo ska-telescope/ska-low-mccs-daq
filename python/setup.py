@@ -9,7 +9,5 @@ setup(
     author='Alessio Magro',
     author_email='alessio.magro@um.edu.mt',
     description='AAVS Software',
-    install_requires=['h5py', 'pyyaml', 'lockfile', 'scapy', 'numpy', 'gitpython', 'pytz', 'configparser',
-                      'future', 'astropy', 'matplotlib', 'scipy', 'mongoengine', 'pymongo', 
-                      'slacker', 'singleton_decorator', 'tabulate', 'psutil']
+    install_requires = []
 )

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# This script should be executed with sudo.
+# This script should not be executed with sudo, however the user executing it must have sudo privileges.
 #
 # This script uses /usr/bin/python3 as default Python interpreter. To use another interpreter, for instance python3.8
 # instead of default python3, do as follows:
@@ -217,6 +217,7 @@ popd
 
 # Install required python packages
 pushd python || exit
+  pip install -r requirements.pip || exit
   python setup.py install || exit
 popd
 
