@@ -7,7 +7,7 @@
 #
 #   AAVS_PYTHON_BIN=/usr/bin/python3.8
 #   export AAVS_PYTHON_BIN
-#   sudo -E deploy.sh
+#   ./deploy.sh
 #
 echo "${AAVS_PYTHON_BIN}"
 if [[ -z "${AAVS_PYTHON_BIN}" ]]; then
