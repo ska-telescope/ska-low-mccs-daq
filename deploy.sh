@@ -1,29 +1,41 @@
 #!/usr/bin/env bash
-#
-# This script should not be executed with sudo, however the user executing it must have sudo privileges.
-#
-# This script uses /usr/bin/python3 as default Python interpreter. To use another interpreter, for instance python3.8
-# instead of default python3, do as follows:
-#
-#   AAVS_PYTHON_BIN=/usr/bin/python3.8
-#   export AAVS_PYTHON_BIN
-#   ./deploy.sh
-#
-echo "${AAVS_PYTHON_BIN}"
+
 if [[ -z "${AAVS_PYTHON_BIN}" ]]; then
   export PYTHON=/usr/bin/python3
 else
   export PYTHON=${AAVS_PYTHON_BIN}
 fi
-echo "Using python $PYTHON"
 
 # Function to display installer help
 function display_help(){
-    echo "This script will install the AAVS system software in /opt/aavs. Arguments:"
+    echo "This script will install the AAVS system software in /opt/aavs."
+    echo
+    echo "Arguments:"
     echo "-C    Correlator will be compiled, installing CUDA and xGPU in the process (off by default)"
     echo "      NOTE: Automated install of CUDA and xGPU not supported yet"
     echo "-p    Activate AAVS virtualenv in .bashrc (off by default)"
     echo "-h    Print this message"
+    echo "
+This script should not be executed with sudo, however the user executing it must have sudo privileges. Only the user
+running this script will have privileges to install additional python packages in the virtual environment.
+
+The following directories should be deleted when encountering issues running this script:
+    /opt/aavs/python
+    src/build
+    python/build
+    python/dist
+    third_party
+
+If issues are experienced with the ipython version installed by default, install a different ipython version in the
+virtual environment using:
+    pip install ipython==5.5.0
+
+This script uses /usr/bin/python3 as default Python interpreter. To use another interpreter, for instance python3.8
+instead of default python3, do as follows:
+
+    AAVS_PYTHON_BIN=/usr/bin/python3.8
+    export AAVS_PYTHON_BIN
+    ./deploy.sh"
 }
 
 # AAVS install directory. DO NOT CHANGE!
@@ -96,7 +108,7 @@ function create_install() {
   if [ ! -d "$AAVS_INSTALL/bin" ]; then
     mkdir -p $AAVS_INSTALL/bin
     export PATH=$AAVS_INSTALL/bin:$PATH
-    echo "export PATH=PATH:${AAVS_INSTALL}/bin" >> ~/.bashrc
+    echo "export PATH=$PATH:${AAVS_INSTALL}/bin" >> ~/.bashrc
   fi
 
   # Export AAVS bin directory
