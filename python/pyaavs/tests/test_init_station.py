@@ -63,6 +63,26 @@ class TestInitStation():
                 self._logger.error("Station Initialisation failed. Expected data rate %f, received data rate %f" % (expected_data_rate, received_data_rate))
                 return 1
 
+            for fpga in ['fpga1', 'fpga2']:
+                rd = self._test_station['%s.beamf_fd.f2f_latency.count' % fpga]
+                if any(rd) > 100:
+                    self._logger.error("F2F latency error!")
+                    return 1
+                rd = self._test_station['%s.beamf_fd.f2f_latency.count_start' % fpga]
+                if any(rd) != 1:
+                    self._logger.error("F2F latency start error!")
+                    return 1
+                rd = self._test_station['%s.beamf_fd.f2f_latency.count_stop' % fpga]
+                if any(rd) != 1:
+                    self._logger.error("F2F latency stop error!")
+                    return 1
+                rd = self._test_station['%s.beamf_fd.errors' % fpga]
+                if any(rd) != 0:
+                    self._logger.error("Tile Beamformer error!")
+                    return 1
+
+            self._logger.info("Iteration %d OK!" % iter)
+
         self._logger.info("TEST PASSED!")
         return 0
 

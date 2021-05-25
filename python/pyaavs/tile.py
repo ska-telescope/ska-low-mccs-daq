@@ -240,7 +240,7 @@ class Tile(object):
         # Get RMS values from board
         rms = []
         for adc_power_meter in self.tpm.adc_power_meter:
-            rms.extend(adc_power_meter.get_RmsAmplitude())
+            rms.extend(adc_power_meter.get_RmsAmplitude(sync=False))
 
         # Re-map values
         return rms
@@ -545,13 +545,23 @@ class Tile(object):
             self.tpm.tpm_integrator[i].configure_download(mode, channel_payload_length, beam_payload_length)
 
     @connected
+    def reset_eth_errors(self):
+        if self['fpga1.regfile.feature.xg_eth_implemented'] == 1:
+            if self.tpm.tpm_test_firmware[0].xg_40g_eth:
+                core_id = [0, 1]
+            else:
+                core_id = [0, 1, 2, 4, 5, 6]
+            for c in core_id:
+                self.tpm.tpm_10g_core[c].reset_errors()
+
+    @connected
     def check_arp_table(self):
         # wait UDP link up
         if self['fpga1.regfile.feature.xg_eth_implemented'] == 1:
             logging.info("Checking ARP table...")
             if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-                core_id = [0,1]
-                arp_table_id = [0,1]
+                core_id = [0, 1]
+                arp_table_id = [0, 1]
             else:
                 core_id = [0, 1, 2, 4, 5, 6]
                 arp_table_id = [0]
@@ -559,10 +569,13 @@ class Tile(object):
             while True:
                 linkup = 1
                 for c in core_id:
+                    core_errors = self.tpm.tpm_10g_core[c].check_errors()
+                    if core_errors:
+                        linkup = 0
                     for a in arp_table_id:
                         core_status = self.tpm.tpm_10g_core[c].get_arp_table_status(a, silent_mode=True)
-                    if core_status & 0x4 == 0:
-                        linkup = 0
+                        if core_status & 0x4 == 0:
+                            linkup = 0
                 if linkup == 1:
                     logging.info("10G Link established! ARP table populated!")
                     break
@@ -572,7 +585,7 @@ class Tile(object):
                     if times % 10 == 0:
                         logging.warning("10G Links not established after %d seconds! Waiting... " % int(0.1 * times))
                     if times == 60:
-                        logging.warning("10G Links not established after %d seconds! ARP table not populated!" % int(0.5 * times))
+                        logging.warning("10G Links not established after %d seconds! ARP table not populated!" % int(0.1 * times))
                         break
         else:
             # time.sleep(2)

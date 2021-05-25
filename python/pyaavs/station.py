@@ -321,6 +321,9 @@ class Station(object):
 
             if self['fpga1.regfile.feature.xg_eth_implemented'] == 1:
                 for tile in self.tiles:
+                    tile.reset_eth_errors()
+                time.sleep(1)
+                for tile in self.tiles:
                     tile.check_arp_table()
 
             # If initialising, synchronise all tiles in station
