@@ -21,7 +21,7 @@ running this script will have privileges to install additional python packages i
 
 After sucessfully executing this script, a station configuration file should be created. Refer to
     config/default_config.yml
-It is suggested to copy, rename and modify the default configration according to the used system.
+It is suggested to copy, rename and modify the default configuration according to the used system.
 
 A test environment in available in python/pyaavs/tests, refer to
     python/pyaavs/tests/doc/TPM_Hardware_test_user_manual.docx
@@ -53,7 +53,7 @@ COMPILE_CORRELATOR=OFF
 ACTIVATE_VENV=false
 PRINT_HELP=false
 
-# Process command-line argments
+# Process command-line arguments
 while getopts Chp flag
 do
     case "${flag}" in
@@ -69,7 +69,7 @@ if [ $PRINT_HELP == true ]; then
     exit
 fi
 
-# Check if compliing correlator
+# Check if compiling correlator
 if [ $COMPILE_CORRELATOR == ON ]; then
     echo "============ COMPILING CORRELATOR ==========="
 else
@@ -147,7 +147,7 @@ function create_install() {
       echo "alias aavs_python=\"source /opt/aavs/python/bin/activate\"" >> ~/.bashrc
       echo "Setting virtual environment alias"
 
-      # Check if compliing correlator
+      # Check if compiling correlator
       if [ $ACTIVATE_VENV == true ]; then
           echo "aavs_python" >> ~/.bashrc
       fi
