@@ -125,7 +125,7 @@ class TestAdc():
                 dut = test_station.tiles[single_tpm_id]
                 tiles = [test_station.tiles[single_tpm_id]]
         else:
-            dut = station
+            dut = test_station
             tiles = test_station.tiles
         nof_tiles = len(tiles)
 

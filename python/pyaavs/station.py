@@ -2,7 +2,6 @@
 from pyaavs.slack import get_slack_instance
 from pyaavs.tile_wrapper import Tile
 from pyfabil import Device
-import pyaavs.logger
 
 from future.utils import iteritems
 from multiprocessing import Pool
@@ -1138,6 +1137,7 @@ def load_station_configuration(config_params):
 
 
 if __name__ == "__main__":
+    import pyaavs.logger
     from optparse import OptionParser
     from sys import argv, stdout
 
