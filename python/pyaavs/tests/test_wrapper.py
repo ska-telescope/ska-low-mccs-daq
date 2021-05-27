@@ -148,6 +148,21 @@ class TestWrapper():
         station_inst['board.regfile.ctrl.ad_pdwn'] = 1
         # station_inst['board.regfile.ctrl.ad_pdwn'] = 0
 
+    def configure_signal_generator(self, signal_generator_config):
+        station_config = self.tpm_config
+        station_config['station']['program'] = False
+        station_config['station']['initialise'] = False
+        station_inst = station.Station(station_config)
+        station_inst.connect()
+        station_inst.test_generator_set_tone(0,
+                                             frequency=signal_generator_config['Sine wave 0 frequency (Hz)'],
+                                             ampl=signal_generator_config['Sine wave 0 amplitude [0, 1]'])
+        station_inst.test_generator_set_tone(1,
+                                             frequency=signal_generator_config['Sine wave 1 frequency (Hz)'],
+                                             ampl=signal_generator_config['Sine wave 1 amplitude [0, 1]'])
+        station_inst.test_generator_set_noise(signal_generator_config['Noise amplitude [0, 1]'])
+        station_inst.test_generator_input_select(signal_generator_config['Antenna enable (hexadecimal)'])
+
     def log_filter(self, log_file_name=None):
         if log_file_name is None:
             log_file_name = self.log_file
@@ -167,7 +182,14 @@ class TestWrapper():
 class UI:
     def __init__(self, test_wrapper):
         self._test_wrapper = test_wrapper
-        pass
+
+        self._signal_generator_config = {'Sine wave 0 frequency (Hz)': 100e6,
+                                         'Sine wave 1 frequency (Hz)': 100e6,
+                                         'Sine wave 0 amplitude [0, 1]': 0.3,
+                                         'Sine wave 1 amplitude [0, 1]': 0.0,
+                                         'Noise amplitude [0, 1]' : 0.0,
+                                         'Antenna enable (hexadecimal)': 0x0
+                                         }
 
     def get_parameter_value(self):
         user_input = input("Enter parameter value:")
@@ -223,7 +245,58 @@ class UI:
                     print()
                     print("Input not valid.")
 
-    def main_manu(self):
+    def signal_generator_menu(self):
+        print("""\n
+The embedded signal generator supports simultaneous generation of two tones and white noise. Frequency and amplitude 
+of each tone can be selected independently. In order to  disable a specific signal, its amplitude should be set to 0.
+The 'antenna enable' parameter selects which signal path will receive signal generator data. Each one of the 32 
+signal paths of a TPM will receive generated data when the corresponding bit in the 'antenna enable'
+parameter is 1. 
+                """)
+        test_wrapper = self._test_wrapper
+        while True:
+            print()
+            print("Select parameter to configure:")
+            table = []
+            parameter_list = sorted(self._signal_generator_config.keys())
+            for n, parameter in enumerate(parameter_list):
+                if parameter == 'Antenna enable (hexadecimal)':
+                    table.append([str(n + 1) + ")", parameter, hex(self._signal_generator_config[parameter])])
+                else:
+                    table.append([str(n + 1) + ")", parameter, self._signal_generator_config[parameter]])
+            table.append(["7)", "Apply configuration to TPMs in the station.", ""])
+            table.append(["Q)", "Exit.", ""])
+            print(tabulate(table, tablefmt="plain"))
+            try:
+                user_input = input()
+                user_input_int = int(user_input) - 1
+                if 0 <= user_input_int <= 5:
+                    parameter = parameter_list[user_input_int]
+                    print("Enter parameter value or 'Q' to exit.")
+                    value = input(parameter + ":")
+                    try:
+                        if parameter == 'Antenna enable (hexadecimal)':
+                            value = int(value, 16)
+                        else:
+                            value = float(value)
+                        self._signal_generator_config[parameter] = value
+                    except:
+                        if user_input.upper() == "Q":
+                            return
+                        else:
+                            print()
+                            print("Input not valid.")
+                elif user_input_int == 6:
+                    test_wrapper.configure_signal_generator(self._signal_generator_config)
+                    print("\nEmbedded signal generator configured.")
+            except:
+                if user_input.upper() == "Q":
+                    return
+                else:
+                    print()
+                    print("Input not valid.")
+
+    def main_menu(self):
         test_wrapper = self._test_wrapper
         selected_test = ""
         user_input = None
@@ -233,8 +306,9 @@ class UI:
             table.append(["%d)" % (n + 1), test.upper(), test_wrapper._tests[test]])
         table.append(["A)", "Execute all tests"])
         table.append(["C)", "Configure test parameters"])
+        table.append(["E)", "Configure embedded signal\ngenerator"])
         table.append(["I)", "Initialise station"])
-        table.append(["L)", "Initialise station without starting beamformer"])
+        table.append(["L)", "Initialise station without\nstarting beamformer"])
         table.append(["P)", "Maximum power"])
         table.append(["D)", "ADCs power down"])
         table.append(["Q)", "Quit"])
@@ -248,6 +322,8 @@ class UI:
                 sys.exit()
             elif user_input.upper() == "C":
                 self.configuration_menu()
+            elif user_input.upper() == "E":
+                self.signal_generator_menu()
             elif user_input.upper() == "I":
                 test_wrapper.initialise_station(max_power=False, start_beamformer=True)
             elif user_input.upper() == "L":
@@ -317,7 +393,7 @@ if __name__ == "__main__":
     if conf.interactive_mode:
         ui_inst = UI(test_wrapper)
         while True:
-            ui_inst.main_manu()
+            ui_inst.main_menu()
     else:
         if conf.init:
             test_wrapper.initialise_station()
