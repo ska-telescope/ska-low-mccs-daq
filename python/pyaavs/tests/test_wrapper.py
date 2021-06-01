@@ -348,8 +348,13 @@ if __name__ == "__main__":
     from optparse import OptionParser
     from sys import argv, stdout
 
-    parser = OptionParser(usage="usage: %station [options]")
-    parser = tf.add_default_parser_options(parser)
+    parser = OptionParser(usage="usage: %test_wrapper.py [options]")
+    # parser = tf.add_default_parser_options(parser)
+    parser.add_option("--config", action="store", dest="config",
+                      type="str", default=None, help="Station configuration file [default: None]")
+    parser.add_option("--test_config", action="store", dest="test_config",
+                      type="str", default="config/test_config.yml",
+                      help="Test Environment configuration file [default: config/test_config.yml]")
     parser.add_option("-t", "--test", action="store", dest="test_todo",
                       default="all", help="Test to be executed [default: All]")
     parser.add_option("-p", action="store_true", dest="print_tests",
