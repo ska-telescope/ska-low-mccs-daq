@@ -624,6 +624,14 @@ class Station(object):
             else:
                 pps_delays = self.configuration['station']['pps_delays']
 
+        for tile in self.tiles:
+            tile['fpga1.pps_manager.sync_cnt_enable'] = 0x7
+            tile['fpga2.pps_manager.sync_cnt_enable'] = 0x7
+        time.sleep(0.2)
+        for tile in self.tiles:
+            tile['fpga1.pps_manager.sync_cnt_enable'] = 0x0
+            tile['fpga2.pps_manager.sync_cnt_enable'] = 0x0
+
         # Station synchronisation loop
         sync_loop = 0
         max_sync_loop = 5

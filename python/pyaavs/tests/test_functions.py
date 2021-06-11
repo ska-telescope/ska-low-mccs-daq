@@ -326,3 +326,8 @@ def add_default_parser_options(parser):
                       default="", help="Specify TPM IP [default: None, Address retireved from configuratiuon files]")
     return parser
 
+def get_tpm_version(tile):
+    from pyfabil.boards.tpm_generic import TPMGeneric
+    _tpm = TPMGeneric()
+    _tpm_version = _tpm.get_tpm_version(socket.gethostbyname(tile._ip), 10000)
+    return _tpm_version

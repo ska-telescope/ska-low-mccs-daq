@@ -30,9 +30,9 @@ class TestEth40g():
 
         self._logger.debug("Preparing 40G test, duration %d seconds" % duration)
 
-        # Resetting DSP to get exclusive access to DDR
-        # self._test_station['fpga1.regfile.reset.dsp_rst'] = 1
-        # self._test_station['fpga2.regfile.reset.dsp_rst'] = 1
+        # Resetting DSP to get exclusive access to 40G
+        self._test_station['fpga1.regfile.reset.dsp_rst'] = 1
+        self._test_station['fpga2.regfile.reset.dsp_rst'] = 1
 
         time.sleep(0.5)
 
@@ -100,10 +100,10 @@ class TestEth40g():
             self._logger.info("Tile %d FPGA2 RX CRC Error count:  %d" % (n, rx_crc_error_cnt_fpga2))
 
             if test_error_detected_fpga1 == 1:
-                self._logger.error("Tile %d FPGA1 TEST FAILED. Errors detected.")
+                self._logger.error("Tile %d FPGA1 TEST FAILED. Errors detected." % n)
                 errors += 1
             if test_error_detected_fpga2 == 1:
-                self._logger.error("Tile %d FPGA2 TEST FAILED. Errors detected.")
+                self._logger.error("Tile %d FPGA2 TEST FAILED. Errors detected." % n)
                 errors += 1
             if tx_pkt_cnt_fpga2 != rx_pkt_cnt_fpga1:
                 self._logger.error("Tile %d FPGA1 TEST FAILED. TX packets counts does not match RX packets count." % n)

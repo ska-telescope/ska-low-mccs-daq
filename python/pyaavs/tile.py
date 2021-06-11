@@ -157,7 +157,8 @@ class Tile(object):
                                         src_ip=src_ip,
                                         dst_ip=None,  # dst_ip,
                                         src_port=0xF0D0,
-                                        dst_port=4660)
+                                        dst_port=4660,
+                                        rx_port_filter=4660)
             else:
                 self.configure_10g_core(n,
                                         src_mac=0x620000000000 + ip2long(src_ip),
@@ -346,8 +347,7 @@ class Tile(object):
 
     @connected
     def configure_40g_core(self, core_id, arp_table_entry=0, src_mac=None, src_ip=None,
-                           dst_ip=None, src_port=None,
-                           dst_port=None):
+                           dst_ip=None, src_port=None, dst_port=None, rx_port_filter=None):
         """ Configure a 10G core
         :param core_id: 10G core ID
         :param arp_table_entry: ARP table entry ID
@@ -370,7 +370,8 @@ class Tile(object):
             self.tpm.tpm_10g_core[core_id].set_src_port(src_port, arp_table_entry)
         if dst_port is not None:
             self.tpm.tpm_10g_core[core_id].set_dst_port(dst_port, arp_table_entry)
-            self.tpm.tpm_10g_core[core_id].set_rx_port_filter(dst_port)
+        if rx_port_filter is not None:
+            self.tpm.tpm_10g_core[core_id].set_rx_port_filter(rx_port_filter, arp_table_entry)
 
     @connected
     def get_10g_core_configuration(self, core_id):
@@ -456,12 +457,11 @@ class Tile(object):
                 dst_ip = self._lmc_ip
 
             if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-                self.configure_40g_core(1, 1,
+                self.configure_40g_core(0, 1,
                                         dst_ip=dst_ip,
                                         src_port=src_port,
                                         dst_port=dst_port)
-
-                self.configure_40g_core(0, 1,
+                self.configure_40g_core(1, 1,
                                         dst_ip=dst_ip,
                                         src_port=src_port,
                                         dst_port=dst_port)
@@ -513,12 +513,12 @@ class Tile(object):
                 dst_ip = self._lmc_ip
 
             if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-                self.configure_40g_core(1, 1,
+                self.configure_40g_core(0, 1,
                                         dst_ip=dst_ip,
                                         src_port=src_port,
                                         dst_port=dst_port)
 
-                self.configure_40g_core(0, 1,
+                self.configure_40g_core(1, 1,
                                         dst_ip=dst_ip,
                                         src_port=src_port,
                                         dst_port=dst_port)
@@ -557,42 +557,35 @@ class Tile(object):
     @connected
     def check_arp_table(self):
         # wait UDP link up
-        if self['fpga1.regfile.feature.xg_eth_implemented'] == 1:
-            logging.info("Checking ARP table...")
-            if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-                core_id = [0, 1]
-                arp_table_id = [0, 1]
-            else:
-                core_id = [0, 1, 2, 4, 5, 6]
-                arp_table_id = [0]
-            times = 0
-            while True:
-                linkup = 1
-                for c in core_id:
-                    core_errors = self.tpm.tpm_10g_core[c].check_errors()
-                    if core_errors:
-                        linkup = 0
-                    for a in arp_table_id:
-                        core_status = self.tpm.tpm_10g_core[c].get_arp_table_status(a, silent_mode=True)
-                        if core_status & 0x4 == 0:
-                            linkup = 0
-                if linkup == 1:
-                    logging.info("10G Link established! ARP table populated!")
-                    break
-                else:
-                    times += 1
-                    time.sleep(0.1)
-                    if times % 10 == 0:
-                        logging.warning("10G Links not established after %d seconds! Waiting... " % int(0.1 * times))
-                    if times == 60:
-                        logging.warning("10G Links not established after %d seconds! ARP table not populated!" % int(0.1 * times))
-                        break
+        logging.info("Checking ARP table...")
+        if self.tpm.tpm_test_firmware[0].xg_40g_eth:
+            core_id = range(2)
+            arp_table_id = range(4)
         else:
-            # time.sleep(2)
-            logging.info("Sending dummy packets to populate switch ARP tables...")
-            self.mii_exec_test(100, False)
-            self['fpga1.regfile.eth10g_ctrl'] = 0x0
-            self['fpga2.regfile.eth10g_ctrl'] = 0x0
+            core_id = range(8)
+            arp_table_id = [0]
+        times = 0
+        while True:
+            linkup = 1
+            for c in core_id:
+                core_errors = self.tpm.tpm_10g_core[c].check_errors()
+                if core_errors:
+                    linkup = 0
+                for a in arp_table_id:
+                    core_status = self.tpm.tpm_10g_core[c].get_arp_table_status(a, silent_mode=True)
+                    if core_status & 0x1 == 1 and core_status & 0x4 == 0:
+                        linkup = 0
+            if linkup == 1:
+                logging.info("10G Link established! ARP table populated!")
+                break
+            else:
+                times += 1
+                time.sleep(0.1)
+                if times % 10 == 0:
+                    logging.warning("10G Links not established after %d seconds! Waiting... " % int(0.1 * times))
+                if times == 60:
+                    logging.warning("10G Links not established after %d seconds! ARP table not populated!" % int(0.1 * times))
+                    break
 
     @connected
     def set_station_id(self, station_id, tile_id):
@@ -694,7 +687,7 @@ class Tile(object):
 
     @connected
     def get_pps_delay(self):
-        """ Get delay between PPS and 20 MHz clock """
+        """ Get delay between PPS and 400 MHz clock """
         return self["fpga1.pps_manager.sync_phase.cnt_hf_pps"]
 
     @connected
