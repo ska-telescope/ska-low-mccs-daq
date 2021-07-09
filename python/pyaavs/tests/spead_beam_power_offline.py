@@ -234,10 +234,7 @@ class SpeadRxBeamPowerOffline(Process):
                 timestamp_idx_list.append(pkt_idx_list)
                 nof_full_buff += 1
 
-        print(nof_full_buff)
         return nof_full_buff
-
-
 
     def process_buffer(self):
         t1_start = perf_counter()
@@ -246,7 +243,7 @@ class SpeadRxBeamPowerOffline(Process):
         # beam_list = beamformer(0)
         t1_stop = perf_counter()
         elapsed = t1_stop - t1_start
-        print(elapsed)
+        # print(elapsed)
 
         if np.ndim(beam_list) > 1:
             beam = np.sum(np.asarray(beam_list), axis=0)
@@ -284,7 +281,6 @@ class SpeadRxBeamPowerOffline(Process):
                 self.recv2(pkt_buff_ptr)
                 pkt_buff_idx += 16384
                 pkt_buff_ptr = pkt_buff_ptr[16384:]
-            print("Got buffer")
             if self.check_buffer() > 100:
                 return self.process_buffer()
         return -1

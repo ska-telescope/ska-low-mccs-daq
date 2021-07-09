@@ -183,16 +183,13 @@ class SpeadRxBeamPowerRealtime(Process):
                     nof_full_buff += 1
             pkt_buffer_idx += 16384
 
-        print(nof_full_buff)
-
-
         t1_start = perf_counter()
         with Pool(realtime_nof_processes) as p:
              beam_list = p.map(power, list(range(realtime_nof_processes)))
         # beam_list = beamformer(0)
         t1_stop = perf_counter()
         elapsed = t1_stop - t1_start
-        print(elapsed)
+        # print(elapsed)
 
         if np.ndim(beam_list) > 1:
             beam = np.sum(np.asarray(beam_list), axis=0)
@@ -281,7 +278,6 @@ class SpeadRxBeamPowerRealtime(Process):
                 self.recv2(pkt_buff_ptr)
                 pkt_buff_idx += 16384
                 pkt_buff_ptr = pkt_buff_ptr[16384:]
-            print("Got buffer")
             return self.process_buffer(max_packets)
 
     def get_data_rate(self, bytes):

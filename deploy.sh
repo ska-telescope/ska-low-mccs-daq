@@ -200,7 +200,7 @@ fi
 pushd third_party || exit
 
   # Install PyFABIL
-  pip install git+https://lessju@bitbucket.org/lessju/pyfabil.git
+  pip install git+https://lessju@bitbucket.org/lessju/pyfabil.git --force-reinstall
 
   # Install DAQ
   if [[ ! -d "aavs-daq" ]]; then

@@ -63,23 +63,25 @@ class TestInitStation():
                 self._logger.error("Station Initialisation failed. Expected data rate %f, received data rate %f" % (expected_data_rate, received_data_rate))
                 return 1
 
-            for fpga in ['fpga1', 'fpga2']:
-                rd = self._test_station['%s.beamf_fd.f2f_latency.count' % fpga]
-                if any(rd) > 100:
-                    self._logger.error("F2F latency error!")
-                    return 1
-                rd = self._test_station['%s.beamf_fd.f2f_latency.count_start' % fpga]
-                if any(rd) != 1:
-                    self._logger.error("F2F latency start error!")
-                    return 1
-                rd = self._test_station['%s.beamf_fd.f2f_latency.count_stop' % fpga]
-                if any(rd) != 1:
-                    self._logger.error("F2F latency stop error!")
-                    return 1
-                rd = self._test_station['%s.beamf_fd.errors' % fpga]
-                if any(rd) != 0:
-                    self._logger.error("Tile Beamformer error!")
-                    return 1
+            for t, tile in enumerate(self._test_station.tiles):
+                for fpga in ['fpga1', 'fpga2']:
+                    if tile['%s.beamf_fd.f2f_latency.count' % fpga] > 100:
+                        self._logger.error("Tile %d, F2F latency error!" % t)
+                        return 1
+                    if tile['%s.beamf_fd.f2f_latency.count_start' % fpga]!= 1:
+                        self._logger.error("Tile %d,F2F latency start error!" % t)
+                        return 1
+                    if tile['%s.beamf_fd.f2f_latency.count_stop' % fpga] != 1:
+                        self._logger.error("Tile %d,F2F latency stop error!" % t)
+                        return 1
+                    if tile['%s.beamf_fd.errors' % fpga]!= 0:
+                        self._logger.error("Tile %d,Tile Beamformer error!" % t)
+                        return 1
+                    for core in range(2):
+                        for lane in range(8):
+                            if tile["%s.jesd204_if.core_id_%d_lane_%d_buffer_adjust" % (fpga, core, lane)] >= 32:
+                                self._logger.error("Tile %d, JESD204B fill buffer level larger than 32 octets" % t)
+                                return 1
 
             self._logger.info("Iteration %d OK!" % iter)
 
