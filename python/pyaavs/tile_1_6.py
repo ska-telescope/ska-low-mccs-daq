@@ -124,26 +124,7 @@ class Tile_1_6(Tile):
 
         # Set destination and source IP/MAC/ports for 10G cores
         # This will create a loopback between the two FPGAs
-        ip_octets = self._ip.split('.')
-        for n in range(len(self.tpm.tpm_10g_core)):
-            src_ip = "10.10.{}.{}".format(n + 1, ip_octets[3])
-            # dst_ip = "10.{}.{}.{}".format((1 + n) + (4 if n < 4 else -4), ip_octets[2], ip_octets[3])
-            if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-                self.configure_40g_core(n, 0,
-                                        src_mac=0x620000000000 + ip2long(src_ip),
-                                        # dst_mac=None,  # 0x620000000000 + ip2long(dst_ip),
-                                        src_ip=src_ip,
-                                        dst_ip=None,  # dst_ip,
-                                        src_port=0xF0D0,
-                                        dst_port=4660)
-            else:
-                self.configure_10g_core(n,
-                                        src_mac=0x620000000000 + ip2long(src_ip),
-                                        dst_mac=None, #0x620000000000 + ip2long(dst_ip),
-                                        src_ip=src_ip,
-                                        dst_ip=None, #dst_ip,
-                                        src_port=0xF0D0,
-                                        dst_port=4660)
+        self.set_default_eth_configuration()
 
         for firmware in self.tpm.tpm_test_firmware:
             firmware.check_ddr_initialisation()
