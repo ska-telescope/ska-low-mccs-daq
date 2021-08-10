@@ -207,7 +207,7 @@ bool StationRawData::processPacket()
         packet_counter += rollover_counter << 32;
 
     // If this is channel of interest, save, otherwise ignore
-    if (logical_channel_id <= this -> start_channel + this->nof_channels)
+    if (logical_channel_id >= start_channel && logical_channel_id < start_channel + nof_channels)
 
         // We have processed the packet items, send data to packet counter
         double_buffer -> write_data(samples_in_packet,
@@ -281,14 +281,14 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
         // Select buffer to place data into
         int local_producer = (this->producer == 0) ? this->nof_buffers - 1 : (this->producer - 1);
 
-        // Check if packet belongs in previous buffer
+        // Check if packet belongs in selected buffer
         auto local_index = this -> double_buffer[local_producer].index;
         if (local_index > packet_counter)
             // Packet belongs to an older buffer (or is invalid). Ignoring
             return;
 
         // Copy data into selected buffer
-        this->process_data(local_producer, packet_counter - local_index, samples, channel, data_ptr,  timestamp);
+        this->process_data(local_producer, packet_counter, samples, channel, data_ptr,  timestamp);
 
         // Ready from packet
         return;
@@ -337,7 +337,6 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
 inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t packet_counter, uint32_t samples,
                                                  uint32_t channel, uint16_t *data_ptr, double timestamp)
 {
-
     // Copy data from packet to buffer
     // If number of channels is 1, then simply copy the entire buffer to its destination
     if (nof_channels == 1)
@@ -363,13 +362,14 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
             // Advance dst and src pointers
             dst += nof_channels * nof_pols;
             src += nof_pols;
-        }
+        } 
     }
 
     // Update number of packets
     this->double_buffer[producer_index].nof_packets++;
 
     // Update number of samples (for channel 0, assuming other channels will have a similar number, hopefully)
+    // TODO: The below is incorrect, start channel could be different
     if (channel == 0)
         this->double_buffer[producer_index].nof_samples += samples;
 

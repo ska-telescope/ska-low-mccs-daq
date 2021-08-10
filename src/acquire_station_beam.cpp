@@ -4,7 +4,7 @@
 #include <getopt.h>
 #include <cstring>
 #include <cstdlib>
-#include <ctime>
+#include <time.h>
 #include <bits/stdc++.h>
 
 #include "DAQ.h"
@@ -25,11 +25,11 @@ int n_fine_channels = 40;  // Don't think this is valid, or required
 string base_directory = "/data/";
 string interface = "eth2";
 string ip = "10.0.10.40";
-uint32_t nof_samples = 262144;
+uint64_t nof_samples = 262144;
 uint32_t start_channel = 0;
 uint32_t nof_channels = 1;
 uint32_t duration = 60;
-uint32_t max_file_size_gb = 1;
+uint64_t max_file_size_gb = 1;
 
 bool include_dada_header = false;
 auto dada_header_size = 4096;
@@ -48,7 +48,7 @@ static std::string generate_dada_header(double timestamp);
 void raw_station_beam_callback(void *data, double timestamp, unsigned int nof_packets, unsigned int nof_samples)
 {
     printf("Received station beam with %d packets and %d samples\n", nof_packets, nof_samples);
-
+    
     if (counter % cutoff_counter == 0)
     {
         // Create output file
@@ -57,10 +57,14 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int nof_pa
                             + "_" + std::to_string(nof_channels)
                             + "_" + std::to_string(timestamp) + suffix;
 
-        fd = open(path.c_str(), O_WRONLY | O_CREAT | O_SYNC | O_TRUNC, (mode_t) 0600);
+        if ((fd = open(path.c_str(), O_WRONLY | O_CREAT | O_SYNC | O_TRUNC, (mode_t) 0600)) < 0) {
+	    perror("Failed to create output data file, check directory");
+	    exit(-1);
+	}
 
         // Tell the kernel how the file is going to be accessed (sequentially)
         posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
+	printf("Created file %s\n", path.c_str());
 
         // If required, generate DADA file and add to file
         if (include_dada_header) {
@@ -101,7 +105,9 @@ static std::string generate_dada_header(double timestamp) {
     // Convert unix time to UTC and then to a formatted string
     const char* fmt = "%Y-%m-%d-%H:%M:%S";
     char time_string[200];
-    strftime(time_string, sizeof(time_string), fmt, gmtime((time_t *) &timestamp));
+    auto t = static_cast<time_t>(timestamp);
+    auto utc_time = gmtime(&t);
+    strftime(time_string, sizeof(time_string), fmt, utc_time);
 
     // Generate DADA header
     std::stringstream header;
@@ -238,11 +244,10 @@ static void parse_arguments(int argc, char *argv[])
         }
     }
 
-    printf("Running acquire_station_beam with %d starting from logical channel %d and saving %d channels. "
-           "Saving in directory %s with maximum file size %ds\n",
-           nof_samples, start_channel, nof_channels, base_directory.c_str(), duration);
-    printf("Maximum file size = %d GB\n",max_file_size_gb);
-    printf("Source is set to %s\n", source.c_str());
+    printf("Running acquire_station_beam with %d samples starting from logical channel %d and saving %d channels.\n", 
+		    nof_samples, start_channel, nof_channels);
+    printf("Saving in directory %s with maximum file size of %d GB\n", base_directory.c_str(), max_file_size_gb);
+    printf("Observing source %s for %d seconds\n", source.c_str(), duration);
 }
 
 
@@ -257,6 +262,7 @@ int main(int argc, char *argv[])
         cutoff_counter = INT_MAX;
     else
         cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * nof_channels * npol * sizeof(uint16_t));
+
 
     // Telescope information
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
