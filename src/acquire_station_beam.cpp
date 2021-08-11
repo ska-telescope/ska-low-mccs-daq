@@ -244,9 +244,9 @@ static void parse_arguments(int argc, char *argv[])
         }
     }
 
-    printf("Running acquire_station_beam with %d samples starting from logical channel %d and saving %d channels.\n", 
+    printf("Running acquire_station_beam with %ld samples starting from logical channel %d and saving %d channels.\n",
 		    nof_samples, start_channel, nof_channels);
-    printf("Saving in directory %s with maximum file size of %d GB\n", base_directory.c_str(), max_file_size_gb);
+    printf("Saving in directory %s with maximum file size of %ld GB\n", base_directory.c_str(), max_file_size_gb);
     printf("Observing source %s for %d seconds\n", source.c_str(), duration);
 }
 
