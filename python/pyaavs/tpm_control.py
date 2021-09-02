@@ -192,5 +192,5 @@ if __name__ == "__main__":
         tile.start_acquisition()
 
     # Connect to board
-    tile.connect(simulation=conf.simulation)
+    tile.connect()
 
