@@ -74,7 +74,7 @@ class Tile(object):
 
         if _tpm_version == "tpm_v1_2":
             return Tile_1_2(ip, port, lmc_ip, lmc_port, sampling_rate, logger)
-        elif _tpm_version == "tpm_v1_5":
+        elif _tpm_version == "tpm_v1_6":
             return Tile_1_6(ip, port, lmc_ip, lmc_port, sampling_rate, logger)
         else:
             raise LibraryError("TPM version not supported: " + _tpm_version)

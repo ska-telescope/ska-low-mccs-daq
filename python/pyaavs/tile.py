@@ -2401,9 +2401,9 @@ class Tile(object):
         eth0 = self.tpm.tpm_10g_core[0]
         eth1 = self.tpm.tpm_10g_core[1]
 
-        print("FPGA1 result:")
+        self.logger.info("FPGA1 result:")
         eth0.test_check_result()
-        print("FPGA2 result:")
+        self.logger.info("FPGA2 result:")
         eth1.test_check_result()
 
     @connected
