@@ -1,4 +1,3 @@
-from builtins import range
 from pydaq.persisters import CorrelationFormatFileManager, FileDAQModes
 from pydaq.plotters.utils import *
 import logging

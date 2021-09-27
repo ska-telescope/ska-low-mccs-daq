@@ -203,7 +203,6 @@ class AAVSFileManager(object):
         self.date_time = date_time
         self.data_mode = data_mode
         self.n_stokes = n_stokes
-        # self.channel_id = channel_id
 
     @staticmethod
     def time_range(low, up, leng):
@@ -216,9 +215,6 @@ class AAVSFileManager(object):
         :return: A range of values.
         """
         return numpy.linspace(low,up,leng, dtype=numpy.float128)
-        # sample_timestamps = numpy.linspace(0, sampling_time * n_samp - sampling_time, leng, dtype=numpy.float128)
-        # step = ((up - low) * 1.0 / leng)
-        # return [low + i * step for i in xrange(leng)]
 
     @staticmethod
     def complex_imaginary(value):
@@ -438,8 +434,6 @@ class AAVSFileManager(object):
                         integrity = False
                     if "channel_id" not in dict_attrs_found:
                         integrity = False
-                    # if "tsamp" not in dict_attrs_found:
-                    #     integrity = False
                 else:
                     integrity = False
             else:
@@ -457,8 +451,6 @@ class AAVSFileManager(object):
         :param tile_id: The tile identifier for a file batch.
         :return: A metadata dictionary.
         """
-        # if tile_id is None:
-        #     tile_id = 0
 
         file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, mode='r')
         metadata_dict = {}
@@ -501,9 +493,6 @@ class AAVSFileManager(object):
         used.
         :return:
         """
-        # if tile_id is None:
-        #     tile_id = 0
-
         file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, mode='r', partition=partition)
         if file_obj is not None:
             ts_end = self.ts_end
@@ -648,7 +637,6 @@ class AAVSFileManager(object):
 
         if query_sample_offset+query_samples_read > total_samples_in_all_files:
             query_samples_read = query_samples_read - ((query_sample_offset+query_samples_read) - total_samples_in_all_files)
-
 
         # Get number of partitions
         nof_partitions = self.file_partitions(timestamp=timestamp, tile_id=tile_id) + 1
@@ -812,7 +800,6 @@ class AAVSFileManager(object):
                         file_time2 = file_obj_filename.split('_')[3]
                     file_time_str = file_time1 + file_time2
                     file_time = int(file_time_str)
-                    # file_time = int(file_time1) + int(file_time2)
                     if file_time > latest_file_time:
                         latest_file_time = file_time
                         full_filename = file_obj
@@ -846,11 +833,6 @@ class AAVSFileManager(object):
                         if 'station_id' in list(self.main_dset.attrs.keys()):
                             self.station_id = self.main_dset.attrs['station_id']
 
-                        # if sys.version_info.major == 3:
-                        #     self.timestamp = str(self.main_dset.attrs['timestamp'], encoding='utf-8')
-                        #     self.data_type_name = str(self.main_dset.attrs['data_type'], encoding='utf-8')
-                        #     self.data_type = DATA_TYPE_MAP[self.data_type_name]
-                        # elif sys.version_info.major == 2:
                         self.timestamp = self.main_dset.attrs['timestamp']
                         self.data_type_name = self.main_dset.attrs['data_type']
                         self.data_type = DATA_TYPE_MAP[self.data_type_name]

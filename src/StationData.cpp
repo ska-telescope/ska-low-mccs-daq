@@ -53,6 +53,8 @@ void StationData::cleanUp()
 
     // Destroy instances
     delete persister;
+
+    double_buffer->tearDown();
     delete double_buffer;
 }
 
@@ -261,8 +263,8 @@ StationDoubleBuffer::StationDoubleBuffer(uint16_t nof_channels, uint32_t nof_sam
     tim.tv_nsec = 1000;
 }
 
-// Class destructor
-StationDoubleBuffer::~StationDoubleBuffer()
+// Tear down buffer
+void StationDoubleBuffer::tearDown()
 {
     for(unsigned i = 0; i < nof_buffers; i++)
     {

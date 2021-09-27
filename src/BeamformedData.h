@@ -129,7 +129,7 @@ public:
         }
     }
 
-    // Save data to diskx
+    // Save data to disk
     void persist_container()
     {
         // If a callback is defined, call it and return
@@ -155,7 +155,6 @@ private:
     uint16_t nof_channels;
     uint32_t nof_beams;
     uint8_t  nof_pols;
-    uint8_t  samples_per_packet;
 
     // Tile map
     std::unordered_map<uint16_t, unsigned int> tile_map;
@@ -342,6 +341,9 @@ protected:
     // Function called when a burst stream capture has finished
     void onStreamEnd() override;
 
+    // Override cleanup method
+    void cleanUp() override;
+
 private:
 
     // BeamInformation object
@@ -351,7 +353,6 @@ private:
     uint16_t received_packets = 0;
 
     // Data setup
-    uint16_t nof_antennas = 0;        // Number of antennas per tile
     uint8_t  nof_pols = 0;            // Number of polarisations
     uint16_t nof_tiles = 0;           // Number of tiles
     uint16_t nof_channels = 0;        // Number of channels
@@ -377,6 +378,9 @@ protected:
     // Grab SPEAD packet from buffer and process
     bool processPacket() override;
 
+    // Override cleanup method
+    void cleanUp() override;
+
 private:
 
     // AntennaInformation object
@@ -389,7 +393,6 @@ private:
     uint32_t saved_packet_counter = 0;
 
     // Data setup
-    uint16_t nof_antennas = 0;        // Number of antennas per tile
     uint8_t  nof_pols = 0;            // Number of polarisations
     uint16_t nof_beams = 0;           // Number of beams
     uint16_t nof_tiles = 0;           // Number of tiles

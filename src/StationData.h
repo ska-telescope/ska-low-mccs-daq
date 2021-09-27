@@ -46,9 +46,6 @@ public:
     // Default constructor
     StationDoubleBuffer(uint16_t nof_channels, uint32_t nof_samples, uint8_t nof_pols, uint8_t nbuffers = 6);
 
-    // Class destructor
-    ~StationDoubleBuffer();
-
     // Write data to buffer
     void write_data(uint16_t channel_id, uint32_t samples, uint64_t packet_counter,
                     uint16_t *data_ptr, double timestamp);
@@ -61,6 +58,9 @@ public:
 
     // Clear double buffer
     void clear();
+
+    // Tear down
+    void tearDown();
 
 private:
 

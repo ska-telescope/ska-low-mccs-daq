@@ -205,6 +205,9 @@ protected:
     // Function called when a burst stream capture has finished
     void onStreamEnd() override;
 
+    // Override clean up method
+    void cleanUp() override;
+
 private:
 
     // AntennaInformation object
@@ -224,9 +227,6 @@ class ContinuousChannelisedData : public DataConsumer
 {
 public:
 
-    // Override destructor
-    ~ContinuousChannelisedData() override;
-
     // Override setDataCallback
     void setCallback(DataCallback callback) override;
 
@@ -239,6 +239,9 @@ protected:
 
     // Grab SPEAD packet from buffer and process
     bool processPacket() override;
+
+    // Override cleanup method
+    void cleanUp() override;
 
 private:
 
@@ -279,6 +282,9 @@ protected:
 
     // Grab SPEAD packet from buffer and process
     bool processPacket() override;
+
+    // Override clean up method
+    void cleanUp() override;
 
 private:
 

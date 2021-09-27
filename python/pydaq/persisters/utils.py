@@ -79,8 +79,6 @@ def step_range(low, up, leng):
     :return: A range of values.
     """
     return np.linspace(low, up, leng, dtype=np.float128)
-    # step = ((up - low) * 1.0 / leng)
-    # return [low + i * step for i in range(leng)]
 
 
 def get_date_time(timestamp=None):

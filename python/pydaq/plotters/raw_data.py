@@ -1,4 +1,3 @@
-from builtins import range
 from pydaq.persisters import RawFormatFileManager, FileDAQModes
 from pydaq.plotters.utils import *
 from matplotlib import pyplot as plt
