@@ -1,16 +1,20 @@
-import numpy as np
-import threading
+import ctypes
 import fcntl
+import json
+import signal
 import socket
 import struct
-import signal
+import threading
+from ctypes.util import find_library
+from typing import Callable, Union, List, Dict, Any, Optional, Type
+
+import numpy as np
 import yaml
 
 from pyaavs.logger import root_logger as daq_logger
 from pyaavs.slack import get_slack_instance
-from pydaq.persisters import aavs_file
-from pydaq.interface import *
 from pydaq.persisters import *
+from pydaq.persisters import aavs_file
 
 
 # Define consumer type Enums
@@ -33,7 +37,53 @@ complex_8t = np.dtype([('real', np.int8), ('imag', np.int8)])
 class DaqReceiver:
     """ Class implementing interface to low-level data acquisition system """
 
-    def __init__(self, use_slack=False):
+    # -------------------------- C++ struct and enum definitions ------------------------
+    class Complex8t(ctypes.Structure):
+        """ Complex 8 structure definition """
+        _fields_ = [("x", ctypes.c_int8),
+                    ("y", ctypes.c_int8)]
+
+    class Complex16t(ctypes.Structure):
+        """ Complex 16 structure definition """
+        _fields_ = [("x", ctypes.c_int16),
+                    ("y", ctypes.c_int16)]
+
+    class Complex32t(ctypes.Structure):
+        """ Complex 32 structure definition """
+        _fields_ = [("x", ctypes.c_int32),
+                    ("y", ctypes.c_int32)]
+
+    class DataType(Enum):
+        """ DataType enumeration """
+        RawData = 1
+        ChannelisedData = 2
+        BeamData = 3
+
+    class Result(Enum):
+        """ Result enumeration """
+        Success = 0
+        Failure = -1
+        ReceiverUninitialised = -2
+        ConsumerAlreadyInitialised = -3
+
+    class LogLevel(Enum):
+        """ Log level"""
+        Fatal = 1
+        Error = 2
+        Warning = 3
+        Info = 4
+        Debug = 5
+
+    # --------------------------------------------------------------------------------------
+
+    # Define consumer data callback wrapper
+    DATA_CALLBACK = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_void_p), ctypes.c_double,
+                                     ctypes.c_uint32, ctypes.c_uint32)
+
+    # Define logging callback wrapper
+    LOGGER_CALLBACK = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p)
+
+    def __init__(self):
         """ Class constructor """
 
         # Configuration directory containing defaults for all possible parameter
@@ -53,7 +103,7 @@ class DaqReceiver:
                         "nof_beam_channels": 384,
                         "nof_station_samples": 262144,
                         "append_integrated": True,
-                        "tsamp": 1.1325,
+                        "sampling_time": 1.1325,
                         "sampling_rate": (800e6 / 2.0) * (32.0 / 27.0) / 512.0,
                         "oversampling_factor": 32.0 / 27.0,
                         "receiver_ports": "4660",
@@ -62,6 +112,7 @@ class DaqReceiver:
                         "receiver_frame_size": 8500,
                         "receiver_frames_per_block": 32,
                         "receiver_nof_blocks": 256,
+                        "receiver_nof_threads": 1,
                         "directory": ".",
                         "logging": True,
                         "write_to_disk": True,
@@ -72,18 +123,24 @@ class DaqReceiver:
                         "observation_metadata": {}  # This is populated automatically
                         }
 
+        # Default AAVS DAQ C++ shared library path
+        self._daq_library_path = b"/opt/aavs/lib/libaavsdaq.so"
+
+        # Pointer to shared library object
+        self._daq_library = None
+
         # List of data callbacks
-        self._callbacks = {DaqModes.RAW_DATA: DATA_CALLBACK(self._raw_data_callback),
-                           DaqModes.CHANNEL_DATA: DATA_CALLBACK(self._channel_burst_data_callback),
-                           DaqModes.BEAM_DATA: DATA_CALLBACK(self._beam_burst_data_callback),
-                           DaqModes.CONTINUOUS_CHANNEL_DATA: DATA_CALLBACK(self._channel_continuous_data_callback),
-                           DaqModes.INTEGRATED_BEAM_DATA: DATA_CALLBACK(self._beam_integrated_data_callback),
-                           DaqModes.INTEGRATED_CHANNEL_DATA: DATA_CALLBACK(self._channel_integrated_data_callback),
-                           DaqModes.STATION_BEAM_DATA: DATA_CALLBACK(self._station_callback),
-                           DaqModes.CORRELATOR_DATA: DATA_CALLBACK(self._correlator_callback)}
+        self._callbacks = {DaqModes.RAW_DATA: self.DATA_CALLBACK(self._raw_data_callback),
+                           DaqModes.CHANNEL_DATA: self.DATA_CALLBACK(self._channel_burst_data_callback),
+                           DaqModes.BEAM_DATA: self.DATA_CALLBACK(self._beam_burst_data_callback),
+                           DaqModes.CONTINUOUS_CHANNEL_DATA: self.DATA_CALLBACK(self._channel_continuous_data_callback),
+                           DaqModes.INTEGRATED_BEAM_DATA: self.DATA_CALLBACK(self._beam_integrated_data_callback),
+                           DaqModes.INTEGRATED_CHANNEL_DATA: self.DATA_CALLBACK(self._channel_integrated_data_callback),
+                           DaqModes.STATION_BEAM_DATA: self.DATA_CALLBACK(self._station_callback),
+                           DaqModes.CORRELATOR_DATA: self.DATA_CALLBACK(self._correlator_callback)}
 
         # List of external callback
-        self._external_callbacks = {key: None for key in DaqModes}
+        self._external_callbacks = {k: None for k in DaqModes}
 
         # List of data persisters
         self._persisters = {}
@@ -93,29 +150,30 @@ class DaqReceiver:
         self._timestamps = {}
 
         # Sampling time for the different modes
-        self._sampling_time = {key: 0 for key in DaqModes}
+        self._sampling_time = {k: 0 for k in DaqModes}
 
         # Pointer to logging function forwarded by low-level DAQ
-        self._daq_logging_function = LOGGER_CALLBACK(self._logging_callback)
+        self._daq_logging_function = self.LOGGER_CALLBACK(self._logging_callback)
 
         # Keep track of which data consumers are running
         self._running_consumers = {}
 
-        # Slack messenger
-        self._slack = get_slack_instance("")
-
         # Placeholder for continuous and station data to skip first few buffers
         self._buffer_counter = {}
 
+        # Slack messenger, get default instance (dummy)
+        self._slack = get_slack_instance("")
+
     # --------------------------------------- CONSUMERS --------------------------------------
 
-    def _raw_data_callback(self, data, timestamp, tile, _):
+    def _raw_data_callback(self, data: ctypes.POINTER, timestamp: float, tile: int, _: int) -> None:
         """ Raw data callback
         :param data: Received data
         :param tile: The tile from which the data was acquired
         :param timestamp: Timestamp of first data point in data
         """
 
+        # If writing to disk is not enabled, return immediately
         if not self._config['write_to_disk']:
             return
 
@@ -145,7 +203,8 @@ class DaqReceiver:
         if self._config['logging']:
             logging.info("Received raw data for tile {}".format(tile))
 
-    def _channel_data_callback(self, data, timestamp, tile, channel_id, mode='burst'):
+    def _channel_data_callback(self, data: ctypes.POINTER, timestamp: float, tile: int,
+                               channel_id: int, mode: str = 'burst') -> None:
         """ Channel data callback
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
@@ -153,6 +212,8 @@ class DaqReceiver:
         :param channel_id: Channel identifier
         :param mode: Channel transmission mode
         """
+
+        # If writing to disk is not enabled, return immediately
         if not self._config['write_to_disk']:
             return
 
@@ -206,11 +267,13 @@ class DaqReceiver:
                                                  channel_id=channel_id,
                                                  buffer_timestamp=timestamp,
                                                  tile_id=tile)
-            if self._config['logging']:
-                logging.info("Received continuous channel data for tile {} - channel {}".format(tile, channel_id))
 
+            # Call external callback if defined
             if self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA]("cont_channel", filename, tile)
+
+            if self._config['logging']:
+                logging.info("Received continuous channel data for tile {} - channel {}".format(tile, channel_id))
 
         elif mode == 'integrated':
             if DaqModes.INTEGRATED_CHANNEL_DATA not in list(self._timestamps.keys()):
@@ -232,11 +295,12 @@ class DaqReceiver:
                                                  buffer_timestamp=timestamp,
                                                  tile_id=tile)
 
-            if self._config['logging']:
-                logging.info("Received integrated channel data for tile {}".format(tile))
-
+            # Call external callback if defined
             if self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA]("integrated_channel", filename, tile)
+
+            if self._config['logging']:
+                logging.info("Received integrated channel data for tile {}".format(tile))
 
         else:
             persister = self._persisters[DaqModes.CHANNEL_DATA]
@@ -244,13 +308,15 @@ class DaqReceiver:
                                              timestamp=timestamp,
                                              sampling_time=self._sampling_time[DaqModes.CHANNEL_DATA],
                                              tile_id=tile)
-            if self._config['logging']:
-                logging.info("Received burst channel data for tile {}".format(tile))
 
+            # Call external callback if defined
             if self._external_callbacks[DaqModes.CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.CHANNEL_DATA]("burst_channel", filename, tile)
 
-    def _channel_burst_data_callback(self, data, timestamp, tile, _):
+            if self._config['logging']:
+                logging.info("Received burst channel data for tile {}".format(tile))
+
+    def _channel_burst_data_callback(self, data: ctypes.POINTER, timestamp: float, tile: int, _: int) -> None:
         """ Channel callback wrapper for burst data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
@@ -258,7 +324,8 @@ class DaqReceiver:
         """
         self._channel_data_callback(data, timestamp, tile, _)
 
-    def _channel_continuous_data_callback(self, data, timestamp, tile, channel_id):
+    def _channel_continuous_data_callback(self, data: ctypes.POINTER, timestamp: float,
+                                          tile: int, channel_id: int) -> None:
         """ Channel callback wrapper for continuous data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
@@ -267,22 +334,22 @@ class DaqReceiver:
         """
         self._channel_data_callback(data, timestamp, tile, channel_id, "continuous")
 
-    def _channel_integrated_data_callback(self, data, timestamp, tile, _):
+    def _channel_integrated_data_callback(self, data: ctypes.POINTER, timestamp: float, tile: int, _: int) -> None:
         """ Channel callback wrapper for integrated data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-                :param tile: The tile from which the data was acquired
+        :param tile: The tile from which the data was acquired
         """
         self._channel_data_callback(data, timestamp, tile, _, "integrated")
 
-    def _beam_burst_data_callback(self, data, timestamp, tile, _):
+    def _beam_burst_data_callback(self, data: ctypes.POINTER, timestamp: float, tile: int, _: int) -> None:
         """ Beam callback wrapper for burst data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
         :param tile: The tile from which the data was acquired
-
         """
 
+        # If writing to disk is not enabled, return immediately
         if not self._config['write_to_disk']:
             return
 
@@ -291,25 +358,28 @@ class DaqReceiver:
                                              self._config['nof_beams'] * self._config['nof_polarisations'] * \
                                              self._config['nof_beam_samples'] * self._config['nof_beam_channels'])
 
+        # Persist extracted data to file
         persister = self._persisters[DaqModes.BEAM_DATA]
         filename = persister.ingest_data(data_ptr=values,
                                          timestamp=timestamp,
                                          sampling_time=self._sampling_time[DaqModes.BEAM_DATA],
                                          tile_id=tile)
 
-        if self._config['logging']:
-            logging.info("Received beam data for tile {}".format(tile))
-
+        # Call external callback if defined
         if self._external_callbacks[DaqModes.BEAM_DATA] is not None:
             self._external_callbacks[DaqModes.BEAM_DATA]("burst_beam", filename, tile)
 
-    def _beam_integrated_data_callback(self, data, timestamp, tile, _):
+        if self._config['logging']:
+            logging.info("Received beam data for tile {}".format(tile))
+
+    def _beam_integrated_data_callback(self, data: ctypes.POINTER, timestamp: float, tile: int, _: int) -> None:
         """ Beam callback wrapper for integrated data mode
         :param data: Received data
         :param tile: The tile from which the data was acquired
         :param timestamp: Timestamp of first data point in data
         """
 
+        # If writing to disk is not enabled, return immediately
         if not self._config['write_to_disk']:
             return
 
@@ -318,14 +388,13 @@ class DaqReceiver:
                                              self._config['nof_beams'] * self._config['nof_polarisations'] * 384)
 
         # Re-arrange data
-        values = np.reshape(values,
-                            (self._config['nof_beams'], self._config['nof_polarisations'], 384))
+        values = np.reshape(values, (self._config['nof_beams'], self._config['nof_polarisations'], 384))
         values = values.flatten()
 
-        # Persist extracted data to file
         if DaqModes.INTEGRATED_BEAM_DATA not in list(self._timestamps.keys()):
             self._timestamps[DaqModes.INTEGRATED_BEAM_DATA] = timestamp
 
+        # Persist extracted data to file
         persister = self._persisters[DaqModes.INTEGRATED_BEAM_DATA]
         filename = persister.ingest_data(append=self._config['append_integrated'],
                                          data_ptr=values,
@@ -337,10 +406,11 @@ class DaqReceiver:
         if self._config['logging']:
             logging.info("Received integrated beam data for tile {}".format(tile))
 
+        # Call external callback if defined
         if self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] is not None:
             self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA]("integrated_beam", filename, tile)
 
-    def _correlator_callback(self, data, timestamp, channel_id, _):
+    def _correlator_callback(self, data: ctypes.POINTER, timestamp: float, channel_id: int, _: int) -> None:
         """ Correlated data callback
         :param data: Received data
         :param timestamp: Timestamp of first sample in data
@@ -379,7 +449,7 @@ class DaqReceiver:
         # Persist extracted data to file
         persister = self._persisters[DaqModes.CORRELATOR_DATA]
         if self._config['nof_correlator_channels'] == 1:
-            # Persist extracted data to file
+
             if DaqModes.CORRELATOR_DATA not in list(self._timestamps.keys()):
                 self._timestamps[DaqModes.CORRELATOR_DATA] = timestamp
 
@@ -396,13 +466,14 @@ class DaqReceiver:
                                              sampling_time=self._sampling_time[DaqModes.CORRELATOR_DATA],
                                              channel_id=channel_id)
 
+        # Call external callback if defined
         if self._external_callbacks[DaqModes.CORRELATOR_DATA] is not None:
             self._external_callbacks[DaqModes.CORRELATOR_DATA]("correlator", filename)
 
         if self._config['logging']:
             logging.info("Received correlated data for channel {}".format(channel))
 
-    def _station_callback(self, data, timestamp, nof_packets, nof_saturations):
+    def _station_callback(self, data: ctypes.POINTER, timestamp: float, nof_packets: int, nof_saturations: int) -> None:
         """ Correlated data callback
         :param data: Received data
         :param timestamp: Timestamp of first sample in data
@@ -435,7 +506,7 @@ class DaqReceiver:
                                          timestamp=self._timestamps[DaqModes.STATION_BEAM_DATA],
                                          sampling_time=self._sampling_time[DaqModes.STATION_BEAM_DATA],
                                          buffer_timestamp=timestamp,
-                                         station_id=0,   # TODO: Get station ID from station config, if possible
+                                         station_id=0,  # TODO: Get station ID from station config, if possible
                                          sample_packets=nof_packets)
 
         # Call external callback
@@ -447,7 +518,7 @@ class DaqReceiver:
                 "Received station beam data (nof saturations: {}, nof_packets: {})".format(nof_saturations,
                                                                                            nof_packets))
 
-    def _start_raw_data_consumer(self, callback=None):
+    def _start_raw_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """ Start raw data consumer
         :param callback: Caller callback """
 
@@ -459,7 +530,7 @@ class DaqReceiver:
                   "max_packet_size": self._config['receiver_frame_size']}
 
         # Start raw data consumer
-        if start_consumer("rawdata", params, self._callbacks[DaqModes.RAW_DATA]) != Result.Success:
+        if self._start_consumer("rawdata", params, self._callbacks[DaqModes.RAW_DATA]) != self.Result.Success:
             logging.info("Failed to start raw data consumer")
             raise Exception("Failed to start raw data consumer")
         self._running_consumers[DaqModes.RAW_DATA] = True
@@ -479,7 +550,7 @@ class DaqReceiver:
 
         logging.info("Started raw data consumer")
 
-    def _start_channel_data_consumer(self, callback=None):
+    def _start_channel_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """ Start channel data consumer
             :param callback: Caller callback
         """
@@ -493,7 +564,7 @@ class DaqReceiver:
                   "max_packet_size": self._config['receiver_frame_size']}
 
         # Start channel data consumer
-        if start_consumer("burstchannel", params, self._callbacks[DaqModes.CHANNEL_DATA]) != Result.Success:
+        if self._start_consumer("burstchannel", params, self._callbacks[DaqModes.CHANNEL_DATA]) != self.Result.Success:
             raise Exception("Failed to start channel data consumer")
         self._running_consumers[DaqModes.CHANNEL_DATA] = True
 
@@ -518,7 +589,7 @@ class DaqReceiver:
         if self._config['logging']:
             logging.info("Started channel data consumer")
 
-    def _start_continuous_channel_data_consumer(self, callback=None):
+    def _start_continuous_channel_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """ Start continuous channel data consumer
             :param callback: Caller callback
         """
@@ -532,13 +603,13 @@ class DaqReceiver:
                   "nof_antennas": self._config['nof_antennas'],
                   "nof_tiles": self._config['nof_tiles'],
                   "nof_pols": self._config['nof_polarisations'],
-                  "nof_buffer_skips": int(self._config['continuous_period'] // (
-                          self._sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * self._config['nof_channel_samples'])),
+                  "nof_buffer_skips": int(self._config['continuous_period'] //
+                      (self._sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * self._config['nof_channel_samples'])),
                   "max_packet_size": self._config['receiver_frame_size']}
 
         # Start channel data consumer
-        if start_consumer("continuouschannel", params,
-                          self._callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA]) != Result.Success:
+        if self._start_consumer("continuouschannel", params,
+                                self._callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA]) != self.Result.Success:
             raise Exception("Failed to start continuous channel data consumer")
         self._running_consumers[DaqModes.CONTINUOUS_CHANNEL_DATA] = True
 
@@ -557,7 +628,7 @@ class DaqReceiver:
 
         logging.info("Started continuous channel data consumer")
 
-    def _start_integrated_channel_data_consumer(self, callback=None):
+    def _start_integrated_channel_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """ Start integrated channel data consumer
             :param callback: Caller callback
         """
@@ -570,8 +641,8 @@ class DaqReceiver:
                   "max_packet_size": self._config['receiver_frame_size']}
 
         # Start channel data consumer
-        if start_consumer("integratedchannel", params,
-                          self._callbacks[DaqModes.INTEGRATED_CHANNEL_DATA]) != Result.Success:
+        if self._start_consumer("integratedchannel", params,
+                                self._callbacks[DaqModes.INTEGRATED_CHANNEL_DATA]) != self.Result.Success:
             raise Exception("Failed to start continuous channel data consumer")
         self._running_consumers[DaqModes.INTEGRATED_CHANNEL_DATA] = True
 
@@ -586,14 +657,14 @@ class DaqReceiver:
         self._persisters[DaqModes.INTEGRATED_CHANNEL_DATA] = channel_file
 
         # Set sampling time
-        self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA] = self._config['tsamp']
+        self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA] = self._config['sampling_time']
 
         # Set external callback
         self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] = callback
 
         logging.info("Started integrated channel data consumer")
 
-    def _start_beam_data_consumer(self, callback=None):
+    def _start_beam_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """ Start beam data consumer
             :param callback: Caller callback
         """
@@ -605,7 +676,7 @@ class DaqReceiver:
                   "nof_pols": self._config['nof_polarisations'],
                   "max_packet_size": self._config['receiver_frame_size']}
 
-        if start_consumer("burstbeam", params, self._callbacks[DaqModes.BEAM_DATA]) != Result.Success:
+        if self._start_consumer("burstbeam", params, self._callbacks[DaqModes.BEAM_DATA]) != self.Result.Success:
             raise Exception("Failed to start beam data consumer")
 
         self._running_consumers[DaqModes.BEAM_DATA] = True
@@ -628,7 +699,7 @@ class DaqReceiver:
 
         logging.info("Started beam data consumer")
 
-    def _start_integrated_beam_data_consumer(self, callback=None):
+    def _start_integrated_beam_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """ Start integrated beam data consumer
             :param callback: Caller callback
         """
@@ -641,7 +712,8 @@ class DaqReceiver:
                   "nof_pols": self._config['nof_polarisations'],
                   "max_packet_size": self._config['receiver_frame_size']}
 
-        if start_consumer("integratedbeam", params, self._callbacks[DaqModes.INTEGRATED_BEAM_DATA]) != Result.Success:
+        if self._start_consumer("integratedbeam", params,
+                                self._callbacks[DaqModes.INTEGRATED_BEAM_DATA]) != self.Result.Success:
             raise Exception("Failed to start beam data consumer")
         self._running_consumers[DaqModes.INTEGRATED_BEAM_DATA] = True
 
@@ -660,14 +732,14 @@ class DaqReceiver:
         self._persisters[DaqModes.INTEGRATED_BEAM_DATA] = beam_file
 
         # Set sampling time
-        self._sampling_time[DaqModes.INTEGRATED_BEAM_DATA] = self._config['tsamp']
+        self._sampling_time[DaqModes.INTEGRATED_BEAM_DATA] = self._config['sampling_time']
 
         # Set external callback
         self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] = callback
 
         logging.info("Started integrated beam data consumer")
 
-    def _start_station_beam_data_consumer(self, callback=None):
+    def _start_station_beam_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """ Start station beam data consumer
             :param callback: Caller callback
         """
@@ -677,7 +749,8 @@ class DaqReceiver:
                   "nof_samples": self._config['nof_station_samples'],
                   "max_packet_size": self._config['receiver_frame_size']}
 
-        if start_consumer("stationdata", params, self._callbacks[DaqModes.STATION_BEAM_DATA]) != Result.Success:
+        if self._start_consumer("stationdata", params,
+                                self._callbacks[DaqModes.STATION_BEAM_DATA]) != self.Result.Success:
             raise Exception("Failed to start station beam data consumer")
         self._running_consumers[DaqModes.STATION_BEAM_DATA] = True
 
@@ -700,7 +773,7 @@ class DaqReceiver:
 
         logging.info("Started station beam data consumer")
 
-    def _start_correlator(self, callback=None):
+    def _start_correlator(self, callback: Optional[Callable] = None) -> None:
         """ Start correlator
             :param callback: Caller callback
         """
@@ -714,7 +787,7 @@ class DaqReceiver:
                   "nof_pols": self._config['nof_polarisations'],
                   "max_packet_size": self._config['receiver_frame_size']}
 
-        if start_consumer("correlator", params, self._callbacks[DaqModes.CORRELATOR_DATA]) != Result.Success:
+        if self._start_consumer("correlator", params, self._callbacks[DaqModes.CORRELATOR_DATA]) != self.Result.Success:
             raise Exception("Failed to start correlator")
         self._running_consumers[DaqModes.CORRELATOR_DATA] = True
 
@@ -743,19 +816,19 @@ class DaqReceiver:
 
         logging.info("Started correlator")
 
-    def _stop_raw_data_consumer(self):
+    def _stop_raw_data_consumer(self) -> None:
         """ Stop raw data consumer """
         self._external_callbacks[DaqModes.RAW_DATA] = None
-        if stop_consumer("rawdata") != Result.Success:
+        if self._stop_consumer("rawdata") != self.Result.Success:
             raise Exception("Failed to stop raw data consumer")
         self._running_consumers[DaqModes.RAW_DATA] = False
 
         logging.info("Stopped raw data consumer")
 
-    def _stop_channel_data_consumer(self):
+    def _stop_channel_data_consumer(self) -> None:
         """ Stop channel data consumer """
         self._external_callbacks[DaqModes.CHANNEL_DATA] = None
-        if stop_consumer("burstchannel") != Result.Success:
+        if self._stop_consumer("burstchannel") != self.Result.Success:
             raise Exception("Failed to stop channel data consumer")
         self._running_consumers[DaqModes.CHANNEL_DATA] = False
 
@@ -764,52 +837,52 @@ class DaqReceiver:
     def _stop_continuous_channel_data_consumer(self):
         """ Stop continuous channel data consumer """
         self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] = None
-        if stop_consumer("continuouschannel") != Result.Success:
+        if self._stop_consumer("continuouschannel") != self.Result.Success:
             raise Exception("Failed to stop continuous channel data consumer")
         self._running_consumers[DaqModes.CONTINUOUS_CHANNEL_DATA] = False
 
         logging.info("Stopped continuous channel data consumer")
 
-    def _stop_integrated_channel_data_consumer(self):
+    def _stop_integrated_channel_data_consumer(self) -> None:
         """ Stop integrated channel data consumer """
         self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] = None
-        if stop_consumer("integratedchannel") != Result.Success:
+        if self._stop_consumer("integratedchannel") != self.Result.Success:
             raise Exception("Failed to stop integrated channel data consumer")
         self._running_consumers[DaqModes.INTEGRATED_CHANNEL_DATA] = False
 
         logging.info("Stopped integrated channel consumer")
 
-    def _stop_beam_data_consumer(self):
+    def _stop_beam_data_consumer(self) -> None:
         """ Stop beam data consumer """
         self._external_callbacks[DaqModes.BEAM_DATA] = None
-        if stop_consumer("burstbeam") != Result.Success:
+        if self._stop_consumer("burstbeam") != self.Result.Success:
             raise Exception("Failed to stop beam data consumer")
         self._running_consumers[DaqModes.BEAM_DATA] = False
 
         logging.info("Stopped beam data consumer")
 
-    def _stop_integrated_beam_data_consumer(self):
+    def _stop_integrated_beam_data_consumer(self) -> None:
         """ Stop integrated beam data consumer """
         self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] = None
-        if stop_consumer("integratedbeam") != Result.Success:
+        if self._stop_consumer("integratedbeam") != self.Result.Success:
             raise Exception("Failed to stop integrated beam data consumer")
         self._running_consumers[DaqModes.INTEGRATED_BEAM_DATA] = False
 
         logging.info("Stopped integrated beam data consumer")
 
-    def _stop_station_beam_data_consumer(self):
+    def _stop_station_beam_data_consumer(self) -> None:
         """ Stop beam data consumer """
         self._external_callbacks[DaqModes.STATION_BEAM_DATA] = None
-        if stop_consumer("stationdata") != Result.Success:
+        if self._stop_consumer("stationdata") != self.Result.Success:
             raise Exception("Failed to stop station beam data consumer")
         self._running_consumers[DaqModes.STATION_BEAM_DATA] = False
 
         logging.info("Stopped station beam data consumer")
 
-    def _stop_correlator(self):
+    def _stop_correlator(self) -> None:
         """ Stop correlator consumer """
         self._external_callbacks[DaqModes.CORRELATOR_DATA] = None
-        if stop_consumer("correlator") != Result.Success:
+        if self._stop_consumer("correlator") != self.Result.Success:
             raise Exception("Failed to stop correlator")
         self._running_consumers[DaqModes.CORRELATOR_DATA] = False
 
@@ -817,7 +890,7 @@ class DaqReceiver:
 
     # ------------------------------------- INITIALISATION -----------------------------------
 
-    def initialise_daq(self):
+    def initialise_daq(self) -> None:
         """ Initialise DAQ library """
 
         # Remove any locks
@@ -827,64 +900,83 @@ class DaqReceiver:
         # Initialise AAVS DAQ library
         logging.info("Initialising library")
 
-        # NOTE: Hardcoded case for 48-element stations in AAVS
-        initialise_library()
+        # Initialise C++ library
+        self._initialise_library()
 
         # Set logging callback
-        call_attach_logger(self._daq_logging_function)
+        self._call_attach_logger(self._daq_logging_function)
 
         # Start receiver
-        if call_start_receiver(self._config['receiver_interface'].encode(),
-                               self._config['receiver_ip'],
-                               self._config['receiver_frame_size'],
-                               self._config['receiver_frames_per_block'],
-                               self._config['receiver_nof_blocks']) != Result.Success.value:
+        if self._call_start_receiver(self._config['receiver_interface'].encode(),
+                                     self._config['receiver_ip'],
+                                     self._config['receiver_frame_size'],
+                                     self._config['receiver_frames_per_block'],
+                                     self._config['receiver_nof_blocks'],
+                                     self._config['receiver_nof_threads']) != self.Result.Success.value:
             logging.info("Failed to start receiver")
             raise Exception("Failed to start receiver")
 
         # Set receiver ports
         for port in self._config['receiver_ports']:
-            if call_add_receiver_port(port) != Result.Success.value:
+            if self._call_add_receiver_port(port) != self.Result.Success.value:
                 logging.info("Failed to set receiver port %d" % port)
                 raise Exception("Failed to set receiver port %d" % port)
 
-    def start_daq(self, daq_modes):
+    def start_daq(self,
+                  daq_modes: Union[DaqModes, List[DaqModes]],
+                  callbacks: Optional[Union[Callable, List[Callable]]] = None) -> None:
         """ Start acquiring data for specified modes
-        :param daq_modes: List of modes to start, should be from DaqModes"""
+        :param daq_modes: List of modes to start, should be from DaqModes
+        :param callbacks: List of callbacks, one per mode in daq_modes"""
 
-        # Running in raw data mode
-        if DaqModes.RAW_DATA in daq_modes:
-            self._start_raw_data_consumer()
+        if type(daq_modes) != list:
+            daq_modes = [daq_modes]
 
-        # Running in integrated data mode
-        if DaqModes.INTEGRATED_CHANNEL_DATA in daq_modes:
-            self._start_integrated_channel_data_consumer()
+        if callbacks is not None and type(callbacks) != list:
+            callbacks = [callbacks]
+        elif callbacks is None:
+            callbacks = [None] * len(daq_modes)
 
-        # Running in continuous channel mode
-        if DaqModes.CONTINUOUS_CHANNEL_DATA in daq_modes:
-            self._start_continuous_channel_data_consumer()
+        if callbacks is not None and len(callbacks) != len(daq_modes):
+            logging.warning("Number of callback should match number of daq_modes. Ignoring callbacks.")
+            callbacks = []
 
-        # Running in burst mode
-        if DaqModes.CHANNEL_DATA in daq_modes:
-            self._start_channel_data_consumer()
+        # Check all modes
+        for i, mode in enumerate(daq_modes):
 
-        # Running in tile beam mode
-        if DaqModes.BEAM_DATA in daq_modes:
-            self._start_beam_data_consumer()
+            # Running in raw data mode
+            if DaqModes.RAW_DATA == mode:
+                self._start_raw_data_consumer(callbacks[i])
 
-        # Running in integrated tile beam mode
-        if DaqModes.INTEGRATED_BEAM_DATA in daq_modes:
-            self._start_integrated_beam_data_consumer()
+            # Running in integrated data mode
+            if DaqModes.INTEGRATED_CHANNEL_DATA == mode:
+                self._start_integrated_channel_data_consumer(callbacks[i])
 
-        # Running in integrated station beam mode
-        if DaqModes.STATION_BEAM_DATA in daq_modes:
-            self._start_station_beam_data_consumer()
+            # Running in continuous channel mode
+            if DaqModes.CONTINUOUS_CHANNEL_DATA == mode:
+                self._start_continuous_channel_data_consumer(callbacks[i])
 
-        # Running in correlator mode
-        if DaqModes.CORRELATOR_DATA in daq_modes:
-            self._start_correlator()
+            # Running in burst mode
+            if DaqModes.CHANNEL_DATA == mode:
+                self._start_channel_data_consumer(callbacks[i])
 
-    def stop_daq(self):
+            # Running in tile beam mode
+            if DaqModes.BEAM_DATA == mode:
+                self._start_beam_data_consumer(callbacks[i])
+
+            # Running in integrated tile beam mode
+            if DaqModes.INTEGRATED_BEAM_DATA == mode:
+                self._start_integrated_beam_data_consumer(callbacks[i])
+
+            # Running in integrated station beam mode
+            if DaqModes.STATION_BEAM_DATA == mode:
+                self._start_station_beam_data_consumer(callbacks[i])
+
+            # Running in correlator mode
+            if DaqModes.CORRELATOR_DATA == mode:
+                self._start_correlator(callbacks[i])
+
+    def stop_daq(self) -> None:
         """ Stop DAQ """
 
         # Clear data
@@ -902,19 +994,20 @@ class DaqReceiver:
                           DaqModes.CORRELATOR_DATA: self._stop_correlator}
 
         # Stop all running consumers
-        for key, running in list(self._running_consumers.items()):
+        for k, running in self._running_consumers.items():
             if running:
-                stop_functions[key]()
+                stop_functions[k]()
 
         # Stop DAQ receiver thread
-        if call_stop_receiver() != Result.Success.value:
+        if self._call_stop_receiver() != self.Result.Success.value:
             raise Exception("Failed to stop receiver")
 
         logging.info("Stopped DAQ")
+        self.send_slack_message("DAQ acquisition stopped")
 
     # ------------------------------------- CONFIGURATION ------------------------------------
 
-    def populate_configuration(self, configuration):
+    def populate_configuration(self, configuration: Dict[str, Any]) -> None:
         """ Generate instance configuration object
         :param configuration: Configuration parameters  """
 
@@ -969,7 +1062,7 @@ class DaqReceiver:
     # ------------------------------------ HELPER FUNCTIONS ----------------------------------
 
     @staticmethod
-    def _get_station_information(station_config):
+    def _get_station_information(station_config: str) -> Dict[str, Any]:
         """ If a station configuration file is provided, connect to
             station and get required information """
 
@@ -1000,7 +1093,7 @@ class DaqReceiver:
         return metadata
 
     @staticmethod
-    def _get_software_version():
+    def _get_software_version() -> int:
         """ Get current software version. This will get the latest git commit hash"""
         try:
 
@@ -1017,46 +1110,47 @@ class DaqReceiver:
             logging.warning("Could not get software git hash. Skipping")
             return 0
 
-    def get_configuration(self):
+    def get_configuration(self) -> Dict[str, Any]:
         """ Return configuration dictionary """
         return self._config
 
     @staticmethod
-    def _get_numpy_from_ctypes(pointer, dtype, nof_values):
+    def _get_numpy_from_ctypes(pointer: ctypes.POINTER,
+                               datatype: Type,
+                               nof_values: int) -> np.ndarray:
         """ Return a numpy object representing content in memory referenced by pointer
          :param pointer: Pointer to memory
-         :param dtype: Data type to case data to
+         :param datatype: Data type to case data to
          :param nof_values: Number of value in memory area """
-        value_buffer = ctypes.c_char * np.dtype(dtype).itemsize * nof_values
-        return np.frombuffer(value_buffer.from_address(ctypes.addressof(pointer.contents)), dtype)
+        value_buffer = ctypes.c_char * np.dtype(datatype).itemsize * nof_values
+        return np.frombuffer(value_buffer.from_address(ctypes.addressof(pointer.contents)), datatype)
 
-    @staticmethod
-    def _logging_callback(level, message):
+    def _logging_callback(self, level: LogLevel, message: str) -> None:
         """ Wrapper to logging function in low-level DAQ
         :param level: Logging level
         :param message; Message to log """
         message = message.decode()
 
-        if level == LogLevel.Fatal.value:
+        if level == self.LogLevel.Fatal.value:
             daq_logger.fatal(message)
             sys.exit()
-        elif level == LogLevel.Error.value:
+        elif level == self.LogLevel.Error.value:
             daq_logger.error(message)
             sys.exit()
-        elif level == LogLevel.Warning.value:
+        elif level == self.LogLevel.Warning.value:
             daq_logger.warning(message)
-        elif level == LogLevel.Info.value:
+        elif level == self.LogLevel.Info.value:
             daq_logger.info(message)
-        elif level == LogLevel.Debug.value:
+        elif level == self.LogLevel.Debug.value:
             daq_logger.debug(message)
 
-    def send_slack_message(self, message):
+    def send_slack_message(self, message: str) -> None:
         """ Send a message of slack
         :param message: Message to send"""
         self._slack.info(message)
 
     @staticmethod
-    def _get_ip_address(interface):
+    def _get_ip_address(interface: str) -> bytes:
         """ Helper methode to get the IP address of a specified interface
         :param interface: Network interface name """
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -1066,10 +1160,166 @@ class DaqReceiver:
             struct.pack('256s', interface[:15])
         )[20:24]).encode()
 
-    def set_slack(self, name):
+    def set_slack(self, station: str) -> None:
         """ Set slack instance
-        :param name: Station name"""
-        self._slack = get_slack_instance(name)
+        :param station: Station name"""
+        self._slack = get_slack_instance(station)
+
+    # ---------------------------- Wrapper to library C++ shared library calls ----------------------------
+
+    def _initialise_library(self, filepath: Optional[str] = None) -> None:
+        """ Wrap AAVS DAQ shared library functionality in ctypes
+        :param filepath: Path to library path
+        """
+
+        def find(filename: str, path: str) -> Union[str, None]:
+            """ Find a file in a path
+            :param filename: File name
+            :param path: Path to search in """
+            for root, dirs, files in os.walk(path):
+                if filename in files:
+                    return os.path.join(root, filename)
+
+            return None
+
+        # This only need to be done once
+        if self._daq_library is not None:
+            return None
+
+        # Load AAVS DAQ shared library
+        _library = None
+        library_found = False
+        if 'AAVS_INSTALL' in list(os.environ.keys()):
+            # Check if library is in AAVS directory
+            if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so.so")):
+                _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so")
+                library_found = True
+
+        if not library_found:
+            _library = find("libdaq.so", "/opt/aavs/lib")
+            if _library is None:
+                _library = find("libdaq.so", "/usr/local/lib")
+            if _library is None:
+                _library = find_library("daq")
+
+        if _library is None:
+            raise Exception("AAVS DAQ library not found")
+
+        # Load library
+        self._daq_library = ctypes.CDLL(_library)
+
+        # Define attachLogger
+        self._daq_library.attachLogger.argtypes = [self.LOGGER_CALLBACK]
+        self._daq_library.attachLogger.restype = None
+
+        # Define startReceiver function
+        self._daq_library.startReceiver.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_uint32,
+                                                    ctypes.c_uint32, ctypes.c_uint32]
+        self._daq_library.startReceiver.restype = ctypes.c_int
+
+        # Define stopReceiver function
+        self._daq_library.stopReceiver.argtypes = []
+        self._daq_library.stopReceiver.restype = ctypes.c_int
+
+        # Define loadConsumer function
+        self._daq_library.loadConsumer.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+        self._daq_library.loadConsumer.restype = ctypes.c_int
+
+        # Define initialiseConsumer function
+        self._daq_library.initialiseConsumer.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+        self._daq_library.initialiseConsumer.restype = ctypes.c_int
+
+        # Define startConsumer function
+        self._daq_library.startConsumer.argtypes = [ctypes.c_char_p, self.DATA_CALLBACK]
+        self._daq_library.startConsumer.restype = ctypes.c_int
+
+        # Define stopConsumer function
+        self._daq_library.stopConsumer.argtypes = [ctypes.c_char_p]
+        self._daq_library.stopConsumer.restype = ctypes.c_int
+
+        # Locate aavsdaq.so
+        if filepath is not None:
+            aavsdaq_library = filepath
+        else:
+            aavsdaq_library = find("libaavsdaq.so", "/opt/aavs/lib")
+            if aavsdaq_library is None:
+                aavsdaq_library = find("libaavsdaq.so", "/usr/local/lib")
+            if aavsdaq_library is None:
+                aavsdaq_library = find_library("aavsdaq")
+
+        self._daq_library_path = aavsdaq_library.encode()
+
+    # ------------- Function wrappers to library ---------------------------
+
+    def _call_attach_logger(self, logging_callback: Callable) -> None:
+        """ Attach logger
+        :param logging_callback: Function which will process logs """
+        self._daq_library.attachLogger(logging_callback)
+
+    def _call_start_receiver(self, interface: str, ip: int, frame_size: int, frames_per_block: int,
+                             nof_blocks: int, nof_threads: int) -> Result:
+        """ Start network receiver thread
+        :param ip: IP address
+        :param interface: Interface name
+        :param frame_size: Maximum frame size
+        :param frames_per_block: Frames per block
+        :param nof_blocks: Number of blocks
+        :param nof_threads: Number of receiver threads
+        :return: Return code
+        """
+        return self._daq_library.startReceiver(interface, ip, frame_size, frames_per_block, nof_blocks, nof_threads)
+
+    def _call_stop_receiver(self) -> Result:
+        """ Stop network receiver thread """
+        return self._daq_library.stopReceiver()
+
+    def _call_add_receiver_port(self, port: int):
+        """ Add receive port to receiver
+        :param port: Port number
+        :return: Return code
+        """
+        return self._daq_library.addReceiverPort(port)
+
+    def _start_consumer(self, consumer: str, configuration: Dict[str, Any],
+                              callback: Optional[Callable] = None) -> Result:
+        """ Start consumer
+        :param consumer: String representation of consumer
+        :param configuration: Dictionary containing consumer configuration
+        :param callback: Callback function
+        :return: Return code """
+
+        # Change str type
+        consumer = consumer.encode()
+
+        # Load consumer
+        res = self._daq_library.loadConsumer(self._daq_library_path, consumer)
+        if res != self.Result.Success.value:
+            return self.Result.Failure
+
+        # Generate JSON from configuration and initialise consumer
+        res = self._daq_library.initialiseConsumer(consumer, json.dumps(configuration).encode())
+        if res != self.Result.Success.value:
+            return self.Result.Failure
+
+        # Start consumer
+        res = self._daq_library.startConsumer(consumer, callback)
+        if res != self.Result.Success.value:
+            return self.Result.Failure
+
+        return self.Result.Success
+
+    def _stop_consumer(self, consumer: str):
+        """ Stop raw data consumer
+        :return: Return code
+        """
+
+        # Change string type
+        consumer = consumer.encode()
+
+        if self._daq_library.stopConsumer(consumer) == self.Result.Success.value:
+            return self.Result.Success
+        else:
+            return self.Result.Failure
 
 
 # Script main entry point
@@ -1077,7 +1327,7 @@ if __name__ == "__main__":
 
     # Use OptionParse to get command-line arguments
     from optparse import OptionParser
-    from sys import argv, stdout
+    from sys import argv
 
     parser = OptionParser(usage="usage: %daq_receiver [options]")
 
@@ -1110,9 +1360,9 @@ if __name__ == "__main__":
     parser.add_option("", "--correlator-channels", action="store", dest="nof_correlator_channels",
                       type="int", default=1, help="Number of channels to channelise into before correlation. Only "
                                                   "used in correlator more [default: 1]")
-    parser.add_option("", "--tsamp", action="store", dest="tsamp",
+    parser.add_option("", "--sampling_time", action="store", dest="sampling_time",
                       type="float", default=1.1325,
-                      help="Sampling time in s (required for -I and -X) [default: 1.1325s]")
+                      help="Sampling time in s (required for -I and -D) [default: 1.1325s]")
     parser.add_option("", "--sampling_rate", action="store", dest="sampling_rate",
                       type="int", default=(800e6 / 2.0) * (32.0 / 27.0) / 512.0,
                       help="FPGA sampling rate [default: {:,.2e}]".format((800e6 / 2.0) * (32.0 / 27.0) / 512.0))
@@ -1137,9 +1387,11 @@ if __name__ == "__main__":
     parser.add_option("", "--receiver_frame_size", action="store", dest="receiver_frame_size",
                       type="int", default=9000, help="Receiver frame size [default: 9000]")
     parser.add_option("", "--receiver_frames_per_block", action="store", dest="receiver_frames_per_block",
-                      type="int", default=32, help="Receiver frame size [default: 32]")
+                      type="int", default=32, help="Receiver frames per block [default: 32]")
     parser.add_option("", "--receiver_nof_blocks", action="store", dest="receiver_nof_blocks",
-                      type="int", default=256, help="Receiver frame size [default: 256]")
+                      type="int", default=256, help="Receiver number of blocks [default: 256]")
+    parser.add_option("", "--receiver_nof_threads", action="store", dest="receiver_nof_threads",
+                      type="int", default=1, help="Receiver number of threads [default: 1]")
 
     # Operation modes
     parser.add_option("-R", "--read_raw_data", action="store_true", dest="read_raw_data",
@@ -1272,5 +1524,3 @@ if __name__ == "__main__":
 
     # Stop all running consumers and DAQ
     daq_instance.stop_daq()
-
-    daq_instance.send_slack_message("DAQ acquisition stopped")

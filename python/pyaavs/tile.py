@@ -969,23 +969,23 @@ class Tile(object):
         for f in devices:
             self.tpm['%s.pps_manager.pps_gen_tc' % f] = int(self._sampling_rate / 4) - 1
 
-        # try:
-        #     self.tpm['fpga1.regfile.spi_sync_function'] = 1
-        #     self.tpm['fpga2.regfile.spi_sync_function'] = 1
-        #     self.tpm['fpga1.pps_manager.pps_gen_sync'] = 0
-        #     self.tpm['fpga2.pps_manager.pps_gen_sync'] = 0
-        #     self.tpm['fpga1.pps_manager.pps_gen_sync.enable'] = 1
-        #     self.tpm['fpga2.pps_manager.pps_gen_sync.enable'] = 1
-        #     time.sleep(0.1)
-        #     self.tpm['fpga1.pps_manager.pps_gen_sync.act'] = 1
-        #     time.sleep(0.1)
-        #     self.tpm['fpga1.pps_manager.pps_gen_sync'] = 0
-        #     self.tpm['fpga2.pps_manager.pps_gen_sync'] = 0
-        #     self.tpm['fpga1.regfile.spi_sync_function'] = 1
-        #     self.tpm['fpga2.regfile.spi_sync_function'] = 1
-        #     logging.info("Internal PPS generator synchronised.")
-        # except:
-        #     logging.info("Current FPGA firmware doesn't support PPS generator synchronisation.")
+        try:
+            self.tpm['fpga1.regfile.spi_sync_function'] = 1
+            self.tpm['fpga2.regfile.spi_sync_function'] = 1
+            self.tpm['fpga1.pps_manager.pps_gen_sync'] = 0
+            self.tpm['fpga2.pps_manager.pps_gen_sync'] = 0
+            self.tpm['fpga1.pps_manager.pps_gen_sync.enable'] = 1
+            self.tpm['fpga2.pps_manager.pps_gen_sync.enable'] = 1
+            time.sleep(0.1)
+            self.tpm['fpga1.pps_manager.pps_gen_sync.act'] = 1
+            time.sleep(0.1)
+            self.tpm['fpga1.pps_manager.pps_gen_sync'] = 0
+            self.tpm['fpga2.pps_manager.pps_gen_sync'] = 0
+            self.tpm['fpga1.regfile.spi_sync_function'] = 1
+            self.tpm['fpga2.regfile.spi_sync_function'] = 1
+            logging.info("Internal PPS generator synchronised.")
+        except:
+            logging.info("Current FPGA firmware doesn't support PPS generator synchronisation.")
         
         # Setting sync time
         for f in devices:

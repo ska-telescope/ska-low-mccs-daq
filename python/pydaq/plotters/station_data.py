@@ -1,5 +1,4 @@
 from __future__ import division
-from past.utils import old_div
 from pydaq.persisters import StationBeamFormatFileManager, FileDAQModes
 from pydaq.plotters.utils import *
 from scipy.signal import medfilt
@@ -87,7 +86,7 @@ def plot_station_beam_data(conf):
             fig, ax = plt.subplots(nrows=1, ncols=2, sharex='all', sharey='all', figsize=(12, 8))
             fig.suptitle("Plotting {} ".format(conf.plot_type.name))
             for pol, col in enumerate(ax):
-                col.plot(frequencies, old_div(np.sum(data[pol, :, :], axis=0), params['samples']))
+                col.plot(frequencies, np.sum(data[pol, :, :], axis=0) // params['samples'])
                 col.set_xlim((frequencies[0], frequencies[-1]))
                 col.set_title("Pol {}".format(pol))
                 col.set_xlabel("Frequency (MHz)")

@@ -49,6 +49,10 @@ void RawData::onStreamEnd()
     container->persist_container();
 }
 
+void RawData::cleanUp() {
+    delete container;
+}
+
 // Packet filter
 bool RawData::packetFilter(unsigned char *udp_packet)
 {
@@ -72,12 +76,13 @@ bool RawData::packetFilter(unsigned char *udp_packet)
 bool RawData::processPacket()
 {
     // Get next packet to process
-    size_t packet_size = ring_buffer -> pull_timeout(&packet, 0.05);
+    size_t packet_size = ring_buffer -> pull_timeout(&packet, 0.1);
     
     // Check if the request timed out
-    if (packet_size == SIZE_MAX)
+    if (packet_size == SIZE_MAX) {
         // Request timed out
         return false;
+    }
 
     // This packet is a SPEAD packet, since otherwise it would not have
     // passed through the filter

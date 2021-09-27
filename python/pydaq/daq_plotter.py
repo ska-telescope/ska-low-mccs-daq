@@ -2,9 +2,7 @@
 from pydaq.plotters.utils import PlotTypes, get_parameters_from_filename, process_timestamp
 from pydaq.plotters import *
 import logging
-import datetime
 import os
-import re
 
 
 __author__ = 'Alessio Magro'

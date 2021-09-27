@@ -192,6 +192,9 @@ protected:
     // Function called when a burst stream capture has finished
     void onStreamEnd() override;
 
+    // Override clean up method
+    void cleanUp() override;
+
 private:
 
     // AntennaInformation object
