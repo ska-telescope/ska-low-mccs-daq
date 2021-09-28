@@ -759,14 +759,25 @@ class Tile(object):
             )
 
     @connected
-    def check_arp_table(self):
+    def check_arp_table(self, timeout=6.0):
         """
         Check that ARP table has been populated in for all used cores.
         40G interfaces use cores 0 (fpga0) and 1(fpga1) and
         ARP ID 0 for beamformer, 1 for LMC.
         10G interfaces use cores 0,1 (fpga0) and 4,5 (fpga1) for beamforming,
         and 2, 6 for LMC with only one ARP entry per core.
+
+        :param timeout: Timeout in seconds
+        :type timeout: float
+        :return: ARP table status
+        :rtype: bool
         """
+        # sanity check on time. Between 0.1 and 100 seconds
+        maxtime = int(timeout*10)
+        if maxtime < 1: 
+            maxtime = 1
+        if maxtime > 100:
+            maxtime = 100
         # wait UDP link up
         self.logger.info("Checking ARP table...")
         if self.tpm.tpm_test_firmware[0].xg_40g_eth:
@@ -777,17 +788,17 @@ class Tile(object):
             arp_table_id = [0]
         times = 0
         while True:
-            linkup = 1
+            linkup = True
             for c in core_id:
                 core_errors = self.tpm.tpm_10g_core[c].check_errors()
                 if core_errors:
-                    linkup = 0
+                    linkup = False
                 for a in arp_table_id:
                     core_status = self.tpm.tpm_10g_core[c].get_arp_table_status(
                         a, silent_mode=True
                     )
                     if core_status & 0x1 == 1 and core_status & 0x4 == 0:
-                        linkup = 0
+                        linkup = False
             if linkup == 1:
                 self.logger.info("10G Link established! ARP table populated!")
                 break
@@ -798,11 +809,57 @@ class Tile(object):
                     self.logger.warning(
                         f"10G Links not established after {int(0.1 * times)} seconds! Waiting... "
                     )
-                if times == 60:
+                if times == maxtime:
                     self.logger.warning(
                         f"10G Links not established after {int(0.1 * times)} seconds! ARP table not populated!"
                     )
                     break
+        return linkup
+
+    def get_arp_table(self):
+        """
+        Check that ARP table has been populated in for all used cores. 
+        Returns a dictionary with an entry for each core present in the firmware
+        Each entry contains a list of the ARP table IDs which have been resolved
+        by the ARP state machine. 
+
+        :return: list of populated core ids and arp table entries
+        :rtype: dict(list)
+        """
+        # wait UDP link up
+        if self["fpga1.regfile.feature.xg_eth_implemented"] == 1:
+            self.logger.debug("Checking ARP table...")
+
+            if self.tpm.tpm_test_firmware[0].xg_40g_eth:
+                core_ids = range(2)
+                arp_table_ids = range(4)
+            else:
+                core_ids = range(8)
+                arp_table_ids = [0]
+
+            self._arp_table = {i: [] for i in core_ids}
+
+            linkup = True
+            for core_id in core_ids:
+                for arp_table in arp_table_ids:
+                    core_status = self.tpm.tpm_10g_core[core_id].get_arp_table_status(
+                        arp_table, silent_mode=True
+                    )
+                    if core_status & 0x4 == 0:
+                        message = (
+                            f"CoreID {core_id} with ArpID {arp_table} is not "
+                            "populated"
+                        )
+
+                        self.logger.debug(message)
+                        linkup = False
+                    else:
+                        self._arp_table[core_id].append(arp_table)
+
+            if linkup:
+                self.logger.debug("10G Link established! ARP table populated!")
+
+        return self._arp_table
 
     @connected
     def set_station_id(self, station_id, tile_id):
