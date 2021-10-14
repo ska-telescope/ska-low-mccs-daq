@@ -65,6 +65,7 @@ class Tile_1_6(Tile):
     """
     Tile hardware interface library. Methods specific for TPM 1.6.
     """
+
     def __init__(
         self,
         ip="10.0.10.2",
@@ -91,7 +92,9 @@ class Tile_1_6(Tile):
         :param sampling_rate: ADC sampling rate
         :type sampling_rate: float
         """
-        super(Tile_1_6, self).__init__(ip, port, lmc_ip, lmc_port, sampling_rate, logger)
+        super(Tile_1_6, self).__init__(
+            ip, port, lmc_ip, lmc_port, sampling_rate, logger
+        )
 
     # Main functions ------------------------------------
     def tpm_version(self):

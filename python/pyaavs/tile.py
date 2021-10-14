@@ -773,8 +773,8 @@ class Tile(object):
         :rtype: bool
         """
         # sanity check on time. Between 0.1 and 100 seconds
-        maxtime = int(timeout*10)
-        if maxtime < 1: 
+        maxtime = int(timeout * 10)
+        if maxtime < 1:
             maxtime = 1
         if maxtime > 100:
             maxtime = 100
@@ -1082,7 +1082,7 @@ class Tile(object):
         else:
             trunc_vec1 = trunc[0:256]
             trunc_vec2 = trunc[256:512]
-            trunc_vec2.reverse() # 2nd half of freq chans are in reverse order
+            trunc_vec2.reverse()  # 2nd half of freq chans are in reverse order
         #
         # If signal is not specified, apply to all signals
         if signal is None:
@@ -1767,10 +1767,7 @@ class Tile(object):
     # -----------------------------
     @connected
     def configure_integrated_channel_data(
-        self,
-        integration_time=0.5,
-        first_channel=0,
-        last_channel=511,
+        self, integration_time=0.5, first_channel=0, last_channel=511
     ):
         """
         Configure and start continuous integrated channel data.
@@ -1794,10 +1791,7 @@ class Tile(object):
 
     @connected
     def configure_integrated_beam_data(
-        self,
-        integration_time=0.5,
-        first_channel=0,
-        last_channel=191,
+        self, integration_time=0.5, first_channel=0, last_channel=191
     ):
         """
         Configure and start continuous integrated beam data.
@@ -2169,7 +2163,7 @@ class Tile(object):
     def stop_data_transmission(self):
         """ Stop all data transmission from TPM"""
         self.logger.info("Stopping all transmission")
-        for k, v in iteritems(self._daq_threads):
+        for k, v in self._daq_threads.items():
             if v == self._RUNNING:
                 self._daq_threads[k] = self._STOP
         self.stop_channelised_data_continuous()
@@ -2297,9 +2291,7 @@ class Tile(object):
         if name in dir(self.tpm):
             return getattr(self.tpm, name)
         else:
-            raise AttributeError(
-                "'Tile' or 'TPM' object have no attribute " + name
-            )
+            raise AttributeError("'Tile' or 'TPM' object have no attribute " + name)
 
     # ------------------- Test methods
 
@@ -2490,7 +2482,7 @@ if __name__ == "__main__":
                 else:
                     self.logger.info(
                         "FPGA magic numbers are not correct "
-                        + (hex(magic0) + ", " +  hex(magic1))
+                        + (hex(magic0) + ", " + hex(magic1))
                     )
             except Exception as e:  # noqa: F841
                 pass
