@@ -309,7 +309,7 @@ class Tile(object):
             )
 
     @connected
-    def erase_fpga(self):
+    def erase_fpgas(self):
         """Erase FPGA configuration memory."""
         self.tpm.erase_fpga()
 

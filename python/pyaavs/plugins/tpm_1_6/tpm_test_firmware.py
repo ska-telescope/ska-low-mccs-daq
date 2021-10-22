@@ -71,7 +71,7 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
             self._dsp_core = True
 
         try:
-            if self.fpga1.regfile.feature.xg_eth_implemented == 1:
+            if self["fpga1.regfile.feature.xg_eth_implemented"] == 1:
                 self.xg_eth = True
             else:
                 self.xg_eth = False
