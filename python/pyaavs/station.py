@@ -230,8 +230,8 @@ class Station(object):
 
         # Check if programming is required, and if so program
         if self.configuration['station']['program'] and self.properly_formed_station:
-            logging.info("Programming tiles")
-            self._slack.info("Station is being programmed")
+            logging.info("Programming tiles with bitfile " + configuration['station']['bitfile'])
+            self._slack.info("Station is being programmed with bitfile" + configuration['station']['bitfile'])
             res = pool.map(program_fpgas, params)
 
             if not all(res):
@@ -1188,6 +1188,8 @@ if __name__ == "__main__":
                       type="float", default=None, help="Beamformer scaling [default: None]")
     parser.add_option("--beam-bandwidth", action="store", dest="beam_bandwidth",
                       type="float", default=None, help="Beamformer scaling [default: None]")
+    parser.add_option("--fft_conjugate", action="store_true", dest="fft_conjugate",
+                      default=False, help="Conjugate FFT output [default: False]")
 
     (conf, args) = parser.parse_args(argv[1:])
 
@@ -1202,3 +1204,8 @@ if __name__ == "__main__":
 
     # Connect station (program, initialise and configure if required)
     station.connect()
+
+    if conf.fft_conjugate:
+        station['fpga1.dsp_regfile.channelizer_config.fft_conjugate'] = 1
+        station['fpga2.dsp_regfile.channelizer_config.fft_conjugate'] = 1
+

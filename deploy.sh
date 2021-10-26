@@ -228,7 +228,7 @@ pushd src || exit
   fi
 
   pushd build || exit
-    cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL/lib -DWITH_CORRELATOR=$COMPILE_CORRELATOR .. || exit
+    cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL -DWITH_CORRELATOR=$COMPILE_CORRELATOR .. || exit
     make -B -j4 install || exit
   popd
 popd

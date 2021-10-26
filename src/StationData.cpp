@@ -192,7 +192,7 @@ bool StationData::processPacket()
 
     // Divide packet counter by 8 (reason unknown)
     // NOTE: This is only applicable for the "old" version, prior to TPM_1_6 version
-    packet_counter = packet_counter >> 3;
+    // packet_counter = packet_counter >> 3;
 
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));

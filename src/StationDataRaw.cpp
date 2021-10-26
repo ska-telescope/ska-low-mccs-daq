@@ -37,7 +37,7 @@ bool StationRawData::initialiseConsumer(json configuration)
     initialiseRingBuffer(packet_size, (size_t) nof_samples / 2);
 
     // Create double buffer
-    double_buffer= new StationRawDoubleBuffer(nof_samples, nof_channels, nof_pols);
+    double_buffer= new StationRawDoubleBuffer(start_channel, nof_samples, nof_channels, nof_pols);
 
     // Create and persister
     persister = new StationRawPersister(double_buffer);
@@ -194,7 +194,7 @@ bool StationRawData::processPacket()
 
     // Divide packet counter by 8 (reason unknown)
     // NOTE: This is only applicable for the "old" version, prior to TPM_1_6 version
-    packet_counter = packet_counter >> 3;
+    // packet_counter = packet_counter >> 3;
 
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
@@ -232,8 +232,8 @@ bool StationRawData::processPacket()
 // -------------------------------------------------------------------------------------------------------------
 
 // Default double buffer constructor
-StationRawDoubleBuffer::StationRawDoubleBuffer(uint32_t nof_samples, uint32_t nof_channels, uint8_t nof_pols, uint8_t nbuffers) :
-        nof_samples(nof_samples), nof_channels(nof_channels), nof_pols(nof_pols), nof_buffers(nbuffers)
+StationRawDoubleBuffer::StationRawDoubleBuffer(uint16_t start_channel, uint32_t nof_samples, uint32_t nof_channels, uint8_t nof_pols, uint8_t nbuffers) :
+        start_channel(start_channel), nof_samples(nof_samples), nof_channels(nof_channels), nof_pols(nof_pols), nof_buffers(nbuffers)
 {
     // Allocate the double buffer
     allocate_aligned((void **) &double_buffer, (size_t) CACHE_ALIGNMENT, nbuffers * sizeof(StationRawBuffer));
@@ -372,9 +372,8 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
     // Update number of packets
     this->double_buffer[producer_index].nof_packets++;
 
-    // Update number of samples (for channel 0, assuming other channels will have a similar number, hopefully)
-    // TODO: The below is incorrect, start channel could be different
-    if (channel == 0)
+    // Update number of samples (for channel 0, assuming other channels will have a similar number, hopefully)i
+    if (channel == start_channel) 
         this->double_buffer[producer_index].nof_samples += samples;
 
     // Update timings
