@@ -34,7 +34,7 @@ class StationRawDoubleBuffer {
 
 public:
     // Default constructor
-    StationRawDoubleBuffer(uint32_t nof_samples, uint32_t nof_channels, uint8_t nof_pols, uint8_t nbuffers = 4);
+    StationRawDoubleBuffer(uint16_t start_channel, uint32_t nof_samples, uint32_t nof_channels, uint8_t nof_pols, uint8_t nbuffers = 4);
 
     // Class destructor
     ~StationRawDoubleBuffer();
@@ -62,6 +62,7 @@ private:
     StationRawBuffer *double_buffer;
 
     // Double buffer parameters
+    uint16_t start_channel; // Start channel
     uint32_t nof_samples;   // Total number of samples
     uint32_t nof_channels;  // Number of channels
     uint8_t nof_pols;       // Number of polarisations
