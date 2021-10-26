@@ -370,12 +370,14 @@ class TestFullStation():
                 self._logger.info("Acquiring channelised data, channel %d" % channelised_channel)
                 self._test_station.send_channelised_data_continuous(channelised_channel, daq_config['nof_channel_samples'])
                 target_power = 0
+                saturations = 0
+                saturated = False
                 scale = 2
                 scale_low = 0
                 for tile in self._test_station.tiles:
                     tile.set_channeliser_truncation(scale)
-                
-                while (target_power < 42 or target_power > 50) and scale >= 0:
+
+                while (((target_power < 35 or target_power > 50) and saturated == False) or saturations > 0) and scale >= 0:
                     for tile in self._test_station.tiles:
                         tile.set_channeliser_truncation(scale)
                     time.sleep(2)
@@ -383,20 +385,25 @@ class TestFullStation():
                     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                     self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
                     del spead_rx_offline_inst
-                    if offline_beam_power[0] > 50:
-                        scale_up = int(offline_beam_power[0] - 50) // 6 + 1
-                        scale_new = scale + scale_up
-                        scale = scale_new
-                    if offline_beam_power[0] < 42:
-                        scale_dw = int(42 - offline_beam_power[0]) // 6 + 1
-                        scale_new = scale - scale_dw
-                        if scale == 0:
-                            scale = -1
-                        elif scale_new < 0: 
-                            scale = 0
-                        else:
-                            scale = scale_new
+                    saturations = offline_beam_power[2]
                     target_power = offline_beam_power[0]
+                    if saturations > 0:
+                        scale += 1
+                        saturated = True
+                    else:
+                        if target_power > 50:
+                            scale_up = int(offline_beam_power[0] - 50) // 6 + 1
+                            scale_new = scale + scale_up
+                            scale = scale_new
+                        if target_power < 35:
+                            scale_dw = int(42 - offline_beam_power[0]) // 6 + 1
+                            scale_new = scale - scale_dw
+                            if scale == 0:
+                                scale = -1
+                            elif scale_new < 0: 
+                                scale = 0
+                            else:
+                                scale = scale_new
                 self._test_station.stop_data_transmission()
                 offline_power.append(offline_beam_power)
                 time.sleep(1)
