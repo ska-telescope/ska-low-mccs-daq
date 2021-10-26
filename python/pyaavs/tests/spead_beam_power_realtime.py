@@ -25,7 +25,7 @@ def power(id):
             # print("%d %d" % (id, n))
             pkt_reassembled = unpack('b' * 8192, realtime_pkt_buff[pkt_idx : pkt_idx + 8192])
             for k in range(0, 8192, 4):
-                if int(pkt_reassembled[k]) == -128 or int(pkt_reassembled[k+1]) == -128 or int(pkt_reassembled[k+2]) == -128 or int(pkt_reassembled[k+3]) == -128 :
+                if int(pkt_reassembled[k]) == -128 or int(pkt_reassembled[k+1]) == -128 or int(pkt_reassembled[k+2]) == -128 or int(pkt_reassembled[k+3]) == -128:
                     nof_saturation[0] += 1
                     nof_saturation[1] += 1
                 else:
