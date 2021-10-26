@@ -376,8 +376,8 @@ class Tile(object):
         # This will create a loopback between the two FPGAs
         ip_octets = self._ip.split('.')
         for n in range(len(self.tpm.tpm_10g_core)):
-            self.tpm.tpm_10g_core[n].reset_core()
             if self['fpga1.regfile.feature.xg_eth_implemented'] == 1:
+                self.tpm.tpm_10g_core[n].reset_core()
                 src_ip = "10.0.{}.{}".format(n + 1, ip_octets[3])
             else:
                 src_ip = "10.{}.{}.{}".format(n + 1, ip_octets[2], ip_octets[3])
@@ -572,9 +572,10 @@ class Tile(object):
         while True:
             linkup = 1
             for c in core_id:
-                core_errors = self.tpm.tpm_10g_core[c].check_errors()
-                if core_errors:
-                    linkup = 0
+                if self.tpm.tpm_test_firmware[0].xg_40g_eth:
+                    core_errors = self.tpm.tpm_10g_core[c].check_errors()
+                    if core_errors:
+                        linkup = 0
                 for a in arp_table_id:
                     core_status = self.tpm.tpm_10g_core[c].get_arp_table_status(a, silent_mode=True)
                     if core_status & 0x1 == 1 and core_status & 0x4 == 0:
