@@ -41,9 +41,9 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
     @compatibleboards(BoardMake.Tpm16Board)
     @friendlyname("tpm_test_firmware")
     @maxinstances(2)
-    def __init__(self: Tpm16TestFirmware, board: Any, **kwargs: Any) -> None:
+    def __init__(self: Tpm_1_6_TestFirmware, board: Any, **kwargs: Any) -> None:
         """
-        Tpm16TestFirmware initializer.
+        Tpm_1_6_TestFirmware initializer.
 
         :param board: Pointer to board instance
         :param kwargs: named arguments
@@ -71,7 +71,7 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
             self._dsp_core = True
 
         try:
-            if self["fpga1.regfile.feature.xg_eth_implemented"] == 1:
+            if self.board["fpga1.regfile.feature.xg_eth_implemented"] == 1:
                 self.xg_eth = True
             else:
                 self.xg_eth = False
@@ -97,7 +97,6 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
         self._power_meter = None
         self._integrator = None
         self._station_beamf = None
-
         self.load_plugin()
 
         self._device_name = "fpga1" if self._device is Device.FPGA_1 else "fpga2"

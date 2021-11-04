@@ -2465,11 +2465,6 @@ class Tile(object):
             for c in core_id:
                 self.tpm.tpm_10g_core[c].reset_errors()
 
-
-if __name__ == "__main__":
-    tile = Tile(ip="10.0.10.2", port=10000)
-    tile.connect()
-
     def tpm_communication_check(self):
         """Brute force check to make sure we can communicate with programmed TPM."""
         for _n in range(4):
@@ -2535,3 +2530,8 @@ if __name__ == "__main__":
                         }
                     )
         return firmware
+
+if __name__ == "__main__":
+    tile = Tile(ip="10.0.10.2", port=10000)
+    tile.connect()
+
