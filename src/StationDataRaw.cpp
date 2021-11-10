@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <cfloat>
+#include <limits.h>
 #include "StationDataRaw.h"
 #include "SPEAD.h"
 
@@ -218,7 +219,8 @@ bool StationRawData::processPacket()
                                     logical_channel_id,
                                     packet_counter,
                                     reinterpret_cast<uint16_t *>(payload + payload_offset),
-                                    packet_time);
+                                    packet_time, 
+				    frequency & 0xFFFFFFFF);
 
     // Ready from packet
     ring_buffer -> pull_ready();
@@ -246,6 +248,7 @@ StationRawDoubleBuffer::StationRawDoubleBuffer(uint16_t start_channel, uint32_t 
         double_buffer[i].index        = 0;
         double_buffer[i].nof_packets  = 0;
         double_buffer[i].nof_samples  = 0;
+	double_buffer[i].frequency    = UINT_MAX;
         double_buffer[i].mutex = new std::mutex;
 
         double_buffer[i].data =  (uint16_t *) malloc(nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
@@ -273,7 +276,7 @@ StationRawDoubleBuffer::~StationRawDoubleBuffer()
 
 // Write data to buffer
 void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uint64_t packet_counter,
-                                        uint16_t *data_ptr, double timestamp)
+                                        uint16_t *data_ptr, double timestamp, uint32_t frequency)
 {
     // Check whether the current consumer buffer is empty, and if so set index of the buffer
     if (this -> double_buffer[this->producer].index == 0)
@@ -292,7 +295,7 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
             return;
 
         // Copy data into selected buffer
-        this->process_data(local_producer, packet_counter, samples, channel, data_ptr,  timestamp);
+        this->process_data(local_producer, packet_counter, samples, channel, data_ptr, timestamp, frequency);
 
         // Ready from packet
         return;
@@ -331,7 +334,7 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
     }
 
     // Copy data to buffer
-    this->process_data(producer, packet_counter, samples, channel, data_ptr, timestamp);
+    this->process_data(producer, packet_counter, samples, channel, data_ptr, timestamp, frequency);
 
     // Update buffer index if required
     if (this->double_buffer[producer].index > packet_counter)
@@ -339,7 +342,7 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
 }
 
 inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t packet_counter, uint32_t samples,
-                                                 uint32_t channel, uint16_t *data_ptr, double timestamp)
+                                                 uint32_t channel, uint16_t *data_ptr, double timestamp, uint32_t frequency)
 {
     // Copy data from packet to buffer
     // If number of channels is 1, then simply copy the entire buffer to its destination
@@ -376,6 +379,11 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
     if (channel == start_channel) 
         this->double_buffer[producer_index].nof_samples += samples;
 
+    // Update frequency
+    if (this->double_buffer[producer_index].frequency > frequency)
+	this->double_buffer[producer_index].frequency = frequency;
+
+
     // Update timings
     if (this->double_buffer[producer_index].ref_time > timestamp || this->double_buffer[producer_index].ref_time == 0)
         this->double_buffer[producer_index].ref_time = timestamp;
@@ -403,6 +411,7 @@ void StationRawDoubleBuffer::release_buffer()
     this->double_buffer[this->consumer].ref_time = DBL_MAX;
     this->double_buffer[this->consumer].nof_packets = 0;
     this->double_buffer[this->consumer].nof_samples = 0;
+    this->double_buffer[this->consumer].frequency = UINT_MAX;
     memset(double_buffer[this->consumer].data, 0, nof_samples * nof_pols * sizeof(uint16_t));
     this->double_buffer[this->consumer].mutex -> unlock();
 
@@ -421,6 +430,7 @@ void StationRawDoubleBuffer::clear()
         double_buffer[i].index    = 0;
         double_buffer[i].nof_samples = 0;
         double_buffer[i].nof_packets = 0;
+	double_buffer[i].frequency = UINT_MAX;
     }
 }
 
@@ -441,7 +451,7 @@ void StationRawPersister::threadEntry()
         // Call callback if set
         if (callback != nullptr)
             callback(buffer->data, buffer->ref_time, 
-                     buffer->nof_packets, buffer->nof_samples);
+                     buffer->frequency, buffer->nof_samples);
         else
             LOG(INFO, "Received station beam");
 
