@@ -156,7 +156,7 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "FINE_CHAN_WIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth / n_fine_channels  << endl;
     header << "NFINE_CHAN " << n_fine_channels << endl;
     header << "BANDWIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth * nof_channels << endl;
-    header << "SAMPLE_RATE " << fixed << setprecision(6) << channel_bandwidth * nof_channels << endl;
+    header << "SAMPLE_RATE " << fixed << setprecision(6) << channel_bandwidth << endl;
     header << "MC_IP 0" << endl;
     header << "MC_SRC_IP 0.0.0.0" << endl;
     header << "FILE_SIZE 0" << endl;
@@ -186,7 +186,7 @@ static void print_usage(char *name)
 static void parse_arguments(int argc, char *argv[])
 {
     // Define options
-    const char* const short_opts = "d:t:s:i:p:c:m:S:D";
+    const char* const short_opts = "d:t:s:i:p:c:m:n:S:D";
     const option long_opts[] = {
             {"directory", required_argument, nullptr, 'd'},
             {"max_file_size", required_argument, nullptr, 'm'},
