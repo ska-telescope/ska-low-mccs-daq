@@ -26,6 +26,7 @@ struct StationRawBuffer
     bool       ready;         // Specifies whether the buffer is ready to be processed
     uint32_t   nof_packets;   // Number of packets
     uint32_t   nof_samples;   // Number of samples in buffer
+    uint32_t   frequency;     // Smallest frequency in buffer
     uint16_t   *data;         // Data
     std::mutex *mutex;        // Mutex lock for this buffer
 };
@@ -41,7 +42,7 @@ public:
 
     // Write data to buffer
     void write_data(uint32_t samples, uint32_t channel, uint64_t packet_counter,
-                    uint16_t *data_ptr, double timestamp);
+                    uint16_t *data_ptr, double timestamp, uint32_t frequency);
 
     // Read buffer
     StationRawBuffer* read_buffer();
@@ -55,7 +56,7 @@ public:
 private:
 
     inline void process_data(int producer_index, uint64_t packet_counter, uint32_t samples,
-                             uint32_t channel, uint16_t *data_ptr, double timestamp);
+                             uint32_t channel, uint16_t *data_ptr, double timestamp, uint32_t frequency);
 
 private:
     // The data structure which will hold the buffer elements
