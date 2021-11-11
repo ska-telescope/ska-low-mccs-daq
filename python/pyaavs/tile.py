@@ -1767,7 +1767,7 @@ class Tile(object):
     # -----------------------------
     @connected
     def configure_integrated_channel_data(
-        self, integration_time=0.5, first_channel=0, last_channel=511
+        self, integration_time=0.5, first_channel=0, last_channel=512
     ):
         """
         Configure and start continuous integrated channel data.
@@ -1791,7 +1791,7 @@ class Tile(object):
 
     @connected
     def configure_integrated_beam_data(
-        self, integration_time=0.5, first_channel=0, last_channel=191
+        self, integration_time=0.5, first_channel=0, last_channel=192
     ):
         """
         Configure and start continuous integrated beam data.
@@ -2199,6 +2199,16 @@ class Tile(object):
         self.tpm.test_generator[1].set_tone(
             generator, frequency, amplitude, phase, load_time
         )
+
+    @connected
+    def test_generator_disable_tone(self, generator):
+        """
+        Test generator: disable tone. Set tone amplitude and frequency to 0
+
+        :param generator: generator select. 0 or 1
+        :type generator: int
+        """
+        self.test_generator_set_tone(generator, frequency=0.0, amplitude=0.0)
 
     @connected
     def test_generator_set_noise(self, amplitude=0.0, load_time=0):
