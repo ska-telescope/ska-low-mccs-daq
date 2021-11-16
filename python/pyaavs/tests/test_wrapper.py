@@ -20,8 +20,9 @@ class TestWrapper():
         self._tests = {'adc': "Check JESD link setting test patterns in the ADCs and verifying data received by FPGAs",
                        'daq': "Check data transfer from FPGAs to LMC using DAQ software. All data format checked: raw, channel, tile beam and integrated data.",
                        'channelizer': "Check channelizer output using the FPGA internal tone generator.",
+                       'pfb': "Check channelizer output using the FPGA internal pattern generator, verify expected response.",
                        'tile_beamformer': "Check if the beamformer corrects for time domain delays applied to the internally generated tone.",
-                       'init_station': "Pragram, initialise station and start station beamformer. Check if station beam data rate is within expected range.",
+                       'init_station': "Program, initialise station and start station beamformer. Check if station beam data rate is within expected range.",
                        'full_station': "Check operation of networked beamformer comparing offline and realtime beam power.",
                        'ddr': "Check on-board DDR using FPGA embedded test.",
                        'f2f': "Check fast data link between FPGAs using FPGA embedded test.",
@@ -54,6 +55,7 @@ class TestWrapper():
             del self._tests['adc']
             del self._tests['daq']
             del self._tests['channelizer']
+            del self._tests['pfb']
             del self._tests['tile_beamformer']
             del self._tests['full_station']
 
