@@ -283,6 +283,7 @@ class SpeadRxBeamPowerOffline(Process):
                 pkt_buff_ptr = pkt_buff_ptr[16384:]
             if self.check_buffer() > 100:
                 return self.process_buffer()
+        print("Error! Not possible to get required number of full data buffers.")
         return -1
 
 
@@ -308,7 +309,5 @@ if __name__ == "__main__":
     (options, args) = parser.parse_args()
 
     spead_rx_inst = SpeadRxBeamPowerOffline(int(options.port), int(options.nof_tpm), options.eth_if)
-    #x, y = spead_rx_inst.get_power(int(options.nof_samples), int(options.logic_channel))
     while True:
         print(spead_rx_inst.get_power())
-    #print(x, y)
