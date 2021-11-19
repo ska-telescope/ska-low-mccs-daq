@@ -116,6 +116,7 @@ class TestWrapper():
             print()
             ret_val = test_instance.execute(*self.class_dict[test]['parameter_values'])
             test_result.append(ret_val)
+        logging.info("----------------- TEST RESULTS -----------------")
         for n, ret_val in enumerate(test_result):
             if ret_val == 0:
                 logging.info("TEST_" + self.test_todo[n].upper() + " PASSED!")

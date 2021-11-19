@@ -89,7 +89,7 @@ class TestChannelizer():
         tile['fpga2.jesd204_if.regfile_channel_disable'] = 0xFFFF
         tile.test_generator_input_select(0xFFFFFFFF)
 
-        tile.set_channeliser_truncation(4)
+        tile.set_channeliser_truncation(5)
 
         points_per_channel = int(points)
         channels = range(int(first_channel), int(last_channel) + 1)
@@ -100,7 +100,7 @@ class TestChannelizer():
                 tile.test_generator_set_tone(0, frequency, 1.0)
                 delays = [0] + [random.randrange(0, 4, 1) for x in range(31)]
                 tf.set_delay(tile, delays)
-                self._logger .info("setting frequency: " + str(frequency) + " Hz, point " + str(point))
+                self._logger.info("setting frequency: " + str(frequency) + " Hz, point " + str(point))
                 time.sleep(1)
 
                 tf.remove_hdf5_files(temp_dir)
@@ -110,11 +110,15 @@ class TestChannelizer():
                 while not data_received:
                     time.sleep(0.1)
 
+                ref_channel_value = data[channel, 0, 0, 0][0] + data[channel, 0, 0, 0][1] * 1j
+                ref_power_value = 20 * np.log10(abs(ref_channel_value))
+                self._logger.info("Reference power: " + str(ref_power_value) + " dB")
+
                 ch, ant, pol, sam = data.shape
                 for i in range(16):  # range(sam):
-                    ref_channel_value = data[channel, 0, 0, i][0] + data[channel, 0, 0, i][1]*1j
+                    ref_channel_value = data[channel, 0, 0, i][0] + data[channel, 0, 0, i][1] * 1j
                     if abs(ref_channel_value) > 0:
-                        ref_power_value = 20*np.log10(abs(ref_channel_value))
+                        ref_power_value = 20 * np.log10(abs(ref_channel_value))
                     else:
                         ref_power_value = 0
                     ref_phase_value = np.angle(ref_channel_value, deg=True)
@@ -123,12 +127,12 @@ class TestChannelizer():
                             for p in range(pol):
                                 channel_value = data[c, a, p, i][0] + data[c, a, p, i][1]*1j
                                 if abs(channel_value):
-                                    power_value = 20*np.log10(abs(channel_value))
+                                    power_value = 20 * np.log10(abs(channel_value))
                                 else:
                                     power_value = 0
                                 phase_value = np.angle(channel_value, deg=True)
                                 if c != channel:
-                                    if ref_power_value - power_value < 30 and power_value > 0:
+                                    if power_value > 0.2:
                                         self._logger.error(data[:, a, p, i])
                                         self._logger.error("Test channel " + str(channel))
                                         self._logger.error("Excessive power in channel " + str(c))
@@ -142,7 +146,7 @@ class TestChannelizer():
                                         self._logger.error("Channel power " + str(power_value))
                                         return 1
                                 else:
-                                    if ref_power_value - power_value > 1 or ref_power_value < 35:
+                                    if abs(ref_power_value - power_value) > 0.2:
                                         self._logger.error(data[:, a, p, i])
                                         self._logger.error("Test channel " + str(channel))
                                         self._logger.error("Low power in channel " + str(c))
@@ -161,7 +165,7 @@ class TestChannelizer():
                                     phase_value_360 = phase_value % 360
                                     applied_delay = delays[2*a+p] * 1.25e-9
                                     phase_delay = np.modf(applied_delay / (1.0 / frequency))[0]
-                                    expected_phase_delay = 360 - phase_delay*360   # before channelizer phase inversion it was:  phase_delay*360
+                                    expected_phase_delay = 360 - phase_delay * 360 #360 - phase_delay * 360   # before channelizer phase inversion it was:  phase_delay*360
                                     expected_phase = (ref_phase_value_360 + expected_phase_delay) % 360
                                     diff = abs(expected_phase - phase_value_360) % 360
                                     if diff > 3 and 360-diff > 3:

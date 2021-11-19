@@ -63,6 +63,8 @@ class TestTileBeamformer():
         global nof_channels
         global tile_id
 
+        random.seed(0)
+
         temp_dir = "./temp_daq_test"
         data_received = False
 
@@ -109,11 +111,15 @@ class TestTileBeamformer():
             frequency = (self._beam_start_channel + c) * self._channel_width
             tile.test_generator_set_tone(0, frequency, 0.5)
             tile.test_generator_input_select(0xFFFFFFFF)
-            tf.set_delay(tile, [random.randrange(0, 32, 1) for x in range(32)])
+            time_delays = [random.randrange(-32, 32, 1) for x in range(32)]
+            tf.set_delay(tile, time_delays)
             ref_antenna = random.randrange(0, 16, 1)
             ref_pol = random.randrange(0, 2, 1)
             tf.reset_beamf_coeff(tile, gain=1.0)
-            time.sleep(0.1)
+            time_delays_hw = [[0.0, 0.0]]*16
+            tile.set_pointing_delay(time_delays_hw, 0.0)
+            tile.load_pointing_delay()
+            time.sleep(0.5)
 
             # Loop over the antennas with all antenna masked except one, build antenna response matrix
             inputs = 0x3
@@ -132,9 +138,9 @@ class TestTileBeamformer():
                 single_input_data[1][i] = tf.get_beam_value(data, 1, c)  # - self._beam_start_channel)
 
                 inputs = (inputs << 2)
-                self._logger.debug("Antenna %d value before phasing: " % i)
-                self._logger.debug("Pol 0: " + str(single_input_data[0][i]))
-                self._logger.debug("Pol 1: " + str(single_input_data[1][i]))
+                self._logger.info("Antenna %d value before phasing: " % i)
+                self._logger.info("Pol 0: " + str(single_input_data[0][i]))
+                self._logger.info("Pol 1: " + str(single_input_data[1][i]))
 
             # Calculate coeffs to phase all antennas to the ref antenna
             ref_value = single_input_data[ref_pol][ref_antenna]
@@ -209,6 +215,78 @@ class TestTileBeamformer():
                     channel_errors += 1
                     break
 
+            self._logger.info("Checking beam pointing...")
+            tf.reset_beamf_coeff(tile, gain=1.0)
+            time_delays = [0]*32
+            tf.set_delay(tile, time_delays)
+
+            time.sleep(0.5)
+
+            data_received = False
+            # Send data from tile
+            tile.send_beam_data()
+            # Wait for data to be received
+            while not data_received:
+                time.sleep(0.1)
+
+            beam_val_reference_pol0 = tf.get_beam_value(data, 0, c)
+            beam_val_reference_pol1 = tf.get_beam_value(data, 1, c)
+            self._logger.info("Reference value pol0:")
+            self._logger.info(beam_val_reference_pol0)
+
+            time_delays = []
+            for n in range(32):
+                random_val = random.randrange(-32, 32, 1)
+                time_delays.append(random_val)
+                time_delays.append(random_val)
+            tf.set_delay(tile, time_delays)
+
+            time.sleep(0.2)
+
+            data_received = False
+            # Send data from tile
+            tile.send_beam_data()
+            # Wait for data to be received
+            while not data_received:
+                time.sleep(0.1)
+
+            beam_val_uncorrected_pol0 = tf.get_beam_value(data, 0, c)
+            beam_val_uncorrected_pol1 = tf.get_beam_value(data, 1, c)
+            self._logger.info("Uncorrected value pol0:")
+            self._logger.info(beam_val_uncorrected_pol0)
+
+            time_delays_hw = []
+            for n in range(16):
+                time_delays_hw.append([float(time_delays[2*n]) * 1.25 * 1e-9, 0.0])
+            tile.set_pointing_delay(time_delays_hw, 0.0)
+            tile.load_pointing_delay(load_delay=512)
+            time.sleep(0.5)
+
+            data_received = False
+            # Send data from tile
+            tile.send_beam_data()
+            # Wait for data to be received
+            while not data_received:
+                time.sleep(0.1)
+
+            beam_val_corrected_pol0 = tf.get_beam_value(data, 0, c)
+            beam_val_corrected_pol1 = tf.get_beam_value(data, 0, c)
+            self._logger.info(beam_val_corrected_pol0)
+            self._logger.info(beam_val_corrected_pol1)
+            self._logger.info("Corrected value pol0:")
+            self._logger.info(beam_val_corrected_pol0)
+
+            if abs(beam_val_reference_pol0.real - beam_val_corrected_pol0.real) >= 2 or abs(beam_val_reference_pol0.imag - beam_val_corrected_pol0.imag) >= 2 or \
+               abs(beam_val_reference_pol1.real - beam_val_corrected_pol1.real) >= 2 or abs(beam_val_reference_pol1.imag - beam_val_corrected_pol1.imag) >= 2:
+                self._logger.error("Error in beam pointing:")
+                self._logger.error("Reference value pol0/pol1:")
+                self._logger.error(beam_val_reference_pol0)
+                self._logger.error(beam_val_reference_pol1)
+                self._logger.error("Corrected value pol0/pol1:")
+                self._logger.error(beam_val_corrected_pol0)
+                self._logger.error(beam_val_corrected_pol1)
+                channel_errors += 1
+
             if channel_errors == 0:
                 self._logger.info("Channel " + str(c) + " PASSED!")
             else:
@@ -217,10 +295,10 @@ class TestTileBeamformer():
 
         tf.remove_hdf5_files(temp_dir)
         self.clean_up(tile)
-        if channel_errors == 0:
+        if errors == 0:
             self._logger.info("Test PASSED!")
         else:
-            self._logger.info("Test + FAILED!")
+            self._logger.info("Test FAILED!")
         return errors
 
 if __name__ == "__main__":

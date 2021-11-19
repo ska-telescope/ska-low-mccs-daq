@@ -150,7 +150,7 @@ def get_beam_value(data, pol, channel):
     return data[pol, channel, sample, x][0] + data[pol, channel, sample, x][1]*1j
 
 
-def reset_beamf_coeff(tile,  gain=2.0):
+def reset_beamf_coeff(tile, gain=2.0):
     for n in range(16):
         cal_coeff = [[complex(gain), complex(0.0), complex(0.0), complex(gain)]] * 512
         tile.tpm.beamf_fd[int(n / 8)].load_calibration(int(n % 8), cal_coeff)

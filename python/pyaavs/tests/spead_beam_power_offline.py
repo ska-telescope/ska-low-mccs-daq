@@ -233,7 +233,7 @@ class SpeadRxBeamPowerOffline(Process):
             if len(pkt_idx_list) == 2 * self.nof_tpm:
                 timestamp_idx_list.append(pkt_idx_list)
                 nof_full_buff += 1
-
+        #print("Got buffer: %d" % nof_full_buff)
         return nof_full_buff
 
     def process_buffer(self):

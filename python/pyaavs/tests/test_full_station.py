@@ -216,8 +216,6 @@ class TestFullStation():
         self._total_bandwidth = station_config['test_config']['total_bandwidth']
         self._antennas_per_tile = station_config['test_config']['antennas_per_tile']
         self._pfb_nof_channels = station_config['test_config']['pfb_nof_channels']
-        self._csp_scale = 1 #int(np.ceil(np.log2(len(self._test_station.tiles)))) + 1
-        self._channeliser_scale = 2
 
     def prepare_test(self):
         for i, tile in enumerate(self._test_station.tiles):
@@ -229,8 +227,8 @@ class TestFullStation():
         self._test_station.test_generator_set_tone(0, frequency=100e6, ampl=0.0)
         self._test_station.test_generator_set_tone(1, frequency=100e6, ampl=0.0)
         self._test_station.test_generator_set_noise(ampl=0.35, delay=1024)
-        if self._csp_scale < 0:
-            self._csp_scale = 0 
+        self._csp_scale = int(np.ceil(np.log2(len(self._test_station.tiles)))) + 1
+        self._channeliser_scale = 2
         for tile in self._test_station.tiles:
             tile['fpga1.beamf_ring.csp_scaling'] = self._csp_scale
             tile['fpga2.beamf_ring.csp_scaling'] = self._csp_scale
@@ -350,53 +348,73 @@ class TestFullStation():
             while max_delay > 0:
                 self._logger.info("Setting time domain delays, maximum %d" % max_delay)
                 self.set_delay(random_delays, max_delay)
-                #if max_delay <= 2:
-                #    self._channeliser_scale += 1
-                #for tile in self._test_station.tiles:
-                #   tile.set_channeliser_truncation(self._channeliser_scale)
-                #time.sleep(1)
-                
-                #self._logger.info("Acquiring channelised data, channel %d" % channelised_channel)
-                #spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles), self._daq_eth_if)
-                #self._test_station.send_channelised_data_continuous(channelised_channel, daq_config['nof_channel_samples'])
-                #time.sleep(3)
-                #offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
-                #self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
-                #self._test_station.stop_data_transmission()
-                #del spead_rx_offline_inst
-                #offline_power.append(offline_beam_power)
-                #time.sleep(1)
 
                 self._logger.info("Acquiring channelised data, channel %d" % channelised_channel)
                 self._test_station.send_channelised_data_continuous(channelised_channel, daq_config['nof_channel_samples'])
-                target_power = 0
-                scale = 2
-                scale_low = 0
-                for tile in self._test_station.tiles:
-                    tile.set_channeliser_truncation(scale)
-                
-                while (target_power < 42 or target_power > 50) and scale >= 0:
+
+                scale = self._channeliser_scale
+                saturation = True
+                while saturation:
                     for tile in self._test_station.tiles:
                         tile.set_channeliser_truncation(scale)
-                    time.sleep(2)
-                    spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles), self._daq_eth_if)
+
+                    spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles),
+                                                                    self._daq_eth_if)
                     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                     self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
                     del spead_rx_offline_inst
-                    if offline_beam_power[0] > 50:
-                        scale_up = int(offline_beam_power[0] - 50) // 6 + 1
-                        scale_new = scale + scale_up
-                        scale = scale_new
-                    if offline_beam_power[0] < 42:
-                        scale_dw = int(42 - offline_beam_power[0]) // 6 + 1
-                        scale_new = scale - scale_dw
-                        if scale == 0:
-                            scale = -1
-                        elif scale_new < 0: 
-                            scale = 0
-                        else:
-                            scale = scale_new
-                    target_power = offline_beam_power[0]
+
+                    nof_saturations = offline_beam_power[2]
+                    if nof_saturations > 0:
+                        scale += 1
+                    else:
+                        saturation = False
+
+                    if scale == 8:
+                        self._logger.info("Not possible to get not saturated samples.")
+                        return 1
+
+                # target_power = 0
+                # scale = 3
+                # scale_low = 0
+                # for tile in self._test_station.tiles:
+                #     tile.set_channeliser_truncation(scale)
+                #
+                #     spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles),
+                #                                                     self._daq_eth_if)
+                #     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
+                #     self._logger.info("Offline beamformed channel power: %f %f %d " % (
+                #     offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
+                #     del spead_rx_offline_inst
+
+                ## while (target_power < 42 or target_power > 50) and scale >= 0:
+                ##     for tile in self._test_station.tiles:
+                ##         tile.set_channeliser_truncation(scale)
+                ##     time.sleep(2)
+                ##     spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles), self._daq_eth_if)
+                ##     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
+                ##     self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
+                ##     del spead_rx_offline_inst
+                ##     if offline_beam_power[0] > 50:
+                ##         scale_up = int(offline_beam_power[0] - 50) // 6 + 1
+                ##         scale_new = scale + scale_up
+                ##         scale = scale_new
+                ##     if offline_beam_power[0] < 42:
+                ##         scale_dw = int(42 - offline_beam_power[0]) // 6 + 1
+                ##         scale_new = scale - scale_dw
+                ##         if scale == 0:
+                ##             scale = -1
+                ##         elif scale_new < 0:
+                ##             scale = 0
+                ##         else:
+                ##             scale = scale_new
+                ##     target_power = offline_beam_power[0]
+
+                # spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles), self._daq_eth_if)
+                # offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
+                # self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
+                # del spead_rx_offline_inst
+
                 self._test_station.stop_data_transmission()
                 offline_power.append(offline_beam_power)
                 time.sleep(1)

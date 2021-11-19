@@ -1188,6 +1188,8 @@ if __name__ == "__main__":
                       type="float", default=None, help="Beamformer scaling [default: None]")
     parser.add_option("--beam-bandwidth", action="store", dest="beam_bandwidth",
                       type="float", default=None, help="Beamformer scaling [default: None]")
+    parser.add_option("--fft_sign_invert", action="store_true", dest="fft_sign_invert",
+                      default=False, help="Conjugate FFT output [default: False]")
 
     (conf, args) = parser.parse_args(argv[1:])
 
@@ -1202,3 +1204,7 @@ if __name__ == "__main__":
 
     # Connect station (program, initialise and configure if required)
     station.connect()
+
+    if conf.fft_sign_invert:
+        station['fpga1.dsp_regfile.channelizer_config.fft_conjugate'] = 1
+        station['fpga2.dsp_regfile.channelizer_config.fft_conjugate'] = 1

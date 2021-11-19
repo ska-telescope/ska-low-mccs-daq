@@ -580,8 +580,9 @@ class Tile(object):
         """
         ip_octets = self._ip.split(".")
         for n in range(len(self.tpm.tpm_10g_core)):
-            self.tpm.tpm_10g_core[n].reset_core()
             if self["fpga1.regfile.feature.xg_eth_implemented"] == 1:
+                if self.tpm.tpm_test_firmware[0].xg_40g_eth:
+                    self.tpm.tpm_10g_core[n].reset_core()
                 src_ip = f"10.0.{n+1}.{ip_octets[3]}"
             else:
                 src_ip = f"10.{n+1}.{ip_octets[2]}.{ip_octets[3]}"
@@ -790,9 +791,10 @@ class Tile(object):
         while True:
             linkup = True
             for c in core_id:
-                core_errors = self.tpm.tpm_10g_core[c].check_errors()
-                if core_errors:
-                    linkup = False
+                if self.tpm.tpm_test_firmware[0].xg_40g_eth:
+                    core_errors = self.tpm.tpm_10g_core[c].check_errors()
+                    if core_errors:
+                        linkup = False
                 for a in arp_table_id:
                     core_status = self.tpm.tpm_10g_core[c].get_arp_table_status(
                         a, silent_mode=True
@@ -1241,16 +1243,18 @@ class Tile(object):
         self.tpm.beamf_fd[1].set_delay(delay_array[8:], beam_index)
 
     @connected
-    def load_pointing_delay(self, load_time=0):
+    def load_pointing_delay(self, load_time=0, load_delay=64):
         """
         Delay is updated inside the delay engine at the time specified.
-        If time = 0 load immediately
+        If load_time = 0 load immediately applying a delay defined by load_delay
 
         :param load_time: time (in ADC frames/256) for delay update
         :type load_time: int
+        :param load_delay: delay in (in ADC frames/256) to apply when load_time == 0
+        :type load_delay: int
         """
         if load_time == 0:
-            load_time = self.current_tile_beamformer_frame() + 64
+            load_time = self.current_tile_beamformer_frame() + load_delay
 
         self.tpm.beamf_fd[0].load_delay(load_time)
         self.tpm.beamf_fd[1].load_delay(load_time)
