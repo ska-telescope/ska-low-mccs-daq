@@ -117,12 +117,18 @@ class TestWrapper():
             ret_val = test_instance.execute(*self.class_dict[test]['parameter_values'])
             test_result.append(ret_val)
         logging.info("----------------- TEST RESULTS -----------------")
+        table = []
         for n, ret_val in enumerate(test_result):
             if ret_val == 0:
-                logging.info("TEST_" + self.test_todo[n].upper() + " PASSED!")
+                result = "PASSED!"
             else:
-                logging.info("TEST_" + self.test_todo[n].upper() + " FAILED!")
+                result = "FAILED!"
                 ret = 1
+            table.append(["TEST_" + self.test_todo[n].upper(), result])
+        table_txt = tabulate(table, tablefmt="plain")
+        table_lines = table_txt.split('\n')
+        for table_line in table_lines:
+            logging.info(table_line)
         self.log_filter()
         return ret
 
