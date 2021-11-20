@@ -76,6 +76,16 @@ class TpmTestFirmware(FirmwareBlock):
             self.xg_eth = False
             self.xg_40g_eth = False
 
+        if self.board["fpga1.dsp_regfile.feature.tile_beamformer_implemented"] == 1:
+            self.tile_beamformer_implemented = True
+        else:
+            self.tile_beamformer_implemented = False
+
+        if self.board["fpga1.dsp_regfile.feature.station_beamformer_implemented"] == 1:
+            self.station_beamformer_implemented = True
+        else:
+            self.station_beamformer_implemented = False
+
         self.load_plugin()
 
         self._device_name = "fpga1" if self._device is Device.FPGA_1 else "fpga2"
@@ -107,10 +117,12 @@ class TpmTestFirmware(FirmwareBlock):
             self.board.load_plugin("TpmFpga2Fpga", core=0),
             self.board.load_plugin("TpmFpga2Fpga", core=1),
         ]
-        self._beamf = self.board.load_plugin("BeamfFD", device=self._device)
-        self._station_beamf = self.board.load_plugin(
-            "StationBeamformer", device=self._device
-        )
+        if self.tile_beamformer_implemented:
+            self._beamf = self.board.load_plugin("BeamfFD", device=self._device)
+        if self.station_beamformer_implemented:
+            self._station_beamf = self.board.load_plugin(
+                "StationBeamformer", device=self._device
+            )
         self._testgen = self.board.load_plugin("TpmTestGenerator", device=self._device)
         self._sysmon = self.board.load_plugin("TpmSysmon", device=self._device)
         self._patterngen = self.board.load_plugin(
@@ -285,9 +297,6 @@ class TpmTestFirmware(FirmwareBlock):
 
     #######################################################################################
 
-    def initialize_spead(self: TpmTestFirmware) -> None:
-        """Initialize SPEAD."""
-        self.board[self._device_name + ".lmc_spead_tx.control"] = 0x0400100C
 
     def send_raw_data(self: TpmTestFirmware) -> None:
         """Send raw data from the TPM."""

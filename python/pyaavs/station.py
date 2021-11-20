@@ -281,29 +281,30 @@ class Station(object):
                     self.configuration['observation']['start_frequency_channel'] * 1e-6,
                     self.configuration['observation']['bandwidth'] * 1e-6))
 
-            for i, tile in enumerate(self.tiles):
-                # Initialise beamformer
-                tile.initialise_beamformer(start_channel, nof_channels, i == 0, i == len(self.tiles) - 1)
+            if self.tiles[0].tpm.tpm_test_firmware[0].tile_beamformer_implemented and self.tiles[0].tpm.tpm_test_firmware[0].station_beamformer_implemented:
+                for i, tile in enumerate(self.tiles):
+                    # Initialise beamformer
+                    tile.initialise_beamformer(start_channel, nof_channels, i == 0, i == len(self.tiles) - 1)
 
-                # Define SPEAD header
-                # TODO: Insert proper values here
-                if i == len(self.tiles) - 1:
-                    tile.define_spead_header(self._station_id, 0, self.configuration['station']['number_of_antennas'],
-                                             -1, 0)
+                    # Define SPEAD header
+                    # TODO: Insert proper values here
+                    if i == len(self.tiles) - 1:
+                        tile.define_spead_header(self._station_id, 0, self.configuration['station']['number_of_antennas'],
+                                                 -1, 0)
 
-                # Start beamformer
-                if self.configuration['station']['start_beamformer']:
-                    logging.info("Starting station beamformer")
-                    tile.start_beamformer(start_time=0, duration=-1)
+                    # Start beamformer
+                    if self.configuration['station']['start_beamformer']:
+                        logging.info("Starting station beamformer")
+                        tile.start_beamformer(start_time=0, duration=-1)
 
-                    # Set beamformer scaling
-                    for t in self.tiles:
-                        t.tpm.station_beamf[0].set_csp_rounding(self.configuration['station']['beamformer_scaling'])
-                        t.tpm.station_beamf[1].set_csp_rounding(self.configuration['station']['beamformer_scaling'])
+                        # Set beamformer scaling
+                        for t in self.tiles:
+                            t.tpm.station_beamf[0].set_csp_rounding(self.configuration['station']['beamformer_scaling'])
+                            t.tpm.station_beamf[1].set_csp_rounding(self.configuration['station']['beamformer_scaling'])
 
-            for tile in self.tiles:
-                tile.tpm.tpm_pattern_generator[0].initialise()
-                tile.tpm.tpm_pattern_generator[1].initialise()
+            # for tile in self.tiles:
+            #     tile.tpm.tpm_pattern_generator[0].initialise()
+            #     tile.tpm.tpm_pattern_generator[1].initialise()
 
             # If in testing mode, override tile-specific test generators
             if self.configuration['station']['enable_test']:

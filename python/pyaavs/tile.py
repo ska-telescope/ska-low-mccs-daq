@@ -1729,8 +1729,9 @@ class Tile(object):
 
         sync_time = t0 + delay
         # Write start time
-        for station_beamformer in self.tpm.station_beamf:
-            station_beamformer.set_epoch(sync_time)
+        if self.tpm.tpm_test_firmware[0].station_beamformer_implemented:
+            for station_beamformer in self.tpm.station_beamf:
+                station_beamformer.set_epoch(sync_time)
         for f in devices:
             self.tpm[f + ".pps_manager.sync_time_val"] = sync_time
 
