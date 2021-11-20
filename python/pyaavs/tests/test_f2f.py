@@ -25,7 +25,7 @@ class TestF2f():
                 f2f.stop_test()
         del self._test_station
 
-    def execute(self, duration=16):
+    def execute(self, duration=8):
 
         self._test_station = station.Station(self._station_config)
         self._test_station.connect()
@@ -60,45 +60,79 @@ class TestF2f():
             self.clean_up()
             return 1
 
-        self._logger.info("Starting F2F test, duration %d seconds" % duration)
-
-        for n, tile in enumerate(self._test_station.tiles):
-            for f2f in tile.tpm.tpm_f2f:
-                f2f.start_tx_test()
-
-        for n, tile in enumerate(self._test_station.tiles):
-            for f2f in tile.tpm.tpm_f2f:
-                f2f.start_rx_test()
-
-        for n, tile in enumerate(self._test_station.tiles):
-            for f2f in tile.tpm.tpm_f2f:
-                f2f.start_rx_test()
-
-        for t in range(duration):
-            time.sleep(1)
-            for n, tile in enumerate(self._test_station.tiles):
-                if self._plugin_type == 'TpmFpga2FpgaAurora':
-                    for fpga in ["fpga1", "fpga2"]:
-                        self._logger.info("Tile " + str(n) + " " + fpga.upper() + " test status:")
-                        self._logger.info("    Active: " + str(tile['%s.f2f_aurora.test_status.test_active' % fpga]))
-                        self._logger.info("    Errors Detected: " + str(tile['%s.f2f_aurora.test_status.error_detected' % fpga]))
-                        self._logger.info("    Lane with Errors: " + hex(tile['%s.f2f_aurora.test_status.error_lane' % fpga]))
-                        if tile['%s.f2f_aurora.test_status.test_active' % fpga] == 0 or tile['%s.f2f_aurora.test_status.error_detected' % fpga] == 1:
-                            errors += 1
-                elif self._plugin_type == 'TpmFpga2Fpga':
-                    self._logger.info("Tile " + str(n) + " test status:")
-                    for i in list(range(2)):
-                        test_result = tile.tpm.tpm_f2f[i].get_test_result()
-                        self._logger.info("  Core %d Errors Detected: %d" % (i, test_result))
-                else:
-                    self._logger.error("Plugin %s not supported as F2F." % self._plugin_type)
-                    errors += 1
-            if errors > 0:
-                self._logger.error("F2F Test FAILED!")
-                self.clean_up()
-                return 1
+        if self._plugin_type == 'TpmFpga2FpgaAurora':
+            tests = ['incremental']
+        else:
+            if self._test_station.tiles[0].tpm.has_register('fpga1.f2f.test_pattern_rx_check'):
+                tests = ['incremental', 'pattern1', 'pattern2']
             else:
-                self._logger.info("Test running with no errors detected, elapsed time %d seconds" % (t + 1))
+                tests = ['incremental']
+
+        for test_type in tests:
+
+            self._logger.info("Starting F2F test, test_type: %s, duration %d seconds" % (test_type, duration))
+
+            for n, tile in enumerate(self._test_station.tiles):
+                for f2f in tile.tpm.tpm_f2f:
+                    f2f.stop_test()
+
+            if self._plugin_type == 'TpmFpga2Fpga':
+                if test_type == "incremental":
+                    pattern = 0
+                    pattern_enable = 0
+                elif test_type == "pattern1":
+                    pattern = 0x5A
+                    pattern_enable = 0xFFFFFFFF
+                elif test_type == "pattern2":
+                    pattern = 0xD2
+                    pattern_enable = 0xFFFFFFFF
+                for n, tile in enumerate(self._test_station.tiles):
+                    for f2f in tile.tpm.tpm_f2f:
+                        f2f.set_test_pattern(pattern_enable, pattern)
+
+            for n, tile in enumerate(self._test_station.tiles):
+                for f2f in tile.tpm.tpm_f2f:
+                    f2f.start_tx_test()
+
+            for n, tile in enumerate(self._test_station.tiles):
+                for f2f in tile.tpm.tpm_f2f:
+                    f2f.start_rx_test()
+
+            for n, tile in enumerate(self._test_station.tiles):
+                for f2f in tile.tpm.tpm_f2f:
+                    f2f.start_rx_test()
+
+            for t in range(duration):
+                time.sleep(1)
+                for n, tile in enumerate(self._test_station.tiles):
+                    if self._plugin_type == 'TpmFpga2FpgaAurora':
+                        for fpga in ["fpga1", "fpga2"]:
+                            self._logger.info("Tile " + str(n) + " " + fpga.upper() + " test status:")
+                            self._logger.info("    Active: " + str(tile['%s.f2f_aurora.test_status.test_active' % fpga]))
+                            self._logger.info("    Errors Detected: " + str(tile['%s.f2f_aurora.test_status.error_detected' % fpga]))
+                            self._logger.info("    Lane with Errors: " + hex(tile['%s.f2f_aurora.test_status.error_lane' % fpga]))
+                            if tile['%s.f2f_aurora.test_status.test_active' % fpga] == 0 or tile['%s.f2f_aurora.test_status.error_detected' % fpga] == 1:
+                                errors += 1
+                    elif self._plugin_type == 'TpmFpga2Fpga':
+                        self._logger.info("Tile " + str(n) + " test status:")
+                        for i in list(range(2)):
+                            test_result = tile.tpm.tpm_f2f[i].get_test_result()
+                            if test_result > 0:
+                                errors += 1
+                            self._logger.info("  Core %d Errors Detected: %s" % (i, hex(test_result)))
+                    else:
+                        self._logger.error("Plugin %s not supported as F2F." % self._plugin_type)
+                        errors += 1
+                if errors > 0:
+                    self._logger.error("F2F Test FAILED!")
+                    self.clean_up()
+                    return 1
+                else:
+                    self._logger.info("Test running with no errors detected, elapsed time %d seconds" % (t + 1))
+
+            for n, tile in enumerate(self._test_station.tiles):
+                for f2f in tile.tpm.tpm_f2f:
+                    f2f.stop_test()
 
         self._logger.info("Test PASSED!")
         self.clean_up()
