@@ -185,9 +185,9 @@ class Tile(object):
                 fsample=self._sampling_rate,
             )
         except (BoardError, LibraryError):
-            self.tpm = None
-            self.logger.error("Failed to connect to board at " + self._ip)
-            return
+           self.tpm = None
+           self.logger.error("Failed to connect to board at " + self._ip)
+           return
 
         # Load tpm test firmware for both FPGAs (no need to load in simulation)
         if load_plugin and self.tpm.is_programmed():
@@ -298,8 +298,12 @@ class Tile(object):
 
         :param bitfile: Bitfile to load
         :type bitfile: str
+        :raises LibraryError: bitfile is None type
         """
         self.connect(load_plugin=False)
+        if bitfile is None:
+            self.logger.error("Provided bitfile in None type")
+            raise LibraryError("bitfile is None type")
         if self.tpm is not None:
             self.logger.info("Downloading bitfile " + bitfile + " to board")
             self.tpm.download_firmware(Device.FPGA_1, bitfile)
