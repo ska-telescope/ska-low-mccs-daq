@@ -305,7 +305,7 @@ class TpmTestFirmware(FirmwareBlock):
 
             retries += 1
             sleep(0.2)
-            logging.warning(
+            logging.debug(
                 "Retrying JESD cores configuration of " + self._device_name.upper()
             )
 
