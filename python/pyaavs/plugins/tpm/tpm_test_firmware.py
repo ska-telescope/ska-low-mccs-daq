@@ -2,11 +2,10 @@
 #
 # This file is part of the SKA Low MCCS project
 #
-#
 # Distributed under the terms of the GPL license.
 # See LICENSE.txt for more info.
 """
-Hardware plugins for the TPM 1.2 hardware.
+Hardware functions for the TPM 1.2 hardware.
 
 This is a transcript of the corresponding class from the pyaavs library,
 with code style modified for SKA coding conventions. It depends heavily
@@ -18,20 +17,20 @@ __author__ = "Alessio Magro"
 
 import logging
 import time
-from typing import Any
+from typing import Any, Optional
 
-from pyfabil.plugins.firmwareblock import FirmwareBlock
 from pyfabil.base.definitions import (
     Status,
     PluginError,
     BoardError,
-    BoardMake,
+	BoardMake,
     Device,
     firmware,
     compatibleboards,
     friendlyname,
     maxinstances,
 )
+from pyfabil.plugins.firmwareblock import FirmwareBlock
 from time import sleep
 
 __all__ = ["TpmTestFirmware"]
@@ -56,13 +55,27 @@ class TpmTestFirmware(FirmwareBlock):
         super(TpmTestFirmware, self).__init__(board)
 
         # Device must be specified in kwargs
-        if "device" not in kwargs:
+        if kwargs.get("device", None) is None:
             raise PluginError("TpmTestFirmware requires device argument")
         self._device = kwargs["device"]
 
-        if "fsample" not in kwargs:
+        if kwargs.get("fsample", None) is None:
             logging.info("TpmTestFirmware: Setting default sampling frequency 800 MHz.")
-        self._fsample = kwargs.get("fsample", 800e6)
+            self._fsample = 800e6
+        else:
+            self._fsample = float(kwargs["fsample"])
+
+        self._dsp_core: Optional[bool] = kwargs.get("dsp_core")
+        if self._dsp_core is None:
+            logging.debug(
+                "TpmTestFirmware: Setting default value True to dsp_core flag."
+            )
+            self._dsp_core = True
+        if not self._dsp_core:
+            logging.info(
+                "TpmTestFirmware: dsp_core flag is False."
+            )
+
         try:
             if self.board["fpga1.regfile.feature.xg_eth_implemented"] == 1:
                 self.xg_eth = True
@@ -85,7 +98,20 @@ class TpmTestFirmware(FirmwareBlock):
             self.station_beamformer_implemented = True
         else:
             self.station_beamformer_implemented = False
-
+        self._jesd1 = None
+        self._jesd2 = None
+        self._fpga = None
+        self._teng = []
+        self._f2f = []
+        self._spead_gen = []
+        self._fortyg = None
+        self._sysmon = None
+        self._beamf = None
+        self._testgen = None
+        self._patterngen = None
+        self._power_meter = None
+        self._integrator = None
+        self._station_beamf = None
         self.load_plugin()
 
         self._device_name = "fpga1" if self._device is Device.FPGA_1 else "fpga2"
@@ -117,29 +143,32 @@ class TpmTestFirmware(FirmwareBlock):
             self.board.load_plugin("TpmFpga2Fpga", core=0),
             self.board.load_plugin("TpmFpga2Fpga", core=1),
         ]
-        if self.tile_beamformer_implemented:
-            self._beamf = self.board.load_plugin("BeamfFD", device=self._device)
-        if self.station_beamformer_implemented:
-            self._station_beamf = self.board.load_plugin(
-                "StationBeamformer", device=self._device
-            )
-        self._testgen = self.board.load_plugin("TpmTestGenerator", device=self._device)
         self._sysmon = self.board.load_plugin("TpmSysmon", device=self._device)
-        self._patterngen = self.board.load_plugin(
-            "TpmPatternGenerator", device=self._device, fsample=self._fsample
-        )
-        self._power_meter = self.board.load_plugin(
-            "AdcPowerMeter", device=self._device, fsample=self._fsample
-        )
-        self._integrator = self.board.load_plugin(
-            "TpmIntegrator", device=self._device, fsample=self._fsample
-        )
-        self._spead_gen = [
-            self.board.load_plugin("SpeadTxGen", device=self._device, core=0),
-            self.board.load_plugin("SpeadTxGen", device=self._device, core=1),
-            self.board.load_plugin("SpeadTxGen", device=self._device, core=2),
-            self.board.load_plugin("SpeadTxGen", device=self._device, core=3),
-        ]
+        if self._dsp_core:
+            if self.tile_beamformer_implemented:
+                self._beamf = self.board.load_plugin("BeamfFD", device=self._device)
+            if self.station_beamformer_implemented:
+                self._station_beamf = self.board.load_plugin(
+                    "StationBeamformer", device=self._device
+                )
+            self._testgen = self.board.load_plugin(
+                "TpmTestGenerator", device=self._device, fsample=self._fsample
+            )
+            self._patterngen = self.board.load_plugin(
+                "TpmPatternGenerator", device=self._device, fsample=self._fsample
+            )
+            self._power_meter = self.board.load_plugin(
+                "AdcPowerMeter", device=self._device, fsample=self._fsample
+            )
+            self._integrator = self.board.load_plugin(
+                "TpmIntegrator", device=self._device, fsample=self._fsample
+            )
+            self._spead_gen = [
+                self.board.load_plugin("SpeadTxGen", device=self._device, core=0),
+                self.board.load_plugin("SpeadTxGen", device=self._device, core=1),
+                self.board.load_plugin("SpeadTxGen", device=self._device, core=2),
+                self.board.load_plugin("SpeadTxGen", device=self._device, core=3),
+            ]
 
     def fpga_clk_sync(self: TpmTestFirmware) -> None:
         """FPGA synchronise clock."""
@@ -276,6 +305,9 @@ class TpmTestFirmware(FirmwareBlock):
 
             retries += 1
             sleep(0.2)
+            logging.warning(
+                "Retrying JESD cores configuration of " + self._device_name.upper()
+            )
 
         if retries == max_retries:
             raise BoardError("TpmTestFirmware: Could not configure JESD cores")

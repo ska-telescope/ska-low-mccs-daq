@@ -19,14 +19,14 @@ import time
 from typing import Any, Optional
 
 from pyfabil.base.definitions import (
+    PluginError,
+    BoardError,
+	BoardMake,
+    Device,
     firmware,
     compatibleboards,
     friendlyname,
     maxinstances,
-    BoardMake,
-    PluginError,
-    BoardError,
-    Device,
 )
 from pyaavs.plugins.tpm.tpm_test_firmware import TpmTestFirmware
 from time import sleep
@@ -43,12 +43,12 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
     @maxinstances(2)
     def __init__(self: Tpm_1_6_TestFirmware, board: Any, **kwargs: Any) -> None:
         """
-        Tpm_1_6_TestFirmware initializer.
+        Initialize a new Tpm_1_6_TestFirmware instance.
 
         :param board: Pointer to board instance
         :param kwargs: named arguments
 
-        :raises PluginError: Device parameter must be specified
+        :raises PluginError: Device argument must be specified
         """
         super(TpmTestFirmware, self).__init__(board)
 
@@ -65,10 +65,14 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
 
         self._dsp_core: Optional[bool] = kwargs.get("dsp_core")
         if self._dsp_core is None:
-            logging.info(
+            logging.debug(
                 "TpmTestFirmware: Setting default value True to dsp_core flag."
             )
             self._dsp_core = True
+        if not self._dsp_core:
+            logging.info(
+                "TpmTestFirmware: dsp_core flag is False."
+            )
 
         try:
             if self.board["fpga1.regfile.feature.xg_eth_implemented"] == 1:
@@ -83,6 +87,15 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
             self.xg_eth = False
             self.xg_40g_eth = False
 
+        if self.board["fpga1.dsp_regfile.feature.tile_beamformer_implemented"] == 1:
+            self.tile_beamformer_implemented = True
+        else:
+            self.tile_beamformer_implemented = False
+
+        if self.board["fpga1.dsp_regfile.feature.station_beamformer_implemented"] == 1:
+            self.station_beamformer_implemented = True
+        else:
+            self.station_beamformer_implemented = False
         self._jesd1 = None
         self._jesd2 = None
         self._fpga = None
@@ -129,12 +142,14 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
         )
         self._sysmon = self.board.load_plugin("TpmSysmon", device=self._device)
         if self._dsp_core:
-            self._beamf = self.board.load_plugin("BeamfFD", device=self._device)
-            self._station_beamf = self.board.load_plugin(
-                "StationBeamformer", device=self._device
-            )
+            if self.tile_beamformer_implemented:
+                self._beamf = self.board.load_plugin("BeamfFD", device=self._device)
+            if self.station_beamformer_implemented:
+                self._station_beamf = self.board.load_plugin(
+                    "StationBeamformer", device=self._device
+                )
             self._testgen = self.board.load_plugin(
-                "TpmTestGenerator", device=self._device
+                "TpmTestGenerator", device=self._device, fsample=self._fsample
             )
             self._patterngen = self.board.load_plugin(
                 "TpmPatternGenerator", device=self._device, fsample=self._fsample
@@ -190,7 +205,7 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
         """
         Initialise firmware components.
 
-        :raises BoardError: if JESD204 cannot be initialised
+        :raises BoardError: cannot configure JESD core
         """
         max_retries = 4
         retries = 0
