@@ -252,6 +252,7 @@ StationRawDoubleBuffer::StationRawDoubleBuffer(uint16_t start_channel, uint32_t 
         double_buffer[i].mutex = new std::mutex;
 
         double_buffer[i].data =  (uint16_t *) malloc(nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
+	memset(double_buffer[i].data, 0, nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
     }
     
     // Initialise producer and consumer
@@ -355,7 +356,7 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
         // dst is in sample/channel/pol order, so we need to skip nof_channels * nof_pols for every src sample
         // src is in sample/pol order (for one channel), we only need to skip nof_pols every time
         auto dst = double_buffer[producer_index].data +
-                       (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols +
+                       (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols * nof_channels +
                        channel * nof_pols;
         auto src = data_ptr;
 
@@ -412,7 +413,7 @@ void StationRawDoubleBuffer::release_buffer()
     this->double_buffer[this->consumer].nof_packets = 0;
     this->double_buffer[this->consumer].nof_samples = 0;
     this->double_buffer[this->consumer].frequency = UINT_MAX;
-    memset(double_buffer[this->consumer].data, 0, nof_samples * nof_pols * sizeof(uint16_t));
+    memset(double_buffer[this->consumer].data, 0, nof_samples * nof_pols * nof_channels * sizeof(uint16_t));
     this->double_buffer[this->consumer].mutex -> unlock();
 
     // Update consumer pointer
