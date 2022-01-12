@@ -38,6 +38,7 @@ auto dada_header_size = 4096;
 int fd = 0;
 
 // Callback counters
+uint32_t skip = 1;
 uint32_t counter = 0;
 uint32_t cutoff_counter = 0;
 
@@ -47,9 +48,14 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
 // Raw station beam callback
 void raw_station_beam_callback(void *data, double timestamp, unsigned int frequency, unsigned int nof_samples)
 {
+    if (counter < skip) {
+        counter += 1;
+	return;
+    }
+
     printf("Received station beam with %d samples\n", nof_samples);
-    
-    if (counter % cutoff_counter == 0)
+
+    if ((counter - skip) % cutoff_counter == 0)
     {
         // Create output file
         std::string suffix = include_dada_header ? ".dada" : ".dat";
@@ -129,7 +135,7 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "NDIM " << ndim << endl;
     header << "OBS_OFFSET 0" << endl;
     header << "TSAMP " << fixed << setprecision(4) << (1.0 / channel_bandwidth) * 1e6 << endl;
-    header << "UTC START " << time_string << endl;
+    header << "UTC_START " << time_string << endl;
 
     // Additional entries to match post-processing requiremenents
     header << "POPULATED 1" << endl;
