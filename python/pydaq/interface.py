@@ -118,6 +118,10 @@ def initialise_library(filepath=None):
                                       ctypes.c_uint32]
     library.startReceiver.restype = ctypes.c_int
 
+    library.startReceiverThreaded.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_uint32,
+                                              ctypes.c_uint32, ctypes.c_uint32]
+    library.startReceiverThreaded.restype = ctypes.c_int
+
     # Define stopReceiver function
     library.stopReceiver.argtypes = []
     library.stopReceiver.restype = ctypes.c_int
@@ -172,6 +176,18 @@ def call_start_receiver(interface, ip, frame_size, frames_per_block, nof_blocks)
     global library
     return library.startReceiver(interface, ip, frame_size, frames_per_block, nof_blocks)
 
+def call_start_receiver_threaded(interface, ip, frame_size, frames_per_block, nof_blocks, nof_threads):
+    """ Start network receiver thread
+    :param ip: IP address
+    :param interface: Interface name
+    :param frame_size: Maximum frame size
+    :param frames_per_block: Frames per block
+    :param nof_blocks: Number of blocks
+    :param nof_threads: Number of threads
+    :return: Return code
+    """
+    global library
+    return library.startReceiverThreaded(interface, ip, frame_size, frames_per_block, nof_blocks, nof_threads)
 
 def call_stop_receiver():
     """ Stop network receiver thread """
