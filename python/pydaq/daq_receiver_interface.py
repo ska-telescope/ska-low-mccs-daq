@@ -1214,8 +1214,13 @@ class DaqReceiver:
 
         # Define startReceiver function
         self._daq_library.startReceiver.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_uint32,
-                                                    ctypes.c_uint32, ctypes.c_uint32]
+                                                    ctypes.c_uint32]
         self._daq_library.startReceiver.restype = ctypes.c_int
+
+        # Define startReceiverThreaded function
+        self._daq_library.startReceiverThreaded.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_uint32,
+                                                            ctypes.c_uint32, ctypes.c_uint32]
+        self._daq_library.startReceiverThreaded.restype = ctypes.c_int
 
         # Define stopReceiver function
         self._daq_library.stopReceiver.argtypes = []
@@ -1267,7 +1272,7 @@ class DaqReceiver:
         :param nof_threads: Number of receiver threads
         :return: Return code
         """
-        return self._daq_library.startReceiver(interface, ip, frame_size, frames_per_block, nof_blocks, nof_threads)
+        return self._daq_library.startReceiverThreaded(interface, ip, frame_size, frames_per_block, nof_blocks, nof_threads)
 
     def _call_stop_receiver(self) -> Result:
         """ Stop network receiver thread """
