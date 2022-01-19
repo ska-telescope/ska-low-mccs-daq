@@ -39,6 +39,9 @@ bool ChannelisedData::initialiseConsumer(json configuration)
                                                    this -> nof_samples, this -> nof_channels,
                                                    this -> nof_pols);
 
+    // Set consumer name
+    setName("Cont Channel");
+
     // All done
     return true;
 }
