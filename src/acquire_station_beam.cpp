@@ -265,7 +265,7 @@ int main(int argc, char *argv[])
 
 
     // Telescope information
-    startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64, 1);
+    startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
     addReceiverPort(4660);
 
     // Set parameters

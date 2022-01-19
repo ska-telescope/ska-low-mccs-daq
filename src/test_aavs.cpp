@@ -9,7 +9,7 @@ void test_raw_data()
     LOG(INFO, "Testing Raw Data");
 
     const char *ip = "192.168.11.11";
-    startReceiver("enp7s0", ip, 9000, 32, 64, 1);
+    startReceiver("enp7s0", ip, 9000, 32, 64);
     addReceiverPort(7200);
 
     // Set parameters
@@ -54,7 +54,7 @@ void test_burst_beam_data()
     LOG(INFO, "Testing Burst Beam Data");
 
     const char *ip = "10.0.10.20";
-    startReceiver("eth1", ip, 9000, 32, 64, 1);
+    startReceiver("eth1", ip, 9000, 32, 64);
     addReceiverPort(4660);
 
     // Set parameters
@@ -99,7 +99,7 @@ void test_integrated_beam_data()
     LOG(INFO, "Testing Integrated Beam Data");
 
     const char *ip = "192.168.11.11";
-    startReceiver("enp7s0", ip, 9000, 32, 64, 1);
+    startReceiver("enp7s0", ip, 9000, 32, 64);
     addReceiverPort(7200);
 
     // Set parameters
@@ -145,7 +145,7 @@ void test_burst_channel_data()
     LOG(INFO, "Testing Burst Channel Data");
 
     const char *ip = "10.0.10.10";
-    startReceiver("enp5s0", ip, 9000, 32, 64, 1);
+    startReceiver("enp5s0", ip, 9000, 32, 64);
     addReceiverPort(4660);
 
     // Set parameters
@@ -191,7 +191,7 @@ void test_continuous_channel_data()
     LOG(INFO, "Testing Continuous Channel Data");
 
     const char *ip = "10.0.10.10";
-    startReceiver("enp5s0", ip, 9000, 32, 64, 1);
+    startReceiver("enp5s0", ip, 9000, 32, 64);
     addReceiverPort(4660);
 
     // Set parameters
@@ -241,7 +241,7 @@ void test_integrated_channel_data()
     LOG(INFO, "Testing Integrated Channel Data");
 
     const char *ip = "192.168.11.11";
-    startReceiver("enp7s0", ip, 9000, 32, 64, 1);
+    startReceiver("enp7s0", ip, 9000, 32, 64);
     addReceiverPort(7200);
 
     // Set parameters
@@ -290,7 +290,7 @@ void test_correlator_data()
         // Telescope information
         const char *ip = "10.0.10.201";
 
-        startReceiver("eth3:1", ip, 9000, 32, 64, 1);
+        startReceiver("eth3:1", ip, 9000, 32, 64);
         addReceiverPort(7200);
 
         // Set parameters
@@ -339,7 +339,7 @@ void test_station_data()
 
     // Telescope information
     const char *ip = "10.0.10.250";
-    startReceiver("eth2", ip, 9000, 32, 64, 1);
+    startReceiver("eth2", ip, 9000, 32, 64);
     addReceiverPort(4660);
 
     // Set parameters
@@ -382,7 +382,7 @@ void test_multi() {
     LOG(INFO, "Testing Multiple receivers");
 
     const char *ip = "10.0.10.10";
-    startReceiver("enp5s0", ip, 9000, 32, 64, 1);
+    startReceiver("enp5s0", ip, 9000, 32, 64);
     addReceiverPort(4660);
 
     // Set parameters

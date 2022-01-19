@@ -321,7 +321,7 @@ class TestDaq():
             'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
             'directory': temp_dir,  # CHANGE THIS if required
             'nof_beam_channels': 384,
-            'nof_beam_samples': 42,
+            #'nof_beam_samples': 42,
             'receiver_frame_size': 9000,
             'nof_tiles': len(tiles)
         }
