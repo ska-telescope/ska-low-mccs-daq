@@ -34,7 +34,8 @@ configuration = {'tiles': None,
                      'equalize_preadu': 0,
                      'default_preadu_attenuation': 0,
                      'beamformer_scaling': 4,
-                     'pps_delays': 0},
+                     'pps_delays': 0,
+                     'use_internal_pps': False},
                  'observation': {
                      'bandwidth': 8 * (400e6 / 512.0),
                      'start_frequency_channel': 50e6},
@@ -129,7 +130,10 @@ def initialise_tile(params):
 
         # Create station instance and initialise
         station_tile = create_tile_instance(config, tile_number)
-        station_tile.initialise(enable_test=config['station']['enable_test'])
+        station_tile.initialise(
+            enable_test=config['station']['enable_test'],
+            use_internal_pps=config['station']['use_internal_pps']
+        )
 
         # Set channeliser truncation
         station_tile.set_channeliser_truncation(config['station']['channel_truncation'])
@@ -1121,6 +1125,8 @@ def load_station_configuration(config_params):
         configuration['station']['channel_integration_time'] = config_params.channel_integ
     if config_params.enable_test is not None:
         configuration['station']['enable_test'] = config_params.enable_test
+    # if config_params.use_internal_pps is True: # Not clear how to use the command line option wrt value set in config file
+    #     configuration['station']['use_internal_pps'] = True
     if config_params.initialise is not None:
         configuration['station']['initialise'] = config_params.initialise
     if config_params.lmc_ip is not None:
@@ -1173,6 +1179,8 @@ if __name__ == "__main__":
                       default=False, help="Update CPLD firmware (requires -f option) [default: False]")
     parser.add_option("-T", "--enable-test", action="store_true", dest="enable_test",
                       default=False, help="Enable test pattern [default: False]")
+    # parser.add_option("--use_internal_pps", action="store_true", dest="use_internal_pps",
+    #                   default=False, help="Enable internal PPS generator ['default: False]")
     parser.add_option("--use_teng", action="store_true", dest="use_teng",
                       default=None, help="Use 10G for LMC [default: None]")
     parser.add_option("--chan-trunc", action="store", dest="chan_trunc",

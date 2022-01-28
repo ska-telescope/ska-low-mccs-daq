@@ -212,7 +212,7 @@ class Tile(object):
             return False
         return self.tpm.is_programmed()
 
-    def initialise(self, enable_ada=False, enable_test=False):
+    def initialise(self, enable_ada=False, enable_test=False, use_internal_pps=False):
         """
         Connect and initialise.
 
@@ -222,6 +222,8 @@ class Tile(object):
         :param enable_test: setup internal test signal generator instead
             of ADC
         :type enable_test: bool
+        :param use_internal_pps: use internal PPS generator synchronised across FPGAs
+        :type use_internal_pps: bool
         """
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada)
@@ -260,7 +262,7 @@ class Tile(object):
             preadu.read_configuration()
 
         # Synchronise FPGAs
-        self.sync_fpgas()
+        self.sync_fpgas(use_internal_pps=use_internal_pps)
 
         # Initialize f2f link
         self.tpm.tpm_f2f[0].initialise_core("fpga2->fpga1")
@@ -1506,13 +1508,41 @@ class Tile(object):
         self.logger.info(f"Finished tile post synchronisation ({delay})")
 
     @connected
-    def sync_fpgas(self):
-        """Syncronises the two FPGAs in the tile Returns when these are synchronised."""
+    def sync_fpgas(self, use_internal_pps=False):
+        """Syncronises the two FPGAs in the tile Returns when these are synchronised.
+
+        :param use_internal_pps: enable FPGA internal PPS generator
+        :type use_internal_pps: bool
+        """
+
+        """
+                Synchronise data operations between FPGAs.
+
+                :param seconds: Number of seconds to delay operation
+                :param timestamp: Timestamp at which tile will be synchronised
+                """
+
         devices = ["fpga1", "fpga2"]
 
         # Setting internal PPS generator
         for f in devices:
-            self.tpm[f + ".pps_manager.pps_gen_tc"] = int(self._sampling_rate / 4) - 1
+            self.tpm[f + ".pps_manager.pps_gen_tc"] = int(100e6) - 1  # PPS generator runs at 100 Mhz
+
+        # Setting internal PPS generator
+        if use_internal_pps:
+            for f in devices:
+                self.tpm[f + ".regfile.spi_sync_function"] = 1
+                self.tpm[f + ".pps_manager.pps_gen_sync"] = 0
+                self.tpm[f + ".pps_manager.pps_gen_sync.enable"] = 1
+            time.sleep(0.1)
+            self.tpm["fpga1.pps_manager.pps_gen_sync.act"] = 1
+            time.sleep(0.1)
+            for f in devices:
+                self.tpm[f + ".pps_manager.pps_gen_sync"] = 0
+                self.tpm[f + ".regfile.spi_sync_function"] = 1
+                self.tpm[f + ".pps_manager.pps_selection"] = 1
+            logging.warning("Using Internal PPS generator!")
+            logging.info("Internal PPS generator synchronised.")
 
         # Setting sync time
         for f in devices:
