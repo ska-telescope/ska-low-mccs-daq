@@ -39,13 +39,14 @@ bool BeamformedData::initialiseConsumer(json configuration)
 // Set callback
 void BeamformedData::setCallback(DataCallback callback)
 {
-    this -> container -> setCallback(callback);
+    container -> setCallback(callback);
 }
 
 // Function called when a burst stream capture has finished
 void BeamformedData::onStreamEnd()
 {
     // Persist current data
+    received_packets = 0;
     container->persist_container();
 }
 
@@ -77,7 +78,7 @@ bool BeamformedData::packetFilter(unsigned char *udp_packet)
 bool BeamformedData::processPacket()
 {
     // Get next packet to process
-    size_t packet_size = ring_buffer -> pull_timeout(&packet, 0.2);
+    size_t packet_size = ring_buffer -> pull_timeout(&packet, 0.5);
 
     // Check if the request timed out
     if (packet_size == SIZE_MAX)

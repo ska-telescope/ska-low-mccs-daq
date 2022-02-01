@@ -82,7 +82,7 @@ public:
                   uint16_t nof_included_antennas, uint32_t cont_channel_id = 0)
     {
         // Get current tile index
-        unsigned int tile_index = 0;
+        unsigned int tile_index;
         if (tile_map.find(tile) != tile_map.end())
             tile_index = tile_map[tile];
         else {

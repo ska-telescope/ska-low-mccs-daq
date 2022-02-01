@@ -3,8 +3,6 @@
 from __future__ import absolute_import
 from __future__ import division
 from builtins import input
-from builtins import str
-from builtins import range
 import threading
 import fcntl
 import socket

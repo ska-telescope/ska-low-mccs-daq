@@ -53,14 +53,14 @@ void test_burst_beam_data()
 {
     LOG(INFO, "Testing Burst Beam Data");
 
-    const char *ip = "10.0.10.20";
+    const char *ip = "10.0.10.10";
     startReceiver("eth1", ip, 9000, 32, 64);
     addReceiverPort(4660);
 
     // Set parameters
     json j = {
-            {"nof_channels", 392},
-            {"nof_samples", 32},
+            {"nof_channels", 384},
+            {"nof_samples", 42},
             {"nof_tiles", 1},
             {"nof_pols", 2},
             {"max_packet_size", 9000}
@@ -522,13 +522,13 @@ void test_multi() {
 int main()
 {
 //    test_raw_data();
-//    test_burst_beam_data();
+    test_burst_beam_data();
 //    test_integrated_beam_data();
     //test_burst_channel_data();
     //test_continuous_channel_data();
 //    test_integrated_beam_data();
 //    test_correlator_data();
 //    test_station_data();
-     test_multi();
+     //test_multi();
 }
 

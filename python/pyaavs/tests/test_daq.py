@@ -78,15 +78,16 @@ def data_callback(mode, filepath, tile):
             data = np.zeros((512, nof_tiles * nof_antennas_per_tile, 2, 128, 2), dtype=np.int8)
             channel_file = ChannelFormatFileManager(root_path=os.path.dirname(filepath))
             for tile_id in list(range(nof_tiles)):
-                tile_data, timestamps = channel_file.read_data(channels=range(512),  # List of channels to read (not use in raw case)
+                tile_data, timestamps = channel_file.read_data(channels=range(512), # List of channels to read (not use in raw case)
                                                                antennas=range(16),
                                                                polarizations=[0, 1],
                                                                n_samples=128,
                                                                tile_id=tile_id)
-                data[:, tile_id * nof_antennas_per_tile: (tile_id + 1) * nof_antennas_per_tile, :, :, 0] = tile_data['real']
-                data[:, tile_id * nof_antennas_per_tile: (tile_id + 1) * nof_antennas_per_tile, :, :, 1] = tile_data['imag']
+                data[:, tile_id * nof_antennas_per_tile: (tile_id + 1) * nof_antennas_per_tile, :, :, 0] = \
+                    tile_data['real']
+                data[:, tile_id * nof_antennas_per_tile: (tile_id + 1) * nof_antennas_per_tile, :, :, 1] = \
+                    tile_data['imag']
             data_received = True
-
 
     if mode == "burst_beam":
         tiles_processed[tile] = 1
@@ -94,7 +95,7 @@ def data_callback(mode, filepath, tile):
             data = np.zeros((nof_tiles, 2, 384, 32, 2), dtype=np.int16)
             beam_file = BeamFormatFileManager(root_path=os.path.dirname(filepath))
             for tile_id in list(range(nof_tiles)):
-                tile_data, timestamps = beam_file.read_data(channels=range(384),  # List of channels to read (not use in raw case)
+                tile_data, timestamps = beam_file.read_data(channels=range(384), # List of channels to read (not use in raw case)
                                                             polarizations=[0, 1],
                                                             n_samples=32,
                                                             tile_id=tile_id)
@@ -104,7 +105,6 @@ def data_callback(mode, filepath, tile):
 
 
 def integrated_data_callback(mode, filepath, tile):
-
     global channel_int_tiles_processed
     global channel_int_data_received
     global channel_int_data
@@ -116,13 +116,15 @@ def integrated_data_callback(mode, filepath, tile):
         channel_int_tiles_processed[tile] = 1
         if np.all(channel_int_tiles_processed >= 1):
             channel_int_data = np.zeros((512, nof_tiles * nof_antennas_per_tile, 2, 1), dtype=np.uint32)
-            channel_file = ChannelFormatFileManager(root_path=os.path.dirname(filepath), daq_mode=FileDAQModes.Integrated)
+            channel_file = ChannelFormatFileManager(root_path=os.path.dirname(filepath),
+                                                    daq_mode=FileDAQModes.Integrated)
             for tile_id in list(range(nof_tiles)):
                 tile_data, timestamps = channel_file.read_data(antennas=range(16),
                                                                polarizations=[0, 1],
                                                                n_samples=1,
                                                                tile_id=tile_id)
-                channel_int_data[:, tile_id * nof_antennas_per_tile: (tile_id + 1) * nof_antennas_per_tile, :, :] = tile_data
+                channel_int_data[:, tile_id * nof_antennas_per_tile:
+                                    (tile_id + 1) * nof_antennas_per_tile, :, :] = tile_data
             channel_int_data_received = True
 
     if mode == "integrated_beam":
@@ -138,7 +140,8 @@ def integrated_data_callback(mode, filepath, tile):
                 beam_int_data[:, :, tile_id, :] = tile_data[:, :, 0, :]
             beam_int_data_received = True
 
-class TestDaq():
+
+class TestDaq:
     def __init__(self, station_config, logger):
         self._logger = logger
         self._station_config = station_config
@@ -226,7 +229,8 @@ class TestDaq():
                     signal_idx = ((a % 16) * 2 + p)
                     exp_re = pattern[sample_idx] + adders[signal_idx]
                     exp_im = pattern[sample_idx + 1] + adders[signal_idx]
-                    exp = integrated_sample_calc(tf.signed(exp_re), tf.signed(exp_im), integration_length, round_bits, accumulator_width)
+                    exp = integrated_sample_calc(tf.signed(exp_re), tf.signed(exp_im), integration_length,
+                                                 round_bits, accumulator_width)
                     for i in range(1):  # range(sam):
                         if exp != data[c, a, p, i]:
                             self._logger.error("Data Error!")
@@ -321,7 +325,7 @@ class TestDaq():
             'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
             'directory': temp_dir,  # CHANGE THIS if required
             'nof_beam_channels': 384,
-            #'nof_beam_samples': 42,
+            'nof_beam_samples': 42,
             'receiver_frame_size': 9000,
             'nof_tiles': len(tiles)
         }
@@ -369,7 +373,7 @@ class TestDaq():
                     self.clean_up(test_station)
                     return 1
 
-                self._logger.info("Raw ADC data iteration %d PASSED!" % (i+1))
+                self._logger.info("Raw ADC data iteration %d PASSED!" % (i + 1))
             #
             # raw data synchronised
             #
@@ -401,7 +405,7 @@ class TestDaq():
                     self.clean_up(test_station)
                     return 1
 
-                self._logger.info("Raw ADC data synchronized iteration %d PASSED!" %(i+1))
+                self._logger.info("Raw ADC data synchronized iteration %d PASSED!" % (i + 1))
         #
         # channel data
         #
@@ -486,16 +490,16 @@ class TestDaq():
             test_station.connect()
             if single_tpm_id >= 0:
                 if not tr.check_integrated_data_enabled(test_station, "channel", self._logger, single_tpm_id) or \
-                   not tr.check_integrated_data_enabled(test_station, "beamf", self._logger, single_tpm_id):
+                        not tr.check_integrated_data_enabled(test_station, "beamf", self._logger, single_tpm_id):
                     return 1
                 for n, _tile in enumerate(test_station.tiles):
-                    #if self._station_config['tiles'][n] != self._station_config['single_tpm_config']['ip']:
+                    # if self._station_config['tiles'][n] != self._station_config['single_tpm_config']['ip']:
                     if n != single_tpm_id:
                         self._logger.info("Stopping integrated data on Tile %s" % self._station_config['tiles'][n])
                         _tile.stop_integrated_data()
             else:
                 if not tr.check_integrated_data_enabled(test_station, "channel", self._logger) or \
-                   not tr.check_integrated_data_enabled(test_station, "beamf", self._logger):
+                        not tr.check_integrated_data_enabled(test_station, "beamf", self._logger):
                     return 1
 
             channel_integration_length = tiles[0]['fpga1.lmc_integrated_gen.channel_integration_length']
@@ -567,7 +571,6 @@ class TestDaq():
 
 
 if __name__ == "__main__":
-
     from optparse import OptionParser
     from sys import argv, stdout
 

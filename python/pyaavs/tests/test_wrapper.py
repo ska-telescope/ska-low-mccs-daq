@@ -1,34 +1,37 @@
-from builtins import input
-from sys import stdout
-from tabulate import tabulate
-from pyaavs import station
-from config_manager import ConfigManager
-import test_functions as tf
-import pkg_resources
-import numpy as np
-import os.path
 import inspect
 import logging
-import random
-import time
-import sys
 import os
+import os.path
+import sys
+from builtins import input
+
+from tabulate import tabulate
+
+from config_manager import ConfigManager
+from pyaavs import station
 
 
-class TestWrapper():
+class TestWrapper:
+
     def __init__(self, tpm_config, log_file):
         self._tests = {'adc': "Check JESD link setting test patterns in the ADCs and verifying data received by FPGAs",
-                       'daq': "Check data transfer from FPGAs to LMC using DAQ software.\nAll data format checked: raw, channel, tile beam and integrated data.",
+                       'daq': "Check data transfer from FPGAs to LMC using DAQ software.\nAll data format checked: "
+                              "raw, channel, tile beam and integrated data.",
                        'channelizer': "Check channelizer output using the FPGA internal tone generator.",
-                       'pfb': "Check channelizer output using the FPGA internal pattern generator,\nverify response against VHDL simulated response.",
-                       'tile_beamformer': "Check if the beamformer corrects for time domain delays\napplied to the internally generated tone.",
-                       'init_station': "Program, initialise station and start station beamformer.\nCheck if station beam data rate is within expected range.",
-                       'full_station': "Check operation of networked beamformer comparing offline and realtime beam power.",
+                       'pfb': "Check channelizer output using the FPGA internal pattern generator,\nverify response "
+                              "against VHDL simulated response.",
+                       'tile_beamformer': "Check if the beamformer corrects for time domain delays\napplied to the "
+                                          "internally generated tone.",
+                       'init_station': "Program, initialise station and start station beamformer.\nCheck if station "
+                                       "beam data rate is within expected range.",
+                       'full_station': "Check operation of networked beamformer comparing offline and realtime beam "
+                                       "power.",
                        'ddr': "Check on-board DDR using FPGA embedded test.",
                        'f2f': "Check fast data link between FPGAs using FPGA embedded test.",
                        'eth40g': "Check 40G UDP using FPGA embedded test.",
-                        'c2c': "Check communcation bus between CPLD and FPGAs.\nWARNING: this test will overwrite the XML memory map in the FPGAs,\nInitialise station needed after execution.",
-        }
+                       'c2c': "Check communcation bus between CPLD and FPGAs.\nWARNING: this test will overwrite the "
+                              "XML memory map in the FPGAs,\nInitialise station needed after execution.",
+                       }
 
         self.test_todo = []
         self.tpm_config = tpm_config
@@ -44,15 +47,15 @@ class TestWrapper():
             argspec_args = argspec.args
             argspec_args.remove('self')
             self.class_dict[test] = {'class': class_,
-                                      'parameter_names': argspec_args,
-                                      'parameter_values': argspec.defaults}
+                                     'parameter_names': argspec_args,
+                                     'parameter_values': argspec.defaults}
 
     def exclude_daq_tests(self):
-        #installed = {pkg.key for pkg in pkg_resources.working_set}
+        # installed = {pkg.key for pkg in pkg_resources.working_set}
         try:
             import pydaq
         except:
-        #if 'pydaq' not in installed:
+            # if 'pydaq' not in installed:
             logging.info('pydaq not installed! Removing tests using DAQ!')
             del self._tests['adc']
             del self._tests['daq']
@@ -69,7 +72,7 @@ class TestWrapper():
         return class_
 
     def print_available_test(self):
-        #for test in self.available_tests:
+        # for test in self.available_tests:
         #    logger.info(test)
         logging.info("Avalable tests are:")
         print(tabulate(self._tests.items(), tablefmt="plain"))
@@ -85,7 +88,7 @@ class TestWrapper():
                 logging.info("Avalable tests are:")
                 self.print_available_test()
                 logging.info("Exiting")
-                exit
+                exit()
         return self.test_todo
 
     def set_parameter_value(self, test, param_name, param_value):
@@ -198,7 +201,7 @@ class UI:
                                          'Sine wave 1 frequency (Hz)': 100e6,
                                          'Sine wave 0 amplitude [0, 1]': 0.3,
                                          'Sine wave 1 amplitude [0, 1]': 0.0,
-                                         'Noise amplitude [0, 1]' : 0.0,
+                                         'Noise amplitude [0, 1]': 0.0,
                                          'Antenna enable (hexadecimal)': 0x0
                                          }
 
@@ -357,7 +360,7 @@ parameter is 1.
 if __name__ == "__main__":
 
     from optparse import OptionParser
-    from sys import argv, stdout
+    from sys import argv
 
     parser = OptionParser(usage="usage: %test_wrapper.py [options]")
     # parser = tf.add_default_parser_options(parser)
@@ -373,7 +376,8 @@ if __name__ == "__main__":
     parser.add_option("-i", "--interactive", action="store_true", dest="interactive_mode",
                       default=False, help="Interactive execution mode [default: False]")
     parser.add_option("--init", action="store_true", dest="init",
-                      default=False, help="Initialise station before performing tests, ignored in interactive mode [default: False]")
+                      default=False,
+                      help="Initialise station before performing tests, ignored in interactive mode [default: False]")
 
     (conf, args) = parser.parse_args(argv[1:])
 
