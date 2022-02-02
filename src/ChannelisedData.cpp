@@ -76,6 +76,11 @@ void ChannelisedData::onStreamEnd()
     container->persist_container();
 }
 
+// Override clean up method
+void ChannelisedData::cleanUp() {
+    delete container;
+}
+
 // Wait for packet and process it
 bool ChannelisedData::processPacket()
 {
@@ -106,11 +111,11 @@ bool ChannelisedData::processPacket()
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
-    auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
-    uint8_t *payload = packet + SPEAD_HEADERLEN + nofitems * SPEAD_ITEMLEN;
+    auto nof_items = (unsigned short) SPEAD_GET_NITEMS(hdr);
+    uint8_t *payload = packet + SPEAD_HEADERLEN + nof_items * SPEAD_ITEMLEN;
 
     // Loop over items to extract values
-    for(unsigned i = 1; i <= nofitems; i++)
+    for(unsigned i = 1; i <= nof_items; i++)
     {
         uint64_t item = SPEAD_ITEM(packet, i);
         switch (SPEAD_ITEM_ID(item))
@@ -161,7 +166,7 @@ bool ChannelisedData::processPacket()
             case 0x2004:
                 break;
             default:
-                LOG(INFO, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nofitems);
+                LOG(INFO, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nof_items);
         }
     }
 
@@ -204,7 +209,7 @@ bool ContinuousChannelisedData::initialiseConsumer(json configuration)
         (key_in_json(configuration, "nof_buffer_skips")) &&
         (key_in_json(configuration, "max_packet_size"))) {
         LOG(FATAL, "Missing configuration item for ContinuousChannelisedData consumer. Requires "
-                "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols and max_packet_size");
+                   "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols, nof_buffer_skips and max_packet_size");
         return false;
     }
 
@@ -229,9 +234,8 @@ bool ContinuousChannelisedData::initialiseConsumer(json configuration)
     return true;
 }
 
-// Class destructor
-ContinuousChannelisedData::~ContinuousChannelisedData()
-{
+// Override clean up method
+void ContinuousChannelisedData::cleanUp() {
     // Delete containers
     for(unsigned i = 0; i < nof_containers; i++)
         delete containers[i];
@@ -360,7 +364,7 @@ bool ContinuousChannelisedData::processPacket()
     samples_in_packet = (uint32_t) ((payload_length - payload_offset) /
                                     (nof_included_antennas * nof_included_channels * nof_pols * sizeof(uint16_t)));
 
-    // TEMPORARY: Timestamp_scale maybe will disappear, so it's hardcoded for now
+    // TEMPORARY: Timestamp_scale may disappear, so it's hardcoded for now
     double packet_time = sync_time + timestamp * 1.08e-6; // timestamp_scale;
     
     // Handle packet counter rollover
@@ -414,7 +418,6 @@ bool ContinuousChannelisedData::processPacket()
         num_packets > nof_tiles * 2 && tile_id == 0 && pol_id == 0)
     {
         // Increment buffer skip
-        // printf("%d, %lf %lf %lf, %d %d %d\n", samples_in_packet, packet_index, packet_time, reference_time, reference_time + nof_samples * 1.08e-6, num_packets, nof_samples, current_buffer);
         if (nof_buffer_skips != 0)
             current_buffer = (current_buffer + 1) % (nof_buffer_skips);
         else
@@ -505,6 +508,10 @@ void IntegratedChannelisedData::setCallback(DataCallback callback)
     this -> container -> setCallback(callback);
 }
 
+void IntegratedChannelisedData::cleanUp() {
+    delete container;
+}
+
 // Packet filter
 bool IntegratedChannelisedData::packetFilter(unsigned char *udp_packet)
 {
@@ -528,7 +535,7 @@ bool IntegratedChannelisedData::packetFilter(unsigned char *udp_packet)
 bool IntegratedChannelisedData::processPacket()
 {
     // Get next packet to process
-    size_t packet_size = ring_buffer -> pull_timeout(&packet, 1);
+    size_t packet_size = ring_buffer -> pull_timeout(&packet, 0.5);
 
     // Check if the request timed out
     if (packet_size == SIZE_MAX)
@@ -620,9 +627,10 @@ bool IntegratedChannelisedData::processPacket()
     uint32_t samples_in_packet = 1;
 
     // Overwrite number of included channels since this does not fit in header for integrated data
-    nof_included_channels = static_cast<uint16_t>((payload_length - payload_offset) / (nof_included_antennas * nof_pols * samples_in_packet * sizeof(uint16_t)));
+    nof_included_channels = static_cast<uint16_t>((payload_length - payload_offset) /
+            (nof_included_antennas * nof_pols * samples_in_packet * sizeof(uint16_t)));
 
-    // TEMPORARY: Timestamp_scale maybe will disappear, so it's hardcoded for now
+    // TEMPORARY: Timestamp_scale may disappear, so it's hardcoded for now
     double packet_time = sync_time + timestamp * 1.08e-6;
 
     // Check if we processed all the sample
@@ -634,8 +642,9 @@ bool IntegratedChannelisedData::processPacket()
 
     // We have processed the packet items, now comes the data
     num_packets++;
-    container -> add_data(tile_id, start_channel_id, 0, samples_in_packet, start_antenna_id,
-                          (uint16_t *) (payload + payload_offset), packet_time, nof_included_channels, nof_included_antennas);
+    container -> add_data(tile_id, start_channel_id, 0, samples_in_packet,
+                          start_antenna_id, (uint16_t *) (payload + payload_offset), packet_time,
+                          nof_included_channels, nof_included_antennas);
 
     // Ready from packet
     ring_buffer -> pull_ready();

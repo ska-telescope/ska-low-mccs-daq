@@ -1,3 +1,20 @@
 ipython
-yaml
+h5py
+pyyaml
+lockfile
+scapy
+numpy
+gitpython
+pytz
+configparser
+future
+astropy
+matplotlib
+scipy
+mongoengine
+pymongo
+slacker
+singleton_decorator
+tabulate
+psutil
 

@@ -17,16 +17,18 @@ bool StationRawData::initialiseConsumer(json configuration)
 {
 
     // Check that all required keys are present
-    if (!(key_in_json(configuration, "channel_to_save")) &&
+    if (!(key_in_json(configuration, "start_channel")) &&
+        (key_in_json(configuration, "nof_channels")) &&
         (key_in_json(configuration, "nof_samples")) &&
         (key_in_json(configuration, "max_packet_size"))) {
         LOG(FATAL, "Missing configuration item for StationData consumer. Requires "
-                "nof_samples, channel_to_save and max_packet_size");
+                "nof_samples, start_channel and max_packet_size");
         return false;
     }
 
     // Set local values
-    this -> channel_to_save = configuration["channel_to_save"];
+    this -> start_channel = configuration["start_channel"];
+    this -> nof_channels = configuration["nof_channels"];
     this -> nof_samples  = configuration["nof_samples"];
     this -> nof_pols     = 2;
     this -> packet_size  = configuration["max_packet_size"];
@@ -35,7 +37,7 @@ bool StationRawData::initialiseConsumer(json configuration)
     initialiseRingBuffer(packet_size, (size_t) nof_samples / 2);
 
     // Create double buffer
-    double_buffer= new StationRawDoubleBuffer(nof_samples, nof_pols);
+    double_buffer= new StationRawDoubleBuffer(nof_samples, nof_channels, nof_pols);
 
     // Create and persister
     persister = new StationRawPersister(double_buffer);
@@ -190,9 +192,6 @@ bool StationRawData::processPacket()
     // Calculate packet time
     double packet_time = sync_time + timestamp * 1.0e-9; // timestamp_scale;
 
-    // Divide packet counter by 8 (reason unknown)
-    packet_counter = packet_counter >> 3;
-
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
 
@@ -208,10 +207,11 @@ bool StationRawData::processPacket()
         packet_counter += rollover_counter << 32;
 
     // If this is channel of interest, save, otherwise ignore
-    if (logical_channel_id == this -> channel_to_save)
+    if (logical_channel_id >= start_channel && logical_channel_id < start_channel + nof_channels)
 
         // We have processed the packet items, send data to packet counter
         double_buffer -> write_data(samples_in_packet,
+                                    logical_channel_id,
                                     packet_counter,
                                     reinterpret_cast<uint16_t *>(payload + payload_offset),
                                     packet_time);
@@ -228,8 +228,8 @@ bool StationRawData::processPacket()
 // -------------------------------------------------------------------------------------------------------------
 
 // Default double buffer constructor
-StationRawDoubleBuffer::StationRawDoubleBuffer(uint32_t nof_samples, uint8_t nof_pols, uint8_t nbuffers) :
-        nof_samples(nof_samples), nof_pols(nof_pols), nof_buffers(nbuffers)
+StationRawDoubleBuffer::StationRawDoubleBuffer(uint32_t nof_samples, uint32_t nof_channels, uint8_t nof_pols, uint8_t nbuffers) :
+        nof_samples(nof_samples), nof_channels(nof_channels), nof_pols(nof_pols), nof_buffers(nbuffers)
 {
     // Allocate the double buffer
     allocate_aligned((void **) &double_buffer, (size_t) CACHE_ALIGNMENT, nbuffers * sizeof(StationRawBuffer));
@@ -244,7 +244,7 @@ StationRawDoubleBuffer::StationRawDoubleBuffer(uint32_t nof_samples, uint8_t nof
         double_buffer[i].nof_samples  = 0;
         double_buffer[i].mutex = new std::mutex;
 
-        double_buffer[i].data =  (uint16_t *) malloc(nof_pols * nof_samples * sizeof(uint16_t));
+        double_buffer[i].data =  (uint16_t *) malloc(nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
     }
     
     // Initialise producer and consumer
@@ -268,7 +268,7 @@ StationRawDoubleBuffer::~StationRawDoubleBuffer()
 }
 
 // Write data to buffer
-void StationRawDoubleBuffer::write_data(uint32_t samples, uint64_t packet_counter,
+void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uint64_t packet_counter,
                                         uint16_t *data_ptr, double timestamp)
 {
     // Check whether the current consumer buffer is empty, and if so set index of the buffer
@@ -281,14 +281,14 @@ void StationRawDoubleBuffer::write_data(uint32_t samples, uint64_t packet_counte
         // Select buffer to place data into
         int local_producer = (this->producer == 0) ? this->nof_buffers - 1 : (this->producer - 1);
 
-        // Check if packet belongs in previous buffer
+        // Check if packet belongs in selected buffer
         auto local_index = this -> double_buffer[local_producer].index;
         if (local_index > packet_counter)
             // Packet belongs to an older buffer (or is invalid). Ignoring
             return;
 
         // Copy data into selected buffer
-        this->process_data(local_producer, packet_counter - local_index, samples, data_ptr,  timestamp);
+        this->process_data(local_producer, packet_counter, samples, channel, data_ptr,  timestamp);
 
         // Ready from packet
         return;
@@ -297,7 +297,7 @@ void StationRawDoubleBuffer::write_data(uint32_t samples, uint64_t packet_counte
     // Check if packet counter is within current buffer or if we have skipped buffer boundary
     else if (packet_counter - this->double_buffer[this->producer].index >= nof_samples / samples)
     {
-        // Store current buffers's index
+        // Store current buffer's index
         uint64_t current_index = this -> double_buffer[this->producer].index;
 
         // We have skipped buffer borders, mark buffer before previous one as ready and switch to next one
@@ -327,7 +327,7 @@ void StationRawDoubleBuffer::write_data(uint32_t samples, uint64_t packet_counte
     }
 
     // Copy data to buffer
-    this->process_data(producer, packet_counter, samples, data_ptr, timestamp);
+    this->process_data(producer, packet_counter, samples, channel, data_ptr, timestamp);
 
     // Update buffer index if required
     if (this->double_buffer[producer].index > packet_counter)
@@ -335,18 +335,43 @@ void StationRawDoubleBuffer::write_data(uint32_t samples, uint64_t packet_counte
 }
 
 inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t packet_counter, uint32_t samples,
-                                                 uint16_t *data_ptr, double timestamp)
+                                                 uint32_t channel, uint16_t *data_ptr, double timestamp)
 {
-
     // Copy data from packet to buffer
-    // TODO: compute index
-    memcpy(this->double_buffer[producer_index].data + (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols,
-           data_ptr,
-           nof_pols * samples * sizeof(uint16_t));
+    // If number of channels is 1, then simply copy the entire buffer to its destination
+    if (nof_channels == 1)
+        memcpy(this->double_buffer[producer_index].data + (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols,
+               data_ptr,
+               nof_pols * samples * sizeof(uint16_t));
+    else {
+        // We need to transpose the data
+        // dst is in sample/channel/pol order, so we need to skip nof_channels * nof_pols for every src sample
+        // src is in sample/pol order (for one channel), we only need to skip nof_pols every time
+        auto dst = double_buffer[producer_index].data +
+                       (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols +
+                       channel * nof_pols;
+        auto src = data_ptr;
+
+        // For every sample (spectrum)
+        for(unsigned i = 0; i < samples; i++) {
+            // For every pol
+            for(unsigned j = 0; j < nof_pols; j++)
+                // Copy the value for the current sample/pol, for one channel, to dst
+                dst[j] = src[j];
+
+            // Advance dst and src pointers
+            dst += nof_channels * nof_pols;
+            src += nof_pols;
+        } 
+    }
 
     // Update number of packets
     this->double_buffer[producer_index].nof_packets++;
-    this->double_buffer[producer_index].nof_samples += samples;
+
+    // Update number of samples (for channel 0, assuming other channels will have a similar number, hopefully)
+    // TODO: The below is incorrect, start channel could be different
+    if (channel == 0)
+        this->double_buffer[producer_index].nof_samples += samples;
 
     // Update timings
     if (this->double_buffer[producer_index].ref_time > timestamp || this->double_buffer[producer_index].ref_time == 0)

@@ -53,6 +53,8 @@ void StationData::cleanUp()
 
     // Destroy instances
     delete persister;
+
+    double_buffer->tearDown();
     delete double_buffer;
 }
 
@@ -191,7 +193,7 @@ bool StationData::processPacket()
     double packet_time = sync_time + timestamp * 1.0e-9; // timestamp_scale;
 
     // Divide packet counter by 8 (reason unknown)
-    packet_counter = packet_counter >> 3;
+    // packet_counter = packet_counter >> 3;
 
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
@@ -261,8 +263,8 @@ StationDoubleBuffer::StationDoubleBuffer(uint16_t nof_channels, uint32_t nof_sam
     tim.tv_nsec = 1000;
 }
 
-// Class destructor
-StationDoubleBuffer::~StationDoubleBuffer()
+// Tear down buffer
+void StationDoubleBuffer::tearDown()
 {
     for(unsigned i = 0; i < nof_buffers; i++)
     {

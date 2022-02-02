@@ -270,7 +270,6 @@ CrossCorrelator::CrossCorrelator(DoubleBuffer *double_buffer, uint32_t nof_fine_
     context.matrix_h = nullptr; // Let xGPU create this buffer
 
 #ifdef WITH_CHANNELISER
-
     // Initialise xGPU context
     if (xgpuInit(&context, 0))
         LOG(FATAL, "xgpuInit returned error code");
@@ -406,7 +405,8 @@ void CrossCorrelator::threadEntry()
 
         // Finished with current buffer
         clock_gettime(CLOCK_MONOTONIC, &toc);
-        LOG(INFO, "xGPU with callback took: %11.6f ms (%d samples, %d packets)", ELAPSED_MS(tic,toc), read_samples, nof_packets);
+        LOG(INFO, "xGPU with callback took: %11.6f ms (%d samples, %d packets)",
+            ELAPSED_MS(tic,toc), read_samples, nof_packets);
     }
 }
 

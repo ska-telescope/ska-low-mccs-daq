@@ -1,17 +1,89 @@
 #!/usr/bin/env bash
 
-echo -e "\n==== Configuring AAVS System  ====\n"
+if [[ -z "${AAVS_PYTHON_BIN}" ]]; then
+  export PYTHON=/usr/bin/python3
+else
+  export PYTHON=${AAVS_PYTHON_BIN}
+fi
 
-# Currently, AAVS LMC has to be installed in this directory
-# DO NOT CHANGE!
+# Function to display installer help
+function display_help(){
+    echo "This script will install the AAVS system software in /opt/aavs."
+    echo
+    echo "Arguments:"
+    echo "-C    Correlator will be compiled, installing CUDA and xGPU in the process (off by default)"
+    echo "      NOTE: Automated install of CUDA and xGPU not supported yet"
+    echo "-p    Activate AAVS virtualenv in .bashrc (off by default)"
+    echo "-h    Print this message"
+    echo "
+This script should not be executed with sudo, however the user executing it must have sudo privileges. Only the user
+running this script will have privileges to install additional python packages in the virtual environment.
+
+After sucessfully executing this script, a station configuration file should be created. Refer to
+    config/default_config.yml
+It is suggested to copy, rename and modify the default configuration according to the used system.
+
+A test environment in available in python/pyaavs/tests, refer to
+    python/pyaavs/tests/doc/TPM_Hardware_test_user_manual.docx
+
+The following directories should be deleted when encountering issues running this script:
+    /opt/aavs/python
+    src/build
+    python/build
+    python/dist
+    third_party
+
+If issues are experienced with the ipython version installed by default, install a different ipython version in the
+virtual environment using:
+    pip install ipython==5.5.0
+
+This script uses /usr/bin/python3 as default Python interpreter. To use another interpreter, for instance python3.8
+instead of default python3, do as follows:
+
+    AAVS_PYTHON_BIN=/usr/bin/python3.8
+    export AAVS_PYTHON_BIN
+    ./deploy.sh"
+}
+
+# AAVS install directory. DO NOT CHANGE!
 export AAVS_INSTALL=/opt/aavs
+
+# Installation options
+COMPILE_CORRELATOR=OFF
+ACTIVATE_VENV=false
+PRINT_HELP=false
+
+# Process command-line arguments
+while getopts Chp flag
+do
+    case "${flag}" in
+        C) COMPILE_CORRELATOR=ON ;;
+        h) PRINT_HELP=true ;;
+        p) ACTIVATE_VENV=true ;;
+    esac
+done
+
+# Check if printing help
+if [ $PRINT_HELP == true ]; then
+    display_help
+    exit
+fi
+
+# Check if compiling correlator
+if [ $COMPILE_CORRELATOR == ON ]; then
+    echo "============ COMPILING CORRELATOR ==========="
+else
+    echo "========== NOT COMPILING CORRELATOR ========="
+fi
+
+echo -e "\n==== Configuring AAVS System  ====\n"
 
 # Helper function to install required package
 function install_package(){
     PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
     if [[ "" == "$PKG_OK" ]]; then
       echo "Installing $1."
-      sudo apt-get -qq --yes install $1 > /dev/null
+      sudo apt-get -qq --yes install $1 > /dev/null || exit
       return  0 # Return success status
     else
       echo "$1 already installed"
@@ -31,6 +103,7 @@ function create_install() {
   # Create lib directory
   if [ ! -d "$AAVS_INSTALL/lib" ]; then
     mkdir -p $AAVS_INSTALL/lib
+    echo "export LD_LIBRARY_PATH=LD_LIBRARY_PATH:${AAVS_INSTALL}/lib" >> ~/.bashrc
   fi
 
   # Add directory to LD_LIBRARY_PATH
@@ -42,6 +115,7 @@ function create_install() {
   if [ ! -d "$AAVS_INSTALL/bin" ]; then
     mkdir -p $AAVS_INSTALL/bin
     export PATH=$AAVS_INSTALL/bin:$PATH
+    echo "export PATH=$PATH:${AAVS_INSTALL}/bin" >> ~/.bashrc
   fi
 
   # Export AAVS bin directory
@@ -61,19 +135,23 @@ function create_install() {
   fi
 
   # Create python3 virtual environment
-  if [[ ! -d "$AAVS_INSTALL/python3" ]]; then
-    mkdir -p $AAVS_INSTALL/python3
+  if [[ ! -d "$AAVS_INSTALL/python" ]]; then
+    mkdir -p $AAVS_INSTALL/python
 
     # Create python virtual environment
-    virtualenv -p python3 $AAVS_INSTALL/python3
+    # virtualenv -p python3 $AAVS_INSTALL/python
+    $PYTHON -m venv $AAVS_INSTALL/python
 
     # Add AAVS virtual environment alias to .bashrc
-    if [[ ! -n "`cat ~/.bashrc | grep aavs_python3`" ]]; then
-      echo "alias aavs_python3=\"source \opt/aavs/python3/bin/activate\"" >> ~/.bashrc
-      echo "aavs_python3" >> ~/.bashrc
+    if [[ ! -n "`cat ~/.bashrc | grep aavs_python`" ]]; then
+      echo "alias aavs_python=\"source /opt/aavs/python/bin/activate\"" >> ~/.bashrc
       echo "Setting virtual environment alias"
-    fi
 
+      # Check if compiling correlator
+      if [ $ACTIVATE_VENV == true ]; then
+          echo "aavs_python" >> ~/.bashrc
+      fi
+    fi
   fi
 }
 
@@ -81,7 +159,6 @@ function create_install() {
 install_package cmake
 install_package git
 install_package git-lfs
-install_package python2.7
 install_package libyaml-dev 
 install_package python3-dev
 install_package python3-virtualenv
@@ -95,7 +172,7 @@ fi
 
 # Create installation directory
 create_install
-echo "Created installed directory tree"
+echo "Created installation directory tree"
 
 # If software directory is not defined in environment, set it
 if [ -z "$AAVS_SOFTWARE_DIRECTORY" ]; then
@@ -103,7 +180,7 @@ if [ -z "$AAVS_SOFTWARE_DIRECTORY" ]; then
 fi
 
 # Start python virtual environment
-source $AAVS_INSTALL/python3/bin/activate
+source $AAVS_INSTALL/python/bin/activate
 
 # Update pip
 pip install -U pip
@@ -112,7 +189,8 @@ pip install -U pip
 pip install ipython
 
 # Give python interpreter required capabilities for accessing raw sockets and kernel space
-sudo setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep $AAVS_INSTALL/python3/bin/python3
+PYTHON_BINARY=`readlink -f /opt/aavs/python/bin/python`
+sudo setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep $PYTHON_BINARY || exit
 
 # Create a temporary setup directory and cd into it
 if [[ ! -d "third_party" ]]; then
@@ -120,6 +198,9 @@ if [[ ! -d "third_party" ]]; then
 fi
 
 pushd third_party || exit
+
+  # Install PyFABIL
+  pip install git+https://lessju@bitbucket.org/lessju/pyfabil.git --force-reinstall
 
   # Install DAQ
   if [[ ! -d "aavs-daq" ]]; then
@@ -132,20 +213,12 @@ pushd third_party || exit
       
 	  # Install DAQ C++ core
 	  pushd build || exit
-        cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL -DWITH_BCC=OFF ..
-        make -B -j8 install
+        cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL -DWITH_BCC=OFF .. || exit
+        make -B -j8 install || exit
       popd
     popd
   fi
 
-  # Install PyFabil
-  if [[ ! -d "pyfabil" ]]; then
-    git clone https://lessju@bitbucket.org/lessju/pyfabil.git
-  fi
-  
-  pushd pyfabil || exit
-    python setup.py install
-  popd
 popd
 
 # Install C++ src
@@ -155,15 +228,16 @@ pushd src || exit
   fi
 
   pushd build || exit
-    cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL/lib -DWITH_CORRELATOR=ON ..
-    make -B -j4 install
+    cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL -DWITH_CORRELATOR=$COMPILE_CORRELATOR .. || exit
+    make -B -j4 install || exit
   popd
 popd
 
 
 # Install required python packages
 pushd python || exit
-  python setup.py install
+  pip install -r requirements.pip || exit
+  python setup.py install || exit
 popd
 
 # Link required scripts to bin directory
@@ -187,6 +261,19 @@ if [ -e $FILE ]; then
 fi
 ln -s $PWD/python/pyaavs/station.py $FILE
 chmod u+x $FILE
+
+DIR=$AAVS_INSTALL/bitfiles
+if [ -d $DIR ]; then
+  sudo rm -r $DIR
+fi
+ln -s $PWD/bitfiles $DIR
+
+DIR=$AAVS_INSTALL/config
+if [ -d $DIR ]; then
+  sudo rm -r $DIR
+fi
+ln -s $PWD/config $DIR
+
 
 echo ""
 echo "Installation finished. Please check your .bashrc file and source it to update your environment"

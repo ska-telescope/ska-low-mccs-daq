@@ -14,7 +14,7 @@ bool BeamformedData::initialiseConsumer(json configuration)
         (key_in_json(configuration, "nof_samples")) &&
         (key_in_json(configuration, "nof_pols")) &&
         (key_in_json(configuration, "max_packet_size"))) {
-        LOG(FATAL, "Missing configuration item for PharosBeamformedData consumer. Requires "
+        LOG(FATAL, "Missing configuration item for BeamformedData consumer. Requires "
                 "nof_tiles, nof_channels, nof_samples, nof_pols and max_packet_size");
         return false;
     }
@@ -39,14 +39,20 @@ bool BeamformedData::initialiseConsumer(json configuration)
 // Set callback
 void BeamformedData::setCallback(DataCallback callback)
 {
-    this -> container -> setCallback(callback);
+    container -> setCallback(callback);
 }
 
 // Function called when a burst stream capture has finished
 void BeamformedData::onStreamEnd()
 {
     // Persist current data
+    received_packets = 0;
     container->persist_container();
+}
+
+// Override cleanup method
+void BeamformedData::cleanUp() {
+    delete container;
 }
 
 // Packet filter
@@ -72,7 +78,7 @@ bool BeamformedData::packetFilter(unsigned char *udp_packet)
 bool BeamformedData::processPacket()
 {
     // Get next packet to process
-    size_t packet_size = ring_buffer -> pull_timeout(&packet, 0.2);
+    size_t packet_size = ring_buffer -> pull_timeout(&packet, 0.5);
 
     // Check if the request timed out
     if (packet_size == SIZE_MAX)
@@ -232,6 +238,11 @@ bool IntegratedBeamformedData::packetFilter(unsigned char *udp_packet)
     return mode == 0x9 || mode == 0x11;
 }
 
+// Override clean up method
+void IntegratedBeamformedData::cleanUp() {
+    delete container;
+}
+
 // Get and process packet
 bool IntegratedBeamformedData::processPacket()
 {
@@ -338,7 +349,8 @@ bool IntegratedBeamformedData::processPacket()
     }
 
     // We have processed the packet items, now comes the data
-    container -> add_data(tile_id, beam_id, start_channel_id, nof_included_channels, packet_counter - this->saved_packet_counter, 1,
+    container -> add_data(tile_id, beam_id, start_channel_id, nof_included_channels,
+                          packet_counter - this->saved_packet_counter, 1,
                           (uint32_t *) (payload + payload_offset), packet_time);
 
     // Increment number of received packets

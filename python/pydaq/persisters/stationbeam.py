@@ -79,9 +79,6 @@ class StationBeamFormatFileManager(AAVSFileManager):
         metadata_dict = self.get_metadata(timestamp=timestamp, tile_id=station_id)
         if channels is None:
             channels = list(range(0, metadata_dict["n_chans"]))
-        if antennas is None:
-            antennas = list(range(0, metadata_dict["n_antennas"]))
-            del antennas
         if polarizations is None:
             polarizations = list(range(0, metadata_dict["n_pols"]))
         if beams is None:
@@ -160,8 +157,6 @@ class StationBeamFormatFileManager(AAVSFileManager):
             channels = list(range(0, metadata_dict["n_chans"]))
         if polarizations is None:
             polarizations = list(range(0, metadata_dict["n_pols"]))
-        if beams is None:
-            beams = list(range(0, metadata_dict["n_beams"]))
 
         try:
             file_obj = self.load_file(timestamp=timestamp, tile_id=station_id, partition=partition_id, mode='r')
@@ -172,7 +167,7 @@ class StationBeamFormatFileManager(AAVSFileManager):
                 # return output_buffer
                 return [], []
         except Exception as e:
-            logging.error("Can't load file for data reading: ", e.message)
+            logging.error("Can't load file for data reading: ", e)
             raise
 
         output_buffer = numpy.zeros([len(polarizations), n_samples, len(channels)], dtype=self.data_type)
@@ -283,7 +278,8 @@ class StationBeamFormatFileManager(AAVSFileManager):
         padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
         if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
+            # Since it has already been added for append by the timestap_pad value
+            padded_timestamp = padded_timestamp - timestamp
 
         sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
         if sampling_time not in [0, None]:
@@ -377,7 +373,8 @@ class StationBeamFormatFileManager(AAVSFileManager):
         padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
         if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
+            # Since it has already been added for append by the timestap_pad value
+            padded_timestamp = padded_timestamp - timestamp
 
         sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
         if sampling_time not in [0, None]:

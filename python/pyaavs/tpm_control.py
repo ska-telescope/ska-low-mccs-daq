@@ -1,11 +1,10 @@
 #! /usr/bin/env python
 
-from builtins import range
 from sys import exit
 import logging
 import os
 
-from pyaavs.tile import Tile
+from pyaavs.tile_wrapper import Tile
 
 __author__ = 'Alessio Magro'
 
@@ -149,11 +148,11 @@ if __name__ == "__main__":
             tile.tpm.tpm_ada.set_ada_gain(conf.ada_gain)
 
         # Configure all 10G cores to transmit to the CSP ingests address
-        for core_id in range(8):
-            tile.configure_10g_core(core_id,
-                                    dst_mac=csp_ingest_network[core_id]['mac'],
-                                    dst_ip=csp_ingest_network[core_id]['ip'],
-                                    dst_port=csp_ingest_network[core_id]['port'])
+        #for core_id in range(8):
+        #    tile.configure_10g_core(core_id,
+        #                            dst_mac=csp_ingest_network[core_id]['mac'],
+        #                            dst_ip=csp_ingest_network[core_id]['ip'],
+        #                            dst_port=csp_ingest_network[core_id]['port'])
 
         # Configure LMC data lanes, in case overwrites 10G lane 3 configuration with LMC destination
         if conf.use_teng:
@@ -193,5 +192,5 @@ if __name__ == "__main__":
         tile.start_acquisition()
 
     # Connect to board
-    tile.connect(simulation=conf.simulation)
+    tile.connect()
 

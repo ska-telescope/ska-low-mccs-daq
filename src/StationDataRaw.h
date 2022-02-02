@@ -26,7 +26,7 @@ struct StationRawBuffer
     bool       ready;         // Specifies whether the buffer is ready to be processed
     uint32_t   nof_packets;   // Number of packets
     uint32_t   nof_samples;   // Number of samples in buffer
-    uint16_t   *data;          // Data
+    uint16_t   *data;         // Data
     std::mutex *mutex;        // Mutex lock for this buffer
 };
 
@@ -34,13 +34,13 @@ class StationRawDoubleBuffer {
 
 public:
     // Default constructor
-    StationRawDoubleBuffer(uint32_t nof_samples, uint8_t nof_pols, uint8_t nbuffers = 4);
+    StationRawDoubleBuffer(uint32_t nof_samples, uint32_t nof_channels, uint8_t nof_pols, uint8_t nbuffers = 4);
 
     // Class destructor
     ~StationRawDoubleBuffer();
 
     // Write data to buffer
-    void write_data(uint32_t samples, uint64_t packet_counter,
+    void write_data(uint32_t samples, uint32_t channel, uint64_t packet_counter,
                     uint16_t *data_ptr, double timestamp);
 
     // Read buffer
@@ -55,7 +55,7 @@ public:
 private:
 
     inline void process_data(int producer_index, uint64_t packet_counter, uint32_t samples,
-                             uint16_t *data_ptr, double timestamp);
+                             uint32_t channel, uint16_t *data_ptr, double timestamp);
 
 private:
     // The data structure which will hold the buffer elements
@@ -63,8 +63,9 @@ private:
 
     // Double buffer parameters
     uint32_t nof_samples;   // Total number of samples
-    uint8_t nof_pols;      // Number of polarisations
-    uint8_t  nof_buffers; // Number of buffers in buffering system
+    uint32_t nof_channels;  // Number of channels
+    uint8_t nof_pols;       // Number of polarisations
+    uint8_t  nof_buffers;   // Number of buffers in buffering system
 
     // Producer and consumer pointers, specifying which buffer index to use
     // These are declared as volatile so tha they are not optimsed into registers
@@ -86,7 +87,7 @@ public:
     explicit StationRawPersister(StationRawDoubleBuffer *double_buffer)
     { this -> double_buffer = double_buffer; }
 
-    // Set callback (provided by CorrelatorData)
+    // Set callback
     void setCallback(DataCallback callback)
     {
         this -> callback = callback;
@@ -136,20 +137,19 @@ private:
     // Pointer to station persister
     StationRawPersister *persister = nullptr;
 
-    // Internal book keeping
+    // Internal bookkeeping
     unsigned long rollover_counter = 0;
     unsigned long timestamp_rollover = 0;
 
     // Data setup
-    uint16_t nof_antennas = 0;        // Number of antennas per tile
     uint8_t  nof_pols = 0;            // Number of polarisations
-    uint16_t nof_tiles = 0;           // Number of tiles
-    uint16_t channel_to_save = 0;     // Channel to save
+    uint16_t start_channel = 0;       // Channel to save
+    uint16_t nof_channels = 1;        // Number of channels
     uint32_t nof_samples = 0;         // Number of time samples
 
 };
 
-// Expose class factory for birales
+// Expose class factory for raw station data
 extern "C" DataConsumer *stationdataraw() { return new StationRawData; }
 
 #endif //AAVS_DAQ_STATIONDATARAW_H

@@ -3,8 +3,6 @@
 from __future__ import absolute_import
 from __future__ import division
 from builtins import input
-from builtins import str
-from builtins import range
 import threading
 import fcntl
 import socket
@@ -47,7 +45,7 @@ conf = {"nof_antennas": 16,
         "nof_correlator_samples": 1835008,
         "nof_correlator_channels": 1,
         "continuous_period": 0,
-        "nof_beam_samples": 32,
+        "nof_beam_samples": 42,
         "nof_beam_channels": 384,
         "nof_station_samples": 262144,
         "append_integrated": True,
@@ -960,7 +958,7 @@ def populate_configuration(configuration):
         conf['receiver_ports'] = [int(x) for x in conf['receiver_ports'].split(',')]
 
     # Check if an IP address was provided, and if not get the assigned address to the interface
-    if conf['receiver_ip'] is "":
+    if conf['receiver_ip'] == "":
         try:
             conf['receiver_ip'] = get_ip_address(conf['receiver_interface'].encode())
         except IOError as e:
@@ -1170,8 +1168,8 @@ if __name__ == "__main__":
                       type="int", default=1835008,
                       help="Number of channel samples for correlation per buffer [default: 1835008]")
     parser.add_option("", "--beam_samples", action="store", dest="nof_beam_samples",
-                      type="int", default=32, help="Number of beam samples per buffer (requires different firmware to "
-                                                   "change [default: 32]")
+                      type="int", default=42, help="Number of beam samples per buffer (requires different firmware to "
+                                                   "change [default: 42]")
     parser.add_option("", "--station_samples", action="store", dest="nof_station_samples",
                       type="int", default=262144, help="Number of station beam samples per buffer [default: 262144]")
     parser.add_option("", "--correlator-channels", action="store", dest="nof_correlator_channels",
