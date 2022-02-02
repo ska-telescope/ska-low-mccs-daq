@@ -22,6 +22,7 @@ class TestWrapper:
                               "against VHDL simulated response.",
                        'tile_beamformer': "Check if the beamformer corrects for time domain delays\napplied to the "
                                           "internally generated tone.",
+                       'flagging': "Check if oveflown data are correctly flagged by tile beamformer.",
                        'init_station': "Program, initialise station and start station beamformer.\nCheck if station "
                                        "beam data rate is within expected range.",
                        'full_station': "Check operation of networked beamformer comparing offline and realtime beam "
@@ -62,6 +63,7 @@ class TestWrapper:
             del self._tests['channelizer']
             del self._tests['pfb']
             del self._tests['tile_beamformer']
+            del self._tests['flagging']
             del self._tests['full_station']
 
     def get_class(self, test_name):

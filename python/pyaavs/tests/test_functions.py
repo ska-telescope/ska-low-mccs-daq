@@ -69,7 +69,7 @@ def channelize_pattern(pattern):
     return tmp
 
 
-def set_pattern(tile, stage, pattern, adders, start, shift=0):
+def set_pattern(tile, stage, pattern, adders, start, shift=0, zero=0):
     # print("Setting " + stage + " data pattern")
     if stage == "channel":
         pattern_tmp = channelize_pattern(pattern)
@@ -87,6 +87,8 @@ def set_pattern(tile, stage, pattern, adders, start, shift=0):
         tile['fpga2.pattern_gen.%s_left_shift' % stage] = shift
         tile['fpga1.pattern_gen.beamf_left_shift'] = 4
         tile['fpga2.pattern_gen.beamf_left_shift'] = 4
+        tile['fpga1.pattern_gen.%s_zero' % stage] = zero
+        tile['fpga2.pattern_gen.%s_zero' % stage] = zero
     if start:
         for i in range(2):
             tile.tpm.tpm_pattern_generator[i].start_pattern(stage)
