@@ -136,14 +136,12 @@ class TestFlagging():
                                     self._logger.error("Error in beamformed values, test iteration channel-pol-complex: %d-%d-%d" % (c_test, p_test, i_test))
                                     self._logger.error("                                  received channel-pol:         %d-%d" % (c, p))
                                     self._logger.error("Expecting 0x800 flagged data, received: " + str(beam_data))
-                                    input("aaa")
                             else:
                                 if beam_data != 0.0:
                                     errors += 1
                                     self._logger.error("Error in beamformed values, test iteration channel-pol-complex: %d-%d-%d" % (c_test, p_test, i_test))
                                     self._logger.error("                                  received channel-pol:         %d-%d" % (c, p))
                                     self._logger.error("Expecting 0.0 data, received: " + str(beam_data))
-                                    input("bbbb")
 
         tf.remove_hdf5_files(temp_dir)
         self.clean_up(tile)
