@@ -1,5 +1,4 @@
 from __future__ import division
-from past.utils import old_div
 from pydaq.persisters import BeamFormatFileManager, FileDAQModes
 import matplotlib.pyplot as plt
 from pydaq.plotters.utils import *
@@ -115,7 +114,7 @@ def plot_beam_data(conf, integrated=False):
                 plt.plot(frequencies, old_div(np.sum(data[pol, :, :, 0], axis=1), params['samples']), label="Pol {}".format(pol))
             plt.title("Plotting {}".format(conf.plot_type.name))
             plt.xlim((frequencies[0], frequencies[-1]))
-            plt.xlabel('Time (samples)')
+            plt.xlabel('Channel number')
             plt.ylabel("Value")
             plt.grid(True)
             plt.legend()
