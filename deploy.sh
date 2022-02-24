@@ -226,7 +226,7 @@ pushd third_party || exit
 	  # Install DAQ C++ core
 	  pushd build || exit
         cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL -DWITH_BCC=OFF .. || exit
-        sudo make -B -j8 install || exit
+        make -B -j8 install || exit
       popd
     popd
   fi
@@ -241,7 +241,7 @@ pushd src || exit
 
   pushd build || exit
     cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL -DWITH_CORRELATOR=$COMPILE_CORRELATOR .. || exit
-    sudo make -B -j4 install || exit
+    make -B -j4 install || exit
   popd
 popd
 
