@@ -165,7 +165,7 @@ class Tile_1_6(Tile):
         elif not self.tpm.is_programmed():
             logging.warning("TPM is not programmed! No plugins loaded")
 
-    def initialise(self, enable_ada=False, enable_test=False, enable_adc=True):
+    def initialise(self, enable_ada=False, enable_test=False, enable_adc=True, use_internal_pps=False):
         """
         Connect and initialise.
 
@@ -176,6 +176,10 @@ class Tile_1_6(Tile):
         :type enable_adc: bool
         :type enable_test: bool
         """
+        if use_internal_pps:
+            logging.error("Cannot initialise board - use_internal_pps = True not supported")
+            return
+        
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc)
 
