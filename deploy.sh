@@ -11,10 +11,11 @@ function display_help(){
     echo "This script will install the AAVS system software in /opt/aavs."
     echo
     echo "Arguments:"
-    echo "-C    Correlator will be compiled, installing CUDA and xGPU in the process (off by default)"
-    echo "      NOTE: Automated install of CUDA and xGPU not supported yet"
-    echo "-p    Activate AAVS virtualenv in .bashrc (off by default)"
-    echo "-h    Print this message"
+    echo "-C             Correlator will be compiled, installing CUDA and xGPU in the process (off by default)"
+    echo "               NOTE: Automated install of CUDA and xGPU not supported yet"
+    echo "-p             Activate AAVS virtualenv in .bashrc (off by default)"
+    echo "-v <venv path> specify location of 'python' virtualenv folder (default /opt/aavs)"
+    echo "-h             Print this message"
     echo "
 This script should not be executed with sudo, however the user executing it must have sudo privileges. Only the user
 running this script will have privileges to install additional python packages in the virtual environment.
@@ -47,6 +48,7 @@ instead of default python3, do as follows:
 
 # AAVS install directory. DO NOT CHANGE!
 export AAVS_INSTALL=/opt/aavs
+export VENV_INSTALL=/opt/aavs
 
 # Installation options
 COMPILE_CORRELATOR=OFF
@@ -54,12 +56,22 @@ ACTIVATE_VENV=false
 PRINT_HELP=false
 
 # Process command-line arguments
-while getopts Chp flag
+while getopts "Chpv:" flag
 do
     case "${flag}" in
         C) COMPILE_CORRELATOR=ON ;;
         h) PRINT_HELP=true ;;
         p) ACTIVATE_VENV=true ;;
+        v)export VENV_INSTALL=${OPTARG}
+          if [[ ${VENV_INSTALL:0:1} == "-" ]]; then # If argument is next option
+            echo "Error: -${flag} requires an argument."
+            exit 1                   # Exit abnormally.
+          fi
+          echo "Selected venv Path: $VENV_INSTALL" ;;
+        \?)                                    # If expected argument omitted:
+          echo "Error: missing argument."
+          exit 1                   # Exit abnormally.
+          ;;
     esac
 done
 
@@ -135,16 +147,16 @@ function create_install() {
   fi
 
   # Create python3 virtual environment
-  if [[ ! -d "$AAVS_INSTALL/python" ]]; then
-    mkdir -p $AAVS_INSTALL/python
+  if [[ ! -d "$VENV_INSTALL/python" ]]; then
+    mkdir -p $VENV_INSTALL/python
 
     # Create python virtual environment
     # virtualenv -p python3 $AAVS_INSTALL/python
-    $PYTHON -m venv $AAVS_INSTALL/python
+    $PYTHON -m venv $VENV_INSTALL/python
 
     # Add AAVS virtual environment alias to .bashrc
     if [[ ! -n "`cat ~/.bashrc | grep aavs_python`" ]]; then
-      echo "alias aavs_python=\"source /opt/aavs/python/bin/activate\"" >> ~/.bashrc
+      echo "alias aavs_python=\"source $VENV_INSTALL/python/bin/activate\"" >> ~/.bashrc
       echo "Setting virtual environment alias"
 
       # Check if compiling correlator
@@ -180,7 +192,7 @@ if [ -z "$AAVS_SOFTWARE_DIRECTORY" ]; then
 fi
 
 # Start python virtual environment
-source $AAVS_INSTALL/python/bin/activate
+source $VENV_INSTALL/python/bin/activate
 
 # Update pip
 pip install -U pip
@@ -189,7 +201,7 @@ pip install -U pip
 pip install ipython
 
 # Give python interpreter required capabilities for accessing raw sockets and kernel space
-PYTHON_BINARY=`readlink -f /opt/aavs/python/bin/python`
+PYTHON_BINARY=`readlink -f $VENV_INSTALL/python/bin/python`
 sudo setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep $PYTHON_BINARY || exit
 
 # Create a temporary setup directory and cd into it
