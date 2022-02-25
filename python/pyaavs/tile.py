@@ -2397,8 +2397,8 @@ class Tile(object):
         """
         errors = []
         for lane in range(32):
-            fpga_id = lane / 16
-            core_id = (lane % 16) / 8
+            fpga_id = lane // 16
+            core_id = (lane % 16) // 8
             lane_id = lane % 8
             reg = self[
                 f"fpga{fpga_id + 1}.jesd204_if.core_id_{core_id}_lane_{lane_id}_link_error_count"
