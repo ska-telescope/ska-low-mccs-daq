@@ -401,9 +401,13 @@ class Tile(object):
         return rms
 
     @connected
-    def get_adc_rms(self):
+    def get_adc_rms(self, sync=False):
         """
         Get ADC power, immediate.
+
+        :param sync: Synchronise RMS read
+        :type sync: bool
+
         :return: ADC RMS power
         :rtype: list(float)
         """
@@ -414,7 +418,7 @@ class Tile(object):
         # Get RMS values from board
         rms = []
         for adc_power_meter in self.tpm.adc_power_meter:
-            rms.extend(adc_power_meter.get_RmsAmplitude(sync=False))
+            rms.extend(adc_power_meter.get_RmsAmplitude(sync=sync))
 
         # Re-map values
         return rms
