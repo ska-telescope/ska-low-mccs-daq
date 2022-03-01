@@ -14,6 +14,7 @@ import urllib.request, urllib.parse, urllib.error
 import time
 import re
 import os
+import calendar
 
 # This is used to re-map ADC channels index to the RX
 # number going into the TPM
@@ -299,7 +300,8 @@ def process_timestamp(timestamp):
         parts = timestamp.split('_')
         sec = timedelta(seconds=int(parts[1]))
         date = dt.strptime(parts[0], '%Y%m%d') + sec
-        return time.mktime(date.timetuple())
+        #return time.mktime(date.timetuple())
+        return calendar.timegm(date.timetuple())
     except Exception as e:
         logging.warning("Could not convert date in filename to a timestamp: {}".format(e.message))
         return None
