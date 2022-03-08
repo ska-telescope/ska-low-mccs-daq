@@ -38,7 +38,7 @@ def beamformer(id):
                 saturated_sample = 0
                 for p in range(4):
                     for k in range(p, 32 * 2 * nof_tpm, 4):
-                        if int(pkt_reassembled[k]) == -128:
+                        if int(pkt_reassembled[k]) == -128 or abs(int(pkt_reassembled[k])) == 127:
                             saturated_sample = 1
                         else:
                             sum[p] += int(pkt_reassembled[k])
