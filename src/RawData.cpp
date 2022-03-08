@@ -32,6 +32,9 @@ bool RawData::initialiseConsumer(json configuration)
     // Create antenna container
     container = new AntennaDataContainer<uint8_t>(nof_tiles, nof_antennas, samples_per_buffer, nof_pols);
 
+    // Calculate total number of required samples per buffer
+    nof_required_samples = nof_tiles * nof_antennas * samples_per_buffer;
+
     // All done
     return true;
 }
@@ -45,8 +48,15 @@ void RawData::setCallback(DataCallback callback)
 // Function called when a burst stream capture has finished
 void RawData::onStreamEnd()
 {
-    // Persist current data
+    // If there are no samples to persist, don't do anything
+    if (nof_received_samples == 0)
+        return;
+
+    // Persist container
     container->persist_container();
+
+    // Clear number of received samples
+    nof_received_samples = 0;
 }
 
 void RawData::cleanUp() {
@@ -158,13 +168,14 @@ bool RawData::processPacket()
         }
     }
 
-    nof_packets++;
-
     // Read timestamp scale value
     double timestamp_scale = 1.08e-6;
 
     // Calculate number of samples in packet
     uint32_t nof_samples = (uint32_t) (payload_length - payload_offset) / (nof_antennas * nof_pols);
+
+    // Update number of received samples
+    nof_received_samples += nof_samples;
 
     // We have processed the packet items, now comes the data
     uint32_t index = (packet_counter * nof_samples) % samples_per_buffer;
@@ -173,6 +184,11 @@ bool RawData::processPacket()
 
     // Ready from packet
     ring_buffer -> pull_ready();
+
+    // If the number of received samples match a full buffer's worth, persist it
+    if (nof_received_samples == nof_required_samples)
+        onStreamEnd();
+
 
     // All done, return
     return true;

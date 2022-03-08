@@ -8,20 +8,20 @@ void test_raw_data()
 {
     LOG(INFO, "Testing Raw Data");
 
-    const char *ip = "192.168.11.11";
-    startReceiver("enp7s0", ip, 9000, 32, 64);
-    addReceiverPort(7200);
+    const char *ip = "10.0.10.10";
+    startReceiver("enp5s0", ip, 9000, 32, 64);
+    addReceiverPort(4660);
 
     // Set parameters
     json j = {
-                {"nof_antennas", 32},
-                {"samples_per_buffer", 65536},
+                {"nof_antennas", 16},
+                {"samples_per_buffer", 32768},
                 {"nof_tiles", 1},
                 {"nof_pols", 2},
                 {"max_packet_size", 9000}
             };
 
-    if (loadConsumer("libaavsdaq.so", "rawdata") != SUCCESS) {
+    if (loadConsumer("/opt/aavs/lib/libaavsdaq.so", "rawdata") != SUCCESS) {
         LOG(ERROR, "Failed to load raw data conumser");
         return;
     }
@@ -36,7 +36,7 @@ void test_raw_data()
         return;
     }
 
-    sleep(2);
+    sleep(60);
 
     if (stopConsumer("rawdata") != SUCCESS) {
         LOG(ERROR, "Failed to stop raw data conumser");
@@ -521,8 +521,8 @@ void test_multi() {
 
 int main()
 {
-//    test_raw_data();
-    test_burst_beam_data();
+    test_raw_data();
+//    test_burst_beam_data();
 //    test_integrated_beam_data();
     //test_burst_channel_data();
     //test_continuous_channel_data();
