@@ -199,7 +199,8 @@ private:
 
     // AntennaInformation object
     AntennaDataContainer<uint8_t> *container = nullptr;
-    unsigned int nof_packets = 0;
+    unsigned int nof_received_samples = 0;
+    unsigned int nof_required_samples = 0;
 
     // Data setup
     uint16_t nof_antennas = 0;        // Number of antennas per tile
