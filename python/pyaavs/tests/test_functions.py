@@ -94,6 +94,37 @@ def set_pattern(tile, stage, pattern, adders, start, shift=0, zero=0):
             tile.tpm.tpm_pattern_generator[i].start_pattern(stage)
 
 
+def set_station_beam_pattern(station, start=True, shift=0, zero=0):
+    stage = "beamf"
+    signal_adder = [0] * 64
+    rounding = int(np.log2(len(station.tiles)))
+
+    pattern0 = []
+    pattern1 = []
+    for n in range(256):
+        sample = list(range(4 * n + 1, 4 * (n + 1) + 1))
+        if n % 2 == 0:
+            pattern0 += sample
+        else:
+            pattern1 += sample
+
+    for tile in station.tiles:
+        tile.set_csp_rounding(rounding)
+        tile.tpm.tpm_pattern_generator[0].set_pattern(pattern0, stage)
+        tile.tpm.tpm_pattern_generator[1].set_pattern(pattern1, stage)
+        for i in range(2):
+            tile.tpm.tpm_pattern_generator[i].set_signal_adder(signal_adder, stage)
+            tile['fpga1.pattern_gen.%s_left_shift' % stage] = shift
+            tile['fpga2.pattern_gen.%s_left_shift' % stage] = shift
+            tile['fpga1.pattern_gen.beamf_left_shift'] = 0
+            tile['fpga2.pattern_gen.beamf_left_shift'] = 0
+            tile['fpga1.pattern_gen.%s_zero' % stage] = zero
+            tile['fpga2.pattern_gen.%s_zero' % stage] = zero
+        if start:
+            for i in range(2):
+                tile.tpm.tpm_pattern_generator[i].start_pattern(stage)
+
+
 def stop_pattern(tile, stage):
     # print("Stopping " + stage + " data pattern")
     if stage == "all":

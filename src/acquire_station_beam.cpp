@@ -13,13 +13,13 @@ using namespace std;
 
 // Telescope and observation parameters
 float channel_bandwidth = (400e6 / 512.0) * (32 / 27.0);
-string source = "ZENITH";
+string source = "UNKNOWN";
 string telescope = "LFAASP";
-int nbits = 32;
+int nbits = 8;
 int npol = 2;
 int ndim = 2;
 
-int n_fine_channels = 40;  // Don't think this is valid, or required
+int n_fine_channels = 1;
 
 // Acqusition parameters
 string base_directory = "/data/";
@@ -38,18 +38,24 @@ auto dada_header_size = 4096;
 int fd = 0;
 
 // Callback counters
+uint32_t skip = 1;
 uint32_t counter = 0;
 uint32_t cutoff_counter = 0;
 
 // Forward declaration of dada header generator
-static std::string generate_dada_header(double timestamp);
+static std::string generate_dada_header(double timestamp, unsigned int frequency);
 
 // Raw station beam callback
-void raw_station_beam_callback(void *data, double timestamp, unsigned int nof_packets, unsigned int nof_samples)
+void raw_station_beam_callback(void *data, double timestamp, unsigned int frequency, unsigned int nof_samples)
 {
-    printf("Received station beam with %d packets and %d samples\n", nof_packets, nof_samples);
-    
-    if (counter % cutoff_counter == 0)
+    if (counter < skip) {
+        counter += 1;
+	return;
+    }
+
+    printf("Received station beam with %d samples\n", nof_samples);
+
+    if ((counter - skip) % cutoff_counter == 0)
     {
         // Create output file
         std::string suffix = include_dada_header ? ".dada" : ".dat";
@@ -72,7 +78,7 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int nof_pa
             char full_header[dada_header_size];
 
             // Copy generated header
-            auto generated_header = generate_dada_header(timestamp);
+            auto generated_header = generate_dada_header(timestamp, frequency);
             strcpy(full_header, generated_header.c_str());
 
             // Fill in empty space with nulls to match required dada header size
@@ -101,7 +107,7 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int nof_pa
     counter += 1;
 }
 
-static std::string generate_dada_header(double timestamp) {
+static std::string generate_dada_header(double timestamp, unsigned int frequency) {
     // Convert unix time to UTC and then to a formatted string
     const char* fmt = "%Y-%m-%d-%H:%M:%S";
     char time_string[200];
@@ -117,7 +123,7 @@ static std::string generate_dada_header(double timestamp) {
     header << "HDR_VERSION 1.0" << endl;
     header << "HDR_SIZE " << dada_header_size << endl;
     header << "BW " << fixed << setprecision(4) << channel_bandwidth * nof_channels * 1e-6 << endl;
-    header << "FREQ " << fixed << setprecision(4) << channel_bandwidth * (start_channel + nof_channels / 2.0) * 1e-6 << endl;
+    header << "FREQ " << fixed << setprecision(6) << frequency * 1e-6 << endl;
     header << "TELESCOPE " << telescope << endl;
     header << "RECEIVER " << telescope << endl;
     header << "INSTRUMENT " << telescope << endl;
@@ -127,35 +133,36 @@ static std::string generate_dada_header(double timestamp) {
     header << "NPOL " << npol << endl;
     header << "NCHAN " << nof_channels << endl;
     header << "NDIM " << ndim << endl;
-    header << "TSAMP " << fixed << setprecision(4) << (1.0 / channel_bandwidth) * 1e3 << endl;
-    header << "UTC START " << time_string << endl;
+    header << "OBS_OFFSET 0" << endl;
+    header << "TSAMP " << fixed << setprecision(4) << (1.0 / channel_bandwidth) * 1e6 << endl;
+    header << "UTC_START " << time_string << endl;
 
     // Additional entries to match post-processing requiremenents
     header << "POPULATED 1" << endl;
     header << "OBS_ID 0" << endl;
     header << "SUBOBS_ID 0" << endl;
-    header << "COMMAND 1" << endl;
+    header << "COMMAND CAPTURE" << endl;
 
     header << "NTIMESAMPLES 1" << endl;
-    header << "NINPUTS 256" << endl;
-    header << "NINPUTS_XGPU 256" << endl;
+    header << "NINPUTS " << fixed << nof_channels * npol << endl;
+    header << "NINPUTS_XGPU " << fixed << nof_channels * npol << endl;
     header << "METADATA_BEAMS 2" << endl;
     header << "APPLY_PATH_WEIGHTS 1" << endl;
     header << "APPLY_PATH_DELAYS 2" << endl;
-    header << "INT_TIME_MSEC 1000" << endl;
+    header << "INT_TIME_MSEC 0" << endl;
     header << "FSCRUNCH_FACTOR 1" << endl;
     header << "TRANSFER_SIZE 81920000" << endl;
-    header << "PROJ_ID 1" << endl;
+    header << "PROJ_ID LFAASP" << endl;
     header << "EXPOSURE_SECS 8" << endl;
     header << "COARSE_CHANNEL " << nof_channels << endl;
     header << "CORR_COARSE_CHANNEL 2" << endl;
     header << "SECS_PER_SUBOBS 8" << endl;
     header << "UNIXTIME " << (int) timestamp << endl;
-    header << "UNIXTIME_MSEC " << (int) (timestamp * 1e3)  << endl;
-    header << "FINE_CHAN_WIDTH_HZ 1" << fixed << setprecision(4) << channel_bandwidth / n_fine_channels  << endl;
+    header << "UNIXTIME_MSEC " << fixed << setprecision(6) << (timestamp - (int) (timestamp)) * 1e3  << endl;
+    header << "FINE_CHAN_WIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth / n_fine_channels  << endl;
     header << "NFINE_CHAN " << n_fine_channels << endl;
-    header << "BANDWIDTH_HZ 1" << fixed << setprecision(4) << channel_bandwidth * nof_channels << endl;
-    header << "SAMPLE_RATE " << fixed <<setprecision(4) << channel_bandwidth * nof_channels << endl;
+    header << "BANDWIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth * nof_channels << endl;
+    header << "SAMPLE_RATE " << fixed << setprecision(6) << channel_bandwidth << endl;
     header << "MC_IP 0" << endl;
     header << "MC_SRC_IP 0.0.0.0" << endl;
     header << "FILE_SIZE 0" << endl;
@@ -168,16 +175,16 @@ static void print_usage(char *name)
 {
     std::cerr << "Usage: " << name << " <option(s)>\n"
               << "Options:\n"
-              << "\t-d/--directory DIRECTORY \t\tBase directory where to store data\n"
-              << "\t-t/--duration DURATION \t\t\tDuration to acquire in seconds\n"
+              << "\t-d/--directory DIRECTORY \tBase directory where to store data\n"
+              << "\t-t/--duration DURATION \t\tDuration to acquire in seconds\n"
               << "\t-s/--nof_samples NOF_SAMPLES\tNumber of samples\n"
-              << "\t-c/--start_channel CHANNEL\t\tLogical channel ID to store\n"
+              << "\t-c/--start_channel CHANNEL\tLogical channel ID to store\n"
               << "\t-n/--nof_channels NOF_CHANNELS \tNumber of channels to store from logical channel ID\n"
-              << "\t-i/--interface INTERFACE\t\tNetwork interface to use\n"
-              << "\t-p/--ip IP\t\t\t\t\t\tInterface IP\n"
-              << "\t-m/--max_file_size\t\t\t\tMAX_FILE_SIZE in GB\n"
-              << "\t-S/--source SOURCE\t\t\t\tObserved source\n"
-              << "\t-D/--dada\t\t\t\t\t\tGenerate binary file with DADA header\n"
+              << "\t-i/--interface INTERFACE\tNetwork interface to use\n"
+              << "\t-p/--ip IP\t\t\tInterface IP\n"
+              << "\t-m/--max_file_size\t\tMAX_FILE_SIZE in GB\n"
+              << "\t-S/--source SOURCE\t\tObserved source\n"
+              << "\t-D/--dada\t\t\tGenerate binary file with DADA header\n"
               << std::endl;
 }
 
@@ -185,7 +192,7 @@ static void print_usage(char *name)
 static void parse_arguments(int argc, char *argv[])
 {
     // Define options
-    const char* const short_opts = "d:t:s:i:p:c:m:S:D";
+    const char* const short_opts = "d:t:s:i:p:c:m:n:S:D";
     const option long_opts[] = {
             {"directory", required_argument, nullptr, 'd'},
             {"max_file_size", required_argument, nullptr, 'm'},
@@ -244,7 +251,7 @@ static void parse_arguments(int argc, char *argv[])
         }
     }
 
-    printf("Running acquire_station_beam with %ld samples starting from logical channel %d and saving %d channels.\n", 
+    printf("Running acquire_station_beam with %ld samples starting from logical channel %d and saving %d channels.\n",
 		    nof_samples, start_channel, nof_channels);
     printf("Saving in directory %s with maximum file size of %ld GB\n", base_directory.c_str(), max_file_size_gb);
     printf("Observing source %s for %d seconds\n", source.c_str(), duration);
