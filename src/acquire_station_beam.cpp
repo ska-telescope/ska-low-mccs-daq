@@ -115,9 +115,9 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
 
         if (individual_channel_files)
             for(unsigned i = 0; i < nof_channels; i++)
-                files.push_back(generate_output_file(timestamp, frequency, i, 1));
+                files.push_back(generate_output_file(timestamp, frequency, start_channel + i, 1));
         else
-            files.push_back(generate_output_file(timestamp, frequency, 0, nof_channels));
+            files.push_back(generate_output_file(timestamp, frequency, start_channel, nof_channels));
     }
 
     // Determine where buffer should be written based on the buffer counter
@@ -247,7 +247,6 @@ static int generate_output_file(double timestamp, unsigned int frequency,
 
     // If required, generate DADA file and add to file
     if (include_dada_header) {
-        // Define full header placeholder
         // Define full header placeholder
         char *full_header;
 
