@@ -21,6 +21,7 @@ bool StationRawData::initialiseConsumer(json configuration)
     if (!(key_in_json(configuration, "start_channel")) &&
         (key_in_json(configuration, "nof_channels")) &&
         (key_in_json(configuration, "nof_samples")) &&
+        (key_in_json(configuration, "transpose")) &&
         (key_in_json(configuration, "max_packet_size"))) {
         LOG(FATAL, "Missing configuration item for StationData consumer. Requires "
                 "nof_samples, start_channel and max_packet_size");
@@ -28,17 +29,18 @@ bool StationRawData::initialiseConsumer(json configuration)
     }
 
     // Set local values
-    this -> start_channel = configuration["start_channel"];
-    this -> nof_channels = configuration["nof_channels"];
-    this -> nof_samples  = configuration["nof_samples"];
-    this -> nof_pols     = 2;
-    this -> packet_size  = configuration["max_packet_size"];
+    start_channel = configuration["start_channel"];
+    nof_channels = configuration["nof_channels"];
+    nof_samples  = configuration["nof_samples"];
+    nof_pols = 2;
+    transpose = configuration["transpose"];
+    packet_size = configuration["max_packet_size"];
 
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t) nof_samples / 2);
 
     // Create double buffer
-    double_buffer= new StationRawDoubleBuffer(start_channel, nof_samples, nof_channels, nof_pols);
+    double_buffer= new StationRawDoubleBuffer(start_channel, nof_samples, nof_channels, nof_pols, transpose);
 
     // Create and persister
     persister = new StationRawPersister(double_buffer);
@@ -234,8 +236,11 @@ bool StationRawData::processPacket()
 // -------------------------------------------------------------------------------------------------------------
 
 // Default double buffer constructor
-StationRawDoubleBuffer::StationRawDoubleBuffer(uint16_t start_channel, uint32_t nof_samples, uint32_t nof_channels, uint8_t nof_pols, uint8_t nbuffers) :
-        start_channel(start_channel), nof_samples(nof_samples), nof_channels(nof_channels), nof_pols(nof_pols), nof_buffers(nbuffers)
+StationRawDoubleBuffer::StationRawDoubleBuffer(uint16_t start_channel, uint32_t nof_samples,
+                                               uint32_t nof_channels, uint8_t nof_pols,
+                                               bool transpose, uint8_t nbuffers) :
+        start_channel(start_channel), nof_samples(nof_samples), nof_channels(nof_channels),
+        nof_pols(nof_pols), transpose(transpose), nof_buffers(nbuffers)
 {
     // Allocate the double buffer
     allocate_aligned((void **) &double_buffer, (size_t) CACHE_ALIGNMENT, nbuffers * sizeof(StationRawBuffer));
@@ -248,11 +253,11 @@ StationRawDoubleBuffer::StationRawDoubleBuffer(uint16_t start_channel, uint32_t 
         double_buffer[i].index        = 0;
         double_buffer[i].nof_packets  = 0;
         double_buffer[i].nof_samples  = 0;
-	double_buffer[i].frequency    = UINT_MAX;
+        double_buffer[i].frequency    = UINT_MAX;
         double_buffer[i].mutex = new std::mutex;
 
         double_buffer[i].data =  (uint16_t *) malloc(nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
-	memset(double_buffer[i].data, 0, nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
+	    memset(double_buffer[i].data, 0, nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
     }
     
     // Initialise producer and consumer
@@ -346,11 +351,14 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
                                                  uint32_t channel, uint16_t *data_ptr, double timestamp, uint32_t frequency)
 {
     // Copy data from packet to buffer
-    // If number of channels is 1, then simply copy the entire buffer to its destination
-    if (nof_channels == 1)
-        memcpy(this->double_buffer[producer_index].data + (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols,
+    // If number of channels is 1, or if data is not being transposed, then simply copy the entire buffer to its destination
+    if (nof_channels == 1 || !transpose) {
+        auto dst = this->double_buffer[producer_index].data + channel * nof_samples * nof_pols +
+                                (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols;
+        memcpy(dst,
                data_ptr,
                nof_pols * samples * sizeof(uint16_t));
+    }
     else {
         // We need to transpose the data
         // dst is in sample/channel/pol order, so we need to skip nof_channels * nof_pols for every src sample
@@ -431,7 +439,7 @@ void StationRawDoubleBuffer::clear()
         double_buffer[i].index    = 0;
         double_buffer[i].nof_samples = 0;
         double_buffer[i].nof_packets = 0;
-	double_buffer[i].frequency = UINT_MAX;
+	    double_buffer[i].frequency = UINT_MAX;
     }
 }
 

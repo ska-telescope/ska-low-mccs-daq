@@ -21,7 +21,7 @@ int ndim = 2;
 
 int n_fine_channels = 1;
 
-// Acqusition parameters
+// Acquisition parameters
 string base_directory = "/data/";
 string interface = "eth2";
 string ip = "10.0.10.40";
@@ -31,83 +31,133 @@ uint32_t nof_channels = 1;
 uint32_t duration = 60;
 uint64_t max_file_size_gb = 1;
 
+bool individual_channel_files = false;
 bool include_dada_header = false;
 auto dada_header_size = 4096;
 
 // File descriptor
-int fd = 0;
+std::vector<int> files;
 
 // Callback counters
 uint32_t skip = 1;
 uint32_t counter = 0;
 uint32_t cutoff_counter = 0;
 
-// Forward declaration of dada header generator
-static std::string generate_dada_header(double timestamp, unsigned int frequency);
+// Forward declaration of functions
+static int generate_output_file(double timestamp, unsigned int frequency,
+                                unsigned int first_channel, unsigned int channels_in_file);
+static std::string generate_dada_header(double timestamp, unsigned int frequency, unsigned int channels_in_file);
 
 // Raw station beam callback
 void raw_station_beam_callback(void *data, double timestamp, unsigned int frequency, unsigned int nof_samples)
 {
     if (counter < skip) {
         counter += 1;
-	return;
+	    return;
     }
 
     printf("Received station beam with %d samples\n", nof_samples);
 
+    // Check whether we need to generate new files
     if ((counter - skip) % cutoff_counter == 0)
     {
-        // Create output file
-        std::string suffix = include_dada_header ? ".dada" : ".dat";
-        std::string path = base_directory + "channel_" + std::to_string(start_channel)
-                            + "_" + std::to_string(nof_channels)
-                            + "_" + std::to_string(timestamp) + suffix;
+        // Close off any existing files
+        for(unsigned i = 0; i < files.size(); i++)
+            close(files[i]);
 
-        if ((fd = open(path.c_str(), O_WRONLY | O_CREAT | O_SYNC | O_TRUNC, (mode_t) 0600)) < 0) {
-	    perror("Failed to create output data file, check directory");
-	    exit(-1);
-	}
+        // Clear array
+        files.clear();
 
-        // Tell the kernel how the file is going to be accessed (sequentially)
-        posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
-	printf("Created file %s\n", path.c_str());
-
-        // If required, generate DADA file and add to file
-        if (include_dada_header) {
-            // Define full header placeholder
-            char full_header[dada_header_size];
-
-            // Copy generated header
-            auto generated_header = generate_dada_header(timestamp, frequency);
-            strcpy(full_header, generated_header.c_str());
-
-            // Fill in empty space with nulls to match required dada header size
-            auto generated_header_size = generated_header.size();
-            for (unsigned i = 0; i < dada_header_size - generated_header_size; i++)
-                full_header[generated_header_size + i] = '\0';
-
-            if (write(fd, full_header, dada_header_size) < 0)
-            {
-                perror("Failed to generated DADA header to disk");
-                close(fd);
-                exit(-1);
-            }
-        }
+        if (individual_channel_files)
+            for(unsigned i = 0; i < nof_channels; i++)
+                files.push_back(generate_output_file(timestamp, frequency, i, 1));
+        else
+            files.push_back(generate_output_file(timestamp, frequency, 0, nof_channels));
     }
 
     // Write data to file
-    if (write(fd, data, nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0)
-    {
-        perror("Failed to write buffer to disk");
-        fsync(fd);
-        close(fd);
-        exit(-1);
-    }
+    if (individual_channel_files)
+
+        // Write each channel to its own file
+        for(unsigned i = 0; i < nof_channels; i++) {
+
+            auto src = (uint16_t *) data + i * nof_samples * npol;
+            auto ret = write(files[i], src, nof_samples * npol * sizeof(uint16_t));
+
+            if (ret < 0)
+            {
+                perror("Failed to write buffer to disk");
+
+                // Close all files
+                for(unsigned j = 0; j < files.size(); j++)
+                    close(files[j]);
+
+                exit(-1);
+            }
+        }
+
+    else
+        if (write(files[0], data, nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0)
+        {
+            perror("Failed to write buffer to disk");
+            fsync(files[0]);
+            close(files[0]);
+            exit(-1);
+        }
 
     counter += 1;
 }
 
-static std::string generate_dada_header(double timestamp, unsigned int frequency) {
+// Generate output files
+static int generate_output_file(double timestamp, unsigned int frequency,
+                                unsigned int first_channel, unsigned int channels_in_file) {
+
+    // File descriptor placeholder
+    int fd;
+
+    // Create output file
+    std::string suffix = include_dada_header ? ".dada" : ".dat";
+    std::string path = base_directory + "channel_" + std::to_string(first_channel)
+                       + "_" + std::to_string(channels_in_file)
+                       + "_" + std::to_string(timestamp) + suffix;
+
+    if ((fd = open(path.c_str(), O_WRONLY | O_CREAT | O_SYNC | O_TRUNC, (mode_t) 0600)) < 0) {
+        perror("Failed to create output data file, check directory");
+        exit(-1);
+    }
+
+    // Tell the kernel how the file is going to be accessed (sequentially)
+    posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
+    printf("Created file %s\n", path.c_str());
+
+    // If required, generate DADA file and add to file
+    if (include_dada_header) {
+        // Define full header placeholder
+        char full_header[dada_header_size];
+
+        // Copy generated header
+        auto generated_header = generate_dada_header(timestamp,
+                                                           frequency + channel_bandwidth * start_channel,
+                                                           channels_in_file);
+        strcpy(full_header, generated_header.c_str());
+
+        // Fill in empty space with nulls to match required dada header size
+        auto generated_header_size = generated_header.size();
+        for (unsigned i = generated_header_size; i < dada_header_size; i++)
+            full_header[i] = '\0';
+
+        if (write(fd, full_header, dada_header_size) < 0)
+        {
+            perror("Failed to generate DADA header to disk");
+            close(fd);
+            exit(-1);
+        }
+    }
+
+    return fd;
+}
+
+static std::string generate_dada_header(double timestamp, unsigned int frequency, unsigned int channels_in_file) {
     // Convert unix time to UTC and then to a formatted string
     const char* fmt = "%Y-%m-%d-%H:%M:%S";
     char time_string[200];
@@ -117,13 +167,12 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
 
     // Generate DADA header
     std::stringstream header;
-    long header_size = 4096;
 
     // Required entries
     header << "HDR_VERSION 1.0" << endl;
     header << "HDR_SIZE " << dada_header_size << endl;
     header << "BW " << fixed << setprecision(4) << channel_bandwidth * nof_channels * 1e-6 << endl;
-    header << "FREQ " << fixed << setprecision(6) << frequency * 1e-6 << endl;
+    header << "FREQ " << fixed << setprecision(6) << frequency * 1e-6<< endl;
     header << "TELESCOPE " << telescope << endl;
     header << "RECEIVER " << telescope << endl;
     header << "INSTRUMENT " << telescope << endl;
@@ -144,8 +193,8 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "COMMAND CAPTURE" << endl;
 
     header << "NTIMESAMPLES 1" << endl;
-    header << "NINPUTS " << fixed << nof_channels * npol << endl;
-    header << "NINPUTS_XGPU " << fixed << nof_channels * npol << endl;
+    header << "NINPUTS " << fixed << channels_in_file * npol << endl;
+    header << "NINPUTS_XGPU " << fixed << channels_in_file * npol << endl;
     header << "METADATA_BEAMS 2" << endl;
     header << "APPLY_PATH_WEIGHTS 1" << endl;
     header << "APPLY_PATH_DELAYS 2" << endl;
@@ -154,14 +203,14 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "TRANSFER_SIZE 81920000" << endl;
     header << "PROJ_ID LFAASP" << endl;
     header << "EXPOSURE_SECS 8" << endl;
-    header << "COARSE_CHANNEL " << nof_channels << endl;
+    header << "COARSE_CHANNEL " << channels_in_file << endl;
     header << "CORR_COARSE_CHANNEL 2" << endl;
     header << "SECS_PER_SUBOBS 8" << endl;
     header << "UNIXTIME " << (int) timestamp << endl;
     header << "UNIXTIME_MSEC " << fixed << setprecision(6) << (timestamp - (int) (timestamp)) * 1e3  << endl;
     header << "FINE_CHAN_WIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth / n_fine_channels  << endl;
     header << "NFINE_CHAN " << n_fine_channels << endl;
-    header << "BANDWIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth * nof_channels << endl;
+    header << "BANDWIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth * channels_in_file << endl;
     header << "SAMPLE_RATE " << fixed << setprecision(6) << channel_bandwidth << endl;
     header << "MC_IP 0" << endl;
     header << "MC_SRC_IP 0.0.0.0" << endl;
@@ -192,7 +241,7 @@ static void print_usage(char *name)
 static void parse_arguments(int argc, char *argv[])
 {
     // Define options
-    const char* const short_opts = "d:t:s:i:p:c:m:n:S:D";
+    const char* const short_opts = "d:t:s:i:p:c:m:n:S:D:I";
     const option long_opts[] = {
             {"directory", required_argument, nullptr, 'd'},
             {"max_file_size", required_argument, nullptr, 'm'},
@@ -204,6 +253,7 @@ static void parse_arguments(int argc, char *argv[])
             {"ip", required_argument, nullptr, 'p'},
             {"source", required_argument, nullptr, 'S'},
             {"dada", no_argument, nullptr, 'D'},
+            {"individual", no_argument, nullptr, 'I'},
             {nullptr, no_argument, nullptr, 0}
     };
 
@@ -245,6 +295,9 @@ static void parse_arguments(int argc, char *argv[])
             case 'D':
                 include_dada_header = true;
                 break;
+            case 'I':
+                individual_channel_files = true;
+                break;
             default: /* '?' */
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
@@ -270,6 +323,9 @@ int main(int argc, char *argv[])
     else
         cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * nof_channels * npol * sizeof(uint16_t));
 
+    // If received only 1 channel, then individual_channel_files can be disabled
+    if (nof_channels == 1)
+        individual_channel_files = false;
 
     // Telescope information
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
@@ -279,7 +335,8 @@ int main(int argc, char *argv[])
     json j = {
             {"start_channel", start_channel},
             {"nof_channels", nof_channels},
-            {"nof_samples",     nof_samples},
+            {"nof_samples", nof_samples},
+            {"transpose_samples", !individual_channel_files},
             {"max_packet_size", 9000}
     };
 

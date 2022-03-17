@@ -35,7 +35,8 @@ class StationRawDoubleBuffer {
 
 public:
     // Default constructor
-    StationRawDoubleBuffer(uint16_t start_channel, uint32_t nof_samples, uint32_t nof_channels, uint8_t nof_pols, uint8_t nbuffers = 4);
+    StationRawDoubleBuffer(uint16_t start_channel, uint32_t nof_samples, uint32_t nof_channels,
+                           uint8_t nof_pols, bool transpose=true, uint8_t nbuffers = 4);
 
     // Class destructor
     ~StationRawDoubleBuffer();
@@ -68,6 +69,7 @@ private:
     uint32_t nof_channels;  // Number of channels
     uint8_t nof_pols;       // Number of polarisations
     uint8_t  nof_buffers;   // Number of buffers in buffering system
+    bool transpose;         // Flag determining whether the data should be transposed
 
     // Producer and consumer pointers, specifying which buffer index to use
     // These are declared as volatile so tha they are not optimsed into registers
@@ -148,6 +150,7 @@ private:
     uint16_t start_channel = 0;       // Channel to save
     uint16_t nof_channels = 1;        // Number of channels
     uint32_t nof_samples = 0;         // Number of time samples
+    bool transpose = true;            // Transpose samples when writing to buffer
 
 };
 
