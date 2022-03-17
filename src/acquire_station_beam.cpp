@@ -70,9 +70,9 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int freque
 
         if (individual_channel_files)
             for(unsigned i = 0; i < nof_channels; i++)
-                files.push_back(generate_output_file(timestamp, frequency, i, 1));
+                files.push_back(generate_output_file(timestamp, frequency, start_channel + i, 1));
         else
-            files.push_back(generate_output_file(timestamp, frequency, 0, nof_channels));
+            files.push_back(generate_output_file(timestamp, frequency, start_channel, nof_channels));
     }
 
     // Write data to file
@@ -82,9 +82,7 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int freque
         for(unsigned i = 0; i < nof_channels; i++) {
 
             auto src = (uint16_t *) data + i * nof_samples * npol;
-            auto ret = write(files[i], src, nof_samples * npol * sizeof(uint16_t));
-
-            if (ret < 0)
+            if (write(files[i], src, nof_samples * npol * sizeof(uint16_t)) < 0)
             {
                 perror("Failed to write buffer to disk");
 
