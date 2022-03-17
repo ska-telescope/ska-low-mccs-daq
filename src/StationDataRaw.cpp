@@ -21,7 +21,7 @@ bool StationRawData::initialiseConsumer(json configuration)
     if (!(key_in_json(configuration, "start_channel")) &&
         (key_in_json(configuration, "nof_channels")) &&
         (key_in_json(configuration, "nof_samples")) &&
-        (key_in_json(configuration, "transpose")) &&
+        (key_in_json(configuration, "transpose_samples")) &&
         (key_in_json(configuration, "max_packet_size"))) {
         LOG(FATAL, "Missing configuration item for StationData consumer. Requires "
                 "nof_samples, start_channel and max_packet_size");
@@ -32,7 +32,7 @@ bool StationRawData::initialiseConsumer(json configuration)
     start_channel = configuration["start_channel"];
     nof_channels = configuration["nof_channels"];
     nof_samples  = configuration["nof_samples"];
-    transpose = configuration["transpose"];
+    transpose = (configuration["transpose_samples"] == 1) ? true : false;
     packet_size = configuration["max_packet_size"];
     nof_pols = 2;
 

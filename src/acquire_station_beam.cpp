@@ -291,7 +291,7 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     // Required entries
     header << "HDR_VERSION 1.0" << endl;
     header << "HDR_SIZE " << dada_header_size << endl;
-    header << "BW " << fixed << setprecision(4) << channel_bandwidth * nof_channels * 1e-6 << endl;
+    header << "BW " << fixed << setprecision(4) << channel_bandwidth * channels_in_file * 1e-6 << endl;
     header << "FREQ " << fixed << setprecision(6) << frequency * 1e-6<< endl;
     header << "TELESCOPE " << telescope << endl;
     header << "RECEIVER " << telescope << endl;
@@ -300,7 +300,7 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "MODE PSR" << endl;
     header << "NBIT " << nbits << endl;
     header << "NPOL " << npol << endl;
-    header << "NCHAN " << nof_channels << endl;
+    header << "NCHAN " << channels_in_file << endl;
     header << "NDIM " << ndim << endl;
     header << "OBS_OFFSET 0" << endl;
     header << "TSAMP " << fixed << setprecision(4) << (1.0 / channel_bandwidth) * 1e6 << endl;
@@ -354,7 +354,8 @@ static void print_usage(char *name)
               << "\t-m/--max_file_size\t\tMAX_FILE_SIZE in GB\n"
               << "\t-S/--source SOURCE\t\tObserved source\n"
               << "\t-D/--dada\t\t\tGenerate binary file with DADA header\n"
-	          << "\t-W/--simulate\t\t\tSimualte writing to disk\n"
+	          << "\t-I/--individual\t\t\tGenerate separate channels files\n"
+	          << "\t-W/--simulate\t\t\tSimulate writing to disk\n"
               << std::endl;
 }
 
@@ -362,7 +363,7 @@ static void print_usage(char *name)
 static void parse_arguments(int argc, char *argv[])
 {
     // Define options
-    const char* const short_opts = "d:t:s:i:p:c:m:n:S:D:I:W";
+    const char* const short_opts = "d:t:s:i:p:c:m:n:S:DIW";
     const option long_opts[] = {
             {"directory", required_argument, nullptr, 'd'},
             {"max_file_size", required_argument, nullptr, 'm'},
@@ -492,7 +493,7 @@ int main(int argc, char *argv[])
             {"start_channel", start_channel},
             {"nof_channels", nof_channels},
             {"nof_samples", nof_samples},
-            {"transpose_samples", !individual_channel_files},
+            {"transpose_samples", (individual_channel_files) ? 0 : 1},
             {"max_packet_size", 9000}
     };
 
