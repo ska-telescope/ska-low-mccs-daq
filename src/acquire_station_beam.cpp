@@ -319,6 +319,8 @@ int main(int argc, char *argv[])
     // cutoff counter to "infinity"
     if (include_dada_header)
         cutoff_counter = INT_MAX;
+    else if (individual_channel_files)
+        cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * npol * sizeof(uint16_t));
     else
         cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * nof_channels * npol * sizeof(uint16_t));
 
