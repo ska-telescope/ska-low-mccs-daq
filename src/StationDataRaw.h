@@ -26,6 +26,7 @@ struct StationRawBuffer
     bool       ready;         // Specifies whether the buffer is ready to be processed
     uint32_t   nof_packets;   // Number of packets
     uint32_t   nof_samples;   // Number of samples in buffer
+    uint32_t   nof_overruns;  // Number of times the buffer was overrun
     uint32_t   frequency;     // Smallest frequency in buffer
     uint16_t   *data;         // Data
     std::mutex *mutex;        // Mutex lock for this buffer
@@ -51,7 +52,7 @@ public:
     void release_buffer();
 
     // Clear double buffer
-    void clear();
+    void clear(int index);
 
 private:
 

@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <time.h>
+#include <fcntl.h>
 #include <bits/stdc++.h>
 
 #include "DAQ.h"
@@ -89,7 +90,7 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int freque
         posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
         posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 
-	printf("Created file %s\n", path.c_str());
+	    printf("Created file %s\n", path.c_str());
 
         // If required, generate DADA file and add to file
         if (include_dada_header) {
@@ -114,25 +115,42 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int freque
         }
     }
 
-    // Write data to file
-    unsigned duration  = 0;
+    // Write data to file if not in simulation mode
+    unsigned write_duration  = 0;
     if (not simulate_write) {
-	    clock_gettime(CLOCK_REALTIME_COARSE, &t1);
-	    if (write(fd, data, nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0)
-	    {
-	        perror("Failed to write buffer to disk");
-	        fsync(fd);
-	        close(fd);
-	        exit(-1);
-	    }
-	    clock_gettime(CLOCK_REALTIME_COARSE, &t2);
-	    duration = (unsigned) (diff(t1, t2) * 1000);
+        // If the data pointer is a nullptr, then we are processing a buffer overrun. Fill the file at the current
+        // offset with a buffer size worth of 0s (through fallocate for speed)
+        if (data == nullptr) {
+            if (fallocate(fd,
+                          FALLOC_FL_ZERO_RANGE,
+                          lseek(fd, 0, SEEK_CUR),
+                          nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0) {
+                perror("Failed to fallocate empty gap in file");
+                close(fd);
+                exit(-1);
+            }
+
+            // Seek new end of file
+            lseek(fd, 0, SEEK_END);
+
+        } else {
+            // Write data buffer to disk and measure write time
+            clock_gettime(CLOCK_REALTIME_COARSE, &t1);
+            if (write(fd, data, nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0) {
+                perror("Failed to write buffer to disk");
+                fsync(fd);
+                close(fd);
+                exit(-1);
+            }
+            clock_gettime(CLOCK_REALTIME_COARSE, &t2);
+            write_duration = (unsigned) (diff(t1, t2) * 1000);
+        }
     }
 
     auto now = std::chrono::system_clock::now();
     auto datetime = std::chrono::system_clock::to_time_t(now);
     auto date_text = strtok(ctime(&datetime), "\n");
-    cout << date_text <<  ": Written " << nof_packets << " packets in " << duration << "ms" << endl;
+    cout << date_text <<  ": Written " << nof_packets << " packets in " << write_duration << "ms" << endl;
     counter += 1;
 }
 
