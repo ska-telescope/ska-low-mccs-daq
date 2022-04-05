@@ -251,7 +251,7 @@ StationRawDoubleBuffer::StationRawDoubleBuffer(uint16_t start_channel, uint32_t 
 	double_buffer[i].frequency    = UINT_MAX;
         double_buffer[i].mutex = new std::mutex;
 
-        double_buffer[i].data =  (uint16_t *) malloc(nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
+	allocate_aligned((void **) &double_buffer[i].data, 512, nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
 	memset(double_buffer[i].data, 0, nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
     }
     
@@ -318,7 +318,7 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
 
         // Wait for next buffer to become available
         unsigned int index = 0;
-        while (index * tim.tv_nsec < 1e6)
+        while (index * tim.tv_nsec < 1e3)
         {
             if (this->double_buffer[this->producer].index != 0) {
                 nanosleep(&tim, &tim2);
@@ -328,9 +328,14 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
                 break;
         }
 
-        if (index * tim.tv_nsec >= 1e6 )
-            LOG(WARN, "Warning: Overwriting buffer [%d]!\n", this ->producer);
+        if (index * tim.tv_nsec >= 1e3)
+            LOG(WARN, "WARNING: Overwriting buffer %d with %d samples!", this ->producer, this->double_buffer[this->producer].nof_packets);
 
+	// Clear buffer and start using
+        this -> double_buffer[this -> producer].ref_time = DBL_MAX;
+	this -> double_buffer[this -> producer].nof_samples = 0;
+        this -> double_buffer[this -> producer].nof_packets = 0;
+        this -> double_buffer[this -> producer].frequency = UINT_MAX;
         this -> double_buffer[this -> producer].index = current_index + nof_samples / samples;
     }
 
@@ -452,7 +457,7 @@ void StationRawPersister::threadEntry()
         // Call callback if set
         if (callback != nullptr)
             callback(buffer->data, buffer->ref_time, 
-                     buffer->frequency, buffer->nof_samples);
+                     buffer->frequency, buffer->nof_packets);
         else
             LOG(INFO, "Received station beam");
 

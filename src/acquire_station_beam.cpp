@@ -25,11 +25,12 @@ int n_fine_channels = 1;
 string base_directory = "/data/";
 string interface = "eth2";
 string ip = "10.0.10.40";
-uint64_t nof_samples = 262144;
+uint64_t nof_samples = 262144 * 4;
 uint32_t start_channel = 0;
 uint32_t nof_channels = 1;
 uint32_t duration = 60;
 uint64_t max_file_size_gb = 1;
+bool simulate_write = false;
 
 bool include_dada_header = false;
 auto dada_header_size = 4096;
@@ -45,15 +46,31 @@ uint32_t cutoff_counter = 0;
 // Forward declaration of dada header generator
 static std::string generate_dada_header(double timestamp, unsigned int frequency);
 
+
+timespec t1, t2;
+
+// Function to compute timing difference
+float diff(timespec start, timespec end)
+{
+    timespec temp;
+    if ((end.tv_nsec-start.tv_nsec)<0) {
+        temp.tv_sec = end.tv_sec-start.tv_sec-1;
+        temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+    } else {
+        temp.tv_sec = end.tv_sec-start.tv_sec;
+        temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+    }
+
+    return temp.tv_sec + temp.tv_nsec * 1e-9;
+}
+
 // Raw station beam callback
-void raw_station_beam_callback(void *data, double timestamp, unsigned int frequency, unsigned int nof_samples)
+void raw_station_beam_callback(void *data, double timestamp, unsigned int frequency, unsigned int nof_packets)
 {
     if (counter < skip) {
         counter += 1;
 	return;
     }
-
-    printf("Received station beam with %d samples\n", nof_samples);
 
     if ((counter - skip) % cutoff_counter == 0)
     {
@@ -63,13 +80,15 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int freque
                             + "_" + std::to_string(nof_channels)
                             + "_" + std::to_string(timestamp) + suffix;
 
-        if ((fd = open(path.c_str(), O_WRONLY | O_CREAT | O_SYNC | O_TRUNC, (mode_t) 0600)) < 0) {
+        if ((fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_SYNC | O_DIRECT, (mode_t) 0600)) < 0) {
 	    perror("Failed to create output data file, check directory");
 	    exit(-1);
 	}
 
-        // Tell the kernel how the file is going to be accessed (sequentially)
+        // Tell the kernel how the file is going to be accessed (sequentially) and not reused
         posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
+        posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+
 	printf("Created file %s\n", path.c_str());
 
         // If required, generate DADA file and add to file
@@ -96,14 +115,24 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int freque
     }
 
     // Write data to file
-    if (write(fd, data, nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0)
-    {
-        perror("Failed to write buffer to disk");
-        fsync(fd);
-        close(fd);
-        exit(-1);
+    unsigned duration  = 0;
+    if (not simulate_write) {
+	    clock_gettime(CLOCK_REALTIME_COARSE, &t1);
+	    if (write(fd, data, nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0)
+	    {
+	        perror("Failed to write buffer to disk");
+	        fsync(fd);
+	        close(fd);
+	        exit(-1);
+	    }
+	    clock_gettime(CLOCK_REALTIME_COARSE, &t2);
+	    duration = (unsigned) (diff(t1, t2) * 1000);
     }
 
+    auto now = std::chrono::system_clock::now();
+    auto datetime = std::chrono::system_clock::to_time_t(now);
+    auto date_text = strtok(ctime(&datetime), "\n");
+    cout << date_text <<  ": Written " << nof_packets << " packets in " << duration << "ms" << endl;
     counter += 1;
 }
 
@@ -185,6 +214,7 @@ static void print_usage(char *name)
               << "\t-m/--max_file_size\t\tMAX_FILE_SIZE in GB\n"
               << "\t-S/--source SOURCE\t\tObserved source\n"
               << "\t-D/--dada\t\t\tGenerate binary file with DADA header\n"
+	      << "\t-W/--simulate\t\t\tSimualte writing to disk\n"
               << std::endl;
 }
 
@@ -192,7 +222,7 @@ static void print_usage(char *name)
 static void parse_arguments(int argc, char *argv[])
 {
     // Define options
-    const char* const short_opts = "d:t:s:i:p:c:m:n:S:D";
+    const char* const short_opts = "d:t:s:i:p:c:m:n:S:D:W";
     const option long_opts[] = {
             {"directory", required_argument, nullptr, 'd'},
             {"max_file_size", required_argument, nullptr, 'm'},
@@ -204,6 +234,7 @@ static void parse_arguments(int argc, char *argv[])
             {"ip", required_argument, nullptr, 'p'},
             {"source", required_argument, nullptr, 'S'},
             {"dada", no_argument, nullptr, 'D'},
+	    {"simulate", no_argument, nullptr, 'W'},
             {nullptr, no_argument, nullptr, 0}
     };
 
@@ -245,6 +276,9 @@ static void parse_arguments(int argc, char *argv[])
             case 'D':
                 include_dada_header = true;
                 break;
+	    case 'W':
+		simulate_write = true;
+		break;
             default: /* '?' */
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
@@ -253,7 +287,10 @@ static void parse_arguments(int argc, char *argv[])
 
     printf("Running acquire_station_beam with %ld samples starting from logical channel %d and saving %d channels.\n",
 		    nof_samples, start_channel, nof_channels);
-    printf("Saving in directory %s with maximum file size of %ld GB\n", base_directory.c_str(), max_file_size_gb);
+    if (simulate_write)
+	printf("Simulating disk write, nothing will be physically written to disk\n");
+    else
+	printf("Saving in directory %s with maximum file size of %ld GB\n", base_directory.c_str(), max_file_size_gb);
     printf("Observing source %s for %d seconds\n", source.c_str(), duration);
 }
 

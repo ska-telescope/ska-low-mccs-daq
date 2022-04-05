@@ -14,6 +14,7 @@ from astropy.coordinates import Angle, AltAz, SkyCoord, EarthLocation, get_sun
 from astropy.time import TimeDelta
 from astropy.time.core import Time
 from astropy.utils.exceptions import AstropyWarning
+from astropy import units as u
 
 from pyaavs import station
 import pyaavs.logger
@@ -315,11 +316,11 @@ if __name__ == "__main__":
         logging.info("Pointing to the sun")
         pointing.point_to_sun(pointing_time)
     elif opts.static:
-        opts.alt, opts.az = Angle(opts.alt), Angle(opts.az)
+        opts.alt, opts.az = Angle(opts.alt, unit=u.deg), Angle(opts.az, unit=u.deg)
         logging.info("Pointing to ALT {}, AZ {}".format(opts.alt, opts.az))
         pointing.point_array_static(opts.alt, opts.az)
     else:
-        opts.ra, opts.dec = Angle(opts.ra), Angle(opts.dec)
+        opts.ra, opts.dec = Angle(opts.ra, unit=u.deg), Angle(opts.dec, unit=u.deg)
         logging.info("Pointing to RA {}, DEC {}".format(opts.ra, opts.dec))
         pointing.point_array(opts.ra, opts.dec,  pointing_time=pointing_time, delta_time=0)
 
