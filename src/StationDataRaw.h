@@ -26,7 +26,7 @@ struct StationRawBuffer
     bool       ready;         // Specifies whether the buffer is ready to be processed
     uint32_t   nof_packets;   // Number of packets
     uint32_t   nof_samples;   // Number of samples in buffer
-    uint32_t   nof_overruns;  // Number of times the buffer was overrun
+    uint32_t   seq_number;    // Sequential number identifying the buffer within the stream
     uint32_t   frequency;     // Smallest frequency in buffer
     uint16_t   *data;         // Data
     std::mutex *mutex;        // Mutex lock for this buffer
@@ -71,9 +71,11 @@ private:
     uint8_t  nof_buffers;   // Number of buffers in buffering system
 
     // Producer and consumer pointers, specifying which buffer index to use
-    // These are declared as volatile so tha they are not optimsed into registers
+    // These are declared as volatile so that they are not optimized into registers
     volatile int producer;
     volatile int consumer;
+
+    volatile uint32_t buffer_counter = 0; // Counter representing current buffer
 
     // Timing variables
     struct timespec tim, tim2;

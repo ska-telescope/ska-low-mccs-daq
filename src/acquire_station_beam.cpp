@@ -8,7 +8,13 @@
 #include <fcntl.h>
 #include <bits/stdc++.h>
 
-#include "DAQ.h"
+#ifndef TEST_MODE
+    #define TEST_MODE 1
+#endif
+
+#if TEST_MODE
+    #include "DAQ.h"
+#endif
 
 using namespace std;
 
@@ -44,11 +50,23 @@ uint32_t skip = 1;
 uint32_t counter = 0;
 uint32_t cutoff_counter = 0;
 
-// Forward declaration of dada header generator
+// Forward declarations
 static std::string generate_dada_header(double timestamp, unsigned int frequency);
-
+void allocate_space(off_t offset, size_t len);
+void write_to_file(void* data);
 
 timespec t1, t2;
+
+void exit_with_error(const char *message) {
+    // Display error message and exit with error
+    perror(message);
+
+    if (fd != -1)
+        close(fd);
+
+    exit(-1);
+}
+
 
 // Function to compute timing difference
 float diff(timespec start, timespec end)
@@ -65,14 +83,19 @@ float diff(timespec start, timespec end)
     return temp.tv_sec + temp.tv_nsec * 1e-9;
 }
 
+unsigned buffer_counter = 0;
+
 // Raw station beam callback
 void raw_station_beam_callback(void *data, double timestamp, unsigned int frequency, unsigned int nof_packets)
 {
     if (counter < skip) {
         counter += 1;
-	return;
+	    return;
     }
 
+    unsigned long buffer_size = nof_samples * nof_channels * npol * sizeof(uint16_t);
+
+    // Note: Assumption that first buffer in the file is not an overwritten buffer
     if ((counter - skip) % cutoff_counter == 0)
     {
         // Create output file
@@ -81,10 +104,9 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int freque
                             + "_" + std::to_string(nof_channels)
                             + "_" + std::to_string(timestamp) + suffix;
 
-        if ((fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_SYNC | O_DIRECT, (mode_t) 0600)) < 0) {
-	    perror("Failed to create output data file, check directory");
-	    exit(-1);
-	}
+        if ((fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_SYNC | O_DIRECT, (mode_t) 0600)) < 0)
+            exit_with_error("Failed to create output data file, check directory");
+
 
         // Tell the kernel how the file is going to be accessed (sequentially) and not reused
         posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
@@ -107,51 +129,99 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int freque
                 full_header[generated_header_size + i] = '\0';
 
             if (write(fd, full_header, dada_header_size) < 0)
-            {
-                perror("Failed to generated DADA header to disk");
-                close(fd);
-                exit(-1);
-            }
+                exit_with_error("Failed to generated DADA header to disk");
         }
     }
 
-    // Write data to file if not in simulation mode
-    unsigned write_duration  = 0;
-    if (not simulate_write) {
-        // If the data pointer is a nullptr, then we are processing a buffer overrun. Fill the file at the current
-        // offset with a buffer size worth of 0s (through fallocate for speed)
-        if (data == nullptr) {
-            if (fallocate(fd,
-                          FALLOC_FL_ZERO_RANGE,
-                          lseek(fd, 0, SEEK_CUR),
-                          nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0) {
-                perror("Failed to fallocate empty gap in file");
-                close(fd);
-                exit(-1);
-            }
+    // Determine where buffer should be written based on the buffer counter
+    clock_gettime(CLOCK_REALTIME_COARSE, &t1);
 
-            // Seek new end of file
-            lseek(fd, 0, SEEK_END);
+    // If simulating file write, do nothing
+    if (simulate_write)
+        ;
 
-        } else {
-            // Write data buffer to disk and measure write time
-            clock_gettime(CLOCK_REALTIME_COARSE, &t1);
-            if (write(fd, data, nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0) {
-                perror("Failed to write buffer to disk");
-                fsync(fd);
-                close(fd);
-                exit(-1);
-            }
-            clock_gettime(CLOCK_REALTIME_COARSE, &t2);
-            write_duration = (unsigned) (diff(t1, t2) * 1000);
+    // Received expected buffer
+    else if (counter == buffer_counter)
+        write_to_file(data);
+
+    // Buffer is further ahead than the current offset
+    else if (buffer_counter > counter) {
+
+        // Buffer should go in the next file. Not implemented
+        if (buffer_counter % cutoff_counter < (counter - skip) % cutoff_counter)
+            printf("WARNING: Cannot write buffer to future file! Skipping!\n");
+
+        // Buffer should go ahead in current file
+        else {
+            // Get current position in file
+            off_t current_offset = lseek(fd, 0, SEEK_CUR);
+
+            // Allocate empty space in the file up to the beginning of the next buffer
+            allocate_space(current_offset + (buffer_counter - counter) * buffer_size, buffer_size);
+
+            // Seek to newly allocated space
+            if (lseek(fd, (buffer_counter - counter) * buffer_size, SEEK_CUR) < 0)
+                exit_with_error("WARNING: Cannot seek file after gap allocation. Exiting\n");
+
+            // Write buffer
+            write_to_file(data);
+
+            // Seek back to previous position + buffer length for next buffer
+            if (lseek(fd, current_offset + buffer_size, SEEK_SET) < 0)
+                exit_with_error("WARNING: Cannot seek file after write to future buffer! Exiting\n");
         }
     }
 
+    // Buffer belongs in the previous file. Not implemented
+    else if (buffer_counter % cutoff_counter > (counter - skip) % cutoff_counter)
+        printf("WARNING: Cannot write buffer to future file! Skipping\n");
+
+    // Buffer belongs in the current file prior to current buffer
+    else {
+        // Get current position in file
+        off_t current_offset = lseek(fd, 0, SEEK_CUR);
+
+        // Go to required position in the past
+        if (lseek(fd, current_offset - (counter - buffer_counter) * buffer_size, SEEK_SET) < 0)
+            printf("WARNING!: Cannot seek file before current buffer! Skipping!\n");
+        else {
+            // Write data
+            write_to_file(data);
+
+            // Seek back to previous offset
+            if (lseek(fd, current_offset + buffer_size, SEEK_SET) < 0)
+                exit_with_error("Cannot seek file back to original offset. Exiting!\n");
+        }
+    }
+
+    clock_gettime(CLOCK_REALTIME_COARSE, &t2);
+
+    // Display user friendly message
     auto now = std::chrono::system_clock::now();
     auto datetime = std::chrono::system_clock::to_time_t(now);
     auto date_text = strtok(ctime(&datetime), "\n");
-    cout << date_text <<  ": Written " << nof_packets << " packets in " << write_duration << "ms" << endl;
-    counter += 1;
+    cout << date_text <<  ": Written " << nof_packets << " packets in " << (unsigned) (diff(t1, t2) * 1000) << "ms" << endl;
+
+    // Increment buffer counter
+    counter++;
+}
+
+void allocate_space(off_t offset, size_t len) {
+    if (fallocate(fd, FALLOC_FL_ZERO_RANGE, offset, len) < 0) {
+        perror("Failed to fallocate empty gap in file");
+        close(fd);
+        exit(-1);
+    }
+}
+
+void write_to_file(void* data) {
+    // Write data buffer to disk and measure write time
+    if (write(fd, data, nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0) {
+        perror("Failed to write buffer to disk");
+        fsync(fd);
+        close(fd);
+        exit(-1);
+    }
 }
 
 static std::string generate_dada_header(double timestamp, unsigned int frequency) {
@@ -164,7 +234,6 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
 
     // Generate DADA header
     std::stringstream header;
-    long header_size = 4096;
 
     // Required entries
     header << "HDR_VERSION 1.0" << endl;
@@ -312,6 +381,30 @@ static void parse_arguments(int argc, char *argv[])
     printf("Observing source %s for %d seconds\n", source.c_str(), duration);
 }
 
+void call_station_beam_callback(uint16_t *buffer, unsigned test_counter) {
+    buffer_counter = test_counter;
+    memset(buffer, test_counter, nof_samples * nof_channels * npol * sizeof(uint16_t));
+    raw_station_beam_callback(buffer, 0, 0, 4096);
+}
+
+void test_acquire_station_beam() {
+    printf("Testing shit out\n");
+
+    // Generate buffer for passing to callback
+    uint16_t *buffer;
+    allocate_aligned((void **) &buffer, PAGE_ALIGNMENT, nof_samples * nof_channels * npol * sizeof(uint16_t));
+
+    call_station_beam_callback(buffer, 0);
+    call_station_beam_callback(buffer, 1);
+    call_station_beam_callback(buffer, 2);
+    call_station_beam_callback(buffer, 3);
+    call_station_beam_callback(buffer, 4);
+    call_station_beam_callback(buffer, 5);
+    call_station_beam_callback(buffer, 6);
+    call_station_beam_callback(buffer, 8);
+    call_station_beam_callback(buffer, 7);
+    call_station_beam_callback(buffer, 10);
+}
 
 int main(int argc, char *argv[])
 {
@@ -325,6 +418,10 @@ int main(int argc, char *argv[])
     else
         cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * nof_channels * npol * sizeof(uint16_t));
 
+    // If in test mode, just call test, otherwise communicate with DAQ
+#if TEST_MODE
+    test_acquire_station_beam();
+#else
 
     // Telescope information
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
@@ -364,4 +461,5 @@ int main(int argc, char *argv[])
         LOG(ERROR, "Failed to stop receiver");
         return 0;
     }
+#endif
 }

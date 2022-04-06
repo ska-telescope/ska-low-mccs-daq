@@ -275,8 +275,10 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
                                         uint16_t *data_ptr, double timestamp, uint32_t frequency)
 {
     // Check whether the current consumer buffer is empty, and if so set index of the buffer
-    if (double_buffer[producer].index == 0)
+    if (double_buffer[producer].index == 0) {
         double_buffer[producer].index = packet_counter;
+        double_buffer[producer].seq_number = buffer_counter++;
+    }
 
     // Check if we are receiving a packet from a previous buffer, if so place in previous buffer
     else if (double_buffer[producer].index > packet_counter)
@@ -323,14 +325,15 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
                 break;
         }
 
+        // If wait time elapsed, then we are overwriting a buffer
+        if (index * tim.tv_nsec >= 1e3) {
+            LOG(WARN, "WARNING: Overwriting buffer %d with %d samples!", producer, double_buffer[producer].nof_packets);
+        }
+
         // Clear buffer and start using
         clear(producer);
         double_buffer[producer].index = current_index + nof_samples / samples;
-
-        if (index * tim.tv_nsec >= 1e3) {
-            LOG(WARN, "WARNING: Overwriting buffer %d with %d samples!", producer, double_buffer[producer].nof_packets);
-            double_buffer[producer].nof_overruns += 1;
-        }
+        double_buffer[producer].seq_number = buffer_counter++;
     }
 
     // Copy data to buffer
@@ -430,9 +433,9 @@ void StationRawDoubleBuffer::clear(int index)
         double_buffer[i].index = 0;
         double_buffer[i].nof_samples = 0;
         double_buffer[i].nof_packets = 0;
-        double_buffer[i].nof_overruns = 0;
+        double_buffer[i].seq_number = 0;
 	    double_buffer[i].frequency = UINT_MAX;
-        memset(double_buffer[consumer].data, 0, nof_samples * nof_pols * nof_channels * sizeof(uint16_t));
+        memset(double_buffer[i].data, 0, nof_samples * nof_pols * nof_channels * sizeof(uint16_t));
     }
 }
 
@@ -452,11 +455,6 @@ void StationRawPersister::threadEntry()
 
         // Call callback if set
         if (callback != nullptr) {
-            // If there were buffer overruns, call callback with all zeros
-            for (unsigned i = 0; i < buffer->nof_overruns; i++)
-                callback(nullptr, 0, 0, 0);
-
-            // Call callback with actual data
             callback(buffer->data, buffer->ref_time,
                      buffer->frequency, buffer->nof_packets);
         }
