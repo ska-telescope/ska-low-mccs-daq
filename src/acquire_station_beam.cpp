@@ -94,7 +94,10 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int freque
         // If required, generate DADA file and add to file
         if (include_dada_header) {
             // Define full header placeholder
-            char full_header[dada_header_size];
+            char *full_header;
+
+	    // Allocate full header. Note: using alignment of page size for Direct IO
+            allocate_aligned((void **) &full_header, (size_t) PAGE_ALIGNMENT, dada_header_size);
 
             // Copy generated header
             auto generated_header = generate_dada_header(timestamp, frequency);
@@ -107,10 +110,13 @@ void raw_station_beam_callback(void *data, double timestamp, unsigned int freque
 
             if (write(fd, full_header, dada_header_size) < 0)
             {
-                perror("Failed to generated DADA header to disk");
+                perror("Failed to write generated DADA header to disk");
                 close(fd);
                 exit(-1);
             }
+
+	    // Free up header space
+	    free(full_header);
         }
     }
 
