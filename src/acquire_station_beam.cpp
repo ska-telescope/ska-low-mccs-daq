@@ -8,13 +8,12 @@
 #include <fcntl.h>
 #include <bits/stdc++.h>
 
-#ifndef TEST_MODE
-    #define TEST_MODE 1
-#endif
+//#ifndef TEST_MODE
+//    #define TEST_MODE false
+//#endif
 
-#if TEST_MODE
-    #include "DAQ.h"
-#endif
+#include "Utils.h"
+#include "DAQ.h"
 
 using namespace std;
 
@@ -50,6 +49,13 @@ uint32_t skip = 1;
 uint32_t counter = 0;
 uint32_t cutoff_counter = 0;
 
+// Callback data structure
+typedef struct raw_station_metadata {
+    unsigned frequency;
+    unsigned nof_packets;
+    unsigned buffer_counter;
+} RawStationMetadata;
+
 // Forward declarations
 static std::string generate_dada_header(double timestamp, unsigned int frequency);
 void allocate_space(off_t offset, size_t len);
@@ -83,11 +89,13 @@ float diff(timespec start, timespec end)
     return temp.tv_sec + temp.tv_nsec * 1e-9;
 }
 
-unsigned buffer_counter = 0;
-
 // Raw station beam callback
-void raw_station_beam_callback(void *data, double timestamp, unsigned int frequency, unsigned int nof_packets)
+void raw_station_beam_callback(void *data, double timestamp, void *metadata)
 {
+    unsigned frequency = ((RawStationMetadata *) metadata)->frequency;
+    unsigned nof_packets = ((RawStationMetadata *) metadata)->nof_packets;
+    unsigned buffer_counter = ((RawStationMetadata *) metadata)->buffer_counter;
+
     if (counter < skip) {
         counter += 1;
 	    return;
@@ -382,9 +390,9 @@ static void parse_arguments(int argc, char *argv[])
 }
 
 void call_station_beam_callback(uint16_t *buffer, unsigned test_counter) {
-    buffer_counter = test_counter;
+    RawStationMetadata metadata = {0,0,test_counter};
     memset(buffer, test_counter, nof_samples * nof_channels * npol * sizeof(uint16_t));
-    raw_station_beam_callback(buffer, 0, 0, 4096);
+    raw_station_beam_callback(buffer, 0, &metadata);
 }
 
 void test_acquire_station_beam() {
@@ -419,9 +427,8 @@ int main(int argc, char *argv[])
         cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * nof_channels * npol * sizeof(uint16_t));
 
     // If in test mode, just call test, otherwise communicate with DAQ
-#if TEST_MODE
-    test_acquire_station_beam();
-#else
+    // test_acquire_station_beam();
+    // exit(0);
 
     // Telescope information
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
@@ -445,7 +452,7 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    if (startConsumer("stationdataraw", raw_station_beam_callback) != SUCCESS) {
+    if (startConsumerDynamic("stationdataraw", raw_station_beam_callback) != SUCCESS) {
         LOG(ERROR, "Failed to start station data conumser");
         return 0;
     }
@@ -461,5 +468,4 @@ int main(int argc, char *argv[])
         LOG(ERROR, "Failed to stop receiver");
         return 0;
     }
-#endif
 }

@@ -60,7 +60,7 @@ void StationRawData::cleanUp()
 }
 
 // Set callback
-void StationRawData::setCallback(DataCallback callback)
+void StationRawData::setCallback(DataCallbackDynamic callback)
 {
     persister->setCallback(callback);
 }
@@ -455,8 +455,10 @@ void StationRawPersister::threadEntry()
 
         // Call callback if set
         if (callback != nullptr) {
-            callback(buffer->data, buffer->ref_time,
-                     buffer->frequency, buffer->nof_packets);
+            RawStationMetadata metadata = {buffer->frequency,
+                                           buffer->nof_packets,
+                                           buffer->seq_number};
+            callback(buffer->data, buffer->ref_time, &metadata);
         }
         else
             LOG(INFO, "Received station beam");

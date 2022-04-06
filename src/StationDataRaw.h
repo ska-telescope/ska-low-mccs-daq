@@ -32,6 +32,13 @@ struct StationRawBuffer
     std::mutex *mutex;        // Mutex lock for this buffer
 };
 
+// Callback data structure
+typedef struct raw_station_metadata {
+    unsigned frequency;        // Start channel frequency
+    unsigned nof_packets;      // Number of packets in buffer
+    unsigned buffer_counter;   // Buffer number
+} RawStationMetadata;
+
 class StationRawDoubleBuffer {
 
 public:
@@ -93,7 +100,7 @@ public:
     { this -> double_buffer = double_buffer; }
 
     // Set callback
-    void setCallback(DataCallback callback)
+    void setCallback(DataCallbackDynamic callback)
     {
         this -> callback = callback;
     }
@@ -108,7 +115,7 @@ private:
     StationRawDoubleBuffer *double_buffer;
 
     // Callback
-    DataCallback callback = nullptr;
+    DataCallbackDynamic callback = nullptr;
 };
 
 // -----------------------------------------------------------------------------
@@ -119,7 +126,7 @@ class StationRawData: public DataConsumer
 public:
 
     // Override setDataCallback
-    void setCallback(DataCallback callback) override;
+    void setCallback(DataCallbackDynamic callback) override;
 
     // Initialise consumer
     bool initialiseConsumer(json configuration) override;
