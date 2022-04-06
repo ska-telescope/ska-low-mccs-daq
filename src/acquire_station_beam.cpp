@@ -120,7 +120,7 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
         posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
         posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 
-	    printf("Created file %s\n", path.c_str());
+	printf("Created file %s\n", path.c_str());
 
         // If required, generate DADA file and add to file
         if (include_dada_header) {
@@ -208,7 +208,8 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
     auto now = std::chrono::system_clock::now();
     auto datetime = std::chrono::system_clock::to_time_t(now);
     auto date_text = strtok(ctime(&datetime), "\n");
-    cout << date_text <<  ": Written " << nof_packets << " packets in " << (unsigned) (diff(t1, t2) * 1000) << "ms" << endl;
+    cout << date_text <<  ": Written buffer " << buffer_counter << " with " << nof_packets << 
+	    " packets in " << (unsigned) (diff(t1, t2) * 1000) << "ms" << endl;
 
     // Increment buffer counter
     counter++;

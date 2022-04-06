@@ -35,7 +35,7 @@ bool StationRawData::initialiseConsumer(json configuration)
     packet_size  = configuration["max_packet_size"];
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t) nof_samples / 2);
+    initialiseRingBuffer(packet_size, (size_t) nof_samples / 8);
 
     // Create double buffer
     double_buffer= new StationRawDoubleBuffer(start_channel, nof_samples, nof_channels, nof_pols);
@@ -315,10 +315,13 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
 
         // Wait for next buffer to become available
         unsigned int index = 0;
+	double_buffer[producer].mutex -> lock();
         while (index * tim.tv_nsec < 1e3)
         {
-            if (double_buffer[this->producer].index != 0) {
+            if (double_buffer[producer].index != 0) {
+		double_buffer[producer].mutex -> unlock();
                 nanosleep(&tim, &tim2);
+		double_buffer[producer].mutex -> lock();
                 index++;
             }
             else
@@ -327,13 +330,15 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
 
         // If wait time elapsed, then we are overwriting a buffer
         if (index * tim.tv_nsec >= 1e3) {
-            LOG(WARN, "WARNING: Overwriting buffer %d with %d samples!", producer, double_buffer[producer].nof_packets);
+            LOG(WARN, "WARNING: Overwriting buffer %d with %d samples by buffer %d!", 
+			    double_buffer[producer].seq_number, double_buffer[producer].nof_packets, buffer_counter);
+	    clear(producer);
         }
 
-        // Clear buffer and start using
-        clear(producer);
+    	// Clear buffer and start using
         double_buffer[producer].index = current_index + nof_samples / samples;
         double_buffer[producer].seq_number = buffer_counter++;
+	double_buffer[consumer].mutex -> unlock();
     }
 
     // Copy data to buffer
@@ -401,6 +406,9 @@ StationRawBuffer* StationRawDoubleBuffer::read_buffer()
         return nullptr;
     }
 
+    // Lock buffer so that it's not overwritten by the producer
+    double_buffer[consumer].mutex -> lock();
+
     return &(double_buffer[consumer]);
 }
 
@@ -408,8 +416,9 @@ StationRawBuffer* StationRawDoubleBuffer::read_buffer()
 void StationRawDoubleBuffer::release_buffer()
 {
     // Set buffer as processed
-    double_buffer[consumer].mutex -> lock();
     clear(consumer);
+
+    // Unlock buffer
     double_buffer[consumer].mutex -> unlock();
 
     // Update consumer pointer
@@ -434,7 +443,7 @@ void StationRawDoubleBuffer::clear(int index)
         double_buffer[i].nof_samples = 0;
         double_buffer[i].nof_packets = 0;
         double_buffer[i].seq_number = 0;
-	    double_buffer[i].frequency = UINT_MAX;
+	double_buffer[i].frequency = UINT_MAX;
         memset(double_buffer[i].data, 0, nof_samples * nof_pols * nof_channels * sizeof(uint16_t));
     }
 }
