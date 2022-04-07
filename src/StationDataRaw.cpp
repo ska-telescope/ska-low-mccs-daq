@@ -373,7 +373,7 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
     // If number of channels is 1, or if data is not being transposed, then simply copy the entire buffer to its destination
     if (nof_channels == 1 || !transpose) {
         auto dst = this->double_buffer[producer_index].data + channel * nof_samples * nof_pols +
-                                (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols;
+                                (packet_counter - this->double_buffer[producer_index].sample_index) * samples * nof_pols;
         memcpy(dst,
                data_ptr,
                nof_pols * samples * sizeof(uint16_t));
