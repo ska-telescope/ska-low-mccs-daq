@@ -8,10 +8,6 @@
 #include <fcntl.h>
 #include <bits/stdc++.h>
 
-//#ifndef TEST_MODE
-//    #define TEST_MODE false
-//#endif
-
 #include "Utils.h"
 #include "DAQ.h"
 
@@ -125,7 +121,10 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
         // If required, generate DADA file and add to file
         if (include_dada_header) {
             // Define full header placeholder
-            char full_header[dada_header_size];
+            char *full_header;
+
+	        // Allocate full header. Note: using alignment of page size for Direct IO
+            allocate_aligned((void **) &full_header, (size_t) PAGE_ALIGNMENT, dada_header_size);
 
             // Copy generated header
             auto generated_header = generate_dada_header(timestamp, frequency);
@@ -138,6 +137,9 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
 
             if (write(fd, full_header, dada_header_size) < 0)
                 exit_with_error("Failed to generated DADA header to disk");
+
+            // Free up header space
+            free(full_header);
         }
     }
 
@@ -208,7 +210,7 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
     auto now = std::chrono::system_clock::now();
     auto datetime = std::chrono::system_clock::to_time_t(now);
     auto date_text = strtok(ctime(&datetime), "\n");
-    cout << date_text <<  ": Written buffer " << buffer_counter << " with " << nof_packets << 
+    cout << date_text <<  ": Written buffer " << buffer_counter << " with " << nof_packets <<
 	    " packets in " << (unsigned) (diff(t1, t2) * 1000) << "ms" << endl;
 
     // Increment buffer counter
