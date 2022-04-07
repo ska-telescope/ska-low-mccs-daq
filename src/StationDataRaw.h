@@ -22,14 +22,22 @@
 struct StationRawBuffer
 {
     double     ref_time;      // The reference time of the second contained in the buffer
-    int        index;         // Index to be used to determine buffer boundaries
+    int        sample_index;  // Index to be used to determine buffer boundaries
     bool       ready;         // Specifies whether the buffer is ready to be processed
     uint32_t   nof_packets;   // Number of packets
     uint32_t   nof_samples;   // Number of samples in buffer
+    uint32_t   seq_number;    // Sequential number identifying the buffer within the stream
     uint32_t   frequency;     // Smallest frequency in buffer
     uint16_t   *data;         // Data
     std::mutex *mutex;        // Mutex lock for this buffer
 };
+
+// Callback data structure
+typedef struct raw_station_metadata {
+    unsigned frequency;        // Start channel frequency
+    unsigned nof_packets;      // Number of packets in buffer
+    unsigned buffer_counter;   // Buffer number
+} RawStationMetadata;
 
 class StationRawDoubleBuffer {
 
@@ -51,7 +59,7 @@ public:
     void release_buffer();
 
     // Clear double buffer
-    void clear();
+    void clear(int index);
 
 private:
 
@@ -70,9 +78,11 @@ private:
     uint8_t  nof_buffers;   // Number of buffers in buffering system
 
     // Producer and consumer pointers, specifying which buffer index to use
-    // These are declared as volatile so tha they are not optimsed into registers
+    // These are declared as volatile so that they are not optimized into registers
     volatile int producer;
     volatile int consumer;
+
+    volatile uint32_t buffer_counter = 0; // Counter representing current buffer
 
     // Timing variables
     struct timespec tim, tim2;
@@ -90,7 +100,7 @@ public:
     { this -> double_buffer = double_buffer; }
 
     // Set callback
-    void setCallback(DataCallback callback)
+    void setCallback(DataCallbackDynamic callback)
     {
         this -> callback = callback;
     }
@@ -105,7 +115,7 @@ private:
     StationRawDoubleBuffer *double_buffer;
 
     // Callback
-    DataCallback callback = nullptr;
+    DataCallbackDynamic callback = nullptr;
 };
 
 // -----------------------------------------------------------------------------
@@ -116,7 +126,7 @@ class StationRawData: public DataConsumer
 public:
 
     // Override setDataCallback
-    void setCallback(DataCallback callback) override;
+    void setCallback(DataCallbackDynamic callback) override;
 
     // Initialise consumer
     bool initialiseConsumer(json configuration) override;

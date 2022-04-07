@@ -28,14 +28,14 @@ bool StationRawData::initialiseConsumer(json configuration)
     }
 
     // Set local values
-    this -> start_channel = configuration["start_channel"];
-    this -> nof_channels = configuration["nof_channels"];
-    this -> nof_samples  = configuration["nof_samples"];
-    this -> nof_pols     = 2;
-    this -> packet_size  = configuration["max_packet_size"];
+    start_channel = configuration["start_channel"];
+    nof_channels = configuration["nof_channels"];
+    nof_samples  = configuration["nof_samples"];
+    nof_pols     = 2;
+    packet_size  = configuration["max_packet_size"];
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t) nof_samples / 2);
+    initialiseRingBuffer(packet_size, (size_t) nof_samples / 8);
 
     // Create double buffer
     double_buffer= new StationRawDoubleBuffer(start_channel, nof_samples, nof_channels, nof_pols);
@@ -52,7 +52,8 @@ bool StationRawData::initialiseConsumer(json configuration)
 void StationRawData::cleanUp()
 {
     // Stop cross correlator thread
-    persister->stop();
+    if (persister != nullptr)
+        persister->stop();
 
     // Destroy instances
     delete persister;
@@ -60,9 +61,10 @@ void StationRawData::cleanUp()
 }
 
 // Set callback
-void StationRawData::setCallback(DataCallback callback)
+void StationRawData::setCallback(DataCallbackDynamic callback)
 {
-    this -> persister -> setCallback(callback);
+    if (persister != nullptr)
+        persister->setCallback(callback);
 }
 
 // Packet filter
@@ -193,10 +195,6 @@ bool StationRawData::processPacket()
     // Calculate packet time
     double packet_time = sync_time + timestamp * 1.0e-9; // timestamp_scale;
 
-    // Divide packet counter by 8 (reason unknown)
-    // NOTE: This is only applicable for the "old" version, prior to TPM_1_6 version
-    // packet_counter = packet_counter >> 3;
-
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
 
@@ -243,16 +241,15 @@ StationRawDoubleBuffer::StationRawDoubleBuffer(uint16_t start_channel, uint32_t 
     // Initialise and allocate buffers in each struct instance
     for(unsigned i = 0; i < nof_buffers; i++)
     {
-        double_buffer[i].ref_time     = 0;
-        double_buffer[i].ready        = false;
-        double_buffer[i].index        = 0;
-        double_buffer[i].nof_packets  = 0;
-        double_buffer[i].nof_samples  = 0;
-	double_buffer[i].frequency    = UINT_MAX;
+        // Allocate buffer. Note: using alignment of page size for Direct IO
+        allocate_aligned((void **) &double_buffer[i].data, (size_t) PAGE_ALIGNMENT,
+                         nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
+
+        // Create mutex
         double_buffer[i].mutex = new std::mutex;
 
-	allocate_aligned((void **) &double_buffer[i].data, 512, nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
-	memset(double_buffer[i].data, 0, nof_pols * nof_channels * nof_samples * sizeof(uint16_t));
+        // Initialise
+        clear(i);
     }
     
     // Initialise producer and consumer
@@ -280,17 +277,19 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
                                         uint16_t *data_ptr, double timestamp, uint32_t frequency)
 {
     // Check whether the current consumer buffer is empty, and if so set index of the buffer
-    if (this -> double_buffer[this->producer].index == 0)
-        this -> double_buffer[this->producer].index = packet_counter;
+    if (double_buffer[producer].sample_index == 0) {
+        double_buffer[producer].sample_index = packet_counter;
+        double_buffer[producer].seq_number = buffer_counter++;
+    }
 
     // Check if we are receiving a packet from a previous buffer, if so place in previous buffer
-    else if (this -> double_buffer[this->producer].index > packet_counter)
+    else if (double_buffer[producer].sample_index > packet_counter)
     {
         // Select buffer to place data into
-        int local_producer = (this->producer == 0) ? this->nof_buffers - 1 : (this->producer - 1);
+        int local_producer = (producer == 0) ? nof_buffers - 1 : (producer - 1);
 
         // Check if packet belongs in selected buffer
-        auto local_index = this -> double_buffer[local_producer].index;
+        auto local_index = double_buffer[local_producer].sample_index;
         if (local_index > packet_counter)
             // Packet belongs to an older buffer (or is invalid). Ignoring
             return;
@@ -303,48 +302,62 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
     }
 
     // Check if packet counter is within current buffer or if we have skipped buffer boundary
-    else if (packet_counter - this->double_buffer[this->producer].index >= nof_samples / samples)
+    else if (packet_counter - double_buffer[producer].sample_index >= nof_samples / samples)
     {
         // Store current buffer's index
-        uint64_t current_index = this -> double_buffer[this->producer].index;
+        uint64_t current_index = double_buffer[producer].sample_index;
 
         // We have skipped buffer borders, mark buffer before previous one as ready and switch to next one
-        int local_producer = (this->producer < 2) ? (this -> producer - 2) + this->nof_buffers : (this -> producer - 2);
-        if (this->double_buffer[local_producer].index != 0)
-            this -> double_buffer[local_producer].ready = true;
+        int local_producer = (producer < 2) ? (producer - 2) + nof_buffers : (producer - 2);
+        if (double_buffer[local_producer].sample_index != 0)
+            double_buffer[local_producer].ready = true;
 
         // Update producer pointer
-        this -> producer = (this -> producer + 1) % this -> nof_buffers;
+        producer = (producer + 1) % nof_buffers;
 
         // Wait for next buffer to become available
-        unsigned int index = 0;
-        while (index * tim.tv_nsec < 1e3)
-        {
-            if (this->double_buffer[this->producer].index != 0) {
-                nanosleep(&tim, &tim2);
-                index++;
-            }
-            else
+        long elapsed_time = 0;
+
+        // Lock buffer
+        double_buffer[producer].mutex -> lock();
+
+        // If the buffer index is not 0 (still need to be consumed), wait for a while to give time for the
+        // consumer process it. Whilst waiting, unlock the buffer. If enough time passes, then the buffer
+        // will be acquired regardless of whether it contains unprocessed data
+        for(;;) {
+
+            // Check if buffer can be used
+            if (double_buffer[producer].sample_index != 0)
                 break;
+
+            // Buffer not consumed yet, wait for a while (unlock during sleep)
+            double_buffer[producer].mutex->unlock();
+            nanosleep(&tim, &tim2);
+            double_buffer[producer].mutex->lock();
+            elapsed_time += tim.tv_nsec - tim2.tv_nsec;
+
+            // Overwriting a buffer, issue warning and clear buffer
+            if (elapsed_time >= 1e4) {
+                LOG(WARN, "WARNING: Overwriting buffer %d with %d samples by buffer %d!",
+                    double_buffer[producer].seq_number, double_buffer[producer].nof_packets, buffer_counter);
+                clear(producer);
+            }
         }
 
-        if (index * tim.tv_nsec >= 1e3)
-            LOG(WARN, "WARNING: Overwriting buffer %d with %d samples!", this ->producer, this->double_buffer[this->producer].nof_packets);
+    	// Clear buffer and start using
+        double_buffer[producer].sample_index = current_index + nof_samples / samples;
+        double_buffer[producer].seq_number = buffer_counter++;
 
-	// Clear buffer and start using
-        this -> double_buffer[this -> producer].ref_time = DBL_MAX;
-	this -> double_buffer[this -> producer].nof_samples = 0;
-        this -> double_buffer[this -> producer].nof_packets = 0;
-        this -> double_buffer[this -> producer].frequency = UINT_MAX;
-        this -> double_buffer[this -> producer].index = current_index + nof_samples / samples;
+        // Unlock double buffer
+        double_buffer[consumer].mutex -> unlock();
     }
 
     // Copy data to buffer
-    this->process_data(producer, packet_counter, samples, channel, data_ptr, timestamp, frequency);
+    process_data(producer, packet_counter, samples, channel, data_ptr, timestamp, frequency);
 
     // Update buffer index if required
-    if (this->double_buffer[producer].index > packet_counter)
-        this->double_buffer[producer].index = packet_counter;
+    if (double_buffer[producer].sample_index > packet_counter)
+        double_buffer[producer].sample_index = packet_counter;
 }
 
 inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t packet_counter, uint32_t samples,
@@ -353,7 +366,7 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
     // Copy data from packet to buffer
     // If number of channels is 1, then simply copy the entire buffer to its destination
     if (nof_channels == 1)
-        memcpy(this->double_buffer[producer_index].data + (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols,
+        memcpy(double_buffer[producer_index].data + (packet_counter - double_buffer[producer_index].sample_index) * samples * nof_pols,
                data_ptr,
                nof_pols * samples * sizeof(uint16_t));
     else {
@@ -361,7 +374,7 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
         // dst is in sample/channel/pol order, so we need to skip nof_channels * nof_pols for every src sample
         // src is in sample/pol order (for one channel), we only need to skip nof_pols every time
         auto dst = double_buffer[producer_index].data +
-                       (packet_counter - this->double_buffer[producer_index].index) * samples * nof_pols * nof_channels +
+                       (packet_counter - double_buffer[producer_index].sample_index) * samples * nof_pols * nof_channels +
                        channel * nof_pols;
         auto src = data_ptr;
 
@@ -379,19 +392,19 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
     }
 
     // Update number of packets
-    this->double_buffer[producer_index].nof_packets++;
+    double_buffer[producer_index].nof_packets++;
 
     // Update number of samples (for channel 0, assuming other channels will have a similar number, hopefully)i
     if (channel == start_channel) 
-        this->double_buffer[producer_index].nof_samples += samples;
+        double_buffer[producer_index].nof_samples += samples;
 
     // Update frequency
-    if (this->double_buffer[producer_index].frequency > frequency)
-	this->double_buffer[producer_index].frequency = frequency;
+    if (double_buffer[producer_index].frequency > frequency)
+	double_buffer[producer_index].frequency = frequency;
 
 
     // Update timings
-    if (this->double_buffer[producer_index].ref_time > timestamp || this->double_buffer[producer_index].ref_time == 0)
+    if (this->double_buffer[producer_index].ref_time > timestamp || double_buffer[producer_index].ref_time == 0)
         this->double_buffer[producer_index].ref_time = timestamp;
 }
 
@@ -399,44 +412,50 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
 StationRawBuffer* StationRawDoubleBuffer::read_buffer()
 {
     // Wait for buffer to become available
-    if (!(this->double_buffer[this->consumer].ready)) {
+    if (!(double_buffer[consumer].ready)) {
         nanosleep(&tim, &tim2); // Wait using nanosleep
         return nullptr;
     }
 
-    return &(this->double_buffer[this->consumer]);
+    // Lock buffer so that it's not overwritten by the producer
+    double_buffer[consumer].mutex -> lock();
+
+    return &(double_buffer[consumer]);
 }
 
 // Ready from buffer, mark as processed
 void StationRawDoubleBuffer::release_buffer()
 {
     // Set buffer as processed
-    this->double_buffer[this->consumer].mutex -> lock();
-    this->double_buffer[this->consumer].index = 0;
-    this->double_buffer[this->consumer].ready = false;
-    this->double_buffer[this->consumer].ref_time = DBL_MAX;
-    this->double_buffer[this->consumer].nof_packets = 0;
-    this->double_buffer[this->consumer].nof_samples = 0;
-    this->double_buffer[this->consumer].frequency = UINT_MAX;
-    memset(double_buffer[this->consumer].data, 0, nof_samples * nof_pols * nof_channels * sizeof(uint16_t));
-    this->double_buffer[this->consumer].mutex -> unlock();
+    clear(consumer);
+
+    // Unlock buffer
+    double_buffer[consumer].mutex -> unlock();
 
     // Update consumer pointer
-    this->consumer = (this->consumer + 1) % nof_buffers;
+    consumer = (consumer + 1) % nof_buffers;
 }
 
 // Clear double buffer
-void StationRawDoubleBuffer::clear()
+void StationRawDoubleBuffer::clear(int index)
 {
+    unsigned start = 0, stop = nof_buffers;
+    if (index != -1) {
+        start = index;
+        stop = index + 1;
+    }
+
     // Initialise and allocate buffers in each struct instance
-    for(unsigned i = 0; i < nof_buffers; i++)
+    for(unsigned i = start; i < stop; i++)
     {
         double_buffer[i].ref_time = DBL_MAX;
-        double_buffer[i].ready    = false;
-        double_buffer[i].index    = 0;
+        double_buffer[i].ready = false;
+        double_buffer[i].sample_index = 0;
         double_buffer[i].nof_samples = 0;
         double_buffer[i].nof_packets = 0;
-	double_buffer[i].frequency = UINT_MAX;
+        double_buffer[i].seq_number = 0;
+        double_buffer[i].frequency = UINT_MAX;
+        memset(double_buffer[i].data, 0, nof_samples * nof_pols * nof_channels * sizeof(uint16_t));
     }
 }
 
@@ -444,24 +463,30 @@ void StationRawDoubleBuffer::clear()
 void StationRawPersister::threadEntry()
 {
     // Infinite loop: Process buffers
-    while (!this->stop_thread) {
+    while (!stop_thread) {
 
         // Get new buffer
         StationRawBuffer *buffer;
         do {
             buffer = double_buffer->read_buffer();
-            if (this->stop_thread)
+            if (stop_thread)
                 return;
         } while (buffer == nullptr);
 
         // Call callback if set
-        if (callback != nullptr)
-            callback(buffer->data, buffer->ref_time, 
-                     buffer->frequency, buffer->nof_packets);
+        if (callback != nullptr) {
+            RawStationMetadata metadata = {buffer->frequency,
+                                           buffer->nof_packets,
+                                           buffer->seq_number};
+            callback(buffer->data, buffer->ref_time, &metadata);
+        }
         else
             LOG(INFO, "Received station beam");
 
         // Ready from buffer
         double_buffer->release_buffer();
+
+        // Yield thread (for slow consumer, allow producer to overwrite buffers to keep up)
+        sched_yield();
     }
 }
