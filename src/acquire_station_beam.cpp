@@ -13,13 +13,11 @@ using namespace std;
 
 // Telescope and observation parameters
 float channel_bandwidth = (400e6 / 512.0) * (32 / 27.0);
-string source = "UNKNOWN";
-string telescope = "LFAASP";
-int nbits = 8;
-int npol = 2;
-int ndim = 2;
 
-int n_fine_channels = 1;
+auto dada_header_size = 4096;
+string source = "UNKNOWN";
+int nof_bits = 8;
+int nof_pols = 2;
 
 // Acquisition parameters
 string base_directory = "/data/";
@@ -30,11 +28,10 @@ uint32_t start_channel = 0;
 uint32_t nof_channels = 1;
 uint32_t duration = 60;
 uint64_t max_file_size_gb = 1;
-bool simulate_write = false;
 
+bool simulate_write = false;
 bool individual_channel_files = false;
 bool include_dada_header = false;
-auto dada_header_size = 4096;
 
 // File descriptor
 std::vector<int> files;
@@ -54,6 +51,7 @@ typedef struct raw_station_metadata {
 static int generate_output_file(double timestamp, unsigned int frequency,
                                 unsigned int first_channel, unsigned int channels_in_file);
 static std::string generate_dada_header(double timestamp, unsigned int frequency, unsigned int channels_in_file);
+void seek_to_location(off_t offset, int whence);
 void allocate_space(off_t offset, size_t len);
 void write_to_file(void* data);
 
@@ -91,6 +89,7 @@ float diff(timespec start, timespec end)
 // Raw station beam callback
 void raw_station_beam_callback(void *data, double timestamp, void *metadata)
 {
+    // Extract metadata
     unsigned frequency = ((RawStationMetadata *) metadata)->frequency;
     unsigned nof_packets = ((RawStationMetadata *) metadata)->nof_packets;
     unsigned buffer_counter = ((RawStationMetadata *) metadata)->buffer_counter;
@@ -100,7 +99,9 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
 	    return;
     }
 
-    unsigned long buffer_size = nof_samples * nof_channels * npol * sizeof(uint16_t);
+    unsigned long buffer_size = nof_samples * nof_channels * nof_pols * sizeof(uint16_t);
+    if (individual_channel_files)
+        buffer_size =  nof_samples * nof_pols * sizeof(uint16_t);
 
     // Check whether we need to generate new files
     // Note: Assumption that first buffer in the file is not an overwritten buffer
@@ -127,7 +128,7 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
     if (simulate_write)
         ;
 
-        // Received expected buffer
+    // Received expected buffer
     else if (counter == buffer_counter)
         write_to_file(data);
 
@@ -138,34 +139,21 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
         if (buffer_counter % cutoff_counter < (counter - skip) % cutoff_counter)
             printf("WARNING: Cannot write buffer to future file! Skipping!\n");
 
+        else {
             // Get current position in file
             off_t current_offset = lseek(files[0], 0, SEEK_CUR);
 
             // Allocate empty space in the file up to the beginning of the next buffer
-            for(int fd: files) {
-                allocate_space(fd, current_offset + (buffer_counter - counter) * buffer_size, buffer_size);
+            allocate_space(current_offset + (buffer_counter - counter) * buffer_size, buffer_size);
 
-                // Seek to newly allocated space
-                if (lseek(fd, (buffer_counter - counter) * buffer_size, SEEK_CUR) < 0)
-                    exit_with_error("WARNING: Cannot seek file after gap allocation. Exiting\n");
-            }
+            // Seek to newly allocated space
+            seek_to_location((buffer_counter - counter) * buffer_size, SEEK_CUR);
 
             // Write buffer
-            if (individual_channel_files) {
-                for (unsigned i = 0; i < nof_channels; i++) {
-
-                    auto src = (uint16_t *) data + i * nof_samples * npol;
-                    if (write(files[i], src, nof_samples * npol * sizeof(uint16_t)) < 0)
-                        exit_with_error("Failed to write buffer to disk! Exiting!");
-                }
-            }
-            else
-                write_to_file(files[0], data);
+            write_to_file(data);
 
             // Seek back to previous position + buffer length for next buffer
-            for(int fd: files)
-                if (lseek(fd, current_offset + buffer_size, SEEK_SET) < 0)
-                    exit_with_error("WARNING: Cannot seek file after write to future buffer! Exiting\n");
+            seek_to_location(current_offset + buffer_size, SEEK_SET);
         }
     }
 
@@ -173,22 +161,19 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
     else if (buffer_counter % cutoff_counter > (counter - skip) % cutoff_counter)
         printf("WARNING: Cannot write buffer to future file! Skipping\n");
 
-        // Buffer belongs in the current file prior to current buffer
+    // Buffer belongs in the current file prior to current buffer
     else {
         // Get current position in file
-        off_t current_offset = lseek(fd, 0, SEEK_CUR);
+        off_t current_offset = lseek(files[0], 0, SEEK_CUR);
 
         // Go to required position in the past
-        if (lseek(fd, current_offset - (counter - buffer_counter) * buffer_size, SEEK_SET) < 0)
-            printf("WARNING!: Cannot seek file before current buffer! Skipping!\n");
-        else {
-            // Write data
-            write_to_file(data);
+        seek_to_location(current_offset - (counter - buffer_counter) * buffer_size, SEEK_SET);
 
-            // Seek back to previous offset
-            if (lseek(fd, current_offset + buffer_size, SEEK_SET) < 0)
-                exit_with_error("Cannot seek file back to original offset. Exiting!\n");
-        }
+        // Write data
+        write_to_file(data);
+
+        // Seek back to previous offset + 1 extra buffer size
+        seek_to_location(current_offset + buffer_size, SEEK_SET);
     }
 
     clock_gettime(CLOCK_REALTIME_COARSE, &t2);
@@ -204,22 +189,37 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
     counter++;
 }
 
-void allocate_space(int fd, off_t offset, size_t len) {
-    if (fallocate(fd, FALLOC_FL_ZERO_RANGE, offset, len) < 0) {
-        perror("Failed to fallocate empty gap in file");
-        close(fd);
-        exit(-1);
-    }
+void allocate_space(off_t offset, size_t len) {
+    // Wrapper for fallocate which works on multiple files
+    for(int fd: files)
+        if (fallocate(fd, FALLOC_FL_ZERO_RANGE, offset, len) < 0) {
+            perror("Failed to fallocate empty gap in file");
+            close(fd);
+            exit(-1);
+        }
 }
 
-void write_to_file(int fd, void* data) {
-    // Write data buffer to disk and measure write time
-    if (write(fd, data, nof_samples * nof_channels * npol * sizeof(uint16_t)) < 0) {
-        perror("Failed to write buffer to disk");
-        fsync(fd);
-        close(fd);
-        exit(-1);
+void seek_to_location(off_t offset, int whence) {
+    // Wrapper to lseek which works for multiple files
+    for(int fd: files)
+        if (lseek(fd, offset, whence) < 0)
+            exit_with_error("WARNING: Cannot seek file after gap allocation. Exiting\n");
+}
+
+void write_to_file(void* data) {
+
+    // If separating channel, split buffer and write each channel into its respective file
+    if (individual_channel_files) {
+        for (unsigned i = 0; i < nof_channels; i++) {
+            auto src = (uint16_t *) data + i * nof_samples * nof_pols;
+            if (write(files[i], src, nof_samples * nof_pols * sizeof(uint16_t)) < 0)
+                exit_with_error("Failed to write buffer to disk! Exiting!");
+        }
     }
+    else
+        // Write entire buffer to file
+        if (write(files[0], data, nof_samples * nof_channels * nof_pols * sizeof(uint16_t)) < 0)
+            exit_with_error(("Failed to write buffer to disk! Exiting!"));
 }
 
 // Generate output files
@@ -293,15 +293,15 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "HDR_SIZE " << dada_header_size << endl;
     header << "BW " << fixed << setprecision(4) << channel_bandwidth * channels_in_file * 1e-6 << endl;
     header << "FREQ " << fixed << setprecision(6) << frequency * 1e-6<< endl;
-    header << "TELESCOPE " << telescope << endl;
-    header << "RECEIVER " << telescope << endl;
-    header << "INSTRUMENT " << telescope << endl;
+    header << "TELESCOPE " << "LFAASP" << endl;
+    header << "RECEIVER " << "LFAASP" << endl;
+    header << "INSTRUMENT " << "LFAASP" << endl;
     header << "SOURCE " << source << endl;
     header << "MODE PSR" << endl;
-    header << "NBIT " << nbits << endl;
-    header << "NPOL " << npol << endl;
+    header << "NBIT " << nof_bits << endl;
+    header << "NPOL " << nof_pols << endl;
     header << "NCHAN " << channels_in_file << endl;
-    header << "NDIM " << ndim << endl;
+    header << "NDIM " << 2 << endl;
     header << "OBS_OFFSET 0" << endl;
     header << "TSAMP " << fixed << setprecision(4) << (1.0 / channel_bandwidth) * 1e6 << endl;
     header << "UTC_START " << time_string << endl;
@@ -313,8 +313,8 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "COMMAND CAPTURE" << endl;
 
     header << "NTIMESAMPLES 1" << endl;
-    header << "NINPUTS " << fixed << channels_in_file * npol << endl;
-    header << "NINPUTS_XGPU " << fixed << channels_in_file * npol << endl;
+    header << "NINPUTS " << fixed << channels_in_file * nof_pols << endl;
+    header << "NINPUTS_XGPU " << fixed << channels_in_file * nof_pols << endl;
     header << "METADATA_BEAMS 2" << endl;
     header << "APPLY_PATH_WEIGHTS 1" << endl;
     header << "APPLY_PATH_DELAYS 2" << endl;
@@ -328,8 +328,8 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "SECS_PER_SUBOBS 8" << endl;
     header << "UNIXTIME " << (int) timestamp << endl;
     header << "UNIXTIME_MSEC " << fixed << setprecision(6) << (timestamp - (int) (timestamp)) * 1e3  << endl;
-    header << "FINE_CHAN_WIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth / n_fine_channels  << endl;
-    header << "NFINE_CHAN " << n_fine_channels << endl;
+    header << "FINE_CHAN_WIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth / 1  << endl;
+    header << "NFINE_CHAN " << 1 << endl;
     header << "BANDWIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth * channels_in_file << endl;
     header << "SAMPLE_RATE " << fixed << setprecision(6) << channel_bandwidth << endl;
     header << "MC_IP 0" << endl;
@@ -441,7 +441,21 @@ static void parse_arguments(int argc, char *argv[])
 
 void call_station_beam_callback(uint16_t *buffer, unsigned test_counter) {
     RawStationMetadata metadata = {0,0,test_counter};
-    memset(buffer, test_counter, nof_samples * nof_channels * npol * sizeof(uint16_t));
+
+    if (individual_channel_files) {
+        for (unsigned i = 0; i < nof_channels; i++)
+            for (unsigned j = 0; j < nof_samples; j++) {
+                buffer[(i * nof_samples + j) * 2] = ((test_counter + i) << 8) | (test_counter + i);
+                buffer[(i * nof_samples + j) * 2 + 1] = ((test_counter + i) << 8) | (test_counter + i);
+            }
+    }
+    else
+        for (unsigned i = 0; i < nof_samples; i++)
+            for (unsigned j = 0; j < nof_channels; j++) {
+                buffer[(i * nof_channels + j) * 2] = ((test_counter + j) << 8) | (test_counter + j);
+                buffer[(i * nof_channels + j) * 2 + 1] = ((test_counter + j) << 8) | (test_counter + j);
+            }
+
     raw_station_beam_callback(buffer, 0, &metadata);
 }
 
@@ -450,7 +464,7 @@ void test_acquire_station_beam() {
 
     // Generate buffer for passing to callback
     uint16_t *buffer;
-    allocate_aligned((void **) &buffer, PAGE_ALIGNMENT, nof_samples * nof_channels * npol * sizeof(uint16_t));
+    allocate_aligned((void **) &buffer, PAGE_ALIGNMENT, nof_samples * nof_channels * nof_pols * sizeof(uint16_t));
 
     call_station_beam_callback(buffer, 0);
     call_station_beam_callback(buffer, 1);
@@ -461,7 +475,7 @@ void test_acquire_station_beam() {
     call_station_beam_callback(buffer, 6);
     call_station_beam_callback(buffer, 8);
     call_station_beam_callback(buffer, 7);
-    call_station_beam_callback(buffer, 10);
+    call_station_beam_callback(buffer, 20);
 }
 
 int main(int argc, char *argv[])
@@ -474,17 +488,17 @@ int main(int argc, char *argv[])
     if (include_dada_header)
         cutoff_counter = INT_MAX;
     else if (individual_channel_files)
-        cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * npol * sizeof(uint16_t));
+        cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * nof_pols * sizeof(uint16_t));
     else
-        cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * nof_channels * npol * sizeof(uint16_t));
+        cutoff_counter = (max_file_size_gb * 1024 * 1024 * 1024) / (nof_samples * nof_channels * nof_pols * sizeof(uint16_t));
 
     // If received only 1 channel, then individual_channel_files can be disabled
     if (nof_channels == 1)
         individual_channel_files = false;
 
     // If in test mode, just call test, otherwise communicate with DAQ
-    // test_acquire_station_beam();
-    // exit(0);
+//     test_acquire_station_beam();
+//     exit(0);
 
     // Telescope information
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
@@ -500,24 +514,24 @@ int main(int argc, char *argv[])
     };
 
     if (loadConsumer("libaavsdaq.so", "stationdataraw") != SUCCESS) {
-        LOG(ERROR, "Failed to load station data conumser");
+        LOG(ERROR, "Failed to load station data consumser");
         return 0;
     }
 
     if (initialiseConsumer("stationdataraw", j.dump().c_str()) != SUCCESS) {
-        LOG(ERROR, "Failed to initialise station data conumser");
+        LOG(ERROR, "Failed to initialise station data consumser");
         return 0;
     }
 
     if (startConsumerDynamic("stationdataraw", raw_station_beam_callback) != SUCCESS) {
-        LOG(ERROR, "Failed to start station data conumser");
+        LOG(ERROR, "Failed to start station data consumser");
         return 0;
     }
 
     sleep(duration);
 
     if (stopConsumer("stationdataraw") != SUCCESS) {
-        LOG(ERROR, "Failed to stop station data conumser");
+        LOG(ERROR, "Failed to stop station data consumser");
         return 0;
     }
 
