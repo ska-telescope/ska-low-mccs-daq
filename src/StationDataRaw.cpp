@@ -327,7 +327,7 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
         for(;;) {
 
             // Check if buffer can be used
-            if (double_buffer[producer].sample_index != 0)
+            if (double_buffer[producer].sample_index == 0)
                 break;
 
             // Buffer not consumed yet, wait for a while (unlock during sleep)
@@ -341,6 +341,7 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
                 LOG(WARN, "WARNING: Overwriting buffer %d with %d samples by buffer %d!",
                     double_buffer[producer].seq_number, double_buffer[producer].nof_packets, buffer_counter);
                 clear(producer);
+		break;
             }
         }
 
