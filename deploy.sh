@@ -14,7 +14,9 @@ function display_help(){
     echo "-C             Correlator will be compiled, installing CUDA and xGPU in the process (off by default)"
     echo "               NOTE: Automated install of CUDA and xGPU not supported yet"
     echo "-p             Activate AAVS virtualenv in .bashrc (off by default)"
-    echo "-v <venv path> specify location of 'python' virtualenv folder (default /opt/aavs)"
+    echo "-v <venv path> specifies location of 'python' virtualenv folder (default /opt/aavs)"
+    echo "-b <pyfabil_branch> specifies pyfabil branch to be installed"
+    echo "-c             clean build directories and installed python virtual environment" 
     echo "-h             Print this message"
     echo "
 This script should not be executed with sudo, however the user executing it must have sudo privileges. Only the user
@@ -34,6 +36,8 @@ The following directories should be deleted when encountering issues running thi
     python/dist
     third_party
 
+Using the command line option -c will delete the above folders before installing aavs-system.
+
 If issues are experienced with the ipython version installed by default, install a different ipython version in the
 virtual environment using:
     pip install ipython==5.5.0
@@ -51,27 +55,31 @@ export AAVS_INSTALL=/opt/aavs
 export VENV_INSTALL=/opt/aavs
 
 # Installation options
+CLEAN=false
 COMPILE_CORRELATOR=OFF
 ACTIVATE_VENV=false
 PRINT_HELP=false
+PYFABIL_BRANCH="master"
 
 # Process command-line arguments
-while getopts "Chpv:" flag
+while getopts "Chpcb:v:" flag
 do
     case "${flag}" in
         C) COMPILE_CORRELATOR=ON ;;
         h) PRINT_HELP=true ;;
         p) ACTIVATE_VENV=true ;;
-        v)export VENV_INSTALL=${OPTARG}
-          if [[ ${VENV_INSTALL:0:1} == "-" ]]; then # If argument is next option
-            echo "Error: -${flag} requires an argument."
-            exit 1                   # Exit abnormally.
-          fi
-          echo "Selected venv Path: $VENV_INSTALL" ;;
+        c) CLEAN=true ;;
+        b) PYFABIL_BRANCH=${OPTARG} ;;
+        v) export VENV_INSTALL=${OPTARG}
+           if [[ ${VENV_INSTALL:0:1} == "-" ]]; then # If argument is next option
+             echo "Error: -${flag} requires an argument."
+             exit 1                   # Exit abnormally.
+           fi
+           echo "Selected venv Path: $VENV_INSTALL" ;;
         \?)                                    # If expected argument omitted:
-          echo "Error: missing argument."
-          exit 1                   # Exit abnormally.
-          ;;
+           echo "Error: missing argument."
+           exit 1                   # Exit abnormally.
+           ;;
     esac
 done
 
@@ -102,6 +110,13 @@ function install_package(){
       return 1  # Return fail status (already installed)
     fi
 }
+
+
+# Check if printing help
+if [ $CLEAN == true ]; then
+    echo "Cleaning aavs-system installation"
+    sudo rm -r /opt/aavs/python src/build python/build python/dist third_party
+fi
 
 # Create installation directory tree
 function create_install() {
@@ -212,7 +227,7 @@ fi
 pushd third_party || exit
 
   # Install PyFABIL
-  pip install git+https://lessju@bitbucket.org/lessju/pyfabil.git --force-reinstall
+  pip install git+https://lessju@bitbucket.org/lessju/pyfabil.git@$PYFABIL_BRANCH --force-reinstall
 
   # Install DAQ
   if [[ ! -d "aavs-daq" ]]; then
@@ -222,9 +237,8 @@ pushd third_party || exit
       if [[ ! -d build ]]; then
         mkdir build
       fi
-      
-	  # Install DAQ C++ core
-	  pushd build || exit
+	# Install DAQ C++ core
+        pushd build || exit
         cmake -DCMAKE_INSTALL_PREFIX=$AAVS_INSTALL -DWITH_BCC=OFF .. || exit
         make -B -j8 install || exit
       popd
