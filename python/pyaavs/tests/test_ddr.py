@@ -21,7 +21,7 @@ class TestDdr():
     def clean_up(self):
         return
 
-    def execute(self, duration=16, last_addr=0x7FFFFF8):
+    def execute(self, duration=16, first_addr=0x0, last_addr=0x7FFFFF8, pause=0, reset_dsp=1, reset_ddr=1):
 
         self._test_station = station.Station(self._station_config)
         self._test_station.connect()
@@ -40,15 +40,18 @@ class TestDdr():
             return 1
 
         # Resetting DSP to get exclusive access to DDR
-        self._test_station['fpga1.regfile.reset.dsp_rst'] = 1
-        self._test_station['fpga2.regfile.reset.dsp_rst'] = 1
+        if reset_dsp == 1:
+            self._test_station['fpga1.regfile.reset.dsp_rst'] = 1
+            self._test_station['fpga2.regfile.reset.dsp_rst'] = 1
 
         # Resetting DDR and checking initialisation
-        self._test_station['fpga1.regfile.reset.ddr_rst'] = 1
-        self._test_station['fpga2.regfile.reset.ddr_rst'] = 1
-        self._test_station['fpga1.regfile.reset.ddr_rst'] = 0
-        self._test_station['fpga2.regfile.reset.ddr_rst'] = 0
-        time.sleep(1)
+        if reset_ddr == 1:
+            self._test_station['fpga1.regfile.reset.ddr_rst'] = 1
+            self._test_station['fpga2.regfile.reset.ddr_rst'] = 1
+            self._test_station['fpga1.regfile.reset.ddr_rst'] = 0
+            self._test_station['fpga2.regfile.reset.ddr_rst'] = 0
+            time.sleep(1)
+
         for n, tile in enumerate(self._test_station.tiles):
             if tile['fpga2.regfile.status.ddr_init_done'] == 0:
                 self._logger.error("Tile %d FPGA1 not initialising. Test FAILED" % n)
@@ -64,6 +67,10 @@ class TestDdr():
         # Preparing test
         self._test_station['fpga1.ddr_simple_test.last_addr'] = last_addr
         self._test_station['fpga2.ddr_simple_test.last_addr'] = last_addr
+        self._test_station['fpga1.ddr_simple_test.first_addr'] = first_addr
+        self._test_station['fpga2.ddr_simple_test.first_addr'] = first_addr
+        self._test_station['fpga1.ddr_simple_test.pause'] = pause
+        self._test_station['fpga2.ddr_simple_test.pause'] = pause
         self._test_station['fpga1.ddr_simple_test.start'] = 0
         self._test_station['fpga2.ddr_simple_test.start'] = 0
         self._test_station['fpga1.ddr_simple_test.error'] = 0
