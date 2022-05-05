@@ -111,7 +111,7 @@ bool RawData::processPacket()
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
-    auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
+    auto nfofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
     uint8_t *payload = packet + SPEAD_HEADERLEN + nofitems * SPEAD_ITEMLEN;
 
     // Loop over items to extract values
