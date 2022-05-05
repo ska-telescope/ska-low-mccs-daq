@@ -28,6 +28,7 @@ class DaqModes(Enum):
     INTEGRATED_CHANNEL_DATA = 5
     STATION_BEAM_DATA = 6
     CORRELATOR_DATA = 7
+    ANTENNA_BUFFER = 8
 
 
 # Custom numpy type for creating complex signed 8-bit data
@@ -70,7 +71,7 @@ conf = {"nof_antennas": 16,
 
 # Global DAQ modes
 modes = ["read_raw_data", "read_beam_data", "integrated_beam", "station_beam", "read_channel_data",
-         "continuous_channel", "integrated_channel", "correlator"]
+         "continuous_channel", "integrated_channel", "correlator", "antenna_buffer"]
 
 # Logging function
 logging_function = None
@@ -488,6 +489,35 @@ def station_callback(data, timestamp, nof_packets, nof_saturations):
             "Received station beam data (nof saturations: {}, nof_packets: {})".format(nof_saturations, nof_packets))
 
 
+def antenna_buffer_callback(data, timestamp, tile_id, _):
+    """ Antenna buffer data callback
+    :param data: Received data
+    :param tile: The tile from which the data was acquired
+    :param timestamp: Timestamp of first data point in data
+    """
+
+    # If writing to disk is not enabled, return immediately
+    if not config['write_to_disk']:
+        return
+
+    # Extract data sent by DAQ
+    nof_values = config['nof_antennas'] * config['nof_polarisations'] * \
+                 config['nof_raw_samples']
+    values = get_numpy_from_ctypes(data, np.int8, nof_values)
+
+    # Persist extracted data to file
+    filename = persisters[DaqModes.RAW_DATA].ingest_data(append=True,
+                                                         data_ptr=values,
+                                                         timestamp=timestamp,
+                                                         tile_id=tile_id)
+
+    # Call external callback if defined
+    if external_callbacks[DaqModes.RAW_DATA] is not None:
+        external_callbacks[DaqModes.RAW_DATA]("antenna_buffer", filename, tile_id)
+
+    if config['logging']:
+        logging.info("Received raw data for tile {}".format(tile))
+
 # ------------------------------------ Start consumer functions ------------------------------------------
 
 def start_raw_data_consumer(callback=None):
@@ -828,6 +858,44 @@ def start_correlator(callback=None):
         logging.info("Started correlator")
 
 
+def start_antenna_buffer_data_consumer(callback=None):
+    """ Start antenna buffer data consumer
+    :param callback: Caller callback
+    :param metadata: Any observation metadata to be added to the generated data files
+    """
+
+    global callbacks
+    global conf
+
+    # Generate configuration for raw consumer
+    params = {"nof_antennas": conf['nof_antennas'],
+              "nof_samples": conf['nof_raw_samples'],
+              "nof_tiles": conf['nof_tiles'],
+              "max_packet_size": conf['receiver_frame_size']}
+
+    # Start raw data consumer
+    if start_consumer("antennabuffer", params, callbacks[DaqModes.ANTENNA_BUFFER]) != Result.Success:
+        if conf['logging']:
+            logging.info("Failed to start raw data consumer")
+        raise Exception("Failed to start raw data consumer")
+    running_consumers[DaqModes.ANTENNA_BUFFER] = True
+
+    # Create data persister
+    raw_file = RawFormatFileManager(root_path=conf['directory'],
+                                    daq_mode=FileDAQModes.Burst,
+                                    observation_metadata=conf['observation_metadata'])
+
+    raw_file.set_metadata(n_antennas=conf['nof_antennas'],
+                          n_pols=conf['nof_polarisations'],
+                          n_samples=conf['nof_raw_samples'])
+    persisters[DaqModes.ANTENNA_BUFFER] = raw_file
+
+    # Set external callback
+    external_callbacks[DaqModes.ANTENNA_BUFFER] = callback
+
+    if conf['logging']:
+        logging.info("Started raw data consumer")
+
 # ------------------------------------ Stop consumer functions ------------------------------------------
 
 
@@ -918,6 +986,16 @@ def stop_correlator():
     if conf['logging']:
         logging.info("Stopped correlator")
 
+
+def stop_antenna_buffer_data_consumer():
+    """ Stop raw data consumer """
+    external_callbacks[DaqModes.ANTENNA_BUFFER] = None
+    if stop_consumer("antennabuffer") != Result.Success:
+        raise Exception("Failed to stop antenna buffer data consumer")
+    running_consumers[DaqModes.ANTENNA_BUFFER] = False
+
+    if conf['logging']:
+        logging.info("Stopped antenna buffer data consumer")
 
 # ------------------------------------------ Wrapper Functions Body ---------------------------------------
 
@@ -1037,7 +1115,8 @@ def stop_daq():
                       DaqModes.INTEGRATED_BEAM_DATA: stop_integrated_beam_data_consumer,
                       DaqModes.INTEGRATED_CHANNEL_DATA: stop_integrated_channel_data_consumer,
                       DaqModes.STATION_BEAM_DATA: stop_station_beam_data_consumer,
-                      DaqModes.CORRELATOR_DATA: stop_correlator}
+                      DaqModes.CORRELATOR_DATA: stop_correlator,
+                      DaqModes.ANTENNA_BUFFER: stop_antenna_buffer_data_consumer}
 
     # Stop all running consumers
     for key, running in list(running_consumers.items()):
@@ -1116,7 +1195,8 @@ callbacks = {DaqModes.RAW_DATA: DATA_CALLBACK(raw_data_callback),
              DaqModes.INTEGRATED_BEAM_DATA: DATA_CALLBACK(beam_integrated_data_callback),
              DaqModes.INTEGRATED_CHANNEL_DATA: DATA_CALLBACK(channel_integrated_data_callback),
              DaqModes.STATION_BEAM_DATA: DATA_CALLBACK(station_callback),
-             DaqModes.CORRELATOR_DATA: DATA_CALLBACK(correlator_callback)}
+             DaqModes.CORRELATOR_DATA: DATA_CALLBACK(correlator_callback),
+             DaqModes.ANTENNA_BUFFER: DATA_CALLBACK(antenna_buffer_callback)}
 
 # Logging function
 logging_function = LOGGER_CALLBACK(logging_callback)
@@ -1223,6 +1303,8 @@ if __name__ == "__main__":
                       default=False, help="Read integrated channel data[default: False]")
     parser.add_option("-K", "--correlator", action="store_true", dest="correlator",
                       default=False, help="Perform correlator [default: False]")
+    parser.add_option("-A", "--antenna_buffer", action="store_true", dest="antenna_buffer",
+                      default=False, help="Read antenna buffer data [default:False")
 
     # Persister options
     parser.add_option("-d", "--data-directory", action="store", dest="directory",
@@ -1279,6 +1361,9 @@ if __name__ == "__main__":
     # ------------------------------- Raw data consumer ------------------------------------------
     if config.read_raw_data:
         start_raw_data_consumer()
+
+    if config.antenna_buffer:
+        start_antenna_buffer_data_consumer()
 
     # ----------------------------- Channel data consumers ----------------------------------------
     # Running in integrated data mode
