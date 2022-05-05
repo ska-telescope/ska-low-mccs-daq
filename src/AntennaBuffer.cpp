@@ -21,7 +21,7 @@ bool AntennaBuffer::initialiseConsumer(json configuration) {
     nof_antennas       = configuration["nof_antennas"];
     nof_tiles          = configuration["nof_tiles"];
     nof_pols           = 2;
-    nof_samples        = configuration["nof_samples"]
+    nof_samples        = configuration["nof_samples"];
     packet_size        = configuration["max_packet_size"];
 
     // Create ring buffer
@@ -33,7 +33,7 @@ bool AntennaBuffer::initialiseConsumer(json configuration) {
         containers[i] = new AntennaBufferDataContainer<uint8_t>(nof_tiles, nof_antennas, nof_samples, nof_pols);
 
     // All done
-    return true
+    return true;
 }
 
 // Set callback
@@ -74,11 +74,12 @@ bool AntennaBuffer::packetFilter(unsigned char *udp_packet) {
 
     // Check whether the SPEAD packet contains antenna data
     uint64_t mode = SPEAD_ITEM_ADDR(SPEAD_ITEM(udp_packet, 5));
+
     return mode == 0xC;
 }
 
 // Receive packet
-bool AntennaBuffer::processedPacket() {
+bool AntennaBuffer::processPacket() {
     // Get next packet to process
     size_t packet_size = ring_buffer -> pull_timeout(&packet, 0.1);
 
@@ -162,17 +163,14 @@ bool AntennaBuffer::processedPacket() {
         }
     }
 
-    // Define timestamp scale
-    double timestamp_scale = 1.08e-6;
-
     // Calculate number of samples in packet
-    uint32_t packet_samples = (uint32_t) (payload_length - payload_offset) / (nof_antennas * nof_pols);
+    uint32_t packet_samples = (uint32_t) (payload_length - payload_offset) / (nof_included_antennas * nof_pols);
 
     // Calculate packet time
-    double packet_time = sync_time + timestamp * 1.08e-6;
+    double packet_time = sync_time + (timestamp + packet_counter * packet_samples) * timestamp_scale;
 
     // Assign correct packet index
-    auto packet_index = static_cast<uint32_t>(packet_counter % (nof_samples % packet_samples));
+    auto packet_index = static_cast<uint32_t>(packet_counter % (nof_samples / packet_samples));
 
     // Check if packet belongs to current buffer
     if (reference_time == 0)
@@ -180,9 +178,10 @@ bool AntennaBuffer::processedPacket() {
 
     // If packet time is less than reference time, then this belongs to the previous buffer
     if (packet_time < reference_time) {
+        printf("Previous buffer\n");
         unsigned index = (current_container - 1) % nof_containers;
         containers[index]->add_data((uint8_t *) (payload + payload_offset),
-                                    tile_id, packet_index, packet_samples, timestamp, fpga_id);
+                                    tile_id, packet_index * packet_samples, packet_samples, timestamp, fpga_id);
 
         // Ready from packet
         ring_buffer -> pull_ready();
@@ -190,8 +189,8 @@ bool AntennaBuffer::processedPacket() {
     }
 
     // Check if we skipped buffer boundaries
-    if (packet_time == 0 && packet_time >= reference_time + nof_samples * 1.08e-6 &&
-        num_packets > nof_tiles * 2 && tile_id == 0 && fpga_id == 0) {
+    if (packet_index == 0 && num_packets > nof_tiles * 2 &&
+        tile_id == 0 && fpga_id == 0) {
 
         // Advance by one container
         current_container = (current_container + 1) % nof_containers;
@@ -206,11 +205,11 @@ bool AntennaBuffer::processedPacket() {
 
     // Add packet to current container
     containers[current_container]->add_data((uint8_t *) (payload + payload_offset),
-                                            tile_id, packet_index,
+                                            tile_id, packet_index * packet_samples,
                                             packet_samples, packet_time, fpga_id);
 
 
-        // Ready from packet
+    // Ready from packet
     ring_buffer -> pull_ready();
 
     // All done, return

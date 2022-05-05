@@ -5,7 +5,15 @@
 #ifndef AAVS_DAQ_ANTENNABUFFER_H
 #define AAVS_DAQ_ANTENNABUFFER_H
 
-#include <cstdint>
+#include <cstdlib>
+#include <unistd.h>
+#include <fcntl.h>
+#include <cstring>
+#include <cmath>
+#include <string>
+#include <unordered_map>
+#include <sys/mman.h>
+#include <cfloat>
 
 #include "DAQ.h"
 
@@ -109,7 +117,7 @@ public:
     void clear() {
         // Clear buffer, set all content to 0
         for (unsigned i = 0; i < nof_tiles; i++)
-            memset(antenna_buffer_data[i], 0, nof_antennas * nof_pols * nof_samples);
+            memset(antenna_buffer_data[i].data, 0, nof_antennas * nof_pols * nof_samples);
 
         timestamp = DBL_MAX;
         nof_packets = 0;
@@ -121,6 +129,7 @@ public:
         if (callback == nullptr) {
             clear();
             LOG(WARN, "No callback for antenna buffer data defined");
+            return;
         }
 
         // Call callback for each tile
@@ -171,7 +180,7 @@ protected:
     inline bool packetFilter(unsigned char* udp_packet) override;
 
     // Grab SPEAD packet from buffer and process
-    bool processedPacket() override;
+    bool processPacket() override;
 
     // Function called when a burst stream capture has finished
     void onStreamEnd() override;
@@ -192,6 +201,8 @@ private:
     // Antenna information object
     unsigned not_received_samples = 0;
     unsigned nof_required_samples = 0;
+
+    double timestamp_scale = 1.08e-6;
 
     // Data setup
     uint16_t nof_antennas = 0;

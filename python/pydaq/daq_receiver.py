@@ -17,6 +17,7 @@ from pydaq.interface import *
 from pydaq.persisters import *
 import pyaavs.logger
 
+
 # Define consumer types enum
 class DaqModes(Enum):
     """ Board State enumeration """
@@ -497,26 +498,31 @@ def antenna_buffer_callback(data, timestamp, tile_id, _):
     """
 
     # If writing to disk is not enabled, return immediately
-    if not config['write_to_disk']:
+    if not conf['write_to_disk']:
         return
 
     # Extract data sent by DAQ
-    nof_values = config['nof_antennas'] * config['nof_polarisations'] * \
-                 config['nof_raw_samples']
+    nof_values = conf['nof_antennas'] * conf['nof_polarisations'] * \
+                 conf['nof_raw_samples']
     values = get_numpy_from_ctypes(data, np.int8, nof_values)
 
     # Persist extracted data to file
-    filename = persisters[DaqModes.RAW_DATA].ingest_data(append=True,
-                                                         data_ptr=values,
-                                                         timestamp=timestamp,
-                                                         tile_id=tile_id)
+    if DaqModes.ANTENNA_BUFFER not in list(timestamps.keys()):
+        timestamps[DaqModes.ANTENNA_BUFFER] = timestamp
+
+    filename = persisters[DaqModes.ANTENNA_BUFFER].ingest_data(append=True,
+                                                               data_ptr=values,
+                                                               timestamp=timestamps[DaqModes.ANTENNA_BUFFER],
+                                                               buffer_timestamp=timestamp,
+                                                               tile_id=tile_id)
 
     # Call external callback if defined
-    if external_callbacks[DaqModes.RAW_DATA] is not None:
-        external_callbacks[DaqModes.RAW_DATA]("antenna_buffer", filename, tile_id)
+    if external_callbacks[DaqModes.ANTENNA_BUFFER] is not None:
+        external_callbacks[DaqModes.ANTENNA_BUFFER]("antenna_buffer", filename, tile_id)
 
-    if config['logging']:
-        logging.info("Received raw data for tile {}".format(tile))
+    if conf['logging']:
+        logging.info("Received raw data for tile {}".format(tile_id))
+
 
 # ------------------------------------ Start consumer functions ------------------------------------------
 
@@ -752,7 +758,7 @@ def start_integrated_beam_data_consumer(callback=None):
 
     # Create data persister
     persisters[DaqModes.INTEGRATED_BEAM_DATA] = []
-    beam_file = BeamFormatFileManager(root_path=conf['directory'], 
+    beam_file = BeamFormatFileManager(root_path=conf['directory'],
                                       data_type='uint32',
                                       daq_mode=FileDAQModes.Integrated,
                                       observation_metadata=conf['observation_metadata'])
@@ -847,7 +853,7 @@ def start_correlator(callback=None):
                            n_stokes=conf['nof_polarisations'] * conf['nof_polarisations'],
                            n_baselines=nof_baselines)
     persisters[DaqModes.CORRELATOR_DATA] = corr_file
-    
+
     # Set sampling time
     sampling_time[DaqModes.CORRELATOR_DATA] = conf['nof_correlator_samples'] / float(conf['sampling_rate'])
 
@@ -876,8 +882,8 @@ def start_antenna_buffer_data_consumer(callback=None):
     # Start raw data consumer
     if start_consumer("antennabuffer", params, callbacks[DaqModes.ANTENNA_BUFFER]) != Result.Success:
         if conf['logging']:
-            logging.info("Failed to start raw data consumer")
-        raise Exception("Failed to start raw data consumer")
+            logging.info("Failed to start antenna buffer data consumer")
+        raise Exception("Failed to start antenna buffer data consumer")
     running_consumers[DaqModes.ANTENNA_BUFFER] = True
 
     # Create data persister
@@ -894,7 +900,8 @@ def start_antenna_buffer_data_consumer(callback=None):
     external_callbacks[DaqModes.ANTENNA_BUFFER] = callback
 
     if conf['logging']:
-        logging.info("Started raw data consumer")
+        logging.info("Started antenna buffer consumer")
+
 
 # ------------------------------------ Stop consumer functions ------------------------------------------
 
@@ -996,6 +1003,7 @@ def stop_antenna_buffer_data_consumer():
 
     if conf['logging']:
         logging.info("Stopped antenna buffer data consumer")
+
 
 # ------------------------------------------ Wrapper Functions Body ---------------------------------------
 
@@ -1187,6 +1195,7 @@ def get_software_version():
 def _signal_handler(signum, frame):
     logging.info("Ctrl-C detected. Please press 'q' then Enter to quit")
 
+
 # Callbacks
 callbacks = {DaqModes.RAW_DATA: DATA_CALLBACK(raw_data_callback),
              DaqModes.CHANNEL_DATA: DATA_CALLBACK(channel_burst_data_callback),
@@ -1348,7 +1357,8 @@ if __name__ == "__main__":
 
     # Check if any mode was chosen
     if not any([config.read_beam_data, config.read_channel_data, config.read_raw_data, config.correlator,
-                config.continuous_channel, config.integrated_beam, config.integrated_channel, config.station_beam]):
+                config.continuous_channel, config.integrated_beam, config.integrated_channel,
+                config.station_beam, config.antenna_buffer]):
         logging.error("No DAQ mode was set. Exiting")
         exit(0)
 

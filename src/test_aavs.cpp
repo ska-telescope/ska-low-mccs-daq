@@ -381,14 +381,14 @@ void test_antenna_buffer_data() {
     LOG(INFO, "Testing Antenna Buffer Data");
 
     // Telescope information
-    const char *ip = "10.0.10.250";
-    startReceiver("eth2", ip, 9000, 32, 64);
+    const char *ip = "10.0.10.10";
+    startReceiver("enp5s0", ip, 9000, 32, 64);
     addReceiverPort(4660);
 
     // Set parameters
     json j = {
             {"nof_antennas",    4},
-            {"nof_samples",     262144},
+            {"nof_samples",     8192},
             {"nof_tiles",       1},
             {"max_packet_size", 9000}
     };
@@ -408,7 +408,7 @@ void test_antenna_buffer_data() {
         return;
     }
 
-    sleep(200);
+    sleep(2000);
 
     if (stopConsumer("antennabuffer") != SUCCESS) {
         LOG(ERROR, "Failed to stop station data conumser");
@@ -573,6 +573,6 @@ int main()
 //    test_correlator_data();
 //    test_station_data();
 //    test_multi();
-    test_
+    test_antenna_buffer_data();
 }
 
