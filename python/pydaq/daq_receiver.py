@@ -2,6 +2,8 @@
 
 from __future__ import absolute_import
 from __future__ import division
+
+import time
 from builtins import input
 import threading
 import fcntl
@@ -514,7 +516,8 @@ def antenna_buffer_callback(data, timestamp, tile_id, _):
                                                                data_ptr=values,
                                                                timestamp=timestamps[DaqModes.ANTENNA_BUFFER],
                                                                buffer_timestamp=timestamp,
-                                                               tile_id=tile_id)
+                                                               tile_id=tile_id,
+                                                               disable_per_sample_timestamp=True)
 
     # Call external callback if defined
     if external_callbacks[DaqModes.ANTENNA_BUFFER] is not None:

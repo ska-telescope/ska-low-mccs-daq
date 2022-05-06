@@ -25,7 +25,7 @@ bool AntennaBuffer::initialiseConsumer(json configuration) {
     packet_size        = configuration["max_packet_size"];
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t) 16384 * nof_tiles);
+    initialiseRingBuffer(packet_size, (size_t) 262144 * nof_tiles);
 
     // Create antenna containers
     containers = (AntennaBufferDataContainer<uint8_t> **)malloc(nof_containers * sizeof(AntennaBufferDataContainer<uint16_t> *));

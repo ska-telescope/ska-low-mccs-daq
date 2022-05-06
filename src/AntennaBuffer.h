@@ -34,7 +34,7 @@ public:
         this->nof_samples = nof_samples;
         this->nof_tiles = nof_tiles;
         this->nof_pols = nof_pols;
-        antenna_per_fpga = nof_tiles / 2;
+        antennas_per_fpga = nof_antennas / 2;
 
         size_t malloc_size = nof_antennas * nof_pols * (size_t) nof_samples * sizeof(T);
 
@@ -91,18 +91,39 @@ public:
 
         // Copy packet content to buffer
         // Packet data is in time/antenna/pol order, each FPGA transmits
-        // its own antenna, so we need to scatter the antennas
-        T* dst = antenna_buffer_data[tile_index].data;
-        dst += start_sample_index * nof_antennas * nof_pols;
+        //   its own antenna, so we need to scatter the antennas
+        // Buffer data is in antenna/time/pol order
+
+ //       T* dst = antenna_buffer_data[tile_index].data;
+ //       dst += start_sample_index * nof_antennas * nof_pols;
 
         // Loop over all samples in packets
-        for(unsigned i = 0; i < samples; i++) {
-            // Advance destination index
-            dst += antenna_per_fpga * fpga_id * nof_pols;
+//        for(unsigned i = 0; i < samples; i++) {
+//            // Advance destination index
+//            dst += antennas_per_fpga * fpga_id * nof_pols;
+//
+//            // For all antennas
+//            for (unsigned j = 0; j < antennas_per_fpga; j++) {
+//                dst[j] = *data_ptr;
+//                data_ptr++;
+//            }
+//        }
 
-            // For all antennas
-            for (unsigned j = 0; j < antenna_per_fpga; j++)
-                dst[j] = *data_ptr++;
+        for(unsigned a = 0; a < antennas_per_fpga; a++)
+        {
+            T* dst_ptr = antenna_buffer_data[tile_index].data + (antennas_per_fpga * fpga_id + a) * nof_samples * nof_pols +
+                     start_sample_index * nof_pols;
+            T* src_ptr = data_ptr + a * nof_pols;
+
+            for(unsigned i = 0; i < samples; i++)
+            {
+                *dst_ptr = *src_ptr;
+                dst_ptr++;
+                *dst_ptr = (*src_ptr + 1);
+                dst_ptr++;
+                src_ptr += antennas_per_fpga * nof_pols;
+            }
+
         }
 
         // Update timing
@@ -146,7 +167,7 @@ private:
     // Parameters
     uint16_t nof_tiles;
     uint16_t nof_antennas;
-    uint16_t antenna_per_fpga;
+    uint16_t antennas_per_fpga;
     uint32_t nof_samples;
     uint8_t  nof_pols;
 
@@ -202,7 +223,7 @@ private:
     unsigned not_received_samples = 0;
     unsigned nof_required_samples = 0;
 
-    double timestamp_scale = 1.08e-6;
+    double timestamp_scale = 1 / 800.0e6;
 
     // Data setup
     uint16_t nof_antennas = 0;
