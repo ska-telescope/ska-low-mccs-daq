@@ -90,40 +90,20 @@ public:
         }
 
         // Copy packet content to buffer
-        // Packet data is in time/antenna/pol order, each FPGA transmits
-        //   its own antenna, so we need to scatter the antennas
-        // Buffer data is in antenna/time/pol order
-
- //       T* dst = antenna_buffer_data[tile_index].data;
- //       dst += start_sample_index * nof_antennas * nof_pols;
-
-        // Loop over all samples in packets
-//        for(unsigned i = 0; i < samples; i++) {
-//            // Advance destination index
-//            dst += antennas_per_fpga * fpga_id * nof_pols;
-//
-//            // For all antennas
-//            for (unsigned j = 0; j < antennas_per_fpga; j++) {
-//                dst[j] = *data_ptr;
-//                data_ptr++;
-//            }
-//        }
-
+        // Packet data is in groups of 4 samples, each with nof_pols
+        // So antennas have a stride of 4 * nof_pols * sizeof(T), with alternating antennas
         for(unsigned a = 0; a < antennas_per_fpga; a++)
         {
-            T* dst_ptr = antenna_buffer_data[tile_index].data + (antennas_per_fpga * fpga_id + a) * nof_samples * nof_pols +
-                     start_sample_index * nof_pols;
-            T* src_ptr = data_ptr + a * nof_pols;
+            T* dst_ptr = antenna_buffer_data[tile_index].data +
+                    ((antennas_per_fpga * fpga_id + a) * nof_samples + start_sample_index) * nof_pols;
 
-            for(unsigned i = 0; i < samples; i++)
+            for(unsigned s = 0; s < samples; s+=4)
             {
-                *dst_ptr = *src_ptr;
-                dst_ptr++;
-                *dst_ptr = (*src_ptr + 1);
-                dst_ptr++;
-                src_ptr += antennas_per_fpga * nof_pols;
+                memcpy(dst_ptr,
+                       data_ptr + (s * antennas_per_fpga + a * 4) * nof_pols,
+                       nof_pols * 4 * sizeof(T));
+                dst_ptr += 4 * nof_pols;
             }
-
         }
 
         // Update timing
@@ -146,6 +126,7 @@ public:
 
     // Push data to callback
     void persist_container() {
+
         // If a callback is defined, call it and return
         if (callback == nullptr) {
             clear();

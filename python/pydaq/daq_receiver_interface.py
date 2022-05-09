@@ -517,7 +517,8 @@ class DaqReceiver:
 
         if self._config['logging']:
             logging.info(
-                "Received station beam data (nof saturations: {}, nof_packets: {})".format(nof_saturations, nof_packets))
+                "Received station beam data (nof saturations: {}, nof_packets: {})".format(nof_saturations,
+                                                                                           nof_packets))
 
     def _antenna_buffer_callback(self, data: ctypes.POINTER, timestamp: float, tile: int, _: int) -> None:
         """ Antenna buffer data callback
@@ -536,17 +537,24 @@ class DaqReceiver:
         values = self._get_numpy_from_ctypes(data, np.int8, nof_values)
 
         # Persist extracted data to file
-        filename = self._persisters[DaqModes.RAW_DATA].ingest_data(append=True,
-                                                                   data_ptr=values,
-                                                                   timestamp=timestamp,
-                                                                   tile_id=tile)
+        if DaqModes.ANTENNA_BUFFER not in list(self._timestamps.keys()):
+            self._timestamps[DaqModes.ANTENNA_BUFFER] = timestamp
+
+        # Persist extracted data to file
+        filename = self._persisters[DaqModes.ANTENNA_BUFFER].ingest_data(append=True,
+                                                                         data_ptr=values,
+                                                                         timestamp=self._timestamps[
+                                                                             DaqModes.ANTENNA_BUFFER],
+                                                                         buffer_timestamp=timestamp,
+                                                                         tile_id=tile,
+                                                                         disable_per_sample_timestamp=True)
 
         # Call external callback if defined
-        if self._external_callbacks[DaqModes.RAW_DATA] is not None:
-            self._external_callbacks[DaqModes.RAW_DATA]("antenna_buffer", filename, tile)
+        if self._external_callbacks[DaqModes.ANTENNA_BUFFER] is not None:
+            self._external_callbacks[DaqModes.ANTENNA_BUFFER]("antenna_buffer", filename, tile)
 
         if self._config['logging']:
-            logging.info("Received raw data for tile {}".format(tile))
+            logging.info("Received antenna buffer data for tile {}".format(tile))
 
     def _start_raw_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """ Start raw data consumer
@@ -634,7 +642,8 @@ class DaqReceiver:
                   "nof_tiles": self._config['nof_tiles'],
                   "nof_pols": self._config['nof_polarisations'],
                   "nof_buffer_skips": int(self._config['continuous_period'] //
-                      (self._sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * self._config['nof_channel_samples'])),
+                                          (self._sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * self._config[
+                                              'nof_channel_samples'])),
                   "max_packet_size": self._config['receiver_frame_size']}
 
         # Start channel data consumer
@@ -857,7 +866,8 @@ class DaqReceiver:
                   "max_packet_size": self._config['receiver_frame_size']}
 
         # Start raw data consumer
-        if self._start_consumer("antennabuffer", params, self._callbacks[DaqModes.ANTENNA_BUFFER]) != self.Result.Success:
+        if self._start_consumer("antennabuffer", params,
+                                self._callbacks[DaqModes.ANTENNA_BUFFER]) != self.Result.Success:
             logging.info("Failed to start antenna buffer consumer")
             raise Exception("Failed to start antenna buffer consumer")
         self._running_consumers[DaqModes.RAW_DATA] = True
@@ -869,7 +879,7 @@ class DaqReceiver:
 
         raw_file.set_metadata(n_antennas=self._config['nof_antennas'],
                               n_pols=self._config['nof_polarisations'],
-                              n_samples=self._config['nof_samples'])
+                              n_samples=self._config['nof_raw_samples'])
         self._persisters[DaqModes.ANTENNA_BUFFER] = raw_file
 
         # Set external callback
@@ -1293,7 +1303,8 @@ class DaqReceiver:
         self._daq_library.startReceiver.restype = ctypes.c_int
 
         # Define startReceiverThreaded function
-        self._daq_library.startReceiverThreaded.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_uint32,
+        self._daq_library.startReceiverThreaded.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32,
+                                                            ctypes.c_uint32,
                                                             ctypes.c_uint32, ctypes.c_uint32]
         self._daq_library.startReceiverThreaded.restype = ctypes.c_int
 
@@ -1347,7 +1358,8 @@ class DaqReceiver:
         :param nof_threads: Number of receiver threads
         :return: Return code
         """
-        return self._daq_library.startReceiverThreaded(interface, ip, frame_size, frames_per_block, nof_blocks, nof_threads)
+        return self._daq_library.startReceiverThreaded(interface, ip, frame_size, frames_per_block, nof_blocks,
+                                                       nof_threads)
 
     def _call_stop_receiver(self) -> Result:
         """ Stop network receiver thread """
@@ -1361,7 +1373,7 @@ class DaqReceiver:
         return self._daq_library.addReceiverPort(port)
 
     def _start_consumer(self, consumer: str, configuration: Dict[str, Any],
-                              callback: Optional[Callable] = None) -> Result:
+                        callback: Optional[Callable] = None) -> Result:
         """ Start consumer
         :param consumer: String representation of consumer
         :param configuration: Dictionary containing consumer configuration
@@ -1545,8 +1557,9 @@ if __name__ == "__main__":
             daq_instance.set_slack(name)
 
     # Check if any mode was chosen
-    if not any([config.read_beam_data, config.read_channel_data, config.read_raw_data, config.correlator,
-                config.continuous_channel, config.integrated_beam, config.integrated_channel, config.station_beam]):
+    if not any([config.read_beam_data, config.read_channel_data, config.read_raw_data,
+                config.correlator, config.antenna_buffer, config.continuous_channel,
+                config.integrated_beam, config.integrated_channel, config.station_beam]):
         logging.error("No DAQ mode was set. Exiting")
         exit(0)
 
@@ -1593,7 +1606,6 @@ if __name__ == "__main__":
     # Signal handler for handling Ctrl-C
     def _signal_handler(_, __):
         logging.info("Ctrl-C detected. Please press 'q' then Enter to quit")
-
 
     # Setup signal handler
     signal.signal(signal.SIGINT, _signal_handler)
