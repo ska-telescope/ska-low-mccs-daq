@@ -678,9 +678,6 @@ class Tile(object):
                     dst_port=dst_port,
                 )
 
-            self["fpga1.lmc_gen.payload_length"] = payload_length
-            self["fpga2.lmc_gen.payload_length"] = payload_length
-
             self["fpga1.lmc_gen.tx_demux"] = 2
             self["fpga2.lmc_gen.tx_demux"] = 2
             self._lmc_use_10g = True
@@ -689,13 +686,18 @@ class Tile(object):
         elif mode.upper() == "1G":
             if dst_ip is not None:
                 self._lmc_ip = dst_ip
+
             self.tpm.set_lmc_ip(self._lmc_ip, self._lmc_port)
+
             self["fpga1.lmc_gen.tx_demux"] = 1
             self["fpga2.lmc_gen.tx_demux"] = 1
             self._lmc_use_10g = False
         else:
             self.logger.warning("Supported modes are 1g, 10g")
             return
+
+        self["fpga1.lmc_gen.payload_length"] = payload_length
+        self["fpga2.lmc_gen.payload_length"] = payload_length
 
     @connected
     def set_lmc_integrated_download(
