@@ -214,7 +214,7 @@ class RawFormatFileManager(AAVSFileManager):
         return output_buffer, timestamp_buffer
 
     def _write_data(self, data_ptr=None, timestamp=None, buffer_timestamp=None, sampling_time=None,
-                    tile_id=0, partition_id=0, timestamp_pad=0):
+                    tile_id=0, partition_id=0, timestamp_pad=0, **kwargs):
         """
         Method to write data to a raw file.
         :param data_ptr: A data array.
@@ -248,33 +248,34 @@ class RawFormatFileManager(AAVSFileManager):
                 end_idx = (antenna + 1) * n_samp * n_pols
                 dset[(antenna * n_pols) + polarization, :] = data_ptr[start_idx: end_idx: n_pols]
 
-        # adding timestamp per sample
-        if buffer_timestamp is not None:
-            padded_timestamp = buffer_timestamp
-        else:
-            padded_timestamp = timestamp
+        if not kwargs.get('disable_per_sample_timestamp', False):
 
-        padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
+            # adding timestamp per sample
+            if buffer_timestamp is not None:
+                padded_timestamp = buffer_timestamp
+            else:
+                padded_timestamp = timestamp
 
-        if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
+            padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
-        sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
-        if sampling_time not in [0, None]:
-            sample_timestamps = self.time_range(low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp)
-            sample_timestamps += padded_timestamp
-            sample_timestamps = sample_timestamps.tolist()
-        else:
-            sample_timestamps = self.time_range(low=timestamp, up=timestamp, leng=n_samp)
-            sample_timestamps += padded_timestamp
-            sample_timestamps = sample_timestamps.tolist()
+            if timestamp_pad > 0:
+                padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
 
-        timestamp_grp = file_obj["sample_timestamps"]
-        dset = timestamp_grp["data"]
-        ds_last_size = n_blocks * n_samp
-        if dset.shape[0] < (n_blocks + 1) * n_samp:
-            dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
-        dset[ds_last_size:ds_last_size + n_samp, 0] = sample_timestamps
+            if sampling_time not in [0, None]:
+                sample_timestamps = self.time_range(low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp)
+                sample_timestamps += padded_timestamp
+                sample_timestamps = sample_timestamps.tolist()
+            else:
+                sample_timestamps = self.time_range(low=timestamp, up=timestamp, leng=n_samp)
+                sample_timestamps += padded_timestamp
+                sample_timestamps = sample_timestamps.tolist()
+
+            timestamp_grp = file_obj["sample_timestamps"]
+            dset = timestamp_grp["data"]
+            ds_last_size = n_blocks * n_samp
+            if dset.shape[0] < (n_blocks + 1) * n_samp:
+                dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
+            dset[ds_last_size:ds_last_size + n_samp, 0] = sample_timestamps
 
         # set new number of written blocks
         n_blocks += 1
@@ -345,7 +346,6 @@ class RawFormatFileManager(AAVSFileManager):
             if timestamp_pad > 0:
                 padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
 
-            sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
             if sampling_time not in [0, None]:
                 sample_timestamps = self.time_range(low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp)
                 sample_timestamps = sample_timestamps + padded_timestamp
