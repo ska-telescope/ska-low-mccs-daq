@@ -28,6 +28,7 @@ class DaqModes(Enum):
     INTEGRATED_CHANNEL_DATA = 5
     STATION_BEAM_DATA = 6
     CORRELATOR_DATA = 7
+    ANTENNA_BUFFER = 8
 
 
 # Custom numpy type for creating complex signed 8-bit data
@@ -137,7 +138,8 @@ class DaqReceiver:
                            DaqModes.INTEGRATED_BEAM_DATA: self.DATA_CALLBACK(self._beam_integrated_data_callback),
                            DaqModes.INTEGRATED_CHANNEL_DATA: self.DATA_CALLBACK(self._channel_integrated_data_callback),
                            DaqModes.STATION_BEAM_DATA: self.DATA_CALLBACK(self._station_callback),
-                           DaqModes.CORRELATOR_DATA: self.DATA_CALLBACK(self._correlator_callback)}
+                           DaqModes.CORRELATOR_DATA: self.DATA_CALLBACK(self._correlator_callback),
+                           DaqModes.ANTENNA_BUFFER: self.DATA_CALLBACK(self._antenna_buffer_callback)}
 
         # List of external callback
         self._external_callbacks = {k: None for k in DaqModes}
@@ -518,6 +520,42 @@ class DaqReceiver:
                 "Received station beam data (nof saturations: {}, nof_packets: {})".format(nof_saturations,
                                                                                            nof_packets))
 
+    def _antenna_buffer_callback(self, data: ctypes.POINTER, timestamp: float, tile: int, _: int) -> None:
+        """ Antenna buffer data callback
+        :param data: Received data
+        :param tile: The tile from which the data was acquired
+        :param timestamp: Timestamp of first data point in data
+        """
+
+        # If writing to disk is not enabled, return immediately
+        if not self._config['write_to_disk']:
+            return
+
+        # Extract data sent by DAQ
+        nof_values = self._config['nof_antennas'] * self._config['nof_polarisations'] * \
+                     self._config['nof_raw_samples']
+        values = self._get_numpy_from_ctypes(data, np.int8, nof_values)
+
+        # Persist extracted data to file
+        if DaqModes.ANTENNA_BUFFER not in list(self._timestamps.keys()):
+            self._timestamps[DaqModes.ANTENNA_BUFFER] = timestamp
+
+        # Persist extracted data to file
+        filename = self._persisters[DaqModes.ANTENNA_BUFFER].ingest_data(append=True,
+                                                                         data_ptr=values,
+                                                                         timestamp=self._timestamps[
+                                                                             DaqModes.ANTENNA_BUFFER],
+                                                                         buffer_timestamp=timestamp,
+                                                                         tile_id=tile,
+                                                                         disable_per_sample_timestamp=True)
+
+        # Call external callback if defined
+        if self._external_callbacks[DaqModes.ANTENNA_BUFFER] is not None:
+            self._external_callbacks[DaqModes.ANTENNA_BUFFER]("antenna_buffer", filename, tile)
+
+        if self._config['logging']:
+            logging.info("Received antenna buffer data for tile {}".format(tile))
+
     def _start_raw_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """ Start raw data consumer
         :param callback: Caller callback """
@@ -604,7 +642,8 @@ class DaqReceiver:
                   "nof_tiles": self._config['nof_tiles'],
                   "nof_pols": self._config['nof_polarisations'],
                   "nof_buffer_skips": int(self._config['continuous_period'] //
-                      (self._sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * self._config['nof_channel_samples'])),
+                                          (self._sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * self._config[
+                                              'nof_channel_samples'])),
                   "max_packet_size": self._config['receiver_frame_size']}
 
         # Start channel data consumer
@@ -816,6 +855,38 @@ class DaqReceiver:
 
         logging.info("Started correlator")
 
+    def _start_antenna_buffer_data_consumer(self, callback: Optional[Callable] = None) -> None:
+        """ Start raw data consumer
+        :param callback: Caller callback """
+
+        # Generate configuration for raw consumer
+        params = {"nof_antennas": self._config['nof_antennas'],
+                  "nof_samples": self._config['nof_raw_samples'],
+                  "nof_tiles": self._config['nof_tiles'],
+                  "max_packet_size": self._config['receiver_frame_size']}
+
+        # Start raw data consumer
+        if self._start_consumer("antennabuffer", params,
+                                self._callbacks[DaqModes.ANTENNA_BUFFER]) != self.Result.Success:
+            logging.info("Failed to start antenna buffer consumer")
+            raise Exception("Failed to start antenna buffer consumer")
+        self._running_consumers[DaqModes.RAW_DATA] = True
+
+        # Create data persister
+        raw_file = RawFormatFileManager(root_path=self._config['directory'],
+                                        daq_mode=FileDAQModes.Burst,
+                                        observation_metadata=self._config['observation_metadata'])
+
+        raw_file.set_metadata(n_antennas=self._config['nof_antennas'],
+                              n_pols=self._config['nof_polarisations'],
+                              n_samples=self._config['nof_raw_samples'])
+        self._persisters[DaqModes.ANTENNA_BUFFER] = raw_file
+
+        # Set external callback
+        self._external_callbacks[DaqModes.ANTENNA_BUFFER] = callback
+
+        logging.info("Started antenna buffer consumer")
+
     def _stop_raw_data_consumer(self) -> None:
         """ Stop raw data consumer """
         self._external_callbacks[DaqModes.RAW_DATA] = None
@@ -887,6 +958,15 @@ class DaqReceiver:
         self._running_consumers[DaqModes.CORRELATOR_DATA] = False
 
         logging.info("Stopped correlator")
+
+    def _stop_antenna_buffer_consumer(self) -> None:
+        """ Stop antenna buffer consumer """
+        self._external_callbacks[DaqModes.ANTENNA_BUFFER] = None
+        if self._stop_consumer("antennabuffer") != self.Result.Success:
+            raise Exception("Failed to stop antenna buffer consumer")
+        self._running_consumers[DaqModes.ANTENNA_BUFFER] = False
+
+        logging.info("Stopped antenna buffer consumer")
 
     # ------------------------------------- INITIALISATION -----------------------------------
 
@@ -976,6 +1056,10 @@ class DaqReceiver:
             if DaqModes.CORRELATOR_DATA == mode:
                 self._start_correlator(callbacks[i])
 
+            # Running in antenna buffer mode
+            if DaqModes.ANTENNA_BUFFER == mode:
+                self._start_antenna_buffer_data_consumer()
+
     def stop_daq(self) -> None:
         """ Stop DAQ """
 
@@ -991,7 +1075,8 @@ class DaqReceiver:
                           DaqModes.INTEGRATED_BEAM_DATA: self._stop_integrated_beam_data_consumer,
                           DaqModes.INTEGRATED_CHANNEL_DATA: self._stop_integrated_channel_data_consumer,
                           DaqModes.STATION_BEAM_DATA: self._stop_station_beam_data_consumer,
-                          DaqModes.CORRELATOR_DATA: self._stop_correlator}
+                          DaqModes.CORRELATOR_DATA: self._stop_correlator,
+                          DaqModes.ANTENNA_BUFFER: self._stop_antenna_buffer_consumer}
 
         # Stop all running consumers
         for k, running in self._running_consumers.items():
@@ -1218,7 +1303,8 @@ class DaqReceiver:
         self._daq_library.startReceiver.restype = ctypes.c_int
 
         # Define startReceiverThreaded function
-        self._daq_library.startReceiverThreaded.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_uint32,
+        self._daq_library.startReceiverThreaded.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32,
+                                                            ctypes.c_uint32,
                                                             ctypes.c_uint32, ctypes.c_uint32]
         self._daq_library.startReceiverThreaded.restype = ctypes.c_int
 
@@ -1272,7 +1358,8 @@ class DaqReceiver:
         :param nof_threads: Number of receiver threads
         :return: Return code
         """
-        return self._daq_library.startReceiverThreaded(interface, ip, frame_size, frames_per_block, nof_blocks, nof_threads)
+        return self._daq_library.startReceiverThreaded(interface, ip, frame_size, frames_per_block, nof_blocks,
+                                                       nof_threads)
 
     def _call_stop_receiver(self) -> Result:
         """ Stop network receiver thread """
@@ -1286,7 +1373,7 @@ class DaqReceiver:
         return self._daq_library.addReceiverPort(port)
 
     def _start_consumer(self, consumer: str, configuration: Dict[str, Any],
-                              callback: Optional[Callable] = None) -> Result:
+                        callback: Optional[Callable] = None) -> Result:
         """ Start consumer
         :param consumer: String representation of consumer
         :param configuration: Dictionary containing consumer configuration
@@ -1415,6 +1502,8 @@ if __name__ == "__main__":
                       default=False, help="Read integrated channel data[default: False]")
     parser.add_option("-K", "--correlator", action="store_true", dest="correlator",
                       default=False, help="Perform correlator [default: False]")
+    parser.add_option("-A", "--antenna_buffer", action="store_true", dest="antenna_buffer",
+                      default=False, help="Read antenna buffer data [default:False")
 
     # Persister options
     parser.add_option("-d", "--data-directory", action="store", dest="directory",
@@ -1449,7 +1538,7 @@ if __name__ == "__main__":
     daq_config = {}
     for key in config.__dict__.keys():
         modes = ["read_raw_data", "read_beam_data", "integrated_beam", "station_beam", "read_channel_data",
-                 "continuous_channel", "integrated_channel", "correlator"]
+                 "continuous_channel", "integrated_channel", "correlator", "antenna_buffer"]
         if key not in modes:
             daq_config[key] = getattr(config, key)
 
@@ -1468,8 +1557,9 @@ if __name__ == "__main__":
             daq_instance.set_slack(name)
 
     # Check if any mode was chosen
-    if not any([config.read_beam_data, config.read_channel_data, config.read_raw_data, config.correlator,
-                config.continuous_channel, config.integrated_beam, config.integrated_channel, config.station_beam]):
+    if not any([config.read_beam_data, config.read_channel_data, config.read_raw_data,
+                config.correlator, config.antenna_buffer, config.continuous_channel,
+                config.integrated_beam, config.integrated_channel, config.station_beam]):
         logging.error("No DAQ mode was set. Exiting")
         exit(0)
 
@@ -1505,6 +1595,9 @@ if __name__ == "__main__":
     if config.correlator:
         modes_to_start.append(DaqModes.CORRELATOR_DATA)
 
+    if config.antenna_buffer:
+        modes_to_start.append(DaqModes.ANTENNA_BUFFER)
+
     # Start acquiring
     daq_instance.start_daq(modes_to_start)
 
@@ -1513,7 +1606,6 @@ if __name__ == "__main__":
     # Signal handler for handling Ctrl-C
     def _signal_handler(_, __):
         logging.info("Ctrl-C detected. Please press 'q' then Enter to quit")
-
 
     # Setup signal handler
     signal.signal(signal.SIGINT, _signal_handler)

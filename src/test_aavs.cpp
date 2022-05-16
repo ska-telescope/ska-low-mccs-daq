@@ -377,6 +377,49 @@ void test_station_data()
     }
 }
 
+void test_antenna_buffer_data() {
+    LOG(INFO, "Testing Antenna Buffer Data");
+
+    // Telescope information
+    const char *ip = "10.0.10.10";
+    startReceiver("enp5s0", ip, 9000, 32, 64);
+    addReceiverPort(4660);
+
+    // Set parameters
+    json j = {
+            {"nof_antennas",    4},
+            {"nof_samples",     8192},
+            {"nof_tiles",       1},
+            {"max_packet_size", 9000}
+    };
+
+    if (loadConsumer("libaavsdaq.so", "antennabuffer") != SUCCESS) {
+        LOG(ERROR, "Failed to load station data conumser");
+        return;
+    }
+
+    if (initialiseConsumer("antennabuffer", j.dump().c_str()) != SUCCESS) {
+        LOG(ERROR, "Failed to initialise station data conumser");
+        return;
+    }
+
+    if (startConsumer("antennabuffer", nullptr) != SUCCESS) {
+        LOG(ERROR, "Failed to start station data conumser");
+        return;
+    }
+
+    sleep(2000);
+
+    if (stopConsumer("antennabuffer") != SUCCESS) {
+        LOG(ERROR, "Failed to stop station data conumser");
+        return;
+    }
+
+    if (stopReceiver() != SUCCESS) {
+        LOG(ERROR, "Failed to stop receiver");
+        return;
+    }
+}
 
 void test_multi() {
     LOG(INFO, "Testing Multiple receivers");
@@ -521,14 +564,15 @@ void test_multi() {
 
 int main()
 {
-    test_raw_data();
+//    test_raw_data();
 //    test_burst_beam_data();
 //    test_integrated_beam_data();
-    //test_burst_channel_data();
-    //test_continuous_channel_data();
+//    test_burst_channel_data();
+//    test_continuous_channel_data();
 //    test_integrated_beam_data();
 //    test_correlator_data();
 //    test_station_data();
-     //test_multi();
+//    test_multi();
+    test_antenna_buffer_data();
 }
 

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.10)
 
 # Add include and lib directories
 link_directories(/usr/local /usr/lib/x86_64-linux-gnu/lib ${DAQ_DIRECTORY}/lib)
@@ -28,7 +28,9 @@ set(AAVS_FILES RawData.cpp
         StationData.cpp
         StationData.h
         StationDataRaw.h
-        StationDataRaw.cpp)
+        StationDataRaw.cpp
+        AntennaBuffer.cpp
+        AntennaBuffer.h)
 
 # Add correlator if required
 if (WITH_CORRELATOR)
@@ -37,14 +39,14 @@ if (WITH_CORRELATOR)
                            DoubleBuffer.h
                            CorrelatorData.cpp
                            CorrelatorData.h
-                            StandaloneCorrelator.cpp)
+                           StandaloneCorrelator.cpp)
 endif()
 
 # CMAKE compilation flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx -g")
 
 # Compile library
-add_library(aavsdaq SHARED ${AAVS_FILES} )
+add_library(aavsdaq SHARED ${AAVS_FILES})
 
 # Compile library
 if (WITH_CORRELATOR)

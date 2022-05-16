@@ -111,11 +111,11 @@ bool RawData::processPacket()
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
-    auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
-    uint8_t *payload = packet + SPEAD_HEADERLEN + nofitems * SPEAD_ITEMLEN;
+    auto nof_spead_items = (unsigned short) SPEAD_GET_NITEMS(hdr);
+    uint8_t *payload = packet + SPEAD_HEADERLEN + nof_spead_items * SPEAD_ITEMLEN;
 
     // Loop over items to extract values
-    for(unsigned i = 1; i <= nofitems; i++)
+    for(unsigned i = 1; i <= nof_spead_items; i++)
     {
         uint64_t item = SPEAD_ITEM(packet, i);
         switch (SPEAD_ITEM_ID(item))
@@ -164,7 +164,7 @@ bool RawData::processPacket()
             case 0x2004:
                 break;
             default:
-                LOG(INFO, "Unknown item 0x%#08x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nofitems);
+                LOG(INFO, "Unknown item 0x%#08x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nof_spead_items);
         }
     }
 

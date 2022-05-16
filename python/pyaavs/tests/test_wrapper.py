@@ -25,6 +25,7 @@ class TestWrapper:
                        'flagging': "Check if oveflown data are correctly flagged by tile beamformer.",
                        'init_station': "Program, initialise station and start station beamformer.\nCheck if station "
                                        "beam data rate is within expected range.",
+                       'antenna_buffer': "Check operation of the antenna buffer in DDR using incremental pattern.",
                        'full_station': "Check operation of networked beamformer comparing offline and realtime beam "
                                        "power.",
                        'ddr': "Check on-board DDR using FPGA embedded test.",
@@ -64,6 +65,7 @@ class TestWrapper:
             del self._tests['pfb']
             del self._tests['tile_beamformer']
             del self._tests['flagging']
+            del self._tests['antenna_buffer']
             del self._tests['full_station']
 
     def get_class(self, test_name):
