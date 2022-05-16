@@ -277,13 +277,13 @@ class RawFormatFileManager(AAVSFileManager):
                 dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
             dset[ds_last_size:ds_last_size + n_samp, 0] = sample_timestamps
 
+            # set new final timestamp in file
+            self.main_dset.attrs['ts_start'] = sample_timestamps[0]
+            self.main_dset.attrs['ts_end'] = sample_timestamps[-1]
+
         # set new number of written blocks
         n_blocks += 1
         self.main_dset.attrs['n_blocks'] = n_blocks
-
-        # set new final timestamp in file
-        self.main_dset.attrs['ts_start'] = sample_timestamps[0]
-        self.main_dset.attrs['ts_end'] = sample_timestamps[-1]
 
         file_obj.flush()
         filename = file_obj.filename
