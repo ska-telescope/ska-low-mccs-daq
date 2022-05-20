@@ -25,7 +25,8 @@ nof_tiles = 1
 nof_antennas = 16
 tiles_processed = None
 data_received = False
-nof_callback = 4
+buffer_size_nof_samples = 64*1024*1024  # DAQ instantiates 16*buffer_size_nof_samples bytes, use this to calculate nof callbacks
+nof_callback = 0
 callback_received = 0
 
 
@@ -164,6 +165,15 @@ class TestAntennaBuffer():
         dut['fpga1.pattern_gen.jesd_ramp1_enable'] = 0x5555
         dut['fpga1.pattern_gen.jesd_ramp2_enable'] = 0xAAAA
 
+        # calculate actual DAQ buffer size in nof_raw_samples
+        total_nof_samples = actual_buffer_byte_size // 4
+        nof_callback = total_nof_samples / buffer_size_nof_samples
+        if nof_callback < 1:
+            nof_callback = 1
+        nof_callback = 2**int(np.log2(nof_callback))
+        daq_nof_raw_samples = total_nof_samples / nof_callback
+        self._logger.info("DAQ buffer size set to %f samples, using %d callbacks" % (daq_nof_raw_samples, nof_callback))
+
         iter = int(iterations)
         if iter == 0:
             return
@@ -174,7 +184,7 @@ class TestAntennaBuffer():
         daq_config = {
             'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
             'directory': temp_dir,  # CHANGE THIS if required
-            'nof_raw_samples': actual_buffer_byte_size // 4 // nof_callback,
+            'nof_raw_samples': int(daq_nof_raw_samples),
             'nof_antennas': 4,
             'nof_beam_channels': 384,
             'nof_beam_samples': 32,
