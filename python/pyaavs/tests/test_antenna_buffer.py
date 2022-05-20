@@ -152,7 +152,7 @@ class TestAntennaBuffer():
         dut.stop_integrated_data()
         tf.set_pattern(dut, stage="jesd", pattern=range(1024), adders=[0] * 64, start=True)
         ab = dut.tpm.tpm_antenna_buffer[0]
-        ab.set_download("1G")
+        ab.set_download("1G", 1536)
         actual_buffer_byte_size = ab.configure_ddr_buffer(ddr_start_byte_address=start_address,  # DDR buffer base address
                                                           byte_size=buffer_byte_size)
         base_addr = dut['fpga1.antenna_buffer.ddr_write_start_addr']
@@ -188,7 +188,7 @@ class TestAntennaBuffer():
             'nof_antennas': 4,
             'nof_beam_channels': 384,
             'nof_beam_samples': 32,
-            'receiver_frame_size': 1280,  # 8320 #1280
+            'receiver_frame_size': 1664,  # 8320 #1280
             'nof_tiles': len(tiles)
         }
         # Configure the DAQ receiver and start receiving data
