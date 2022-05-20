@@ -25,6 +25,8 @@ nof_tiles = 1
 nof_antennas = 16
 tiles_processed = None
 data_received = False
+nof_callback = 4
+callback_received = 0
 
 
 def data_callback(mode, filepath, tile):
@@ -33,12 +35,19 @@ def data_callback(mode, filepath, tile):
     global data_received
     global tiles_processed
     global nof_samples
+    global callback_received
+    global nof_callback
 
     if mode == "antenna_buffer":
-        raw_file = RawFormatFileManager(root_path=os.path.dirname(filepath), daq_mode=FileDAQModes.Burst)
-        data, _ = raw_file.read_data(n_samples=nof_samples)
 
-        data_received = True
+        callback_received += 1
+        if callback_received == nof_callback:
+            callback_received = 0
+
+            raw_file = RawFormatFileManager(root_path=os.path.dirname(filepath), daq_mode=FileDAQModes.Burst)
+            data, _ = raw_file.read_data(n_samples=nof_samples)
+
+            data_received = True
 
 
 class TestAntennaBuffer():
@@ -87,12 +96,13 @@ class TestAntennaBuffer():
         self._logger.info("Data pattern check OK!")
         return 0
 
-    def execute(self, iterations=2, single_tpm_id=0, buffer_byte_size=64*1024*1024):
+    def execute(self, iterations=2, single_tpm_id=0, buffer_byte_size=64*1024*1024, start_address=512*1024*1024):
         global tiles_processed
         global data_received
         global nof_tiles
         global nof_antennas
         global nof_samples
+        global nof_callback
 
         # Connect to tile (and do whatever is required)
         test_station = station.Station(self._station_config)
@@ -142,7 +152,7 @@ class TestAntennaBuffer():
         tf.set_pattern(dut, stage="jesd", pattern=range(1024), adders=[0] * 64, start=True)
         ab = dut.tpm.tpm_antenna_buffer[0]
         ab.set_download("1G")
-        actual_buffer_byte_size = ab.configure_ddr_buffer(ddr_start_byte_address=1024*1024*512,  # DDR buffer base address
+        actual_buffer_byte_size = ab.configure_ddr_buffer(ddr_start_byte_address=start_address,  # DDR buffer base address
                                                           byte_size=buffer_byte_size)
         base_addr = dut['fpga1.antenna_buffer.ddr_write_start_addr']
         self._logger.info("DDR buffer base address is %s" % hex(base_addr))
@@ -164,7 +174,7 @@ class TestAntennaBuffer():
         daq_config = {
             'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
             'directory': temp_dir,  # CHANGE THIS if required
-            'nof_raw_samples': actual_buffer_byte_size // 4,
+            'nof_raw_samples': actual_buffer_byte_size // 4 // nof_callback,
             'nof_antennas': 4,
             'nof_beam_channels': 384,
             'nof_beam_samples': 32,

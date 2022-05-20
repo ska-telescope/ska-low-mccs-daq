@@ -30,11 +30,8 @@ class TestEth40g():
 
         self._logger.debug("Preparing 40G test, duration %d seconds" % duration)
 
-        # Resetting DSP to get exclusive access to 40G
-        self._test_station['fpga1.regfile.reset.dsp_rst'] = 1
-        self._test_station['fpga2.regfile.reset.dsp_rst'] = 1
-
-        time.sleep(0.5)
+        # Stop data transmission
+        tf.stop_all_data_transmission(self._test_station)
 
         # Starting test
         for n, tile in enumerate(self._test_station.tiles):
