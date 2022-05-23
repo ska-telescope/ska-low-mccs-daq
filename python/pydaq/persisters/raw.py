@@ -118,7 +118,8 @@ class RawFormatFileManager(AAVSFileManager):
                 concat_cnt += 1
             else:
                 output_buffer = numpy.concatenate((output_buffer, partition_data), 2)
-                timestamp_buffer = numpy.concatenate((timestamp_buffer, partition_timestamps), 0)
+                if partition_timestamps is not None:
+                    timestamp_buffer = numpy.concatenate((timestamp_buffer, partition_timestamps), 0)
 
         return output_buffer, timestamp_buffer
 
