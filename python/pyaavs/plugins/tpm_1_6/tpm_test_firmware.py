@@ -96,6 +96,11 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
             self.station_beamformer_implemented = True
         else:
             self.station_beamformer_implemented = False
+
+        if self.board["fpga1.dsp_regfile.feature.antenna_buffer_implemented"] == 1:
+            self.antenna_buffer_implemented = True
+        else:
+            self.antenna_buffer_implemented = False
         self._jesd1 = None
         self._jesd2 = None
         self._fpga = None
@@ -147,6 +152,10 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
             if self.station_beamformer_implemented:
                 self._station_beamf = self.board.load_plugin(
                     "StationBeamformer", device=self._device
+                )
+            if self.antenna_buffer_implemented:
+                self._antenna_buffer = self.board.load_plugin(
+                    "AntennaBuffer", device=self._device
                 )
             self._testgen = self.board.load_plugin(
                 "TpmTestGenerator", device=self._device, fsample=self._fsample
