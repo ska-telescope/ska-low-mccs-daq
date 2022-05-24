@@ -21,7 +21,7 @@ def get_eth_if_from_ip(ip):
     for intf in intf_dict.keys():
         if intf != 'lo':
             if intf_dict[intf][0][1] == ip_address:
-                return intf
+                return intf.split(":")[0]  # remove virtual IF :x identifier
     return None
 
 
