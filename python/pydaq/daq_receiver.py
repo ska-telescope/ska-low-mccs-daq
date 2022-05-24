@@ -1067,6 +1067,10 @@ def populate_configuration(configuration):
     # Set metadata
     conf['observation_metadata'] = metadata
 
+    # CHeck if filesize restriction is set
+    if conf['max_filesize'] is not None:
+        aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = conf['max_filesize']
+
 
 def initialise_daq():
     """ Initialise DAQ library """
