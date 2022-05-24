@@ -21,14 +21,12 @@ class TestDdr():
     def clean_up(self):
         return
 
-    def execute(self, duration=16, first_addr=0x0, last_addr=0x7FFFFF8, pause=0, reset_dsp=1, reset_ddr=1):
+    def prepare(self, first_addr=0x0, last_addr=0x7FFFFF8, burst_length=0, pause=0,
+                reset_dsp=0, reset_ddr=1, stop_transmission=1):
 
         self._test_station = station.Station(self._station_config)
         self._test_station.connect()
 
-        self._logger.debug("Preparing DDR test, duration %d seconds" % duration)
-
-        nof_tiles = len(self._test_station.tiles)
         errors = 0
 
         try:
@@ -38,6 +36,9 @@ class TestDdr():
             self._logger.error("DDR Test FAILED!")
             self.clean_up()
             return 1
+
+        if stop_transmission == 1:
+            tf.stop_all_data_transmission(self._test_station)
 
         # Resetting DSP to get exclusive access to DDR
         if reset_dsp == 1:
@@ -53,15 +54,13 @@ class TestDdr():
             time.sleep(1)
 
         for n, tile in enumerate(self._test_station.tiles):
-            if tile['fpga2.regfile.status.ddr_init_done'] == 0:
+            if tile['fpga1.regfile.status.ddr_init_done'] == 0:
                 self._logger.error("Tile %d FPGA1 not initialising. Test FAILED" % n)
                 errors += 1
             if tile['fpga2.regfile.status.ddr_init_done'] == 0:
                 self._logger.error("Tile %d FPGA2 not initialising. Test FAILED" % n)
                 errors += 1
             if errors > 0:
-                self._logger.error("DDR Test FAILED!")
-                self.clean_up()
                 return 1
 
         # Preparing test
@@ -69,6 +68,9 @@ class TestDdr():
         self._test_station['fpga2.ddr_simple_test.last_addr'] = last_addr
         self._test_station['fpga1.ddr_simple_test.first_addr'] = first_addr
         self._test_station['fpga2.ddr_simple_test.first_addr'] = first_addr
+        if len(self._test_station.tiles[0].tpm.find_register("fpga1.ddr_simple_test.burst_length")) > 0:
+            self._test_station['fpga1.ddr_simple_test.burst_length'] = burst_length
+            self._test_station['fpga2.ddr_simple_test.burst_length'] = burst_length
         self._test_station['fpga1.ddr_simple_test.pause'] = pause
         self._test_station['fpga2.ddr_simple_test.pause'] = pause
         self._test_station['fpga1.ddr_simple_test.start'] = 0
@@ -76,17 +78,44 @@ class TestDdr():
         self._test_station['fpga1.ddr_simple_test.error'] = 0
         self._test_station['fpga2.ddr_simple_test.error'] = 0
 
+        return 0
+
+    def start(self):
+        self._test_station['fpga1.ddr_simple_test.start'] = 1
+        self._test_station['fpga2.ddr_simple_test.start'] = 1
+
+    def stop(self):
+        self._test_station['fpga1.ddr_simple_test.start'] = 0
+        self._test_station['fpga2.ddr_simple_test.start'] = 0
+
+    def execute(self, duration=16, first_addr=0x0, last_addr=0x7FFFFF8, burst_length=0, pause=0,
+                reset_dsp=0, reset_ddr=1, stop_transmission=1):
+
+        self._logger.debug("Preparing DDR test, duration %d seconds" % duration)
+
+        errors = self.prepare(first_addr=first_addr,
+                              last_addr=last_addr,
+                              burst_length=burst_length,
+                              pause=pause,
+                              reset_dsp=reset_dsp,
+                              reset_ddr=reset_ddr,
+                              stop_transmission=stop_transmission)
+
+        nof_tiles = len(self._test_station.tiles)
+
+        if errors > 0:
+            self._logger.error("DDR Test FAILED!")
+            self.clean_up()
+            return 1
+
         time.sleep(0.1)
 
         # Running test
         prev_rd_cnt_fpga1 = [0] * nof_tiles
         prev_rd_cnt_fpga2 = [0] * nof_tiles
-        # fpga1_pass = self._test_station['fpga1.ddr_simple_test.pass']
-        # fpga2_pass = self._test_station['fpga2.ddr_simple_test.pass']
         fpga1_status = self._test_station['fpga1.ddr_if.status']
         fpga2_status = self._test_station['fpga2.ddr_if.status']
-        self._test_station['fpga1.ddr_simple_test.start'] = 1
-        self._test_station['fpga2.ddr_simple_test.start'] = 1
+        self.start()
         for t in range(duration):
             time.sleep(1)
             curr_rd_cnt_fpga1 = self._test_station['fpga1.ddr_simple_test.rd_cnt']
@@ -118,8 +147,7 @@ class TestDdr():
             prev_rd_cnt_fpga2 = curr_rd_cnt_fpga2
             self._logger.info("Test running with no errors detected, elapsed time %d seconds" % (t + 1))
 
-        self._test_station['fpga1.ddr_simple_test.start'] = 0
-        self._test_station['fpga2.ddr_simple_test.start'] = 0
+        self.stop()
         self._logger.info("Test PASSED!")
         self.clean_up()
         return 0

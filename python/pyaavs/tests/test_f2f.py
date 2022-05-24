@@ -36,9 +36,7 @@ class TestF2f():
 
         errors = 0
 
-        # Resetting DSP to get exclusive access to F2F
-        self._test_station['fpga1.regfile.reset.dsp_rst'] = 1
-        self._test_station['fpga2.regfile.reset.dsp_rst'] = 1
+        tf.stop_all_data_transmission(self._test_station)
 
         for n, tile in enumerate(self._test_station.tiles):
             for f2f in tile.tpm.tpm_f2f:

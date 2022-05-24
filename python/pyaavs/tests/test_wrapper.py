@@ -31,7 +31,7 @@ class TestWrapper:
                        'ddr': "Check on-board DDR using FPGA embedded test.",
                        'f2f': "Check fast data link between FPGAs using FPGA embedded test.",
                        'eth40g': "Check 40G UDP using FPGA embedded test.",
-                       'c2c': "Check communcation bus between CPLD and FPGAs.\nWARNING: this test will overwrite the "
+                       'c2c': "Check communication bus between CPLD and FPGAs.\nWARNING: this test will overwrite the "
                               "XML memory map in the FPGAs,\nInitialise station needed after execution.",
                        }
 

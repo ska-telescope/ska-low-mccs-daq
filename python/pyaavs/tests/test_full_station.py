@@ -20,6 +20,8 @@ import logging
 import shutil
 import time
 import os
+from test_ddr import TestDdr
+from test_antenna_buffer import TestAntennaBuffer
 
 # Number of samples to process
 nof_samples = 256*1024
@@ -216,6 +218,8 @@ class TestFullStation():
         self._total_bandwidth = station_config['test_config']['total_bandwidth']
         self._antennas_per_tile = station_config['test_config']['antennas_per_tile']
         self._pfb_nof_channels = station_config['test_config']['pfb_nof_channels']
+        self._test_ddr_inst = TestDdr(station_config, logger)
+        self._test_antenna_buffer_inst = TestAntennaBuffer(station_config, logger)
 
     def prepare_test(self):
         for i, tile in enumerate(self._test_station.tiles):
@@ -261,7 +265,7 @@ class TestFullStation():
                     station_ok = False
         return station_ok
 
-    def execute(self, test_channel=4, max_delay=128):
+    def execute(self, test_channel=4, max_delay=128, background_ddr_access=False):
         global nof_samples
 
         self._test_station = station.Station(self._station_config)
@@ -319,6 +323,35 @@ class TestFullStation():
             # initialise_daq(daq_config)
 
             errors = 0
+
+            if background_ddr_access:
+                # Set DDR address for background DDR and antenna buffer instances
+                ddr_test_base_address = 512 * 1024 * 1024
+                ddr_test_length = 256 * 1024 * 1024
+                antenna_buffer_base_address = 768 * 1024 * 1024
+                antenna_buffer_length = 256 * 1024 * 1024
+
+                # start DDR test
+                errors = self._test_ddr_inst.prepare(ddr_test_base_address // 8,
+                                                     (ddr_test_base_address + ddr_test_length) // 8 - 8,
+                                                     4, 60,
+                                                     0, 0, 0)
+                if errors > 0:
+                    self._logger.error("Not possible to start DDR background test")
+                    self._logger.error("TEST FAILED!")
+                    return 1
+                self._test_ddr_inst.start()
+
+                # start antenna buffer write into DDR
+                if self._test_station.tiles[0]['fpga1.dsp_regfile.feature.antenna_buffer_implemented'] == 1:
+                    for n, tile in enumerate(self._test_station.tiles):
+                        for i in [0, 1]:
+                            ab_inst = tile.tpm.tpm_antenna_buffer[i]
+                            ab_inst.configure_ddr_buffer(
+                                ddr_start_byte_address=antenna_buffer_base_address,  # DDR buffer base address
+                                byte_size=antenna_buffer_length)
+                            ab_inst.buffer_write(continuous_mode=True)
+
             # Mask antennas if required
             one_matrix = np.ones((nof_channels, 4), dtype=np.complex64)
             one_matrix[:, 1] = one_matrix[:, 2] = 0
@@ -440,12 +473,25 @@ class TestFullStation():
                 if abs(diff) > max_diff:
                     max_diff = abs(diff)
 
+            if background_ddr_access:
+                # Get DDR background test result
+                for fpga in ["fpga1", "fpga2"]:
+                    for n, tile in enumerate(self._test_station.tiles):
+                        if tile['%s.ddr_simple_test.error' % fpga] == 1:
+                            self._logger.error("Background DDR test error detected in Tile %d, %s" % (n, fpga.upper()))
+                            errors += 1
+
             self._logger.info("Maximum difference: %f dB" % max_diff)
-            if abs(max_diff) > 0.9:
-                self._logger.error("TEST FAILED!")
+            if abs(max_diff) > 0.5:
+                self._logger.error("Maximum difference over acceptable threshold")
                 errors += 1
+
+            if errors > 0:
+                self._logger.error("TEST FAILED!")
             else:
                 self._logger.info("TEST PASSED!")
+
+
 
             # plt.plot(np.array(realtime_power)[:, 0])
             # plt.plot(np.array(offline_power)[:, 0] - rescale)
@@ -459,6 +505,17 @@ class TestFullStation():
         finally:
             # stop_daq()
             shutil.rmtree(data_directory, ignore_errors=True)
+
+            if background_ddr_access:
+                # stop DDR test
+                self._test_ddr_inst.stop()
+                # stop antenna buffer
+                if self._test_station.tiles[0]['fpga1.dsp_regfile.feature.antenna_buffer_implemented'] == 1:
+                    for n, tile in enumerate(self._test_station.tiles):
+                        for i in [0, 1]:
+                            ab_inst = tile.tpm.tpm_antenna_buffer[i]
+                            ab_inst.stop_now()
+
             return errors
 
 

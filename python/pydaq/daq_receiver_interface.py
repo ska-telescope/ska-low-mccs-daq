@@ -1131,6 +1131,10 @@ class DaqReceiver:
                 logging.error("Interface does not exist or could not get it's IP: {}".format(e))
                 exit()
 
+        # Check if filesize restriction is set
+        if configuration['max_filesize'] is not None:
+            aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = configuration['max_filesize']
+
         # Get metadata
         metadata = {'software_version': self._get_software_version(),
                     'description': self._config['description']}
