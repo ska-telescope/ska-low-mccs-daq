@@ -25,7 +25,7 @@ nof_tiles = 1
 nof_antennas = 16
 tiles_processed = None
 data_received = False
-buffer_size_nof_samples = 64*1024*1024  # DAQ instantiates 16*buffer_size_nof_samples bytes, use this to calculate nof callbacks
+buffer_size_nof_samples = 8*1024*1024  # DAQ instantiates 16*buffer_size_nof_samples bytes, use this to calculate nof callbacks
 nof_callback = 0
 callback_received = 0
 
