@@ -1175,11 +1175,11 @@ class Tile(object):
             _beamf_fd.compute_calibration_coefs()
 
         # Interface towards beamformer in FPGAs
-        for _beamf_fd in self.tpm.beamf_fd:
-            _beamf_fd.initialize()
+        for _station_beamf in self.tpm.station_beamf:
+            _station_beamf.initialize()
         self.set_first_last_tile(is_first, is_last)
-        for _beamf_fd in self.tpm.beamf_fd:
-            _beamf_fd.defineChannelTable([[start_channel, nof_channels, 0]])
+        for _station_beamf in self.tpm.station_beamf:
+            _station_beamf.defineChannelTable([[start_channel, nof_channels, 0]])
 
     @connected
     def set_beamformer_regions(self, region_array):
@@ -1847,7 +1847,7 @@ class Tile(object):
         """ Send raw data from the TPM
         :param sync: Synchronised flag
         :param timestamp: When to start
-        :param seconds: Period
+        :param seconds: Delay
         :param fpga_id: Specify which FPGA should transmit, 0,1, or None for both FPGAs"""
 
         self.stop_data_transmission()
@@ -1867,17 +1867,13 @@ class Tile(object):
 
     @connected
     def send_raw_data_synchronised(
-        self, period=0, timeout=0, timestamp=None, seconds=0.2
+        self, timestamp=None, seconds=0.2
     ):
         """  Send synchronised raw data
-        :param period: Period in seconds
-        :param timeout: Timeout in seconds
         :param timestamp: When to start
         :param seconds: Period"""
         self.send_raw_data(
             sync=True,
-            period=period,
-            timeout=timeout,
             timestamp=timestamp,
             seconds=seconds,
         )
@@ -1921,7 +1917,6 @@ class Tile(object):
     @connected
     def send_beam_data(self, timeout=0, timestamp=None, seconds=0.2):
         """ Send beam data from the TPM
-        :param period: Period in seconds to send data
         :param timeout: When to stop
         :param timestamp: When to send
         :param seconds: When to synchronise"""
@@ -2219,8 +2214,8 @@ class Tile(object):
         eth0.test_start_rx(single_packet_mode)
         eth1.test_start_rx(single_packet_mode)
 
-        ip0 = int(self.get_10g_core_configuration(0)["src_ip"])
-        ip1 = int(self.get_10g_core_configuration(1)["src_ip"])
+        ip0 = int(self.get_40g_core_configuration(0)["src_ip"])
+        ip1 = int(self.get_40g_core_configuration(1)["src_ip"])
 
         ret = 0
         ret += eth0.test_start_tx(ip1, ipg=ipg)
