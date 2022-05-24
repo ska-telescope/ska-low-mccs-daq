@@ -306,10 +306,6 @@ class Station(object):
                             t.tpm.station_beamf[0].set_csp_rounding(self.configuration['station']['beamformer_scaling'])
                             t.tpm.station_beamf[1].set_csp_rounding(self.configuration['station']['beamformer_scaling'])
 
-            # for tile in self.tiles:
-            #     tile.tpm.tpm_pattern_generator[0].initialise()
-            #     tile.tpm.tpm_pattern_generator[1].initialise()
-
             # If in testing mode, override tile-specific test generators
             if self.configuration['station']['enable_test']:
                 for tile in self.tiles:
@@ -319,8 +315,8 @@ class Station(object):
 
                 for tile in self.tiles:
                     for gen in tile.tpm.test_generator:
-                        gen.set_tone(0, 100 * 800e6 / 1024, 1)
-                        gen.set_tone(1, 100 * 800e6 / 1024, 0)
+                        gen.set_tone(0, 100 * 400e6 / 512, 1)
+                        gen.set_tone(1, 100 * 400e6 / 512, 0)
                         gen.channel_select(0xFFFF)
 
             if self['fpga1.regfile.feature.xg_eth_implemented'] == 1:
@@ -463,16 +459,6 @@ class Station(object):
         # Assign station and tile id, and tweak transceivers
         for i, tile in enumerate(self.tiles):
             tile.set_station_id(self._station_id, i)
-            tile.tweak_transceivers()
-
-        #if self.tiles[0]['fpga1.regfile.feature.xg_eth_implemented'] == 0:
-        #    for tile in self.tiles:
-        #        tile['fpga1.regfile.reset.eth10g_rst'] = 0
-        #        tile['fpga2.regfile.reset.eth10g_rst'] = 0
-        #        tile['fpga1.regfile.reset.eth10g_rst'] = 1
-        #        tile['fpga2.regfile.reset.eth10g_rst'] = 1
-        #        tile['fpga1.regfile.reset.eth10g_rst'] = 0
-        #        tile['fpga2.regfile.reset.eth10g_rst'] = 0
 
         # Loop over tiles and configure 10g cores
         # Note that 10G lanes already have a correct source IP, MAC and port,
@@ -593,13 +579,9 @@ class Station(object):
                 # Configure integrated data streams
                 logging.info("Using 1G for integrated LMC traffic")
                 tile.set_lmc_integrated_download("1g", 1024, 2048)
-                
-        if self.tiles[0]['fpga1.regfile.feature.xg_eth_implemented'] == 0:
-            logging.info("Waiting for 10G Ethernet link...")
-            time.sleep(5)
-        else:
-            for tile in self.tiles:
-                tile.check_arp_table()
+
+        for tile in self.tiles:
+            tile.check_arp_table()
 
         # Start data acquisition on all boards
         delay = 2
@@ -716,101 +698,6 @@ class Station(object):
             tile.test_generator[0].channel_select(inputs & 0xFFFF)
             tile.test_generator[1].channel_select((inputs >> 16) & 0xFFFF)
 
-    def enable_beamformer_test_pattern(self, nof_tiles=16):
-        """ Enable beamformer test pattern """
-        for tile in self.tiles:
-            log2_tiles = int(math.log(nof_tiles, 2))
-            tile.tpm.tpm_pattern_generator[0].start_pattern("beamf")
-            tile.tpm.tpm_pattern_generator[1].start_pattern("beamf")
-            tile['fpga1.pattern_gen.beamf_left_shift'] = 4 - log2_tiles
-            tile['fpga2.pattern_gen.beamf_left_shift'] = 4 - log2_tiles
-            tile['fpga1.beamf_ring.csp_scaling'] = 4
-            tile['fpga2.beamf_ring.csp_scaling'] = 4
-            tile.tpm.tpm_pattern_generator[0].set_signal_adder([0] * 64, "beamf")
-            tile.tpm.tpm_pattern_generator[1].set_signal_adder([1] * 64, "beamf")
-
-    def disable_beamformer_test_pattern(self):
-        """ Enable beamformer test pattern """
-        for tile in self.tiles:
-            tile.tpm.tpm_pattern_generator[0].stop_pattern("beamf")
-            tile.tpm.tpm_pattern_generator[1].stop_pattern("beamf")
-
-    def enable_channeliser_test_pattern(self):
-        """ Enable beamformer test pattern """
-        for tile in self.tiles:
-            tile.tpm.tpm_pattern_generator[0].start_pattern("channel")
-            tile.tpm.tpm_pattern_generator[1].start_pattern("channel")
-
-    def stop_channeliser_test_pattern(self):
-        """ Enable beamformer test pattern """
-        for tile in self.tiles:
-            tile.tpm.tpm_pattern_generator[0].stop_pattern("channel")
-            tile.tpm.tpm_pattern_generator[1].stop_pattern("channel")
-
-    # ------------------------------------------------------------------------------------------------
-
-    def mii_test(self, pkt_num, show_result=True):
-        """ Perform mii test """
-
-        for i, tile in enumerate(self.tiles):
-            logging.debug("MII test setting Tile " + str(i))
-            tile.mii_prepare_test(i + 1)
-
-        for i, tile in enumerate(self.tiles):
-            logging.debug("MII test starting Tile " + str(i))
-            tile.mii_exec_test(pkt_num, wait_result=False)
-
-        if not show_result:
-            return
-
-        while True:
-            for i, tile in enumerate(self.tiles):
-                logging.debug("Tile " + str(i) + " MII test result:")
-                tile.mii_show_result()
-                k = input("Enter quit to exit. Any other key to continue.")
-                if k == "quit":
-                    return
-
-    def enable_adc_trigger(self, threshold=127):
-        """ Enable ADC trigger to send raw data when an RMS threshold is reached"""
-
-        if 0 > threshold > 127:
-            logging.error("Invalid threshold, must be 1 - 127")
-            return
-
-        # Enable trigger
-        station['fpga1.lmc_gen.raw_ext_trigger_enable'] = 1
-        station['fpga2.lmc_gen.raw_ext_trigger_enable'] = 1
-
-        # Set threshold
-        for tile in self.tiles:
-            for adc in tile.tpm.tpm_adc:
-                adc.adc_set_fast_detect(threshold << 6)
-
-    @staticmethod
-    def disable_adc_trigger():
-        """ Disable ADC trigger """
-        station['fpga1.lmc_gen.raw_ext_trigger_enable'] = 0
-        station['fpga2.lmc_gen.raw_ext_trigger_enable'] = 0
-
-    def cycle_preadu_attenuation(self, delay=60):
-        """ Cycle through PREADU attenuation """
-        for attenuation in range(31, 0, -1):
-            logging.info("Setting attenuation to {}".format(attenuation))
-
-            # Loop over all tiles
-            for tile in self.tiles:
-
-                # Get current preadu settings
-                for preadu in tile.tpm.tpm_preadu:
-                    preadu.select_low_passband()
-                    #  preadu.read_configuration()
-
-                    #  attenuation = (tile.tpm.tpm_preadu[i / 16].channel_filters[i % 16] >> 3) + att
-                    preadu.set_attenuation(int(round(attenuation)))
-                    preadu.write_configuration()
-            time.sleep(delay)
-
     # --------------------------------- CALIBRATION OPERATIONS ---------------------------------------
     def calibrate_station(self, coefficients, switch_time=2048):
         """Coefficients is a 3D complex array of the form [antenna, channel, polarization], with each 
@@ -882,60 +769,51 @@ class Station(object):
 
     # ------------------------------------ DATA OPERATIONS -------------------------------------------
 
-    def send_raw_data(self, sync=False, period=0, timeout=0):
+    def send_raw_data(self, sync=False):
         """ Send raw data from all Tiles """
         self._wait_available()
         t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
         for tile in self.tiles:
-            tile.send_raw_data(sync=sync, period=period, timeout=timeout, timestamp=t0, seconds=self._seconds)
+            tile.send_raw_data(sync=sync, timestamp=t0, seconds=self._seconds)
         return self._check_data_sync(t0)
 
-    def send_raw_data_synchronised(self, period=0, timeout=0):
+    def send_raw_data_synchronised(self):
         """ Send synchronised raw data from all Tiles """
         self._wait_available()
         t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
         for tile in self.tiles:
-            tile.send_raw_data_synchronised(period=period, timeout=timeout, timestamp=t0, seconds=self._seconds)
+            tile.send_raw_data_synchronised(timestamp=t0, seconds=self._seconds)
         return self._check_data_sync(t0)
 
-    def send_channelised_data(self, number_of_samples=1024, first_channel=0, last_channel=511, period=0, timeout=0):
+    def send_channelised_data(self, number_of_samples=1024, first_channel=0, last_channel=511):
         """ Send channelised data from all Tiles """
         self._wait_available()
         t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
         for tile in self.tiles:
             tile.send_channelised_data(number_of_samples=number_of_samples, first_channel=first_channel,
-                                       last_channel=last_channel, period=period,
-                                       timeout=timeout, timestamp=t0, seconds=self._seconds)
+                                       last_channel=last_channel,
+                                       timestamp=t0, seconds=self._seconds)
         return self._check_data_sync(t0)
 
-    def send_beam_data(self, period=0, timeout=0):
+    def send_beam_data(self):
         """ Send beam data from all Tiles """
         self._wait_available()
         t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
         for tile in self.tiles:
-            tile.send_beam_data(period=period, timeout=timeout, timestamp=t0, seconds=self._seconds)
+            tile.send_beam_data(timestamp=t0, seconds=self._seconds)
         return self._check_data_sync(t0)
 
-    def send_csp_data(self, samples_per_packet, number_of_samples):
-        """ Send CSP data from all Tiles """
-        self._wait_available()
-        t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
-        for tile in self.tiles:
-            tile.send_csp_data(samples_per_packet=samples_per_packet, number_of_samples=number_of_samples,
-                               timestamp=t0, seconds=0.5)
-        return self._check_data_sync(t0)
-
-    def send_channelised_data_continuous(self, channel_id, number_of_samples=65536, timeout=0):
+    def send_channelised_data_continuous(self, channel_id, number_of_samples=65536):
         """ Send continuous channelised data from all Tiles """
         self.stop_data_transmission()
         self._wait_available()
         t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
         for tile in self.tiles:
             tile.send_channelised_data_continuous(channel_id=channel_id, number_of_samples=number_of_samples,
-                                                  timeout=timeout, timestamp=t0, seconds=self._seconds)
+                                                  timestamp=t0, seconds=self._seconds)
         return self._check_data_sync(t0)
 
-    def send_channelised_data_narrowband(self, frequency, round_bits, number_of_samples=256, timeout=0):
+    def send_channelised_data_narrowband(self, frequency, round_bits, number_of_samples=256):
         """ Send narrowband continuous channel data """
         # Check if feature is available
         if len(self.tiles[0].find_register("fpga1.lmc_gen.channelized_ddc_mode")) == 0:
@@ -948,7 +826,7 @@ class Station(object):
         for tile in self.tiles:
             tile.send_channelised_data_narrowband(frequency=frequency, round_bits=round_bits,
                                                   number_of_samples=number_of_samples,
-                                                  timeout=timeout, timestamp=t0, seconds=self._seconds)
+                                                  timestamp=t0, seconds=self._seconds)
         return self._check_data_sync(t0)
 
     def stop_data_transmission(self):
@@ -975,87 +853,7 @@ class Station(object):
         logging.debug("Data sync check: timestamp={}, delay={}".format(str(timestamps), delay))
         return all([(t0 + delay) > t1 for t1 in timestamps])
 
-    def test_wr_exec(self):
-        import time
-        start = time.time()
-        ba = self.tiles[0].tpm.register_list['%s.pattern_gen.%s_data' % ('fpga1', "beamf")]['address']
-
-        for n in range(1024):
-            self.tiles[0][ba] = list(range(256))
-
-        end = time.time()
-        logging.debug("test_wr_exec: {}".format((end - start)))
-
     # ------------------------------------------- TEST FUNCTIONS ---------------------------------------
-
-    def test_rd_exec(self):
-        import time
-        start = time.time()
-        ba = self.tiles[0].tpm.register_list['%s.pattern_gen.%s_data' % ('fpga1', "beamf")]['address']
-
-        for n in range(1024):
-            self.tiles[0].tpm.read_register(ba, n=256)
-
-        end = time.time()
-        logging.debug("test_rd_exec: {}".format((end - start)))
-
-    def err_reset(self):
-        self['fpga1.dsp_regfile.error_clear'] = 0xFFFFFFFF
-        self['fpga1.dsp_regfile.error_clear'] = 0x0
-        self['fpga2.dsp_regfile.error_clear'] = 0xFFFFFFFF
-        self['fpga2.dsp_regfile.error_clear'] = 0x0
-        self['fpga1.beamf_ring.control.error_rst'] = 1
-        self['fpga1.beamf_ring.control.error_rst'] = 0
-        self['fpga2.beamf_ring.control.error_rst'] = 1
-        self['fpga2.beamf_ring.control.error_rst'] = 0
-        self['fpga1.regfile.eth10g_error'] = 0
-        self['fpga2.regfile.eth10g_error'] = 0
-
-    def error_check(self):
-        logging.debug(self['fpga1.dsp_regfile.error_detected'])
-        logging.debug(self['fpga2.dsp_regfile.error_detected'])
-        logging.debug(self['fpga1.beamf_ring.error'])
-        logging.debug(self['fpga2.beamf_ring.error'])
-        logging.debug(self['fpga1.regfile.eth10g_error'])
-        logging.debug(self['fpga2.regfile.eth10g_error'])
-
-    def ddr3_check(self):
-        try:
-            while True:
-                for n in range(len(self.tiles)):
-                    if (self.tiles[n]['fpga1.ddr3_if.status'] & 0x100) != 256:
-                        logging.info("Tile" + str(n) + " FPGA1 DDR Error Detected!")
-                        logging.info(hex(self.tiles[n]['fpga1.ddr3_if.status']))
-                        logging.info(time.asctime(time.localtime(time.time())))
-                        time.sleep(5)
-
-                    if (self.tiles[n]['fpga2.ddr3_if.status'] & 0x100) != 256:
-                        logging.info("Tile" + str(n) + " FPGA2 DDR Error Detected!")
-                        logging.info(hex(self.tiles[n]['fpga2.ddr3_if.status']))
-                        logging.info(localtime=time.asctime(time.localtime(time.time())))
-                        time.sleep(5)
-        except KeyboardInterrupt:
-            pass
-
-    @staticmethod
-    def check_adc_sysref():
-        for adc in range(16):
-            error = 0
-            values = station['adc' + str(adc), 0x128]
-            for i in range(len(values)):
-                msb = (values[i] & 0xF0) >> 4
-                lsb = (values[i] & 0x0F) >> 0
-                if msb == 0 and lsb <= 7:
-                    logging.warning('Possible setup error in tile %d adc %d' % (i, adc))
-                    error = 1
-                if msb >= 9 and lsb == 0:
-                    logging.warning('Possible hold error in tile %d adc %d' % (i, adc))
-                    error = 1
-                if msb == 0 and lsb == 0:
-                    logging.warning('Possible setup and hold error in tile %d adc %d' % (i, adc))
-                    error = 1
-            if error == 0:
-                logging.debug('ADC %d sysref OK!' % adc)
 
     # ------------------------------------------- OVERLOADED FUNCTIONS ---------------------------------------
 
