@@ -167,7 +167,7 @@ class TestAntennaBuffer():
 
         # calculate actual DAQ buffer size in nof_raw_samples
         total_nof_samples = actual_buffer_byte_size // 4
-        nof_callback = total_nof_samples / buffer_size_nof_samples
+        nof_callback = np.ceil(total_nof_samples / buffer_size_nof_samples)
         if nof_callback < 1:
             nof_callback = 1
         nof_callback = 2**int(np.log2(nof_callback))
@@ -189,7 +189,8 @@ class TestAntennaBuffer():
             'nof_beam_channels': 384,
             'nof_beam_samples': 32,
             'receiver_frame_size': 1664,  # 8320 #1280
-            'nof_tiles': len(tiles)
+            'nof_tiles': len(tiles),
+            'max_filesize': 8
         }
         # Configure the DAQ receiver and start receiving data
         daq.populate_configuration(daq_config)
