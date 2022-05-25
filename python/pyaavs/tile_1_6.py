@@ -52,7 +52,9 @@ def connected(f):
         :rtype: object
         """
         if self.tpm is None:
-            logging.warn("Cannot call function " + f.__name__ + " on unconnected TPM")
+            self.logger.warning(
+                "Cannot call function " + f.__name__ + " on unconnected TPM"
+            )
             raise LibraryError(
                 "Cannot call function " + f.__name__ + " on unconnected TPM"
             )
@@ -134,7 +136,6 @@ class Tile_1_6(Tile):
         # Add plugin directory (load module locally)
         tf = __import__("pyaavs.plugins.tpm_1_6.tpm_test_firmware", fromlist=[None])
         self.tpm.add_plugin_directory(os.path.dirname(tf.__file__))
-        
         # Connect using tpm object.
         # simulator parameter is used not to load the TPM specific plugins,
         # no actual simulation is performed.
@@ -155,28 +156,30 @@ class Tile_1_6(Tile):
 
         # Load tpm test firmware for both FPGAs (no need to load in simulation)
         if load_plugin and self.tpm.is_programmed():
-            self.tpm.load_plugin(
-                "Tpm_1_6_TestFirmware",
-                device=Device.FPGA_1,
-                fsample=self._sampling_rate,
-                dsp_core=dsp_core,
-            )
-            self.tpm.load_plugin(
-                "Tpm_1_6_TestFirmware",
-                device=Device.FPGA_2,
-                fsample=self._sampling_rate,
-                dsp_core=dsp_core,
-            )
+            for device in [Device.FPGA_1, Device.FPGA_2]:
+                self.tpm.load_plugin(
+                    "Tpm_1_6_TestFirmware",
+                    device=device,
+                    fsample=self._sampling_rate,
+                    dsp_core=dsp_core,
+                    logger=self.logger,
+                )
         elif not self.tpm.is_programmed():
-            logging.warning("TPM is not programmed! No plugins loaded")
+            self.logger.warning("TPM is not programmed! No plugins loaded")
 
     def initialise(self,
-                   enable_ada=False,
-                   enable_test=False,
+                   station_id, tile_id,
+                   lmc_use_40g, lmc_dst_ip, lmc_dst_port,
+                   lmc_integrated_use_40g, lmc_integrated_dst_ip,
+                   src_ip_fpga1, src_ip_fpga2, dst_ip_fpga1, dst_ip_fpga2,
+                   src_port, dst_port,
                    enable_adc=True,
-                   use_internal_pps=False,
-                   qsfp_detection="auto"
-                   ):
+                   enable_ada=False, enable_test=False, use_internal_pps=False,
+                   pps_delay=0,
+                   time_delays=0,
+                   is_first_tile=False,
+                   is_last_tile=False,
+                   qsfp_detection="auto"):
         """
         Connect and initialise.
 
@@ -208,15 +211,25 @@ class Tile_1_6(Tile):
 
         # Before initialing, check if TPM is programmed
         if not self.tpm.is_programmed():
-            logging.error("Cannot initialise board which is not programmed")
+            self.logger.error("Cannot initialise board which is not programmed")
             return
 
         # Disable debug UDP header
-        self.tpm["board.regfile.ena_header"] = 0x1
+        self["board.regfile.ena_header"] = 0x1
+
+        # write PPS delay correction variable into the FPGAs
+        if pps_delay < -128 or pps_delay > 127:
+            self.logger.error("PPS delay out of range [-128, 127]")
+            return
+        self["fpga1.pps_manager.sync_tc.cnt_2"] = pps_delay & 0xFF
+        self["fpga2.pps_manager.sync_tc.cnt_2"] = pps_delay & 0xFF
 
         # Initialise firmware plugin
         for firmware in self.tpm.tpm_test_firmware:
             firmware.initialise_firmware()
+
+        # Set station and tile IDs
+        self.set_station_id(station_id, tile_id)
 
         # Set LMC IP
         self.tpm.set_lmc_ip(self._lmc_ip, self._lmc_port)
@@ -239,7 +252,7 @@ class Tile_1_6(Tile):
         #     preadu.read_configuration()
 
         # Synchronise FPGAs
-        self.sync_fpgas()
+        self.sync_fpga_time(use_internal_pps=False)
 
         # Initialize f2f link
         for f2f in self.tpm.tpm_f2f:
@@ -252,15 +265,14 @@ class Tile_1_6(Tile):
         # self.tpm["fpga2.jesd204_if.regfile_pol_switch"] = 0b00001111
 
         # Reset test pattern generator
-        self.tpm.test_generator[0].channel_select(0x0000)
-        self.tpm.test_generator[1].channel_select(0x0000)
-        self.tpm.test_generator[0].disable_prdg()
-        self.tpm.test_generator[1].disable_prdg()
+        for _test_generator in self.tpm.test_generator:
+            _test_generator.channel_select(0x0000)
+            _test_generator.disable_prdg()
 
         # Use test_generator plugin instead!
         if enable_test:
             # Test pattern. Tones on channels 72 & 75 + pseudo-random noise
-            logging.info("Enabling test pattern")
+            self.logger.info("Enabling test pattern")
             for generator in self.tpm.test_generator:
                 generator.set_tone(0, 72 * self._sampling_rate / 1024, 0.0)
                 generator.enable_prdg(0.4)
@@ -268,11 +280,40 @@ class Tile_1_6(Tile):
 
         # Set destination and source IP/MAC/ports for 10G cores
         # This will create a loopback between the two FPGAs
-        self.set_default_eth_configuration(qsfp_detection)
+        self.set_default_eth_configuration(src_ip_fpga1, src_ip_fpga2,
+                                           dst_ip_fpga1, dst_ip_fpga2,
+                                           src_port, dst_port,
+                                           qsfp_detection)
 
         for firmware in self.tpm.tpm_test_firmware:
             if not firmware.check_ddr_initialisation():
                 firmware.initialise_ddr()
+
+        # Configure standard data streams
+        if lmc_use_40g:
+            logging.info("Using 10G for LMC traffic")
+            self.set_lmc_download("10g", 8192,
+                                  dst_ip=lmc_dst_ip,
+                                  dst_port=lmc_dst_port)
+        else:
+            logging.info("Using 1G for LMC traffic")
+            self.set_lmc_download("1g")
+
+        # Configure integrated data streams
+        if lmc_integrated_use_40g:
+            logging.info("Using 10G for integrated LMC traffic")
+            self.set_lmc_integrated_download("10g", 1024, 2048,
+                                             dst_ip=lmc_integrated_dst_ip)
+        else:
+            logging.info("Using 1G for integrated LMC traffic")
+            self.set_lmc_integrated_download("1g", 1024, 2048)
+
+        # Set time delays
+        self.set_time_delays(time_delays)
+
+        # set first/last tile flag
+        for _station_beamf in self.tpm.station_beamf:
+            _station_beamf.set_first_last_tile(is_first_tile, is_last_tile)
 
     def f2f_aurora_test_start(self):
         """Start test on Aurora f2f link."""
