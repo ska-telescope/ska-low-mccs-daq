@@ -268,6 +268,8 @@ class Tile_1_6(Tile):
 
         # Set destination and source IP/MAC/ports for 10G cores
         # This will create a loopback between the two FPGAs
+        for core in self.tpm.tpm_10g_core:
+            core.reset_errors()
         self.set_default_eth_configuration(src_ip_fpga1, src_ip_fpga2,
                                            dst_ip_fpga1, dst_ip_fpga2,
                                            src_port, dst_port)
