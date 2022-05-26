@@ -189,6 +189,65 @@ class TpmTestFirmware(FirmwareBlock):
                     "MultipleChannelTx", device=self._device
                 )
 
+    def start_ddr_initialisation(self: TpmTestFirmware) -> None:
+        """Start DDR initialisation."""
+        if self.board["board.regfile.ctrl.en_ddr_vdd"] == 0:
+            self.board["board.regfile.ctrl.en_ddr_vdd"] = 1
+            time.sleep(0.5)
+        logging.debug(self._device_name + " DDR3 reset")
+        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
+        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
+
+    def check_ddr_initialisation(self: TpmTestFirmware) -> None:
+        """Check whether DDR has initialised."""
+        if self.board.memory_map.has_register(
+            self._device_name + ".regfile.stream_status.ddr_init_done"
+        ):
+            status = self.board[
+                self._device_name + ".regfile.stream_status.ddr_init_done"
+            ]
+        else:
+            status = self.board[self._device_name + ".regfile.status.ddr_init_done"]
+
+        if status == 0x0:
+            logging.debug("DDR3 " + self._device_name + " is not initialised")
+            self.initialise_ddr()
+        else:
+            logging.debug("DDR3 " + self._device_name + " initialised!")
+            return
+
+    def initialise_ddr(self: TpmTestFirmware) -> None:
+        """Initialise DDR."""
+        if self.board["board.regfile.ctrl.en_ddr_vdd"] == 0:
+            self.board["board.regfile.ctrl.en_ddr_vdd"] = 1
+            time.sleep(0.5)
+
+        for _n in range(3):
+            logging.debug(self._device_name + " DDR3 reset")
+            self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
+            self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
+
+            for _m in range(5):
+                if self.board.memory_map.has_register(
+                    self._device_name + ".regfile.stream_status.ddr_init_done"
+                ):
+                    status = self.board[
+                        self._device_name + ".regfile.stream_status.ddr_init_done"
+                    ]
+                else:
+                    status = self.board[
+                        self._device_name + ".regfile.status.ddr_init_done"
+                    ]
+
+                if status == 0x0:
+                    logging.debug("Wait DDR3 " + self._device_name + " init")
+                    time.sleep(0.2)
+                else:
+                    logging.debug("DDR3 " + self._device_name + " initialised!")
+                    return
+
+        logging.error("Cannot initilaise DDR3 " + self._device_name)
+
     def initialise_firmware(self: TpmTestFirmware) -> None:
         """
         Initialise firmware components.

@@ -80,7 +80,7 @@ class Tile(object):
         logger=None,
     ):
         """
-        Iniitalise a new Tile12 instance.
+        Initialise a new Tile12 instance.
 
         :param logger: the logger to be used by this Command. If not
                 provided, then a default module logger will be used.
@@ -114,26 +114,6 @@ class Tile(object):
         self.tile_id = 0
 
         self._sampling_rate = sampling_rate
-
-        # Mapping between preadu and TPM inputs
-        # self.fibre_preadu_mapping = {
-        #     0: 1,
-        #     1: 2,
-        #     2: 3,
-        #     3: 4,
-        #     7: 13,
-        #     6: 14,
-        #     5: 15,
-        #     4: 16,
-        #     8: 5,
-        #     9: 6,
-        #     10: 7,
-        #     11: 8,
-        #     15: 9,
-        #     14: 10,
-        #     13: 11,
-        #     12: 12,
-        # }
 
         self.preadu_signal_map = {0: {'preadu_id': 1, 'channel': 14},
                                   1: {'preadu_id': 1, 'channel': 15},
@@ -231,6 +211,7 @@ class Tile(object):
                     "TpmTestFirmware",
                     device=device,
                     fsample=self._sampling_rate,
+                    dsp_core=dsp_core,
                     logger=self.logger,
                 )
         elif not self.tpm.is_programmed():
@@ -263,21 +244,56 @@ class Tile(object):
         """
         Connect and initialise.
 
+        :param station_id: station ID
+        :type station_id: int
+        :param tile_id: Tile ID in the station
+        :type tile_id: int
+        :param lmc_use_40g: if True use 40G interface to transmit LMC data, otherwise use 1G
+        :type lmc_use_40g: bool
+        :param lmc_dst_ip: destination IP address for LMC data packets
+        :type lmc_dst_ip: str
+        :param lmc_dst_port: destination UDP port for LMC data packets
+        :type lmc_dst_port: int
+        :param lmc_integrated_use_40g: if True use 40G interface to transmit LMC integrated data, otherwise use 1G
+        :type lmc_integrated_use_40g: bool
+        :param lmc_integrated_dst_ip: destination IP address for LMC integrated data packets
+        :type lmc_integrated_dst_ip: str
+        :param src_ip_fpga1: source IP address for FPGA1 40G interface
+        :type src_ip_fpga1: str
+        :param src_ip_fpga2: source IP address for FPGA2 40G interface
+        :type src_ip_fpga2: str
+        :param dst_ip_fpga1: destination IP address for beamformed data from FPGA1 40G interface
+        :type dst_ip_fpga1: str
+        :param dst_ip_fpga2: destination IP address for beamformed data from FPGA2 40G interface
+        :type dst_ip_fpga2: str
+        :param src_port: source UDP port for beamformed data packets
+        :type src_port: int
+        :param dst_port: destination UDP port for beamformed data packets
+        :type dst_port: int
         :param enable_ada: enable adc amplifier, Not present in most TPM versions
         :type enable_ada: bool
-        :param enable_test: setup internal test signal generator instead of ADC
         :param enable_adc: Enable ADC
         :type enable_adc: bool
+        :param enable_test: setup internal test signal generator instead of ADC
         :type enable_test: bool
 
         :param use_internal_pps: use internal PPS generator synchronised across FPGAs
         :type use_internal_pps: bool
+        :param pps_delay: PPS delay correction in 625ps units
+        :type pps_delay: int
+        :param time_delays: time domain delays for 32 inputs
+        :type time_delays: list(int)
+        :param is_first_tile: True if this tile is the first tile in the beamformer chain
+        :type is_first_tile: bool
+        :param is_last_tile: True if this tile is the last tile in the beamformer chain
+        :type is_last_tile: bool
         :param qsfp_detection: "auto" detects QSFP cables automatically,
                                "qsfp1", force QSFP1 cable detected, QSFP2 cable not detected
                                "qsfp2", force QSFP1 cable not detected, QSFP2 cable detected
                                "all", force QSFP1 and QSFP2 cable detected
                                "none", force no cable not detected
         :type qsfp_detection: str
+
         """
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc)
@@ -674,6 +690,23 @@ class Tile(object):
         Set destination and source IP/MAC/ports for 40G cores.
 
         This will create a loopback between the two FPGAs.
+
+        :param src_ip_fpga1: source IP address for FPGA1 40G interface
+        :type src_ip_fpga1: str
+        :param src_ip_fpga2: source IP address for FPGA2 40G interface
+        :type src_ip_fpga2: str
+        :param dst_ip_fpga1: destination IP address for beamformed data from FPGA1 40G interface
+        :type dst_ip_fpga1: str
+        :param dst_ip_fpga2: destination IP address for beamformed data from FPGA2 40G interface
+        :type dst_ip_fpga2: str
+        :param src_port: source UDP port for beamformed data packets
+        :type src_port: int
+        :param dst_port: destination UDP port for beamformed data packets
+        :type dst_port: int
+
+        :return: core configuration
+        :rtype: dict
+
         """
         if self["fpga1.regfile.feature.xg_eth_implemented"] == 1:
             src_ip_list = [src_ip_fpga1, src_ip_fpga2]
@@ -733,12 +766,16 @@ class Tile(object):
         """
         Configure link and size of control data for LMC packets.
 
-        :param mode: 1g or 10g
+        :param mode: "1g" or "10g"
+        :type mode: str
         :param payload_length: SPEAD payload length in bytes
+        :type payload_length: int
         :param dst_ip: Destination IP
+        :type dst_ip: str
         :param src_port: Source port for integrated data streams
+        :type src_port: int
         :param dst_port: Destination port for integrated data streams
-        :param lmc_mac: LMC Mac address is required for 10G lane configuration
+        :type dst_port: int
         """
         # Using 10G lane
         if mode.upper() == "10G":
@@ -790,12 +827,17 @@ class Tile(object):
         Configure link and size of control data for integrated LMC packets.
 
         :param mode: '1g' or '10g'
+        :type mode: str
         :param channel_payload_length: SPEAD payload length for integrated channel data
+        :type channel_payload_length: int
         :param beam_payload_length: SPEAD payload length for integrated beam data
+        :type beam_payload_length: int
         :param dst_ip: Destination IP
+        :type dst_ip: str
         :param src_port: Source port for integrated data streams
+        :type src_port: int
         :param dst_port: Destination port for integrated data streams
-        :param lmc_mac: LMC Mac address is required for 10G lane configuration
+        :type dst_port: int
         """
         # Using 10G lane
         if mode.upper() == "10G":
@@ -829,7 +871,7 @@ class Tile(object):
     def check_arp_table(self, timeout=20.0):
         """
         Check that ARP table has been resolved for all used cores.
-        40G interfaces use cores 0 (fpga0) and 1(fpga1) and
+        40G interfaces use cores 0 (fpga0) and 1 (fpga1) and
         ARP ID 0 for beamformer, 1 for LMC.
         The procedure checks that all populated ARP entries have been
         resolved. If the QSFP has been disabled or link is not detected up,
