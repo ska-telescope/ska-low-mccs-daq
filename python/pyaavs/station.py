@@ -466,6 +466,7 @@ class Station(object):
 
         # Check if ARP table is populated before starting
         for tile in self.tiles:
+            tile.reset_eth_errors()
             tile.check_arp_table()
 
         # Start data acquisition on all boards
