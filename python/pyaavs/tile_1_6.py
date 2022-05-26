@@ -12,6 +12,7 @@ Hardware functions for the TPM 1.6 hardware.
 """
 import functools
 import logging
+import time
 import os
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError
