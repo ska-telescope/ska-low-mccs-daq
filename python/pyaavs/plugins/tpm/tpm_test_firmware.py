@@ -179,51 +179,6 @@ class TpmTestFirmware(FirmwareBlock):
                 self.board.load_plugin("SpeadTxGen", device=self._device, core=3),
             ]
 
-    def fpga_clk_sync(self: TpmTestFirmware) -> None:
-        """FPGA synchronise clock."""
-        if self._device_name == "fpga1":
-
-            fpga1_phase = self.board["fpga1.pps_manager.sync_status.cnt_hf_pps"]
-
-            # restore previous counters status using PPS phase
-            self.board["fpga1.pps_manager.sync_tc.cnt_1_pulse"] = 0
-            time.sleep(1.1)
-            for _n in range(5):
-                fpga1_cnt_hf_pps = self.board["fpga1.pps_manager.sync_phase.cnt_hf_pps"]
-                if abs(fpga1_cnt_hf_pps - fpga1_phase) <= 3:
-                    logging.debug("FPGA1 clock synced to PPS phase!")
-                    break
-                else:
-                    rd = self.board["fpga1.pps_manager.sync_tc.cnt_1_pulse"]
-                    self.board["fpga1.pps_manager.sync_tc.cnt_1_pulse"] = rd + 1
-                    time.sleep(1.1)
-
-        if self._device_name == "fpga2":
-
-            # Synchronize FPGA2 to FPGA1 using sysref phase
-            fpga1_phase = self.board["fpga1.pps_manager.sync_phase.cnt_1_sysref"]
-
-            self.board["fpga2.pps_manager.sync_tc.cnt_1_pulse"] = 0x0
-            sleep(0.1)
-            for _n in range(5):
-                fpga2_phase = self.board["fpga2.pps_manager.sync_phase.cnt_1_sysref"]
-                if fpga1_phase == fpga2_phase:
-                    logging.debug("FPGA2 clock synced to SYSREF phase!")
-                    break
-                else:
-                    rd = self.board["fpga2.pps_manager.sync_tc.cnt_1_pulse"]
-                    self.board["fpga2.pps_manager.sync_tc.cnt_1_pulse"] = rd + 1
-                    sleep(0.1)
-
-            logging.debug(
-                "FPGA1 clock phase before adc_clk alignment: "
-                + hex(self.board["fpga1.pps_manager.sync_phase"])
-            )
-            logging.debug(
-                "FPGA2 clock phase before adc_clk alignment: "
-                + hex(self.board["fpga2.pps_manager.sync_phase"])
-            )
-
     def start_ddr_initialisation(self: TpmTestFirmware) -> None:
         """Start DDR initialisation."""
         if self.board["board.regfile.ctrl.en_ddr_vdd"] == 0:
