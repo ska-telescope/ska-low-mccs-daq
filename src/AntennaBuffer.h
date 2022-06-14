@@ -196,9 +196,7 @@ private:
     unsigned current_container = 0;
     unsigned current_buffer = 0;
 
-    double reference_time = 0;
-    uint32_t reference_counter = 0;
-    uint32_t num_packets = 0;
+    int current_packet_index = -1;
 
     // Antenna information object
     unsigned not_received_samples = 0;
