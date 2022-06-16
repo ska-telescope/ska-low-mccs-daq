@@ -32,6 +32,7 @@ uint64_t max_file_size_gb = 1;
 bool simulate_write = false;
 bool individual_channel_files = false;
 bool include_dada_header = false;
+bool test_acquisition = false;
 
 // File descriptor
 std::vector<int> files;
@@ -357,6 +358,7 @@ static void print_usage(char *name)
               << "\t-D/--dada\t\t\tGenerate binary file with DADA header\n"
 	          << "\t-I/--individual\t\t\tGenerate separate channels files\n"
 	          << "\t-W/--simulate\t\t\tSimulate writing to disk\n"
+              << "\t-T/--test_acquisition\t\tTest acquisition of station beam with fake data"
               << std::endl;
 }
 
@@ -364,7 +366,7 @@ static void print_usage(char *name)
 static void parse_arguments(int argc, char *argv[])
 {
     // Define options
-    const char* const short_opts = "d:t:s:i:p:c:m:n:S:DIW";
+    const char* const short_opts = "d:t:s:i:p:c:m:n:S:DIWT";
     const option long_opts[] = {
             {"directory", required_argument, nullptr, 'd'},
             {"max_file_size", required_argument, nullptr, 'm'},
@@ -378,6 +380,7 @@ static void parse_arguments(int argc, char *argv[])
             {"dada", no_argument, nullptr, 'D'},
 	        {"simulate", no_argument, nullptr, 'W'},
             {"individual", no_argument, nullptr, 'I'},
+            {"test_acquisition", no_argument, nullptr, 'T'},
             {nullptr, no_argument, nullptr, 0}
     };
 
@@ -424,6 +427,9 @@ static void parse_arguments(int argc, char *argv[])
 		        break;
             case 'I':
                 individual_channel_files = true;
+                break;
+            case 'T':
+                test_acquisition = true;
                 break;
             default: /* '?' */
                 print_usage(argv[0]);
@@ -498,8 +504,10 @@ int main(int argc, char *argv[])
         individual_channel_files = false;
 
     // If in test mode, just call test, otherwise communicate with DAQ
-     test_acquire_station_beam();
-     exit(0);
+    if (test_acquisition) {
+        test_acquire_station_beam();
+        exit(0);
+    }
 
     // Telescope information
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
