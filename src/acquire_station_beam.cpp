@@ -114,9 +114,10 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
         // Clear array
         files.clear();
 
-        if (individual_channel_files)
-            for(unsigned i = 0; i < nof_channels; i++)
+        if (individual_channel_files) {
+            for (unsigned i = 0; i < nof_channels; i++)
                 files.push_back(generate_output_file(timestamp, frequency, start_channel + i, 1));
+        }
         else
             files.push_back(generate_output_file(timestamp, frequency, start_channel, nof_channels));
     }
@@ -255,7 +256,7 @@ static int generate_output_file(double timestamp, unsigned int frequency,
 
         // Copy generated header
         auto generated_header = generate_dada_header(timestamp,
-                                                     frequency + channel_bandwidth * start_channel,
+                                                     frequency + channel_bandwidth * first_channel,
                                                      channels_in_file);
         strcpy(full_header, generated_header.c_str());
 
@@ -497,8 +498,8 @@ int main(int argc, char *argv[])
         individual_channel_files = false;
 
     // If in test mode, just call test, otherwise communicate with DAQ
-//     test_acquire_station_beam();
-//     exit(0);
+     test_acquire_station_beam();
+     exit(0);
 
     // Telescope information
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
