@@ -373,3 +373,127 @@ def stop_all_data_transmission(station):
     for tile in station.tiles:
         tile.stop_beamformer()
     time.sleep(0.2)
+
+
+def err_reset(station):
+    station['fpga1.dsp_regfile.error_clear'] = 0xFFFFFFFF
+    station['fpga1.dsp_regfile.error_clear'] = 0x0
+    station['fpga2.dsp_regfile.error_clear'] = 0xFFFFFFFF
+    station['fpga2.dsp_regfile.error_clear'] = 0x0
+    station['fpga1.beamf_ring.control.error_rst'] = 1
+    station['fpga1.beamf_ring.control.error_rst'] = 0
+    station['fpga2.beamf_ring.control.error_rst'] = 1
+    station['fpga2.beamf_ring.control.error_rst'] = 0
+    station['fpga1.regfile.eth10g_error'] = 0
+    station['fpga2.regfile.eth10g_error'] = 0
+
+
+def error_check(station):
+    print(station['fpga1.dsp_regfile.error_detected'])
+    print(station['fpga2.dsp_regfile.error_detected'])
+    print(station['fpga1.beamf_ring.error'])
+    print(station['fpga2.beamf_ring.error'])
+    print(station['fpga1.regfile.eth10g_error'])
+    print(station['fpga2.regfile.eth10g_error'])
+
+
+def check_adc_sysref(station):
+    for adc in range(16):
+        error = 0
+        values = station['adc' + str(adc), 0x128]
+        for i in range(len(values)):
+            msb = (values[i] & 0xF0) >> 4
+            lsb = (values[i] & 0x0F) >> 0
+            if msb == 0 and lsb <= 7:
+                logging.warning('Possible setup error in tile %d adc %d' % (i, adc))
+                error = 1
+            if msb >= 9 and lsb == 0:
+                logging.warning('Possible hold error in tile %d adc %d' % (i, adc))
+                error = 1
+            if msb == 0 and lsb == 0:
+                logging.warning('Possible setup and hold error in tile %d adc %d' % (i, adc))
+                error = 1
+        if error == 0:
+            logging.debug('ADC %d sysref OK!' % adc)
+
+
+def enable_adc_trigger(station, threshold=127):
+    """ Enable ADC trigger to send raw data when an RMS threshold is reached"""
+
+    if 0 > threshold > 127:
+        logging.error("Invalid threshold, must be 1 - 127")
+        return
+
+    # Enable trigger
+    station['fpga1.lmc_gen.raw_ext_trigger_enable'] = 1
+    station['fpga2.lmc_gen.raw_ext_trigger_enable'] = 1
+
+    # Set threshold
+    for tile in station.tiles:
+        for adc in tile.tpm.tpm_adc:
+            adc.adc_set_fast_detect(threshold << 6)
+
+
+def disable_adc_trigger(station):
+    """ Disable ADC trigger """
+    station['fpga1.lmc_gen.raw_ext_trigger_enable'] = 0
+    station['fpga2.lmc_gen.raw_ext_trigger_enable'] = 0
+
+
+def multiple_channel_tx_enable(station, instance_id_list, channel_id_list, destination_id_list):
+    for i, instance_id in enumerate(instance_id_list):
+        print(i)
+        print(instance_id)
+        for tile in station.tiles:
+            for mctx in tile.tpm.multiple_channel_tx:
+                mctx.set_instance(instance_id, channel_id_list[i], destination_id_list[i])
+
+
+def multiple_channel_tx_start(station, instances):
+    t0 = station.tiles[0].get_fpga_timestamp()
+    print(t0)
+    t1 = t0 + 1024
+    for tile in station.tiles:
+        for mctx in tile.tpm.multiple_channel_tx:
+            mctx.start(instances, t1)
+    print(station['fpga1.lmc_channel_gen_multiple.timestamp_request'])
+
+
+def multiple_channel_tx_stop(station):
+    for tile in station.tiles:
+        for mctx in tile.tpm.multiple_channel_tx:
+            mctx.stop()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

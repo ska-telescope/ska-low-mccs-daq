@@ -56,10 +56,10 @@ class TestAntennaBuffer():
         self._logger = logger
         self._station_config = station_config
 
-    def clean_up(self, test_station):
+    def clean_up(self):
         daq.stop_daq()
 
-    def check_pattern(self):
+    def check_pattern(self, fpga_id):
 
         global data
         global nof_samples
@@ -68,7 +68,7 @@ class TestAntennaBuffer():
 
         for antenna in range(2):
             for pol in range(data.shape[1]):
-                signal_data = np.reshape(data[antenna, pol], (nof_samples // 4, 4)).astype(np.uint8).astype(np.uint32)
+                signal_data = np.reshape(data[antenna + 2 * fpga_id, pol], (nof_samples // 4, 4)).astype(np.uint8).astype(np.uint32)
                 signal_data = (signal_data[:, 0] & 0xFF) | \
                               (signal_data[:, 1] << 8) | \
                               (signal_data[:, 2] << 16) | \
@@ -97,7 +97,7 @@ class TestAntennaBuffer():
         self._logger.info("Data pattern check OK!")
         return 0
 
-    def execute(self, iterations=2, single_tpm_id=0, buffer_byte_size=64*1024*1024, start_address=512*1024*1024):
+    def execute(self, iterations=2, use_1g=1, single_tpm_id=0, fpga_id=0, buffer_byte_size=64*1024*1024, start_address=512*1024*1024):
         global tiles_processed
         global data_received
         global nof_tiles
@@ -151,19 +151,29 @@ class TestAntennaBuffer():
         self._logger.debug("Setting antenna buffer pattern...")
         dut.stop_integrated_data()
         tf.set_pattern(dut, stage="jesd", pattern=range(1024), adders=[0] * 64, start=True)
-        ab = dut.tpm.tpm_antenna_buffer[0]
-        ab.set_download("1G", 1536)
+        ab = dut.tpm.tpm_antenna_buffer[fpga_id]
+        if fpga_id == 0:
+            fpga = "fpga1"
+        else:
+            fpga = "fpga2"
+        if use_1g:
+            ab.set_download("1G", 1536)
+            receiver_frame_size = 1664
+        else:
+            ab.set_download("10G", 8192)
+            receiver_frame_size = 8320
+
         actual_buffer_byte_size = ab.configure_ddr_buffer(ddr_start_byte_address=start_address,  # DDR buffer base address
                                                           byte_size=buffer_byte_size)
-        base_addr = dut['fpga1.antenna_buffer.ddr_write_start_addr']
+        base_addr = dut['%s.antenna_buffer.ddr_write_start_addr' % fpga]
         self._logger.info("DDR buffer base address is %s" % hex(base_addr))
         self._logger.info("Actual DDR buffer size is %d bytes" % actual_buffer_byte_size)
         nof_samples = actual_buffer_byte_size // 4  # 2 antennas, 2 pols
-        dut['fpga1.antenna_buffer.payload_rate_control.pause_length'] = 0x0
-        dut['fpga1.antenna_buffer.input_sel.sel_antenna_id_0'] = 0x0
-        dut['fpga1.antenna_buffer.input_sel.sel_antenna_id_1'] = 0x1
-        dut['fpga1.pattern_gen.jesd_ramp1_enable'] = 0x5555
-        dut['fpga1.pattern_gen.jesd_ramp2_enable'] = 0xAAAA
+        dut['%s.antenna_buffer.payload_rate_control.pause_length' % fpga] = 0x0
+        dut['%s.antenna_buffer.input_sel.sel_antenna_id_0' % fpga] = 0x0
+        dut['%s.antenna_buffer.input_sel.sel_antenna_id_1' % fpga] = 0x1
+        dut['%s.pattern_gen.jesd_ramp1_enable' % fpga] = 0x5555
+        dut['%s.pattern_gen.jesd_ramp2_enable' % fpga] = 0xAAAA
 
         # calculate actual DAQ buffer size in nof_raw_samples
         total_nof_samples = actual_buffer_byte_size // 4
@@ -188,7 +198,7 @@ class TestAntennaBuffer():
             'nof_antennas': 4,
             'nof_beam_channels': 384,
             'nof_beam_samples': 32,
-            'receiver_frame_size': 1664,  # 8320 #1280
+            'receiver_frame_size': receiver_frame_size,  # 8320 #1664
             'nof_tiles': len(tiles),
             'max_filesize': 8
         }
@@ -222,7 +232,7 @@ class TestAntennaBuffer():
             while not data_received:
                 time.sleep(0.1)
 
-            if self.check_pattern() > 0:
+            if self.check_pattern(fpga_id) > 0:
                 errors += 1
                 break
 
@@ -230,7 +240,7 @@ class TestAntennaBuffer():
 
             self._logger.info("Iteration %d PASSED!" % k)
 
-        self.clean_up(test_station)
+        self.clean_up()
         return errors
 
 
