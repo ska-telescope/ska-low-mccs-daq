@@ -524,7 +524,7 @@ def antenna_buffer_callback(data, timestamp, tile_id, _):
         external_callbacks[DaqModes.ANTENNA_BUFFER]("antenna_buffer", filename, tile_id)
 
     if conf['logging']:
-        logging.info("Received raw data for tile {}".format(tile_id))
+        logging.info("Received antenna data for tile {}".format(tile_id))
 
 
 # ------------------------------------ Start consumer functions ------------------------------------------
