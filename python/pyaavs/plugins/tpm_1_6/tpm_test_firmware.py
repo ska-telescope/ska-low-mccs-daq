@@ -76,6 +76,8 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
                 "TpmTestFirmware: dsp_core flag is False."
             )
 
+        self._device_name = "fpga1" if self._device is Device.FPGA_1 else "fpga2"
+
         # retrieving firmware features from feature register
         self.xg_eth = False
         self.xg_40g_eth = False
@@ -122,9 +124,11 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
         self._station_beamf = None
         self._antenna_buffer = None
         self._multiple_channel_tx = None
+        self._qsfp_adapter = None
+
         self.load_plugin()
 
-        self._device_name = "fpga1" if self._device is Device.FPGA_1 else "fpga2"
+        self.qsfp_cable_detected = self.is_qsfp_cable_plugged()
 
     def load_plugin(self: Tpm16TestFirmware) -> None:
         """Load required plugin."""
@@ -186,40 +190,21 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
                 self._multiple_channel_tx = self.board.load_plugin(
                     "MultipleChannelTx", device=self._device
                 )
+            self._qsfp_adapter = self.board.load_plugin(
+                "Tpm_1_6_QSFPAdapter", device=self._device
+            )
 
-    def start_ddr_initialisation(self: Tpm16TestFirmware) -> None:
-        """Start DDR initialisation."""
-        logging.debug(self._device_name + " DDR4 reset")
-        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
-        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
+    def is_qsfp_cable_plugged(self: TpmTestFirmware) -> bool:
+        """
+        Initialise firmware components.
 
-    def initialise_ddr(self: Tpm16TestFirmware) -> None:
-        """Initialise DDR."""
-        for _n in range(3):
-            logging.debug(self._device_name + " DDR3 reset")
-            self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
-            self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
-
-            for _m in range(5):
-                if self.board.memory_map.has_register(
-                    self._device_name + ".regfile.stream_status.ddr_init_done"
-                ):
-                    status = self.board[
-                        self._device_name + ".regfile.stream_status.ddr_init_done"
-                    ]
-                else:
-                    status = self.board[
-                        self._device_name + ".regfile.status.ddr_init_done"
-                    ]
-
-                if status == 0x0:
-                    logging.debug("Wait DDR3 " + self._device_name + " init")
-                    time.sleep(0.2)
-                else:
-                    logging.debug("DDR3 " + self._device_name + " initialised!")
-                    return
-
-        logging.error("Cannot initilaise DDR3 " + self._device_name)
+        :return: True when cable is detected
+        """
+        qsfp_status = self._qsfp_adapter.get('ModPrsL')
+        if qsfp_status == 0:
+            return True
+        else:
+            return False
 
     def initialise_firmware(self: Tpm16TestFirmware) -> None:
         """
@@ -266,10 +251,11 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
         self._power_meter.initialise()
 
         # Initialise 10G/40G cores
-        if self.xg_40g_eth:
-            self._fortyg.initialise_core()
-        else:
-            for teng in self._teng:
-                teng.initialise_core()
+        if self.board["fpga1.regfile.feature.xg_eth_implemented"] == 1:
+            if self.xg_40g_eth:
+                self._fortyg.initialise_core()
+            else:
+                for teng in self._teng:
+                    teng.initialise_core()
 
         self._patterngen.initialise()
