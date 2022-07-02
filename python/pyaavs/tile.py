@@ -11,14 +11,13 @@
 Hardware functions for the TPM 1.2 hardware.
 """
 import functools
-import socket
 import threading
-import os
 import logging
-import struct
+import socket
+import time
+import os
 
 import numpy as np
-import time
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status
 from pyfabil.base.utils import ip2long
