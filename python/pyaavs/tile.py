@@ -625,19 +625,24 @@ class Tile(object):
 
                 src_ip = f"10.0.{n + 1}.{ip_octets[3]}"
 
+                # if QSFP cable is detected then reset core,
+                # check for link up (done in reset reset_core) and set default IP address,
+                # otherwise disable TX
                 if cable_detected:
                     self.tpm.tpm_10g_core[n].reset_core()
 
-                self.configure_40g_core(
-                    n,
-                    0,
-                    src_mac=0x620000000000 + ip2long(src_ip),
-                    src_ip=src_ip,
-                    dst_ip=None,
-                    src_port=0xF0D0,
-                    dst_port=4660,
-                    rx_port_filter=4660,
-                )
+                    self.configure_40g_core(
+                        n,
+                        0,
+                        src_mac=0x620000000000 + ip2long(src_ip),
+                        src_ip=src_ip,
+                        dst_ip=None,
+                        src_port=0xF0D0,
+                        dst_port=4660,
+                        rx_port_filter=4660,
+                    )
+                else:
+                    self.tpm.tpm_10g_core[n].tx_disable()
 
     @connected
     def set_lmc_download(
@@ -793,33 +798,41 @@ class Tile(object):
             )
 
     @connected
-    def check_arp_table(self, timeout=6.0):
+    def check_arp_table(self, timeout=20.0):
         """
-        Check that ARP table has been populated in for all used cores.
+        Check that ARP table has been resolved for all used cores.
         40G interfaces use cores 0 (fpga0) and 1(fpga1) and
         ARP ID 0 for beamformer, 1 for LMC.
-        10G interfaces use cores 0,1 (fpga0) and 4,5 (fpga1) for beamforming,
-        and 2, 6 for LMC with only one ARP entry per core.
+        The procedure checks that all populated ARP entries have been
+        resolved. If the QSFP has been disabled or link is not detected up,
+        the check is skipped.
 
         :param timeout: Timeout in seconds
         :type timeout: float
         :return: ARP table status
         :rtype: bool
         """
-        # sanity check on time. Between 0.1 and 100 seconds
-        maxtime = int(timeout * 10)
-        if maxtime < 1:
-            maxtime = 1
-        if maxtime > 100:
-            maxtime = 100
+
+        # polling time to check ARP table
+        polling_time = 0.1
+        checks_per_second = 1.0 / polling_time
+        # sanity check on time. Between 1 and 100 seconds
+        max_time = int(timeout)
+        if max_time < 1:
+            max_time = 1
+        if max_time > 100:
+            max_time = 100
         # wait UDP link up
-        self.logger.info("Checking ARP table...")
         core_id = range(len(self.tpm.tpm_10g_core))
-        arp_table_id = range(4)
+        arp_table_id = range(self.tpm.tpm_10g_core[0].get_number_of_arp_table_entries())
+
+        self.logger.info("Checking ARP table...")
 
         linked_core_id = []
         for c in core_id:
-            if self.tpm.tpm_10g_core[c].is_link_up():
+            if self.tpm.tpm_10g_core[c].is_tx_disabled():
+                self.logger.warning("Skipping ARP table check on FPGA" + str(c+1) + ". TX is disabled!")
+            elif self.tpm.tpm_10g_core[c].is_link_up():
                 linked_core_id.append(c)
             else:
                 self.logger.warning("Skipping ARP table check on FPGA" + str(c+1) + ". Link is down!")
@@ -846,14 +859,14 @@ class Tile(object):
                 return True
             else:
                 times += 1
-                time.sleep(0.1)
+                time.sleep(polling_time)
                 for c in linked_core_id:
                     if c in not_ready_links:
-                        if times % 10 == 0:
+                        if times % checks_per_second == 0:
                             self.logger.warning(
                                 f"40G Link on FPGA{c} not established after {int(0.1 * times)} seconds! Waiting... "
                             )
-                        if times == maxtime:
+                        if times == max_time * checks_per_second:
                             self.logger.warning(
                                 f"40G Link on FPGA{c} not established after {int(0.1 * times)} seconds! ARP table not populated!"
                             )
