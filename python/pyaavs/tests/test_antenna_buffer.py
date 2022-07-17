@@ -169,7 +169,7 @@ class TestAntennaBuffer():
         self._logger.info("DDR buffer base address is %s" % hex(base_addr))
         self._logger.info("Actual DDR buffer size is %d bytes" % actual_buffer_byte_size)
         nof_samples = actual_buffer_byte_size // 4  # 2 antennas, 2 pols
-        dut['%s.antenna_buffer.payload_rate_control.pause_length' % fpga] = 0x0
+
         dut['%s.antenna_buffer.input_sel.sel_antenna_id_0' % fpga] = 0x0
         dut['%s.antenna_buffer.input_sel.sel_antenna_id_1' % fpga] = 0x1
         dut['%s.pattern_gen.jesd_ramp1_enable' % fpga] = 0x5555
