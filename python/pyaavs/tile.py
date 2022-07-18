@@ -469,6 +469,23 @@ class Tile(object):
             return 0
 
     @connected
+    def is_qsfp_cable_plugged(self, qsfp_id=0):
+        """
+        Initialise firmware components.
+
+        :return: True when cable is detected
+        """
+        qsfp_status = self.board['board.regfile.pll_10g']
+        if qsfp_id == 0:
+            qsfp_status = (qsfp_status >> 4) & 0x1
+        else:
+            qsfp_status = (qsfp_status >> 6) & 0x1
+        if qsfp_status == 0:
+            return True
+        else:
+            return False
+
+    @connected
     def configure_10g_core(
         self,
         core_id,
@@ -614,7 +631,7 @@ class Tile(object):
             for n in range(len(self.tpm.tpm_10g_core)):
                 if qsfp_detection == "all":
                     cable_detected = True
-                elif qsfp_detection == "auto" and self.tpm.tpm_test_firmware[n].qsfp_cable_detected:
+                elif qsfp_detection == "auto" and self.is_qsfp_cable_plugged(n):
                     cable_detected = True
                 elif n == 0 and qsfp_detection == "qsfp1":
                     cable_detected = True

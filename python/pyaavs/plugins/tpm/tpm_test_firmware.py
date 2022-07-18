@@ -127,8 +127,6 @@ class TpmTestFirmware(FirmwareBlock):
 
         self.load_plugin()
 
-        self.qsfp_cable_detected = self.is_qsfp_cable_plugged()
-
     def load_plugin(self: TpmTestFirmware) -> None:
         """Load required plugin."""
         self._jesd1 = self.board.load_plugin("TpmJesd", device=self._device, core=0)
@@ -190,22 +188,6 @@ class TpmTestFirmware(FirmwareBlock):
                 self._multiple_channel_tx = self.board.load_plugin(
                     "MultipleChannelTx", device=self._device
                 )
-
-    def is_qsfp_cable_plugged(self: TpmTestFirmware) -> bool:
-        """
-        Initialise firmware components.
-
-        :return: True when cable is detected
-        """
-        qsfp_status = self.board['board.regfile.pll_10g']
-        if self._device_name == "fpga1":
-            qsfp_status = (qsfp_status >> 4) & 0x1
-        else:
-            qsfp_status = (qsfp_status >> 6) & 0x1
-        if qsfp_status == 0:
-            return True
-        else:
-            return False
 
     def initialise_firmware(self: TpmTestFirmware) -> None:
         """

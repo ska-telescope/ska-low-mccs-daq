@@ -124,11 +124,8 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
         self._station_beamf = None
         self._antenna_buffer = None
         self._multiple_channel_tx = None
-        self._qsfp_adapter = None
 
         self.load_plugin()
-
-        self.qsfp_cable_detected = self.is_qsfp_cable_plugged()
 
     def load_plugin(self: Tpm16TestFirmware) -> None:
         """Load required plugin."""
@@ -190,21 +187,6 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
                 self._multiple_channel_tx = self.board.load_plugin(
                     "MultipleChannelTx", device=self._device
                 )
-            self._qsfp_adapter = self.board.load_plugin(
-                "Tpm_1_6_QSFPAdapter", device=self._device
-            )
-
-    def is_qsfp_cable_plugged(self: TpmTestFirmware) -> bool:
-        """
-        Initialise firmware components.
-
-        :return: True when cable is detected
-        """
-        qsfp_status = self._qsfp_adapter.get('ModPrsL')
-        if qsfp_status == 0:
-            return True
-        else:
-            return False
 
     def initialise_firmware(self: Tpm16TestFirmware) -> None:
         """

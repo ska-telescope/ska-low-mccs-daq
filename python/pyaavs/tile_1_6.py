@@ -286,3 +286,15 @@ class Tile_1_6(Tile):
         """Stop test on Aurora f2f link."""
         for f2f in self.tpm.tpm_f2f:
             f2f.stop_test()
+
+    def is_qsfp_cable_plugged(self, qsfp_id=0):
+        """
+        Initialise firmware components.
+
+        :return: True when cable is detected
+        """
+        qsfp_status = self.tpm.tpm_qsfp_adapter[qsfp_id].get('ModPrsL')
+        if qsfp_status == 0:
+            return True
+        else:
+            return False
