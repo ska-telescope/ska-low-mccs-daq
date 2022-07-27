@@ -22,7 +22,6 @@ import glob
 import os
 import re
 
-
 # Define an enumeration for pointing
 from pyaavs.point_station import Pointing
 
@@ -157,7 +156,7 @@ def process_timestamp(args):
     @param args: Should be a tuple containing directory, timestamp, tile, nof_samples and coeffs"""
 
     # If pointing coeffs are all 0, do not process and return 0
-    if np.all(args.pointing_coeffs == 0+0j):
+    if np.all(args.pointing_coeffs == 0 + 0j):
         return args.timestamp, 0, 0
 
     # Load data
@@ -178,14 +177,14 @@ def process_timestamp(args):
             with h5py.File(os.path.join(args.directory, filename), 'r') as f:
                 read_data = f['chan_']['data'][:args.nof_samples, args.channel * 32: (args.channel + 1) * 32]
                 read_data = read_data.reshape((args.nof_samples, 16, 2))
-                data[:, tile * 16: (tile+1) * 16, :] = read_data['real'] + read_data['imag'] * 1j
+                data[:, tile * 16: (tile + 1) * 16, :] = read_data['real'] + read_data['imag'] * 1j
 
         # Use continuous channel data
         else:
             filename = r"channel_cont_{}_{}_{}_0.hdf5".format(tile, date, seconds)
             with h5py.File(os.path.join(args.directory, filename), 'r') as f:
                 read_data = f['chan_']['data'][:args.nof_samples, :].reshape((args.nof_samples, 16, 2))
-                data[:, tile * 16: (tile+1) * 16, :] = read_data['real'] + read_data['imag'] * 1j
+                data[:, tile * 16: (tile + 1) * 16, :] = read_data['real'] + read_data['imag'] * 1j
 
     # Apply coefficients (if required) and sum current antennas
     if args.coeffs is None:
@@ -211,7 +210,7 @@ def process_timestamp_multifreq(args):
     @param args: Should be a tuple containing directory, timestamp, tile, nof_samples and coeffs"""
 
     # If pointing coeffs are all 0, do not process and return 0
-    if np.all(args.pointing_coeffs == 0+0j):
+    if np.all(args.pointing_coeffs == 0 + 0j):
         return args.timestamp, 0, 0
 
     # Load data
@@ -230,7 +229,7 @@ def process_timestamp_multifreq(args):
         with h5py.File(os.path.join(args.directory, filename), 'r') as f:
             read_data = f['chan_']['data'][:args.nof_samples, :]
             read_data = read_data.reshape((args.nof_samples, 512, 16, 2))
-            data[:, :, tile * 16: (tile+1) * 16, :] = read_data['real'] + read_data['imag'] * 1j
+            data[:, :, tile * 16: (tile + 1) * 16, :] = read_data['real'] + read_data['imag'] * 1j
 
     # Loop over all frequency channels
     x, y = np.zeros(512), np.zeros(512)
@@ -246,7 +245,7 @@ def process_timestamp_multifreq(args):
 
 
 class OfflineStationBeamformer(object):
-    def __init__(self, directory, station_id,  channel, nof_samples, ignore_amplitude=True,
+    def __init__(self, directory, station_id, channel, nof_samples, ignore_amplitude=True,
                  calibrate=False, coefficient_file=None, tiles=None, nof_processes=1,
                  plot=False, pointing=None, skip_timesteps=0, use_burst=False, all_band=False):
         self._directory = directory
@@ -321,8 +320,8 @@ class OfflineStationBeamformer(object):
                         coeffs.shape[0], len(self._tiles) * 16))
             else:
                 # Load from database. Amplitudes and phases are in antenna/pol/channel order. Phases are in degrees
-                timestamp = self._times[0][0] 
-                amplitude, phase = get_calibration_solution(self._station_id, timestamp - 3600*24*2)
+                timestamp = self._times[0][0]
+                amplitude, phase = get_calibration_solution(self._station_id, timestamp - 3600 * 24 * 2)
 
                 # Select channel and convert to radians
                 if not self._all_band:
@@ -366,7 +365,6 @@ class OfflineStationBeamformer(object):
                 p_args.pointing_coeffs = default_pointing_coeffs
 
                 if coeffs is not None and self._pointing is not None:
-
                     # Convert time to format which pointing object can understand
                     pointing_time = datetime.fromtimestamp(
                         timestamp) + timedelta(seconds=time.timezone)
@@ -502,7 +500,7 @@ if __name__ == "__main__":
     p.add_option('--skip-amplitude', dest='skip_amplitude', action='store_true',
                  help="Skip application of amplitude from calibration solution (default: False)")
     p.add_option("--use-burst", dest="use_burst", action="store_true", default=False,
-                help="Use burst data to generate beam (default: False)")
+                 help="Use burst data to generate beam (default: False)")
     p.add_option('--calibrate', dest='calibrate', action='store_true',
                  help="Calibrate data (default: False)")
     p.add_option('--coefficients', dest='coefficients', action='store', default=None,
@@ -514,9 +512,9 @@ if __name__ == "__main__":
     p.add_option('--point-to', dest='point', action='store', default=None,
                  help="Apply pointing coefficients, pointing to specified source (SUN, GALAXY, VIRGO, HYDRA, CENTAURUS) (default: Do not point)")
     p.add_option('--raster-scan', dest='raster_scan', action='store_true', default=False,
-                help="Generate a raster scan of the entire sky at each timestamp (default: False)")
+                 help="Generate a raster scan of the entire sky at each timestamp (default: False)")
     p.add_option('--frequency-scan', dest='frequency_scan', action='store_true', default=False,
-                help="Generate a drift scan for all frequency channels (default: False)")
+                 help="Generate a drift scan for all frequency channels (default: False)")
     opts, args = p.parse_args(argv[1:])
 
     # Set logging
@@ -577,12 +575,12 @@ if __name__ == "__main__":
 
     # Create offline station beamformer instance
     beamformer = OfflineStationBeamformer(opts.directory, opts.station, opts.channel, opts.samples,
-                                        ignore_amplitude=opts.skip_amplitude, calibrate=opts.calibrate,
-                                        coefficient_file=opts.coefficients, tiles=opts.tiles,
-                                        use_burst=opts.use_burst,
-                                        nof_processes=opts.processes, plot=opts.plot,
-                                        all_band=opts.frequency_scan,
-                                        pointing=opts.point)
+                                          ignore_amplitude=opts.skip_amplitude, calibrate=opts.calibrate,
+                                          coefficient_file=opts.coefficients, tiles=opts.tiles,
+                                          use_burst=opts.use_burst,
+                                          nof_processes=opts.processes, plot=opts.plot,
+                                          all_band=opts.frequency_scan,
+                                          pointing=opts.point)
     station_beam = beamformer.process()
 
     # Save station beam and numpy files and CSV files

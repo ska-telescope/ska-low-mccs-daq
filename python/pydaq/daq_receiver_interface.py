@@ -988,7 +988,7 @@ class DaqReceiver:
 
         # Start receiver
         if self._call_start_receiver(self._config['receiver_interface'].encode(),
-                                     self._config['receiver_ip'],
+                                     self._config['receiver_ip'].encode(),
                                      self._config['receiver_frame_size'],
                                      self._config['receiver_frames_per_block'],
                                      self._config['receiver_nof_blocks'],
@@ -1132,7 +1132,7 @@ class DaqReceiver:
                 exit()
 
         # Check if filesize restriction is set
-        if configuration['max_filesize'] is not None:
+        if self._config['max_filesize'] is not None:
             aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = configuration['max_filesize']
 
         # Get metadata
