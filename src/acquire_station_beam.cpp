@@ -13,6 +13,7 @@ using namespace std;
 
 // Telescope and observation parameters
 float channel_bandwidth = (400e6 / 512.0) * (32 / 27.0);
+float channel_bandwidth_no_oversampling = (400e6 / 512.0);
 
 auto dada_header_size = 4096;
 string source = "UNKNOWN";
@@ -257,7 +258,7 @@ static int generate_output_file(double timestamp, unsigned int frequency,
 
         // Copy generated header
         auto generated_header = generate_dada_header(timestamp,
-                                                     frequency + channel_bandwidth * first_channel,
+                                                     frequency + channel_bandwidth_no_oversampling * first_channel,
                                                      channels_in_file);
         strcpy(full_header, generated_header.c_str());
 
@@ -293,7 +294,7 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     // Required entries
     header << "HDR_VERSION 1.0" << endl;
     header << "HDR_SIZE " << dada_header_size << endl;
-    header << "BW " << fixed << setprecision(4) << channel_bandwidth * channels_in_file * 1e-6 << endl;
+    header << "BW " << fixed << setprecision(4) << channel_bandwidth_no_oversampling * channels_in_file * 1e-6 << endl;
     header << "FREQ " << fixed << setprecision(6) << frequency * 1e-6<< endl;
     header << "TELESCOPE " << "LFAASP" << endl;
     header << "RECEIVER " << "LFAASP" << endl;
@@ -332,7 +333,7 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "UNIXTIME_MSEC " << fixed << setprecision(6) << (timestamp - (int) (timestamp)) * 1e3  << endl;
     header << "FINE_CHAN_WIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth / 1  << endl;
     header << "NFINE_CHAN " << 1 << endl;
-    header << "BANDWIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth * channels_in_file << endl;
+    header << "BANDWIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth_no_oversampling * channels_in_file << endl;
     header << "SAMPLE_RATE " << fixed << setprecision(6) << channel_bandwidth << endl;
     header << "MC_IP 0" << endl;
     header << "MC_SRC_IP 0.0.0.0" << endl;
