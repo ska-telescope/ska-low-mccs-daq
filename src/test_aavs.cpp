@@ -240,9 +240,9 @@ void test_integrated_channel_data()
 {
     LOG(INFO, "Testing Integrated Channel Data");
 
-    const char *ip = "192.168.11.11";
-    startReceiver("enp7s0", ip, 9000, 32, 64);
-    addReceiverPort(7200);
+    const char *ip = "10.0.10.10";
+    startReceiver("enp5s0", ip, 9000, 32, 64);
+    addReceiverPort(4660);
 
     // Set parameters
     json j = {
@@ -268,7 +268,7 @@ void test_integrated_channel_data()
         return;
     }
 
-    sleep(2);
+    sleep(200);
 
     if (stopConsumer("integratedchannel") != SUCCESS) {
         LOG(ERROR, "Failed to stop integrated  channel data conumser");
@@ -569,10 +569,10 @@ int main()
 //    test_integrated_beam_data();
 //    test_burst_channel_data();
 //    test_continuous_channel_data();
-//    test_integrated_beam_data();
+    test_integrated_channel_data();
 //    test_correlator_data();
 //    test_station_data();
 //    test_multi();
-    test_antenna_buffer_data();
+//    test_antenna_buffer_data();
 }
 
