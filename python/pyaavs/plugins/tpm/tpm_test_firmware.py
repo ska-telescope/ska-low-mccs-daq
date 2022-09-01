@@ -76,33 +76,36 @@ class TpmTestFirmware(FirmwareBlock):
                 "TpmTestFirmware: dsp_core flag is False."
             )
 
-        try:
-            if self.board["fpga1.regfile.feature.xg_eth_implemented"] == 1:
-                self.xg_eth = True
-            else:
-                self.xg_eth = False
-            if self.board["fpga1.regfile.feature.xg_eth_40g_implemented"] == 1:
-                self.xg_40g_eth = True
-            else:
-                self.xg_40g_eth = False
-        except Exception:
-            self.xg_eth = False
-            self.xg_40g_eth = False
+        # retrieving firmware features from feature register
+        self.xg_eth = False
+        self.xg_40g_eth = False
+        self.tile_beamformer_implemented = False
+        self.station_beamformer_implemented = False
+        self.antenna_buffer_implemented = False
+        self.multiple_channel_tx_implemented = False
+        self.multiple_channel_tx_nof_channels = 0
+
+        if self.board["fpga1.regfile.feature.xg_eth_implemented"] == 1:
+            self.xg_eth = True
+
+        if self.board["fpga1.regfile.feature.xg_eth_40g_implemented"] == 1:
+            self.xg_40g_eth = True
 
         if self.board["fpga1.dsp_regfile.feature.tile_beamformer_implemented"] == 1:
             self.tile_beamformer_implemented = True
-        else:
-            self.tile_beamformer_implemented = False
 
         if self.board["fpga1.dsp_regfile.feature.station_beamformer_implemented"] == 1:
             self.station_beamformer_implemented = True
-        else:
-            self.station_beamformer_implemented = False
 
         if self.board["fpga1.dsp_regfile.feature.antenna_buffer_implemented"] == 1:
             self.antenna_buffer_implemented = True
-        else:
-            self.antenna_buffer_implemented = False
+
+        if self.board.memory_map.has_register("fpga1.dsp_regfile.feature.multiple_channels_mode_implemented") and\
+           self.board["fpga1.dsp_regfile.feature.multiple_channels_mode_implemented"] == 1:
+            self.multiple_channel_tx_implemented = True
+            self.multiple_channel_tx_nof_channels = self.board["fpga1.dsp_regfile.feature.nof_multiple_channels"]
+
+        # plugins
         self._jesd1 = None
         self._jesd2 = None
         self._fpga = None
@@ -117,6 +120,8 @@ class TpmTestFirmware(FirmwareBlock):
         self._power_meter = None
         self._integrator = None
         self._station_beamf = None
+        self._antenna_buffer = None
+        self._multiple_channel_tx = None
         self.load_plugin()
 
         self._device_name = "fpga1" if self._device is Device.FPGA_1 else "fpga2"
@@ -178,6 +183,10 @@ class TpmTestFirmware(FirmwareBlock):
                 self.board.load_plugin("SpeadTxGen", device=self._device, core=2),
                 self.board.load_plugin("SpeadTxGen", device=self._device, core=3),
             ]
+            if self.multiple_channel_tx_implemented:
+                self._multiple_channel_tx = self.board.load_plugin(
+                    "MultipleChannelTx", device=self._device
+                )
 
     def start_ddr_initialisation(self: TpmTestFirmware) -> None:
         """Start DDR initialisation."""

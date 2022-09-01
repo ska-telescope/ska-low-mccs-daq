@@ -172,13 +172,13 @@ bool AntennaBuffer::processPacket() {
     // Assign correct packet index
     auto packet_index = static_cast<uint32_t>(packet_counter % (nof_samples / packet_samples));
 
-    // Check if packet belongs to current buffer
-    if (reference_time == 0)
-        reference_time = packet_time;
+    if (current_packet_index < 0)
+        current_packet_index = packet_index;
 
-    // If packet time is less than reference time, then this belongs to the previous buffer
-    if (packet_time < reference_time) {
-        printf("Previous buffer\n");
+    // If the calculated packet index is much greater than the current packet index, then this
+    // means that the packet belongs to the previous buffer (in normal circumstances. under
+    // heavy load or extreme packet loss this will not be the case, but the data will be unusable anyway)
+    if ((static_cast<int>(packet_index) - current_packet_index) > (32 * nof_tiles)) {
         unsigned index = (current_container - 1) % nof_containers;
         containers[index]->add_data((uint8_t *) (payload + payload_offset),
                                     tile_id, packet_index * packet_samples, packet_samples, timestamp, fpga_id);
@@ -189,8 +189,7 @@ bool AntennaBuffer::processPacket() {
     }
 
     // Check if we skipped buffer boundaries
-    if (packet_index == 0 && num_packets > nof_tiles * 2 &&
-        tile_id == 0 && fpga_id == 0) {
+    if (packet_index == 0 && containers[current_container]->nof_packets >= nof_tiles * 2) {
 
         // Advance by one container
         current_container = (current_container + 1) % nof_containers;
@@ -200,17 +199,16 @@ bool AntennaBuffer::processPacket() {
             containers[current_container]->persist_container();
     }
 
-    // Increment the number of received packets
-    num_packets++;
-
     // Add packet to current container
     containers[current_container]->add_data((uint8_t *) (payload + payload_offset),
                                             tile_id, packet_index * packet_samples,
                                             packet_samples, packet_time, fpga_id);
 
-
     // Ready from packet
     ring_buffer -> pull_ready();
+
+    // Update packet index
+    current_packet_index = packet_index;
 
     // All done, return
     return true;

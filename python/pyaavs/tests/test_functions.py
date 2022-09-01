@@ -440,35 +440,26 @@ def disable_adc_trigger(station):
     station['fpga2.lmc_gen.raw_ext_trigger_enable'] = 0
 
 
+def multiple_channel_tx_enable(station, instance_id_list, channel_id_list, destination_id_list):
+    for i, instance_id in enumerate(instance_id_list):
+        print(i)
+        print(instance_id)
+        for tile in station.tiles:
+            for mctx in tile.tpm.multiple_channel_tx:
+                mctx.set_instance(instance_id, channel_id_list[i], destination_id_list[i])
 
 
+def multiple_channel_tx_start(station, instances):
+    t0 = station.tiles[0].get_fpga_timestamp()
+    print(t0)
+    t1 = t0 + 1024
+    for tile in station.tiles:
+        for mctx in tile.tpm.multiple_channel_tx:
+            mctx.start(instances, t1)
+    print(station['fpga1.lmc_channel_gen_multiple.timestamp_request'])
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+def multiple_channel_tx_stop(station):
+    for tile in station.tiles:
+        for mctx in tile.tpm.multiple_channel_tx:
+            mctx.stop()

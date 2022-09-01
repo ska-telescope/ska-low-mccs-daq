@@ -1,5 +1,7 @@
 from __future__ import print_function
 from __future__ import division
+
+import logging
 from builtins import range
 from past.utils import old_div
 from pydaq.persisters import ChannelFormatFileManager, sys, FileDAQModes, CorrelationFormatFileManager
@@ -32,7 +34,6 @@ consumer = 0
 
 
 def correlate(input_data, output_data, nants, npols):
-    print(('Corr', input_data.shape, output_data.shape))
     baseline = 0
     for antenna1 in range(nants):
         for antenna2 in range(antenna1, nants):
@@ -138,7 +139,7 @@ def correlator(directory, samples):
         total_samples = channel_file_mgr.n_samples * channel_file_mgr.n_blocks * \
                         (channel_file_mgr.file_partitions(tile_id=0))
     nof_baselines = int(0.5 * (channel_file_mgr.n_antennas ** 2 + channel_file_mgr.n_antennas))
-    nof_blocks = old_div(total_samples, nof_samples)
+    nof_blocks = total_samples / nof_samples
 
     # Create output buffer
     output = np.zeros((channel_file_mgr.n_pols ** 2, nof_baselines, nof_blocks), dtype=np.complex64)
@@ -192,5 +193,15 @@ if __name__ == "__main__":
     p.add_option('-s', '--samples', dest='nof_samples', action='store', default=1048576,
                  type='int', help='Number of samples (default: 1048576)')
     opts, args = p.parse_args(sys.argv[1:])
+
+    # Set logging
+    log = logging.getLogger('')
+    log.setLevel(logging.DEBUG)
+    str_format = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    from sys import stdout
+
+    ch = logging.StreamHandler(stdout)
+    ch.setFormatter(str_format)
+    log.addHandler(ch)
 
     correlator(opts.directory, opts.nof_samples)

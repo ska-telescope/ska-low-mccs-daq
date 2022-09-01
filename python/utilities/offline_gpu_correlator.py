@@ -35,7 +35,6 @@ class StandaloneCorrelator(object):
         # Initialise xGPU
         self._library.initialise_correlator(nof_antennas, nof_samples)
         logging.info("Initialised correlator")
-        
 
     def process_file(self, filepath):
         """ Correlate all data in file """
@@ -144,7 +143,6 @@ class StandaloneCorrelator(object):
                 counter += 1
 
         return old_div(values, self._nof_samples)
-
 
     def correlate_numpy(self, data):
         """ Data must be in the following format:

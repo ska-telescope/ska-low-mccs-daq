@@ -15,43 +15,53 @@ class IntegratedChannelDataSimulator(object):
         self._timestamp = 0
         self._lmc_capture_mode = 0x6
         self._station_id = 0
-        self._packet_payload_length = 8192
+        self._packet_payload_length = 1024
         self._data_type = np.uint16
-        self._nof_values_in_packet = self._packet_payload_length // np.dtype(self._data_type).itemsize
 
         self._nof_tiles = nof_tiles
         self._nof_fpgas = 2
         self._nof_pols = 2
         self._nof_ants_per_fpga = 8
+        self._nof_ants_per_packet = 1
         self._nof_channels = 512
         self._nof_channels_per_packet = 256
         self._nof_channel_packets = self._nof_channels // self._nof_channels_per_packet
+        self._nof_antenna_packets = self._nof_ants_per_fpga // self._nof_ants_per_packet
 
         self._timestamp = 0
 
         # Generate test data
-        self._packet_data = np.zeros((self._nof_tiles, self._nof_fpgas, self._nof_channel_packets,
-                                      self._nof_values_in_packet), dtype=np.uint16)
+        self._packet_data = np.zeros((self._nof_tiles, self._nof_fpgas, self._nof_ants_per_fpga,
+                                      self._nof_channel_packets, self._nof_channels_per_packet * 2), dtype=np.uint16)
+
         for tpm in range(self._nof_tiles):
-            for antenna in range(self._nof_fpgas):
-                for channel in range(self._nof_channel_packets):
-                    self._packet_data[tpm][antenna][channel] = self._generate_data(tpm, antenna, channel)
+            for fpga in range(self._nof_fpgas):
+                for antenna in range(self._nof_ants_per_fpga):
+                    for channel in range(self._nof_channel_packets):
+                        self._packet_data[tpm][fpga][antenna][channel] = self._generate_data(tpm, fpga, antenna, channel)
 
         # Create socket
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def send_data(self):
+    def send_data(self, sleep_between_antennas):
         """ Generate integrated channel data """
-        for i in range(self._nof_tiles):
-            for j in range(int(self._nof_channels / self._nof_channels_per_packet)):
-                for k in range(self._nof_fpgas):
-                    self._transmit_packet(i,
-                                          self._timestamp + j,
-                                          k * self._nof_ants_per_fpga,
-                                          j * self._nof_channels_per_packet)
+        for tile in range(self._nof_tiles):
+
+            for ant in range(self._nof_ants_per_fpga):
+
+                for chan in range(int(self._nof_channels / self._nof_channels_per_packet)):
+                    for fpga in range(self._nof_fpgas):
+                        self._transmit_packet(tile,
+                                              fpga,
+                                              self._timestamp,
+                                              ant + fpga * self._nof_ants_per_fpga,
+                                              chan * self._nof_channels_per_packet)
+
+                time.sleep(sleep_between_antennas)
+
         self._timestamp += 1
 
-    def _transmit_packet(self, tpm_id, timestamp, start_antenna, start_channel):
+    def _transmit_packet(self, tpm_id, fpga_id, timestamp, start_antenna, start_channel):
         """ Generate a packet """
         header = 0x53 << 56 | 0x04 << 48 | 0x02 << 40 | 0x06 << 32 | 0x08
         heap_counter = 1 << 63 | 0x0001 << 48 | timestamp
@@ -59,8 +69,8 @@ class IntegratedChannelDataSimulator(object):
         sync_time = 1 << 63 | 0x1027 << 48 | self._unix_epoch_time
         timestamp = 1 << 63 | 0x1600 << 48 | timestamp & 0xFFFFFFFFFF
         lmc_capture_mode = 1 << 63 | 0x2004 << 48 | self._lmc_capture_mode
-        lmc_info = 1 << 63 | 0x2002 << 48 | start_channel << 24 | self._nof_channels_per_packet << 16 | \
-                   start_antenna << 8 | self._nof_ants_per_fpga
+        lmc_info = 1 << 63 | 0x2002 << 48 | start_channel << 24 | \
+                   start_antenna << 8 | self._nof_ants_per_packet & 0xFF
         lmc_tpm_info = 1 << 63 | 0x2001 << 48 | tpm_id << 32 | self._station_id << 16
         sample_offset = 0 << 63 | 0x3300 << 48
 
@@ -73,25 +83,25 @@ class IntegratedChannelDataSimulator(object):
                              lmc_info,
                              lmc_tpm_info,
                              sample_offset) + \
-                 self._packet_data[tpm_id][start_antenna // self._nof_ants_per_fpga][
+                 self._packet_data[tpm_id][fpga_id][start_antenna // self._nof_ants_per_fpga][
                      start_channel // self._nof_channels_per_packet].tobytes()
 
         self._socket.sendto(packet, (self._ip, self._port))
 
-    def _generate_data(self, tpm_id, start_antenna, start_channel):
+    def _generate_data(self, tpm_id, fpga_id, start_antenna, start_channel):
         """ Generate samples data set """
 
-        start_antenna = tpm_id * self._nof_ants_per_fpga * 2 + start_antenna * self._nof_ants_per_fpga
+        start_antenna = tpm_id * self._nof_ants_per_fpga * self._nof_fpgas + \
+                        fpga_id * self._nof_ants_per_fpga + start_antenna
         packet_data = np.zeros(self._packet_payload_length // 2, dtype=np.uint16)
 
         counter = 0
         for c in range(self._nof_channels_per_packet):
-            for a in range(self._nof_ants_per_fpga):
-                packet_data[counter] = (start_antenna + a) * self._nof_channels + \
-                                       start_channel * self._nof_channels_per_packet + c
-                packet_data[counter + 1] = (start_antenna + a) * self._nof_channels + \
-                                       self._nof_channels - (start_channel * self._nof_channels_per_packet + c)
-                counter += 2
+            packet_data[counter] = start_antenna * self._nof_channels + \
+                                   start_channel * self._nof_channels_per_packet + c
+            packet_data[counter + 1] = start_antenna * self._nof_channels + \
+                                   self._nof_channels - (start_channel * self._nof_channels_per_packet + c)
+            counter += 2
 
         return packet_data
 
@@ -115,5 +125,5 @@ if __name__ == "__main__":
 
     data = IntegratedChannelDataSimulator(conf.ip, 4660, nof_tiles=conf.nof_tiles)
     while True:
-        data.send_data()
+        data.send_data(conf.period)
         sleep(conf.period)

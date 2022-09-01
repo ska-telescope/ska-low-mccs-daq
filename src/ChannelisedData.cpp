@@ -496,8 +496,9 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
     initialiseRingBuffer(packet_size, (size_t) 1024);
 
     // Create channel container
-    container = new ChannelDataContainer<uint16_t>(this -> nof_tiles, this -> nof_antennas, this -> nof_samples,
-                                                  this -> nof_channels, this -> nof_pols);
+    container = new ChannelDataContainer<uint16_t>(this -> nof_tiles, this -> nof_antennas,
+                                                   this -> nof_samples, this -> nof_channels,
+                                                   this -> nof_pols);
 
     return true;
 }
@@ -509,7 +510,7 @@ void IntegratedChannelisedData::setCallback(DataCallback callback)
 }
 
 void IntegratedChannelisedData::cleanUp() {
-    delete container;
+//    delete container;
 }
 
 // Packet filter
@@ -634,7 +635,7 @@ bool IntegratedChannelisedData::processPacket()
     double packet_time = sync_time + timestamp * 1.08e-6;
 
     // Check if we processed all the sample
-    if (num_packets == this -> nof_antennas * this -> nof_pols * this -> nof_tiles)
+    if (num_packets == this -> nof_antennas * this -> nof_pols * this -> nof_tiles / nof_included_antennas)
     {
         container -> persist_container();
         num_packets = 0;

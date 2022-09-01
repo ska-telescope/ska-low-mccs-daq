@@ -1109,15 +1109,15 @@ class DaqReceiver:
                 logging.warning("Invalid configuration")
             raise Exception("Invalid configuration")
 
-        # Check if data directory exists
-        if not os.path.exists(configuration['directory']):
-            if self._config['logging']:
-                logging.info("Specified data directory [%s] does not exist" % configuration['directory'])
-            raise Exception("Specified data directory [%s] does not exist" % configuration['directory'])
-
         # Apply configuration
         for k, v in list(configuration.items()):
             self._config[k] = v
+
+        # Check if data directory exists
+        if not os.path.exists(self._config['directory']):
+            if self._config['logging']:
+                logging.info("Specified data directory [%s] does not exist" % self._config['directory'])
+            raise Exception("Specified data directory [%s] does not exist" % self._config['directory'])
 
         # Extract port string and create list of ports
         if type(self._config['receiver_ports']) is not list:
@@ -1132,7 +1132,7 @@ class DaqReceiver:
                 exit()
 
         # Check if filesize restriction is set
-        if configuration['max_filesize'] is not None:
+        if self._config['max_filesize'] is not None:
             aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = configuration['max_filesize']
 
         # Get metadata
