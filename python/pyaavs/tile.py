@@ -231,11 +231,12 @@ class Tile(object):
         return self.tpm.is_programmed()
 
     def initialise(self,
-                   station_id, tile_id,
-                   lmc_use_40g, lmc_dst_ip, lmc_dst_port,
-                   lmc_integrated_use_40g, lmc_integrated_dst_ip,
-                   src_ip_fpga1, src_ip_fpga2, dst_ip_fpga1, dst_ip_fpga2,
-                   src_port, dst_port,
+                   station_id=0, tile_id=0,
+                   lmc_use_40g=False, lmc_dst_ip=None, lmc_dst_port=4660,
+                   lmc_integrated_use_40g=False, lmc_integrated_dst_ip=None,
+                   src_ip_fpga1=None, src_ip_fpga2=None,
+                   dst_ip_fpga1=None, dst_ip_fpga2=None,
+                   src_port=4661, dst_port=4660,
                    enable_adc=True,
                    enable_ada=False, enable_test=False, use_internal_pps=False,
                    pps_delay=0,
