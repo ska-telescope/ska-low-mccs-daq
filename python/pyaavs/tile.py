@@ -475,7 +475,7 @@ class Tile(object):
 
         :return: True when cable is detected
         """
-        qsfp_status = self.board['board.regfile.pll_10g']
+        qsfp_status = self['board.regfile.pll_10g']
         if qsfp_id == 0:
             qsfp_status = (qsfp_status >> 4) & 0x1
         else:
