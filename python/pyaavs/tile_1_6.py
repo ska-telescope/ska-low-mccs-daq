@@ -203,6 +203,9 @@ class Tile_1_6(Tile):
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc)
 
+        # Hack to reset MCU
+        # self.tpm[0x30000120] = 0
+
         # Before initialing, check if TPM is programmed
         if not self.tpm.is_programmed():
             logging.error("Cannot initialise board which is not programmed")
@@ -228,11 +231,12 @@ class Tile_1_6(Tile):
         self.tpm.tpm_preadu[1].switch_off()
 
         # Switch on preadu
-        for preadu in self.tpm.tpm_preadu:
-            preadu.switch_on()
-            time.sleep(1)
-            preadu.select_low_passband()
-            preadu.read_configuration()
+        # Commented out as there is an i2c conflict with MCU
+        # for preadu in self.tpm.tpm_preadu:
+        #     preadu.switch_on()
+        #     time.sleep(1)
+        #     preadu.select_low_passband()
+        #     preadu.read_configuration()
 
         # Synchronise FPGAs
         self.sync_fpgas()

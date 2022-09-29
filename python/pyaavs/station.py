@@ -124,36 +124,36 @@ def initialise_tile(params):
      :param params: Contain 0) Station configuration and 1) Tile number to initialise """
     config, tile_number = params
 
-    try:
-        threading.currentThread().name = config['tiles'][tile_number]
-        logging.info("Initialising Tile {}".format(config['tiles'][tile_number]))
-        threading.currentThread().name = config['tiles'][tile_number]
+    #try:
+    threading.currentThread().name = config['tiles'][tile_number]
+    logging.info("Initialising Tile {}".format(config['tiles'][tile_number]))
+    threading.currentThread().name = config['tiles'][tile_number]
 
-        # Create station instance and initialise
-        station_tile = create_tile_instance(config, tile_number)
-        station_tile.initialise(
-            enable_test=config['station']['enable_test'],
-            use_internal_pps=config['station']['use_internal_pps'],
-            qsfp_detection=config['station']['qsfp_detection']
-        )
+    # Create station instance and initialise
+    station_tile = create_tile_instance(config, tile_number)
+    station_tile.initialise(
+        enable_test=config['station']['enable_test'],
+        use_internal_pps=config['station']['use_internal_pps'],
+        qsfp_detection=config['station']['qsfp_detection']
+    )
 
-        # Set channeliser truncation
-        station_tile.set_channeliser_truncation(config['station']['channel_truncation'])
+    # Set channeliser truncation
+    station_tile.set_channeliser_truncation(config['station']['channel_truncation'])
 
-        # Configure channel and beam integrated data
-        station_tile.stop_integrated_data()
-        if config['station']['channel_integration_time'] != -1:
-            station_tile.configure_integrated_channel_data(
-                config['station']['channel_integration_time'])
+    # Configure channel and beam integrated data
+    station_tile.stop_integrated_data()
+    if config['station']['channel_integration_time'] != -1:
+        station_tile.configure_integrated_channel_data(
+            config['station']['channel_integration_time'])
 
-        if config['station']['beam_integration_time'] != -1:
-            station_tile.configure_integrated_beam_data(
-                config['station']['beam_integration_time'])
+    if config['station']['beam_integration_time'] != -1:
+        station_tile.configure_integrated_beam_data(
+            config['station']['beam_integration_time'])
 
-        return True
-    except Exception as e:
-        logging.warning("Could not initialise Tile {}: {}".format(config['tiles'][tile_number], e))
-        return False
+    return True
+    # except Exception as e:
+    #     logging.warning("Could not initialise Tile {}: {}".format(config['tiles'][tile_number], e))
+    #     return False
 
 
 class Station(object):
