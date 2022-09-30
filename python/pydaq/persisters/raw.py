@@ -255,7 +255,7 @@ class RawFormatFileManager(AAVSFileManager):
             if buffer_timestamp is not None:
                 padded_timestamp = buffer_timestamp
             else:
-                padded_timestamp = timestamp
+                padded_timestamp = 0
 
             padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 

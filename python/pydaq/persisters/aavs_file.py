@@ -171,7 +171,8 @@ class AAVSFileManager(object):
 
     # TODO: Clean up redundant/unused properties.
     def set_metadata(self, n_antennas=16, n_pols=2, n_beams=1, n_chans=512,
-                     n_samples=0, n_baselines=0, n_stokes=4, channel_id=0, station_id=0, n_blocks=0, timestamp=0, date_time="",
+                     n_samples=0, n_baselines=0, n_stokes=4, channel_id=0, station_id=0, n_blocks=0, timestamp=0,
+                     date_time="",
                      data_mode=""):
         """
         A method that has to be called soon after any AAVS File Manager object is created, to let us know what config
@@ -214,7 +215,7 @@ class AAVSFileManager(object):
         :param leng: Number of items in the range.
         :return: A range of values.
         """
-        return numpy.linspace(low,up,leng, dtype=numpy.float128)
+        return numpy.linspace(low, up, leng, dtype=numpy.float128)
 
     @staticmethod
     def complex_imaginary(value):
@@ -599,7 +600,7 @@ class AAVSFileManager(object):
         if file_obj is not None:
             file_bytes = os.path.getsize(file_obj.filename)
             gigabytes_in_file = file_bytes * 1e-9
-            self.close_file(file_obj = file_obj)
+            self.close_file(file_obj=file_obj)
 
         return gigabytes_in_file
 
@@ -609,7 +610,7 @@ class AAVSFileManager(object):
 
         # Sum number of samples in each partition
         total_samples = 0
-        for partition_id in range(0,nof_partitions):
+        for partition_id in range(0, nof_partitions):
             file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, partition=0)
             total_samples += self.n_samples * self.n_blocks
             self.close_file(file_obj=file_obj)
@@ -632,11 +633,12 @@ class AAVSFileManager(object):
         # get total samples
         total_samples_in_all_files = self.get_total_samples_in_all_partitions(timestamp=timestamp, tile_id=tile_id)
 
-        if query_sample_offset < 0: # if reading from the back
-            query_sample_offset = total_samples_in_all_files+query_sample_offset
+        if query_sample_offset < 0:  # if reading from the back
+            query_sample_offset = total_samples_in_all_files + query_sample_offset
 
-        if query_sample_offset+query_samples_read > total_samples_in_all_files:
-            query_samples_read = query_samples_read - ((query_sample_offset+query_samples_read) - total_samples_in_all_files)
+        if query_sample_offset + query_samples_read > total_samples_in_all_files:
+            query_samples_read = query_samples_read - (
+                        (query_sample_offset + query_samples_read) - total_samples_in_all_files)
 
         # Get number of partitions
         nof_partitions = self.file_partitions(timestamp=timestamp, tile_id=tile_id) + 1
@@ -680,7 +682,6 @@ class AAVSFileManager(object):
         # if we ask for too many samples from last partition, truncate end index
         if end_idx_in_end_partition > samples_in_last_partition:
             end_idx_in_end_partition = samples_in_last_partition
-
 
         # set up partition list
         if start_partition == end_partition:
@@ -891,7 +892,8 @@ class AAVSFileManager(object):
         # Check if file exists, delete if it does (we want to create here!)
         for file_obj in os.listdir(os.path.join(self.root_path)):
             if fnmatch.fnmatch(file_obj, os.path.join(self.root_path, filename_prefix + filename_mode_prefix +
-                    tile_id_str + "_" + date_time + "_" + str(partition_id) + ".hdf5")):
+                                                                      tile_id_str + "_" + date_time + "_" + str(
+                partition_id) + ".hdf5")):
                 os.remove(file_obj)
 
         first_full_filename = os.path.join(self.root_path, filename_prefix + filename_mode_prefix + tile_id_str +
