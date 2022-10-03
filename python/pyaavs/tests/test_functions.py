@@ -81,14 +81,14 @@ def set_pattern(tile, stage, pattern, adders, start, shift=0, zero=0):
         signal_adder += [adders[n]]*4
 
     for i in range(2):
+        fpga = "fpga1" if i == 0 else "fpga2"
         tile.tpm.tpm_pattern_generator[i].set_pattern(pattern_tmp, stage)
         tile.tpm.tpm_pattern_generator[i].set_signal_adder(signal_adder[64*i:64*(i+1)], stage)
-        tile['fpga1.pattern_gen.%s_left_shift' % stage] = shift
-        tile['fpga2.pattern_gen.%s_left_shift' % stage] = shift
-        tile['fpga1.pattern_gen.beamf_left_shift'] = 4
-        tile['fpga2.pattern_gen.beamf_left_shift'] = 4
-        tile['fpga1.pattern_gen.%s_zero' % stage] = zero
-        tile['fpga2.pattern_gen.%s_zero' % stage] = zero
+        tile['%s.pattern_gen.%s_left_shift' % (fpga, stage)] = shift
+        tile['%s.pattern_gen.beamf_left_shift' % fpga] = 4
+        tile['%s.pattern_gen.%s_zero' % (fpga, stage)] = zero
+        tile['%s.pattern_gen.jesd_ramp1_enable' % fpga] = 0x0
+        tile['%s.pattern_gen.jesd_ramp2_enable' % fpga] = 0x0
     if start:
         for i in range(2):
             tile.tpm.tpm_pattern_generator[i].start_pattern(stage)
