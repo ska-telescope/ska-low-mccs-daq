@@ -207,28 +207,33 @@ bool ContinuousChannelisedData::initialiseConsumer(json configuration)
         (key_in_json(configuration, "nof_antennas")) &&
         (key_in_json(configuration, "nof_pols")) &&
         (key_in_json(configuration, "nof_buffer_skips")) &&
-        (key_in_json(configuration, "max_packet_size"))) {
+        (key_in_json(configuration, "max_packet_size")) &&
+        (key_in_json(configuration, "start_time"))) {
         LOG(FATAL, "Missing configuration item for ContinuousChannelisedData consumer. Requires "
-                   "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols, nof_buffer_skips and max_packet_size");
+                   "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols, "
+                   "nof_buffer_skips, start_time and max_packet_size");
         return false;
     }
 
     // Set local values
-    this -> nof_channels = configuration["nof_channels"];
-    this -> nof_tiles    = configuration["nof_tiles"];
-    this -> nof_samples  = configuration["nof_samples"];
-    this -> nof_antennas = configuration["nof_antennas"];
-    this -> nof_pols     = configuration["nof_pols"];
-    this -> packet_size  = configuration["max_packet_size"];
-    this -> nof_buffer_skips = configuration["nof_buffer_skips"];
+    nof_channels = configuration["nof_channels"];
+    nof_tiles    = configuration["nof_tiles"];
+    nof_samples  = configuration["nof_samples"];
+    nof_antennas = configuration["nof_antennas"];
+    nof_pols     = configuration["nof_pols"];
+    packet_size  = configuration["max_packet_size"];
+    nof_buffer_skips = configuration["nof_buffer_skips"];
+
+    // Set star time, to the nearest second
+    start_time = round((double) configuration["start_time"]);
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t) 131072 * this->nof_tiles);
+    initialiseRingBuffer(packet_size, (size_t) 131072 * nof_tiles);
 
     // Create channel container
     containers = (ChannelDataContainer<uint16_t> **) malloc(nof_containers * sizeof(ChannelDataContainer<uint16_t> *));
     for(unsigned i = 0; i < nof_containers; i++)
-        containers[i] = new ChannelDataContainer<uint16_t>(this -> nof_tiles, this -> nof_antennas, this -> nof_samples, this -> nof_channels, this -> nof_pols);
+        containers[i] = new ChannelDataContainer<uint16_t>(nof_tiles, nof_antennas, nof_samples, nof_channels, nof_pols);
 
     // All done
     return true;
@@ -246,7 +251,7 @@ void ContinuousChannelisedData::cleanUp() {
 void ContinuousChannelisedData::setCallback(DataCallback callback)
 {
     for(unsigned i = 0; i < nof_containers; i++)
-        this -> containers[i] -> setCallback(callback);
+        containers[i] -> setCallback(callback);
 }
 
 // Packet filter
@@ -299,11 +304,11 @@ bool ContinuousChannelisedData::processPacket()
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
-    auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
-    uint8_t *payload = packet + SPEAD_HEADERLEN + nofitems * SPEAD_ITEMLEN;
+    auto nof_items = (unsigned short) SPEAD_GET_NITEMS(hdr);
+    uint8_t *payload = packet + SPEAD_HEADERLEN + nof_items * SPEAD_ITEMLEN;
 
     // Loop over items to extract values
-    for(unsigned i = 1; i <= nofitems; i++)
+    for(unsigned i = 1; i <= nof_items; i++)
     {
         uint64_t item = SPEAD_ITEM(packet, i);
         switch (SPEAD_ITEM_ID(item))
@@ -354,7 +359,7 @@ bool ContinuousChannelisedData::processPacket()
             case 0x2004:
                 break;
             default:
-                LOG(INFO, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nofitems);
+                LOG(INFO, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nof_items);
         }
     }
 
@@ -366,9 +371,20 @@ bool ContinuousChannelisedData::processPacket()
 
     // TEMPORARY: Timestamp_scale may disappear, so it's hardcoded for now
     double packet_time = sync_time + timestamp * 1.08e-6; // timestamp_scale;
+
+    // Check whether packet timestamp is past start time
+    if (start_time > 0 and packet_time < start_time) {
+//        LOG(INFO, "Waiting for start time %.1f, packet time %.1f", start_time, packet_time);
+        ring_buffer -> pull_ready();
+        return true;
+    }
+
+//    if (num_packets % 10000 == 0)
+//        LOG(INFO, "Processing packet: %.1f, %.1f", packet_time, start_time);
+
     
     // Handle packet counter rollover
-    // First condition ensures that if DAQ is started before transmission, firs packet wioth counter 0 are not updates
+    // First condition ensures that if DAQ is started before transmission, firs packet with counter 0 are not updates
     if (reference_counter == 0)
         reference_counter = packet_counter;
     else

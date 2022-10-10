@@ -88,7 +88,7 @@ def program_cpld(params):
     config, tile_number = params
 
     try:
-        threading.currentThread().name = config['tiles'][tile_number]
+        threading.current_thread().name = config['tiles'][tile_number]
         logging.info("Initialising Tile {}".format(config['tiles'][tile_number]))
 
         # Create station instance and program CPLD
@@ -106,7 +106,7 @@ def program_fpgas(params):
     config, tile_number = params
 
     try:
-        threading.currentThread().name = config['tiles'][tile_number]
+        threading.current_thread().name = config['tiles'][tile_number]
         logging.info("Initialising Tile {}".format(config['tiles'][tile_number]))
 
         # Create station instance and program FPGAs
@@ -124,9 +124,9 @@ def initialise_tile(params):
     config, tile_number = params
 
     try:
-        threading.currentThread().name = config['tiles'][tile_number]
+        threading.current_thread().name = config['tiles'][tile_number]
         logging.info("Initialising Tile {}".format(config['tiles'][tile_number]))
-        threading.currentThread().name = config['tiles'][tile_number]
+        threading.current_thread().name = config['tiles'][tile_number]
 
         # Create station instance and initialise
         station_tile = create_tile_instance(config, tile_number)
@@ -1203,7 +1203,7 @@ if __name__ == "__main__":
     (conf, args) = parser.parse_args(argv[1:])
 
     # Set current thread name
-    threading.currentThread().name = "Station"
+    threading.current_thread().name = "Station"
 
     # Load station configuration
     configuration = load_station_configuration(conf)

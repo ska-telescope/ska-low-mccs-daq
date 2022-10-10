@@ -263,6 +263,7 @@ private:
     uint16_t nof_tiles = 0;           // Number of tiles
     uint16_t nof_channels = 0;        // Number of channels
     uint32_t nof_samples = 0;         // Number of time samples
+    double start_time = -1;           // Acquisition start time
 };
 
 // This class is responsible for consuming integrated channel SPEAD packets coming out of TPMs
