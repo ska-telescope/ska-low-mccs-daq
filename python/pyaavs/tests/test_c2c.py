@@ -29,12 +29,13 @@ class TestC2c():
         self._logger.debug("Preparing C2C test, number of loops %d" % nof_loops)
 
         errors = 0
+        iter = 0
 
         for t, tile in enumerate(self._test_station.tiles):
             for fpga in ['fpga1', 'fpga2']:
                 self._logger.info("Testing Tile %d %s..." % (t, fpga))
-                for n in range(nof_loops):
-                    write_pattern = list(range(n, 256 * 10 + n))
+                while iter < nof_loops or nof_loops == 0:
+                    write_pattern = list(range(iter, 256 * 10 + iter))
                     address = tile.tpm.memory_map['fpga1.bram64k'].address
                     self._test_station[address] = write_pattern
                     read_pattern = tile.tpm.read_address(address, 256 * 10)
@@ -42,6 +43,9 @@ class TestC2c():
                         self._logger.error("Tile %d %s error. Test FAILED." % (t, fpga))
                         errors += 1
                         break
+                    iter += 1
+                    if nof_loops == 0:
+                        self._logger.info("Tile %d %s iteration %d" % (t, fpga, iter))
 
         if errors > 0:
             self._logger.error("Test FAILED!")

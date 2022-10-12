@@ -76,6 +76,8 @@ class TpmTestFirmware(FirmwareBlock):
                 "TpmTestFirmware: dsp_core flag is False."
             )
 
+        self._device_name = "fpga1" if self._device is Device.FPGA_1 else "fpga2"
+
         # retrieving firmware features from feature register
         self.xg_eth = False
         self.xg_40g_eth = False
@@ -122,9 +124,8 @@ class TpmTestFirmware(FirmwareBlock):
         self._station_beamf = None
         self._antenna_buffer = None
         self._multiple_channel_tx = None
-        self.load_plugin()
 
-        self._device_name = "fpga1" if self._device is Device.FPGA_1 else "fpga2"
+        self.load_plugin()
 
     def load_plugin(self: TpmTestFirmware) -> None:
         """Load required plugin."""
@@ -188,110 +189,6 @@ class TpmTestFirmware(FirmwareBlock):
                     "MultipleChannelTx", device=self._device
                 )
 
-    def fpga_clk_sync(self: TpmTestFirmware) -> None:
-        """FPGA synchronise clock."""
-        if self._device_name == "fpga1":
-
-            fpga1_phase = self.board["fpga1.pps_manager.sync_status.cnt_hf_pps"]
-
-            # restore previous counters status using PPS phase
-            self.board["fpga1.pps_manager.sync_tc.cnt_1_pulse"] = 0
-            time.sleep(1.1)
-            for _n in range(5):
-                fpga1_cnt_hf_pps = self.board["fpga1.pps_manager.sync_phase.cnt_hf_pps"]
-                if abs(fpga1_cnt_hf_pps - fpga1_phase) <= 3:
-                    logging.debug("FPGA1 clock synced to PPS phase!")
-                    break
-                else:
-                    rd = self.board["fpga1.pps_manager.sync_tc.cnt_1_pulse"]
-                    self.board["fpga1.pps_manager.sync_tc.cnt_1_pulse"] = rd + 1
-                    time.sleep(1.1)
-
-        if self._device_name == "fpga2":
-
-            # Synchronize FPGA2 to FPGA1 using sysref phase
-            fpga1_phase = self.board["fpga1.pps_manager.sync_phase.cnt_1_sysref"]
-
-            self.board["fpga2.pps_manager.sync_tc.cnt_1_pulse"] = 0x0
-            sleep(0.1)
-            for _n in range(5):
-                fpga2_phase = self.board["fpga2.pps_manager.sync_phase.cnt_1_sysref"]
-                if fpga1_phase == fpga2_phase:
-                    logging.debug("FPGA2 clock synced to SYSREF phase!")
-                    break
-                else:
-                    rd = self.board["fpga2.pps_manager.sync_tc.cnt_1_pulse"]
-                    self.board["fpga2.pps_manager.sync_tc.cnt_1_pulse"] = rd + 1
-                    sleep(0.1)
-
-            logging.debug(
-                "FPGA1 clock phase before adc_clk alignment: "
-                + hex(self.board["fpga1.pps_manager.sync_phase"])
-            )
-            logging.debug(
-                "FPGA2 clock phase before adc_clk alignment: "
-                + hex(self.board["fpga2.pps_manager.sync_phase"])
-            )
-
-    def start_ddr_initialisation(self: TpmTestFirmware) -> None:
-        """Start DDR initialisation."""
-        if self.board["board.regfile.ctrl.en_ddr_vdd"] == 0:
-            self.board["board.regfile.ctrl.en_ddr_vdd"] = 1
-            time.sleep(0.5)
-        logging.debug(self._device_name + " DDR3 reset")
-        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
-        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
-
-    def check_ddr_initialisation(self: TpmTestFirmware) -> None:
-        """Check whether DDR has initialised."""
-        if self.board.memory_map.has_register(
-            self._device_name + ".regfile.stream_status.ddr_init_done"
-        ):
-            status = self.board[
-                self._device_name + ".regfile.stream_status.ddr_init_done"
-            ]
-        else:
-            status = self.board[self._device_name + ".regfile.status.ddr_init_done"]
-
-        if status == 0x0:
-            logging.debug("DDR3 " + self._device_name + " is not initialised")
-            self.initialise_ddr()
-        else:
-            logging.debug("DDR3 " + self._device_name + " initialised!")
-            return
-
-    def initialise_ddr(self: TpmTestFirmware) -> None:
-        """Initialise DDR."""
-        if self.board["board.regfile.ctrl.en_ddr_vdd"] == 0:
-            self.board["board.regfile.ctrl.en_ddr_vdd"] = 1
-            time.sleep(0.5)
-
-        for _n in range(3):
-            logging.debug(self._device_name + " DDR3 reset")
-            self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
-            self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
-
-            for _m in range(5):
-                if self.board.memory_map.has_register(
-                    self._device_name + ".regfile.stream_status.ddr_init_done"
-                ):
-                    status = self.board[
-                        self._device_name + ".regfile.stream_status.ddr_init_done"
-                    ]
-                else:
-                    status = self.board[
-                        self._device_name + ".regfile.status.ddr_init_done"
-                    ]
-
-                if status == 0x0:
-                    logging.debug("Wait DDR3 " + self._device_name + " init")
-                    time.sleep(0.2)
-                else:
-                    logging.debug("DDR3 " + self._device_name + " initialised!")
-                    return
-
-        logging.error("Cannot initilaise DDR3 " + self._device_name)
-
     def initialise_firmware(self: TpmTestFirmware) -> None:
         """
         Initialise firmware components.
@@ -337,16 +234,58 @@ class TpmTestFirmware(FirmwareBlock):
         self._power_meter.initialise()
 
         # Initialise 10G/40G cores
-        if self.xg_40g_eth:
-            self._fortyg.initialise_core()
-        else:
-            for teng in self._teng:
-                teng.initialise_core()
+        if self.board["fpga1.regfile.feature.xg_eth_implemented"] == 1:
+            if self.xg_40g_eth:
+                self._fortyg.initialise_core()
+            else:
+                for teng in self._teng:
+                    teng.initialise_core()
 
         self._patterngen.initialise()
 
     #######################################################################################
 
+    def check_ddr_voltage(self: TpmTestFirmware) -> None:
+        """Check if DDR voltage regulator is enabled, if not enable it. TPM 1.2 only"""
+        if self.board.memory_map.has_register("board.regfile.ctrl.en_ddr_vdd"):
+            if self.board["board.regfile.ctrl.en_ddr_vdd"] == 0:
+                self.board["board.regfile.ctrl.en_ddr_vdd"] = 1
+                time.sleep(0.5)
+
+    def start_ddr_initialisation(self: TpmTestFirmware) -> None:
+        """Start DDR initialisation."""
+        self.check_ddr_voltage()
+        logging.debug(self._device_name + " DDR reset")
+        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
+        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
+
+    def check_ddr_initialisation(self: TpmTestFirmware) -> bool:
+        """Check whether DDR has initialised."""
+        if self.board.memory_map.has_register(
+            self._device_name + ".regfile.stream_status.ddr_init_done"
+        ):
+            status = self.board[
+                self._device_name + ".regfile.stream_status.ddr_init_done"
+            ]
+        else:
+            status = self.board[self._device_name + ".regfile.status.ddr_init_done"]
+
+        if status == 0x0:
+            logging.debug("DDR of " + self._device_name.upper() + " is not initialised")
+            return False
+        else:
+            logging.debug("DDR of " + self._device_name.upper() + " initialised!")
+            return True
+
+    def initialise_ddr(self: TpmTestFirmware) -> None:
+        """Initialise DDR."""
+        for _n in range(3):
+            self.start_ddr_initialisation()
+            for _m in range(5):
+                time.sleep(0.2)
+                if self.check_ddr_initialisation():
+                    return
+        logging.error("Cannot initialise DDR of " + self._device_name.upper())
 
     def send_raw_data(self: TpmTestFirmware) -> None:
         """Send raw data from the TPM."""

@@ -12,6 +12,7 @@ Hardware functions for the TPM 1.6 hardware.
 """
 import functools
 import logging
+import time
 import os
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError
@@ -76,7 +77,7 @@ class Tile_1_6(Tile):
         logger=None,
     ):
         """
-        Initialize a new instance.
+        Iniitalise a new Tile16 instance.
 
         :param logger: the logger to be used by this Command. If not
                 provided, then a default module logger will be used.
@@ -133,7 +134,10 @@ class Tile_1_6(Tile):
         # Add plugin directory (load module locally)
         tf = __import__("pyaavs.plugins.tpm_1_6.tpm_test_firmware", fromlist=[None])
         self.tpm.add_plugin_directory(os.path.dirname(tf.__file__))
-
+        
+        # Connect using tpm object.
+        # simulator parameter is used not to load the TPM specific plugins,
+        # no actual simulation is performed.
         try:
             self.tpm.connect(
                 ip=self._ip,
@@ -148,6 +152,7 @@ class Tile_1_6(Tile):
             self.tpm = None
             self.logger.error("Failed to connect to board at " + self._ip)
             return
+
         # Load tpm test firmware for both FPGAs (no need to load in simulation)
         if load_plugin and self.tpm.is_programmed():
             self.tpm.load_plugin(
@@ -165,7 +170,13 @@ class Tile_1_6(Tile):
         elif not self.tpm.is_programmed():
             logging.warning("TPM is not programmed! No plugins loaded")
 
-    def initialise(self, enable_ada=False, enable_test=False, enable_adc=True, use_internal_pps=False):
+    def initialise(self,
+                   enable_ada=False,
+                   enable_test=False,
+                   enable_adc=True,
+                   use_internal_pps=False,
+                   qsfp_detection="auto"
+                   ):
         """
         Connect and initialise.
 
@@ -175,6 +186,15 @@ class Tile_1_6(Tile):
         :param enable_adc: Enable ADC
         :type enable_adc: bool
         :type enable_test: bool
+
+        :param use_internal_pps: use internal PPS generator synchronised across FPGAs
+        :type use_internal_pps: bool
+        :param qsfp_detection: "auto" detects QSFP cables automatically,
+                               "qsfp1", force QSFP1 cable detected, QSFP2 cable not detected
+                               "qsfp2", force QSFP1 cable not detected, QSFP2 cable detected
+                               "all", force QSFP1 and QSFP2 cable detected
+                               "none", force no cable not detected
+        :type qsfp_detection: str
         """
         if use_internal_pps:
             logging.error("Cannot initialise board - use_internal_pps = True not supported")
@@ -182,6 +202,9 @@ class Tile_1_6(Tile):
         
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc)
+
+        # Hack to reset MCU
+        # self.tpm[0x30000120] = 0
 
         # Before initialing, check if TPM is programmed
         if not self.tpm.is_programmed():
@@ -200,8 +223,20 @@ class Tile_1_6(Tile):
 
         # Enable C2C streaming
         self.tpm["board.regfile.ena_stream"] = 0x1
-        # self.tpm['board.regfile.ethernet_pause']=10000
+        # self.tpm['board.regfile.ethernet_pause'] = 10000
         self.set_c2c_burst()
+
+        # Switch off both PREADUs
+        self.tpm.tpm_preadu[0].switch_off()
+        self.tpm.tpm_preadu[1].switch_off()
+
+        # Switch on preadu
+        # Commented out as there is an i2c conflict with MCU
+        # for preadu in self.tpm.tpm_preadu:
+        #     preadu.switch_on()
+        #     time.sleep(1)
+        #     preadu.select_low_passband()
+        #     preadu.read_configuration()
 
         # Synchronise FPGAs
         self.sync_fpgas()
@@ -211,6 +246,10 @@ class Tile_1_6(Tile):
             f2f.assert_reset()
         for f2f in self.tpm.tpm_f2f:
             f2f.deassert_reset()
+
+        # AAVS-only - swap polarisations due to remapping performed by preadu
+        # self.tpm["fpga1.jesd204_if.regfile_pol_switch"] = 0b00001111
+        # self.tpm["fpga2.jesd204_if.regfile_pol_switch"] = 0b00001111
 
         # Reset test pattern generator
         self.tpm.test_generator[0].channel_select(0x0000)
@@ -229,10 +268,11 @@ class Tile_1_6(Tile):
 
         # Set destination and source IP/MAC/ports for 10G cores
         # This will create a loopback between the two FPGAs
-        self.set_default_eth_configuration()
+        self.set_default_eth_configuration(qsfp_detection)
 
         for firmware in self.tpm.tpm_test_firmware:
-            firmware.check_ddr_initialisation()
+            if not firmware.check_ddr_initialisation():
+                firmware.initialise_ddr()
 
     def f2f_aurora_test_start(self):
         """Start test on Aurora f2f link."""
@@ -250,3 +290,15 @@ class Tile_1_6(Tile):
         """Stop test on Aurora f2f link."""
         for f2f in self.tpm.tpm_f2f:
             f2f.stop_test()
+
+    def is_qsfp_cable_plugged(self, qsfp_id=0):
+        """
+        Initialise firmware components.
+
+        :return: True when cable is detected
+        """
+        qsfp_status = self.tpm.tpm_qsfp_adapter[qsfp_id].get('ModPrsL')
+        if qsfp_status == 0:
+            return True
+        else:
+            return False

@@ -26,6 +26,7 @@ configuration = {'tiles': None,
                      'initialise': False,
                      'program_cpld': False,
                      'enable_test': False,
+                     'qsfp_detection': "auto",
                      'start_beamformer': False,
                      'bitfile': None,
                      'channel_truncation': 5,
@@ -132,7 +133,8 @@ def initialise_tile(params):
         station_tile = create_tile_instance(config, tile_number)
         station_tile.initialise(
             enable_test=config['station']['enable_test'],
-            use_internal_pps=config['station']['use_internal_pps']
+            use_internal_pps=config['station']['use_internal_pps'],
+            qsfp_detection=config['station']['qsfp_detection']
         )
 
         # Set channeliser truncation
@@ -149,6 +151,7 @@ def initialise_tile(params):
                 config['station']['beam_integration_time'])
 
         return True
+
     except Exception as e:
         logging.warning("Could not initialise Tile {}: {}".format(config['tiles'][tile_number], e))
         return False
@@ -323,12 +326,11 @@ class Station(object):
                         gen.set_tone(1, 100 * 800e6 / 1024, 0)
                         gen.channel_select(0xFFFF)
 
-            if self['fpga1.regfile.feature.xg_eth_implemented'] == 1:
-                for tile in self.tiles:
-                    tile.reset_eth_errors()
-                time.sleep(1)
-                for tile in self.tiles:
-                    tile.check_arp_table()
+            for tile in self.tiles:
+                tile.reset_eth_errors()
+            time.sleep(1)
+            for tile in self.tiles:
+                tile.check_arp_table()
 
             # If initialising, synchronise all tiles in station
             logging.info("Synchronising station")
@@ -1125,6 +1127,8 @@ def load_station_configuration(config_params):
         configuration['station']['channel_integration_time'] = config_params.channel_integ
     if config_params.enable_test is not None:
         configuration['station']['enable_test'] = config_params.enable_test
+    if config_params.qsfp_detection is not None:
+        configuration['station']['qsfp_detection'] = config_params.qsfp_detection
     # if config_params.use_internal_pps is True: # Not clear how to use the command line option wrt value set in config file
     #     configuration['station']['use_internal_pps'] = True
     if config_params.initialise is not None:
@@ -1181,6 +1185,8 @@ if __name__ == "__main__":
                       default=False, help="Enable test pattern [default: False]")
     # parser.add_option("--use_internal_pps", action="store_true", dest="use_internal_pps",
     #                   default=False, help="Enable internal PPS generator ['default: False]")
+    parser.add_option("--qsfp_detection", action="store", dest="qsfp_detection",
+                      default=None, help="Force QSFP cable detection: auto, qsfp1, qsfp2, all, none [default: auto]")
     parser.add_option("--use_teng", action="store_true", dest="use_teng",
                       default=None, help="Use 10G for LMC [default: None]")
     parser.add_option("--chan-trunc", action="store", dest="chan_trunc",

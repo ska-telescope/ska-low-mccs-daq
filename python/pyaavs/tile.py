@@ -11,22 +11,20 @@
 Hardware functions for the TPM 1.2 hardware.
 """
 import functools
-import socket
 import threading
-import os
 import logging
-import struct
+import socket
+import time
+import os
 
 import numpy as np
-import time
-
-# import struct
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status
 from pyfabil.base.utils import ip2long
 from pyfabil.boards.tpm import TPM
 
 
+# Helper to disallow certain function calls on unconnected tiles
 def connected(f):
     """
     Helper to disallow certain function calls on unconnected tiles.
@@ -155,7 +153,14 @@ class Tile(object):
         """
         return "tpm_v1_2"
 
-    def connect(self, initialise=False, load_plugin=True, enable_ada=False):
+    def connect(
+        self,
+        initialise=False,
+        load_plugin=True,
+        enable_ada=False,
+        enable_adc=True,
+        dsp_core=True,
+    ):
         """
         Connect to the hardware and loads initial configuration.
 
@@ -165,6 +170,10 @@ class Tile(object):
         :type load_plugin: bool
         :param enable_ada: Enable ADC amplifier (usually not present)
         :type enable_ada: bool
+        :param enable_adc: Enable ADC
+        :type enable_adc: bool
+        :param dsp_core: Enable loading of DSP core plugins
+        :type dsp_core: bool
         """
         # Try to connect to board, if it fails then set tpm to None
         self.tpm = TPM()
@@ -172,6 +181,7 @@ class Tile(object):
         # Add plugin directory (load module locally)
         tf = __import__("pyaavs.plugins.tpm.tpm_test_firmware", fromlist=[None])
         self.tpm.add_plugin_directory(os.path.dirname(tf.__file__))
+        
         # Connect using tpm object.
         # simulator parameter is used not to load the TPM specific plugins,
         # no actual simulation is performed.
@@ -182,12 +192,13 @@ class Tile(object):
                 initialise=initialise,
                 simulator=not load_plugin,
                 enable_ada=enable_ada,
+                enable_adc=enable_adc,
                 fsample=self._sampling_rate,
             )
         except (BoardError, LibraryError):
-           self.tpm = None
-           self.logger.error("Failed to connect to board at " + self._ip)
-           return
+            self.tpm = None
+            self.logger.error("Failed to connect to board at " + self._ip)
+            return
 
         # Load tpm test firmware for both FPGAs (no need to load in simulation)
         if load_plugin and self.tpm.is_programmed():
@@ -212,21 +223,34 @@ class Tile(object):
             return False
         return self.tpm.is_programmed()
 
-    def initialise(self, enable_ada=False, enable_test=False, use_internal_pps=False):
+    def initialise(self,
+                   enable_ada=False,
+                   enable_test=False,
+                   enable_adc=True,
+                   use_internal_pps=False,
+                   qsfp_detection="auto"
+                   ):
         """
         Connect and initialise.
 
-        :param enable_ada: enable adc amplifier, Not present in most TPM
-            versions
+        :param enable_ada: enable adc amplifier, Not present in most TPM versions
         :type enable_ada: bool
-        :param enable_test: setup internal test signal generator instead
-            of ADC
+        :param enable_test: setup internal test signal generator instead of ADC
+        :param enable_adc: Enable ADC
+        :type enable_adc: bool
         :type enable_test: bool
+
         :param use_internal_pps: use internal PPS generator synchronised across FPGAs
         :type use_internal_pps: bool
+        :param qsfp_detection: "auto" detects QSFP cables automatically,
+                               "qsfp1", force QSFP1 cable detected, QSFP2 cable not detected
+                               "qsfp2", force QSFP1 cable not detected, QSFP2 cable detected
+                               "all", force QSFP1 and QSFP2 cable detected
+                               "none", force no cable not detected
+        :type qsfp_detection: str
         """
         # Connect to board
-        self.connect(initialise=True, enable_ada=enable_ada)
+        self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc)
 
         # Before initialing, check if TPM is programmed
         if not self.tpm.is_programmed():
@@ -234,10 +258,7 @@ class Tile(object):
             return
 
         # Disable debug UDP header
-        self[0x30000024] = 0x2
-
-        # Calibrate FPGA to CPLD streaming
-        # self.calibrate_fpga_to_cpld()
+        self['board.regfile.header_config'] = 0x2
 
         # Initialise firmware plugin
         for firmware in self.tpm.tpm_test_firmware:
@@ -251,8 +272,8 @@ class Tile(object):
         self.set_c2c_burst()
 
         # Switch off both PREADUs
-        self.tpm.tpm_preadu[0].switch_off()
-        self.tpm.tpm_preadu[1].switch_off()
+        for preadu in self.tpm.tpm_preadu:
+            preadu.switch_off()
 
         # Switch on preadu
         for preadu in self.tpm.tpm_preadu:
@@ -273,10 +294,9 @@ class Tile(object):
         self.tpm["fpga2.jesd204_if.regfile_pol_switch"] = 0b00001111
 
         # Reset test pattern generator
-        self.tpm.test_generator[0].channel_select(0x0000)
-        self.tpm.test_generator[1].channel_select(0x0000)
-        self.tpm.test_generator[0].disable_prdg()
-        self.tpm.test_generator[1].disable_prdg()
+        for generator in self.tpm.test_generator:
+            generator.channel_select(0x0000)
+            generator.disable_prdg()
 
         # Use test_generator plugin instead!
         if enable_test:
@@ -289,10 +309,11 @@ class Tile(object):
 
         # Set destination and source IP/MAC/ports for 10G cores
         # This will create a loopback between the two FPGAs
-        self.set_default_eth_configuration()
+        self.set_default_eth_configuration(qsfp_detection)
 
         for firmware in self.tpm.tpm_test_firmware:
-            firmware.check_ddr_initialisation()
+            if not firmware.check_ddr_initialisation():
+                firmware.initialise_ddr()
 
     def program_fpgas(self, bitfile):
         """
@@ -448,6 +469,23 @@ class Tile(object):
             return 0
 
     @connected
+    def is_qsfp_cable_plugged(self, qsfp_id=0):
+        """
+        Initialise firmware components.
+
+        :return: True when cable is detected
+        """
+        qsfp_status = self['board.regfile.pll_10g']
+        if qsfp_id == 0:
+            qsfp_status = (qsfp_status >> 4) & 0x1
+        else:
+            qsfp_status = (qsfp_status >> 6) & 0x1
+        if qsfp_status == 0:
+            return True
+        else:
+            return False
+
+    @connected
     def configure_10g_core(
         self,
         core_id,
@@ -582,41 +620,46 @@ class Tile(object):
         return self._40g_configuration
 
     @connected
-    def set_default_eth_configuration(self):
+    def set_default_eth_configuration(self, qsfp_detection):
         """
         Set destination and source IP/MAC/ports for 40G cores.
 
         This will create a loopback between the two FPGAs.
         """
-        ip_octets = self._ip.split(".")
-        for n in range(len(self.tpm.tpm_10g_core)):
-            if self["fpga1.regfile.feature.xg_eth_implemented"] == 1:
-                if self.tpm.tpm_test_firmware[0].xg_40g_eth:
+        if self["fpga1.regfile.feature.xg_eth_implemented"] == 1:
+            ip_octets = self._ip.split(".")
+            for n in range(len(self.tpm.tpm_10g_core)):
+                if qsfp_detection == "all":
+                    cable_detected = True
+                elif qsfp_detection == "auto" and self.is_qsfp_cable_plugged(n):
+                    cable_detected = True
+                elif n == 0 and qsfp_detection == "qsfp1":
+                    cable_detected = True
+                elif n == 1 and qsfp_detection == "qsfp2":
+                    cable_detected = True
+                else:
+                    cable_detected = False
+
+                src_ip = f"10.0.{n + 1}.{ip_octets[3]}"
+
+                # if QSFP cable is detected then reset core,
+                # check for link up (done in reset reset_core) and set default IP address,
+                # otherwise disable TX
+                if cable_detected:
                     self.tpm.tpm_10g_core[n].reset_core()
-                src_ip = f"10.0.{n+1}.{ip_octets[3]}"
-            else:
-                src_ip = f"10.{n+1}.{ip_octets[2]}.{ip_octets[3]}"
-            if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-                self.configure_40g_core(
-                    n,
-                    0,
-                    src_mac=0x620000000000 + ip2long(src_ip),
-                    src_ip=src_ip,
-                    dst_ip=None,
-                    src_port=0xF0D0,
-                    dst_port=4660,
-                    rx_port_filter=4660,
-                )
-            else:
-                self.configure_10g_core(
-                    n,
-                    src_mac=0x620000000000 + ip2long(src_ip),
-                    dst_mac=None,
-                    src_ip=src_ip,
-                    dst_ip=None,
-                    src_port=0xF0D0,
-                    dst_port=4660,
-                )
+
+                    self.configure_40g_core(
+                        n,
+                        0,
+                        src_mac=0x620000000000 + ip2long(src_ip),
+                        src_ip=src_ip,
+                        dst_ip=None,
+                        src_port=0xF0D0,
+                        dst_port=4660,
+                        rx_port_filter=4660,
+                    )
+                else:
+                    self.tpm.tpm_10g_core[n].tx_disable()
 
     @connected
     def set_lmc_download(
@@ -772,63 +815,79 @@ class Tile(object):
             )
 
     @connected
-    def check_arp_table(self, timeout=6.0):
+    def check_arp_table(self, timeout=20.0):
         """
-        Check that ARP table has been populated in for all used cores.
+        Check that ARP table has been resolved for all used cores.
         40G interfaces use cores 0 (fpga0) and 1(fpga1) and
         ARP ID 0 for beamformer, 1 for LMC.
-        10G interfaces use cores 0,1 (fpga0) and 4,5 (fpga1) for beamforming,
-        and 2, 6 for LMC with only one ARP entry per core.
+        The procedure checks that all populated ARP entries have been
+        resolved. If the QSFP has been disabled or link is not detected up,
+        the check is skipped.
 
         :param timeout: Timeout in seconds
         :type timeout: float
         :return: ARP table status
         :rtype: bool
         """
-        # sanity check on time. Between 0.1 and 100 seconds
-        maxtime = int(timeout * 10)
-        if maxtime < 1:
-            maxtime = 1
-        if maxtime > 100:
-            maxtime = 100
+
+        # polling time to check ARP table
+        polling_time = 0.1
+        checks_per_second = 1.0 / polling_time
+        # sanity check on time. Between 1 and 100 seconds
+        max_time = int(timeout)
+        if max_time < 1:
+            max_time = 1
+        if max_time > 100:
+            max_time = 100
         # wait UDP link up
+        core_id = range(len(self.tpm.tpm_10g_core))
+        arp_table_id = range(self.tpm.tpm_10g_core[0].get_number_of_arp_table_entries())
+
         self.logger.info("Checking ARP table...")
-        if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-            core_id = range(2)
-            arp_table_id = range(4)
-        else:
-            core_id = range(8)
-            arp_table_id = [0]
+
+        linked_core_id = []
+        for c in core_id:
+            if self.tpm.tpm_10g_core[c].is_tx_disabled():
+                self.logger.warning("Skipping ARP table check on FPGA" + str(c+1) + ". TX is disabled!")
+            elif self.tpm.tpm_10g_core[c].is_link_up():
+                linked_core_id.append(c)
+            else:
+                self.logger.warning("Skipping ARP table check on FPGA" + str(c+1) + ". Link is down!")
+
+        if not linked_core_id:
+            return False
+
         times = 0
         while True:
-            linkup = True
-            for c in core_id:
-                if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-                    core_errors = self.tpm.tpm_10g_core[c].check_errors()
-                    if core_errors:
-                        linkup = False
+            not_ready_links = []
+            for c in linked_core_id:
+                core_inst = self.tpm.tpm_10g_core[c]
+                core_errors = core_inst.check_errors()
+                if core_errors:
+                    not_ready_links.append(c)
                 for a in arp_table_id:
-                    core_status = self.tpm.tpm_10g_core[c].get_arp_table_status(
-                        a, silent_mode=True
-                    )
+                    core_status = core_inst.get_arp_table_status(a, silent_mode=True)
+                    # check if valid entry has been resolved
                     if core_status & 0x1 == 1 and core_status & 0x4 == 0:
-                        linkup = False
-            if linkup == 1:
-                self.logger.info("10G Link established! ARP table populated!")
-                break
+                        not_ready_links.append(c)
+
+            if not not_ready_links:
+                self.logger.info("40G Link established! ARP table populated!")
+                return True
             else:
                 times += 1
-                time.sleep(0.1)
-                if times % 10 == 0:
-                    self.logger.warning(
-                        f"10G Links not established after {int(0.1 * times)} seconds! Waiting... "
-                    )
-                if times == maxtime:
-                    self.logger.warning(
-                        f"10G Links not established after {int(0.1 * times)} seconds! ARP table not populated!"
-                    )
-                    break
-        return linkup
+                time.sleep(polling_time)
+                for c in linked_core_id:
+                    if c in not_ready_links:
+                        if times % checks_per_second == 0:
+                            self.logger.warning(
+                                f"40G Link on FPGA{c} not established after {int(0.1 * times)} seconds! Waiting... "
+                            )
+                        if times == max_time * checks_per_second:
+                            self.logger.warning(
+                                f"40G Link on FPGA{c} not established after {int(0.1 * times)} seconds! ARP table not populated!"
+                            )
+                            return False
 
     def get_arp_table(self):
         """

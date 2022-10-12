@@ -298,7 +298,7 @@ class TestFullStation():
 
         if test_channel >= nof_channels:
             self._logger.error("Station beam does not contain selected frequency channel. Exiting...")
-            return
+            return 1
         channelised_channel = test_channel + int((self._station_config['observation']['start_frequency_channel']) / channel_bandwidth)
         beamformed_channel = test_channel
 
@@ -373,7 +373,9 @@ class TestFullStation():
             time.sleep(2)
             spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles), self._daq_eth_if)
             offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
-            self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
+            self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0],
+                                                                               offline_beam_power[1],
+                                                                               offline_beam_power[2]))
             del spead_rx_offline_inst
             
             offline_power = []
@@ -394,7 +396,9 @@ class TestFullStation():
                     spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles),
                                                                     self._daq_eth_if)
                     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
-                    self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
+                    self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0],
+                                                                                       offline_beam_power[1],
+                                                                                       offline_beam_power[2]))
                     del spead_rx_offline_inst
 
                     nof_saturations = offline_beam_power[2]
@@ -405,6 +409,7 @@ class TestFullStation():
 
                     if scale == 8:
                         self._logger.info("Not possible to get not saturated samples.")
+                        self._logger.error("TEST FAILED!")
                         return 1
 
                 # target_power = 0
@@ -455,7 +460,9 @@ class TestFullStation():
                 self._logger.info("Acquiring realtime beamformed data")
                 spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
                 realtime_beam_power = np.asarray(spead_rx_realtime_inst.get_power(beamformed_channel))
-                self._logger.info("Realtime beamformed channel power: %f %f %d" % (realtime_beam_power[0], realtime_beam_power[1], realtime_beam_power[2]))
+                self._logger.info("Realtime beamformed channel power: %f %f %d" % (realtime_beam_power[0],
+                                                                                   realtime_beam_power[1],
+                                                                                   realtime_beam_power[2]))
                 delete_files(data_directory)
                 realtime_power.append(realtime_beam_power)
                 del spead_rx_realtime_inst
@@ -499,8 +506,10 @@ class TestFullStation():
             # plt.savefig("test_full_station.png")
             # All done, remove temporary directory
         except Exception as e:
+            errors += 1
             import traceback
             self._logger.error(traceback.format_exc())
+            self._logger.error("TEST FAILED!")
 
         finally:
             # stop_daq()
