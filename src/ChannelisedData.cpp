@@ -374,13 +374,9 @@ bool ContinuousChannelisedData::processPacket()
 
     // Check whether packet timestamp is past start time
     if (start_time > 0 and packet_time < start_time) {
-//        LOG(INFO, "Waiting for start time %.1f, packet time %.1f", start_time, packet_time);
         ring_buffer -> pull_ready();
         return true;
     }
-
-//    if (num_packets % 10000 == 0)
-//        LOG(INFO, "Processing packet: %.1f, %.1f", packet_time, start_time);
 
     
     // Handle packet counter rollover
