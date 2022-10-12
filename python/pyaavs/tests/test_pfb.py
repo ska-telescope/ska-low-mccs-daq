@@ -223,6 +223,7 @@ class TestPfb():
 
         tile.set_channeliser_truncation(0)
         tf.set_delay(tile, [0]*32)
+        tf.stop_pattern(tile, "all")
 
         #data_pattern = range(1024)
         pattern = data_pattern
@@ -246,6 +247,8 @@ class TestPfb():
                 if not self.check_response(c):
                     self._logger.error("Test channel " + str(c) + " Error")
                     self._logger.error("Incorrect PFB response found!")
+                    self._logger.info("Test FAILED!")
+                    self.clean_up(tile)
                     return 1
 
             self._logger.info("Test Iteration %i PASSED!" % (i + 1))
