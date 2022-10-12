@@ -120,6 +120,7 @@ class DaqReceiver:
                         "station_config": None,
                         "max_filesize": None,
                         "acquisition_duration": -1,
+                        "acquisition_start_time": -1,
                         "description": "",
                         "observation_metadata": {}  # This is populated automatically
                         }
@@ -644,6 +645,7 @@ class DaqReceiver:
                   "nof_buffer_skips": int(self._config['continuous_period'] //
                                           (self._sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * self._config[
                                               'nof_channel_samples'])),
+                  "start_time": self._config['acquisition_start_time'],
                   "max_packet_size": self._config['receiver_frame_size']}
 
         # Start channel data consumer
@@ -1527,8 +1529,12 @@ if __name__ == "__main__":
     parser.add_option("--station-config", action="store", dest="station_config", default=None,
                       help="Station configuration file, to extract additional metadata (default: None)")
     parser.add_option("--acquisition_duration", "--runtime", "--duration", "--dt", action="store",
-                      dest="acquisition_duration",
-                      default=-1, help="Duration of data acquisiton in seconds [default: %default]", type="int")
+                      dest="acquisition_duration", default=-1,
+                      help="Duration of data acquisition in seconds [default: %default]", type="int")
+    parser.add_option("--acquisition_start_time", "--start_time", "--st", action="store",
+                      dest="acquisition_start_time", default=-1,
+                      help="Specify acquisition start time, only for continuous channelised data [default: %default]",
+                      type="int")
 
     (config, args) = parser.parse_args(argv[1:])
 

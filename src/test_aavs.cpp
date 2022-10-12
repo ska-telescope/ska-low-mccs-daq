@@ -202,7 +202,8 @@ void test_continuous_channel_data()
             {"nof_tiles", 16},
             {"nof_pols", 2},
             {"nof_buffer_skips", 0},
-            {"max_packet_size", 9000}
+            {"max_packet_size", 9000},
+            {"start_time",  ((double) time(0)) + 10}
     };
 
     if (loadConsumer("libaavsdaq.so", "continuouschannel") != SUCCESS) {
@@ -569,7 +570,7 @@ int main()
 //    test_integrated_beam_data();
 //    test_burst_channel_data();
 //    test_continuous_channel_data();
-    test_integrated_channel_data();
+//    test_integrated_channel_data();
 //    test_correlator_data();
 //    test_station_data();
 //    test_multi();
