@@ -686,7 +686,7 @@ class Tile(object):
     @connected
     def set_default_eth_configuration(self, src_ip_fpga1=None, src_ip_fpga2=None,
                                       dst_ip_fpga1=None, dst_ip_fpga2=None,
-                                      src_port=4661, dst_port=4660, qsfp_detection):
+                                      src_port=4661, dst_port=4660, qsfp_detection="auto"):
         """
         Set destination and source IP/MAC/ports for 40G cores.
 
