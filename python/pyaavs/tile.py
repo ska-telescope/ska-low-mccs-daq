@@ -14,6 +14,7 @@ import functools
 import logging
 import socket
 import numpy as np
+import time
 import math
 import os
 
@@ -729,12 +730,12 @@ class Tile(object):
 
                 # generate src IP and MAC address
                 if src_ip_list[n] is None:
-                    ip_octets = self._ip.split(".")
-                    ip = f"10.0.{n+1}.{ip_octets[3]}"
+                    src_ip_octets = self._ip.split(".")
                 else:
-                    ip = src_ip_list[n]
+                    src_ip_octets = src_ip_list[n].split(".")
 
-                src_ip = f"10.0.{n + 1}.{ip_octets[3]}"
+                src_ip = f"10.0.{n + 1}.{src_ip_octets[3]}"
+                dst_ip = dst_ip_list[n]
 
                 # if QSFP cable is detected then reset core,
                 # check for link up (done in reset reset_core) and set default IP address,
@@ -747,7 +748,7 @@ class Tile(object):
                         0,
                         src_mac=0x620000000000 + ip2long(src_ip),
                         src_ip=src_ip,
-                        dst_ip=None,
+                        dst_ip=dst_ip,
                         src_port=0xF0D0,
                         dst_port=4660,
                         rx_port_filter=4660,
