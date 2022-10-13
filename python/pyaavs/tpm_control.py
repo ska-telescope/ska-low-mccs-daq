@@ -180,13 +180,15 @@ if __name__ == "__main__":
 
         # Initialise beamformer
         logging.info("Initialising beamformer")
-        tile.initialise_beamformer(2, 384, True, True)
+        tile.initialise_beamformer(2, 384)
         tile.set_first_last_tile(True, True)
         tile.define_spead_header(0, 0, 16, -1, 0)
         tile.start_beamformer(start_time=0, duration=-1)
 
         # Perform synchronisation
-        tile.post_synchronisation()
+        # tile.post_synchronisation()
+        tile.set_pps_sampling(20,4)
+        tile.check_fpga_synchronization()
 
         logging.info("Setting data acquisition")
         tile.start_acquisition()

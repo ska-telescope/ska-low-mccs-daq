@@ -11,13 +11,12 @@
 Hardware functions for the TPM 1.2 hardware.
 """
 import functools
-import threading
 import logging
 import socket
-import time
-import os
-
 import numpy as np
+import time
+import math
+import os
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status
 from pyfabil.base.utils import ip2long
@@ -82,7 +81,7 @@ class Tile(object):
         logger=None,
     ):
         """
-        Iniitalise a new Tile12 instance.
+        Initialise a new Tile12 instance.
 
         :param logger: the logger to be used by this Command. If not
                 provided, then a default module logger will be used.
@@ -104,7 +103,6 @@ class Tile(object):
             self.logger = logger
         self._lmc_port = lmc_port
         self._lmc_ip = socket.gethostbyname(lmc_ip)
-        self._lmc_use_10g = False
         self._arp_table = {}
         self._40g_configuration = {}
         self._port = port
@@ -118,31 +116,38 @@ class Tile(object):
 
         self._sampling_rate = sampling_rate
 
-        # Threads for continuously sending data
-        self._RUNNING = 2
-        self._ONCE = 1
-        self._STOP = 0
-        self._daq_threads = {}
-
-        # Mapping between preadu and TPM inputs
-        self.fibre_preadu_mapping = {
-            0: 1,
-            1: 2,
-            2: 3,
-            3: 4,
-            7: 13,
-            6: 14,
-            5: 15,
-            4: 16,
-            8: 5,
-            9: 6,
-            10: 7,
-            11: 8,
-            15: 9,
-            14: 10,
-            13: 11,
-            12: 12,
-        }
+        self.preadu_signal_map = {0: {'preadu_id': 1, 'channel': 14},
+                                  1: {'preadu_id': 1, 'channel': 15},
+                                  2: {'preadu_id': 1, 'channel': 12},
+                                  3: {'preadu_id': 1, 'channel': 13},
+                                  4: {'preadu_id': 1, 'channel': 10},
+                                  5: {'preadu_id': 1, 'channel': 11},
+                                  6: {'preadu_id': 1, 'channel': 8},
+                                  7: {'preadu_id': 1, 'channel': 9},
+                                  8: {'preadu_id': 0, 'channel': 0},
+                                  9: {'preadu_id': 0, 'channel': 1},
+                                  10: {'preadu_id': 0, 'channel': 2},
+                                  11: {'preadu_id': 0, 'channel': 3},
+                                  12: {'preadu_id': 0, 'channel': 4},
+                                  13: {'preadu_id': 0, 'channel': 5},
+                                  14: {'preadu_id': 0, 'channel': 6},
+                                  15: {'preadu_id': 0, 'channel': 7},
+                                  16: {'preadu_id': 1, 'channel': 6},
+                                  17: {'preadu_id': 1, 'channel': 7},
+                                  18: {'preadu_id': 1, 'channel': 4},
+                                  19: {'preadu_id': 1, 'channel': 5},
+                                  20: {'preadu_id': 1, 'channel': 2},
+                                  21: {'preadu_id': 1, 'channel': 3},
+                                  22: {'preadu_id': 1, 'channel': 0},
+                                  23: {'preadu_id': 1, 'channel': 1},
+                                  24: {'preadu_id': 0, 'channel': 8},
+                                  25: {'preadu_id': 0, 'channel': 9},
+                                  26: {'preadu_id': 0, 'channel': 10},
+                                  27: {'preadu_id': 0, 'channel': 11},
+                                  28: {'preadu_id': 0, 'channel': 12},
+                                  29: {'preadu_id': 0, 'channel': 13},
+                                  30: {'preadu_id': 0, 'channel': 14},
+                                  31: {'preadu_id': 0, 'channel': 15}}
 
     # ---------------------------- Main functions ------------------------------------
     def tpm_version(self):
@@ -207,6 +212,7 @@ class Tile(object):
                     "TpmTestFirmware",
                     device=device,
                     fsample=self._sampling_rate,
+                    dsp_core=dsp_core,
                     logger=self.logger,
                 )
         elif not self.tpm.is_programmed():
@@ -224,30 +230,72 @@ class Tile(object):
         return self.tpm.is_programmed()
 
     def initialise(self,
-                   enable_ada=False,
-                   enable_test=False,
+                   station_id=0, tile_id=0,
+                   lmc_use_40g=False, lmc_dst_ip=None, lmc_dst_port=4660,
+                   lmc_integrated_use_40g=False, lmc_integrated_dst_ip=None,
+                   src_ip_fpga1=None, src_ip_fpga2=None,
+                   dst_ip_fpga1=None, dst_ip_fpga2=None,
+                   src_port=4661, dst_port=4660,
                    enable_adc=True,
-                   use_internal_pps=False,
-                   qsfp_detection="auto"
-                   ):
+                   enable_ada=False, enable_test=False, use_internal_pps=False,
+                   pps_delay=0,
+                   time_delays=0,
+                   is_first_tile=False,
+                   is_last_tile=False,
+                   qsfp_detection="auto"):
         """
         Connect and initialise.
 
+        :param station_id: station ID
+        :type station_id: int
+        :param tile_id: Tile ID in the station
+        :type tile_id: int
+        :param lmc_use_40g: if True use 40G interface to transmit LMC data, otherwise use 1G
+        :type lmc_use_40g: bool
+        :param lmc_dst_ip: destination IP address for LMC data packets
+        :type lmc_dst_ip: str
+        :param lmc_dst_port: destination UDP port for LMC data packets
+        :type lmc_dst_port: int
+        :param lmc_integrated_use_40g: if True use 40G interface to transmit LMC integrated data, otherwise use 1G
+        :type lmc_integrated_use_40g: bool
+        :param lmc_integrated_dst_ip: destination IP address for LMC integrated data packets
+        :type lmc_integrated_dst_ip: str
+        :param src_ip_fpga1: source IP address for FPGA1 40G interface
+        :type src_ip_fpga1: str
+        :param src_ip_fpga2: source IP address for FPGA2 40G interface
+        :type src_ip_fpga2: str
+        :param dst_ip_fpga1: destination IP address for beamformed data from FPGA1 40G interface
+        :type dst_ip_fpga1: str
+        :param dst_ip_fpga2: destination IP address for beamformed data from FPGA2 40G interface
+        :type dst_ip_fpga2: str
+        :param src_port: source UDP port for beamformed data packets
+        :type src_port: int
+        :param dst_port: destination UDP port for beamformed data packets
+        :type dst_port: int
         :param enable_ada: enable adc amplifier, Not present in most TPM versions
         :type enable_ada: bool
-        :param enable_test: setup internal test signal generator instead of ADC
         :param enable_adc: Enable ADC
         :type enable_adc: bool
+        :param enable_test: setup internal test signal generator instead of ADC
         :type enable_test: bool
 
         :param use_internal_pps: use internal PPS generator synchronised across FPGAs
         :type use_internal_pps: bool
+        :param pps_delay: PPS delay correction in 625ps units
+        :type pps_delay: int
+        :param time_delays: time domain delays for 32 inputs
+        :type time_delays: list(int)
+        :param is_first_tile: True if this tile is the first tile in the beamformer chain
+        :type is_first_tile: bool
+        :param is_last_tile: True if this tile is the last tile in the beamformer chain
+        :type is_last_tile: bool
         :param qsfp_detection: "auto" detects QSFP cables automatically,
                                "qsfp1", force QSFP1 cable detected, QSFP2 cable not detected
                                "qsfp2", force QSFP1 cable not detected, QSFP2 cable detected
                                "all", force QSFP1 and QSFP2 cable detected
                                "none", force no cable not detected
         :type qsfp_detection: str
+
         """
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc)
@@ -260,9 +308,19 @@ class Tile(object):
         # Disable debug UDP header
         self['board.regfile.header_config'] = 0x2
 
+        # write PPS delay correction variable into the FPGAs
+        if pps_delay < -128 or pps_delay > 127:
+            self.logger.error("PPS delay out of range [-128, 127]")
+            return
+        self["fpga1.pps_manager.sync_tc.cnt_2"] = pps_delay & 0xFF
+        self["fpga2.pps_manager.sync_tc.cnt_2"] = pps_delay & 0xFF
+
         # Initialise firmware plugin
         for firmware in self.tpm.tpm_test_firmware:
             firmware.initialise_firmware()
+
+        # Set station and tile IDs
+        self.set_station_id(station_id, tile_id)
 
         # Set LMC IP
         self.tpm.set_lmc_ip(self._lmc_ip, self._lmc_port)
@@ -283,7 +341,7 @@ class Tile(object):
             preadu.read_configuration()
 
         # Synchronise FPGAs
-        self.sync_fpgas(use_internal_pps=use_internal_pps)
+        self.sync_fpga_time(use_internal_pps=use_internal_pps)
 
         # Initialize f2f link
         self.tpm.tpm_f2f[0].initialise_core("fpga2->fpga1")
@@ -294,9 +352,9 @@ class Tile(object):
         self.tpm["fpga2.jesd204_if.regfile_pol_switch"] = 0b00001111
 
         # Reset test pattern generator
-        for generator in self.tpm.test_generator:
-            generator.channel_select(0x0000)
-            generator.disable_prdg()
+        for _test_generator in self.tpm.test_generator:
+            _test_generator.channel_select(0x0000)
+            _test_generator.disable_prdg()
 
         # Use test_generator plugin instead!
         if enable_test:
@@ -309,11 +367,40 @@ class Tile(object):
 
         # Set destination and source IP/MAC/ports for 10G cores
         # This will create a loopback between the two FPGAs
-        self.set_default_eth_configuration(qsfp_detection)
+        self.set_default_eth_configuration(src_ip_fpga1, src_ip_fpga2,
+                                           dst_ip_fpga1, dst_ip_fpga2,
+                                           src_port, dst_port, 
+                                           qsfp_detection)
 
         for firmware in self.tpm.tpm_test_firmware:
             if not firmware.check_ddr_initialisation():
                 firmware.initialise_ddr()
+
+        # Configure standard data streams
+        if lmc_use_40g:
+            logging.info("Using 10G for LMC traffic")
+            self.set_lmc_download("10g", 8192,
+                                  dst_ip=lmc_dst_ip,
+                                  dst_port=lmc_dst_port)
+        else:
+            logging.info("Using 1G for LMC traffic")
+            self.set_lmc_download("1g")
+
+        # Configure integrated data streams
+        if lmc_integrated_use_40g:
+            logging.info("Using 10G for integrated LMC traffic")
+            self.set_lmc_integrated_download("10g", 1024, 2048,
+                                             dst_ip=lmc_integrated_dst_ip)
+        else:
+            logging.info("Using 1G for integrated LMC traffic")
+            self.set_lmc_integrated_download("1g", 1024, 2048)
+
+        # Set time delays
+        self.set_time_delays(time_delays)
+
+        # set first/last tile flag
+        for _station_beamf in self.tpm.station_beamf:
+            _station_beamf.set_first_last_tile(is_first_tile, is_last_tile)
 
     def program_fpgas(self, bitfile):
         """
@@ -564,28 +651,6 @@ class Tile(object):
             )
 
     @connected
-    def get_10g_core_configuration(self, core_id):
-        """
-        Get the configuration for a 10g core.
-
-        :param core_id: Core ID (0-7)
-        :type core_id: int
-
-        :return: core configuration
-        :rtype: dict
-
-        :todo: Check whether to be deleted.
-        """
-        return {
-            "src_mac": int(self.tpm.tpm_10g_core[core_id].get_src_mac()),
-            "src_ip": int(self.tpm.tpm_10g_core[core_id].get_src_ip()),
-            "dst_ip": int(self.tpm.tpm_10g_core[core_id].get_dst_ip()),
-            "dst_mac": int(self.tpm.tpm_10g_core[core_id].get_dst_mac()),
-            "src_port": int(self.tpm.tpm_10g_core[core_id].get_src_port()),
-            "dst_port": int(self.tpm.tpm_10g_core[core_id].get_dst_port()),
-        }
-
-    @connected
     def get_40g_core_configuration(self, core_id, arp_table_entry=0):
         """
         Get the configuration for a 40g core.
@@ -620,15 +685,37 @@ class Tile(object):
         return self._40g_configuration
 
     @connected
-    def set_default_eth_configuration(self, qsfp_detection):
+    def set_default_eth_configuration(self, src_ip_fpga1=None, src_ip_fpga2=None,
+                                      dst_ip_fpga1=None, dst_ip_fpga2=None,
+                                      src_port=4661, dst_port=4660, qsfp_detection="auto"):
         """
         Set destination and source IP/MAC/ports for 40G cores.
 
         This will create a loopback between the two FPGAs.
+
+        :param src_ip_fpga1: source IP address for FPGA1 40G interface
+        :type src_ip_fpga1: str
+        :param src_ip_fpga2: source IP address for FPGA2 40G interface
+        :type src_ip_fpga2: str
+        :param dst_ip_fpga1: destination IP address for beamformed data from FPGA1 40G interface
+        :type dst_ip_fpga1: str
+        :param dst_ip_fpga2: destination IP address for beamformed data from FPGA2 40G interface
+        :type dst_ip_fpga2: str
+        :param src_port: source UDP port for beamformed data packets
+        :type src_port: int
+        :param dst_port: destination UDP port for beamformed data packets
+        :type dst_port: int
+
+        :return: core configuration
+        :rtype: dict
+
         """
         if self["fpga1.regfile.feature.xg_eth_implemented"] == 1:
-            ip_octets = self._ip.split(".")
+            src_ip_list = [src_ip_fpga1, src_ip_fpga2]
+            dst_ip_list = [dst_ip_fpga1, dst_ip_fpga2]
+
             for n in range(len(self.tpm.tpm_10g_core)):
+
                 if qsfp_detection == "all":
                     cable_detected = True
                 elif qsfp_detection == "auto" and self.is_qsfp_cable_plugged(n):
@@ -640,7 +727,15 @@ class Tile(object):
                 else:
                     cable_detected = False
 
-                src_ip = f"10.0.{n + 1}.{ip_octets[3]}"
+
+                # generate src IP and MAC address
+                if src_ip_list[n] is None:
+                    src_ip_octets = self._ip.split(".")
+                else:
+                    src_ip_octets = src_ip_list[n].split(".")
+
+                src_ip = f"10.0.{n + 1}.{src_ip_octets[3]}"
+                dst_ip = dst_ip_list[n]
 
                 # if QSFP cable is detected then reset core,
                 # check for link up (done in reset reset_core) and set default IP address,
@@ -653,7 +748,7 @@ class Tile(object):
                         0,
                         src_mac=0x620000000000 + ip2long(src_ip),
                         src_ip=src_ip,
-                        dst_ip=None,
+                        dst_ip=dst_ip,
                         src_port=0xF0D0,
                         dst_port=4660,
                         rx_port_filter=4660,
@@ -668,18 +763,21 @@ class Tile(object):
         payload_length=1024,
         dst_ip=None,
         src_port=0xF0D0,
-        dst_port=4660,
-        lmc_mac=None,
+        dst_port=4660
     ):
         """
         Configure link and size of control data for LMC packets.
 
-        :param mode: 1g or 10g
+        :param mode: "1g" or "10g"
+        :type mode: str
         :param payload_length: SPEAD payload length in bytes
+        :type payload_length: int
         :param dst_ip: Destination IP
+        :type dst_ip: str
         :param src_port: Source port for integrated data streams
+        :type src_port: int
         :param dst_port: Destination port for integrated data streams
-        :param lmc_mac: LMC Mac address is required for 10G lane configuration
+        :type dst_port: int
         """
         # Using 10G lane
         if mode.upper() == "10G":
@@ -687,43 +785,19 @@ class Tile(object):
                 self.logger.warning("Packet length too large for 10G")
                 return
 
-            if lmc_mac is None:
-                self.logger.warning(
-                    "LMC MAC must be specified for 10G lane configuration"
-                )
-                return
-
             # If dst_ip is None, use local lmc_ip
             if dst_ip is None:
                 dst_ip = self._lmc_ip
 
-            if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-                self.configure_40g_core(
-                    0, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-                )
-                self.configure_40g_core(
-                    1, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-                )
-            else:
-                self.configure_10g_core(
-                    2,
-                    dst_mac=lmc_mac,
-                    dst_ip=dst_ip,
-                    src_port=src_port,
-                    dst_port=dst_port,
-                )
-
-                self.configure_10g_core(
-                    6,
-                    dst_mac=lmc_mac,
-                    dst_ip=dst_ip,
-                    src_port=src_port,
-                    dst_port=dst_port,
-                )
+            self.configure_40g_core(
+                0, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
+            )
+            self.configure_40g_core(
+                1, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
+            )
 
             self["fpga1.lmc_gen.tx_demux"] = 2
             self["fpga2.lmc_gen.tx_demux"] = 2
-            self._lmc_use_10g = True
 
         # Using dedicated 1G link
         elif mode.upper() == "1G":
@@ -734,7 +808,6 @@ class Tile(object):
 
             self["fpga1.lmc_gen.tx_demux"] = 1
             self["fpga2.lmc_gen.tx_demux"] = 1
-            self._lmc_use_10g = False
         else:
             self.logger.warning("Supported modes are 1g, 10g")
             return
@@ -750,56 +823,38 @@ class Tile(object):
         beam_payload_length,
         dst_ip=None,
         src_port=0xF0D0,
-        dst_port=4660,
-        lmc_mac=None,
+        dst_port=4660
     ):
         """
         Configure link and size of control data for integrated LMC packets.
 
         :param mode: '1g' or '10g'
+        :type mode: str
         :param channel_payload_length: SPEAD payload length for integrated channel data
+        :type channel_payload_length: int
         :param beam_payload_length: SPEAD payload length for integrated beam data
+        :type beam_payload_length: int
         :param dst_ip: Destination IP
+        :type dst_ip: str
         :param src_port: Source port for integrated data streams
+        :type src_port: int
         :param dst_port: Destination port for integrated data streams
-        :param lmc_mac: LMC Mac address is required for 10G lane configuration
+        :type dst_port: int
         """
         # Using 10G lane
         if mode.upper() == "10G":
-            if lmc_mac is None:
-                self.logger.error(
-                    "LMC MAC must be specified for 10G lane configuration"
-                )
-                return
 
             # If dst_ip is None, use local lmc_ip
             if dst_ip is None:
                 dst_ip = self._lmc_ip
 
-            if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-                self.configure_40g_core(
-                    0, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-                )
+            self.configure_40g_core(
+                0, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
+            )
 
-                self.configure_40g_core(
-                    1, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-                )
-            else:
-                self.configure_10g_core(
-                    2,
-                    dst_mac=lmc_mac,
-                    dst_ip=dst_ip,
-                    src_port=src_port,
-                    dst_port=dst_port,
-                )
-
-                self.configure_10g_core(
-                    6,
-                    dst_mac=lmc_mac,
-                    dst_ip=dst_ip,
-                    src_port=src_port,
-                    dst_port=dst_port,
-                )
+            self.configure_40g_core(
+                1, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
+            )
 
         # Using dedicated 1G link
         elif mode.upper() == "1G":
@@ -818,7 +873,7 @@ class Tile(object):
     def check_arp_table(self, timeout=20.0):
         """
         Check that ARP table has been resolved for all used cores.
-        40G interfaces use cores 0 (fpga0) and 1(fpga1) and
+        40G interfaces use cores 0 (fpga0) and 1 (fpga1) and
         ARP ID 0 for beamformer, 1 for LMC.
         The procedure checks that all populated ARP entries have been
         resolved. If the QSFP has been disabled or link is not detected up,
@@ -985,31 +1040,6 @@ class Tile(object):
                 tile_id = self["fpga1.dsp_regfile.config_id.tpm_id"]
             return tile_id
 
-    @connected
-    def tweak_transceivers(self):
-        """Tweak transceivers."""
-        for f in ["fpga1", "fpga2"]:
-            for n in range(4):
-                if len(self.tpm.find_register("fpga1.eth_10g_drp.gth_channel_0")) > 0:
-                    add = (
-                        int(
-                            self.tpm.memory_map[
-                                f + ".eth_10g_drp.gth_channel_" + str(n)
-                            ].address
-                        )
-                        + 4 * 0x7C
-                    )
-                else:
-                    add = (
-                        int(
-                            self.tpm.memory_map[
-                                f + ".eth_drp.gth_channel_" + str(n)
-                            ].address
-                        )
-                        + 4 * 0x7C
-                    )
-                self[add] = 0x6060
-
     ###########################################
     # Time related methods
     ###########################################
@@ -1019,7 +1049,7 @@ class Tile(object):
         Return time from FPGA.
 
         :param device: FPGA to get time from
-        :type device: int
+        :type device: Device
         :return: Internal time for FPGA
         :rtype: int
         :raises LibraryError: Invalid value for device
@@ -1037,7 +1067,7 @@ class Tile(object):
         Set Unix time in FPGA.
 
         :param device: FPGA to get time from
-        :type device: int
+        :type device: Device
         :param device_time: Internal time for FPGA
         :type device_time: int
         :raises LibraryError: Invalid value for device
@@ -1057,7 +1087,7 @@ class Tile(object):
         Get timestamp from FPGA.
 
         :param device: FPGA to read timestamp from
-        :type device: int
+        :type device: Device
         :return: PPS time
         :rtype: int
         :raises LibraryError: Invalid value for device
@@ -1090,14 +1120,22 @@ class Tile(object):
         self["fpga2.pps_manager.sync_tc.cnt_1_pulse"] = value
 
     @connected
-    def get_pps_delay(self):
+    def get_pps_delay(self, enable_correction=True):
         """
         Get delay between PPS and 10 MHz clock.
+        :param: enable_correction, enable PPS delay correction using value configured in the FPGA1
+        :type: bool
 
         :return: delay between PPS and 10 MHz clock in 200 MHz cycles
         :rtype: int
         """
-        return self["fpga1.pps_manager.sync_phase.cnt_hf_pps"]
+        if enable_correction:
+            pps_correction = self["fpga1.pps_manager.sync_tc.cnt_2"]
+            if pps_correction > 127:
+                pps_correction -= 256
+        else:
+            pps_correction = 0
+        return self["fpga1.pps_manager.sync_phase.cnt_hf_pps"] + pps_correction
 
     @connected
     def wait_pps_event(self):
@@ -1199,7 +1237,7 @@ class Tile(object):
             f"frame_length = {frame_length} , min_delay = {min_delay} , max_delay = {max_delay}"
         )
 
-        # Check that we have the correct numnber of delays (one or 16)
+        # Check that we have the correct number of delays (one or 16)
         if type(delays) in [float, int]:
             # Check that we have a valid delay
             if min_delay <= delays <= max_delay:
@@ -1228,7 +1266,7 @@ class Tile(object):
 
         else:
             self.logger.warning(
-                "Invalid delays specfied (must be a number of list of numbers of length 32)"
+                "Invalid delays specfied (must be a number or list of numbers of length 32)"
             )
             return False
 
@@ -1242,7 +1280,7 @@ class Tile(object):
     # Pointing and calibration routines
     # ---------------------------
     @connected
-    def initialise_beamformer(self, start_channel, nof_channels, is_first, is_last):
+    def initialise_beamformer(self, start_channel, nof_channels):
         """
         Initialise tile and station beamformers for a simple single beam configuration.
 
@@ -1255,21 +1293,16 @@ class Tile(object):
         :param is_last: True for last tile in beamforming chain
         :type is_last: bool
         """
-        self.tpm.beamf_fd[0].initialise_beamf()
-        self.tpm.beamf_fd[1].initialise_beamf()
-        self.tpm.beamf_fd[0].set_regions([[start_channel, nof_channels, 0]])
-        self.tpm.beamf_fd[1].set_regions([[start_channel, nof_channels, 0]])
-        self.tpm.beamf_fd[0].antenna_tapering = [1.0] * 8
-        self.tpm.beamf_fd[1].antenna_tapering = [1.0] * 8
-        self.tpm.beamf_fd[0].compute_calibration_coefs()
-        self.tpm.beamf_fd[1].compute_calibration_coefs()
+        for _beamf_fd in self.tpm.beamf_fd:
+            _beamf_fd.initialise_beamf()
+            _beamf_fd.set_regions([[start_channel, nof_channels, 0]])
+            _beamf_fd.antenna_tapering = [1.0] * 8
+            _beamf_fd.compute_calibration_coefs()
 
         # Interface towards beamformer in FPGAs
-        self.tpm.station_beamf[0].initialize()
-        self.tpm.station_beamf[1].initialize()
-        self.set_first_last_tile(is_first, is_last)
-        self.tpm.station_beamf[0].defineChannelTable([[start_channel, nof_channels, 0]])
-        self.tpm.station_beamf[1].defineChannelTable([[start_channel, nof_channels, 0]])
+        for _station_beamf in self.tpm.station_beamf:
+            _station_beamf.initialise_beamf()
+            _station_beamf.defineChannelTable([[start_channel, nof_channels, 0]])
 
     @connected
     def set_beamformer_regions(self, region_array):
@@ -1291,10 +1324,9 @@ class Tile(object):
         :param region_array: list of region array descriptors
         :type region_array: list(list(int))
         """
-        self.tpm.beamf_fd[0].set_regions(region_array)
-        self.tpm.beamf_fd[1].set_regions(region_array)
-        self.tpm.station_beamf[0].defineChannelTable(region_array)
-        self.tpm.station_beamf[1].defineChannelTable(region_array)
+        for _beamf_fd in self.tpm.beamf_fd:
+            _beamf_fd.set_regions(region_array)
+            _beamf_fd.defineChannelTable(region_array)
 
     @connected
     def set_pointing_delay(self, delay_array, beam_index):
@@ -1327,8 +1359,8 @@ class Tile(object):
         if load_time == 0:
             load_time = self.current_tile_beamformer_frame() + load_delay
 
-        self.tpm.beamf_fd[0].load_delay(load_time)
-        self.tpm.beamf_fd[1].load_delay(load_time)
+        for _beamf_fd in self.tpm.beamf_fd:
+            _beamf_fd.load_delay(load_time)
 
     @connected
     def load_calibration_coefficients(self, antenna, calibration_coefficients):
@@ -1389,14 +1421,14 @@ class Tile(object):
         :param angle_coefficients: Rotation angle, per beam, in radians
         :type angle_coefficients: list(float)
         """
-        self.tpm.beamf_fd[0].load_beam_angle(angle_coefficients)
-        self.tpm.beamf_fd[1].load_beam_angle(angle_coefficients)
+        for _beamf_fd in self.tpm.beamf_fd:
+            _beamf_fd.load_beam_angle(angle_coefficients)
 
     @connected
     def compute_calibration_coefficients(self):
         """Compute the calibration coefficients and load them in the hardware."""
-        self.tpm.beamf_fd[0].compute_calibration_coefs()
-        self.tpm.beamf_fd[1].compute_calibration_coefs()
+        for _beamf_fd in self.tpm.beamf_fd:
+            _beamf_fd.compute_calibration_coefs()
 
     @connected
     def switch_calibration_bank(self, switch_time=0):
@@ -1409,8 +1441,8 @@ class Tile(object):
         if switch_time == 0:
             switch_time = self.current_tile_beamformer_frame() + 64
 
-        self.tpm.beamf_fd[0].switch_calibration_bank(switch_time)
-        self.tpm.beamf_fd[1].switch_calibration_bank(switch_time)
+        for _beamf_fd in self.tpm.beamf_fd:
+            _beamf_fd.switch_calibration_bank(switch_time)
 
     @connected
     def set_beamformer_epoch(self, epoch):
@@ -1552,46 +1584,25 @@ class Tile(object):
         """Stop beamformer."""
         self.tpm.station_beamf[0].abort()
         self.tpm.station_beamf[1].abort()
-        return
 
     # ------------------------------------
     # Synchronisation routines
     # ------------------------------------
     @connected
-    def post_synchronisation(self):
-        """Post tile configuration synchronization."""
-        self.wait_pps_event()
+    def sync_fpga_time(self, use_internal_pps=False):
+        """Set UTC time to two FPGAs in the tile Returns when these are synchronised.
 
-        current_tc = self.get_phase_terminal_count()
-        delay = self.get_pps_delay()
-
-        self.set_phase_terminal_count(self.calculate_delay(delay, current_tc, 16, 24))
-
-        self.wait_pps_event()
-
-        delay = self.get_pps_delay()
-        self.logger.info(f"Finished tile post synchronisation ({delay})")
-
-    @connected
-    def sync_fpgas(self, use_internal_pps=False):
-        """Syncronises the two FPGAs in the tile Returns when these are synchronised.
-
-        :param use_internal_pps: enable FPGA internal PPS generator
+        :param use_internal_pps: use internally generated PPS, for test/debug
         :type use_internal_pps: bool
         """
-
-        """
-                Synchronise data operations between FPGAs.
-
-                :param seconds: Number of seconds to delay operation
-                :param timestamp: Timestamp at which tile will be synchronised
-                """
 
         devices = ["fpga1", "fpga2"]
 
         # Setting internal PPS generator
         for f in devices:
             self.tpm[f + ".pps_manager.pps_gen_tc"] = int(100e6) - 1  # PPS generator runs at 100 Mhz
+            self.tpm[f + ".pps_manager.sync_cnt_enable"] = 0x7
+            self.tpm[f + ".pps_manager.sync_cnt_enable"] = 0x0
 
         # Setting internal PPS generator
         if use_internal_pps:
@@ -1609,32 +1620,19 @@ class Tile(object):
             logging.warning("Using Internal PPS generator!")
             logging.info("Internal PPS generator synchronised.")
 
-        # Setting sync time
-        for f in devices:
-            self.tpm[f + ".pps_manager.curr_time_write_val"] = int(time.time())
-
-        # sync time write command
-        for f in devices:
-            self.tpm[f + ".pps_manager.curr_time_cmd.wr_req"] = 0x1
-
-        self.check_synchronization()
-
-    @connected
-    def check_synchronization(self):
-        """Checks FPGA synchronisation, returns when these are synchronised."""
-        devices = ["fpga1", "fpga2"]
-
-        for _n in range(5):
+        # Setting UTC time
+        max_attempts = 5
+        for _n in range(max_attempts):
             self.logger.info("Synchronising FPGA UTC time.")
             self.wait_pps_event()
             time.sleep(0.5)
 
             t = int(time.time())
-            for f in devices:
-                self.tpm[f + ".pps_manager.curr_time_write_val"] = t
-            # sync time write command
-            for f in devices:
-                self.tpm[f + ".pps_manager.curr_time_cmd.wr_req"] = 0x1
+            self.set_fpga_time(Device.FPGA_1, t)
+            self.set_fpga_time(Device.FPGA_2, t)
+
+            # configure the PPS sampler
+            self.set_pps_sampling(20, 4)
 
             self.wait_pps_event()
             time.sleep(0.1)
@@ -1643,7 +1641,26 @@ class Tile(object):
 
             if t0 == t1:
                 return
-        self.logger.error("Not possible to synchronise FPGA UTC time!")
+
+        self.logger.error("Not possible to synchronise FPGA UTC time after " + str(max_attempts) + " attempts!")
+
+    @connected
+    def set_pps_sampling(self, target, margin):
+        """
+        Set the PPS sampler terminal count
+
+        :param target: target delay
+        :type target: int
+        :param margin: margin, target +- margin
+        :type margin: int
+        """
+
+        current_tc = self.get_phase_terminal_count()
+        current_delay = self.get_pps_delay()
+        self.set_phase_terminal_count(self.calculate_delay(current_delay,
+                                                           current_tc,
+                                                           target,
+                                                           margin))
 
     @connected
     def check_fpga_synchronization(self):
@@ -1829,13 +1846,12 @@ class Tile(object):
         sync_time = t0 + delay
         # Write start time
         if self.tpm.tpm_test_firmware[0].station_beamformer_implemented:
-            for station_beamformer in self.tpm.station_beamf:
-                station_beamformer.set_epoch(sync_time)
+            self.set_beamformer_epoch(sync_time)
         for f in devices:
             self.tpm[f + ".pps_manager.sync_time_val"] = sync_time
 
     @staticmethod
-    def calculate_delay(current_delay, current_tc, ref_low, ref_hi):
+    def calculate_delay(current_delay, current_tc, target, margin):
         """
         Calculate delay for PPS pulse.
 
@@ -1843,13 +1859,15 @@ class Tile(object):
         :type current_delay: int
         :param current_tc: Current phase register terminal count
         :type current_tc: int
-        :param ref_low: Low reference
-        :type ref_low: int
-        :param ref_hi: High reference
-        :type ref_hi: int
+        :param target: target delay
+        :type target: int
+        :param margin: marging, target +-margin
+        :type margin: int
         :return: Modified phase register terminal count
         :rtype: int
         """
+        ref_low = target - margin
+        ref_hi = target + margin
         for n in range(5):
             if current_delay <= ref_low:
                 new_delay = current_delay + int((n * 40) / 5)
@@ -1938,138 +1956,51 @@ class Tile(object):
     # ------------------------------------
     # Wrapper for data acquisition: RAW
     # ------------------------------------
-    def _send_raw_data(
-        self, sync=False, period=0, timestamp=None, seconds=0.2, fpga_id=None
-    ):
-        """ Repeatedly send raw data from the TPM
-        :param sync: Get synchronised packets
-        :param period: Period in seconds
-        """
-        # Loop indefinitely if a period is defined
-        while self._daq_threads["RAW"] != self._STOP:
-            # Data transmission should be synchronised across FPGAs
-            self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
-
-            # Send data from all FPGAs
-            if fpga_id is None:
-                fpgas = range(len(self.tpm.tpm_test_firmware))
-            else:
-                fpgas = [fpga_id]
-            for i in fpgas:
-                if sync:
-                    self.tpm.tpm_test_firmware[i].send_raw_data_synchronised()
-                else:
-                    self.tpm.tpm_test_firmware[i].send_raw_data()
-
-            # Period should be >= 2, otherwise return
-            if self._daq_threads["RAW"] == self._ONCE:
-                return
-
-            # Sleep for defined period
-            time.sleep(period)
-
-        # Finished looping, exit
-        self._daq_threads.pop("RAW")
-
     @connected
     def send_raw_data(
-        self, sync=False, period=0, timeout=0, timestamp=None, seconds=0.2, fpga_id=None
+        self, sync=False, timestamp=None, seconds=0.2, fpga_id=None
     ):
         """ Send raw data from the TPM
         :param sync: Synchronised flag
-        :param period: Period in seconds
-        :param timeout: Timeout in seconds
         :param timestamp: When to start
-        :param seconds: Period"""
-        # Period sanity check
-        if period < 1:
-            self._daq_threads["RAW"] = self._ONCE
-            self._send_raw_data(
-                sync, timestamp=timestamp, seconds=seconds, fpga_id=fpga_id
-            )
-            self._daq_threads.pop("RAW")
-            return
+        :param seconds: Delay
+        :param fpga_id: Specify which FPGA should transmit, 0,1, or None for both FPGAs"""
 
-        # Stop any other streams
         self.stop_data_transmission()
+        # Data transmission should be synchronised across FPGAs
+        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
-        # Create thread which will continuously send raw data
-        t = threading.Thread(
-            target=self._send_raw_data, args=(sync, period, timestamp, seconds)
-        )
-        self._daq_threads["RAW"] = self._RUNNING
-        t.start()
-
-        # If period, and timeout specified, schedule stop transmission
-        if period > 0 and timeout > 0:
-            self.schedule_stop_data_transmission(timeout)
+        # Send data from all FPGAs
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        for i in fpgas:
+            if sync:
+                self.tpm.tpm_test_firmware[i].send_raw_data_synchronised()
+            else:
+                self.tpm.tpm_test_firmware[i].send_raw_data()
 
     @connected
     def send_raw_data_synchronised(
-        self, period=0, timeout=0, timestamp=None, seconds=0.2
+        self, timestamp=None, seconds=0.2
     ):
         """  Send synchronised raw data
-        :param period: Period in seconds
-        :param timeout: Timeout in seconds
         :param timestamp: When to start
         :param seconds: Period"""
         self.send_raw_data(
             sync=True,
-            period=period,
-            timeout=timeout,
             timestamp=timestamp,
             seconds=seconds,
         )
 
-    def stop_raw_data(self):
-        """ Stop sending raw data """
-        if "RAW" in list(self._daq_threads.keys()):
-            self._daq_threads["RAW"] = self._STOP
-
     # ---------------------------- Wrapper for data acquisition: CHANNEL ------------------------------------
-    def _send_channelised_data(
-        self,
-        number_of_samples=128,
-        first_channel=0,
-        last_channel=511,
-        timestamp=None,
-        seconds=0.2,
-        period=0,
-    ):
-        """ Send channelized data from the TPM
-        :param number_of_samples: Number of samples to send
-        :param timestamp: When to start
-        :param seconds: When to synchronise """
-
-        # Loop indefinitely if a period is defined
-        while self._daq_threads["CHANNEL"] != self._STOP:
-            # Data transmission should be synchronised across FPGAs
-            self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
-
-            # Send data from all FPGAs
-            for i in range(len(self.tpm.tpm_test_firmware)):
-                self.tpm.tpm_test_firmware[i].send_channelised_data(
-                    number_of_samples, first_channel, last_channel
-                )
-
-            # Period should be >= 2, otherwise return
-            if self._daq_threads["CHANNEL"] == self._ONCE:
-                return
-
-            # Sleep for defined period
-            time.sleep(period)
-
-        # Finished looping, exit
-        self._daq_threads.pop("CHANNEL")
-
     @connected
     def send_channelised_data(
         self,
         number_of_samples=1024,
         first_channel=0,
         last_channel=511,
-        period=0,
-        timeout=0,
         timestamp=None,
         seconds=0.2,
     ):
@@ -2077,118 +2008,42 @@ class Tile(object):
         :param number_of_samples: Number of spectra to send
         :param first_channel: First channel to send
         :param last_channel: Last channel to send
-        :param timeout: Timeout to stop transmission
         :param timestamp: When to start transmission
-        :param seconds: When to synchronise
-        :param period: Period in seconds to send data """
+        :param seconds: When to synchronise"""
 
         # Check if number of samples is a multiple of 32
         if number_of_samples % 32 != 0:
             new_value = (int(number_of_samples / 32) + 1) * 32
-            self.logger.warn(
+            self.logger.warning(
                 f"{number_of_samples} is not a multiple of 32, using {new_value}"
             )
             number_of_samples = new_value
 
-        # Period sanity check
-        if period < 1:
-            self._daq_threads["CHANNEL"] = self._ONCE
-            self._send_channelised_data(
-                number_of_samples,
-                first_channel,
-                last_channel,
-                timestamp,
-                seconds,
-                period=0,
-            )
-            self._daq_threads.pop("CHANNEL")
-            return
-
-        # Stop any other streams
         self.stop_data_transmission()
+        # Data transmission should be synchronised across FPGAs
+        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
-        # Create thread which will continuously send raw data
-        t = threading.Thread(
-            target=self._send_channelised_data,
-            args=(
-                number_of_samples,
-                first_channel,
-                last_channel,
-                timestamp,
-                seconds,
-                period,
-            ),
-        )
-        self._daq_threads["CHANNEL"] = self._RUNNING
-        t.start()
-
-        # If period, and timeout specified, schedule stop transmission
-        if period > 0 and timeout > 0:
-            self.schedule_stop_data_transmission(timeout)
-
-    def stop_channelised_data(self):
-        """ Stop sending channelised data """
-        if "CHANNEL" in list(self._daq_threads.keys()):
-            self._daq_threads["CHANNEL"] = self._STOP
+        # Send data from all FPGAs
+        for i in range(len(self.tpm.tpm_test_firmware)):
+            self.tpm.tpm_test_firmware[i].send_channelised_data(
+                number_of_samples, first_channel, last_channel
+            )
 
     # ---------------------------- Wrapper for data acquisition: BEAM ------------------------------------
-    def _send_beam_data(self, period=0, timestamp=None, seconds=0.2):
-        """ Send beam data from the TPM
-        :param period: Period in seconds to send data """
-
-        # Loop indefinitely if a period is defined
-        while self._daq_threads["BEAM"] != self._STOP:
-
-            # Data transmission should be syncrhonised across FPGAs
-            self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
-
-            # Send data from all FPGAs
-            for i in range(len(self.tpm.tpm_test_firmware)):
-                self.tpm.tpm_test_firmware[i].send_beam_data()
-
-            # Period should be >= 2, otherwise return
-            if self._daq_threads["BEAM"] == self._ONCE:
-                return
-
-            # Sleep for defined period
-            time.sleep(period)
-
-        # Finished looping, exit
-        self._daq_threads.pop("BEAM")
-
     @connected
-    def send_beam_data(self, period=0, timeout=0, timestamp=None, seconds=0.2):
+    def send_beam_data(self, timeout=0, timestamp=None, seconds=0.2):
         """ Send beam data from the TPM
-        :param period: Period in seconds to send data
         :param timeout: When to stop
         :param timestamp: When to send
         :param seconds: When to synchronise"""
-        # Period sanity check
 
-        # Stop any other streams
         self.stop_data_transmission()
+        # Data transmission should be syncrhonised across FPGAs
+        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
-        if period < 1:
-            self._daq_threads["BEAM"] = self._ONCE
-            self._send_beam_data(timestamp=timestamp, seconds=seconds)
-            self._daq_threads.pop("BEAM")
-            return
-
-        # Create thread which will continuously send raw data
-        t = threading.Thread(
-            target=self._send_beam_data, args=(period, timestamp, seconds)
-        )
-        self._daq_threads["BEAM"] = self._RUNNING
-        t.start()
-
-        # If period, and timeout specified, schedule stop transmission
-        if period > 0 and timeout > 0:
-            self.schedule_stop_data_transmission(timeout)
-
-    def stop_beam_data(self):
-        """ Stop sending raw data """
-        if "BEAM" in list(self._daq_threads.keys()):
-            self._daq_threads["BEAM"] = self._STOP
+        # Send data from all FPGAs
+        for i in range(len(self.tpm.tpm_test_firmware)):
+            self.tpm.tpm_test_firmware[i].send_beam_data()
 
     # ---------------------------- Wrapper for data acquisition: CONT CHANNEL ----------------------------
     @connected
@@ -2197,7 +2052,6 @@ class Tile(object):
         channel_id,
         number_of_samples=128,
         wait_seconds=0,
-        timeout=0,
         timestamp=None,
         seconds=0.2,
     ):
@@ -2205,18 +2059,19 @@ class Tile(object):
         :param channel_id: Channel ID
         :param number_of_samples: Number of spectra to send
         :param wait_seconds: Wait time before sending data
-        :param timeout: When to stop
         :param timestamp: When to start
         :param seconds: When to synchronise
         """
         time.sleep(wait_seconds)
+
         self.stop_data_transmission()
+        # Data transmission should be synchronised across FPGAs
         self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].send_channelised_data_continuous(
                 channel_id, number_of_samples
             )
-        self.schedule_stop_data_transmission(timeout)
 
     # ---------------------------- Wrapper for data acquisition: NARROWBAND CHANNEL ----------------------------
     @connected
@@ -2226,7 +2081,6 @@ class Tile(object):
         round_bits,
         number_of_samples=128,
         wait_seconds=0,
-        timeout=0,
         timestamp=None,
         seconds=0.2,
     ):
@@ -2235,42 +2089,74 @@ class Tile(object):
         :param round_bits: Specify which bits to round
         :param number_of_samples: Number of spectra to send
         :param wait_seconds: Wait time before sending data
-        :param timeout: When to stop
         :param timestamp: When to start
         :param seconds: When to synchronise
         """
         time.sleep(wait_seconds)
+
         self.stop_data_transmission()
+        # Data transmission should be synchronised across FPGAs
         self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].send_channelised_data_narrowband(
                 frequency, round_bits, number_of_samples
             )
-        self.schedule_stop_data_transmission(timeout)
 
     def stop_channelised_data_continuous(self):
         """ Stop sending channelised data """
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].stop_channelised_data_continuous()
 
-    def schedule_stop_data_transmission(self, timeout=0):
-        """ Schedule a stop all data transmission operation if timeout is specified
-        :param timeout: Timeout value
-        """
-        if timeout <= 0:
-            return
-
-        timer = threading.Timer(timeout, self.stop_data_transmission)
-        timer.start()
-
     @connected
     def stop_data_transmission(self):
         """ Stop all data transmission from TPM"""
         self.logger.info("Stopping all transmission")
-        for k, v in self._daq_threads.items():
-            if v == self._RUNNING:
-                self._daq_threads[k] = self._STOP
+        # All data format transmission except channelised data continuous stops autonomously
         self.stop_channelised_data_continuous()
+
+    # ----------------------------
+    # Wrapper for preadu methods
+    # ----------------------------
+    def equalize_preadu_gain(self, required_rms=20):
+        """ Equalize the preadu gain to get target RMS"""
+
+        # Get current preadu settings
+        for preadu in self.tpm.tpm_preadu:
+            preadu.select_low_passband()
+            preadu.read_configuration()
+
+        # Get current RMS
+        rms = self.get_adc_rms()
+
+        # Loop over all signals
+        for channel in list(self.preadu_signal_map.keys()):
+            # Calculate required attenuation difference
+            if rms[channel] / required_rms > 0:
+                attenuation = 20 * math.log10(rms[channel] / required_rms)
+            else:
+                attenuation = 0
+
+            # Apply attenuation
+            pid = self.preadu_signal_map[channel]['preadu_id']
+            channel = self.preadu_signal_map[channel]['channel']
+
+            attenuation = (self.tpm.tpm_preadu[pid].channel_filters[channel] >> 3) + attenuation
+            self.tpm.tpm_preadu[pid].set_attenuation(int(round(attenuation)), [channel])
+
+        for preadu in self.tpm.tpm_preadu:
+            preadu.write_configuration()
+
+
+    def set_preadu_attenuation(self, attenuation):
+        """ Set same preadu attenuation in all preadus """
+
+        # Get current preadu settings
+        for preadu in self.tpm.tpm_preadu:
+            preadu.select_low_passband()
+            preadu.read_configuration()
+            preadu.set_attenuation(int(round(attenuation)), list(range(16)))
+            preadu.write_configuration()
 
     # ----------------------------
     # Wrapper for test generator
@@ -2474,64 +2360,6 @@ class Tile(object):
         return errors
 
     @connected
-    def mii_prepare_test(self, board, interface="10g"):
-        if interface == "10g":
-            nof_cores = len(self.tpm.tpm_10g_core)
-            instances = self.tpm.tpm_10g_core
-        else:
-            nof_cores = len(self.tpm.tpm_f2f_core)
-            instances = self.tpm.tpm_f2f_core
-        for n in range(nof_cores):
-            instances[n].mii_test_mac_config(board)
-            instances[n].mii_test(10, show_result=False, wait_result=True)
-
-    @connected
-    def mii_exec_test(self, pkt_num, wait_result=True, interface="10g", sel_range=None):
-        if interface == "10g":
-            nof_cores = len(self.tpm.tpm_10g_core)
-            instances = self.tpm.tpm_10g_core
-        else:
-            nof_cores = len(self.tpm.tpm_f2f_core)
-            instances = self.tpm.tpm_f2f_core
-        for n in sel_range:
-            instances[n].mii_test(pkt_num, show_result=False, wait_result=False)
-
-        if wait_result:
-            instances[nof_cores - 1].mii_wait_idle()
-            result = []
-            for n in sel_range:
-                result.append(instances[n].mii_test_result())
-            return result
-
-    @connected
-    def mii_test(
-        self, pkt_num, board, wait_result=True, interface="10g", sel_range=None
-    ):
-        self.mii_prepare_test(board, interface)
-        if interface == "10g":
-            nof_cores = len(self.tpm.tpm_10g_core)
-            instances = self.tpm.tpm_10g_core
-        else:
-            nof_cores = len(self.tpm.tpm_f2f_core)
-            instances = self.tpm.tpm_f2f_core
-        if sel_range is None:
-            sel_range = range(nof_cores)
-        for n in sel_range:
-            instances[n].mii_test_reset()
-        return self.mii_exec_test(pkt_num, wait_result, interface, sel_range)
-
-    @connected
-    def mii_show_result(self, interface="10g"):
-        if interface == "10g":
-            nof_cores = len(self.tpm.tpm_10g_core)
-            instances = self.tpm.tpm_10g_core
-        else:
-            nof_cores = len(self.tpm.tpm_f2f_core)
-            instances = self.tpm.tpm_f2f_core
-        for n in range(nof_cores):
-            instances[n].mii_test_result()
-
-    @connected
     def start_40g_test(self, single_packet_mode=False, ipg=32):
         if not self.tpm.tpm_test_firmware[0].xg_40g_eth:
             self.logger.warning("40G interface is not implemented. Test not executed!")
@@ -2545,8 +2373,8 @@ class Tile(object):
         eth0.test_start_rx(single_packet_mode)
         eth1.test_start_rx(single_packet_mode)
 
-        ip0 = int(self.get_10g_core_configuration(0)["src_ip"])
-        ip1 = int(self.get_10g_core_configuration(1)["src_ip"])
+        ip0 = int(self.get_40g_core_configuration(0)["src_ip"])
+        ip1 = int(self.get_40g_core_configuration(1)["src_ip"])
 
         ret = 0
         ret += eth0.test_start_tx(ip1, ipg=ipg)
@@ -2572,18 +2400,18 @@ class Tile(object):
     @connected
     def reset_eth_errors(self):
         if self["fpga1.regfile.feature.xg_eth_implemented"] == 1:
-            if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-                core_id = [0, 1]
-            else:
-                core_id = [0, 1, 2, 4, 5, 6]
-            for c in core_id:
-                self.tpm.tpm_10g_core[c].reset_errors()
+            for core in self.tpm.tpm_10g_core:
+                core.reset_errors()
 
     def tpm_communication_check(self):
         """Brute force check to make sure we can communicate with programmed TPM."""
-        for _n in range(4):
+
+        # Re-try for max_attempts times before giving up
+        max_attempts = 4
+        for _n in range(max_attempts):
             try:
                 self.tpm.calibrate_fpga_to_cpld()
+                # read magic number from both FPGAs
                 magic0 = self[0x4]
                 magic1 = self[0x10000004]
                 if magic0 == magic1 == 0xA1CE55AD:
