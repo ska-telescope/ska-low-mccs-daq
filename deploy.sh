@@ -159,9 +159,16 @@ function create_install() {
   sudo groupadd aavs_logger
   if [[ ! -d "$AAVS_INSTALL/log" ]]; then
     mkdir -p $AAVS_INSTALL/log
-  chgrp aavs_logger $AAVS_INSTALL/log
-  chmod g+s $AAVS_INSTALL/log
   fi
+  sudo chgrp aavs_logger $AAVS_INSTALL/log
+  sudo chmod 775 $AAVS_INSTALL/log
+  sudo chmod g+s $AAVS_INSTALL/log
+  if [[ -f "$AAVS_INSTALL/log/aavs.log" ]]; then
+     sudo chmod 664 $AAVS_INSTALL/log/aavs.log
+     sudo chgrp aavs_logger $AAVS_INSTALL/log/aavs.log
+  fi
+
+
 
   # Create python3 virtual environment
   if [[ ! -d "$VENV_INSTALL/python" ]]; then
