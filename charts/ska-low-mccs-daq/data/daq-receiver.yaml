@@ -1,10 +1,10 @@
 name: "daq-receiver-{{.Release.Name}}"
-function: ska-low-mccs-daqreceiver
-domain: ska-low-mccs
+function: ska-low-mccs-daq-daqreceiver
+domain: ska-low-mccs-daq
 instances: ["daqreceiver-001", "daqreceiver-002"]
 entrypoints:
   - name: "daqreceiver.MccsDaqReceiver"
-    path: "/app/src/ska_low_mccs/daq_receiver/daq_receiver_device.py"
+    path: "/app/src/ska_low_mccs_daq/daq_receiver/daq_receiver_device.py"
 server: 
   name: "MccsDaqReceiver"
   instances:
@@ -12,7 +12,7 @@ server:
       classes:
       - name: "MccsDaqReceiver"
         devices:
-        - name: "low-mccs/daqreceiver/001"
+        - name: "low-mccs-daq/daqreceiver/001"
           properties:
           - name: "DaqId"
             values:
@@ -33,7 +33,7 @@ server:
       classes:
       - name: "MccsDaqReceiver"
         devices:
-        - name: "low-mccs/daqreceiver/002"
+        - name: "low-mccs-daq/daqreceiver/002"
           properties:
           - name: "DaqId"
             values:
@@ -53,10 +53,10 @@ server:
 depends_on:
   - device: sys/database/2
 image:
-  registry: "{{.Values.low_mccs.image.registry}}"
-  image: "{{.Values.low_mccs.image.image}}"
-  tag: "{{.Values.low_mccs.image.tag}}"
-  pullPolicy: "{{.Values.low_mccs.image.pullPolicy}}"
+  registry: "{{.Values.low_mccs_daq.image.registry}}"
+  image: "{{.Values.low_mccs_daq.image.image}}"
+  tag: "{{.Values.low_mccs_daq.image.tag}}"
+  pullPolicy: "{{.Values.low_mccs_daq.image.pullPolicy}}"
 livenessProbe:
 {{ toYaml .Values.livenessProbe | indent 2 }}
 readinessProbe:

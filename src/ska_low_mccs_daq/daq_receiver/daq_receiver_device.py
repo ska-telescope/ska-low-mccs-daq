@@ -13,10 +13,11 @@ from typing import Any, Optional, cast
 
 import tango
 from ska_control_model import CommunicationStatus, HealthState, PowerState
-from ska_low_mccs.daq_receiver import DaqComponentManager, DaqHealthModel
 from ska_tango_base.base import SKABaseDevice
 from ska_tango_base.commands import DeviceInitCommand, ResultCode, SubmittedSlowCommand
 from tango.server import command, device_property
+
+from ska_low_mccs_daq.daq_receiver import DaqComponentManager, DaqHealthModel
 
 __all__ = ["MccsDaqReceiver", "main"]
 

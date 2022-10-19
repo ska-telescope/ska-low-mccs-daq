@@ -21,13 +21,10 @@ oci-image-build:
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
   script:
     - make oci-build-all CAR_OCI_REGISTRY_HOST=${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}
-    - docker ps --filter expose=4660/udp
   after_script:
     - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:0.9.1-dev.c${CI_COMMIT_SHORT_SHA}")
     - docker cp -a ${CONTAINER_ID}:/opt/aavs ${CI_PROJECT_DIR}/aavs
     - docker rm ${CONTAINER_ID}
-    - ls ${CI_PROJECT_DIR}/aavs
-    - ls ${CI_PROJECT_DIR}
   artifacts:
     paths:
       - ${CI_PROJECT_DIR}/aavs

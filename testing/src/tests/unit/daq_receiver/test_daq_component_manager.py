@@ -12,8 +12,9 @@ import time
 
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import CommunicationStatus, TaskStatus
-from ska_low_mccs.daq_receiver import DaqComponentManager
 from ska_low_mccs_common.testing.mock import MockCallable
+
+from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 
 
 class TestDaqComponentManager:
@@ -65,7 +66,8 @@ class TestDaqComponentManager:
         Test basic DAQ functionality.
 
         This test merely instantiates DAQ, starts a consumer,
-        waits for a time and then stops the consumer. Data can also be logged if available.
+            waits for a time and then stops the consumer.
+            Data can also be logged if available.
 
         :param daq_component_manager: the daq receiver component manager
             under test.
@@ -156,7 +158,7 @@ class TestDaqComponentManager:
     #                     }
 
     #     # This first call should return `False` as DAQ still has its default config.
-    #     # The function should report that DAQ configuration was unsuccessfully applied.
+    #     # The function should report that DAQ configuration was unsuccessfully applied
     #     assert not daq_component_manager._validate_daq_configuration(new_daq_config)
 
     #     # This second call should return `True` after reconfiguring the DaqReceiver.

@@ -15,11 +15,12 @@ from typing import Any, Callable
 import pytest
 import pytest_mock
 from ska_control_model import TaskStatus
-from ska_low_mccs import MccsDaqReceiver
-from ska_low_mccs.daq_receiver import DaqComponentManager
 from ska_low_mccs_common.testing import TangoHarness
 from ska_low_mccs_common.testing.mock import MockCallable
 from ska_low_mccs_common.testing.mock.mock_callable import MockCallableDeque
+
+from ska_low_mccs_daq import MccsDaqReceiver
+from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 
 
 class MockLongRunningCommand(MockCallable):
@@ -319,7 +320,8 @@ def component_state_changed_callback(
     :param mock_callback_deque_factory: fixture that provides a mock callback deque
         factory.
 
-    :return: a mock callback deque holding a sequence of calls to component_state_changed_callback.
+    :return: a mock callback deque holding a sequence of
+        calls to component_state_changed_callback.
     """
     return mock_callback_deque_factory()
 
@@ -330,7 +332,7 @@ def max_workers() -> int:
     Max worker threads available to run a LRC.
 
     Return an integer specifying the maximum number of worker threads available to
-    execute long-running-commands.
+        execute long-running-commands.
 
     :return: the max number of worker threads.
     """

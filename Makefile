@@ -12,7 +12,7 @@ PYTHON_TEST_FILE = testing/src/tests
 PYTHON_VARS_AFTER_PYTEST = --forked
 
 ## Paths containing python to be formatted and linted
-PYTHON_LINT_TARGET = src/ testing/src/tests/
+PYTHON_LINT_TARGET = src/ska_low_mccs_daq testing/src/tests/
 
 DOCS_SOURCEDIR=./docs/src
 DOCS_SPHINXOPTS= -n -W --keep-going

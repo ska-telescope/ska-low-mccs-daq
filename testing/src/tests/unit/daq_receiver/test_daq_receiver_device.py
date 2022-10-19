@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import pytest
 from ska_control_model import HealthState
-from ska_low_mccs import MccsDaqReceiver
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.mock import MockChangeEventCallback
 from ska_low_mccs_common.testing.tango_harness import DeviceToLoadType, TangoHarness
+
+from ska_low_mccs_daq import MccsDaqReceiver
 
 
 @pytest.fixture()
@@ -25,7 +26,7 @@ def device_under_test(tango_harness: TangoHarness) -> MccsDeviceProxy:
 
     :return: the device under test
     """
-    return tango_harness.get_device("low-mccs/daqreceiver/001")
+    return tango_harness.get_device("low-mccs-daq/daqreceiver/001")
 
 
 class TestMccsDaqReceiver:
@@ -39,8 +40,8 @@ class TestMccsDaqReceiver:
         :return: specification of the device to be loaded
         """
         return {
-            "path": "charts/ska-low-mccs/data/configuration.json",
-            "package": "ska_low_mccs",
+            "path": "charts/ska-low-mccs-daq/data/configuration.json",
+            "package": "ska_low_mccs_daq",
             "device": "daqreceiver_001",
             "proxy": MccsDeviceProxy,
         }

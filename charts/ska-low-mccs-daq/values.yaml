@@ -86,10 +86,10 @@ low_mccs-daq:
 
 # Default ska-low-mccs-daq device server instances
 deviceServers:
-    daq-receivers:
-        # daq instances have to be 0-padded to three digits
-        instances: ["daqreceiver-001", "daqreceiver-002"]
-        file: "data/daq-receiver.yaml"
+  daq-receivers:
+    # daq instances have to be 0-padded to three digits
+    instances: ["daqreceiver-001", "daqreceiver-002"]
+    file: "data/daq-receiver.yaml"
 
 nodeSelector: {}
 
