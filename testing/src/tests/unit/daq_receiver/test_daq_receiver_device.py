@@ -90,8 +90,8 @@ class TestPatchedDaq:
         :return: specification of the device to be loaded
         """
         return {
-            "path": "charts/ska-low-mccs/data/configuration.json",
-            "package": "ska_low_mccs",
+            "path": "charts/ska-low-mccs-daq/data/configuration.json",
+            "package": "ska_low_mccs_daq",
             "device": "daqreceiver_001",
             "proxy": MccsDeviceProxy,
             "patch": patched_daq_class,
