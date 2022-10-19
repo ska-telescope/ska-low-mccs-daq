@@ -1,0 +1,304 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the SKA SAT.LMC project
+#
+# Distributed under the terms of the BSD 3-clause new license.
+# See LICENSE.txt for more info.
+
+"""This module implements the MccsDaqReceiver device."""
+
+from __future__ import annotations  # allow forward references in type hints
+
+from typing import Any, Optional, cast
+
+import tango
+from ska_control_model import CommunicationStatus, HealthState, PowerState
+from ska_low_mccs.daq_receiver import DaqComponentManager, DaqHealthModel
+from ska_tango_base.base import SKABaseDevice
+from ska_tango_base.commands import DeviceInitCommand, ResultCode, SubmittedSlowCommand
+from tango.server import command, device_property
+
+__all__ = ["MccsDaqReceiver", "main"]
+
+DevVarLongStringArrayType = tuple[list[ResultCode], list[Optional[str]]]
+
+
+class MccsDaqReceiver(SKABaseDevice):
+    """An implementation of a MccsDaqReceiver Tango device."""
+
+    # -----------------
+    # Device Properties
+    # -----------------
+    ReceiverInterface = device_property(
+        dtype=str,
+        mandatory=False,
+        doc="The interface on which the DAQ receiver is listening for traffic.",
+        default_value="",
+    )
+    ReceiverIp = device_property(
+        dtype=str,
+        mandatory=False,
+        doc="The IP address this DAQ receiver is monitoring.",
+        default_value="",
+    )
+    ReceiverPort = device_property(
+        dtype=int, doc="The port this DaqReceiver is monitoring.", default_value=4660
+    )
+    DaqId = device_property(
+        dtype=int, doc="The ID of this DaqReceiver device.", default_value=0
+    )
+
+    # ---------------
+    # Initialisation
+    # ---------------
+    def init_device(self: MccsDaqReceiver) -> None:
+        """
+        Initialise the device.
+
+        This is overridden here to change the Tango serialisation model.
+        """
+        util = tango.Util.instance()
+        util.set_serial_model(tango.SerialModel.NO_SYNC)
+        self._max_workers = 1
+        super().init_device()
+
+    def _init_state_model(self: MccsDaqReceiver) -> None:
+        """Initialise the state model."""
+        super()._init_state_model()
+        self._health_state = HealthState.UNKNOWN  # InitCommand.do() does this too late.
+        self._health_model = DaqHealthModel(self._component_state_changed_callback)
+        self.set_change_event("healthState", True, False)
+
+    def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
+        """
+        Create and return a component manager for this device.
+
+        :return: a component manager for this device.
+        """
+        return DaqComponentManager(
+            self.DaqId,
+            self.ReceiverInterface,
+            self.ReceiverIp,
+            self.ReceiverPort,
+            self.logger,
+            self._max_workers,
+            self._component_communication_state_changed,
+            self._component_state_changed_callback,
+        )
+
+    def init_command_objects(self: MccsDaqReceiver) -> None:
+        """Initialise the command handlers for commands supported by this device."""
+        super().init_command_objects()
+
+        for (command_name, method_name) in [
+            ("Start", "start_daq"),
+            ("Stop", "stop_daq"),
+            ("Configure", "configure_daq"),
+        ]:
+            self.register_command_object(
+                command_name,
+                SubmittedSlowCommand(
+                    command_name,
+                    self._command_tracker,
+                    self.component_manager,
+                    method_name,
+                    callback=None,
+                    logger=self.logger,
+                ),
+            )
+
+    class InitCommand(DeviceInitCommand):
+        """Implements device initialisation for the MccsDaqReceiver device."""
+
+        def do(self: MccsDaqReceiver.InitCommand) -> tuple[ResultCode, str]:  # type: ignore[override]
+            """
+            Initialise the attributes and properties.
+
+            :return: A tuple containing a return code and a string
+                message indicating status. The message is for
+                information purpose only.
+            """
+            # TODO
+            return (ResultCode.OK, "Init command completed OK")
+
+    # ----------
+    # Callbacks
+    # ----------
+    def _component_communication_state_changed(
+        self: MccsDaqReceiver,
+        communication_state: CommunicationStatus,
+    ) -> None:
+        """
+        Handle change in communications status between component manager and component.
+
+        This is a callback hook, called by the component manager when
+        the communications status changes. It is implemented here to
+        drive the op_state.
+
+        :param communication_state: the status of communications
+            between the component manager and its component.
+        """
+        action_map = {
+            CommunicationStatus.DISABLED: "component_disconnected",
+            CommunicationStatus.NOT_ESTABLISHED: "component_unknown",
+            CommunicationStatus.ESTABLISHED: "component_on",
+        }
+
+        action = action_map[communication_state]
+        if action is not None:
+            self.op_state_model.perform_action(action)
+
+        self._health_model.is_communicating(
+            communication_state == CommunicationStatus.ESTABLISHED
+        )
+
+    def _component_state_changed_callback(
+        self: MccsDaqReceiver,
+        state_change: dict[str, Any],
+    ) -> None:
+        """
+        Handle change in the state of the component.
+
+        This is a callback hook, called by the component manager when
+        the state of the component changes.
+
+        :param state_change: state change parameters.
+        """
+        action_map = {
+            PowerState.OFF: "component_off",
+            PowerState.STANDBY: "component_standby",
+            PowerState.ON: "component_on",
+            PowerState.UNKNOWN: "component_unknown",
+        }
+        if "fault" in state_change.keys():
+            is_fault = state_change.get("fault")
+            if is_fault:
+                self.op_state_model.perform_action("component_fault")
+                self._health_model.component_fault(True)
+            else:
+                self.op_state_model.perform_action(
+                    action_map[self.component_manager.power_state]
+                )
+                self._health_model.component_fault(False)
+
+        if "health_state" in state_change.keys():
+            health = state_change.get("health_state")
+            if self._health_state != health:
+                self._health_state = cast(HealthState, health)
+                self.push_change_event("healthState", health)
+
+    # ----------
+    # Attributes
+    # ----------
+
+    # def is_attribute_allowed(
+    #     self: MccsDaqReceiver, attr_req_type: tango.AttReqType
+    # ) -> bool:
+    #     """
+    #     Protect attribute access before being updated otherwise it reports alarm.
+
+    #     :param attr_req_type: tango attribute type READ/WRITE
+
+    #     :return: True if the attribute can be read else False
+    #     """
+    #     rc = self.get_state() in [
+    #         tango.DevState.ON,
+    #     ]
+    #     return rc
+
+    # @attribute(
+    #     dtype=int,
+    #     label="label",
+    #     unit="unit",
+    #     standard_unit="unit",
+    #     max_alarm=90,
+    #     min_alarm=1,
+    #     max_warn=80,
+    #     min_warn=5,
+    #     fisallowed=is_attribute_allowed,
+    # )
+    # def some_attribute(self: XXXXXX) -> int:
+    #     """
+    #     Return some_attribute.
+
+    #     :return: some_attribute
+    #     """
+    #     return self._component_manager._some_attribute
+
+    # --------
+    # Commands
+    # --------
+    @command(dtype_out="DevVarLongStringArray")
+    def Start(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+        """
+        Start the DaqReceiver.
+
+        The DAQ receiver will begin watching the specified interface
+        and will start the configured consumers.
+
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+        """
+        handler = self.get_command_object("Start")
+        (result_code, message) = handler()
+        return ([result_code], [message])
+
+    @command(dtype_out="DevVarLongStringArray")
+    def Stop(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+        """
+        Stop the DaqReceiver.
+
+        The DAQ receiver will cease watching the specified interface
+        and will stop all running consumers.
+
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+        """
+        handler = self.get_command_object("Stop")
+        (result_code, message) = handler()
+        return ([result_code], [message])
+
+    # Args in might want to be changed depending on how we choose to configure the DAQ system.
+    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    def Configure(self: MccsDaqReceiver, argin: str) -> DevVarLongStringArrayType:
+        """
+        Configure the DaqReceiver.
+
+        Applies the specified configuration to the DaqReceiver.
+
+        :param argin: The daq configuration to apply.
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+        """
+        handler = self.get_command_object("Configure")
+        (result_code, message) = handler(argin)
+        return ([result_code], [message])
+
+    # @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    # def Command(self: XXXXXX, argin: str) -> DevVarLongStringArrayType:
+    #     """"""
+    #     handler = self.get_command_object("Command")
+    #     (result_code, message) = handler(argin)
+    #     return ([result_code], [message])
+
+
+# ----------
+# Run server
+# ----------
+def main(*args: str, **kwargs: str) -> int:  # pragma: no cover
+    """
+    Entry point for module.
+
+    :param args: positional arguments
+    :param kwargs: named arguments
+
+    :return: exit code
+    """
+    return MccsDaqReceiver.run_server(args=args or None, **kwargs)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,38 @@
+{{ $localchart := . }}
+
+{{- range $key, $deviceserver := .Values.deviceServers }}
+
+{{- if hasKey $deviceserver "file"}}
+
+{{- $filedeviceserver := tpl ($.Files.Get $deviceserver.file) $ | fromYaml }}
+{{- $_ := set $filedeviceserver "instances" (coalesce $localchart.Values.global.instances $deviceserver.instances $filedeviceserver.instances) }}
+{{- $context := dict "name" $key "deviceserver" $filedeviceserver "image" $deviceserver.image "local" $localchart }}
+{{ template "ska-tango-util.multidevice-config.tpl" $context }}
+{{ template "ska-tango-util.multidevice-sacc-role.tpl" $context }}
+{{ template "ska-tango-util.multidevice-job.tpl" $context }}
+{{- if hasKey $deviceserver "deploy_service"}}
+{{- if eq $deviceserver.deploy_service true }}
+{{ template "ska-tango-util.multidevice-svc.tpl" $context }}
+{{- end }}
+{{- else }}
+{{ template "ska-tango-util.multidevice-svc.tpl" $context }}
+{{- end }}
+
+{{- else }}
+
+{{- $_ := set $deviceserver "instances" (coalesce $localchart.Values.global.instances $deviceserver.instances) }}
+{{- $context := dict "name" $key "deviceserver" $deviceserver "image" $deviceserver.image "local" $localchart }}
+{{ template "ska-tango-util.multidevice-config.tpl" $context }}
+{{ template "ska-tango-util.multidevice-sacc-role.tpl" $context }}
+{{ template "ska-tango-util.multidevice-job.tpl" $context }}
+
+{{- if hasKey $deviceserver "deploy_service"}}
+{{- if eq $deviceserver.deploy_service true }}
+{{ template "ska-tango-util.multidevice-svc.tpl" $context }}
+{{- end }}
+{{- else }}
+{{ template "ska-tango-util.multidevice-svc.tpl" $context }}
+{{- end }}
+
+{{- end }} # if
+{{- end }} # deviceservers

@@ -1,0 +1,63 @@
+*.py[cod]
+
+# Packages
+*.egg
+*.eggs
+*.egg-info
+dist
+build
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+lib
+lib64
+__pycache__
+.pytest_cache
+
+# Installer logs
+pip-log.txt
+
+# Unit test / coverage reports
+.coverage
+.cache
+nosetests.xml
+results.xml
+htmlcov
+coverage.xml
+
+# Developer tools
+*~
+.ropeproject
+.idea
+.vscode
+
+**/.project
+**/.pydevproject
+**/.settings
+
+# Ansible
+*.retry
+
+# Metrics
+ci-metrics.json
+code-coverage.xml
+linting.xml
+unit-tests.xml
+
+# Miscellaneous
+.DS_Store
+
+# k8s deployment
+PrivateRules.mak
+Chart.lock
+tls.crt
+tls.key
+testing/results/*
+**/charts/*.tgz
+
+# sphinx
+docs/src/_build

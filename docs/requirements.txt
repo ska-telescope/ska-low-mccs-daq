@@ -1,0 +1,17 @@
+# This file should only contain requirements used for building the docs.
+# If the build complains that it can't find a package that is used by
+# the code, add it instead to autodoc_mock_imports in
+# docs/src/conf.py.
+--extra-index-url https://artefact.skao.int/repository/pypi-internal/simple
+docutils<0.18
+sphinx == 5.1.1
+sphinx-autodoc-typehints == 1.19.1
+sphinx-rtd-theme
+sphinxcontrib-plantuml
+backoff
+fire
+jsonschema
+strict_rfc3339
+typing_extensions
+pyyaml
+uritools
