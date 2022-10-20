@@ -75,12 +75,12 @@ resources:
 
 
 # Default docker image - used by all of MCCS
-low_mccs_daq:
+low_mccs:
   enabled: true
   image:
     registry: artefact.skao.int
-    image: ska-low-mccs-daq
-    tag: 0.1.0 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
+    image: ska-low-mccs
+    tag: 0.9.1 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
     pullPolicy: IfNotPresent
 
 
