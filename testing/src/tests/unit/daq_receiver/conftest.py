@@ -51,7 +51,7 @@ class MockLongRunningCommand(MockCallable):
 
 
 @pytest.fixture()
-def daq_id() -> int:
+def daq_id() -> str:
     """
     Return the daq id of this daq receiver.
 
@@ -64,7 +64,7 @@ def daq_id() -> int:
 
 
 @pytest.fixture()
-def receiver_interface() -> int:
+def receiver_interface() -> str:
     """
     Return the interface this daq receiver is watching.
 
@@ -74,7 +74,7 @@ def receiver_interface() -> int:
 
 
 @pytest.fixture()
-def receiver_ip() -> int:
+def receiver_ip() -> bytes:
     """
     Return the ip of this daq receiver.
 
@@ -95,7 +95,7 @@ def acquisition_duration() -> int:
 
 
 @pytest.fixture()
-def receiver_port() -> int:
+def receiver_port() -> list[int]:
     """
     Return the port(s) this daq receiver is watching.
 

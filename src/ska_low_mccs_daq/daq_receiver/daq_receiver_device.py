@@ -12,7 +12,7 @@ from __future__ import annotations  # allow forward references in type hints
 from typing import Any, Optional, cast
 
 import tango
-from ska_control_model import CommunicationStatus, HealthState, PowerState
+from ska_control_model import CommunicationStatus, HealthState
 from ska_tango_base.base import SKABaseDevice
 from ska_tango_base.commands import DeviceInitCommand, ResultCode, SubmittedSlowCommand
 from tango.server import command, device_property
@@ -111,9 +111,16 @@ class MccsDaqReceiver(SKABaseDevice):
     class InitCommand(DeviceInitCommand):
         """Implements device initialisation for the MccsDaqReceiver device."""
 
-        def do(self: MccsDaqReceiver.InitCommand) -> tuple[ResultCode, str]:  # type: ignore[override]
+        def do(
+            self: MccsDaqReceiver.InitCommand,
+            *args: Any,
+            **kwargs: Any,
+        ) -> tuple[ResultCode, str]:  # type: ignore[override]
             """
             Initialise the attributes and properties.
+
+            :param args: Positional arg list.
+            :param kwargs: Keyword arg list.
 
             :return: A tuple containing a return code and a string
                 message indicating status. The message is for
@@ -165,21 +172,12 @@ class MccsDaqReceiver(SKABaseDevice):
 
         :param state_change: state change parameters.
         """
-        action_map = {
-            PowerState.OFF: "component_off",
-            PowerState.STANDBY: "component_standby",
-            PowerState.ON: "component_on",
-            PowerState.UNKNOWN: "component_unknown",
-        }
         if "fault" in state_change.keys():
             is_fault = state_change.get("fault")
             if is_fault:
                 self.op_state_model.perform_action("component_fault")
                 self._health_model.component_fault(True)
             else:
-                self.op_state_model.perform_action(
-                    action_map[self.component_manager.power_state]
-                )
                 self._health_model.component_fault(False)
 
         if "health_state" in state_change.keys():

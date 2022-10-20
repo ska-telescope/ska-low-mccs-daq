@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
+from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 from ska_control_model import CommunicationStatus, TaskStatus
 from ska_low_mccs_common.component import MccsComponentManager, check_communicating
 
@@ -90,7 +90,7 @@ class DaqComponentManager(MccsComponentManager):
         self.daq_instance.initialise_daq()
         self.logger.info("Daq receiver created and initialised.")
 
-    def start_communicating(self: MccsComponentManager) -> None:
+    def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
         super().start_communicating()
         # Do things that might need to be done.
@@ -98,11 +98,15 @@ class DaqComponentManager(MccsComponentManager):
         # For now we'll just set comms to ESTABLISHED since there's no physical device.
         self.update_communication_state(CommunicationStatus.ESTABLISHED)
 
-    def _get_daq_config(self: DaqComponentManager) -> dict[str, Any] | None:
+    def stop_communicating(self: DaqComponentManager) -> None:
+        """Break off communication with the DaqReceiver components."""
+        super().stop_communicating()
+
+    def _get_daq_config(self: DaqComponentManager) -> dict[str, Any]:
         """
         Retrieve and return a DAQ configuration.
 
-        :return: A DAQ configuration or None.
+        :return: A DAQ configuration.
         """
         # Read config from wherever we'll keep it (yaml/json?) then return it.
         # For now just return whatever config is useful for testing.
@@ -217,10 +221,10 @@ class DaqComponentManager(MccsComponentManager):
     @check_communicating
     def _start_daq(
         self: DaqComponentManager,
-        modes_to_start: Optional[list[DaqModes]] = [None],
-        callbacks: Optional[list[Callable]] = [None],
+        modes_to_start: Optional[list[DaqModes]] = None,
+        callbacks: Optional[list[Callable]] = None,
         task_callback: Optional[Callable] = None,
-        task_abort_event: threading.Event = None,
+        task_abort_event: Union[threading.Event, None] = None,
     ) -> None:
         """
         Start data acquisition with the current configuration.
@@ -272,7 +276,7 @@ class DaqComponentManager(MccsComponentManager):
     def _stop_daq(
         self: DaqComponentManager,
         task_callback: Optional[Callable] = None,
-        task_abort_event: threading.Event = None,
+        task_abort_event: Union[threading.Event, None] = None,
     ) -> None:
         """
         Stop data acquisition.

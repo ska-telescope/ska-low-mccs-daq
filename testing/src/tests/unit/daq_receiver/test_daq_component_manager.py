@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
+from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 from ska_control_model import CommunicationStatus, TaskStatus
 from ska_low_mccs_common.testing.mock import MockCallable
 
