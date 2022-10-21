@@ -165,8 +165,8 @@ def tango_harness_factory(
     """
     Return a factory for creating a test harness for testing Tango devices.
 
-    The Tango context used depends upon the context in which the tests are being run, as specified
-    by the `--testbed` option.
+    The Tango context used depends upon the context in which the tests are being run,
+    as specified by the `--testbed` option.
 
     If the context is "test", then this harness deploys the specified
     devices into a

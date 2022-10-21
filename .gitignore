@@ -61,3 +61,7 @@ testing/results/*
 
 # sphinx
 docs/src/_build
+
+# DAQ related files
+aavs.log*
+*.hdf5

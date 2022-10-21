@@ -3,7 +3,7 @@
         "MccsDaqReceiver": {
             "daqreceiver_001": {
                 "MccsDaqReceiver": {
-                    "low-mccs/daqreceiver/001": {
+                    "low-mccs-daq/daqreceiver/001": {
                         "properties": {
                             "DaqId": [
                                 "1"
@@ -17,7 +17,7 @@
             },
             "daqreceiver_002": {
                 "MccsDaqReceiver": {
-                    "low-mccs/daqreceiver/002": {
+                    "low-mccs-daq/daqreceiver/002": {
                         "properties": {
                             "DaqId": [
                                 "2"
