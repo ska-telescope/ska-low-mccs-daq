@@ -9,6 +9,7 @@ from threading import Thread
 from builtins import input
 import threading
 import logging
+import socket
 import yaml
 import time
 import math
@@ -125,8 +126,8 @@ def initialise_tile(params):
     config, tile_number = params
 
     nof_tiles = len(config['tiles'])
-    this_tile_ip = config['tiles'][tile_number]
-    next_tile_ip = config['tiles'][(tile_number + 1) % nof_tiles]
+    this_tile_ip = socket.gethostbyname(config['tiles'][tile_number])
+    next_tile_ip = socket.gethostbyname(config['tiles'][(tile_number + 1) % nof_tiles])
 
     src_ip_40g_fpga1 = f"10.0.1.{this_tile_ip.split('.')[3]}"
     src_ip_40g_fpga2 = f"10.0.2.{this_tile_ip.split('.')[3]}"
