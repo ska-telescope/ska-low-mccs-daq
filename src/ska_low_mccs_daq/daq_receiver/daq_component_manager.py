@@ -117,7 +117,7 @@ class DaqComponentManager(MccsComponentManager):
 
         daq_config = {
             "nof_tiles": 2,
-            "receiver_ports": self._receiver_ports,
+            "receiver_ports": [self._receiver_port],
             "receiver_interface": self._receiver_interface,
             "receiver_ip": self._receiver_ip,
             "directory": ".",
