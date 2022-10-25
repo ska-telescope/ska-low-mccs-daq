@@ -7,7 +7,7 @@
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
 import unittest
-from typing import Callable, Optional
+from typing import Callable, Optional, Any, Generator
 
 import pytest
 from ska_low_mccs_common.testing.mock import (
@@ -21,7 +21,7 @@ from ska_low_mccs_common.testing.tango_harness import (
 )
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.tango_harness import TangoHarness
-
+from ska_low_mccs_common.testing.mock import MockChangeEventCallback, MockDeviceBuilder
 @pytest.fixture()
 def daq_receiver(
     tango_harness: TangoHarness,
@@ -111,6 +111,90 @@ def mock_callback_factory(
         called_timeout=mock_callback_called_timeout,
         not_called_timeout=mock_callback_not_called_timeout,
     )
+
+@pytest.fixture(scope="module")
+def initial_mocks() -> dict[str, unittest.mock.Mock]:
+    """
+    Fixture that registers device proxy mocks prior to patching.
+
+    By default no initial mocks are registered, but this fixture can be
+    overridden by test modules/classes that need to register initial
+    mocks.
+
+    (Overruled here with the same implementation, just to give the
+    fixture module scope)
+
+    :return: an empty dictionary
+    """
+    return {}
+
+
+@pytest.fixture(scope="module")
+def mock_factory() -> Callable[[], unittest.mock.Mock]:
+    """
+    Fixture that provides a mock factory for device proxy mocks.
+
+    This default factory provides vanilla mocks,
+    but this fixture can be overridden by test modules/classes
+    to provide mocks with specified behaviours.
+
+    (Overruled here with the same implementation, just to give the
+    fixture module scope)
+
+    :return: a factory for device proxy mocks
+    """
+    return MockDeviceBuilder()
+
+@pytest.fixture(scope="module")
+def tango_config() -> dict[str, Any]:
+    """
+    Fixture that returns basic configuration information for a Tango test harness.
+
+    e.g. such as whether or not to run in a separate process.
+
+    :return: a dictionary of configuration key-value pairs
+    """
+    return {"process": True}
+
+@pytest.fixture(scope="module")
+def tango_harness(
+    tango_harness_factory: Callable[
+        [
+            dict[str, Any],
+            DevicesToLoadType,
+            Callable[[], unittest.mock.Mock],
+            dict[str, unittest.mock.Mock],
+        ],
+        TangoHarness,
+    ],
+    tango_config: dict[str, str],
+    devices_to_load: DevicesToLoadType,
+    mock_factory: Callable[[], unittest.mock.Mock],
+    initial_mocks: dict[str, unittest.mock.Mock],
+) -> Generator[TangoHarness, None, None]:
+    """
+    Create a test harness for testing Tango devices.
+
+    (This overwrites the `tango_harness` fixture, in order to change the
+    fixture scope.)
+
+    :param tango_harness_factory: a factory that provides a test harness
+        for testing tango devices
+    :param tango_config: basic configuration information for a tango
+        test harness
+    :param devices_to_load: fixture that provides a specification of the
+        devices that are to be included in the devices_info dictionary
+    :param mock_factory: the factory to be used to build mocks
+    :param initial_mocks: a pre-build dictionary of mocks to be used
+        for particular
+
+    :yields: the test harness
+    """
+    with tango_harness_factory(
+        tango_config, devices_to_load, mock_factory, initial_mocks
+    ) as harness:
+        yield harness
+
 
 
 @pytest.fixture()
