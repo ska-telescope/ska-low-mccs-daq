@@ -7,21 +7,23 @@
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
 import unittest
-from typing import Callable, Optional, Any, Generator
+from typing import Any, Callable, Generator, Optional
 
 import pytest
+from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.mock import (
     MockCallable,
     MockCallableDeque,
     MockChangeEventCallback,
+    MockDeviceBuilder,
 )
 from ska_low_mccs_common.testing.tango_harness import (
     DevicesToLoadType,
     DeviceToLoadType,
+    TangoHarness,
 )
-from ska_low_mccs_common import MccsDeviceProxy
-from ska_low_mccs_common.testing.tango_harness import TangoHarness
-from ska_low_mccs_common.testing.mock import MockChangeEventCallback, MockDeviceBuilder
+
+
 @pytest.fixture()
 def daq_receiver(
     tango_harness: TangoHarness,
@@ -34,6 +36,7 @@ def daq_receiver(
     :return: the daq_receiver device
     """
     return tango_harness.get_device("low-mccs-daq/daqreceiver/001")
+
 
 def pytest_itemcollected(item: pytest.Item) -> None:
     """
@@ -112,6 +115,7 @@ def mock_callback_factory(
         not_called_timeout=mock_callback_not_called_timeout,
     )
 
+
 @pytest.fixture(scope="module")
 def initial_mocks() -> dict[str, unittest.mock.Mock]:
     """
@@ -145,6 +149,7 @@ def mock_factory() -> Callable[[], unittest.mock.Mock]:
     """
     return MockDeviceBuilder()
 
+
 @pytest.fixture(scope="module")
 def tango_config() -> dict[str, Any]:
     """
@@ -155,6 +160,7 @@ def tango_config() -> dict[str, Any]:
     :return: a dictionary of configuration key-value pairs
     """
     return {"process": True}
+
 
 @pytest.fixture(scope="module")
 def tango_harness(
@@ -194,7 +200,6 @@ def tango_harness(
         tango_config, devices_to_load, mock_factory, initial_mocks
     ) as harness:
         yield harness
-
 
 
 @pytest.fixture()
