@@ -82,6 +82,9 @@ low_mccs_daq:
     image: ska-low-mccs-daq
     tag: 0.1.0 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
     pullPolicy: IfNotPresent
+securityContext:
+  capabilities:
+    add: ["NET_RAW", "IPC_LOCK", "SYS_NICE", "SYS_ADMIN", "KILL", "SYS_TIME"]
 
 
 # Default ska-low-mccs-daq device server instances

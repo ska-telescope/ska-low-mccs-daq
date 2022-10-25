@@ -81,7 +81,7 @@ def receiver_ip() -> bytes:
     :return: the ip of this daq receiver.
     """
     # TODO: Will b-strings always work for ip addresses or did I guess lucky?
-    return b"172.17.0.255"
+    return b"172.17.0.230"
 
 
 @pytest.fixture()
@@ -95,13 +95,13 @@ def acquisition_duration() -> int:
 
 
 @pytest.fixture()
-def receiver_port() -> list[int]:
+def receiver_ports() -> str:
     """
     Return the port(s) this daq receiver is watching.
 
     :return: the port(s) this daq receiver is watching.
     """
-    return [4660]
+    return "4660"
 
 
 @pytest.fixture()
@@ -140,7 +140,7 @@ def daq_component_manager(
     daq_id: int,
     receiver_interface: str,
     receiver_ip: str,
-    receiver_port: int,
+    receiver_ports: str,
     logger: logging.Logger,
     max_workers: int,
     communication_state_changed_callback: MockCallable,
@@ -153,7 +153,7 @@ def daq_component_manager(
     :param daq_id: the daq id of the daq receiver
     :param receiver_interface: The interface this DaqReceiver is to watch.
     :param receiver_ip: The IP address of this DaqReceiver.
-    :param receiver_port: The port this DaqReceiver is to watch.
+    :param receiver_ports: The ports this DaqReceiver is to watch.
     :param logger: the logger to be used by this object.
     :param max_workers: max number of threads available to run a LRC.
     :param communication_state_changed_callback: callback to be
@@ -168,7 +168,7 @@ def daq_component_manager(
         daq_id,
         receiver_interface,
         receiver_ip,
-        receiver_port,
+        receiver_ports,
         logger,
         max_workers,
         communication_state_changed_callback,
@@ -181,7 +181,7 @@ def mock_daq_component_manager(
     daq_id: int,
     receiver_interface: str,
     receiver_ip: str,
-    receiver_port: int,
+    receiver_ports: str,
     logger: logging.Logger,
     max_workers: int,
     communication_state_changed_callback: MockCallable,
@@ -193,7 +193,7 @@ def mock_daq_component_manager(
     :param daq_id: the daq id of the daq receiver
     :param receiver_interface: The interface this DaqReceiver is to watch.
     :param receiver_ip: The IP address of this DaqReceiver.
-    :param receiver_port: The port this DaqReceiver is to watch.
+    :param receiver_ports: The ports this DaqReceiver is to watch.
     :param logger: the logger to be used by this object.
     :param max_workers: max number of threads available to run a LRC.
     :param communication_state_changed_callback: callback to be
@@ -208,7 +208,7 @@ def mock_daq_component_manager(
         daq_id,
         receiver_interface,
         receiver_ip,
-        receiver_port,
+        receiver_ports,
         logger,
         max_workers,
         communication_state_changed_callback,

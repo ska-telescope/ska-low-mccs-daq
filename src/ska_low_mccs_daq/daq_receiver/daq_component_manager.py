@@ -27,7 +27,7 @@ class DaqComponentManager(MccsComponentManager):
         daq_id: int,
         receiver_interface: str,
         receiver_ip: str,
-        receiver_port: int,
+        receiver_ports: str,
         logger: logging.Logger,
         max_workers: int,
         communication_state_changed_callback: Callable[[CommunicationStatus], None],
@@ -39,7 +39,7 @@ class DaqComponentManager(MccsComponentManager):
         :param daq_id: The ID of this DaqReceiver.
         :param receiver_interface: The interface this DaqReceiver is to watch.
         :param receiver_ip: The IP address of this DaqReceiver.
-        :param receiver_port: The port this DaqReceiver is to watch.
+        :param receiver_ports: The port this DaqReceiver is to watch.
         :param logger: the logger to be used by this object.
         :param max_workers: the maximum worker threads for the slow commands
             associated with this component manager.
@@ -59,7 +59,7 @@ class DaqComponentManager(MccsComponentManager):
         self._daq_id = daq_id
         self._receiver_interface = receiver_interface
         self._receiver_ip = receiver_ip
-        self._receiver_port = receiver_port
+        self._receiver_ports = receiver_ports
         self._create_daq_instance()
 
     def _create_daq_instance(
@@ -117,7 +117,7 @@ class DaqComponentManager(MccsComponentManager):
 
         daq_config = {
             "nof_tiles": 2,
-            "receiver_ports": self._receiver_port,
+            "receiver_ports": self._receiver_ports,
             "receiver_interface": self._receiver_interface,
             "receiver_ip": self._receiver_ip,
             "directory": ".",

@@ -8,6 +8,15 @@
                             "DaqId": [
                                 "1"
                             ],
+                            "ReceiverInterface": [
+                                "eth0"
+                            ],
+                            "ReceiverIp": [
+                                "172.17.0.230"
+                            ],
+                            "ReceiverPorts": [
+                                "4660"
+                            ],
                             "LoggingLevelDefault": [
                                 "3"
                             ]
@@ -21,6 +30,15 @@
                         "properties": {
                             "DaqId": [
                                 "2"
+                            ],
+                            "ReceiverInterface": [
+                                "eth0"
+                            ],
+                            "ReceiverIp": [
+                                "172.17.0.231"
+                            ],
+                            "ReceiverPorts": [
+                                "4661"
                             ],
                             "LoggingLevelDefault": [
                                 "3"
