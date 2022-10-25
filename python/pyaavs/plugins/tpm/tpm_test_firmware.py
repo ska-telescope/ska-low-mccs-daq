@@ -129,8 +129,8 @@ class TpmTestFirmware(FirmwareBlock):
 
     def load_plugin(self: TpmTestFirmware) -> None:
         """Load required plugin."""
-        self._jesd1 = self.board.load_plugin("TpmJesd", device=self._device, core=0)
-        self._jesd2 = self.board.load_plugin("TpmJesd", device=self._device, core=1)
+        self._jesd1 = self.board.load_plugin("TpmJesd", device=self._device, core=0, frame_length=216)
+        self._jesd2 = self.board.load_plugin("TpmJesd", device=self._device, core=1, frame_length=216)
         self._fpga = self.board.load_plugin("TpmFpga", device=self._device)
         if self.xg_eth and not self.xg_40g_eth:
             self._teng = [

@@ -325,6 +325,11 @@ class TestFullStation():
             errors = 0
 
             if background_ddr_access:
+
+                for tile in self._test_station.tiles:
+                    tile.tpm.set_shutdown_temperature(70)
+
+                self._logger.info("Enabling DDR background access...")
                 # Set DDR address for background DDR and antenna buffer instances
                 ddr_test_base_address = 512 * 1024 * 1024
                 ddr_test_length = 256 * 1024 * 1024
@@ -332,15 +337,19 @@ class TestFullStation():
                 antenna_buffer_length = 256 * 1024 * 1024
 
                 # start DDR test
-                errors = self._test_ddr_inst.prepare(ddr_test_base_address // 8,
-                                                     (ddr_test_base_address + ddr_test_length) // 8 - 8,
-                                                     4, 60,
-                                                     0, 0, 0)
+                errors = self._test_ddr_inst.prepare(first_addr=ddr_test_base_address // 8,
+                                                     last_addr=(ddr_test_base_address + ddr_test_length) // 8 - 8,
+                                                     burst_length=4,
+                                                     pause=60,
+                                                     reset_dsp=0,
+                                                     reset_ddr=0,
+                                                     stop_transmission=0)
                 if errors > 0:
                     self._logger.error("Not possible to start DDR background test")
                     self._logger.error("TEST FAILED!")
                     return 1
                 self._test_ddr_inst.start()
+                self._logger.info("DDR test started.")
 
                 # start antenna buffer write into DDR
                 if self._test_station.tiles[0]['fpga1.dsp_regfile.feature.antenna_buffer_implemented'] == 1:
@@ -351,6 +360,7 @@ class TestFullStation():
                                 ddr_start_byte_address=antenna_buffer_base_address,  # DDR buffer base address
                                 byte_size=antenna_buffer_length)
                             ab_inst.buffer_write(continuous_mode=True)
+                self._logger.info("Antenna buffer write into DDR started.")
 
             # Mask antennas if required
             one_matrix = np.ones((nof_channels, 4), dtype=np.complex64)
@@ -481,12 +491,14 @@ class TestFullStation():
                     max_diff = abs(diff)
 
             if background_ddr_access:
+                self._logger.info("Checking DDR test results...")
                 # Get DDR background test result
                 for fpga in ["fpga1", "fpga2"]:
                     for n, tile in enumerate(self._test_station.tiles):
                         if tile['%s.ddr_simple_test.error' % fpga] == 1:
                             self._logger.error("Background DDR test error detected in Tile %d, %s" % (n, fpga.upper()))
                             errors += 1
+                self._logger.info("...DDR result check finished.")
 
             self._logger.info("Maximum difference: %f dB" % max_diff)
             if abs(max_diff) > 0.5:
@@ -524,6 +536,9 @@ class TestFullStation():
                         for i in [0, 1]:
                             ab_inst = tile.tpm.tpm_antenna_buffer[i]
                             ab_inst.stop_now()
+
+            for tile in self._test_station.tiles:
+                tile.tpm.set_shutdown_temperature(65)
 
             return errors
 
