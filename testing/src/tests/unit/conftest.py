@@ -19,7 +19,21 @@ from ska_low_mccs_common.testing.tango_harness import (
     DevicesToLoadType,
     DeviceToLoadType,
 )
+from ska_low_mccs_common import MccsDeviceProxy
+from ska_low_mccs_common.testing.tango_harness import TangoHarness
 
+@pytest.fixture()
+def daq_receiver(
+    tango_harness: TangoHarness,
+) -> MccsDeviceProxy:
+    """
+    Return the daq_receiver device.
+
+    :param tango_harness: a test harness for tango devices
+
+    :return: the daq_receiver device
+    """
+    return tango_harness.get_device("low-mccs-daq/daqreceiver/001")
 
 def pytest_itemcollected(item: pytest.Item) -> None:
     """
