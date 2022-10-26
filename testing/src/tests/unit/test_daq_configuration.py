@@ -6,8 +6,6 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains the tests of the daq configuration."""
-
-
 from __future__ import annotations
 
 import json
@@ -16,8 +14,6 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.tango_harness import DevicesToLoadType
-
-from ska_low_mccs_daq.daq_receiver import MccsDaqReceiver
 
 
 @pytest.fixture(scope="module")
@@ -62,9 +58,15 @@ def daq_receiver_bdd(daq_receiver: MccsDeviceProxy) -> MccsDeviceProxy:
         "We pass a {configuration:Dict} to the MccsDaqReceiver", extra_types=EXTRA_TYPES
     )
 )
-def feed_daq_configuration_file(daq_receiver_bdd, configuration):
-    """Feed the configuration into the daq_receiver, this expects a string
-    representation of a dictionary."""
+def feed_daq_configuration_file(
+    daq_receiver_bdd: MccsDeviceProxy, configuration: str
+) -> None:
+    """
+    Feed the configuration into the daq_receiver.
+
+    :param daq_receiver_bdd: The daq_receiver fixture to use.
+    :param configuration: A string representation of a dictionary for configuration.
+    """
     # MccsDaqReceiver expects a string as input, this will be a string representation of a dictionary.
     daq_receiver_bdd.Configure(configuration)
 
@@ -75,42 +77,43 @@ def feed_daq_configuration_file(daq_receiver_bdd, configuration):
         extra_types=EXTRA_TYPES,
     )
 )
-def assert_daq_instance_is_configuration_correctly(daq_receiver_bdd, configuration):
+def assert_daq_instance_is_configuration_correctly(
+    daq_receiver_bdd: MccsDeviceProxy, configuration: str
+) -> None:
     """
-    Check whether the daq_instance has the same configuration that we sent to the
-    daq_receiver.
+    Assert daq_instance has the same configuration that we sent to the daq_receiver.
+
+    :param daq_receiver_bdd: The daq_receiver fixture to use.
+    :param configuration: A string representation of a dictionary for configuration.
 
     notes: we may only send a subset of the configuration to the DaqInstance.
-    - The DaqInstance has some type casting therefore this is performed in the test (does not seem ideal as means the test is duplicating code in the daq_receiver_interface.
-    Could we assume the populate_configuration is passed the correct types? (type check before we call it?)).
-    - There are certain configuration parameters that can be overriden internally by the daq_receiver_interface.
-    These are considered in scenario 'Check that when we configure the MccsDaqReciever with values we expect to be overridden, they are!'"
+    -The DaqInstance has some type casting therefore this is performed in the test.
+    -There are certain configuration parameters that can be overriden internally by the daq_receiver_interface.
+    These are not tested here
     """
     # first convert to a dictionary
-    configuration = json.loads(configuration)
+    configuration_dict = json.loads(configuration)
 
     # The daq_receiver_interface.py performes type casting in some cases, this is mimicked here (not ideal) for testing purposes.
     if (
-        "receiver_ports" in configuration
-        and configuration["receiver_ports"] is not list
+        "receiver_ports" in configuration_dict
+        and configuration_dict["receiver_ports"] is not list
     ):
-        value = [int(x) for x in value.split(",")]
-        configuration["receiver_ports"] == value
+        value = [int(x) for x in configuration_dict["receiver_ports"].split(",")]
+        configuration_dict["receiver_ports"] = value
 
     # This is a edge case scenario with another test
-    if "receiver_ip" in configuration and configuration["receiver_ip"] == "":
-        raise ValueError(
-            "There is a seperate test scenario for this 'Check receiver_ip is assigned address if not defined'"
-        )
+    if "receiver_ip" in configuration_dict and configuration_dict["receiver_ip"] == "":
+        assert False
 
-    if "observation_metadata" in configuration:
-        raise ValueError("This is not a parameter tested here")
+    if "observation_metadata" in configuration_dict:
+        assert False
 
     # daq_receiver_bdd.configuration().items() will fail in the current state.
     # todo: create a method on the MccsDaqReceiver to get configuration, or,
     # use a patch in device_to_load to get the configuration from component manager
     # note: daq_receiver_bdd.configuration() does not exist atm!
-    assert configuration.items() <= daq_receiver_bdd.configuration().items()
+    assert configuration_dict.items() <= daq_receiver_bdd.configuration().items()
 
 
 @when(
@@ -119,9 +122,19 @@ def assert_daq_instance_is_configuration_correctly(daq_receiver_bdd, configurati
         extra_types=EXTRA_TYPES,
     )
 )
-def pass_key_value_to_daq(daq_receiver_bdd, configuration_param, value, type_cast):
+def pass_key_value_to_daq(
+    daq_receiver_bdd: MccsDeviceProxy,
+    configuration_param: str,
+    value: str,
+    type_cast: str,
+) -> None:
     """
-    MccsDaqReceiver expects a string representation of a dictionary.
+    Pass a string representation of a dictionary to MccsDaqReceiver.
+
+    :param daq_receiver_bdd: The daq_receiver fixture to use.
+    :param configuration_param: The parrameter of interest
+    :param value: The value of that parameter
+    :param type_cast: type to cast
 
     Some nasty string hacking going on here. Reason for the string
     hacking is it was a easy win. This can probably be done in a neater
@@ -133,8 +146,7 @@ def pass_key_value_to_daq(daq_receiver_bdd, configuration_param, value, type_cas
 
     # create a string representation of a dictionary (nasty hack)
     if type_cast == "int":
-        value = int(value)
-        configuration = f'{{"{configuration_param}":{value}}}'
+        configuration = f'{{"{configuration_param}":{int(value)}}}'
     else:
         configuration = f'{{"{configuration_param}":"{value}"}}'
 
@@ -148,12 +160,18 @@ def pass_key_value_to_daq(daq_receiver_bdd, configuration_param, value, type_cas
         extra_types=EXTRA_TYPES,
     )
 )
-def check_response_as_expected(daq_receiver_bdd, configuration_param, value):
+def check_response_as_expected(
+    daq_receiver_bdd: MccsDeviceProxy, configuration_param: str, value: str
+) -> None:
     """
     Specific parameters passed to the daq_receiver_interface are overridden.
 
+    :param daq_receiver_bdd: The daq_receiver fixture to use.
+    :param configuration_param: The parrameter of interest
+    :param value: The value of that parameter
+
     This overriding is a method internal to the daq_receiver_interface This
-    CAN occur for:
+    can occur for:
     -receiver_ports if it is not a list
     The ports should be converted to a list of integers (in accordance to daq_receiver_interface)
     -receiver_ip if its value is ''
@@ -170,4 +188,4 @@ def check_response_as_expected(daq_receiver_bdd, configuration_param, value):
             int(x) for x in value.split(",")
         ]
     else:
-        raise ValueError("The BDD test was not expecting this configuration parameter")
+        assert False
