@@ -505,18 +505,18 @@ class Station(object):
 
             self.tiles[0].wait_pps_event()
 
+            sync_loop += 1
+
             # get the PPS delay from tile
             measured_delay = [tile.get_pps_delay() for tile in self.tiles]
 
             # check if there is too much skew
-            synced = 1
+            synced = True
             for n in range(len(self.tiles) - 1):
                 if abs(measured_delay[0] - measured_delay[n + 1]) > max_delay_skew:
-                    logging.warning("Resynchronizing station ({})".format(measured_delay))
-                    sync_loop += 1
-                    synced = 0
+                    synced = False
 
-            if synced == 1:
+            if synced:
                 # if skew is not too much, the tiles are synchronised
                 phase1 = [hex(tile['fpga1.pps_manager.sync_phase']) for tile in self.tiles]
                 phase2 = [hex(tile['fpga2.pps_manager.sync_phase']) for tile in self.tiles]
@@ -527,6 +527,7 @@ class Station(object):
                 return measured_delay
             else:
                 # if skew is too much, repeat the synchronisation using the first tile as reference
+                logging.warning("Resynchronizing station ({})".format(measured_delay))
                 for n in range(len(self.tiles)):
                     self.tiles[n].set_pps_sampling(measured_delay[0], 4)
 
