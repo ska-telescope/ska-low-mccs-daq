@@ -86,10 +86,10 @@ def assert_daq_instance_is_configuration_correctly(
     :param daq_receiver_bdd: The daq_receiver fixture to use.
     :param configuration: A string representation of a dictionary for configuration.
 
-    notes: we may only send a subset of the configuration to the DaqInstance.
+    Notes: we may only send a subset of the configuration to the DaqInstance.
     -The DaqInstance has some type casting therefore this is performed in the test.
     -There are certain configuration parameters that can be overriden internally by the daq_receiver_interface.
-    These are not tested here
+    These are not tested here and assert failure if passed to test
     """
     # first convert to a dictionary
     configuration_dict = json.loads(configuration)
@@ -132,12 +132,11 @@ def pass_key_value_to_daq(
     Pass a string representation of a dictionary to MccsDaqReceiver.
 
     :param daq_receiver_bdd: The daq_receiver fixture to use.
-    :param configuration_param: The parrameter of interest
+    :param configuration_param: The parameter of interest
     :param value: The value of that parameter
     :param type_cast: type to cast
 
-    Some nasty string hacking going on here. Reason for the string
-    hacking is it was a easy win. This can probably be done in a neater
+    Some nasty string hacking going on here. This can probably be done in a neater
     way using the pytest_bdd.parsers
     """
     # could not find a way to pass in "" so i have passed "None" and converted it here.
@@ -167,17 +166,17 @@ def check_response_as_expected(
     Specific parameters passed to the daq_receiver_interface are overridden.
 
     :param daq_receiver_bdd: The daq_receiver fixture to use.
-    :param configuration_param: The parrameter of interest
+    :param configuration_param: The parameter of interest
     :param value: The value of that parameter
 
-    This overriding is a method internal to the daq_receiver_interface This
-    can occur for:
+    This overriding is a method internal to the daq_receiver_interface.
+    This can occur for:
     -receiver_ports if it is not a list
     The ports should be converted to a list of integers (in accordance to daq_receiver_interface)
     -receiver_ip if its value is ''
     The ip if assigned a value which depends on the value of the 'receiver_interface',
     here we are not testing the internal functionality of _get_ip_address()
-    only testing that the value hass changed (i.e proving that it has been overridden!)
+    only testing that the value has changed (i.e proving that it has been overridden!)
     """
     if configuration_param == "receiver_ip" and value == "None":
         # note: daq_receiver_bdd.configuration() does not exist atm!
