@@ -74,7 +74,7 @@ def receiver_interface() -> str:
 
 
 @pytest.fixture()
-def receiver_ip() -> bytes:
+def receiver_ip() -> str:
     """
     Return the ip of this daq receiver.
 
