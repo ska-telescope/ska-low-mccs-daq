@@ -7,7 +7,7 @@
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
 import unittest
-from typing import Any, Callable, Generator, Optional
+from typing import Callable, Optional
 
 import pytest
 from ska_low_mccs_common import MccsDeviceProxy
@@ -15,7 +15,6 @@ from ska_low_mccs_common.testing.mock import (
     MockCallable,
     MockCallableDeque,
     MockChangeEventCallback,
-    MockDeviceBuilder,
 )
 from ska_low_mccs_common.testing.tango_harness import (
     DevicesToLoadType,

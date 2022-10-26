@@ -102,13 +102,6 @@ def assert_daq_instance_is_configuration_correctly(
         value = [int(x) for x in configuration_dict["receiver_ports"].split(",")]
         configuration_dict["receiver_ports"] = value
 
-    # This is a edge case scenario with another test
-    if "receiver_ip" in configuration_dict and configuration_dict["receiver_ip"] == "":
-        assert False
-
-    if "observation_metadata" in configuration_dict:
-        assert False
-
     # daq_receiver_bdd.configuration().items() will fail in the current state.
     # todo: create a method on the MccsDaqReceiver to get configuration, or,
     # use a patch in device_to_load to get the configuration from component manager
