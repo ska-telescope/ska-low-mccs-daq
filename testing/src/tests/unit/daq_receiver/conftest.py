@@ -80,8 +80,7 @@ def receiver_ip() -> bytes:
 
     :return: the ip of this daq receiver.
     """
-    # TODO: Will b-strings always work for ip addresses or did I guess lucky?
-    return b"172.17.0.230"
+    return "172.17.0.230"
 
 
 @pytest.fixture()

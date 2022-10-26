@@ -58,7 +58,7 @@ class DaqComponentManager(MccsComponentManager):
 
         self._daq_id = daq_id
         self._receiver_interface = receiver_interface
-        self._receiver_ip = receiver_ip
+        self._receiver_ip = receiver_ip.encode()
         self._receiver_ports = receiver_ports
         self._create_daq_instance()
 
