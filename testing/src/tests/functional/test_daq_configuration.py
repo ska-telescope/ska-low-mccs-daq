@@ -38,7 +38,7 @@ EXTRA_TYPES = {
     "Dict": str,
 }
 
-scenarios("daq_configuration.feature")
+scenarios("./features/daq_configuration.feature")
 
 
 @given("A MccsDaqReceiver is available", target_fixture="daq_receiver_bdd")

@@ -116,6 +116,92 @@ def mock_callback_factory(
     )
 
 
+@pytest.fixture(scope="module")
+def initial_mocks() -> dict[str, unittest.mock.Mock]:
+    """
+    Fixture that registers device proxy mocks prior to patching.
+
+    By default no initial mocks are registered, but this fixture can be
+    overridden by test modules/classes that need to register initial
+    mocks.
+
+    (Overruled here with the same implementation, just to give the
+    fixture module scope)
+
+    :return: an empty dictionary
+    """
+    return {}
+
+
+@pytest.fixture(scope="module")
+def mock_factory() -> Callable[[], unittest.mock.Mock]:
+    """
+    Fixture that provides a mock factory for device proxy mocks.
+
+    This default factory provides vanilla mocks,
+    but this fixture can be overridden by test modules/classes
+    to provide mocks with specified behaviours.
+
+    (Overruled here with the same implementation, just to give the
+    fixture module scope)
+
+    :return: a factory for device proxy mocks
+    """
+    return MockDeviceBuilder()
+
+
+@pytest.fixture(scope="module")
+def tango_config() -> dict[str, Any]:
+    """
+    Fixture that returns basic configuration information for a Tango test harness.
+
+    e.g. such as whether or not to run in a separate process.
+
+    :return: a dictionary of configuration key-value pairs
+    """
+    return {"process": True}
+
+
+@pytest.fixture(scope="module")
+def tango_harness(
+    tango_harness_factory: Callable[
+        [
+            dict[str, Any],
+            DevicesToLoadType,
+            Callable[[], unittest.mock.Mock],
+            dict[str, unittest.mock.Mock],
+        ],
+        TangoHarness,
+    ],
+    tango_config: dict[str, str],
+    devices_to_load: DevicesToLoadType,
+    mock_factory: Callable[[], unittest.mock.Mock],
+    initial_mocks: dict[str, unittest.mock.Mock],
+) -> Generator[TangoHarness, None, None]:
+    """
+    Create a test harness for testing Tango devices.
+
+    (This overwrites the `tango_harness` fixture, in order to change the
+    fixture scope.)
+
+    :param tango_harness_factory: a factory that provides a test harness
+        for testing tango devices
+    :param tango_config: basic configuration information for a tango
+        test harness
+    :param devices_to_load: fixture that provides a specification of the
+        devices that are to be included in the devices_info dictionary
+    :param mock_factory: the factory to be used to build mocks
+    :param initial_mocks: a pre-build dictionary of mocks to be used
+        for particular
+
+    :yields: the test harness
+    """
+    with tango_harness_factory(
+        tango_config, devices_to_load, mock_factory, initial_mocks
+    ) as harness:
+        yield harness
+
+
 @pytest.fixture()
 def mock_callback_deque_factory(
     mock_callback_called_timeout: float,
