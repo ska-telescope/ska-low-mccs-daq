@@ -23,7 +23,7 @@ server:
           - name: "ReceiverIp"
             values:
             - "10.0.10.150"
-          - name: "ReceiverPort"
+          - name: "ReceiverPorts"
             values:
             - "4660"
           - name: "LoggingLevelDefault"
@@ -44,7 +44,7 @@ server:
           - name: "ReceiverIp"
             values:
             - "10.0.10.151"
-          - name: "ReceiverPort"
+          - name: "ReceiverPorts"
             values:
             - "4661"
           - name: "LoggingLevelDefault"
