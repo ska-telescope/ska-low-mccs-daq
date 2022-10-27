@@ -7,8 +7,9 @@
 # See LICENSE for more info.
 """This module contains the tests of the daq configuration."""
 from __future__ import annotations
-import socket
+
 import json
+import socket
 
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
@@ -142,13 +143,12 @@ def check_response_as_expected(
     receiver_port = daq_receiver_bdd.configuration()[receiver_ip]
 
     if receiver_port == "":
-        #the ip address wes unchanged
+        # the ip address wes unchanged
         assert True
     try:
-        socket.inet_aton(receiver_port) 
-        #the ip address is valid
+        socket.inet_aton(receiver_port)
+        # the ip address is valid
         assert True
-    except IOError as e:
-        #the ip address is not valid
+    except IOError:
+        # the ip address is not valid
         assert False
-
