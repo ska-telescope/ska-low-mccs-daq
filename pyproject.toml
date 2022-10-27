@@ -74,7 +74,7 @@ MccsDaqReceiver = "ska_low_mccs_daq.daq_receiver.daq_receiver_device:main"
 
 [tool.pytest.ini_options]
 testpaths = "testing/src/"
-addopts = "--json-report --json-report-file=build/reports/report.json --cov-report html:build/htmlcov --cov-report xml:build/reports/code-coverage.xml --cov-report term:skip-covered --cov=ska_low_mccs --junitxml=build/reports/unit-tests.xml --verbose"
+addopts = "--json-report --json-report-file=build/reports/report.json --cov-report html:build/htmlcov --cov-report xml:build/reports/code-coverage.xml --cov-report term:skip-covered --cov=ska_low_mccs_daq --junitxml=build/reports/unit-tests.xml --verbose"
 console_output_style = "progress"
 junit_family = "legacy"
 
@@ -84,7 +84,7 @@ source = ["src"]
 [tool.coverage.run]
 data_file = ".coverage/.coverage"
 branch = true
-source = ["ska_low_mccs-daq"]
+source = ["ska_low_mccs_daq"]
 
 [tool.coverage.report]
 show_missing = false
