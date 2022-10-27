@@ -74,7 +74,7 @@ def feed_daq_configuration_file(
 
 @then(
     parsers.cfparse(
-        "The DAQ_reciever interface has a {configuration_expected:Dict}",
+        "The DAQ_receiver interface has a {configuration_expected:Dict}",
         extra_types=EXTRA_TYPES,
     )
 )
@@ -123,7 +123,7 @@ def pass_key_value_to_daq(
 
 @then(
     parsers.cfparse(
-        "The DAQ reciever interface has a valid {receiver_ip:w}",
+        "The DAQ receiver interface has a valid {receiver_ip:w}",
         extra_types=EXTRA_TYPES,
     )
 )

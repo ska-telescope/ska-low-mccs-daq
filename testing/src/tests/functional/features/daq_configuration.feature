@@ -9,14 +9,14 @@
 
 Feature: Daq Configuration
   As a developer,
-  I want to configure MccsDaqReciever,
+  I want to configure MccsDaqReceiver,
   So that we can start receiving data as desired from the TPM.
 
 @xfail
-Scenario Outline: Check that when a configuration is sent to the MccsDaqReciever, the DAQ_reciever interface is configured correctly
+Scenario Outline: Check that when a configuration is sent to the MccsDaqReceiver, the DAQ_receiver interface is configured correctly
     Given A MccsDaqReceiver is available
     When We pass a <configuration> to the MccsDaqReceiver
-    Then The DAQ_reciever interface has a <configuration_expected>
+    Then The DAQ_receiver interface has a <configuration_expected>
 
     Examples: input variables
         |configuration     |configuration_expected  |
@@ -37,7 +37,7 @@ Scenario Outline: Check that when a configuration is sent to the MccsDaqReciever
 Scenario: Check that when we configure with no value for the receiver_ip it is dealt with appropriatly
     Given A MccsDaqReceiver is available
     When We pass parameter "receiver_ip" of value "None" to the MccsDaqReceiver
-    Then The DAQ reciever interface has a valid "receiver_ip"
+    Then The DAQ receiver interface has a valid "receiver_ip"
 
 
 

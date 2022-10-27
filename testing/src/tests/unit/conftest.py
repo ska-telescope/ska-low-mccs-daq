@@ -10,7 +10,6 @@ import unittest
 from typing import Callable, Optional
 
 import pytest
-from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.mock import (
     MockCallable,
     MockCallableDeque,
@@ -18,24 +17,8 @@ from ska_low_mccs_common.testing.mock import (
 )
 from ska_low_mccs_common.testing.tango_harness import (
     DevicesToLoadType,
-    DeviceToLoadType,
-    TangoHarness,
+    DeviceToLoadType
 )
-
-
-@pytest.fixture()
-def daq_receiver(
-    tango_harness: TangoHarness,
-) -> MccsDeviceProxy:
-    """
-    Return the daq_receiver device.
-
-    :param tango_harness: a test harness for tango devices
-
-    :return: the daq_receiver device
-    """
-    return tango_harness.get_device("low-mccs-daq/daqreceiver/001")
-
 
 def pytest_itemcollected(item: pytest.Item) -> None:
     """
