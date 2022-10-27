@@ -17,8 +17,9 @@ from ska_low_mccs_common.testing.mock import (
 )
 from ska_low_mccs_common.testing.tango_harness import (
     DevicesToLoadType,
-    DeviceToLoadType
+    DeviceToLoadType,
 )
+
 
 def pytest_itemcollected(item: pytest.Item) -> None:
     """
