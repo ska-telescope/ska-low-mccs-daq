@@ -18,6 +18,21 @@ from ska_low_mccs_daq import MccsDaqReceiver
 
 
 @pytest.fixture()
+def device_to_load() -> DeviceToLoadType:
+    """
+    Fixture that specifies the device to be loaded for testing.
+
+    :return: specification of the device to be loaded
+    """
+    return {
+        "path": "charts/ska-low-mccs-daq/data/configuration.json",
+        "package": "ska_low_mccs_daq",
+        "device": "daqreceiver_001",
+        "proxy": MccsDeviceProxy,
+    }
+
+
+@pytest.fixture()
 def device_under_test(tango_harness: TangoHarness) -> MccsDeviceProxy:
     """
     Fixture that returns the device under test.
@@ -31,20 +46,6 @@ def device_under_test(tango_harness: TangoHarness) -> MccsDeviceProxy:
 
 class TestMccsDaqReceiver:
     """Test class for MccsDaqReceiver tests."""
-
-    @pytest.fixture()
-    def device_to_load(self: TestMccsDaqReceiver) -> DeviceToLoadType:
-        """
-        Fixture that specifies the device to be loaded for testing.
-
-        :return: specification of the device to be loaded
-        """
-        return {
-            "path": "charts/ska-low-mccs-daq/data/configuration.json",
-            "package": "ska_low_mccs_daq",
-            "device": "daqreceiver_001",
-            "proxy": MccsDeviceProxy,
-        }
 
     def test_healthState(
         self: TestMccsDaqReceiver,

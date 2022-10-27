@@ -9,12 +9,18 @@
 
 from __future__ import annotations  # allow forward references in type hints
 
+import logging
 from typing import Any, Optional, cast
 
 import tango
 from ska_control_model import CommunicationStatus, HealthState
 from ska_tango_base.base import SKABaseDevice
-from ska_tango_base.commands import DeviceInitCommand, ResultCode, SubmittedSlowCommand
+from ska_tango_base.commands import (
+    DeviceInitCommand,
+    FastCommand,
+    ResultCode,
+    SubmittedSlowCommand,
+)
 from tango.server import command, device_property
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager, DaqHealthModel
@@ -38,12 +44,13 @@ class MccsDaqReceiver(SKABaseDevice):
     )
     ReceiverIp = device_property(
         dtype=str,
-        mandatory=False,
+        mandatory=True,
         doc="The IP address this DAQ receiver is monitoring.",
-        default_value="",
     )
-    ReceiverPort = device_property(
-        dtype=int, doc="The port this DaqReceiver is monitoring.", default_value=4660
+    ReceiverPorts = device_property(
+        dtype=str,
+        doc="The port/s this DaqReceiver is monitoring.",
+        default_value="4660",
     )
     DaqId = device_property(
         dtype=int, doc="The ID of this DaqReceiver device.", default_value=0
@@ -80,7 +87,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self.DaqId,
             self.ReceiverInterface,
             self.ReceiverIp,
-            self.ReceiverPort,
+            self.ReceiverPorts,
             self.logger,
             self._max_workers,
             self._component_communication_state_changed,
@@ -91,10 +98,17 @@ class MccsDaqReceiver(SKABaseDevice):
         """Initialise the command handlers for commands supported by this device."""
         super().init_command_objects()
 
+        for (command_name, command_object) in [
+            ("Configure", self.ConfigureCommand),
+        ]:
+            self.register_command_object(
+                command_name,
+                command_object(self.component_manager, self.logger),
+            )
+
         for (command_name, method_name) in [
             ("Start", "start_daq"),
             ("Stop", "stop_daq"),
-            ("Configure", "configure_daq"),
         ]:
             self.register_command_object(
                 command_name,
@@ -258,6 +272,37 @@ class MccsDaqReceiver(SKABaseDevice):
         handler = self.get_command_object("Stop")
         (result_code, message) = handler()
         return ([result_code], [message])
+
+    class ConfigureCommand(FastCommand):
+        """Class for handling the ReadAddress(argin) command."""
+
+        def __init__(  # type: ignore
+            self: MccsDaqReceiver.ConfigureCommand,
+            component_manager,
+            logger: Optional[logging.Logger] = None,
+        ) -> None:
+            """
+            Initialise a new ConfigureCommand instance.
+
+            :param component_manager: the device to which this command belongs.
+            :param logger: a logger for this command to use.
+            """
+            self._component_manager = component_manager
+            super().__init__(logger)
+
+        def do(  # type: ignore[override]
+            self: MccsDaqReceiver.ConfigureCommand, argin: dict[str, Any]
+        ) -> tuple[ResultCode, str]:
+            """
+            Implement MccsDaqReceiver.ConfigureCommand command functionality.
+
+            :param argin: A configuration dictionary.
+            :return: A tuple containing a return code and a string
+                message indicating status. The message is for
+                information purpose only.
+            """
+            self._component_manager.configure_daq(argin)
+            return (ResultCode.OK, "Configure command completed OK")
 
     # Args in might want to be changed depending on how we choose to configure the DAQ system.
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
