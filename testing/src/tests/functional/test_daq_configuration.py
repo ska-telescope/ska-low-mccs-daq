@@ -7,7 +7,7 @@
 # See LICENSE for more info.
 """This module contains the tests of the daq configuration."""
 from __future__ import annotations
-
+import socket
 import json
 
 import pytest
@@ -122,30 +122,33 @@ def pass_key_value_to_daq(
 
 @then(
     parsers.cfparse(
-        "The DAQ reciever interface has a valid {configuration_param:w}",
+        "The DAQ reciever interface has a valid {receiver_ip:w}",
         extra_types=EXTRA_TYPES,
     )
 )
 def check_response_as_expected(
-    daq_receiver_bdd: MccsDeviceProxy, configuration_param: str
+    daq_receiver_bdd: MccsDeviceProxy, receiver_ip: str
 ) -> None:
     """
     Specific parameters passed to the daq_receiver_interface are overridden.
 
     :param daq_receiver_bdd: The daq_receiver fixture to use.
-    :param configuration_param: The parameter of interest
+    :param receiver_ip: The parameter of interest
 
     If the ip is not assigned it is assigned the IP address of a specified interface 'receiver_interface'.
     This tests that the value has changed.
     TODO: determine what other values are allowed
     """
-    receiver_port = daq_receiver_bdd.configuration()[configuration_param]
+    receiver_port = daq_receiver_bdd.configuration()[receiver_ip]
 
     if receiver_port == "":
+        #the ip address wes unchanged
         assert True
-    # this will be elif some other condition
-    else:
-        # dont know how to check if a assigned ip is correct or not?
+    try:
+        socket.inet_aton(receiver_port) 
+        #the ip address is valid
         assert True
-    # we only get here is we get undesired response
-    assert False
+    except IOError as e:
+        #the ip address is not valid
+        assert False
+
