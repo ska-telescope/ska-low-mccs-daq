@@ -90,7 +90,7 @@ def acquisition_duration() -> int:
 
     :return: Duration of data capture.
     """
-    return 5
+    return 2
 
 
 @pytest.fixture()
@@ -231,7 +231,7 @@ def mock_component_manager(
     mock_component_manager = mocker.Mock()
     mock_component_manager.start_daq = MockLongRunningCommand()
     mock_component_manager.stop_daq = MockLongRunningCommand()
-    mock_component_manager.configure_daq = MockLongRunningCommand()
+    mock_component_manager.configure_daq = MockCallable()
     return mock_component_manager
 
 

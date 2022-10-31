@@ -8,13 +8,18 @@
 """This module contains the tests of the daq receiver device."""
 from __future__ import annotations
 
+import json
+from typing import Union
+
 import pytest
-from ska_control_model import HealthState
+from pydaq.daq_receiver_interface import DaqModes
+from ska_control_model import HealthState, ResultCode
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.mock import MockChangeEventCallback
 from ska_low_mccs_common.testing.tango_harness import DeviceToLoadType, TangoHarness
 
 from ska_low_mccs_daq import MccsDaqReceiver
+from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
 
 
 @pytest.fixture()
@@ -97,3 +102,48 @@ class TestPatchedDaq:
             "proxy": MccsDeviceProxy,
             "patch": patched_daq_class,
         }
+
+    @pytest.mark.parametrize(
+        "daq_modes",
+        ([DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA], [1, 2, 0]),
+    )
+    def test_start_daq_device(
+        self: TestPatchedDaq,
+        device_under_test: MccsDeviceProxy,
+        mock_component_manager: DaqComponentManager,
+        daq_modes: list[Union[int, DaqModes]],
+    ) -> None:
+        """
+        Test for Start().
+
+        This tests that when we pass a valid json string to the `Start`
+        command that it is successfully parsed into the proper
+        parameters so that `start_daq` can be called.
+        """
+        cbs = ["raw_data_cb", "beam_data_cb"]
+        tsk_cb = "tsk_cb"
+
+        # This comprehension just replaces the DaqModes enum with its int value.
+        # Without this we get a JSON serialize error when doing json.dumps.
+        # This can be remedied by DaqModes inheriting from IntEnum rather than Enum.
+        daq_modes = [
+            mode.value if isinstance(mode, DaqModes) else mode for mode in daq_modes
+        ]
+        argin = {
+            "modes_to_start": daq_modes,
+            "callbacks": cbs,
+            "task_callback": tsk_cb,
+        }
+        [result_code], [response] = device_under_test.Start(json.dumps(argin))
+
+        assert result_code == ResultCode.QUEUED
+        assert "Start" in response.split("_")[-1]
+
+        args = mock_component_manager.start_daq.get_next_call()
+        called_daq_modes = args[0][0]
+        called_cbs = args[0][1]
+        called_tsk_cb = args[0][2]
+
+        assert called_daq_modes == daq_modes
+        assert called_cbs == cbs
+        assert called_tsk_cb == tsk_cb

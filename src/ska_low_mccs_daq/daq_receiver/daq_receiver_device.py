@@ -9,6 +9,7 @@
 
 from __future__ import annotations  # allow forward references in type hints
 
+import json
 import logging
 from typing import Any, Optional, cast
 
@@ -241,20 +242,49 @@ class MccsDaqReceiver(SKABaseDevice):
     # --------
     # Commands
     # --------
-    @command(dtype_out="DevVarLongStringArray")
-    def Start(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    def Start(self: MccsDaqReceiver, argin: str = None) -> DevVarLongStringArrayType:
         """
-        Start the DaqReceiver.
+        Start the DaqConsumers.
 
-        The DAQ receiver will begin watching the specified interface
+        The MccsDaqReceiver will begin watching the interface specified in the configuration
         and will start the configured consumers.
+
+        param argin: JSON-formatted string representing the DaqModes and their corresponding callbacks to start.
+            Defaults to None.
+            {
+                "modes_to_start": list[DaqModes],
+                "callbacks": list[str],
+                "task_callback": str,
+            }
+            .. code-block:: python
+
+                {
+                    "modes_to_start": [DaqModes.RAW_DATA, DaqModes.BEAM_DATA],
+                    "callbacks": ['raw_data_cb', 'beam_data_cb'],
+                    "task_callback": 'tsk_cb',
+                }
+            Callbacks specified must be class members of DaqComponentManager.
 
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
         """
         handler = self.get_command_object("Start")
-        (result_code, message) = handler()
+        params = json.loads(argin)
+
+        # Initialise temps and extract individual args from argin.
+        modes_to_start = None
+        callbacks = None
+        task_callback = None
+        if "modes_to_start" in params.keys():
+            modes_to_start = params["modes_to_start"]
+        if "callbacks" in params.keys():
+            callbacks = params["callbacks"]
+        if "task_callback" in params.keys():
+            task_callback = params["task_callback"]
+
+        (result_code, message) = handler(modes_to_start, callbacks, task_callback)
         return ([result_code], [message])
 
     @command(dtype_out="DevVarLongStringArray")

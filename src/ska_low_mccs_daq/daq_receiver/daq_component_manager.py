@@ -214,14 +214,18 @@ class DaqComponentManager(MccsComponentManager):
         :return: a task status and response message
         """
         self.logger.info("Submitting `_start_daq` task.")
+        # TODO: Should we check params here for validity before we submit task?
+        # Probably going to get callbacks related errors.
         return self.submit_task(
-            self._start_daq, args=[modes_to_start], task_callback=task_callback
+            self._start_daq,
+            args=[modes_to_start, callbacks],
+            task_callback=task_callback,
         )
 
     @check_communicating
     def _start_daq(
         self: DaqComponentManager,
-        modes_to_start: Optional[list[DaqModes]] = None,
+        modes_to_start: Optional[list[Union[int, DaqModes]]] = None,
         callbacks: Optional[list[Callable]] = None,
         task_callback: Optional[Callable] = None,
         task_abort_event: Union[threading.Event, None] = None,
@@ -241,9 +245,21 @@ class DaqComponentManager(MccsComponentManager):
         """
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
+
         # Retrieve default list of modes to start if not provided.
         if modes_to_start is None:
             modes_to_start = self._get_daq_modes()
+        # Convert any ints in daq_mode to a DaqMode.
+        try:
+            modes_to_start = [
+                list(DaqModes)[mode] if isinstance(mode, int) else mode
+                for mode in modes_to_start
+            ]
+        except IndexError as e:
+            self.logger.error(f"Index Error! DaqMode selected does not exist! {e}")
+            if task_callback:
+                task_callback(status=TaskStatus.FAILED, message=f"Index Error! DaqMode selected does not exist! {e}")
+
         self.logger.info(
             (
                 f"Starting DAQ. {self.daq_instance._config['receiver_ip']} "
@@ -251,9 +267,7 @@ class DaqComponentManager(MccsComponentManager):
                 f"{self.daq_instance._config['receiver_ports']}"
             )
         )
-        # TODO: Reinstate the `start_daq` call with callbacks once the newer DAQ version is used.
-        # self.daq_instance.start_daq(modes_to_start, callbacks)
-        self.daq_instance.start_daq(modes_to_start)
+        self.daq_instance.start_daq(modes_to_start, callbacks)
 
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)

@@ -9,7 +9,9 @@
 from __future__ import annotations
 
 import time
+from typing import Union, cast
 
+import pytest
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 from ska_control_model import CommunicationStatus, TaskStatus
 from ska_low_mccs_common.testing.mock import MockCallable
@@ -56,11 +58,30 @@ class TestDaqComponentManager:
         )
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
 
+    @pytest.mark.parametrize(
+        "daq_modes",
+        (
+            [DaqModes.RAW_DATA],
+            [DaqModes.CHANNEL_DATA],
+            [DaqModes.BEAM_DATA],
+            [DaqModes.CONTINUOUS_CHANNEL_DATA],
+            [DaqModes.INTEGRATED_BEAM_DATA],
+            [DaqModes.INTEGRATED_CHANNEL_DATA],
+            [DaqModes.STATION_BEAM_DATA],
+            #[DaqModes.CORRELATOR_DATA],                # Not compiled with correlator currently.
+            #[DaqModes.ANTENNA_BUFFER],                 # Bug in DAQ code doesn't update running consumers properly for this mode.
+            [DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA],
+            [1, 2, 0],
+            #[DaqModes.CONTINUOUS_CHANNEL_DATA, DaqModes.ANTENNA_BUFFER, 6],
+            [5, 4, DaqModes.STATION_BEAM_DATA],
+        ),
+    )
     def test_instantiate_daq(
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
         communication_state_changed_callback: MockCallable,
         acquisition_duration: int,
+        daq_modes: list[Union[int, DaqModes]],
     ) -> None:
         """
         Test basic DAQ functionality.
@@ -82,7 +103,7 @@ class TestDaqComponentManager:
         # Override the default config.
         # The duration should be long enough to actually receive data.
         # This defaults to around 20-30 sec after delays are accounted for.
-        modes_to_start = [DaqModes.INTEGRATED_CHANNEL_DATA]
+        # daq_modes = [DaqModes.INTEGRATED_CHANNEL_DATA]
         # data_received_callback isn't currently used as we don't yet have a
         # reliable way of making data available in a test context.
         # data_received_callback = MockCallable()
@@ -100,9 +121,9 @@ class TestDaqComponentManager:
 
         # Start DAQ and check our consumer is running.
         daq_task_callback = MockCallable()
-        # station_component_manager.start_daq(modes_to_start, data_received_callback)
+        # station_component_manager.start_daq(daq_modes, data_received_callback)
         rc, message = daq_component_manager.start_daq(
-            modes_to_start, task_callback=daq_task_callback
+            daq_modes, task_callback=daq_task_callback
         )
         assert rc == TaskStatus.QUEUED
         assert message == "Task queued"
@@ -111,8 +132,15 @@ class TestDaqComponentManager:
         daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
         daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
 
-        for mode in modes_to_start:
-            assert daq_component_manager.daq_instance._running_consumers[mode]
+        print(daq_component_manager.daq_instance._running_consumers)
+        for mode in daq_modes:
+            # If we're using ints instead of DaqModes make the conversion so we can check the consumer.
+            if isinstance(mode, int):
+                assert mode < len(list(DaqModes))
+                mode_to_check = list(DaqModes)[mode]
+            else:
+                mode_to_check = mode
+            assert daq_component_manager.daq_instance._running_consumers[mode_to_check]
 
         # Wait for data etc
         time.sleep(daq_component_manager.daq_instance._config["acquisition_duration"])
@@ -125,9 +153,17 @@ class TestDaqComponentManager:
         daq_task_callback.assert_next_call(status=TaskStatus.QUEUED)
         daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
         daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
-
-        for mode in modes_to_start:
-            assert not daq_component_manager.daq_instance._running_consumers[mode]
+        print(daq_component_manager.daq_instance._running_consumers)
+        for mode in daq_modes:
+            # If we're using ints instead of DaqModes make the conversion so we can check the consumer.
+            if isinstance(mode, int):
+                assert mode < len(list(DaqModes))
+                mode_to_check = list(DaqModes)[mode]
+            else:
+                mode_to_check = mode
+            assert not daq_component_manager.daq_instance._running_consumers[
+                mode_to_check
+            ]
 
     # def test_validate_daq_config(self: TestDaqComponentManager,
     #     daq_component_manager: DaqComponentManager,) -> None:
