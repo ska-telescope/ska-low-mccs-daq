@@ -129,8 +129,7 @@ def max_workers() -> int:
 
     :return: the max number of worker threads.
     """
-    max_workers = 1
-    return max_workers
+    return 1
 
 
 @pytest.fixture()

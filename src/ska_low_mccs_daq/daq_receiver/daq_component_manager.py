@@ -252,13 +252,16 @@ class DaqComponentManager(MccsComponentManager):
         # Convert any ints in daq_mode to a DaqMode.
         try:
             modes_to_start = [
-                list(DaqModes)[mode] if isinstance(mode, int) else mode
+                list(DaqModes)[int(mode)] if isinstance(mode, int) else mode
                 for mode in modes_to_start
             ]
         except IndexError as e:
             self.logger.error(f"Index Error! DaqMode selected does not exist! {e}")
             if task_callback:
-                task_callback(status=TaskStatus.FAILED, message=f"Index Error! DaqMode selected does not exist! {e}")
+                task_callback(
+                    status=TaskStatus.FAILED,
+                    message=f"Index Error! DaqMode selected does not exist! {e}",
+                )
 
         self.logger.info(
             (

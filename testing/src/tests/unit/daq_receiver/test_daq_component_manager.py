@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import time
-from typing import Union, cast
+from typing import Union
 
 import pytest
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
@@ -68,11 +68,11 @@ class TestDaqComponentManager:
             [DaqModes.INTEGRATED_BEAM_DATA],
             [DaqModes.INTEGRATED_CHANNEL_DATA],
             [DaqModes.STATION_BEAM_DATA],
-            #[DaqModes.CORRELATOR_DATA],                # Not compiled with correlator currently.
-            #[DaqModes.ANTENNA_BUFFER],                 # Bug in DAQ code doesn't update running consumers properly for this mode.
+            # [DaqModes.CORRELATOR_DATA],                # Not compiled with correlator currently.
+            # [DaqModes.ANTENNA_BUFFER],                 # Bug in DAQ code doesn't update running consumers properly for this mode.
             [DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA],
             [1, 2, 0],
-            #[DaqModes.CONTINUOUS_CHANNEL_DATA, DaqModes.ANTENNA_BUFFER, 6],
+            # [DaqModes.CONTINUOUS_CHANNEL_DATA, DaqModes.ANTENNA_BUFFER, 6],
             [5, 4, DaqModes.STATION_BEAM_DATA],
         ),
     )
@@ -96,6 +96,7 @@ class TestDaqComponentManager:
             called when the status of the communications channel between
             the component manager and its component changes
         :param acquisition_duration: The duration of the data capture.
+        :param daq_modes: The DAQ consumers to start.
         """
         # Check create_daq has given us a receiver.
         assert hasattr(daq_component_manager, "daq_instance")

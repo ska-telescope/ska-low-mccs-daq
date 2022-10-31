@@ -12,7 +12,7 @@ import json
 from typing import Union
 
 import pytest
-from pydaq.daq_receiver_interface import DaqModes
+from pydaq.daq_receiver_interface import DaqModes  # type: ignore
 from ska_control_model import HealthState, ResultCode
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.mock import MockChangeEventCallback
@@ -119,6 +119,13 @@ class TestPatchedDaq:
         This tests that when we pass a valid json string to the `Start`
         command that it is successfully parsed into the proper
         parameters so that `start_daq` can be called.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param mock_component_manager: a mock component manager that has
+            been patched into the device under test
+        :param daq_modes: The DAQ consumers to start.
         """
         cbs = ["raw_data_cb", "beam_data_cb"]
         tsk_cb = "tsk_cb"
@@ -139,7 +146,7 @@ class TestPatchedDaq:
         assert result_code == ResultCode.QUEUED
         assert "Start" in response.split("_")[-1]
 
-        args = mock_component_manager.start_daq.get_next_call()
+        args = mock_component_manager.start_daq.get_next_call()  # type: ignore[attr-defined]
         called_daq_modes = args[0][0]
         called_cbs = args[0][1]
         called_tsk_cb = args[0][2]
