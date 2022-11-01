@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import time
-from typing import Union
+from typing import Callable, Union, cast
 
 import pytest
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
@@ -69,10 +69,10 @@ class TestDaqComponentManager:
             [DaqModes.INTEGRATED_CHANNEL_DATA],
             [DaqModes.STATION_BEAM_DATA],
             # [DaqModes.CORRELATOR_DATA],                # Not compiled with correlator currently.
-            # [DaqModes.ANTENNA_BUFFER],                 # Bug in DAQ code doesn't update running consumers properly for this mode.
+            [DaqModes.ANTENNA_BUFFER],
             [DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA],
             [1, 2, 0],
-            # [DaqModes.CONTINUOUS_CHANNEL_DATA, DaqModes.ANTENNA_BUFFER, 6],
+            [DaqModes.CONTINUOUS_CHANNEL_DATA, DaqModes.ANTENNA_BUFFER, 6],
             [5, 4, DaqModes.STATION_BEAM_DATA],
         ),
     )
@@ -88,7 +88,7 @@ class TestDaqComponentManager:
 
         This test merely instantiates DAQ, starts a consumer,
             waits for a time and then stops the consumer.
-            Data can also be logged if available.
+            This also doubles as a check that we can start and stop every consumer.
 
         :param daq_component_manager: the daq receiver component manager
             under test.
@@ -101,13 +101,6 @@ class TestDaqComponentManager:
         # Check create_daq has given us a receiver.
         assert hasattr(daq_component_manager, "daq_instance")
         assert isinstance(daq_component_manager.daq_instance, DaqReceiver)
-        # Override the default config.
-        # The duration should be long enough to actually receive data.
-        # This defaults to around 20-30 sec after delays are accounted for.
-        # daq_modes = [DaqModes.INTEGRATED_CHANNEL_DATA]
-        # data_received_callback isn't currently used as we don't yet have a
-        # reliable way of making data available in a test context.
-        # data_received_callback = MockCallable()
 
         daq_config = {
             "acquisition_duration": acquisition_duration,
@@ -122,9 +115,10 @@ class TestDaqComponentManager:
 
         # Start DAQ and check our consumer is running.
         daq_task_callback = MockCallable()
-        # station_component_manager.start_daq(daq_modes, data_received_callback)
+        # Need exactly 1 callback per consumer started or None. Cast for Mypy.
+        data_received_callback = len(daq_modes) * [cast(Callable, MockCallable())]
         rc, message = daq_component_manager.start_daq(
-            daq_modes, task_callback=daq_task_callback
+            daq_modes, data_received_callback, task_callback=daq_task_callback
         )
         assert rc == TaskStatus.QUEUED
         assert message == "Task queued"
@@ -133,14 +127,9 @@ class TestDaqComponentManager:
         daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
         daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
 
-        print(daq_component_manager.daq_instance._running_consumers)
         for mode in daq_modes:
             # If we're using ints instead of DaqModes make the conversion so we can check the consumer.
-            if isinstance(mode, int):
-                assert mode < len(list(DaqModes))
-                mode_to_check = list(DaqModes)[mode]
-            else:
-                mode_to_check = mode
+            mode_to_check = DaqModes(mode)
             assert daq_component_manager.daq_instance._running_consumers[mode_to_check]
 
         # Wait for data etc
@@ -154,14 +143,94 @@ class TestDaqComponentManager:
         daq_task_callback.assert_next_call(status=TaskStatus.QUEUED)
         daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
         daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
-        print(daq_component_manager.daq_instance._running_consumers)
+
         for mode in daq_modes:
             # If we're using ints instead of DaqModes make the conversion so we can check the consumer.
-            if isinstance(mode, int):
-                assert mode < len(list(DaqModes))
-                mode_to_check = list(DaqModes)[mode]
-            else:
-                mode_to_check = mode
+            mode_to_check = DaqModes(mode)
+            assert not daq_component_manager.daq_instance._running_consumers[
+                mode_to_check
+            ]
+
+    @pytest.mark.parametrize("num_callbacks", (-1, +1))
+    def test_incorrect_callback_count(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        communication_state_changed_callback: MockCallable,
+        num_callbacks: int,
+    ) -> None:
+        """
+        Test that an incorrect number of callbacks is handled correctly.
+
+        If len(callbacks) != len(daq_modes) then we expect callbacks to be set to None and for a warning message to be issued.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param communication_state_changed_callback: callback to be
+            called when the status of the communications channel between
+            the component manager and its component changes
+        :param num_callbacks: A modifier to apply to the number of callbacks so that there are more or less than required.
+        """
+        # Check create_daq has given us a receiver.
+        assert hasattr(daq_component_manager, "daq_instance")
+        assert isinstance(daq_component_manager.daq_instance, DaqReceiver)
+
+        daq_config = {
+            "acquisition_duration": 1,
+            "directory": ".",
+        }
+        daq_modes = [DaqModes.BEAM_DATA, DaqModes.INTEGRATED_BEAM_DATA]
+        daq_component_manager.daq_instance.populate_configuration(daq_config)
+
+        daq_component_manager.start_communicating()
+        communication_state_changed_callback.assert_last_call(
+            CommunicationStatus.ESTABLISHED
+        )
+
+        # Start DAQ and check our consumer is running.
+        daq_task_callback = MockCallable()
+        # Configure callbacks so we have either one more or less than we should. Cast for Mypy
+        data_received_callback = (num_callbacks + len(daq_modes)) * [
+            cast(Callable, MockCallable())
+        ]
+        rc, message = daq_component_manager.start_daq(
+            daq_modes, data_received_callback, task_callback=daq_task_callback
+        )
+        assert rc == TaskStatus.QUEUED
+        assert message == "Task queued"
+
+        daq_task_callback.assert_next_call(status=TaskStatus.QUEUED)
+        daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
+
+        # Assert that we see the warning message.
+        expected_response = f"""An incorrect number of callbacks was passed to `start_daq`!
+                There must be exactly one callback per consumer!
+                CALLBACKS ARE BEING IGNORED!
+                Number of consumers specified: {len(daq_modes)}
+                Number of callbacks provided: {len(data_received_callback)}"""
+        daq_task_callback.assert_next_call(message=expected_response)
+
+        daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
+
+        for mode in daq_modes:
+            # If we're using ints instead of DaqModes make the conversion so we can check the consumer.
+            mode_to_check = DaqModes(mode)
+            assert daq_component_manager.daq_instance._running_consumers[mode_to_check]
+
+        # Wait for data etc
+        time.sleep(daq_component_manager.daq_instance._config["acquisition_duration"])
+
+        # Stop DAQ and check our consumer is not running.
+        rc, message = daq_component_manager.stop_daq(task_callback=daq_task_callback)
+        assert rc == TaskStatus.QUEUED
+        assert message == "Task queued"
+
+        daq_task_callback.assert_next_call(status=TaskStatus.QUEUED)
+        daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
+        daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
+
+        for mode in daq_modes:
+            # If we're using ints instead of DaqModes make the conversion so we can check the consumer.
+            mode_to_check = DaqModes(mode)
             assert not daq_component_manager.daq_instance._running_consumers[
                 mode_to_check
             ]

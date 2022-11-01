@@ -129,13 +129,6 @@ class TestPatchedDaq:
         """
         cbs = ["raw_data_cb", "beam_data_cb"]
         tsk_cb = "tsk_cb"
-
-        # This comprehension just replaces the DaqModes enum with its int value.
-        # Without this we get a JSON serialize error when doing json.dumps.
-        # This can be remedied by DaqModes inheriting from IntEnum rather than Enum.
-        daq_modes = [
-            mode.value if isinstance(mode, DaqModes) else mode for mode in daq_modes
-        ]
         argin = {
             "modes_to_start": daq_modes,
             "callbacks": cbs,
