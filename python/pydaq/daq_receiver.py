@@ -10,6 +10,8 @@ import fcntl
 import socket
 import struct
 import signal
+from enum import IntEnum
+
 import yaml
 
 import numpy as np
@@ -21,7 +23,7 @@ import pyaavs.logger
 
 
 # Define consumer types enum
-class DaqModes(Enum):
+class DaqModes(IntEnum):
     """ Board State enumeration """
     RAW_DATA = 0
     CHANNEL_DATA = 1
@@ -1351,7 +1353,7 @@ if __name__ == "__main__":
     (config, args) = parser.parse_args(argv[1:])
 
     # Set current thread name
-    threading.currentThread().name = "DAQ"
+    threading.current_thread().name = "DAQ"
 
     if config.max_filesize is not None:
         aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = config.max_filesize

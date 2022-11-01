@@ -6,6 +6,7 @@ import socket
 import struct
 import threading
 from ctypes.util import find_library
+from enum import IntEnum
 from typing import Callable, Union, List, Dict, Any, Optional, Type
 
 import numpy as np
@@ -18,7 +19,7 @@ from pydaq.persisters import aavs_file
 
 
 # Define consumer type Enums
-class DaqModes(Enum):
+class DaqModes(IntEnum):
     """ Board State enumeration """
     RAW_DATA = 0
     CHANNEL_DATA = 1
@@ -872,7 +873,7 @@ class DaqReceiver:
                                 self._callbacks[DaqModes.ANTENNA_BUFFER]) != self.Result.Success:
             logging.info("Failed to start antenna buffer consumer")
             raise Exception("Failed to start antenna buffer consumer")
-        self._running_consumers[DaqModes.RAW_DATA] = True
+        self._running_consumers[DaqModes.ANTENNA_BUFFER] = True
 
         # Create data persister
         raw_file = RawFormatFileManager(root_path=self._config['directory'],
@@ -1539,7 +1540,7 @@ if __name__ == "__main__":
     (config, args) = parser.parse_args(argv[1:])
 
     # Set current thread name
-    threading.currentThread().name = "DAQ"
+    threading.current_thread().name = "DAQ"
 
     if config.max_filesize is not None:
         aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = config.max_filesize
