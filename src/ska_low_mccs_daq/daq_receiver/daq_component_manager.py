@@ -28,6 +28,7 @@ class DaqComponentManager(MccsComponentManager):
         receiver_interface: str,
         receiver_ip: str,
         receiver_ports: str,
+        consumers_to_start: str,
         logger: logging.Logger,
         max_workers: int,
         communication_state_changed_callback: Callable[[CommunicationStatus], None],
@@ -40,6 +41,7 @@ class DaqComponentManager(MccsComponentManager):
         :param receiver_interface: The interface this DaqReceiver is to watch.
         :param receiver_ip: The IP address of this DaqReceiver.
         :param receiver_ports: The port this DaqReceiver is to watch.
+        :param consumers_to_start: The default consumers to be started.
         :param logger: the logger to be used by this object.
         :param max_workers: the maximum worker threads for the slow commands
             associated with this component manager.
@@ -49,6 +51,8 @@ class DaqComponentManager(MccsComponentManager):
         :param component_state_changed_callback: callback to be
             called when the component state changes
         """
+        self._consumers_to_start: list[DaqModes] | None
+
         super().__init__(
             logger,
             max_workers,
@@ -60,6 +64,7 @@ class DaqComponentManager(MccsComponentManager):
         self._receiver_interface = receiver_interface
         self._receiver_ip = receiver_ip.encode()
         self._receiver_ports = receiver_ports
+        self._set_consumers_to_start(consumers_to_start)
         self._create_daq_instance()
 
     def _create_daq_instance(
@@ -125,17 +130,48 @@ class DaqComponentManager(MccsComponentManager):
         }
         return daq_config
 
-    def _get_daq_modes(self: DaqComponentManager) -> list[DaqModes]:
+    def _get_consumers_to_start(self: DaqComponentManager) -> list[DaqModes]:
         """
         Retrieve a list of DAQ consumers to start.
 
+        Returns the consumer list that is to be used when `start_daq` is called without specifying consumers.
+        This is empty by default and if not set will return `[DaqModes.INTEGRATED_CHANNEL_DATA]`.
+
         :return: a list of DAQ modes.
         """
-        # Just return a single mode for testing atm.
-        # Later we can have a default list in a config or something.
-        modes_to_start = [DaqModes.INTEGRATED_CHANNEL_DATA]
+        if self._consumers_to_start is None:
+            return [DaqModes.INTEGRATED_CHANNEL_DATA]
+        return self._consumers_to_start
 
-        return modes_to_start
+    def _set_consumers_to_start(
+        self: DaqComponentManager, consumers_to_start: str
+    ) -> None:
+        """
+        Set default consumers to start.
+
+        Set consumers to be started when `start_daq` is called without specifying a
+        consumer.
+
+        :param consumers_to_start: A string containing a comma separated list of DaqModes.
+        """
+        try:
+            if consumers_to_start != "":
+                # Extract consumers_to_start and convert to DaqModes if supplied.
+                consumer_list = consumers_to_start.split(
+                    ","
+                )  # Separate string into list of words.
+                # Strip whitespace, extract the enum part of the consumer (e.g. RAW_DATA) and cast into a DaqMode.
+                self._consumers_to_start = [
+                    DaqModes[consumer.strip().split(".")[-1]]
+                    for consumer in consumer_list
+                ]
+            else:
+                self._consumers_to_start = None
+        except Exception as e:
+            self.logger.error(
+                f"Unhandled exception caught in `_set_consumers_to_start`: {e}"
+            )
+            self._consumers_to_start = None
 
     def configure_daq(
         self: DaqComponentManager,
@@ -214,8 +250,6 @@ class DaqComponentManager(MccsComponentManager):
         :return: a task status and response message
         """
         self.logger.info("Submitting `_start_daq` task.")
-        # TODO: Should we check params here for validity before we submit task?
-        # Probably going to get callbacks related errors.
         return self.submit_task(
             self._start_daq,
             args=[modes_to_start, callbacks],
@@ -248,7 +282,7 @@ class DaqComponentManager(MccsComponentManager):
 
         # Retrieve default list of modes to start if not provided.
         if modes_to_start is None:
-            modes_to_start = self._get_daq_modes()
+            modes_to_start = self._get_consumers_to_start()
 
         # Check that if we were passed callbacks that we have one for each consumer.
         # If we do not then ignore callbacks.

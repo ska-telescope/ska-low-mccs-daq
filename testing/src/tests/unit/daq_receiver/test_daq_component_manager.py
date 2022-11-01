@@ -235,6 +235,51 @@ class TestDaqComponentManager:
                 mode_to_check
             ]
 
+    @pytest.mark.parametrize(
+        ("consumer_list", "daq_modes"),
+        (
+            ("DaqModes.RAW_DATA", [DaqModes.RAW_DATA]),
+            ("DaqModes.CHANNEL_DATA", [DaqModes.CHANNEL_DATA]),
+            ("DaqModes.BEAM_DATA", [DaqModes.BEAM_DATA]),
+            ("DaqModes.CONTINUOUS_CHANNEL_DATA", [DaqModes.CONTINUOUS_CHANNEL_DATA]),
+            ("DaqModes.INTEGRATED_BEAM_DATA", [DaqModes.INTEGRATED_BEAM_DATA]),
+            ("DaqModes.INTEGRATED_CHANNEL_DATA", [DaqModes.INTEGRATED_CHANNEL_DATA]),
+            ("DaqModes.STATION_BEAM_DATA", [DaqModes.STATION_BEAM_DATA]),
+            ("DaqModes.CORRELATOR_DATA", [DaqModes.CORRELATOR_DATA]),
+            ("DaqModes.ANTENNA_BUFFER", [DaqModes.ANTENNA_BUFFER]),
+            ("", [DaqModes.INTEGRATED_CHANNEL_DATA]),  # Default behaviour.
+            (
+                "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA, DaqModes.INTEGRATED_CHANNEL_DATA",
+                [
+                    DaqModes.INTEGRATED_BEAM_DATA,
+                    DaqModes.ANTENNA_BUFFER,
+                    DaqModes.BEAM_DATA,
+                    DaqModes.INTEGRATED_CHANNEL_DATA,
+                ],
+            ),
+        ),
+    )
+    def test_set_get_consumer_list(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        consumer_list: str,
+        daq_modes: list[DaqModes],
+    ) -> None:
+        """
+        Test `_consumers_to_start` can be set and fetched correctly.
+
+        Test that when we set consumers via the `_set_consumers_to_start` method that the
+            `_consumers_to_start` attribute is set to the proper value.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param consumer_list: A comma separated list of consumers to start.
+        :param daq_modes: The corresponding DaqModes we expect to be set by the string passed in.
+        """
+        assert daq_component_manager._consumers_to_start is None
+        daq_component_manager._set_consumers_to_start(consumer_list)
+        assert daq_component_manager._get_consumers_to_start() == daq_modes
+
     # def test_validate_daq_config(self: TestDaqComponentManager,
     #     daq_component_manager: DaqComponentManager,) -> None:
     #     """

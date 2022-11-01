@@ -104,11 +104,21 @@ def receiver_ports() -> str:
 
 
 @pytest.fixture()
+def default_consumers_to_start() -> str:
+    """
+    Return an empty string.
+
+    :return: An empty string.
+    """
+    return ""
+
+
+@pytest.fixture()
 def component_state_changed_callback(
     mock_callback_deque_factory: Callable[[], unittest.mock.Mock],
 ) -> Callable[[], None]:
     """
-    Return a mock callback for a change in whether the station changes state.
+    Return a mock callback for a change in DaqReceiver state.
 
     :param mock_callback_deque_factory: fixture that provides a mock callback deque
         factory.
@@ -139,6 +149,7 @@ def daq_component_manager(
     receiver_interface: str,
     receiver_ip: str,
     receiver_ports: str,
+    default_consumers_to_start: str,
     logger: logging.Logger,
     max_workers: int,
     communication_state_changed_callback: MockCallable,
@@ -152,6 +163,7 @@ def daq_component_manager(
     :param receiver_interface: The interface this DaqReceiver is to watch.
     :param receiver_ip: The IP address of this DaqReceiver.
     :param receiver_ports: The ports this DaqReceiver is to watch.
+    :param default_consumers_to_start: The default consumers to be started.
     :param logger: the logger to be used by this object.
     :param max_workers: max number of threads available to run a LRC.
     :param communication_state_changed_callback: callback to be
@@ -167,6 +179,7 @@ def daq_component_manager(
         receiver_interface,
         receiver_ip,
         receiver_ports,
+        default_consumers_to_start,
         logger,
         max_workers,
         communication_state_changed_callback,
@@ -180,6 +193,7 @@ def mock_daq_component_manager(
     receiver_interface: str,
     receiver_ip: str,
     receiver_ports: str,
+    default_consumers_to_start: str,
     logger: logging.Logger,
     max_workers: int,
     communication_state_changed_callback: MockCallable,
@@ -192,6 +206,7 @@ def mock_daq_component_manager(
     :param receiver_interface: The interface this DaqReceiver is to watch.
     :param receiver_ip: The IP address of this DaqReceiver.
     :param receiver_ports: The ports this DaqReceiver is to watch.
+    :param default_consumers_to_start: The default consumers to be started.
     :param logger: the logger to be used by this object.
     :param max_workers: max number of threads available to run a LRC.
     :param communication_state_changed_callback: callback to be
@@ -207,6 +222,7 @@ def mock_daq_component_manager(
         receiver_interface,
         receiver_ip,
         receiver_ports,
+        default_consumers_to_start,
         logger,
         max_workers,
         communication_state_changed_callback,
@@ -231,6 +247,7 @@ def mock_component_manager(
     mock_component_manager.start_daq = MockLongRunningCommand()
     mock_component_manager.stop_daq = MockLongRunningCommand()
     mock_component_manager.configure_daq = MockCallable()
+    mock_component_manager._set_consumers_to_start = MockCallable()
     return mock_component_manager
 
 

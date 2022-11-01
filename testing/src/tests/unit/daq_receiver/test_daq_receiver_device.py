@@ -147,3 +147,45 @@ class TestPatchedDaq:
         assert called_daq_modes == daq_modes
         assert called_cbs == cbs
         assert called_tsk_cb == tsk_cb
+
+    @pytest.mark.parametrize(
+        ("consumer_list"),
+        (
+            "DaqModes.RAW_DATA",
+            "DaqModes.CHANNEL_DATA",
+            "DaqModes.BEAM_DATA",
+            "DaqModes.CONTINUOUS_CHANNEL_DATA",
+            "DaqModes.INTEGRATED_BEAM_DATA",
+            "DaqModes.INTEGRATED_CHANNEL_DATA",
+            "DaqModes.STATION_BEAM_DATA",
+            "DaqModes.CORRELATOR_DATA",
+            "DaqModes.ANTENNA_BUFFER",
+            "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA, DaqModes.INTEGRATED_CHANNEL_DATA",
+        ),
+    )
+    def test_set_consumers_device(
+        self: TestPatchedDaq,
+        device_under_test: MccsDeviceProxy,
+        mock_component_manager: DaqComponentManager,
+        consumer_list: list[Union[int, DaqModes]],
+    ) -> None:
+        """
+        Test for SetConsumers().
+
+        This tests that when we pass a valid string to the `SetConsumers`
+        command that it is successfully passed to the component manager.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param mock_component_manager: a mock component manager that has
+            been patched into the device under test
+        :param consumer_list: A comma separated list of consumers to start.
+        """
+        [result_code], [response] = device_under_test.SetConsumers(consumer_list)
+        assert result_code == ResultCode.OK
+        assert response == "SetConsumers command completed OK"
+
+        # Get the args for the next call to set consumers and assert it's what we expect.
+        args = mock_component_manager._set_consumers_to_start.get_next_call()  # type: ignore[attr-defined]
+        assert consumer_list == args[0][0]
