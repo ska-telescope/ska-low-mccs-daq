@@ -378,6 +378,7 @@ void test_station_data()
     }
 }
 
+
 void test_antenna_buffer_data() {
     LOG(INFO, "Testing Antenna Buffer Data");
 
@@ -559,8 +560,53 @@ void test_multi() {
         LOG(ERROR, "Failed to stop receiver");
         return;
     }
+}
 
 
+void test_raw_station_data() {
+
+    LOG(INFO, "Testing Raw Station Data");
+
+    // Telescope information
+    const char *ip = "10.0.10.100";
+    startReceiver("eno1", ip, 9000, 32, 64);
+    addReceiverPort(4660);
+
+    // Set parameters
+    json j = {
+            {"start_channel", 0},
+            {"nof_channels", 8},
+            {"nof_samples", 131072},
+            {"transpose_samples", 0},
+            {"max_packet_size", 9000}
+    };
+
+    if (loadConsumer("libaavsdaq.so", "stationdataraw") != SUCCESS) {
+        LOG(ERROR, "Failed to load station data consumser");
+        return;
+    }
+
+    if (initialiseConsumer("stationdataraw", j.dump().c_str()) != SUCCESS) {
+        LOG(ERROR, "Failed to initialise station data consumser");
+        return;
+    }
+
+    if (startConsumerDynamic("stationdataraw", nullptr) != SUCCESS) {
+        LOG(ERROR, "Failed to start station data consumser");
+        return;
+    }
+
+    sleep(30);
+
+    if (stopConsumer("stationdataraw") != SUCCESS) {
+        LOG(ERROR, "Failed to stop station data consumser");
+        return;
+    }
+
+    if (stopReceiver() != SUCCESS) {
+        LOG(ERROR, "Failed to stop receiver");
+        return;
+    }
 }
 
 int main()
@@ -575,5 +621,6 @@ int main()
 //    test_station_data();
 //    test_multi();
 //    test_antenna_buffer_data();
+    test_raw_station_data();
 }
 
