@@ -50,8 +50,8 @@ class MockLongRunningCommand(MockCallable):
         return TaskStatus.QUEUED, "Task queued"
 
 
-@pytest.fixture()
-def daq_id() -> str:
+@pytest.fixture(name="daq_id")
+def daq_id_fixture() -> str:
     """
     Return the daq id of this daq receiver.
 
@@ -63,8 +63,8 @@ def daq_id() -> str:
     return "1"
 
 
-@pytest.fixture()
-def receiver_interface() -> str:
+@pytest.fixture(name="receiver_interface")
+def receiver_interface_fixture() -> str:
     """
     Return the interface this daq receiver is watching.
 
@@ -73,8 +73,8 @@ def receiver_interface() -> str:
     return "eth0"
 
 
-@pytest.fixture()
-def receiver_ip() -> str:
+@pytest.fixture(name="receiver_ip")
+def receiver_ip_fixture() -> str:
     """
     Return the ip of this daq receiver.
 
@@ -83,18 +83,18 @@ def receiver_ip() -> str:
     return "172.17.0.230"
 
 
-@pytest.fixture()
-def acquisition_duration() -> int:
+@pytest.fixture(name="acquisition_duration")
+def acquisition_duration_fixture() -> int:
     """
     Return the duration of data capture in seconds.
 
     :return: Duration of data capture.
     """
-    return 5
+    return 2
 
 
-@pytest.fixture()
-def receiver_ports() -> str:
+@pytest.fixture(name="receiver_ports")
+def receiver_ports_fixture() -> str:
     """
     Return the port(s) this daq receiver is watching.
 
@@ -103,12 +103,22 @@ def receiver_ports() -> str:
     return "4660"
 
 
-@pytest.fixture()
-def component_state_changed_callback(
+@pytest.fixture(name="empty_consumer_list_to_start")
+def empty_consumer_list_to_start_fixture() -> str:
+    """
+    Return an empty string.
+
+    :return: An empty string.
+    """
+    return ""
+
+
+@pytest.fixture(name="component_state_changed_callback")
+def component_state_changed_callback_fixture(
     mock_callback_deque_factory: Callable[[], unittest.mock.Mock],
 ) -> Callable[[], None]:
     """
-    Return a mock callback for a change in whether the station changes state.
+    Return a mock callback for a change in DaqReceiver state.
 
     :param mock_callback_deque_factory: fixture that provides a mock callback deque
         factory.
@@ -119,8 +129,8 @@ def component_state_changed_callback(
     return mock_callback_deque_factory()
 
 
-@pytest.fixture()
-def max_workers() -> int:
+@pytest.fixture(name="max_workers")
+def max_workers_fixture() -> int:
     """
     Max worker threads available to run a LRC.
 
@@ -129,17 +139,17 @@ def max_workers() -> int:
 
     :return: the max number of worker threads.
     """
-    max_workers = 1
-    return max_workers
+    return 1
 
 
-@pytest.fixture()
-def daq_component_manager(
+@pytest.fixture(name="daq_component_manager")
+def daq_component_manager_fixture(
     tango_harness: TangoHarness,
     daq_id: int,
     receiver_interface: str,
     receiver_ip: str,
     receiver_ports: str,
+    empty_consumer_list_to_start: str,
     logger: logging.Logger,
     max_workers: int,
     communication_state_changed_callback: MockCallable,
@@ -153,6 +163,7 @@ def daq_component_manager(
     :param receiver_interface: The interface this DaqReceiver is to watch.
     :param receiver_ip: The IP address of this DaqReceiver.
     :param receiver_ports: The ports this DaqReceiver is to watch.
+    :param empty_consumer_list_to_start: The default consumers to be started.
     :param logger: the logger to be used by this object.
     :param max_workers: max number of threads available to run a LRC.
     :param communication_state_changed_callback: callback to be
@@ -168,6 +179,7 @@ def daq_component_manager(
         receiver_interface,
         receiver_ip,
         receiver_ports,
+        empty_consumer_list_to_start,
         logger,
         max_workers,
         communication_state_changed_callback,
@@ -175,12 +187,13 @@ def daq_component_manager(
     )
 
 
-@pytest.fixture()
-def mock_daq_component_manager(
+@pytest.fixture(name="mock_daq_component_manager")
+def mock_daq_component_manager_fixture(
     daq_id: int,
     receiver_interface: str,
     receiver_ip: str,
     receiver_ports: str,
+    empty_consumer_list_to_start: str,
     logger: logging.Logger,
     max_workers: int,
     communication_state_changed_callback: MockCallable,
@@ -193,6 +206,7 @@ def mock_daq_component_manager(
     :param receiver_interface: The interface this DaqReceiver is to watch.
     :param receiver_ip: The IP address of this DaqReceiver.
     :param receiver_ports: The ports this DaqReceiver is to watch.
+    :param empty_consumer_list_to_start: The default consumers to be started.
     :param logger: the logger to be used by this object.
     :param max_workers: max number of threads available to run a LRC.
     :param communication_state_changed_callback: callback to be
@@ -208,6 +222,7 @@ def mock_daq_component_manager(
         receiver_interface,
         receiver_ip,
         receiver_ports,
+        empty_consumer_list_to_start,
         logger,
         max_workers,
         communication_state_changed_callback,
@@ -215,8 +230,8 @@ def mock_daq_component_manager(
     )
 
 
-@pytest.fixture()
-def mock_component_manager(
+@pytest.fixture(name="mock_component_manager")
+def mock_component_manager_fixture(
     mocker: pytest_mock.MockerFixture,
 ) -> unittest.mock.Mock:
     """
@@ -231,12 +246,13 @@ def mock_component_manager(
     mock_component_manager = mocker.Mock()
     mock_component_manager.start_daq = MockLongRunningCommand()
     mock_component_manager.stop_daq = MockLongRunningCommand()
-    mock_component_manager.configure_daq = MockLongRunningCommand()
+    mock_component_manager.configure_daq = MockCallable()
+    mock_component_manager._set_consumers_to_start = MockCallable()
     return mock_component_manager
 
 
-@pytest.fixture()
-def patched_daq_class(
+@pytest.fixture(name="patched_daq_class")
+def patched_daq_class_fixture(
     mock_component_manager: unittest.mock.Mock,
 ) -> type[MccsDaqReceiver]:
     """

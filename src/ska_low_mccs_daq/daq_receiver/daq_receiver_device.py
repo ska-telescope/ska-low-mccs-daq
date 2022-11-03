@@ -9,6 +9,7 @@
 
 from __future__ import annotations  # allow forward references in type hints
 
+import json
 import logging
 from typing import Any, Optional, cast
 
@@ -55,6 +56,9 @@ class MccsDaqReceiver(SKABaseDevice):
     DaqId = device_property(
         dtype=int, doc="The ID of this DaqReceiver device.", default_value=0
     )
+    ConsumersToStart = device_property(
+        dtype=str, doc="The default consumer list to start.", default_value=""
+    )
 
     # ---------------
     # Initialisation
@@ -88,6 +92,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self.ReceiverInterface,
             self.ReceiverIp,
             self.ReceiverPorts,
+            self.ConsumersToStart,
             self.logger,
             self._max_workers,
             self._component_communication_state_changed,
@@ -100,6 +105,7 @@ class MccsDaqReceiver(SKABaseDevice):
 
         for (command_name, command_object) in [
             ("Configure", self.ConfigureCommand),
+            ("SetConsumers", self.SetConsumersCommand),
         ]:
             self.register_command_object(
                 command_name,
@@ -241,20 +247,36 @@ class MccsDaqReceiver(SKABaseDevice):
     # --------
     # Commands
     # --------
-    @command(dtype_out="DevVarLongStringArray")
-    def Start(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    def Start(self: MccsDaqReceiver, argin: str = "") -> DevVarLongStringArrayType:
         """
-        Start the DaqReceiver.
+        Start the DaqConsumers.
 
-        The DAQ receiver will begin watching the specified interface
+        The MccsDaqReceiver will begin watching the interface specified in the configuration
         and will start the configured consumers.
+
+        :param argin: JSON-formatted string representing the DaqModes and their corresponding callbacks to start, defaults to None.
 
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
         """
         handler = self.get_command_object("Start")
-        (result_code, message) = handler()
+        if argin != "":
+            params = json.loads(argin)
+
+        # Initialise temps and extract individual args from argin.
+        modes_to_start = None
+        callbacks = None
+        task_callback = None
+        if "modes_to_start" in params.keys():
+            modes_to_start = params["modes_to_start"]
+        if "callbacks" in params.keys():
+            callbacks = params["callbacks"]
+        if "task_callback" in params.keys():
+            task_callback = params["task_callback"]
+
+        (result_code, message) = handler(modes_to_start, callbacks, task_callback)
         return ([result_code], [message])
 
     @command(dtype_out="DevVarLongStringArray")
@@ -274,7 +296,7 @@ class MccsDaqReceiver(SKABaseDevice):
         return ([result_code], [message])
 
     class ConfigureCommand(FastCommand):
-        """Class for handling the ReadAddress(argin) command."""
+        """Class for handling the Configure(argin) command."""
 
         def __init__(  # type: ignore
             self: MccsDaqReceiver.ConfigureCommand,
@@ -318,6 +340,53 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
         """
         handler = self.get_command_object("Configure")
+        (result_code, message) = handler(argin)
+        return ([result_code], [message])
+
+    class SetConsumersCommand(FastCommand):
+        """Class for handling the SetConsumersCommand(argin) command."""
+
+        def __init__(  # type: ignore
+            self: MccsDaqReceiver.SetConsumersCommand,
+            component_manager,
+            logger: Optional[logging.Logger] = None,
+        ) -> None:
+            """
+            Initialise a new SetConsumersCommand instance.
+
+            :param component_manager: the device to which this command belongs.
+            :param logger: a logger for this command to use.
+            """
+            self._component_manager = component_manager
+            super().__init__(logger)
+
+        def do(  # type: ignore[override]
+            self: MccsDaqReceiver.SetConsumersCommand, argin: str
+        ) -> tuple[ResultCode, str]:
+            """
+            Implement MccsDaqReceiver.SetConsumersCommand command functionality.
+
+            :param argin: A configuration dictionary.
+            :return: A tuple containing a return code and a string
+                message indicating status. The message is for
+                information purpose only.
+            """
+            self._component_manager._set_consumers_to_start(argin)
+            return (ResultCode.OK, "SetConsumers command completed OK")
+
+    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    def SetConsumers(self: MccsDaqReceiver, argin: str) -> DevVarLongStringArrayType:
+        """
+        Set the default list of consumers to start.
+
+        Sets the default list of consumers to start when left unspecified in the `start_daq` command.
+
+        :param argin: The daq configuration to apply.
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+        """
+        handler = self.get_command_object("SetConsumers")
         (result_code, message) = handler(argin)
         return ([result_code], [message])
 

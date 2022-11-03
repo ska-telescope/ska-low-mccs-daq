@@ -17,6 +17,7 @@
                             "ReceiverPorts": [
                                 "4660"
                             ],
+                            "ConsumersToStart": ["DaqModes.INTEGRATED_CHANNEL_DATA"],
                             "LoggingLevelDefault": [
                                 "3"
                             ]
@@ -40,6 +41,7 @@
                             "ReceiverPorts": [
                                 "4661"
                             ],
+                            "ConsumersToStart": ["DaqModes.INTEGRATED_CHANNEL_DATA"],
                             "LoggingLevelDefault": [
                                 "3"
                             ]

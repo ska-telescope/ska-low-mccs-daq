@@ -26,6 +26,9 @@ server:
           - name: "ReceiverPorts"
             values:
             - "4660"
+          - name: "ConsumersToStart"
+            values:
+            - "DaqModes.INTEGRATED_CHANNEL_DATA"
           - name: "LoggingLevelDefault"
             values: 
             - "3"
@@ -47,6 +50,9 @@ server:
           - name: "ReceiverPorts"
             values:
             - "4661"
+          - name: "ConsumersToStart"
+            values:
+            - "DaqModes.INTEGRATED_CHANNEL_DATA"
           - name: "LoggingLevelDefault"
             values: 
             - "3"

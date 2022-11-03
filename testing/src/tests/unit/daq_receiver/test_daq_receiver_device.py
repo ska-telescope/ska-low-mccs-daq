@@ -8,13 +8,18 @@
 """This module contains the tests of the daq receiver device."""
 from __future__ import annotations
 
+import json
+from typing import Union
+
 import pytest
-from ska_control_model import HealthState
+from pydaq.daq_receiver_interface import DaqModes  # type: ignore
+from ska_control_model import HealthState, ResultCode
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.mock import MockChangeEventCallback
 from ska_low_mccs_common.testing.tango_harness import DeviceToLoadType, TangoHarness
 
 from ska_low_mccs_daq import MccsDaqReceiver
+from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
 
 
 @pytest.fixture()
@@ -97,3 +102,90 @@ class TestPatchedDaq:
             "proxy": MccsDeviceProxy,
             "patch": patched_daq_class,
         }
+
+    @pytest.mark.parametrize(
+        "daq_modes",
+        ([DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA], [1, 2, 0]),
+    )
+    def test_start_daq_device(
+        self: TestPatchedDaq,
+        device_under_test: MccsDeviceProxy,
+        mock_component_manager: DaqComponentManager,
+        daq_modes: list[Union[int, DaqModes]],
+    ) -> None:
+        """
+        Test for Start().
+
+        This tests that when we pass a valid json string to the `Start`
+        command that it is successfully parsed into the proper
+        parameters so that `start_daq` can be called.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param mock_component_manager: a mock component manager that has
+            been patched into the device under test
+        :param daq_modes: The DAQ consumers to start.
+        """
+        cbs = ["raw_data_cb", "beam_data_cb"]
+        tsk_cb = "tsk_cb"
+        argin = {
+            "modes_to_start": daq_modes,
+            "callbacks": cbs,
+            "task_callback": tsk_cb,
+        }
+        [result_code], [response] = device_under_test.Start(json.dumps(argin))
+
+        assert result_code == ResultCode.QUEUED
+        assert "Start" in response.split("_")[-1]
+
+        args = mock_component_manager.start_daq.get_next_call()  # type: ignore[attr-defined]
+        called_daq_modes = args[0][0]
+        called_cbs = args[0][1]
+        called_tsk_cb = args[0][2]
+
+        assert called_daq_modes == daq_modes
+        assert called_cbs == cbs
+        assert called_tsk_cb == tsk_cb
+
+    @pytest.mark.parametrize(
+        ("consumer_list"),
+        (
+            "DaqModes.RAW_DATA",
+            "DaqModes.CHANNEL_DATA",
+            "DaqModes.BEAM_DATA",
+            "DaqModes.CONTINUOUS_CHANNEL_DATA",
+            "DaqModes.INTEGRATED_BEAM_DATA",
+            "DaqModes.INTEGRATED_CHANNEL_DATA",
+            "DaqModes.STATION_BEAM_DATA",
+            "DaqModes.CORRELATOR_DATA",
+            "DaqModes.ANTENNA_BUFFER",
+            "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA, DaqModes.INTEGRATED_CHANNEL_DATA",
+        ),
+    )
+    def test_set_consumers_device(
+        self: TestPatchedDaq,
+        device_under_test: MccsDeviceProxy,
+        mock_component_manager: DaqComponentManager,
+        consumer_list: list[Union[int, DaqModes]],
+    ) -> None:
+        """
+        Test for SetConsumers().
+
+        This tests that when we pass a valid string to the `SetConsumers`
+        command that it is successfully passed to the component manager.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param mock_component_manager: a mock component manager that has
+            been patched into the device under test
+        :param consumer_list: A comma separated list of consumers to start.
+        """
+        [result_code], [response] = device_under_test.SetConsumers(consumer_list)
+        assert result_code == ResultCode.OK
+        assert response == "SetConsumers command completed OK"
+
+        # Get the args for the next call to set consumers and assert it's what we expect.
+        args = mock_component_manager._set_consumers_to_start.get_next_call()  # type: ignore[attr-defined]
+        assert consumer_list == args[0][0]
