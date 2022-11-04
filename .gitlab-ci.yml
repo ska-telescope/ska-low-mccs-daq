@@ -22,7 +22,7 @@ oci-image-build:
   script:
     - make oci-build-all CAR_OCI_REGISTRY_HOST=${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}
   after_script:
-    - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:0.1.0-dev.c${CI_COMMIT_SHORT_SHA}")
+    - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:0.1.1-dev.c${CI_COMMIT_SHORT_SHA}")
     - docker cp -a ${CONTAINER_ID}:/opt/aavs ${CI_PROJECT_DIR}/aavs
     - docker rm ${CONTAINER_ID}
   artifacts:
