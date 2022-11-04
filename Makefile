@@ -6,6 +6,8 @@
 
 PROJECT = ska-low-mccs-daq
 
+HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq
+
 PYTHON_SWITCHES_FOR_ISORT = --skip-glob=*/__init__.py
 PYTHON_SWITCHES_FOR_BLACK = --line-length 88
 PYTHON_TEST_FILE = testing/src/tests
