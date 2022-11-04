@@ -2,6 +2,10 @@
 
 ## unrelease
 
+## 0.1.1
+
+* MCCS-1177 add helm chart option
+
 ## 0.1.0
 
 * LOW-379 Expose device configurations
