@@ -1,61 +1,40 @@
 name: "daq-receiver-{{.Release.Name}}"
 function: ska-low-mccs-daq-daqreceiver
 domain: ska-low-mccs-daq
-instances: ["daqreceiver-001", "daqreceiver-002"]
-entrypoints:
-  - name: "daqreceiver.MccsDaqReceiver"
-    path: "/app/src/ska_low_mccs_daq/daq_receiver/daq_receiver_device.py"
-server: 
+instances:
+{{- range $device := .Values.deviceServers.daqreceiver.devices }}
+  - "{{ $device.name }}"
+{{- end }}
+command: "MccsDaqReceiver"
+server:
   name: "MccsDaqReceiver"
   instances:
-    - name: "daqreceiver-001"
+    {{- range $index, $device := .Values.deviceServers.daqreceiver.devices }}
+    - name: "{{ $device.name }}"
       classes:
       - name: "MccsDaqReceiver"
         devices:
-        - name: "low-mccs-daq/daqreceiver/001"
+        - name: "{{ $device.device_name }}"
           properties:
           - name: "DaqId"
             values:
-            - "1"
+            - "{{ coalesce $device.daq_id ( add 1 $index ) | toString }}"
           - name: "ReceiverInterface"
             values:
-            - "eth0"
+            - {{ coalesce $device.receiver_interface "eth0" }}
           - name: "ReceiverIp"
             values:
-            - "10.0.10.150"
-          - name: "ReceiverPorts"
+            - "{{ $device.receiver_ip }}"
+          - name: "ReceiverPort"
             values:
-            - "4660"
+            - "{{ coalesce $device.receiver_port 4660 | toString }}"
           - name: "ConsumersToStart"
             values:
             - "DaqModes.INTEGRATED_CHANNEL_DATA"
           - name: "LoggingLevelDefault"
             values: 
-            - "3"
-    - name: "daqreceiver-002"
-      classes:
-      - name: "MccsDaqReceiver"
-        devices:
-        - name: "low-mccs-daq/daqreceiver/002"
-          properties:
-          - name: "DaqId"
-            values:
-            - "2"
-          - name: "ReceiverInterface"
-            values:
-            - "eth0"
-          - name: "ReceiverIp"
-            values:
-            - "10.0.10.151"
-          - name: "ReceiverPorts"
-            values:
-            - "4661"
-          - name: "ConsumersToStart"
-            values:
-            - "DaqModes.INTEGRATED_CHANNEL_DATA"
-          - name: "LoggingLevelDefault"
-            values: 
-            - "3"
+            - "{{ coalesce $device.logging_level_default 3 | toString }}"
+    {{- end }} # devices
 depends_on:
   - device: sys/database/2
 image:
