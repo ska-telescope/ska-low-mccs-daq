@@ -36,5 +36,5 @@ dependencies:
   repository: https://artefact.skao.int/repository/helm-internal
   condition: ska-taranta-auth.enabled
 - name: ska-tango-util
-  version: 0.3.23
+  version: 0.3.24
   repository: file://../ska-tango-util
