@@ -2,8 +2,8 @@ apiVersion: v2
 description: A Helm chart library of utilities for TANGO deployents
 name: ska-tango-util
 type: library
-appVersion: 0.3.24
-version: 0.3.24
+appVersion: 0.1.0-dev.cc4ce5d14
+version: 0.1.0-dev.cc4ce5d14
 icon: https://www.skatelescope.org/wp-content/uploads/2016/07/09545_NEW_LOGO_2014.png
 maintainers:
 - name: Matteo Di Carlo
