@@ -89,10 +89,21 @@ securityContext:
 
 # Default ska-low-mccs-daq device server instances
 deviceServers:
-  daq-receivers:
-    # daq instances have to be 0-padded to three digits
-    instances: ["daqreceiver-001", "daqreceiver-002"]
+  daqreceiver:
     file: "data/daq-receiver.yaml"
+    devices:
+      - name: daqreceiver-001
+        device_name: low-mccs-daq/daqreceiver/001  # mandatory
+        daq_id: 1  # optional: defaults to position in this list
+        receiver_interface: eth0  # optional: defaults to "eth0"
+        receiver_ip: "10.0.10.150"  # mandatory
+        receiver_port: 4660  # optional: defaults to 4660
+      - name: daqreceiver-002
+        device_name: low-mccs-daq/daqreceiver/002  # mandatory
+        daq_id: 2  # optional: defaults to position in this list
+        receiver_interface: eth0  # optional: defaults to "eth0"
+        receiver_ip: "10.0.10.151"  # mandatory
+        receiver_port: 4661  # optional: defaults to 4660
 
 nodeSelector: {}
 
