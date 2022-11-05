@@ -44,7 +44,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     print(tango.utils.info())
 
 
-with open("testing/testbeds.yaml", "r") as stream:
+with open("testing/testbeds.yaml", "r", encoding="utf-8") as stream:
     _testbeds: dict[str, set[str]] = yaml.safe_load(stream)
 
 
@@ -198,8 +198,6 @@ def tango_harness_factory_fixture(
         within the lightweight test context provided by
         :py:class:`~ska_low_mccs_common.testing.tango_harness.TestContextTangoHarness`.
         """
-
-        pass
 
     testbed = request.config.getoption("--testbed")
 

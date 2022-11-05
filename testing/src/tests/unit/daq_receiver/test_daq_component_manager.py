@@ -68,7 +68,7 @@ class TestDaqComponentManager:
             [DaqModes.INTEGRATED_BEAM_DATA],
             [DaqModes.INTEGRATED_CHANNEL_DATA],
             [DaqModes.STATION_BEAM_DATA],
-            # [DaqModes.CORRELATOR_DATA],                # Not compiled with correlator currently.
+            # [DaqModes.CORRELATOR_DATA],  # Not compiled with correlator currently.
             [DaqModes.ANTENNA_BUFFER],
             [DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA],
             [1, 2, 0],
@@ -128,7 +128,8 @@ class TestDaqComponentManager:
         daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
 
         for mode in daq_modes:
-            # If we're using ints instead of DaqModes make the conversion so we can check the consumer.
+            # If we're using ints instead of DaqModes make the conversion so we
+            # can check the consumer.
             mode_to_check = DaqModes(mode)
             assert daq_component_manager.daq_instance._running_consumers[mode_to_check]
 
@@ -145,7 +146,8 @@ class TestDaqComponentManager:
         daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
 
         for mode in daq_modes:
-            # If we're using ints instead of DaqModes make the conversion so we can check the consumer.
+            # If we're using ints instead of DaqModes make the conversion so we
+            # can check the consumer.
             mode_to_check = DaqModes(mode)
             assert not daq_component_manager.daq_instance._running_consumers[
                 mode_to_check
@@ -161,14 +163,16 @@ class TestDaqComponentManager:
         """
         Test that an incorrect number of callbacks is handled correctly.
 
-        If len(callbacks) != len(daq_modes) then we expect callbacks to be set to None and for a warning message to be issued.
+        If len(callbacks) != len(daq_modes) then we expect callbacks to be set
+        to None and for a warning message to be issued.
 
         :param daq_component_manager: the daq receiver component manager
             under test.
         :param communication_state_changed_callback: callback to be
             called when the status of the communications channel between
             the component manager and its component changes
-        :param num_callbacks: A modifier to apply to the number of callbacks so that there are more or less than required.
+        :param num_callbacks: A modifier to apply to the number of callbacks so
+            that there are more or less than required.
         """
         # Check create_daq has given us a receiver.
         assert hasattr(daq_component_manager, "daq_instance")
@@ -188,7 +192,8 @@ class TestDaqComponentManager:
 
         # Start DAQ and check our consumer is running.
         daq_task_callback = MockCallable()
-        # Configure callbacks so we have either one more or less than we should. Cast for Mypy
+        # Configure callbacks so we have either one more or less than we should.
+        # Cast for Mypy
         data_received_callback = (num_callbacks + len(daq_modes)) * [
             cast(Callable, MockCallable())
         ]
@@ -203,16 +208,17 @@ class TestDaqComponentManager:
 
         # Assert that we see the warning message.
         expected_response = f"""An incorrect number of callbacks was passed to `start_daq`!
-                There must be exactly one callback per consumer!
-                CALLBACKS ARE BEING IGNORED!
-                Number of consumers specified: {len(daq_modes)}
-                Number of callbacks provided: {len(data_received_callback)}"""
+            There must be exactly one callback per consumer!
+            CALLBACKS ARE BEING IGNORED!
+            Number of consumers specified: {len(daq_modes)}
+            Number of callbacks provided: {len(data_received_callback)}"""
         daq_task_callback.assert_next_call(message=expected_response)
 
         daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
 
         for mode in daq_modes:
-            # If we're using ints instead of DaqModes make the conversion so we can check the consumer.
+            # If we're using ints instead of DaqModes make the conversion so we
+            # can check the consumer.
             mode_to_check = DaqModes(mode)
             assert daq_component_manager.daq_instance._running_consumers[mode_to_check]
 
@@ -229,7 +235,8 @@ class TestDaqComponentManager:
         daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
 
         for mode in daq_modes:
-            # If we're using ints instead of DaqModes make the conversion so we can check the consumer.
+            # If we're using ints instead of DaqModes make the conversion so we
+            # can check the consumer.
             mode_to_check = DaqModes(mode)
             assert not daq_component_manager.daq_instance._running_consumers[
                 mode_to_check
@@ -249,7 +256,10 @@ class TestDaqComponentManager:
             ("DaqModes.ANTENNA_BUFFER", [DaqModes.ANTENNA_BUFFER]),
             ("", [DaqModes.INTEGRATED_CHANNEL_DATA]),  # Default behaviour.
             (
-                "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA, DaqModes.INTEGRATED_CHANNEL_DATA",
+                (
+                    "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
+                    " DaqModes.INTEGRATED_CHANNEL_DATA"
+                ),
                 [
                     DaqModes.INTEGRATED_BEAM_DATA,
                     DaqModes.ANTENNA_BUFFER,
@@ -268,13 +278,14 @@ class TestDaqComponentManager:
         """
         Test `_consumers_to_start` can be set and fetched correctly.
 
-        Test that when we set consumers via the `_set_consumers_to_start` method that the
-            `_consumers_to_start` attribute is set to the proper value.
+        Test that when we set consumers via the `_set_consumers_to_start` method that
+        the `_consumers_to_start` attribute is set to the proper value.
 
         :param daq_component_manager: the daq receiver component manager
             under test.
         :param consumer_list: A comma separated list of consumers to start.
-        :param daq_modes: The corresponding DaqModes we expect to be set by the string passed in.
+        :param daq_modes: The corresponding DaqModes we expect to be set by
+            the string passed in.
         """
         assert daq_component_manager._consumers_to_start is None
         daq_component_manager._set_consumers_to_start(consumer_list)

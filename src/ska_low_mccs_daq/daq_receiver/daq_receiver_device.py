@@ -24,7 +24,8 @@ from ska_tango_base.commands import (
 )
 from tango.server import command, device_property
 
-from ska_low_mccs_daq.daq_receiver import DaqComponentManager, DaqHealthModel
+from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
+from ska_low_mccs_daq.daq_receiver.daq_health_model import DaqHealthModel
 
 __all__ = ["MccsDaqReceiver", "main"]
 
@@ -63,6 +64,24 @@ class MccsDaqReceiver(SKABaseDevice):
     # ---------------
     # Initialisation
     # ---------------
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Initialise this device object.
+
+        :param args: positional args to the init
+        :param kwargs: keyword args to the init
+        """
+        # We aren't supposed to define initialisation methods for Tango
+        # devices; we are only supposed to define an `init_device` method. But
+        # we insist on doing so here, just so that we can define some
+        # attributes, thereby stopping the linters from complaining about
+        # "attribute-defined-outside-init" etc. We still need to make sure that
+        # `init_device` re-initialises any values defined in here.
+        super().__init__(*args, **kwargs)
+
+        self._health_state: HealthState = HealthState.UNKNOWN
+        self._health_model: DaqHealthModel
+
     def init_device(self: MccsDaqReceiver) -> None:
         """
         Initialise the device.
@@ -128,6 +147,7 @@ class MccsDaqReceiver(SKABaseDevice):
                 ),
             )
 
+    # pylint: disable=too-few-public-methods
     class InitCommand(DeviceInitCommand):
         """Implements device initialisation for the MccsDaqReceiver device."""
 
@@ -252,10 +272,11 @@ class MccsDaqReceiver(SKABaseDevice):
         """
         Start the DaqConsumers.
 
-        The MccsDaqReceiver will begin watching the interface specified in the configuration
-        and will start the configured consumers.
+        The MccsDaqReceiver will begin watching the interface specified in the
+        configuration and will start the configured consumers.
 
-        :param argin: JSON-formatted string representing the DaqModes and their corresponding callbacks to start, defaults to None.
+        :param argin: JSON-formatted string representing the DaqModes and their
+            corresponding callbacks to start, defaults to None.
 
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
@@ -293,6 +314,7 @@ class MccsDaqReceiver(SKABaseDevice):
         (result_code, message) = handler()
         return ([result_code], [message])
 
+    # pylint: disable=too-few-public-methods
     class ConfigureCommand(FastCommand):
         """Class for handling the Configure(argin) command."""
 
@@ -310,13 +332,16 @@ class MccsDaqReceiver(SKABaseDevice):
             self._component_manager = component_manager
             super().__init__(logger)
 
+        # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
-            self: MccsDaqReceiver.ConfigureCommand, argin: dict[str, Any]
+            self: MccsDaqReceiver.ConfigureCommand,
+            argin: dict[str, Any],
         ) -> tuple[ResultCode, str]:
             """
             Implement MccsDaqReceiver.ConfigureCommand command functionality.
 
             :param argin: A configuration dictionary.
+
             :return: A tuple containing a return code and a string
                 message indicating status. The message is for
                 information purpose only.
@@ -324,7 +349,8 @@ class MccsDaqReceiver(SKABaseDevice):
             self._component_manager.configure_daq(argin)
             return (ResultCode.OK, "Configure command completed OK")
 
-    # Args in might want to be changed depending on how we choose to configure the DAQ system.
+    # Args in might want to be changed depending on how we choose to
+    # configure the DAQ system.
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
     def Configure(self: MccsDaqReceiver, argin: str) -> DevVarLongStringArrayType:
         """
@@ -341,6 +367,7 @@ class MccsDaqReceiver(SKABaseDevice):
         (result_code, message) = handler(argin)
         return ([result_code], [message])
 
+    # pylint: disable=too-few-public-methods
     class SetConsumersCommand(FastCommand):
         """Class for handling the SetConsumersCommand(argin) command."""
 
@@ -358,6 +385,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self._component_manager = component_manager
             super().__init__(logger)
 
+        # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.SetConsumersCommand, argin: str
         ) -> tuple[ResultCode, str]:
@@ -377,7 +405,8 @@ class MccsDaqReceiver(SKABaseDevice):
         """
         Set the default list of consumers to start.
 
-        Sets the default list of consumers to start when left unspecified in the `start_daq` command.
+        Sets the default list of consumers to start when left unspecified in
+        the `start_daq` command.
 
         :param argin: The daq configuration to apply.
         :return: A tuple containing a return code and a string
