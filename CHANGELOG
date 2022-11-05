@@ -2,6 +2,10 @@
 
 ## unrelease
 
+## 0.1.2
+
+* update .gitlab-ci.yml
+
 ## 0.1.1
 
 * MCCS-1177 add helm chart option

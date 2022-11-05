@@ -80,7 +80,7 @@ low_mccs_daq:
   image:
     registry: artefact.skao.int
     image: ska-low-mccs-daq
-    tag: 0.1.0 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
+    tag: 0.1.2 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
     pullPolicy: IfNotPresent
 securityContext:
   capabilities:
