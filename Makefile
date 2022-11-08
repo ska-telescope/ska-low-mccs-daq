@@ -10,11 +10,11 @@ HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq ska-tango-util
 
 PYTHON_SWITCHES_FOR_ISORT = --skip-glob=*/__init__.py
 PYTHON_SWITCHES_FOR_BLACK = --line-length 88
-PYTHON_TEST_FILE = testing/src/tests
+PYTHON_TEST_FILE = tests
 PYTHON_VARS_AFTER_PYTEST = --forked
 
 ## Paths containing python to be formatted and linted
-PYTHON_LINT_TARGET = src/ska_low_mccs_daq testing/src/tests/
+PYTHON_LINT_TARGET = src/ska_low_mccs_daq tests/
 
 DOCS_SOURCEDIR=./docs/src
 DOCS_SPHINXOPTS= -n -W --keep-going
@@ -36,7 +36,7 @@ python-post-format:
 	$(PYTHON_RUNNER) docformatter -r -i --wrap-summaries 88 --wrap-descriptions 72 --pre-summary-newline $(PYTHON_LINT_TARGET)
 
 python-post-lint:
-	$(PYTHON_RUNNER) mypy --config-file mypy.ini src/ testing/src/
+	$(PYTHON_RUNNER) mypy --config-file mypy.ini src/ tests/
 
 docs-pre-build:
 	python3 -m pip install -r docs/requirements.txt

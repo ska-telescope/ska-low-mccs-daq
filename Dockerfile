@@ -3,8 +3,8 @@ FROM artefact.skao.int/ska-tango-images-pytango-runtime:9.3.19 AS runtime
 
 USER root
 
-RUN apt-get update && apt-get install ca-certificates -y
-RUN python3 -m pip install poetry
+#RUN apt-get update && apt-get install ca-certificates -y
+#RUN python3 -m pip install poetry
 RUN poetry config virtualenvs.create false
 
 COPY pyproject.toml poetry.lock* ./
