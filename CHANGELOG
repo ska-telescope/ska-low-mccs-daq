@@ -2,7 +2,21 @@
 
 ## unrelease
 
+## 0.1.2
+
+* update .gitlab-ci.yml
+
+## 0.1.1
+
+* MCCS-1177 add helm chart option
+
 ## 0.1.0
+
+* LOW-379 Expose device configurations
+* MCCS-1153 Add command to set default consumers to start.
+* MCCS-1094 "Implement BDD test for DAQ configuration"
+* MCCS-1152 Daq permissions workaround
+* MCCS-1078 Move MccsDaqReceiver device into its own repo.
 
 Initial release
 
