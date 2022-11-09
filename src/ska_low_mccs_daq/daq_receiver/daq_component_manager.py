@@ -303,8 +303,8 @@ class DaqComponentManager(MccsComponentManager):
                     "An incorrect number of callbacks was passed to `start_daq`!\n"
                     "There must be exactly one callback per consumer!"
                     "CALLBACKS ARE BEING IGNORED!\n"
-                    f"Number of consumers specified: {len(daq_modes)}\n"
-                    f"Number of callbacks provided: {len(data_received_callback)}"
+                    f"Number of consumers specified: {len(modes_to_start)}\n"
+                    f"Number of callbacks provided: {len(callbacks)}"
                 )
                 self.logger.warn(msg)
                 if task_callback:
