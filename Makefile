@@ -19,6 +19,8 @@ PYTHON_LINT_TARGET = src/ska_low_mccs_daq testing/src/tests/
 DOCS_SOURCEDIR=./docs/src
 DOCS_SPHINXOPTS= -n -W --keep-going
 
+export VERSION=$(shell . $(RELEASE_SUPPORT) ; RELEASE_CONTEXT_DIR=$(RELEASE_CONTEXT_DIR) setContextHelper; getVersion)
+
 # include makefile to pick up the standard Make targets, e.g., 'make build'
 include .make/oci.mk
 include .make/k8s.mk
