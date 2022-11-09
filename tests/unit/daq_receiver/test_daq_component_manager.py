@@ -207,11 +207,13 @@ class TestDaqComponentManager:
         daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
 
         # Assert that we see the warning message.
-        expected_response = f"""An incorrect number of callbacks was passed to `start_daq`!
-            There must be exactly one callback per consumer!
-            CALLBACKS ARE BEING IGNORED!
-            Number of consumers specified: {len(daq_modes)}
-            Number of callbacks provided: {len(data_received_callback)}"""
+        expected_response = (
+            "An incorrect number of callbacks was passed to `start_daq`!\n"
+            "There must be exactly one callback per consumer!"
+            "CALLBACKS ARE BEING IGNORED!\n"
+            f"Number of consumers specified: {len(daq_modes)}\n"
+            f"Number of callbacks provided: {len(data_received_callback)}"
+        )
         daq_task_callback.assert_next_call(message=expected_response)
 
         daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
