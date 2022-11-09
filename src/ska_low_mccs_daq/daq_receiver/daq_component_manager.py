@@ -299,11 +299,13 @@ class DaqComponentManager(MccsComponentManager):
             if len(modes_to_start) != len(callbacks):
                 # This will raise an IndexError if passed to DAQ.
                 # Ignoring callbacks is the same action DAQ would take.
-                msg = f"""An incorrect number of callbacks was passed to `start_daq`!
-                There must be exactly one callback per consumer!
-                CALLBACKS ARE BEING IGNORED!
-                Number of consumers specified: {len(modes_to_start)}
-                Number of callbacks provided: {len(callbacks)}"""
+                msg = (
+                    "An incorrect number of callbacks was passed to `start_daq`!\n"
+                    "There must be exactly one callback per consumer!"
+                    "CALLBACKS ARE BEING IGNORED!\n"
+                    f"Number of consumers specified: {len(daq_modes)}\n"
+                    f"Number of callbacks provided: {len(data_received_callback)}"
+                )
                 self.logger.warn(msg)
                 if task_callback:
                     task_callback(message=msg)
