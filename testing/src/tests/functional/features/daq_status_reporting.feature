@@ -12,7 +12,6 @@ Feature: Daq Status Reporting
     I want the MccsDaqReceiver to report its status,
     So that we know what state it is in.
 
-@xfail
 Scenario Outline: HealthState Transitions
     Given an MccsDaqReceiver
     And MccsDaqReceiver AdminMode is set to 'ONLINE'
@@ -32,7 +31,6 @@ Scenario Outline: HealthState Transitions
         |   'disabled'                  |   'set'               |   'FAILED'                |   'unset_fault_bit'       |   'UNKNOWN'           | 
 #       -----------------------------------------------------------------------------------------------------------------------------------------
 
-@xfail
 Scenario Outline: Consumers Starting Up
     Given an MccsDaqReceiver
     And MccsDaqReceiver AdminMode is set to 'ONLINE'
@@ -53,7 +51,6 @@ Scenario Outline: Consumers Starting Up
         |   'ANTENNA_BUFFER'            |          
 #       ---------------------------------
 
-@xfail
 Scenario: Consumers Stopping
     Given an MccsDaqReceiver
     And MccsDaqReceiver AdminMode is set to 'ONLINE'
@@ -63,7 +60,6 @@ Scenario: Consumers Stopping
     When 'stop_daq' is called
     Then consumer_status attribute shows no consumers are running
 
-@xfail
 Scenario Outline: Report Status
     Given an MccsDaqReceiver
     And the MccsDaqReceiver has a particular <configuration>
