@@ -30,6 +30,10 @@ oci-image-build:
     paths:
       - ${CI_PROJECT_DIR}/aavs
 
+k8s-test:
+  before_script:
+    - getcap /usr/bin/python3.10
+
   
 # This `python-test` job is wholesale copied from:
 # - project: 'ska-telescope/templates-repository'
