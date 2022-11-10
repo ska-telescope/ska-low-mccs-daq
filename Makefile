@@ -31,6 +31,8 @@ include .make/helm.mk
 # include your own private variables for custom deployment configuration
 -include PrivateRules.mak
 
+K8S_TEST_IMAGE_TO_TEST = artefact.skao.int/ska-tango-images-pytango-builder:9.3.32
+
 # Add this for typehints & static type checking
 python-post-format:
 	$(PYTHON_RUNNER) docformatter -r -i --wrap-summaries 88 --wrap-descriptions 72 --pre-summary-newline $(PYTHON_LINT_TARGET)
