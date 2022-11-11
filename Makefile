@@ -31,6 +31,8 @@ include .make/helm.mk
 # include your own private variables for custom deployment configuration
 -include PrivateRules.mak
 
+K8S_TEST_RUNNER_ADD_ARGS = --overrides='{"securityContext": {"capabilities": {"add": ["NET_RAW", "IPC_LOCK", "SYS_NICE", "SYS_ADMIN", "KILL", "SYS_TIME"]}}}'
+
 ifneq ($(strip $(CI_JOB_ID)),)
   K8S_TEST_IMAGE_TO_TEST = $(CI_REGISTRY_IMAGE)/$(NAME):$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
 endif
