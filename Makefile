@@ -31,7 +31,13 @@ include .make/helm.mk
 # include your own private variables for custom deployment configuration
 -include PrivateRules.mak
 
-K8S_TEST_IMAGE_TO_TEST = artefact.skao.int/ska-tango-images-pytango-builder:9.3.32
+ifneq ($(strip $(CI_JOB_ID)),)
+  K8S_TEST_IMAGE_TO_TEST = $(CI_REGISTRY_IMAGE)/$(NAME):$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
+endif
+
+ifeq ($(MAKECMDGOALS),k8s-test)
+PYTHON_VARS_AFTER_PYTEST += --testbed local
+endif
 
 # Add this for typehints & static type checking
 python-post-format:
