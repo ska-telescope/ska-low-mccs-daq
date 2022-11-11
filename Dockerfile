@@ -26,5 +26,5 @@ EXPOSE 4660/udp
 WORKDIR /app/
 
 RUN poetry install --only main
-RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
+#RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 USER tango
