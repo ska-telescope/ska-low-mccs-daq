@@ -138,7 +138,8 @@ class TestPatchedDaq:
         assert result_code == ResultCode.QUEUED
         assert "Start" in response.split("_")[-1]
 
-        args = mock_component_manager.start_daq.get_next_call()  # type: ignore[attr-defined]
+        mcmanager = mock_component_manager
+        args = mcmanager.start_daq.get_next_call()  # type: ignore[attr-defined]
         called_daq_modes = args[0][0]
         called_cbs = args[0][1]
 

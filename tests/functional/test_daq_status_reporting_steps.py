@@ -56,7 +56,8 @@ def daq_receiver_bdd(daq_receiver: MccsDeviceProxy) -> MccsDeviceProxy:
 
     :param daq_receiver: The daq_receiver fixture to use.
 
-    :return: A MccsDeviceProxy instance to MccsDaqReceiver stored in the target_fixture `daq_receiver_bdd`.
+    :return: A MccsDeviceProxy instance to MccsDaqReceiver stored in the target_fixture
+        `daq_receiver_bdd`.
     """
     return daq_receiver
 
@@ -89,7 +90,8 @@ def comms_are_in_state(
     this method checks that the daq receiver comms is in that state.
 
     :param communication_state: The communication state the device is expected to be in.
-    :param communication_state_changed_callback: Callback to be called when the device's communication state changes.
+    :param communication_state_changed_callback: Callback to be called when the device's
+        communication state changes.
     :param daq_component_manager: The component manager for the device under test.
     """
     pytest.xfail(reason="Not implemented yet")
@@ -101,7 +103,8 @@ def comms_are_in_state(
     assert communication_state in comms_map.keys()
     target_comms_state = comms_map[communication_state]
 
-    # Check if we're in the wrong comms state. If so call start/stop comms to get to the right state.
+    # Check if we're in the wrong comms state. If so call start/stop comms to get to
+    # the right state.
     if not (daq_component_manager.communication_state == target_comms_state):
         if communication_state == "disabled":
             daq_component_manager.stop_communicating()
@@ -172,17 +175,20 @@ def ensure_health_is_in_state(
     # Check HealthState and massage it into the proper state if necessary.
     current_health_state = daq_receiver_bdd.GetDaqHealth()
     if not (current_health_state == target_health_state):
-        # If we're here then we're in the wrong state. If that state is FAILED then clear the fault first.
+        # If we're here then we're in the wrong state. If that state is FAILED then
+        # clear the fault first.
         if current_health_state == HealthState.FAILED:
             daq_receiver_bdd.StateChangedCallback(json.dumps({"fault": False}))
 
-        # If we want to be in FAILED then we don't care where we came from. Call cb with fault.
+        # If we want to be in FAILED then we don't care where we came from.
+        # Call cb with fault.
         if target_health_state == HealthState.FAILED:
             daq_receiver_bdd.StateChangedCallback(json.dumps({"fault": True}))
         # Similarly to get to UNKNOWN we stop comms.
         elif target_health_state == HealthState.UNKNOWN:
             daq_component_manager.stop_communicating()
-        # To get to OK we clear fault and start comms. We've cleared the fault already so check if comms were established.
+        # To get to OK we clear fault and start comms. We've cleared the fault already
+        # so check if comms were established.
         elif (
             target_health_state == HealthState.OK
             and daq_component_manager.communication_state
@@ -252,7 +258,8 @@ def method_is_called(
         "establish_comms": [daq_component_manager.start_communicating],
         "unestablish_comms": [daq_component_manager.stop_communicating],
         "stop_daq": [daq_receiver_bdd.Stop],
-        # "daq_status": [daq_receiver_bdd.DaqStatus] # TODO: DaqStatus command needs implementing.
+        # "daq_status": [daq_receiver_bdd.DaqStatus]
+        # TODO: DaqStatus command needs implementing.
     }
     if method in method_map_args.keys():
         method_map_args[method][0](method_map_args[method][1])
@@ -291,7 +298,8 @@ def start_consumer(daq_receiver_bdd: MccsDeviceProxy, consumer: str) -> None:
     daq_mode = DaqModes[consumer]
     daq_receiver_bdd.Start(json.dumps({"modes_to_start": [daq_mode]}))
     # Race condition here waiting for consumers to start.
-    # TODO: Check the task_callback for Start and wait here until it finishes rather than sleep.
+    # TODO: Check the task_callback for Start and wait here until it finishes rather
+    # than sleep.
     # time.sleep(3)
 
 
@@ -416,4 +424,5 @@ def daq_has_specific_status(
     # - List of ports being monitored
     # - Interface being monitored.
     # - Receiver uptime. (Will require keeping track in MccsDaqReceiver somewhere)
-    # - Other misc data stuff eventually (packets rec/tx, time since last pkt, rough data rates, disk space etcetc)
+    # - Other misc data stuff eventually (packets rec/tx, time since last pkt, rough
+    # data rates, disk space etcetc)
