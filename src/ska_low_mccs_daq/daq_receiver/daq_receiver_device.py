@@ -268,15 +268,13 @@ class MccsDaqReceiver(SKABaseDevice):
         # Initialise temps and extract individual args from argin.
         modes_to_start = None
         callbacks = None
-        task_callback = None
+
         if "modes_to_start" in params.keys():
             modes_to_start = params["modes_to_start"]
         if "callbacks" in params.keys():
             callbacks = params["callbacks"]
-        if "task_callback" in params.keys():
-            task_callback = params["task_callback"]
 
-        (result_code, message) = handler(modes_to_start, callbacks, task_callback)
+        (result_code, message) = handler(modes_to_start, callbacks)
         return ([result_code], [message])
 
     @command(dtype_out="DevVarLongStringArray")

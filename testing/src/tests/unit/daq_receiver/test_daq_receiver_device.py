@@ -128,11 +128,9 @@ class TestPatchedDaq:
         :param daq_modes: The DAQ consumers to start.
         """
         cbs = ["raw_data_cb", "beam_data_cb"]
-        tsk_cb = "tsk_cb"
         argin = {
             "modes_to_start": daq_modes,
             "callbacks": cbs,
-            "task_callback": tsk_cb,
         }
         [result_code], [response] = device_under_test.Start(json.dumps(argin))
 
@@ -142,11 +140,9 @@ class TestPatchedDaq:
         args = mock_component_manager.start_daq.get_next_call()  # type: ignore[attr-defined]
         called_daq_modes = args[0][0]
         called_cbs = args[0][1]
-        called_tsk_cb = args[0][2]
 
         assert called_daq_modes == daq_modes
         assert called_cbs == cbs
-        assert called_tsk_cb == tsk_cb
 
     @pytest.mark.parametrize(
         ("consumer_list"),
