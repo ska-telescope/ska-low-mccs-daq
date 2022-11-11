@@ -90,5 +90,5 @@ source = ["ska_low_mccs_daq"]
 show_missing = false
 
 [build-system]
-requires = ["poetry-core>=1.1.13"]
+requires = ["poetry-core>=1.2.0"]
 build-backend = "poetry.core.masonry.api"
