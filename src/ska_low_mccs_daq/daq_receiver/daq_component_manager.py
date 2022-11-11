@@ -279,11 +279,9 @@ class DaqComponentManager(MccsComponentManager):
         """
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
-
         # Retrieve default list of modes to start if not provided.
         if modes_to_start is None:
             modes_to_start = self._get_consumers_to_start()
-
         # Check that if we were passed callbacks that we have one for each consumer.
         # If we do not then ignore callbacks.
         if callbacks is not None:
@@ -319,7 +317,6 @@ class DaqComponentManager(MccsComponentManager):
             )
         )
         self.daq_instance.start_daq(modes_to_start, callbacks)
-
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
 
