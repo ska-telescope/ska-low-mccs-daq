@@ -45,8 +45,9 @@ class MccsDaqReceiver(SKABaseDevice):
     )
     ReceiverIp = device_property(
         dtype=str,
-        mandatory=True,
+        mandatory=False,
         doc="The IP address this DAQ receiver is monitoring.",
+        default_value="",
     )
     ReceiverPorts = device_property(
         dtype=str,
@@ -262,8 +263,7 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
         """
         handler = self.get_command_object("Start")
-        if argin != "":
-            params = json.loads(argin)
+        params = json.loads(argin) if argin else {}
 
         # Initialise temps and extract individual args from argin.
         modes_to_start = None
@@ -338,7 +338,9 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
         """
         handler = self.get_command_object("Configure")
-        (result_code, message) = handler(argin)
+        params = json.loads(argin) if argin else {}
+
+        (result_code, message) = handler(params)
         return ([result_code], [message])
 
     class SetConsumersCommand(FastCommand):
