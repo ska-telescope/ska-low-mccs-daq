@@ -287,13 +287,13 @@ class MccsDaqReceiver(SKABaseDevice):
             params = json.loads(argin)
 
         # Initialise temps and extract individual args from argin.
-        modes_to_start = None
-        callbacks = None
+        # modes_to_start = None
+        # callbacks = None
 
         if "modes_to_start" in params:
-            modes_to_start = params["modes_to_start"]
+            modes_to_start = params.get("modes_to_start", None)
         if "callbacks" in params:
-            callbacks = params["callbacks"]
+            callbacks = params.get("callbacks", None)
 
         (result_code, message) = handler(modes_to_start, callbacks)
         return ([result_code], [message])
