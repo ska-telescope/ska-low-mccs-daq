@@ -21,7 +21,7 @@ DOCS_SPHINXOPTS= -n -W --keep-going
 
 # include makefile to pick up the standard Make targets, e.g., 'make build'
 include .make/oci.mk
-include .make/k8s.mk
+#include .make/k8s.mk
 include .make/python.mk
 include .make/raw.mk
 include .make/base.mk
@@ -38,7 +38,7 @@ ifneq ($(strip $(CI_JOB_ID)),)
 endif
 
 ifeq ($(MAKECMDGOALS),k8s-test)
-#PYTHON_VARS_AFTER_PYTEST += --testbed local
+PYTHON_VARS_AFTER_PYTEST += --testbed local
 PYTHON_TEST_FILE = tests/functional
 endif
 
