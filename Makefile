@@ -38,7 +38,8 @@ ifneq ($(strip $(CI_JOB_ID)),)
 endif
 
 ifeq ($(MAKECMDGOALS),k8s-test)
-PYTHON_VARS_AFTER_PYTEST += --testbed local
+#PYTHON_VARS_AFTER_PYTEST += --testbed local
+PYTHON_TEST_FILE = tests/functional
 endif
 
 # Add this for typehints & static type checking
