@@ -290,9 +290,9 @@ class MccsDaqReceiver(SKABaseDevice):
         modes_to_start = None
         callbacks = None
 
-        if "modes_to_start" in params.keys():
+        if "modes_to_start" in params:
             modes_to_start = params["modes_to_start"]
-        if "callbacks" in params.keys():
+        if "callbacks" in params:
             callbacks = params["callbacks"]
 
         (result_code, message) = handler(modes_to_start, callbacks)
