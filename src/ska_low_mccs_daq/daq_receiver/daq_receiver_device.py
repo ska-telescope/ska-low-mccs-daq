@@ -45,8 +45,9 @@ class MccsDaqReceiver(SKABaseDevice):
     )
     ReceiverIp = device_property(
         dtype=str,
-        mandatory=True,
+        mandatory=False,
         doc="The IP address this DAQ receiver is monitoring.",
+        default_value="",
     )
     ReceiverPorts = device_property(
         dtype=str,
