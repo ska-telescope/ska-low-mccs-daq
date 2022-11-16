@@ -116,6 +116,7 @@ class TpmTestFirmware(FirmwareBlock):
         self._spead_gen = []
         self._fortyg = None
         self._sysmon = None
+        self._clock_monitor = None
         self._beamf = None
         self._testgen = None
         self._patterngen = None
@@ -141,6 +142,7 @@ class TpmTestFirmware(FirmwareBlock):
             self.board.load_plugin("TpmFpga2Fpga", core=1),
         ]
         self._sysmon = self.board.load_plugin("TpmSysmon", device=self._device)
+        self._clock_monitor = self.board.load_plugin("TpmClockmon", device=self._device)
         if self._dsp_core:
             if self.tile_beamformer_implemented:
                 self._beamf = self.board.load_plugin("BeamfFD", device=self._device)
