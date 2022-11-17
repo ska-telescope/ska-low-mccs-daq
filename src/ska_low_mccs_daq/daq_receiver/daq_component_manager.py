@@ -260,7 +260,7 @@ class DaqComponentManager(MccsComponentManager):
     @check_communicating
     def _start_daq(
         self: DaqComponentManager,
-        modes_to_start: Optional[list[Union[int, DaqModes]]] = None,
+        modes_to_start: Optional[Union[list[int], list[DaqModes]]] = None,
         callbacks: Optional[list[Callable]] = None,
         task_callback: Optional[Callable] = None,
         task_abort_event: Union[threading.Event, None] = None,
@@ -309,17 +309,17 @@ class DaqComponentManager(MccsComponentManager):
                     status=TaskStatus.FAILED,
                     message=f"Value Error! Invalid DaqMode supplied! {e}",
                 )
-
-        self.logger.info(
-            (
-                f"Starting DAQ. {self.daq_instance._config['receiver_ip']} "
-                f"Listening on interface: {self.daq_instance._config['receiver_interface']}:"
-                f"{self.daq_instance._config['receiver_ports']}"
+        else:
+            self.logger.info(
+                (
+                    f"Starting DAQ. {self.daq_instance._config['receiver_ip']} "
+                    f"Listening on interface: {self.daq_instance._config['receiver_interface']}:"
+                    f"{self.daq_instance._config['receiver_ports']}"
+                )
             )
-        )
-        self.daq_instance.start_daq(modes_to_start, callbacks)
-        if task_callback:
-            task_callback(status=TaskStatus.COMPLETED)
+            self.daq_instance.start_daq(modes_to_start, callbacks)
+            if task_callback:
+                task_callback(status=TaskStatus.COMPLETED)
 
     def stop_daq(
         self: DaqComponentManager,
