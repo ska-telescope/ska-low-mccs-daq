@@ -12,13 +12,13 @@ import json
 import time
 
 import pytest
+from pydaq.daq_receiver_interface import DaqModes  # type: ignore[import]
 from pytest_bdd import given, parsers, scenarios, then, when
 from ska_control_model import AdminMode, CommunicationStatus, HealthState
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.mock import MockCallable
 from ska_low_mccs_common.testing.tango_harness import DevicesToLoadType
 
-from pydaq.daq_receiver_interface import DaqModes  # type: ignore[import]
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager, MccsDaqReceiver
 
 

@@ -12,10 +12,9 @@ import logging
 import threading
 from typing import Any, Callable, Optional, Union
 
+from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 from ska_control_model import CommunicationStatus, TaskStatus
 from ska_low_mccs_common.component import MccsComponentManager, check_communicating
-
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 
 __all__ = ["DaqComponentManager"]
 
@@ -63,7 +62,7 @@ class DaqComponentManager(MccsComponentManager):
 
         self._daq_id = daq_id
         self._receiver_interface = receiver_interface
-        self._receiver_ip = receiver_ip
+        self._receiver_ip = receiver_ip.encode()
         self._receiver_ports = receiver_ports
         self._set_consumers_to_start(consumers_to_start)
         self._create_daq_instance()
@@ -122,7 +121,7 @@ class DaqComponentManager(MccsComponentManager):
         # so that we don't store and (try to) apply an unusable configuration.
 
         daq_config = {
-            "nof_tiles": 1,
+            "nof_tiles": 2,
             "receiver_ports": self._receiver_ports,
             "receiver_interface": self._receiver_interface,
             "receiver_ip": self._receiver_ip,
@@ -260,7 +259,7 @@ class DaqComponentManager(MccsComponentManager):
     @check_communicating
     def _start_daq(
         self: DaqComponentManager,
-        modes_to_start: Optional[Union[list[int], list[DaqModes]]] = None,
+        modes_to_start: Optional[list[Union[int, DaqModes]]] = None,
         callbacks: Optional[list[Callable]] = None,
         task_callback: Optional[Callable] = None,
         task_abort_event: Union[threading.Event, None] = None,
@@ -309,17 +308,17 @@ class DaqComponentManager(MccsComponentManager):
                     status=TaskStatus.FAILED,
                     message=f"Value Error! Invalid DaqMode supplied! {e}",
                 )
-        else:
-            self.logger.info(
-                (
-                    f"Starting DAQ. {self.daq_instance._config['receiver_ip']} "
-                    f"Listening on interface: {self.daq_instance._config['receiver_interface']}:"
-                    f"{self.daq_instance._config['receiver_ports']}"
-                )
+
+        self.logger.info(
+            (
+                f"Starting DAQ. {self.daq_instance._config['receiver_ip']} "
+                f"Listening on interface: {self.daq_instance._config['receiver_interface']}:"
+                f"{self.daq_instance._config['receiver_ports']}"
             )
-            self.daq_instance.start_daq(modes_to_start, callbacks)
-            if task_callback:
-                task_callback(status=TaskStatus.COMPLETED)
+        )
+        self.daq_instance.start_daq(modes_to_start, callbacks)
+        if task_callback:
+            task_callback(status=TaskStatus.COMPLETED)
 
     def stop_daq(
         self: DaqComponentManager,

@@ -12,10 +12,10 @@ import time
 from typing import Callable, Union, cast
 
 import pytest
+from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 from ska_control_model import CommunicationStatus, TaskStatus
 from ska_low_mccs_common.testing.mock import MockCallable
 
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 
 
@@ -81,7 +81,7 @@ class TestDaqComponentManager:
         daq_component_manager: DaqComponentManager,
         communication_state_changed_callback: MockCallable,
         acquisition_duration: int,
-        daq_modes: Union[list[int], list[DaqModes]],
+        daq_modes: list[Union[int, DaqModes]],
     ) -> None:
         """
         Test basic DAQ functionality.
@@ -101,8 +101,6 @@ class TestDaqComponentManager:
         # Check create_daq has given us a receiver.
         assert hasattr(daq_component_manager, "daq_instance")
         assert isinstance(daq_component_manager.daq_instance, DaqReceiver)
-
-        daq_modes = [DaqModes(mode) for mode in daq_modes]
 
         daq_config = {
             "acquisition_duration": acquisition_duration,
