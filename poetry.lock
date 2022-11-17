@@ -1,16 +1,4 @@
 [[package]]
-name = "aavs-system"
-version = "1.1"
-description = "AAVS Software"
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.source]
-type = "file"
-url = "aavs_system-1.1-py3-none-any.whl"
-
-[[package]]
 name = "astroid"
 version = "2.12.12"
 description = "An abstract syntax tree for Python with inference support."

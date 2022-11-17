@@ -13,7 +13,6 @@ name = 'ska-nexus'
 url = 'https://artefact.skao.int/repository/pypi-internal/simple'
 
 [tool.poetry.dependencies]
-aavs_system = {path = "./aavs_system-1.1-py3-none-any.whl"}
 python = "~3.10"
 astropy = "^5.0.4"
 backoff = "^2.1.2"
