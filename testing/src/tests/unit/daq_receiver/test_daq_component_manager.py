@@ -81,7 +81,7 @@ class TestDaqComponentManager:
         daq_component_manager: DaqComponentManager,
         communication_state_changed_callback: MockCallable,
         acquisition_duration: int,
-        daq_modes: list[Union[int, DaqModes]],
+        daq_modes: Union[list[int], list[DaqModes]],
     ) -> None:
         """
         Test basic DAQ functionality.
@@ -101,6 +101,8 @@ class TestDaqComponentManager:
         # Check create_daq has given us a receiver.
         assert hasattr(daq_component_manager, "daq_instance")
         assert isinstance(daq_component_manager.daq_instance, DaqReceiver)
+
+        daq_modes = [DaqModes(mode) for mode in daq_modes]
 
         daq_config = {
             "acquisition_duration": acquisition_duration,
