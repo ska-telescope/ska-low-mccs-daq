@@ -1099,6 +1099,8 @@ class DaqReceiver:
         """ Generate instance configuration object
         :param configuration: Configuration parameters  """
 
+        logging.info(f"configuration: '{json.dumps(configuration)}'")
+
         # Check whether configuration object is a dictionary
         import optparse
         if configuration.__class__ == optparse.Values:
