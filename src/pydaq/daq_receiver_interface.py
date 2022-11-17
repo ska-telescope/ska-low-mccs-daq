@@ -1099,7 +1099,7 @@ class DaqReceiver:
         """ Generate instance configuration object
         :param configuration: Configuration parameters  """
 
-        logging.info(f"configuration: '{json.dumps(configuration)}'")
+        logging.info(f"configuration: '{configuration}'")
 
         # Check whether configuration object is a dictionary
         import optparse
@@ -1135,6 +1135,8 @@ class DaqReceiver:
             except IOError as e:
                 logging.error("Interface does not exist or could not get it's IP: {}".format(e))
                 exit()
+        else:
+            self._config['receiver_ip'] = self._config['receiver_ip'].encode()
 
         # Check if filesize restriction is set
         if self._config['max_filesize'] is not None:
@@ -1152,6 +1154,8 @@ class DaqReceiver:
 
         # Set metadata
         self._config['observation_metadata'] = metadata
+
+        logging.info(f"final configuration: '{self._config}'")
 
     # ------------------------------------ HELPER FUNCTIONS ----------------------------------
 
