@@ -121,6 +121,7 @@ class DaqComponentManager(MccsComponentManager):
         # so that we don't store and (try to) apply an unusable configuration.
 
         daq_config = {
+            "receiver_frame_size": 9000,
             "nof_tiles": 2,
             "receiver_ports": self._receiver_ports,
             "receiver_interface": self._receiver_interface,
