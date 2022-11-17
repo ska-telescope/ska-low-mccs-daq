@@ -111,7 +111,7 @@ class DaqReceiver:
                         "receiver_ports": "4660",
                         "receiver_interface": "eth0",
                         "receiver_ip": "",
-                        "receiver_frame_size": 8500,
+                        "receiver_frame_size": 9000,
                         "receiver_frames_per_block": 32,
                         "receiver_nof_blocks": 256,
                         "receiver_nof_threads": 1,
