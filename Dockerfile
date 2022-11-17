@@ -20,6 +20,8 @@ WORKDIR /app/aavs-system/
 RUN DEBIAN_FRONTEND=noninteractive TZ="United_Kingdom/London" apt-get -y install tzdata
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 
+RUN pip uninstall -y aavs_system
+
 # Expose the DAQ port to UDP traffic.
 EXPOSE 4660/udp
 
