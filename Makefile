@@ -36,7 +36,7 @@ python-post-format:
 	$(PYTHON_RUNNER) docformatter -r -i --wrap-summaries 88 --wrap-descriptions 72 --pre-summary-newline $(PYTHON_LINT_TARGET)
 
 python-post-lint:
-	$(PYTHON_RUNNER) mypy --config-file mypy.ini src/ testing/src/
+	$(PYTHON_RUNNER) mypy --config-file mypy.ini src/ska_low_mccs_daq testing/src/
 
 docs-pre-build:
 	python3 -m pip install -r docs/requirements.txt
