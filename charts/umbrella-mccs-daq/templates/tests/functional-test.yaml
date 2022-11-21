@@ -74,7 +74,7 @@ spec:
       - /bin/bash
       - "-ce"
       - |
-        pytest --testbed local testing/src/tests/functional --junitxml=/reports/functional-test.xml --cucumberjson=/reports/cucumber.json &> /reports/functional-test-output.txt
+        pytest --testbed local tests/functional --junitxml=/reports/functional-test.xml --cucumberjson=/reports/cucumber.json &> /reports/functional-test-output.txt
     env:
     - name: TANGO_HOST
       value: {{ .Values.global.tango_host }} 
