@@ -9,11 +9,12 @@
 from __future__ import annotations
 
 import json
+from time import sleep
 from typing import Union
 
 import pytest
 from pydaq.daq_receiver_interface import DaqModes  # type: ignore
-from ska_control_model import HealthState, ResultCode
+from ska_control_model import AdminMode, HealthState, ResultCode
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.mock import MockChangeEventCallback
 from ska_low_mccs_common.testing.tango_harness import DeviceToLoadType, TangoHarness
@@ -74,6 +75,76 @@ class TestMccsDaqReceiver:
             HealthState.UNKNOWN
         )
         assert device_under_test.healthState == HealthState.UNKNOWN
+
+    @pytest.mark.parametrize(
+        "modes_to_start, daq_interface, daq_ports, daq_ip",
+        [
+            ([DaqModes.INTEGRATED_CHANNEL_DATA], "lo", [4567], "123.456.789.000"),
+            (
+                [DaqModes.ANTENNA_BUFFER, DaqModes.RAW_DATA],
+                "eth0",
+                [9873, 4952],
+                "098.765.432.111",
+            ),
+        ],
+    )
+    def test_status(
+        self: TestMccsDaqReceiver,
+        device_under_test: MccsDeviceProxy,
+        modes_to_start: list[DaqModes],
+        daq_interface: str,
+        daq_ports: list[int],
+        daq_ip: str,
+    ) -> None:
+        """
+        Test for DaqStatus.
+
+        Here we configure DAQ with some non-default settings and then call DaqStatus to check that it reports the correct info.
+
+        :param modes_to_start: A list of consumers/DaqModes to start.
+        :param daq_interface: The interface for daq to listen on.
+        :param daq_ports: A list of ports for daq to listen on.
+        :param daq_ip: The ip address of daq.
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        """
+        # Set adminMode so we can control device.
+        device_under_test.adminMode = AdminMode.ONLINE
+        # Connect to device.
+        device_under_test.connect()
+        # Configure.
+        # daq_ports = [4567]
+        # daq_interface = "lo"
+        # daq_ip = "123.456.789.000"
+        daq_config = {
+            "receiver_ports": daq_ports,
+            "receiver_interface": daq_interface,
+            "receiver_ip": daq_ip,
+        }
+        device_under_test._device.Configure(json.dumps(daq_config))
+        # Start a consumer to check with DaqStatus.
+        # modes_to_start = [DaqModes.INTEGRATED_CHANNEL_DATA]
+        device_under_test.Start(json.dumps({"modes_to_start": modes_to_start}))
+        # Wait for consumer to start.
+
+        # I'd like to pass `task_callback=MockCallable` to `Start`.
+        # However it isn't json serializable so we can't do that here.
+        # Instead we resort to this...
+        sleep(2)
+
+        # Check status.
+        status = json.loads(device_under_test.DaqStatus())
+        # Check health is OK (as it must be to do this test)
+        assert status["Daq Health"] == [HealthState.OK.name, HealthState.OK.value]
+        # Check the consumers we specified to run are in this list.
+        assert status["Running Consumers"] == [
+            [consumer.name, consumer.value] for consumer in modes_to_start
+        ]
+        # Check it reports we're listening on the interface we chose.
+        assert status["Receiver Interface"] == daq_interface
+        # Check the IP is what we chose.
+        assert status["Receiver IP"] == daq_ip
 
 
 class TestPatchedDaq:
