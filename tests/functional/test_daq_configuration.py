@@ -49,7 +49,8 @@ def daq_receiver_bdd(daq_receiver: MccsDeviceProxy) -> MccsDeviceProxy:
 
     :param daq_receiver: The daq_receiver fixture to use.
 
-    :return: A MccsDeviceProxy instance to MccsDaqReceiver stored in the target_fixture `daq_receiver_bdd`.
+    :return: A MccsDeviceProxy instance to MccsDaqReceiver stored in the target_fixture
+        `daq_receiver_bdd`.
     """
     return daq_receiver
 
@@ -68,7 +69,8 @@ def feed_daq_configuration_file(
     :param daq_receiver_bdd: The daq_receiver fixture to use.
     :param configuration: A string representation of a dictionary for configuration.
     """
-    # MccsDaqReceiver expects a string as input, this will be a string representation of a dictionary.
+    # MccsDaqReceiver expects a string as input, this will be a string representation
+    # of a dictionary.
     daq_receiver_bdd.Configure(configuration)
 
 
@@ -91,13 +93,17 @@ def assert_daq_instance_is_configuration_correctly(
     """
     configuration_dict = json.loads(configuration_expected)
 
-    # TODO: create a method on the MccsDaqReceiver to get configuration, assumed here daq_receiver_bdd.configuration()
+    # TODO: create a method on the MccsDaqReceiver to get configuration, assumed here
+    # daq_receiver_bdd.configuration()
     assert configuration_dict.items() <= daq_receiver_bdd.configuration().items()
 
 
 @when(
     parsers.cfparse(
-        "We pass parameter {configuration_param:w} of value {value:w} to the MccsDaqReceiver",
+        (
+            "We pass parameter {configuration_param:w} of value {value:w} "
+            "to the MccsDaqReceiver"
+        ),
         extra_types=EXTRA_TYPES,
     )
 )
@@ -136,8 +142,8 @@ def check_response_as_expected(
     :param daq_receiver_bdd: The daq_receiver fixture to use.
     :param receiver_ip: The parameter of interest
 
-    If the ip is not assigned it is assigned the IP address of a specified interface 'receiver_interface'.
-    This tests that the value has changed.
+    If the ip is not assigned it is assigned the IP address of a specified interface
+    'receiver_interface'. This tests that the value has changed.
     TODO: determine what other values are allowed
     """
     receiver_port = daq_receiver_bdd.configuration()[receiver_ip]

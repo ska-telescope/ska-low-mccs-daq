@@ -19,9 +19,11 @@ from ska_low_mccs_common.component import MccsComponentManager, check_communicat
 __all__ = ["DaqComponentManager"]
 
 
+# pylint: disable=abstract-method
 class DaqComponentManager(MccsComponentManager):
     """A component manager for a DaqReceiver."""
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self: DaqComponentManager,
         daq_id: int,
@@ -84,10 +86,11 @@ class DaqComponentManager(MccsComponentManager):
         # `stop_daq` stops the daq receiver.
         # This means we can't stop the receiver and start it on a new interface unless
         # we re-init the device which is suboptimal.
-        # It would be better if we could start the receiver in `start_daq` without having
-        # to initialise/reinitialise the entire daq system.
+        # It would be better if we could start the receiver in `start_daq` without
+        # having to initialise/reinitialise the entire daq system.
         try:
             self.configure_daq(self._get_daq_config())
+        # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(f"Caught exception in `_create_daq_instance`: {e}")
 
@@ -134,8 +137,9 @@ class DaqComponentManager(MccsComponentManager):
         """
         Retrieve a list of DAQ consumers to start.
 
-        Returns the consumer list that is to be used when `start_daq` is called without specifying consumers.
-        This is empty by default and if not set will return `[DaqModes.INTEGRATED_CHANNEL_DATA]`.
+        Returns the consumer list that is to be used when `start_daq` is called without
+        specifying consumers. This is empty by default and if not set will return
+        `[DaqModes.INTEGRATED_CHANNEL_DATA]`.
 
         :return: a list of DAQ modes.
         """
@@ -152,7 +156,8 @@ class DaqComponentManager(MccsComponentManager):
         Set consumers to be started when `start_daq` is called without specifying a
         consumer.
 
-        :param consumers_to_start: A string containing a comma separated list of DaqModes.
+        :param consumers_to_start: A string containing a comma separated
+            list of DaqModes.
         """
         try:
             if consumers_to_start != "":
@@ -160,13 +165,15 @@ class DaqComponentManager(MccsComponentManager):
                 consumer_list = consumers_to_start.split(
                     ","
                 )  # Separate string into list of words.
-                # Strip whitespace, extract the enum part of the consumer (e.g. RAW_DATA) and cast into a DaqMode.
+                # Strip whitespace, extract the enum part of the consumer
+                # (e.g. RAW_DATA) and cast into a DaqMode.
                 self._consumers_to_start = [
                     DaqModes[consumer.strip().split(".")[-1]]
                     for consumer in consumer_list
                 ]
             else:
                 self._consumers_to_start = None
+        # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(
                 f"Unhandled exception caught in `_set_consumers_to_start`: {e}"
@@ -185,6 +192,7 @@ class DaqComponentManager(MccsComponentManager):
         self.logger.info("Configuring DAQ receiver.")
         try:
             self.daq_instance.populate_configuration(daq_config)
+        # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(f"Exception caught in `configure_daq`: {e}")
         # if not self._validate_daq_configuration(daq_config):
@@ -223,7 +231,8 @@ class DaqComponentManager(MccsComponentManager):
     #             t_daq = type(self.daq_instance._config[config_item])
     #             t_config = type(config_value)
     #             if t_daq is not t_config:
-    #                 self.logger.warning(f"Type mismatch! Implicit conversion from: {t_daq} to {t_config}")
+    #                 self.logger.warning(f"Type mismatch! Implicit conversion from:
+    #                     {t_daq} to {t_config}")
     #             return False
     #     self.logger.info("DAQ configuration validated.")
     #     return True
@@ -242,9 +251,10 @@ class DaqComponentManager(MccsComponentManager):
         them.
 
         :param modes_to_start: The DAQ consumers to start.
-        :param callbacks: The callbacks to pass to DAQ to be called when a buffer is filled.
-            One callback per DAQ mode. Callbacks will be associated with the corresponding
-            mode_to_start. e.g. callbacks[i] will be called when modes_to_start[i] has a full buffer.
+        :param callbacks: The callbacks to pass to DAQ to be called when a buffer is
+            filled. One callback per DAQ mode. Callbacks will be associated with the
+            corresponding mode_to_start. e.g. callbacks[i] will be called when
+            modes_to_start[i] has a full buffer.
         :param task_callback: Update task state, defaults to None
 
         :return: a task status and response message
@@ -271,9 +281,10 @@ class DaqComponentManager(MccsComponentManager):
         them.
 
         :param modes_to_start: The DAQ consumers to start.
-        :param callbacks: The callbacks to pass to DAQ to be called when a buffer is filled.
-            One callback per DAQ mode. Callbacks will be associated with the corresponding
-            mode_to_start. e.g. callbacks[i] will be called when modes_to_start[i] has a full buffer.
+        :param callbacks: The callbacks to pass to DAQ to be called when a buffer is
+            filled. One callback per DAQ mode. Callbacks will be associated with the
+            corresponding mode_to_start. e.g. callbacks[i] will be called when
+            modes_to_start[i] has a full buffer.
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Abort the task
         """
@@ -288,11 +299,13 @@ class DaqComponentManager(MccsComponentManager):
             if len(modes_to_start) != len(callbacks):
                 # This will raise an IndexError if passed to DAQ.
                 # Ignoring callbacks is the same action DAQ would take.
-                msg = f"""An incorrect number of callbacks was passed to `start_daq`!
-                There must be exactly one callback per consumer!
-                CALLBACKS ARE BEING IGNORED!
-                Number of consumers specified: {len(modes_to_start)}
-                Number of callbacks provided: {len(callbacks)}"""
+                msg = (
+                    "An incorrect number of callbacks was passed to `start_daq`!\n"
+                    "There must be exactly one callback per consumer!"
+                    "CALLBACKS ARE BEING IGNORED!\n"
+                    f"Number of consumers specified: {len(modes_to_start)}\n"
+                    f"Number of callbacks provided: {len(callbacks)}"
+                )
                 self.logger.warn(msg)
                 if task_callback:
                     task_callback(message=msg)
@@ -312,7 +325,8 @@ class DaqComponentManager(MccsComponentManager):
         self.logger.info(
             (
                 f"Starting DAQ. {self.daq_instance._config['receiver_ip']} "
-                f"Listening on interface: {self.daq_instance._config['receiver_interface']}:"
+                "Listening on interface: "
+                f"{self.daq_instance._config['receiver_interface']}:"
                 f"{self.daq_instance._config['receiver_ports']}"
             )
         )
@@ -351,7 +365,8 @@ class DaqComponentManager(MccsComponentManager):
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
         self.logger.info(
-            f"Stopping DAQ receiver listening on interface: {self.daq_instance._config['receiver_interface']}"
+            "Stopping DAQ receiver listening on interface: "
+            f"{self.daq_instance._config['receiver_interface']}"
         )
         self.daq_instance.stop_daq()
         if task_callback:

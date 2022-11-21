@@ -142,6 +142,7 @@ def max_workers_fixture() -> int:
     return 1
 
 
+# pylint: disable=too-many-arguments
 @pytest.fixture(name="daq_component_manager")
 def daq_component_manager_fixture(
     tango_harness: TangoHarness,
@@ -187,6 +188,7 @@ def daq_component_manager_fixture(
     )
 
 
+# pylint: disable=too-many-arguments
 @pytest.fixture(name="mock_daq_component_manager")
 def mock_daq_component_manager_fixture(
     daq_id: int,
