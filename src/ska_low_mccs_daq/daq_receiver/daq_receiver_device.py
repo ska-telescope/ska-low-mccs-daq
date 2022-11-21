@@ -286,6 +286,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self._component_manager = component_manager
             super().__init__(logger)
 
+        # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.DaqStatusCommand,
             daq_health: HealthState,
@@ -299,9 +300,12 @@ class MccsDaqReceiver(SKABaseDevice):
             # 1. Get HealthState
             health_state = [daq_health.name, daq_health.value]
             # 2. Get consumer list, filter by `running`
+            full_consumer_list = (
+                self._component_manager.daq_instance._running_consumers.items()
+            )
             running_consumer_list = [
                 [consumer.name, consumer.value]
-                for consumer, running in self._component_manager.daq_instance._running_consumers.items()
+                for consumer, running in full_consumer_list
                 if running
             ]
             # 3. Get Receiver Interface, Ports and IP (and later `Uptime`)
@@ -337,7 +341,7 @@ class MccsDaqReceiver(SKABaseDevice):
         :return: A json string containing the status of this DaqReceiver.
         """
         handler = self.get_command_object("DaqStatus")
-        # We can't get to the health state from the command object so we pass it in here.
+        # We can't get to the health state from the command object so we pass it in here
         status = handler(self._health_state)
         return status
 
@@ -359,14 +363,9 @@ class MccsDaqReceiver(SKABaseDevice):
         handler = self.get_command_object("Start")
         params = json.loads(argin) if argin else {}
 
-        # Initialise temps and extract individual args from argin.
-        # modes_to_start = None
-        # callbacks = None
-
-        if "modes_to_start" in params:
-            modes_to_start = params.get("modes_to_start", None)
-        if "callbacks" in params:
-            callbacks = params.get("callbacks", None)
+        # Initialise temps and extract individual args from params.
+        modes_to_start = params.get("modes_to_start", None)
+        callbacks = params.get("callbacks", None)
 
         (result_code, message) = handler(modes_to_start, callbacks)
         return ([result_code], [message])
@@ -419,7 +418,7 @@ class MccsDaqReceiver(SKABaseDevice):
                 message indicating status. The message is for
                 information purpose only.
             """
-            self._component_manager.configure_daq(json.loads(argin))
+            self._component_manager.configure_daq(argin)
             return (ResultCode.OK, "Configure command completed OK")
 
     # Args in might want to be changed depending on how we choose to

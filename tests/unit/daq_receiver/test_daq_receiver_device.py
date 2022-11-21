@@ -50,7 +50,6 @@ def device_under_test_fixture(tango_harness: TangoHarness) -> MccsDeviceProxy:
     return tango_harness.get_device("low-mccs-daq/daqreceiver/001")
 
 
-# pylint: disable=too-few-public-methods
 class TestMccsDaqReceiver:
     """Test class for MccsDaqReceiver tests."""
 
@@ -89,6 +88,7 @@ class TestMccsDaqReceiver:
             ),
         ],
     )
+    # pylint: disable=too-many-arguments
     def test_status(
         self: TestMccsDaqReceiver,
         device_under_test: MccsDeviceProxy,
@@ -100,7 +100,8 @@ class TestMccsDaqReceiver:
         """
         Test for DaqStatus.
 
-        Here we configure DAQ with some non-default settings and then call DaqStatus to check that it reports the correct info.
+        Here we configure DAQ with some non-default settings and then
+            call DaqStatus to check that it reports the correct info.
 
         :param modes_to_start: A list of consumers/DaqModes to start.
         :param daq_interface: The interface for daq to listen on.
@@ -115,21 +116,17 @@ class TestMccsDaqReceiver:
         # Connect to device.
         device_under_test.connect()
         # Configure.
-        # daq_ports = [4567]
-        # daq_interface = "lo"
-        # daq_ip = "123.456.789.000"
         daq_config = {
             "receiver_ports": daq_ports,
             "receiver_interface": daq_interface,
             "receiver_ip": daq_ip,
         }
-        device_under_test._device.Configure(json.dumps(daq_config))
+        device_under_test.Configure(json.dumps(daq_config))
         # Start a consumer to check with DaqStatus.
-        # modes_to_start = [DaqModes.INTEGRATED_CHANNEL_DATA]
         device_under_test.Start(json.dumps({"modes_to_start": modes_to_start}))
-        # Wait for consumer to start.
+        # We can't check immediately so wait for consumer(s) to start.
 
-        # I'd like to pass `task_callback=MockCallable` to `Start`.
+        # I'd like to pass `task_callback=MockCallable()` to `Start`.
         # However it isn't json serializable so we can't do that here.
         # Instead we resort to this...
         sleep(2)
