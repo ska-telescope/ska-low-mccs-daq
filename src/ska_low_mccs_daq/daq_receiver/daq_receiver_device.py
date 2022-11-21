@@ -107,6 +107,7 @@ class MccsDaqReceiver(SKABaseDevice):
         for (command_name, command_object) in [
             ("Configure", self.ConfigureCommand),
             ("SetConsumers", self.SetConsumersCommand),
+            ("GetConfiguration", self.GetConfigurationCommand),
         ]:
             self.register_command_object(
                 command_name,
@@ -342,6 +343,58 @@ class MccsDaqReceiver(SKABaseDevice):
 
         (result_code, message) = handler(params)
         return ([result_code], [message])
+
+    @command(dtype_out="DevString")
+    def GetConfiguration(self: MccsDaqReceiver) -> str:
+        """
+        Get the Configuration from DAQ.
+
+        return a dictionary representing the configuration that DAQ currently has.
+
+        :return: A JSON-encoded dictionary of the configuration.
+
+        :example:
+
+        >>> dp.tango.DeviceProxy("mccs/tile/01")
+        >>> jstr = dp.command_inout("GetConfiguration")
+        >>> dict = json.loads(jstr)
+        """
+        handler = self.get_command_object("GetConfiguration")
+        return handler()
+
+    class GetConfigurationCommand(FastCommand):
+        """Class for handling the GetConfiguration() command."""
+
+        def __init__(  # type: ignore
+            self: MccsDaqReceiver.GetConfigurationCommand,
+            component_manager,
+            logger: Optional[logging.Logger] = None,
+        ) -> None:
+            """
+            Initialise a new GetConfigurationCommand instance.
+
+            :param component_manager: the device to which this command belongs.
+            :param logger: a logger for this command to use.
+            """
+            self._component_manager = component_manager
+            super().__init__(logger)
+
+        def do(  # type: ignore[override]
+            self: MccsDaqReceiver.GetConfigurationCommand,
+        ) -> str:
+            """
+            Implement :py:meth:`.MccsDaqReceiver.GetConfiguration` command.
+
+            :return: The configuration as received from pydaq
+            """
+            configuration = self._component_manager.get_configuration()
+
+            # we cannot simply call json dumps here since bytes input
+            for key, item in configuration.items():
+                if type(item) == bytes:
+                    configuration[key] = item.decode("utf-8")
+
+            return json.dumps(configuration)
 
     class SetConsumersCommand(FastCommand):
         """Class for handling the SetConsumersCommand(argin) command."""
