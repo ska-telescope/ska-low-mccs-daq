@@ -133,6 +133,14 @@ class DaqComponentManager(MccsComponentManager):
         }
         return daq_config
 
+    def get_configuration(self: DaqComponentManager) -> dict[str, Any]:
+        """
+        Get configuration from DAQ.
+
+        :return: The configuration in the pydaq instance.
+        """
+        return self.daq_instance.get_configuration()
+
     def _get_consumers_to_start(self: DaqComponentManager) -> list[DaqModes]:
         """
         Retrieve a list of DAQ consumers to start.
