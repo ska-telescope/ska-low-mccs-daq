@@ -379,7 +379,7 @@ class MccsDaqReceiver(SKABaseDevice):
 
         :example:
 
-        >>> dp.tango.DeviceProxy("mccs/tile/01")
+        >>> dp.tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
         >>> jstr = dp.command_inout("GetConfiguration")
         >>> dict = json.loads(jstr)
         """
