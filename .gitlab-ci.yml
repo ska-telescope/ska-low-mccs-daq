@@ -115,5 +115,5 @@ include:
     file: 'gitlab-ci/includes/helm-chart.gitlab-ci.yml'
 
   # k8s
-  - project: 'ska-telescope/templates-repository'
-    file: 'gitlab-ci/includes/k8s.gitlab-ci.yml'
+#  - project: 'ska-telescope/templates-repository'
+#    file: 'gitlab-ci/includes/k8s.gitlab-ci.yml'

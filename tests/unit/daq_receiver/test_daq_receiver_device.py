@@ -22,8 +22,8 @@ from ska_low_mccs_daq import MccsDaqReceiver
 from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
 
 
-@pytest.fixture()
-def device_to_load() -> DeviceToLoadType:
+@pytest.fixture(name="device_to_load")
+def device_to_load_fixture() -> DeviceToLoadType:
     """
     Fixture that specifies the device to be loaded for testing.
 
@@ -37,8 +37,8 @@ def device_to_load() -> DeviceToLoadType:
     }
 
 
-@pytest.fixture()
-def device_under_test(tango_harness: TangoHarness) -> MccsDeviceProxy:
+@pytest.fixture(name="device_under_test")
+def device_under_test_fixture(tango_harness: TangoHarness) -> MccsDeviceProxy:
     """
     Fixture that returns the device under test.
 
@@ -49,6 +49,7 @@ def device_under_test(tango_harness: TangoHarness) -> MccsDeviceProxy:
     return tango_harness.get_device("low-mccs-daq/daqreceiver/001")
 
 
+# pylint: disable=too-few-public-methods
 class TestMccsDaqReceiver:
     """Test class for MccsDaqReceiver tests."""
 
@@ -84,8 +85,8 @@ class TestPatchedDaq:
     device are passed through to the component manager
     """
 
-    @pytest.fixture()
-    def device_to_load(
+    @pytest.fixture(name="device_to_load")
+    def device_to_load_fixture(
         self: TestPatchedDaq, patched_daq_class: type[MccsDaqReceiver]
     ) -> DeviceToLoadType:
         """
@@ -137,7 +138,8 @@ class TestPatchedDaq:
         assert result_code == ResultCode.QUEUED
         assert "Start" in response.split("_")[-1]
 
-        args = mock_component_manager.start_daq.get_next_call()  # type: ignore[attr-defined]
+        mcmanager = mock_component_manager
+        args = mcmanager.start_daq.get_next_call()  # type: ignore[attr-defined]
         called_daq_modes = args[0][0]
         called_cbs = args[0][1]
 
@@ -156,7 +158,10 @@ class TestPatchedDaq:
             "DaqModes.STATION_BEAM_DATA",
             "DaqModes.CORRELATOR_DATA",
             "DaqModes.ANTENNA_BUFFER",
-            "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA, DaqModes.INTEGRATED_CHANNEL_DATA",
+            (
+                "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
+                "DaqModes.INTEGRATED_CHANNEL_DATA"
+            ),
         ),
     )
     def test_set_consumers_device(
@@ -182,6 +187,8 @@ class TestPatchedDaq:
         assert result_code == ResultCode.OK
         assert response == "SetConsumers command completed OK"
 
-        # Get the args for the next call to set consumers and assert it's what we expect.
-        args = mock_component_manager._set_consumers_to_start.get_next_call()  # type: ignore[attr-defined]
+        # Get the args for the next call to set consumers and assert
+        # it's what we expect.
+        mcm = mock_component_manager
+        args = mcm._set_consumers_to_start.get_next_call()  # type: ignore[attr-defined]
         assert consumer_list == args[0][0]

@@ -44,12 +44,13 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     print(tango.utils.info())
 
 
-with open("testing/testbeds.yaml", "r") as stream:
+with open("tests/testbeds.yaml", "r", encoding="utf-8") as stream:
     _testbeds: dict[str, set[str]] = yaml.safe_load(stream)
 
 
-# TODO: pytest is partially typehinted but does not yet export Config
-def pytest_configure(config: _pytest.config.Config) -> None:  # type: ignore[name-defined]
+def pytest_configure(
+    config: _pytest.config.Config,
+) -> None:
     """
     Register custom markers to avoid pytest warnings.
 
@@ -60,9 +61,8 @@ def pytest_configure(config: _pytest.config.Config) -> None:  # type: ignore[nam
         config.addinivalue_line("markers", f"needs_{tag}")
 
 
-# TODO: pytest is partially typehinted but does not yet export Parser
 def pytest_addoption(
-    parser: _pytest.config.argparsing.Parser,  # type: ignore[name-defined]
+    parser: _pytest.config.argparsing.Parser,
 ) -> None:
     """
     Implement the add the `--testbed` option.
@@ -81,9 +81,9 @@ def pytest_addoption(
     )
 
 
-# TODO: pytest is partially typehinted but does not yet export Config
 def pytest_collection_modifyitems(
-    config: _pytest.config.Config, items: list[pytest.Item]  # type: ignore[name-defined]
+    config: _pytest.config.Config,
+    items: list[pytest.Item],
 ) -> None:
     """
     Modify the list of tests to be run, after pytest has collected them.
@@ -198,8 +198,6 @@ def tango_harness_factory_fixture(
         within the lightweight test context provided by
         :py:class:`~ska_low_mccs_common.testing.tango_harness.TestContextTangoHarness`.
         """
-
-        pass
 
     testbed = request.config.getoption("--testbed")
 
