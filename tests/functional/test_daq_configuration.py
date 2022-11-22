@@ -96,7 +96,6 @@ def assert_daq_instance_is_configuration_correctly(
     config_jstr = daq_receiver_bdd.GetConfiguration()
     retrieved_daq_config = json.loads(config_jstr)
 
-    # TODO: create a method on the MccsDaqReceiver to get configuration, assumed here daq_receiver_bdd.configuration()
     assert configuration_dict.items() <= retrieved_daq_config.items()
 
 

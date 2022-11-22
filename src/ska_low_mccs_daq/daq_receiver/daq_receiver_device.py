@@ -403,6 +403,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self._component_manager = component_manager
             super().__init__(logger)
 
+        # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.GetConfigurationCommand,
         ) -> str:
@@ -415,7 +416,7 @@ class MccsDaqReceiver(SKABaseDevice):
 
             # we cannot simply call json dumps here since bytes input
             for key, item in configuration.items():
-                if type(item) == bytes:
+                if isinstance(item, bytes):
                     configuration[key] = item.decode("utf-8")
 
             return json.dumps(configuration)
