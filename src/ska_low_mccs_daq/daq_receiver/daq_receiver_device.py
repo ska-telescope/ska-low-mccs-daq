@@ -349,8 +349,6 @@ class MccsDaqReceiver(SKABaseDevice):
         """
         Get the Configuration from DAQ.
 
-        return a dictionary representing the configuration that DAQ currently has.
-
         :return: A JSON-encoded dictionary of the configuration.
 
         :example:
