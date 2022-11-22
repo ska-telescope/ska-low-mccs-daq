@@ -1326,7 +1326,8 @@ class Tile(object):
         """
         for _beamf_fd in self.tpm.beamf_fd:
             _beamf_fd.set_regions(region_array)
-            _beamf_fd.defineChannelTable(region_array)
+        for _station_beamf in self.tpm.station_beamf:
+            _station_beamf.define_channel_table(region_array)
 
     @connected
     def set_pointing_delay(self, delay_array, beam_index):
