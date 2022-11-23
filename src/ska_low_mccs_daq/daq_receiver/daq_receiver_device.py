@@ -323,7 +323,7 @@ class MccsDaqReceiver(SKABaseDevice):
                 "Running Consumers": running_consumer_list,
                 "Receiver Interface": receiver_interface,
                 "Receiver Ports": receiver_ports,
-                "Receiver IP": receiver_ip.decode(),
+                "Receiver IP": [receiver_ip.decode() if isinstance(receiver_ip, bytes) else receiver_ip],
             }
             return json.dumps(status)
 
