@@ -93,9 +93,10 @@ def assert_daq_instance_is_configuration_correctly(
     """
     configuration_dict = json.loads(configuration_expected)
 
-    # TODO: create a method on the MccsDaqReceiver to get configuration, assumed here
-    # daq_receiver_bdd.configuration()
-    assert configuration_dict.items() <= daq_receiver_bdd.configuration().items()
+    config_jstr = daq_receiver_bdd.GetConfiguration()
+    retrieved_daq_config = json.loads(config_jstr)
+
+    assert configuration_dict.items() <= retrieved_daq_config.items()
 
 
 @when(
@@ -146,7 +147,9 @@ def check_response_as_expected(
     'receiver_interface'. This tests that the value has changed.
     TODO: determine what other values are allowed
     """
-    receiver_port = daq_receiver_bdd.configuration()[receiver_ip]
+    daq_config_jstr = daq_receiver_bdd.GetConfiguration()
+    retrieved_daq_config = json.loads(daq_config_jstr)
+    receiver_port = retrieved_daq_config[receiver_ip]
 
     if receiver_port == "":
         # the ip address wes unchanged
