@@ -21,7 +21,7 @@ DOCS_SPHINXOPTS= -n -W --keep-going
 
 # include makefile to pick up the standard Make targets, e.g., 'make build'
 include .make/oci.mk
-#include .make/k8s.mk
+include .make/k8s.mk
 include .make/python.mk
 include .make/raw.mk
 include .make/base.mk
