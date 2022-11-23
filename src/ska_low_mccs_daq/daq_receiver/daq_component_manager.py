@@ -68,6 +68,7 @@ class DaqComponentManager(MccsComponentManager):
         self._receiver_ports = receiver_ports
         self._set_consumers_to_start(consumers_to_start)
         self._create_daq_instance()
+        self._receiver_started: bool = False
 
     def _create_daq_instance(
         self: DaqComponentManager,
@@ -96,6 +97,7 @@ class DaqComponentManager(MccsComponentManager):
 
         # Initialise library and start receiver.
         self.daq_instance.initialise_daq()
+        self._receiver_started = True
         self.logger.info("Daq receiver created and initialised.")
 
     def start_communicating(self: DaqComponentManager) -> None:
@@ -296,6 +298,10 @@ class DaqComponentManager(MccsComponentManager):
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Abort the task
         """
+        if not self._receiver_started:
+            self.daq_instance.initialise_daq()
+            self._receiver_started = True
+        print(f"1 modes_to_start: {modes_to_start}")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
         # Retrieve default list of modes to start if not provided.
@@ -338,6 +344,7 @@ class DaqComponentManager(MccsComponentManager):
                 f"{self.daq_instance._config['receiver_ports']}"
             )
         )
+        print(f"2 modes_to_start: {modes_to_start}")
         self.daq_instance.start_daq(modes_to_start, callbacks)
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
@@ -377,5 +384,6 @@ class DaqComponentManager(MccsComponentManager):
             f"{self.daq_instance._config['receiver_interface']}"
         )
         self.daq_instance.stop_daq()
+        self._receiver_started = False
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
