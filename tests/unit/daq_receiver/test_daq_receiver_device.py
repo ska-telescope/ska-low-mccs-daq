@@ -142,7 +142,7 @@ class TestMccsDaqReceiver:
         # Check it reports we're listening on the interface we chose.
         assert status["Receiver Interface"] == daq_interface
         # Check the IP is what we chose.
-        assert status["Receiver IP"] == daq_ip
+        assert status["Receiver IP"] == [daq_ip]
 
 
 class TestPatchedDaq:
