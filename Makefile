@@ -19,6 +19,9 @@ PYTHON_LINT_TARGET = src/ska_low_mccs_daq tests/
 DOCS_SOURCEDIR=./docs/src
 DOCS_SPHINXOPTS= -n -W --keep-going
 
+# Can't use . here because ociImageBuild overrides it.
+OCI_IMAGE_BUILD_CONTEXT?=$(shell pwd)
+
 # include makefile to pick up the standard Make targets, e.g., 'make build'
 include .make/oci.mk
 include .make/k8s.mk
@@ -52,4 +55,12 @@ python-post-lint:
 docs-pre-build:
 	python3 -m pip install -r docs/requirements.txt
 
-.PHONY: python-post-format python-post-lint docs-pre-build
+k8s-do-test:
+	kubectl -n ska-low-mccs-daq apply -f k8s-test-runner.yaml
+	kubectl -n ska-low-mccs-daq wait --for=condition=ready pods k8s-test-runner
+	kubectl -n ska-low-mccs-daq cp tests/ k8s-test-runner:/app
+	kubectl -n ska-low-mccs-daq exec k8s-test-runner -- pytest
+	kubectl -n ska-low-mccs-daq cp k8s-test-runner:build/ ./build/
+	kubectl -n ska-low-mccs-daq delete pod k8s-test-runner
+
+.PHONY: k8s-test python-post-format python-post-lint docs-pre-build
