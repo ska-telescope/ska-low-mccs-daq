@@ -55,12 +55,15 @@ python-post-lint:
 docs-pre-build:
 	python3 -m pip install -r docs/requirements.txt
 
+
+KUBE_NAMESPACE ?= ska-low-mccs-daq
+
 k8s-do-test:
-	kubectl -n ska-low-mccs-daq apply -f k8s-test-runner.yaml
-	kubectl -n ska-low-mccs-daq wait --for=condition=ready pods k8s-test-runner
-	kubectl -n ska-low-mccs-daq cp tests/ k8s-test-runner:/app
-	kubectl -n ska-low-mccs-daq exec k8s-test-runner -- pytest
-	kubectl -n ska-low-mccs-daq cp k8s-test-runner:build/ ./build/
-	kubectl -n ska-low-mccs-daq delete pod k8s-test-runner
+	kubectl -n $(KUBE_NAMESPACE) apply -f k8s-test-runner.yaml
+	kubectl -n $(KUBE_NAMESPACE) wait --for=condition=ready pods k8s-test-runner
+	kubectl -n $(KUBE_NAMESPACE) cp tests/ k8s-test-runner:/app
+	kubectl -n $(KUBE_NAMESPACE) exec k8s-test-runner -- pytest
+	kubectl -n $(KUBE_NAMESPACE) cp k8s-test-runner:build/ ./build/
+	kubectl -n $(KUBE_NAMESPACE) delete pod k8s-test-runner
 
 .PHONY: k8s-test python-post-format python-post-lint docs-pre-build

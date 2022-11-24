@@ -115,5 +115,28 @@ include:
     file: 'gitlab-ci/includes/helm-chart.gitlab-ci.yml'
 
   # k8s
-#  - project: 'ska-telescope/templates-repository'
-#    file: 'gitlab-ci/includes/k8s.gitlab-ci.yml'
+  - project: 'ska-telescope/templates-repository'
+    file: 'gitlab-ci/includes/k8s.gitlab-ci.yml'
+
+
+oci-image-build:
+  stage: build
+  image: $SKA_K8S_TOOLS_DEPLOY_IMAGE
+  tags:
+    - k8srunner
+  before_script:
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+  script:
+    - make oci-build CAR_OCI_REGISTRY_HOST=${CI_REGISTRY_IMAGE}
+
+oci-image-build-k8s-test-runner:
+  stage: build
+  image: $SKA_K8S_TOOLS_DEPLOY_IMAGE
+  tags:
+    - k8srunner
+  variables:
+    OCI_IMAGE: ska-tango-images-pytango-runtime
+  before_script:
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+  script:
+    - make oci-build OCI_IMAGE=ska-low-mccs-daq-test-runner OCI_IMAGE_BUILD_CONTEXT=images/ska-low-mccs-daq-test-runner/ CAR_OCI_REGISTRY_HOST=${CI_REGISTRY_IMAGE}
