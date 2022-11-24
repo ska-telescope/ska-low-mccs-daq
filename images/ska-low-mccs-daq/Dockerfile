@@ -10,7 +10,6 @@ RUN apt-get update && \
 # Install AAVS DAQ
 RUN git clone https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
 # Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
-RUN ls /app/
 RUN cp /app/deploy.sh /app/aavs-system/
 
 WORKDIR /app/aavs-system/

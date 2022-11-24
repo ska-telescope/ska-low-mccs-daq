@@ -2,12 +2,12 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: k8s-test-runner
-  namespace: ska-low-mccs-daq
+  namespace: {{.Values.namespace}}
 spec:
   terminationGracePeriodSeconds: 0
   containers:
   - name: k8s-test-runner
-    image: artefact.skao.int/ska-low-mccs-daq-test-runner:0.1.2
+    image: {{.Values.image}}
     imagePullPolicy: IfNotPresent
     command: [ "sleep", "infinity" ]
     env:
