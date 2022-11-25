@@ -61,14 +61,13 @@ class DaqComponentManager(MccsComponentManager):
             communication_state_changed_callback,
             component_state_changed_callback,
         )
-
+        self._receiver_started: bool = False
         self._daq_id = daq_id
         self._receiver_interface = receiver_interface
         self._receiver_ip = receiver_ip.encode()
         self._receiver_ports = receiver_ports
         self._set_consumers_to_start(consumers_to_start)
         self._create_daq_instance()
-        self._receiver_started: bool = False
 
     def _create_daq_instance(
         self: DaqComponentManager,
@@ -209,43 +208,6 @@ class DaqComponentManager(MccsComponentManager):
         #     self.logger.warning("DAQ configuration could not be validated!")
         # TODO: Raise some exception here? How do we want to deal with this?
         self.logger.info("DAQ receiver configuration complete.")
-
-    # TODO: Fix this method.
-    # It can't tell a stringified number "1111" is the same as the number 1111.
-    # Ditto for lists so we get some incorrect `False` returns.
-    # Do we need to address each config param individually to get this to work properly?
-    # def _validate_daq_configuration(
-    #     self: DaqComponentManager, daq_config: dict[str, Any]
-    # ) -> bool:
-    #     """
-    #     Check that the current DAQ config is identical to the configuration supplied.
-
-    #     :param daq_config: A dictionary containing configuration settings.
-
-    #     :return: True if the configuration was applied successfully else False.
-    #     """
-    #     self.logger.info("Validating DAQ configuration...")
-    #     for config_item, config_value in daq_config.items():
-    #         if not (self.daq_instance._config[config_item] == config_value):
-    #             # Check for cases where the config value was passed as
-    #             # a string representation of a number and suppress the warning.
-    #             t_daq = type(self.daq_instance._config[config_item])
-    #             t_config = type(config_value)
-
-    #             self.logger.warning(
-    #                 f"DAQ configuration of {config_item} "
-    #                 f"from {self.daq_instance._config[config_item]} "
-    #                 f"to {config_value} was unsuccessfully applied!"
-    #             )
-
-    #             t_daq = type(self.daq_instance._config[config_item])
-    #             t_config = type(config_value)
-    #             if t_daq is not t_config:
-    #                 self.logger.warning(f"Type mismatch! Implicit conversion from:
-    #                     {t_daq} to {t_config}")
-    #             return False
-    #     self.logger.info("DAQ configuration validated.")
-    #     return True
 
     @check_communicating
     def start_daq(
