@@ -308,21 +308,20 @@ class DaqComponentManager(MccsComponentManager):
             modes_to_start = self._get_consumers_to_start()
         # Check that if we were passed callbacks that we have one for each consumer.
         # If we do not then ignore callbacks.
-        if callbacks is not None:
-            if len(modes_to_start) != len(callbacks):
-                # This will raise an IndexError if passed to DAQ.
-                # Ignoring callbacks is the same action DAQ would take.
-                msg = (
-                    "An incorrect number of callbacks was passed to `start_daq`!\n"
-                    "There must be exactly one callback per consumer!"
-                    "CALLBACKS ARE BEING IGNORED!\n"
-                    f"Number of consumers specified: {len(modes_to_start)}\n"
-                    f"Number of callbacks provided: {len(callbacks)}"
-                )
-                self.logger.warn(msg)
-                if task_callback:
-                    task_callback(message=msg)
-                callbacks = None
+        if callbacks is not None and len(modes_to_start) != len(callbacks):
+            # This will raise an IndexError if passed to DAQ.
+            # Ignoring callbacks is the same action DAQ would take.
+            msg = (
+                "An incorrect number of callbacks was passed to `start_daq`!\n"
+                "There must be exactly one callback per consumer!"
+                "CALLBACKS ARE BEING IGNORED!\n"
+                f"Number of consumers specified: {len(modes_to_start)}\n"
+                f"Number of callbacks provided: {len(callbacks)}"
+            )
+            self.logger.warn(msg)
+            if task_callback:
+                task_callback(message=msg)
+            callbacks = None
 
         # Cast any ints in modes_to_start to a DaqMode.
         try:
