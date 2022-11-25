@@ -6,10 +6,10 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
-import json
-import logging
+# import json
+# import logging
 import unittest
-from typing import Any, Callable, Generator, Optional, Union
+from typing import Any, Callable, Generator, Optional  # , Union
 
 import pytest
 from ska_low_mccs_common import MccsDeviceProxy
@@ -24,9 +24,10 @@ from ska_low_mccs_common.testing.tango_harness import (
     DeviceToLoadType,
     TangoHarness,
 )
-from tango.server import command
 
-from ska_low_mccs_daq.daq_receiver import DaqComponentManager, MccsDaqReceiver
+# from tango.server import command
+
+# from ska_low_mccs_daq.daq_receiver import DaqComponentManager, MccsDaqReceiver
 
 
 @pytest.fixture()
@@ -357,49 +358,49 @@ def device_to_load() -> Optional[DeviceToLoadType]:
 # moving up a level to src/tests/conftest
 
 
-@pytest.fixture()
-def daq_component_manager(
-    tango_harness: TangoHarness,
-    daq_id: int,
-    receiver_interface: str,
-    receiver_ip: str,
-    receiver_ports: str,
-    default_consumers_to_start: str,
-    logger: logging.Logger,
-    max_workers: int,
-    communication_state_changed_callback: MockCallable,
-    component_state_changed_callback: MockCallableDeque,
-) -> DaqComponentManager:
-    """
-    Return a daq receiver component manager.
+# @pytest.fixture()
+# def daq_component_manager(
+#     tango_harness: TangoHarness,
+#     daq_id: int,
+#     receiver_interface: str,
+#     receiver_ip: str,
+#     receiver_ports: str,
+#     default_consumers_to_start: str,
+#     logger: logging.Logger,
+#     max_workers: int,
+#     communication_state_changed_callback: MockCallable,
+#     component_state_changed_callback: MockCallableDeque,
+# ) -> DaqComponentManager:
+#     """
+#     Return a daq receiver component manager.
 
-    :param tango_harness: a test harness for Tango devices
-    :param daq_id: the daq id of the daq receiver
-    :param receiver_interface: The interface this DaqReceiver is to watch.
-    :param receiver_ip: The IP address of this DaqReceiver.
-    :param receiver_ports: The ports this DaqReceiver is to watch.
-    :param default_consumers_to_start: The default consumers to be started.
-    :param logger: the logger to be used by this object.
-    :param max_workers: max number of threads available to run a LRC.
-    :param communication_state_changed_callback: callback to be
-        called when the status of the communications channel between
-        the component manager and its component changes
-    :param component_state_changed_callback: callback to call when the
-        device state changes.
+#     :param tango_harness: a test harness for Tango devices
+#     :param daq_id: the daq id of the daq receiver
+#     :param receiver_interface: The interface this DaqReceiver is to watch.
+#     :param receiver_ip: The IP address of this DaqReceiver.
+#     :param receiver_ports: The ports this DaqReceiver is to watch.
+#     :param default_consumers_to_start: The default consumers to be started.
+#     :param logger: the logger to be used by this object.
+#     :param max_workers: max number of threads available to run a LRC.
+#     :param communication_state_changed_callback: callback to be
+#         called when the status of the communications channel between
+#         the component manager and its component changes
+#     :param component_state_changed_callback: callback to call when the
+#         device state changes.
 
-    :return: a daq component manager
-    """
-    return DaqComponentManager(
-        daq_id,
-        receiver_interface,
-        receiver_ip,
-        receiver_ports,
-        default_consumers_to_start,
-        logger,
-        max_workers,
-        communication_state_changed_callback,
-        component_state_changed_callback,
-    )
+#     :return: a daq component manager
+#     """
+#     return DaqComponentManager(
+#         daq_id,
+#         receiver_interface,
+#         receiver_ip,
+#         receiver_ports,
+#         default_consumers_to_start,
+#         logger,
+#         max_workers,
+#         communication_state_changed_callback,
+#         component_state_changed_callback,
+#     )
 
 
 @pytest.fixture()
@@ -505,54 +506,54 @@ def max_workers() -> int:
     return 1
 
 
-@pytest.fixture(scope="session")
-def patched_daq_class() -> type[MccsDaqReceiver]:
-    """
-    Return a daq device class that has been patched for testing.
+# @pytest.fixture(scope="session")
+# def patched_daq_class() -> type[MccsDaqReceiver]:
+#     """
+#     Return a daq device class that has been patched for testing.
 
-    :return: a daq device class that has been patched for testing.
-    """
+#     :return: a daq device class that has been patched for testing.
+#     """
 
-    class PatchedDaq(MccsDaqReceiver):
-        """MccsDaqReceiver with extra commands for testing purposes."""
+#     class PatchedDaq(MccsDaqReceiver):
+#         """MccsDaqReceiver with extra commands for testing purposes."""
 
-        @command(dtype_in="DevString")
-        def StateChangedCallback(self, argin: Union[str, bytes]) -> None:
-            """
-            Passthrough for component_state_changed_callback.
+#         @command(dtype_in="DevString")
+#         def StateChangedCallback(self, argin: Union[str, bytes]) -> None:
+#             """
+#             Passthrough for component_state_changed_callback.
 
-            This allows us to mock a call to the state_changed_callback.
+#             This allows us to mock a call to the state_changed_callback.
 
-            :param argin: A json string containing the state change.
-            """
-            self._component_state_changed_callback(json.loads(argin))
+#             :param argin: A json string containing the state change.
+#             """
+#             self._component_state_changed_callback(json.loads(argin))
 
-        @command(dtype_out=bool)
-        def GetDaqFault(self) -> bool:
-            """
-            Return the fault status of this DaqReceiver.
+#         @command(dtype_out=bool)
+#         def GetDaqFault(self) -> bool:
+#             """
+#             Return the fault status of this DaqReceiver.
 
-            :return: The fault state of the device.
-            """
-            return self._health_model._faulty
+#             :return: The fault state of the device.
+#             """
+#             return self._health_model._faulty
 
-        @command(dtype_out=int)
-        def GetDaqHealth(self) -> int:
-            """
-            Return the health state of this DaqReceiver.
+#         @command(dtype_out=int)
+#         def GetDaqHealth(self) -> int:
+#             """
+#             Return the health state of this DaqReceiver.
 
-            :return: Healthstate of the device.
-            """
-            return self._health_state
+#             :return: Healthstate of the device.
+#             """
+#             return self._health_state
 
-        @command(dtype_out=str)
-        def GetRunningConsumers(self) -> str:
-            """
-            Return a dict containing running state of consumers.
+#         @command(dtype_out=str)
+#         def GetRunningConsumers(self) -> str:
+#             """
+#             Return a dict containing running state of consumers.
 
-            :return: Dictionary containing state of consumers.
-            """
-            self.component_manager: DaqComponentManager  # Typehint only.
-            return json.dumps(self.component_manager.daq_instance._running_consumers)
+#             :return: Dictionary containing state of consumers.
+#             """
+#             self.component_manager: DaqComponentManager  # Typehint only.
+#             return json.dumps(self.component_manager.daq_instance._running_consumers)
 
-    return PatchedDaq
+#     return PatchedDaq
