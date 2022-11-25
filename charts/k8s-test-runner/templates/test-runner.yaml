@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-test-runner
+  namespace: {{.Values.namespace}}
+spec:
+  terminationGracePeriodSeconds: 0
+  containers:
+  - name: k8s-test-runner
+    image: {{.Values.image}}
+    imagePullPolicy: IfNotPresent
+    command: [ "sleep", "infinity" ]
+    env:
+    - name: TANGO_HOST
+      value: databaseds-tango-base-test:10000
