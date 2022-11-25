@@ -301,7 +301,6 @@ class DaqComponentManager(MccsComponentManager):
         if not self._receiver_started:
             self.daq_instance.initialise_daq()
             self._receiver_started = True
-        print(f"1 modes_to_start: {modes_to_start}")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
         # Retrieve default list of modes to start if not provided.
@@ -344,7 +343,6 @@ class DaqComponentManager(MccsComponentManager):
                 f"{self.daq_instance._config['receiver_ports']}"
             )
         )
-        print(f"2 modes_to_start: {modes_to_start}")
         self.daq_instance.start_daq(modes_to_start, callbacks)
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
