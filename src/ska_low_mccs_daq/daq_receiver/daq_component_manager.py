@@ -61,7 +61,7 @@ class DaqComponentManager(MccsComponentManager):
             communication_state_changed_callback,
             component_state_changed_callback,
         )
-
+        self._receiver_started: bool = False
         self._daq_id = daq_id
         self._receiver_interface = receiver_interface
         self._receiver_ip = receiver_ip.encode()
@@ -96,6 +96,7 @@ class DaqComponentManager(MccsComponentManager):
 
         # Initialise library and start receiver.
         self.daq_instance.initialise_daq()
+        self._receiver_started = True
         self.logger.info("Daq receiver created and initialised.")
 
     def start_communicating(self: DaqComponentManager) -> None:
@@ -208,43 +209,6 @@ class DaqComponentManager(MccsComponentManager):
         # TODO: Raise some exception here? How do we want to deal with this?
         self.logger.info("DAQ receiver configuration complete.")
 
-    # TODO: Fix this method.
-    # It can't tell a stringified number "1111" is the same as the number 1111.
-    # Ditto for lists so we get some incorrect `False` returns.
-    # Do we need to address each config param individually to get this to work properly?
-    # def _validate_daq_configuration(
-    #     self: DaqComponentManager, daq_config: dict[str, Any]
-    # ) -> bool:
-    #     """
-    #     Check that the current DAQ config is identical to the configuration supplied.
-
-    #     :param daq_config: A dictionary containing configuration settings.
-
-    #     :return: True if the configuration was applied successfully else False.
-    #     """
-    #     self.logger.info("Validating DAQ configuration...")
-    #     for config_item, config_value in daq_config.items():
-    #         if not (self.daq_instance._config[config_item] == config_value):
-    #             # Check for cases where the config value was passed as
-    #             # a string representation of a number and suppress the warning.
-    #             t_daq = type(self.daq_instance._config[config_item])
-    #             t_config = type(config_value)
-
-    #             self.logger.warning(
-    #                 f"DAQ configuration of {config_item} "
-    #                 f"from {self.daq_instance._config[config_item]} "
-    #                 f"to {config_value} was unsuccessfully applied!"
-    #             )
-
-    #             t_daq = type(self.daq_instance._config[config_item])
-    #             t_config = type(config_value)
-    #             if t_daq is not t_config:
-    #                 self.logger.warning(f"Type mismatch! Implicit conversion from:
-    #                     {t_daq} to {t_config}")
-    #             return False
-    #     self.logger.info("DAQ configuration validated.")
-    #     return True
-
     @check_communicating
     def start_daq(
         self: DaqComponentManager,
@@ -296,6 +260,9 @@ class DaqComponentManager(MccsComponentManager):
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Abort the task
         """
+        if not self._receiver_started:
+            self.daq_instance.initialise_daq()
+            self._receiver_started = True
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
         # Retrieve default list of modes to start if not provided.
@@ -303,21 +270,20 @@ class DaqComponentManager(MccsComponentManager):
             modes_to_start = self._get_consumers_to_start()
         # Check that if we were passed callbacks that we have one for each consumer.
         # If we do not then ignore callbacks.
-        if callbacks is not None:
-            if len(modes_to_start) != len(callbacks):
-                # This will raise an IndexError if passed to DAQ.
-                # Ignoring callbacks is the same action DAQ would take.
-                msg = (
-                    "An incorrect number of callbacks was passed to `start_daq`!\n"
-                    "There must be exactly one callback per consumer!"
-                    "CALLBACKS ARE BEING IGNORED!\n"
-                    f"Number of consumers specified: {len(modes_to_start)}\n"
-                    f"Number of callbacks provided: {len(callbacks)}"
-                )
-                self.logger.warn(msg)
-                if task_callback:
-                    task_callback(message=msg)
-                callbacks = None
+        if callbacks is not None and len(modes_to_start) != len(callbacks):
+            # This will raise an IndexError if passed to DAQ.
+            # Ignoring callbacks is the same action DAQ would take.
+            msg = (
+                "An incorrect number of callbacks was passed to `start_daq`!\n"
+                "There must be exactly one callback per consumer!"
+                "CALLBACKS ARE BEING IGNORED!\n"
+                f"Number of consumers specified: {len(modes_to_start)}\n"
+                f"Number of callbacks provided: {len(callbacks)}"
+            )
+            self.logger.warn(msg)
+            if task_callback:
+                task_callback(message=msg)
+            callbacks = None
 
         # Cast any ints in modes_to_start to a DaqMode.
         try:
@@ -377,5 +343,6 @@ class DaqComponentManager(MccsComponentManager):
             f"{self.daq_instance._config['receiver_interface']}"
         )
         self.daq_instance.stop_daq()
+        self._receiver_started = False
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)

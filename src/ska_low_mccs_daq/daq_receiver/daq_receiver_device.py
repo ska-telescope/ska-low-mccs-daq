@@ -538,7 +538,8 @@ class MccsDaqReceiver(SKABaseDevice):
         Sets the default list of consumers to start when left unspecified in
         the `start_daq` command.
 
-        :param argin: The daq configuration to apply.
+        :param argin: A string containing a comma separated
+            list of DaqModes.
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
