@@ -453,6 +453,16 @@ class Tile(object):
         self.logger.info("Reading bitstream from CPLD FLASH")
         self.tpm.tpm_cpld.cpld_flash_read(bitfile)
 
+    @connected
+    def print_fpga_firmware_information(self, fpga_id=0):
+        """
+        Print FPGA firmware information
+        :param fpga_id: FPGA ID, 0 or 1
+        :type fpga_id: int
+        """
+        if self.is_programmed():
+            self.tpm.tpm_firmware_information[fpga_id].print_information()
+
     def get_ip(self):
         """
         Get tile IP.

@@ -94,6 +94,8 @@ class TestFlagging():
 
         # Start whichever consumer is required and provide callback
         daq.start_beam_data_consumer(callback=data_callback)
+        self._logger.info("Sleeping 2 seconds...")
+        time.sleep(2)
         #
         # preparing test
         #

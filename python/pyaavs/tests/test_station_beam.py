@@ -1,159 +1,262 @@
-# station = [
-# #"tpm-1",
-# "tpm-1", "tpm-2", "tpm-3", "tpm-4",
-# "tpm-5", "tpm-6", "tpm-7", "tpm-8",
-# "tpm-9", "tpm-10", "tpm-11", "tpm-12",
-# "tpm-13", "tpm-14",
-# "tpm-15", "tpm-16",
-# ]
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
 
-first_channel = 200
+from pydaq import daq_receiver as receiver
+from datetime import datetime, timedelta
+from pydaq.persisters import *
+from pyaavs import station
+from config_manager import ConfigManager
+from numpy import random
+from spead_beam_power_realtime import SpeadRxBeamPowerRealtime
+from spead_beam_power_offline import SpeadRxBeamPowerOffline
+import spead_beam_power_realtime
+import spead_beam_power_offline
+import test_functions as tf
+import numpy as np
+import tempfile
+import logging
+import shutil
+import time
+import os
+from test_ddr import TestDdr
+from test_antenna_buffer import TestAntennaBuffer
+
+# Number of samples to process
+nof_samples = 256*1024
+# Global variables to track callback
+tiles_processed = None
+buffers_processed = 0
+data_ready = False
 
 
-def set_pattern(station, stage, pattern, adders, frame_adder, nof_tpms, start):
-    print("Setting " + stage + " data pattern")
-    for tile in station.tiles:
-        tile['fpga1.pattern_gen.beamf_left_shift'] = 0
-        tile['fpga2.pattern_gen.beamf_left_shift'] = 0
-        for i in range(2):
-            print
-            tile.tpm.tpm_pattern_generator[i].set_pattern(pattern, stage)
-            tile.tpm.tpm_pattern_generator[i].set_signal_adder(adders[i*64:(i+1)*64], stage)
-            if start:
-                tile.tpm.tpm_pattern_generator[i].start_pattern(stage)
-    print("Waiting PPS event to set frame_adder register")
-    station.tiles[0].wait_pps_event()
-    for tile in station.tiles:
-        tile['fpga1.pattern_gen.beamf_ctrl.frame_offset_clear'] = 1
-        tile['fpga2.pattern_gen.beamf_ctrl.frame_offset_clear'] = 1
-        if frame_adder > 0:
-            tile['fpga1.pattern_gen.beamf_ctrl.frame_offset_enable'] = 1
-            tile['fpga2.pattern_gen.beamf_ctrl.frame_offset_enable'] = 1
-            tile['fpga1.pattern_gen.beamf_ctrl.frame_offset_adder'] = frame_adder
-            tile['fpga2.pattern_gen.beamf_ctrl.frame_offset_adder'] = frame_adder
 
-            tile['fpga1.pattern_gen.beamf_ctrl.frame_offset_lo'] = 0
-            tile['fpga2.pattern_gen.beamf_ctrl.frame_offset_lo'] = 0
 
-            tile['fpga1.pattern_gen.beamf_ctrl.frame_offset_hi'] = int(127 / nof_tpms)
-            tile['fpga2.pattern_gen.beamf_ctrl.frame_offset_hi'] = int(127 / nof_tpms)
-    station.tiles[0].wait_pps_event()
-    for tile in station.tiles:
-        tile['fpga1.pattern_gen.beamf_ctrl.frame_offset_clear'] = 0
-        tile['fpga2.pattern_gen.beamf_ctrl.frame_offset_clear'] = 0
-    print("Beamformer Pattern Set!")
 
-def remove_files():
-    # create temp directory
-    if not os.path.exists(temp_dir):
-        print("Creating temp folder: " + temp_dir)
-        os.system("mkdir " + temp_dir)
-    os.system("rm " + temp_dir + "/*.hdf5")
+
+def delete_files(directory):
+    """ Delete all files in directory """
+    for f in os.listdir(directory):
+        os.remove(os.path.join(directory, f))
+
+class TestStationBeam():
+    def __init__(self, station_config, logger):
+        self._logger = logger
+        self._station_config = station_config
+        self._daq_eth_if = station_config['eth_if']
+        self._total_bandwidth = station_config['test_config']['total_bandwidth']
+        self._antennas_per_tile = station_config['test_config']['antennas_per_tile']
+        self._pfb_nof_channels = station_config['test_config']['pfb_nof_channels']
+        self._test_ddr_inst = TestDdr(station_config, logger)
+        self._test_antenna_buffer_inst = TestAntennaBuffer(station_config, logger)
+        self._csp_scale = 0
+        self._channeliser_scale = 0
+        self._pattern = [[0, 0, 0, 0]] * 384
+        for n in range(384):
+            if n % 4 == 0:
+                self._pattern[n] = [n // 4, 0, 0, 0]
+            elif n % 4 == 1:
+                self._pattern[n] = [1, n // 4, 1, 1]
+            elif n % 4 == 2:
+                self._pattern[n] = [2, 2, n // 4, 2]
+            else:
+                self._pattern[n] = [3, 3, 3, n // 4]
+
+    def prepare_test(self):
+        for i, tile in enumerate(self._test_station.tiles):
+            tile.set_channeliser_truncation(5)
+            tf.disable_test_generator_and_pattern(tile)
+            tile['fpga1.jesd204_if.regfile_channel_disable'] = 0xFFFF
+            tile['fpga2.jesd204_if.regfile_channel_disable'] = 0xFFFF
+            self._test_station.tiles[i].test_generator_input_select(0xFFFFFFFF)
+        self._test_station.test_generator_set_tone(0, frequency=100e6, ampl=0.0)
+        self._test_station.test_generator_set_tone(1, frequency=100e6, ampl=0.0)
+        self._test_station.test_generator_set_noise(ampl=0.35, delay=1024)
+        self._csp_scale = 0 #int(np.ceil(np.log2(len(self._test_station.tiles)))) + 1
+        self._channeliser_scale = 2
+        for tile in self._test_station.tiles:
+            tile['fpga1.beamf_ring.csp_scaling'] = self._csp_scale
+            tile['fpga2.beamf_ring.csp_scaling'] = self._csp_scale
+            tile.set_channeliser_truncation(self._channeliser_scale)
+
+        # Set time delays to 0
+        for tile in self._test_station.tiles:
+            tf.set_delay(tile, [0]*32)
+
+        tf.set_station_beam_pattern(self._test_station, self._pattern,
+                                    start=True, shift=0, zero=0, csp_rounding=self._csp_scale)
+
+    def check_station(self):
+        station_ok = True
+        if not self._test_station.properly_formed_station:
+            station_ok = False
+        else:
+            for tile in self._test_station.tiles:
+                if not tile.is_programmed():
+                    station_ok = False
+                if not tile.beamformer_is_running():
+                    station_ok = False
+        return station_ok
+
+    def execute(self, test_channel=4, iterations=4, background_ddr_access=True):
+        global nof_samples
+
+        self._test_station = station.Station(self._station_config)
+        self._test_station.connect()
+
+        self.prepare_test()
+
+        # Update channel numbers
+        channel_bandwidth = float(self._total_bandwidth) / int(self._pfb_nof_channels)
+        nof_channels = int(self._station_config['observation']['bandwidth'] / channel_bandwidth)
+
+        if test_channel >= nof_channels:
+            self._logger.error("Station beam does not contain selected frequency channel. Exiting...")
+            return 1
+
+
+        try:
+
+            errors = 0
+
+            if background_ddr_access:
+
+                for tile in self._test_station.tiles:
+                    tile.tpm.set_shutdown_temperature(70)
+
+                self._logger.info("Enabling DDR background access...")
+                # Set DDR address for background DDR and antenna buffer instances
+                ddr_test_base_address = 512 * 1024 * 1024
+                ddr_test_length = 256 * 1024 * 1024
+                antenna_buffer_base_address = 768 * 1024 * 1024
+                antenna_buffer_length = 256 * 1024 * 1024
+
+                # start DDR test
+                errors = self._test_ddr_inst.prepare(first_addr=ddr_test_base_address // 8,
+                                                     last_addr=(ddr_test_base_address + ddr_test_length) // 8 - 8,
+                                                     burst_length=4,
+                                                     pause=60,
+                                                     reset_dsp=0,
+                                                     reset_ddr=0,
+                                                     stop_transmission=0)
+                if errors > 0:
+                    self._logger.error("Not possible to start DDR background test")
+                    self._logger.error("TEST FAILED!")
+                    return 1
+                self._test_ddr_inst.start()
+                self._logger.info("DDR test started.")
+
+                # start antenna buffer write into DDR
+                if self._test_station.tiles[0]['fpga1.dsp_regfile.feature.antenna_buffer_implemented'] == 1:
+                    for n, tile in enumerate(self._test_station.tiles):
+                        for i in [0, 1]:
+                            ab_inst = tile.tpm.tpm_antenna_buffer[i]
+                            ab_inst.configure_ddr_buffer(
+                                ddr_start_byte_address=antenna_buffer_base_address,  # DDR buffer base address
+                                byte_size=antenna_buffer_length)
+                            ab_inst.buffer_write(continuous_mode=True)
+                self._logger.info("Antenna buffer write into DDR started.")
+
+            iter = 0
+            while iter < iterations:
+
+                iter += 1
+
+                self._logger.info("Acquiring realtime beamformed data")
+                spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
+                errors += np.asarray(spead_rx_realtime_inst.check_data(self._pattern))
+                self._logger.info("Checking pattern iteration %d, errors: %d" % (iter, errors))
+
+                del spead_rx_realtime_inst
+
+            if background_ddr_access:
+                self._logger.info("Checking DDR test results...")
+                # Get DDR background test result
+                for fpga in ["fpga1", "fpga2"]:
+                    for n, tile in enumerate(self._test_station.tiles):
+                        if tile['%s.ddr_simple_test.error' % fpga] == 1:
+                            self._logger.error("Background DDR test error detected in Tile %d, %s" % (n, fpga.upper()))
+                            errors += 1
+                self._logger.info("...DDR result check finished.")
+
+            if errors > 0:
+                self._logger.error("TEST FAILED!")
+            else:
+                self._logger.info("TEST PASSED!")
+
+
+
+            # plt.plot(np.array(realtime_power)[:, 0])
+            # plt.plot(np.array(offline_power)[:, 0] - rescale)
+            # plt.show()
+            # plt.savefig("test_full_station.png")
+            # All done, remove temporary directory
+        except Exception as e:
+            errors += 1
+            import traceback
+            self._logger.error(traceback.format_exc())
+            self._logger.error("TEST FAILED!")
+
+        finally:
+            if background_ddr_access:
+                # stop DDR test
+                self._test_ddr_inst.stop()
+                # stop antenna buffer
+                if self._test_station.tiles[0]['fpga1.dsp_regfile.feature.antenna_buffer_implemented'] == 1:
+                    for n, tile in enumerate(self._test_station.tiles):
+                        for i in [0, 1]:
+                            ab_inst = tile.tpm.tpm_antenna_buffer[i]
+                            ab_inst.stop_now()
+
+            for tile in self._test_station.tiles:
+                tile.tpm.set_shutdown_temperature(65)
+
+            return errors
+
 
 if __name__ == "__main__":
 
     from optparse import OptionParser
     from sys import argv, stdout
+    
+    parser = OptionParser(usage="usage: %test_full_station [options]")
+    parser = tf.add_default_parser_options(parser)
+    parser.add_option("--iterations", action="store", dest="iterations",
+                      type="str", default="128", help="Maximum antenna delay [default: 128]")
+    parser.add_option("--test_channel", action="store", dest="test_channel",
+                      type="str", default="4", help="Beam test channel ID [default: 4]")
 
-    parser = OptionParser(usage="usage: %test_antenna_delays [options]")
-    parser.add_option("--config", action="store", dest="config",
-                      type="str", default=None, help="Configuration file [default: None]")
-    # parser.add_option("-P", "--program", action="store_true", dest="program",
-    #                   default=False, help="Program FPGAs [default: False]")
-    # parser.add_option("-I", "--initialise", action="store_true", dest="initialise",
-    #                   default=False, help="Initialise TPM [default: False]")
-    # parser.add_option("-i", "--receiver_interface", action="store", dest="receiver_interface",
-    #                   default="eth0", help="Receiver interface [default: eth0]")
-    # parser.add_option("-D", "--generate-plots", action="store_true", dest="generate_plots",
-    #                   default=False, help="Generate diagnostic plots [default: False]")
     (opts, args) = parser.parse_args(argv[1:])
 
-    # Set logging
-    log = logging.getLogger('')
-    log.setLevel(logging.INFO)
-    str_format = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    ch = logging.StreamHandler(stdout)
-    ch.setFormatter(str_format)
-    log.addHandler(ch)
-    remove_files()
+    # set up logging to file - see previous section for more details
+    logging_format = "%(name)-12s - %(asctime)s - %(levelname)s - %(message)s"
+    logging.basicConfig(level=logging.DEBUG,
+                        format=logging_format,
+                        filename='test_log/test_station_beam.log',
+                        filemode='w')
+    # define a Handler which writes INFO messages or higher to the sys.stderr
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    # set a format which is simpler for console use
+    formatter = logging.Formatter(logging_format)
+    # tell the handler to use this format
+    console.setFormatter(formatter)
+    # add the handler to the root logger
+    logging.getLogger('').addHandler(console)
+
+    test_logger = logging.getLogger('TEST_FULL_STATION')
 
     # Check if a config file is specified
     if opts.config is None:
-        logging.error("No station configuration file was defined. Exiting")
+        test_logger.error("No station configuration file was defined. Exiting")
         exit()
     elif not os.path.exists(opts.config) or not os.path.isfile(opts.config):
-        logging.error("Specified config file does not exist or is not a file. Exiting")
+        test_logger.error("Specified config file does not exist or is not a file. Exiting")
         exit()
 
-    # Update global config
-    station_config_file = opts.config
-    # receiver_interface = opts.receiver_interface
-    # initialise_tile = opts.initialise
-    # program_tile = opts.program
+    config_manager = ConfigManager(opts.test_config)
+    station_config = config_manager.apply_test_configuration(opts)
 
-    # Load station configuration file
-    station.load_configuration_file(station_config_file)
-
-    # Override parameters
-    station_config = station.configuration
-    station_config['station']['program'] = False #program_tile
-    station_config['station']['initialise'] = False #initialise_tile
-    # station_config['station']['channel_truncation'] = 5  # Increase channel truncation factor
-    # station_config['station']['start_beamformer'] = True
-
-    # Define station beam parameters (using configuration for test pattern generator)
-    # station_config['observation']['start_frequency_channel'] = beam_start_frequency
-    # station_config['observation']['bandwidth'] = beam_bandwidth
-
-    # Check number of antennas to delay
-    # nof_antennas = len(station_config['tiles']) * antennas_per_tile
-
-    # Create station
-    test_station = station.Station(station_config)
-
-    # Initialise station
-    test_station.connect()
-
-    if not test_station.properly_formed_station:
-        logging.error("Station not properly formed, exiting")
-        exit()
-
-    iter = 0
-    pattern = [0]*1024
-    adders = [0]*64 + [0]*64
-    frame_adder = 1
-
-    for tile in test_station.tiles:
-        tile['fpga1.beamf_ring.csp_scaling'] = 0
-        tile['fpga2.beamf_ring.csp_scaling'] = 0
-
-    while True:
-        # Starting pattern generator
-        random.seed(iter)
-        for n in range(1024):
-            if frame_adder > 0:
-                pattern[n] = 0
-            elif int(iter % 2) == 0:
-                pattern[n] = n
-            else:
-                pattern[n] = random.randrange(0, 255, 1)
-
-        print("Setting pattern:")
-        print(pattern[0:15])
-        print("Setting frame adder: " + str(frame_adder))
-
-        set_pattern(test_station, "beamf", pattern, adders, frame_adder, len(test_station.tiles), True)
-
-        time.sleep(1)
-
-        spead_rx_inst = spead_rx(4660)
-        spead_rx_inst.run_test(len(test_station.tiles), pattern, adders, frame_adder, first_channel, 1000000000000)
-        spead_rx_inst.close_socket()
-        del spead_rx_inst
-
-        iter += 1
-
-        print("Iteration " + str(iter) + " with no errors!")
-
-
-
+    test_inst = TestStationBeam(station_config, test_logger)
+    test_inst.execute(int(opts.test_channel),
+                      int(opts.iterations))
