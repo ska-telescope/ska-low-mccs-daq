@@ -127,9 +127,3 @@ python-test:
         - setup.py
         - tests/requirements.txt
         - tests/pytest.ini
-
-
-k8s-test:
-  variables:
-    OCI_IMAGE: ska-tango-images-pytango-runtime
-    K8S_TEST_RUNNER_IMAGE: ${CI_REGISTRY_IMAGE}/ska-low-mccs-daq-test-runner:$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
