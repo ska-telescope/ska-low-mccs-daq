@@ -48,12 +48,37 @@ docs-pre-build:
 	python3 -m pip install -r docs/requirements.txt
 
 
-K8S_TEST_OVERRIDES =
-ifdef KUBE_NAMESPACE
-K8S_TEST_OVERRIDES += --set namespace=$(KUBE_NAMESPACE)
+# THIS IS SPECIFIC TO THIS REPO
+K8S_TEST_RUNNER_IMAGE = ska-low-mccs-daq-test-runner
+
+ifndef CI_COMMIT_SHORT_SHA
+K8S_TEST_RUNNER_TAG = 0.1.2
 endif
+
+# THIS SHOULD BE UPSTREAMED
+K8S_TEST_RUNNER_HELM_CHART_REPO ?= https://artefact.skao.int/repository/helm-internal
+K8S_TEST_RUNNER_HELM_CHART_NAME ?= ska-low-mccs-k8s-test-runner
+K8S_TEST_RUNNER_HELM_CHART_TAG ?= 0.2.0
+
+K8S_TEST_OVERRIDES =
+ifdef K8S_TEST_RUNNER_REGISTRY
+K8S_TEST_OVERRIDES += --set image.registry=$(K8S_TEST_RUNNER_REGISTRY)
+else
+ifdef CI_REGISTRY_IMAGE
+K8S_TEST_OVERRIDES += --set image.registry=$(CI_REGISTRY_IMAGE)
+endif
+endif
+
 ifdef K8S_TEST_RUNNER_IMAGE
-K8S_TEST_OVERRIDES += --set image=$(K8S_TEST_RUNNER_IMAGE)
+K8S_TEST_OVERRIDES += --set image.image=$(K8S_TEST_RUNNER_IMAGE)
+endif
+
+ifdef K8S_TEST_RUNNER_TAG
+K8S_TEST_OVERRIDES += --set image.tag=$(K8S_TEST_RUNNER_TAG)
+else
+ifdef CI_COMMIT_SHORT_SHA
+K8S_TEST_OVERRIDES += --set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
+endif
 endif
 
 ifdef CI_COMMIT_SHORT_SHA
@@ -63,11 +88,11 @@ TEST_RUNNER_RELEASE = k8s-test-runner
 endif
 
 k8s-do-test:
-	helm install $(TEST_RUNNER_RELEASE) charts/k8s-test-runner $(K8S_TEST_OVERRIDES) 
-	kubectl -n $(KUBE_NAMESPACE) wait --for=condition=ready pods k8s-test-runner
-	kubectl -n $(KUBE_NAMESPACE) cp tests/ k8s-test-runner:/app
-	kubectl -n $(KUBE_NAMESPACE) exec k8s-test-runner -- pytest
-	kubectl -n $(KUBE_NAMESPACE) cp k8s-test-runner:build/ ./build/
-	helm uninstall $(TEST_RUNNER_RELEASE)
+	helm -n $(KUBE_NAMESPACE) install --repo $(K8S_TEST_RUNNER_HELM_CHART_REPO) $(TEST_RUNNER_RELEASE) $(K8S_TEST_RUNNER_HELM_CHART_NAME) --version $(K8S_TEST_RUNNER_HELM_CHART_TAG) $(K8S_TEST_OVERRIDES) 
+	kubectl -n $(KUBE_NAMESPACE) wait pod ska-low-mccs-k8s-test-runner --for=condition=ready --timeout=$(K8S_TIMEOUT)
+	kubectl -n $(KUBE_NAMESPACE) cp tests/ ska-low-mccs-k8s-test-runner:/app
+	kubectl -n $(KUBE_NAMESPACE) exec ska-low-mccs-k8s-test-runner -- pytest
+	kubectl -n $(KUBE_NAMESPACE) cp ska-low-mccs-k8s-test-runner:build/ ./build/
+	helm  -n $(KUBE_NAMESPACE) uninstall $(TEST_RUNNER_RELEASE)
 
 .PHONY: k8s-test python-post-format python-post-lint docs-pre-build
