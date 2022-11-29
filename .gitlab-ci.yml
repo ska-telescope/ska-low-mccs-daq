@@ -60,7 +60,7 @@ oci-image-build:
     - 'make help | grep oci-build-all'
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
   script:
-    - make oci-build CAR_OCI_REGISTRY_HOST=${CI_REGISTRY_IMAGE}
+    - make oci-build-all CAR_OCI_REGISTRY_HOST=${CI_REGISTRY_IMAGE}
   after_script:
     - source .release
     - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:${release}-dev.c${CI_COMMIT_SHORT_SHA}")
@@ -69,20 +69,6 @@ oci-image-build:
   artifacts:
     paths:
       - ${CI_PROJECT_DIR}/aavs
-
-
-oci-image-build-k8s-test-runner:
-  stage: build
-  image: $SKA_K8S_TOOLS_DEPLOY_IMAGE
-  tags:
-    - k8srunner
-  variables:
-    OCI_IMAGE: ska-low-mccs-daq-test-runner
-    OCI_IMAGE_BUILD_CONTEXT: images/ska-low-mccs-daq-test-runner/
-  before_script:
-    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-  script:
-    - make oci-build OCI_IMAGE=${OCI_IMAGE} OCI_IMAGE_BUILD_CONTEXT=${OCI_IMAGE_BUILD_CONTEXT} CAR_OCI_REGISTRY_HOST=${CI_REGISTRY_IMAGE}
 
 
 # This `python-test` job is wholesale copied from:
