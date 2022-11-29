@@ -60,7 +60,7 @@ oci-image-build:
     - 'make help | grep oci-build-all'
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
   script:
-    - make oci-build CAR_OCI_REGISTRY_HOST=${CI_REGISTRY_IMAGE}
+    - make oci-build-all CAR_OCI_REGISTRY_HOST=${CI_REGISTRY_IMAGE}
   after_script:
     - source .release
     - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:${release}-dev.c${CI_COMMIT_SHORT_SHA}")

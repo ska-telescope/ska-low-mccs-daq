@@ -19,9 +19,6 @@ PYTHON_LINT_TARGET = src/ska_low_mccs_daq tests/
 DOCS_SOURCEDIR=./docs/src
 DOCS_SPHINXOPTS= -n -W --keep-going
 
-# Can't use . here because ociImageBuild overrides it.
-OCI_IMAGE_BUILD_CONTEXT?=$(shell pwd)
-
 # include makefile to pick up the standard Make targets, e.g., 'make build'
 include .make/oci.mk
 include .make/k8s.mk
@@ -61,10 +58,6 @@ K8S_TEST_RUNNER_CHART_TAG ?= 0.2.0
 K8S_TEST_RUNNER_CHART_OVERRIDES =
 ifdef K8S_TEST_RUNNER_IMAGE_REGISTRY
 K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.registry=$(K8S_TEST_RUNNER_IMAGE_REGISTRY)
-else
-ifdef CI_REGISTRY_IMAGE
-K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.registry=$(CI_REGISTRY_IMAGE)
-endif
 endif
 
 ifdef K8S_TEST_RUNNER_IMAGE_NAME
@@ -73,10 +66,6 @@ endif
 
 ifdef K8S_TEST_RUNNER_IMAGE_TAG
 K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.tag=$(K8S_TEST_RUNNER_IMAGE_TAG)
-else
-ifdef CI_COMMIT_SHORT_SHA
-K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
-endif
 endif
 
 ifdef CI_COMMIT_SHORT_SHA
