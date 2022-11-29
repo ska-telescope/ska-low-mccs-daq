@@ -49,50 +49,62 @@ docs-pre-build:
 
 
 # THIS IS SPECIFIC TO THIS REPO
-K8S_TEST_RUNNER_IMAGE = ska-low-mccs-daq-test-runner
+K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --testbed local --junitxml=build/reports/functional-tests.xml
+K8S_TEST_RUNNER_PYTEST_TARGET = tests/functional
+K8S_TEST_RUNNER_PIP_INSTALL_ARGS = -r tests/functional/requirements.txt
 
-ifndef CI_COMMIT_SHORT_SHA
-K8S_TEST_RUNNER_TAG = 0.1.2
-endif
+# ALL THIS SHOULD BE UPSTREAMED
+K8S_TEST_RUNNER_CHART_REGISTRY ?= https://artefact.skao.int/repository/helm-internal
+K8S_TEST_RUNNER_CHART_NAME ?= ska-low-mccs-k8s-test-runner
+K8S_TEST_RUNNER_CHART_TAG ?= 0.2.0
 
-# THIS SHOULD BE UPSTREAMED
-K8S_TEST_RUNNER_HELM_CHART_REPO ?= https://artefact.skao.int/repository/helm-internal
-K8S_TEST_RUNNER_HELM_CHART_NAME ?= ska-low-mccs-k8s-test-runner
-K8S_TEST_RUNNER_HELM_CHART_TAG ?= 0.2.0
-
-K8S_TEST_OVERRIDES =
-ifdef K8S_TEST_RUNNER_REGISTRY
-K8S_TEST_OVERRIDES += --set image.registry=$(K8S_TEST_RUNNER_REGISTRY)
+K8S_TEST_RUNNER_CHART_OVERRIDES =
+ifdef K8S_TEST_RUNNER_IMAGE_REGISTRY
+K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.registry=$(K8S_TEST_RUNNER_IMAGE_REGISTRY)
 else
 ifdef CI_REGISTRY_IMAGE
-K8S_TEST_OVERRIDES += --set image.registry=$(CI_REGISTRY_IMAGE)
+K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.registry=$(CI_REGISTRY_IMAGE)
 endif
 endif
 
-ifdef K8S_TEST_RUNNER_IMAGE
-K8S_TEST_OVERRIDES += --set image.image=$(K8S_TEST_RUNNER_IMAGE)
+ifdef K8S_TEST_RUNNER_IMAGE_NAME
+K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.image=$(K8S_TEST_RUNNER_IMAGE_NAME)
 endif
 
-ifdef K8S_TEST_RUNNER_TAG
-K8S_TEST_OVERRIDES += --set image.tag=$(K8S_TEST_RUNNER_TAG)
+ifdef K8S_TEST_RUNNER_IMAGE_TAG
+K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.tag=$(K8S_TEST_RUNNER_IMAGE_TAG)
 else
 ifdef CI_COMMIT_SHORT_SHA
-K8S_TEST_OVERRIDES += --set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
+K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
 endif
 endif
 
 ifdef CI_COMMIT_SHORT_SHA
-TEST_RUNNER_RELEASE = k8s-test-runner-$(CI_COMMIT_SHORT_SHA)
+K8S_TEST_RUNNER_CHART_RELEASE = k8s-test-runner-$(CI_COMMIT_SHORT_SHA)
 else
-TEST_RUNNER_RELEASE = k8s-test-runner
+K8S_TEST_RUNNER_CHART_RELEASE = k8s-test-runner
 endif
+
+K8S_TEST_RUNNER_PIP_INSTALL_COMMAND =
+ifdef K8S_TEST_RUNNER_PIP_INSTALL_ARGS
+K8S_TEST_RUNNER_PIP_INSTALL_COMMAND = pip install ${K8S_TEST_RUNNER_PIP_INSTALL_ARGS}
+endif
+
+K8S_TEST_RUNNER_WORKING_DIRECTORY ?= /home/tango
 
 k8s-do-test:
-	helm -n $(KUBE_NAMESPACE) install --repo $(K8S_TEST_RUNNER_HELM_CHART_REPO) $(TEST_RUNNER_RELEASE) $(K8S_TEST_RUNNER_HELM_CHART_NAME) --version $(K8S_TEST_RUNNER_HELM_CHART_TAG) $(K8S_TEST_OVERRIDES) 
-	kubectl -n $(KUBE_NAMESPACE) wait pod ska-low-mccs-k8s-test-runner --for=condition=ready --timeout=$(K8S_TIMEOUT)
-	kubectl -n $(KUBE_NAMESPACE) cp tests/ ska-low-mccs-k8s-test-runner:/app
-	kubectl -n $(KUBE_NAMESPACE) exec ska-low-mccs-k8s-test-runner -- pytest
-	kubectl -n $(KUBE_NAMESPACE) cp ska-low-mccs-k8s-test-runner:build/ ./build/
-	helm  -n $(KUBE_NAMESPACE) uninstall $(TEST_RUNNER_RELEASE)
+	helm -n $(KUBE_NAMESPACE) install --repo $(K8S_TEST_RUNNER_CHART_REGISTRY) \
+		$(K8S_TEST_RUNNER_CHART_RELEASE) $(K8S_TEST_RUNNER_CHART_NAME) \
+		--version $(K8S_TEST_RUNNER_CHART_TAG) $(K8S_TEST_RUNNER_CHART_OVERRIDES) 
+	kubectl -n $(KUBE_NAMESPACE) wait pod ska-low-mccs-k8s-test-runner \
+		--for=condition=ready --timeout=$(K8S_TIMEOUT)
+	kubectl -n $(KUBE_NAMESPACE) cp tests/ ska-low-mccs-k8s-test-runner:$(K8S_TEST_RUNNER_WORKING_DIRECTORY)/tests
+	kubectl -n $(KUBE_NAMESPACE) exec ska-low-mccs-k8s-test-runner -- bash -c \
+		"cd $(K8S_TEST_RUNNER_WORKING_DIRECTORY) && \
+		mkdir -p build/reports && \
+		$(K8S_TEST_RUNNER_PIP_INSTALL_COMMAND) && \
+		pytest $(K8S_TEST_RUNNER_PYTEST_OPTIONS) $(K8S_TEST_RUNNER_PYTEST_TARGET)"
+	kubectl -n $(KUBE_NAMESPACE) cp ska-low-mccs-k8s-test-runner:$(K8S_TEST_RUNNER_WORKING_DIRECTORY)/build/ ./build/
+	helm  -n $(KUBE_NAMESPACE) uninstall $(K8S_TEST_RUNNER_CHART_RELEASE)
 
 .PHONY: k8s-test python-post-format python-post-lint docs-pre-build

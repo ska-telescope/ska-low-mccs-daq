@@ -71,20 +71,6 @@ oci-image-build:
       - ${CI_PROJECT_DIR}/aavs
 
 
-oci-image-build-k8s-test-runner:
-  stage: build
-  image: $SKA_K8S_TOOLS_DEPLOY_IMAGE
-  tags:
-    - k8srunner
-  variables:
-    OCI_IMAGE: ska-low-mccs-daq-test-runner
-    OCI_IMAGE_BUILD_CONTEXT: images/ska-low-mccs-daq-test-runner/
-  before_script:
-    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-  script:
-    - make oci-build OCI_IMAGE=${OCI_IMAGE} OCI_IMAGE_BUILD_CONTEXT=${OCI_IMAGE_BUILD_CONTEXT} CAR_OCI_REGISTRY_HOST=${CI_REGISTRY_IMAGE}
-
-
 # This `python-test` job is wholesale copied from:
 # - project: 'ska-telescope/templates-repository'
 #   file: 'gitlab-ci/includes/python-test.gitlab-ci.yml'
