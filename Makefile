@@ -31,10 +31,6 @@ include .make/helm.mk
 # include your own private variables for custom deployment configuration
 -include PrivateRules.mak
 
-ifneq ($(strip $(CI_JOB_ID)),)
-  K8S_TEST_IMAGE_TO_TEST = $(CI_REGISTRY_IMAGE)/$(NAME):$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
-endif
-
 python-post-format:
 	$(PYTHON_RUNNER) docformatter -r -i --wrap-summaries 88 --wrap-descriptions 72 --pre-summary-newline $(PYTHON_LINT_TARGET)
 
@@ -46,6 +42,12 @@ docs-pre-build:
 
 
 # THIS IS SPECIFIC TO THIS REPO
+ifdef CI_REGISTRY_IMAGE
+K8S_CHART_PARAMS = \
+	--set low_mccs_daq.image.registry=$(CI_REGISTRY_IMAGE) \
+	--set low_mccs_daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
+endif
+
 K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --testbed local --junitxml=build/reports/functional-tests.xml
 K8S_TEST_RUNNER_PYTEST_TARGET = tests/functional
 K8S_TEST_RUNNER_PIP_INSTALL_ARGS = -r tests/functional/requirements.txt
