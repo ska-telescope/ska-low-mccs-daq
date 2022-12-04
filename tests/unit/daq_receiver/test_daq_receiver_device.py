@@ -8,19 +8,24 @@
 """This module contains the tests of the daq receiver device."""
 from __future__ import annotations
 
+import gc
 import json
+import unittest.mock
 from time import sleep
 from typing import Union
 
 import pytest
-from pydaq.daq_receiver_interface import DaqModes  # type: ignore
+import tango
+from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import AdminMode, HealthState, ResultCode
 from ska_low_mccs_common import MccsDeviceProxy
-from ska_low_mccs_common.testing.mock import MockChangeEventCallback
 from ska_low_mccs_common.testing.tango_harness import DeviceToLoadType, TangoHarness
+from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from ska_low_mccs_daq import MccsDaqReceiver
-from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
+
+# TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
+gc.disable()
 
 
 @pytest.fixture(name="device_to_load")
@@ -56,7 +61,7 @@ class TestMccsDaqReceiver:
     def test_healthState(
         self: TestMccsDaqReceiver,
         device_under_test: MccsDeviceProxy,
-        device_health_state_changed_callback: MockChangeEventCallback,
+        change_event_callbacks: MockTangoEventCallbackGroup,
     ) -> None:
         """
         Test for healthState.
@@ -64,16 +69,15 @@ class TestMccsDaqReceiver:
         :param device_under_test: fixture that provides a
             :py:class:`tango.DeviceProxy` to the device under test, in a
             :py:class:`tango.test_context.DeviceTestContext`.
-        :param device_health_state_changed_callback: a callback that we
-            can use to subscribe to health state changes on the device
+        :param change_event_callbacks: group of Tango change event
+            callback with asynchrony support
         """
-        device_under_test.add_change_event_callback(
+        device_under_test.subscribe_event(
             "healthState",
-            device_health_state_changed_callback,
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["healthState"],
         )
-        device_health_state_changed_callback.assert_next_change_event(
-            HealthState.UNKNOWN
-        )
+        change_event_callbacks.assert_change_event("healthState", HealthState.UNKNOWN)
         assert device_under_test.healthState == HealthState.UNKNOWN
 
     @pytest.mark.parametrize(
@@ -126,7 +130,7 @@ class TestMccsDaqReceiver:
         device_under_test.Start(json.dumps({"modes_to_start": modes_to_start}))
         # We can't check immediately so wait for consumer(s) to start.
 
-        # I'd like to pass `task_callback=MockCallable()` to `Start`.
+        # I'd like to pass `task_callback=MockCallback()` to `Start`.
         # However it isn't json serializable so we can't do that here.
         # Instead we resort to this...
         sleep(2)
@@ -179,7 +183,7 @@ class TestPatchedDaq:
     def test_start_daq_device(
         self: TestPatchedDaq,
         device_under_test: MccsDeviceProxy,
-        mock_component_manager: DaqComponentManager,
+        mock_component_manager: unittest.mock.Mock,
         daq_modes: list[Union[int, DaqModes]],
     ) -> None:
         """
@@ -206,13 +210,9 @@ class TestPatchedDaq:
         assert result_code == ResultCode.QUEUED
         assert "Start" in response.split("_")[-1]
 
-        mcmanager = mock_component_manager
-        args = mcmanager.start_daq.get_next_call()  # type: ignore[attr-defined]
-        called_daq_modes = args[0][0]
-        called_cbs = args[0][1]
-
-        assert called_daq_modes == daq_modes
-        assert called_cbs == cbs
+        call_args = mock_component_manager.start_daq.call_args
+        assert call_args.args[0] == daq_modes
+        assert call_args.args[1] == cbs
 
     @pytest.mark.parametrize(
         ("consumer_list"),
@@ -235,7 +235,7 @@ class TestPatchedDaq:
     def test_set_consumers_device(
         self: TestPatchedDaq,
         device_under_test: MccsDeviceProxy,
-        mock_component_manager: DaqComponentManager,
+        mock_component_manager: unittest.mock.Mock,
         consumer_list: list[Union[int, DaqModes]],
     ) -> None:
         """
@@ -257,6 +257,5 @@ class TestPatchedDaq:
 
         # Get the args for the next call to set consumers and assert
         # it's what we expect.
-        mcm = mock_component_manager
-        args = mcm._set_consumers_to_start.get_next_call()  # type: ignore[attr-defined]
-        assert consumer_list == args[0][0]
+        call_args = mock_component_manager._set_consumers_to_start.call_args
+        assert call_args.args[0] == consumer_list

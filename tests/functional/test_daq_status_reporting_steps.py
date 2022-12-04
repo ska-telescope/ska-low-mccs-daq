@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import pytest
 
-# from pydaq.daq_receiver_interface import DaqModes  # type: ignore[import]
+# from pydaq.daq_receiver_interface import DaqModes
 from pytest_bdd import given, parsers, scenarios, then, when
 
 # from ska_control_model import AdminMode, CommunicationStatus, HealthState
 from ska_low_mccs_common import MccsDeviceProxy
-from ska_low_mccs_common.testing.mock import MockCallable
 from ska_low_mccs_common.testing.tango_harness import DevicesToLoadType
 
 # import json
@@ -85,8 +84,6 @@ def admin_mode_set_to_value(
 @given(parsers.cfparse("communications are '{communication_state}'"))
 def comms_are_in_state(
     communication_state: str,
-    communication_state_changed_callback: MockCallable,
-    # daq_component_manager: DaqComponentManager,
 ) -> None:
     """
     Ensure communications are in the state specified.
@@ -95,8 +92,6 @@ def comms_are_in_state(
     this method checks that the daq receiver comms is in that state.
 
     :param communication_state: The communication state the device is expected to be in.
-    :param communication_state_changed_callback: Callback to be called when the device's
-        communication state changes.
     """
     # :param daq_component_manager: The component manager for the device under test.
     pytest.xfail(reason="Not implemented yet")
