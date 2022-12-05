@@ -6,19 +6,16 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
-import unittest
-from typing import Callable, Optional
+from typing import Optional
 
 import pytest
-from ska_low_mccs_common.testing.mock import (
-    MockCallable,
-    MockCallableDeque,
-    MockChangeEventCallback,
-)
+from pydaq.daq_receiver_interface import DaqModes
 from ska_low_mccs_common.testing.tango_harness import (
     DevicesToLoadType,
     DeviceToLoadType,
 )
+from ska_tango_testing.mock import MockCallableGroup
+from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 
 def pytest_itemcollected(item: pytest.Item) -> None:
@@ -73,162 +70,35 @@ def devices_to_load_fixture(
     return device_spec
 
 
-@pytest.fixture(name="mock_callback_factory")
-def mock_callback_factory_fixture(
-    mock_callback_called_timeout: float,
-    mock_callback_not_called_timeout: float,
-) -> Callable[[], MockCallable]:
+@pytest.fixture(name="callbacks")
+def callbacks_fixture() -> MockCallableGroup:
     """
-    Return a factory that returns a new mock callback each time it is called.
+    Return a dictionary of callbacks with asynchrony support.
 
-    Use this fixture in tests that need more than one mock_callback. If
-    your tests only needs a single mock callback, it is simpler to use
-    the :py:func:`mock_callback` fixture.
-
-    :param mock_callback_called_timeout: the time to wait for a mock
-        callback to be called when a call is expected
-    :param mock_callback_not_called_timeout: the time to wait for a mock
-        callback to be called when a call is unexpected
-
-    :return: a factory that returns a new mock callback each time it is
-        called.
+    :return: a collections.defaultdict that returns callbacks by name.
     """
-    return lambda: MockCallable(
-        called_timeout=mock_callback_called_timeout,
-        not_called_timeout=mock_callback_not_called_timeout,
+    return MockCallableGroup(
+        "communication_state",
+        "component_state",
+        "task",
+        "extra_daq_mode",
+        *[mode.name for mode in DaqModes],
+        timeout=5.0,
     )
 
 
-@pytest.fixture(name="mock_callback_deque_factory")
-def mock_callback_deque_factory_fixture(
-    mock_callback_called_timeout: float,
-    mock_callback_not_called_timeout: float,
-) -> Callable[[], MockCallableDeque]:
+@pytest.fixture(name="change_event_callbacks")
+def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
     """
-    Return a factory that returns a new mock callback using a deque when called.
+    Return a dictionary of change event callbacks with asynchrony support.
 
-    Use this fixture in tests that need more than one mock_callback. If
-    your tests only needs a single mock callback, it is simpler to use
-    the :py:func:`mock_callback` fixture.
-
-    :param mock_callback_called_timeout: the time to wait for a mock
-        callback to be called when a call is expected
-    :param mock_callback_not_called_timeout: the time to wait for a mock
-        callback to be called when a call is unexpected
-
-    :return: a factory that returns a new mock callback each time it is
-        called.
+    :return: a collections.defaultdict that returns change event
+        callbacks by name.
     """
-    return lambda: MockCallableDeque(
-        called_timeout=mock_callback_called_timeout,
-        not_called_timeout=mock_callback_not_called_timeout,
+    return MockTangoEventCallbackGroup(
+        "healthState",
+        # TODO: Add more event types here as the tests grow
     )
-
-
-@pytest.fixture(name="device_state_changed_callback")
-def device_state_changed_callback_fixture(
-    mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
-) -> MockChangeEventCallback:
-    """
-    Return a mock change event callback for device state change.
-
-    :param mock_change_event_callback_factory: fixture that provides a
-        mock change event callback factory (i.e. an object that returns
-        mock callbacks whMockCallableen called).
-
-    :return: a mock change event callback to be registered with the
-        device via a change event subscription, so that it gets called
-        when the device state changes.
-    """
-    return mock_change_event_callback_factory("state")
-
-
-@pytest.fixture(name="device_admin_mode_changed_callback")
-def device_admin_mode_changed_callback_fixture(
-    mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
-) -> MockChangeEventCallback:
-    """
-    Return a mock change event callback for device admin mode change.
-
-    :param mock_change_event_callback_factory: fixture that provides a
-        mock change event callback factory (i.e. an object that returns
-        mock callbacks when called).
-
-    :return: a mock change event callback to be registered with the
-        device via a change event subscription, so that it gets called
-        when the device admin mode changes.
-    """
-    return mock_change_event_callback_factory("adminMode")
-
-
-@pytest.fixture(name="device_health_state_changed_callback")
-def device_health_state_changed_callback_fixture(
-    mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
-) -> MockChangeEventCallback:
-    """
-    Return a mock change event callback for device health state change.
-
-    :param mock_change_event_callback_factory: fixture that provides a
-        mock change event callback factory (i.e. an object that returns
-        mock callbacks when called).
-
-    :return: a mock change event callback to be called when the
-        device health state changes. (The callback has not yet been
-        subscribed to the device; this must be done as part of the
-        test.)
-    """
-    return mock_change_event_callback_factory("healthState")
-
-
-@pytest.fixture(name="communication_state_changed_callback")
-def communication_state_changed_callback_fixture(
-    mock_callback_factory: Callable[[], unittest.mock.Mock],
-) -> unittest.mock.Mock:
-    """
-    Return a mock callback for component manager communication status.
-
-    :param mock_callback_factory: fixture that provides a mock callback
-        factory (i.e. an object that returns mock callbacks when
-        called).
-
-    :return: a mock callback to be called when the communication status
-        of a component manager changed.
-    """
-    return mock_callback_factory()
-
-
-@pytest.fixture(name="component_fault_callback")
-def component_fault_callback_fixture(
-    mock_callback_factory: Callable[[], unittest.mock.Mock],
-) -> unittest.mock.Mock:
-    """
-    Return a mock callback for component fault.
-
-    :param mock_callback_factory: fixture that provides a mock callback
-        factory (i.e. an object that returns mock callbacks when
-        called).
-
-    :return: a mock callback to be called when the component manager
-        detects that its component has faulted.
-    """
-    return mock_callback_factory()
-
-
-@pytest.fixture(name="component_progress_changed_callback")
-def component_progress_changed_callback_fixture(
-    mock_callback_factory: Callable[[], unittest.mock.Mock],
-) -> unittest.mock.Mock:
-    """
-    Return a mock callback for component progress.
-
-    :param mock_callback_factory: fixture that provides a mock callback
-        factory (i.e. an object that returns mock callbacks when
-        called).
-
-    :return: a mock callback to be called when the component manager
-        detects that its component progress value has changed.
-    """
-    return mock_callback_factory()
 
 
 @pytest.fixture(name="device_to_load")

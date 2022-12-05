@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Sequence, Union
 
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
+from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import CommunicationStatus, TaskStatus
 from ska_low_mccs_common.component import MccsComponentManager, check_communicating
 
@@ -213,7 +213,7 @@ class DaqComponentManager(MccsComponentManager):
     def start_daq(
         self: DaqComponentManager,
         modes_to_start: Optional[list[DaqModes]] = None,
-        callbacks: Optional[list[Callable]] = None,
+        callbacks: Optional[Sequence[Callable]] = None,
         task_callback: Optional[Callable] = None,
     ) -> tuple[TaskStatus, str]:
         """

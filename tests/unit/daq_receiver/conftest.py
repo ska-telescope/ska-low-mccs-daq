@@ -10,44 +10,15 @@ from __future__ import annotations
 
 import logging
 import unittest.mock
-from typing import Any, Callable
 
 import pytest
 import pytest_mock
 from ska_control_model import TaskStatus
 from ska_low_mccs_common.testing import TangoHarness
-from ska_low_mccs_common.testing.mock import MockCallable
-from ska_low_mccs_common.testing.mock.mock_callable import MockCallableDeque
+from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq import MccsDaqReceiver
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
-
-
-class MockLongRunningCommand(MockCallable):
-    """
-    Mock the call to submit a LRC.
-
-    A long running command submission, if successful, returns a
-    TaskStatus and result message.
-    """
-
-    def __call__(self: MockCallable, *args: Any, **kwargs: Any) -> Any:
-        """
-        Handle a callback call.
-
-        Create a standard mock, call it, and put it on the queue. (This
-        approach lets us take advantange of the mock's assertion
-        functionality later.)
-
-        :param args: positional args in the call
-        :param kwargs: keyword args in the call
-
-        :return: the object's return calue
-        """
-        called_mock = unittest.mock.Mock()
-        called_mock(*args, **kwargs)
-        self._queue.put(called_mock)
-        return TaskStatus.QUEUED, "Task queued"
 
 
 @pytest.fixture(name="daq_id")
@@ -113,22 +84,6 @@ def empty_consumer_list_to_start_fixture() -> str:
     return ""
 
 
-@pytest.fixture(name="component_state_changed_callback")
-def component_state_changed_callback_fixture(
-    mock_callback_deque_factory: Callable[[], unittest.mock.Mock],
-) -> Callable[[], None]:
-    """
-    Return a mock callback for a change in DaqReceiver state.
-
-    :param mock_callback_deque_factory: fixture that provides a mock callback deque
-        factory.
-
-    :return: a mock callback deque holding a sequence of
-        calls to component_state_changed_callback.
-    """
-    return mock_callback_deque_factory()
-
-
 @pytest.fixture(name="max_workers")
 def max_workers_fixture() -> int:
     """
@@ -153,8 +108,7 @@ def daq_component_manager_fixture(
     empty_consumer_list_to_start: str,
     logger: logging.Logger,
     max_workers: int,
-    communication_state_changed_callback: MockCallable,
-    component_state_changed_callback: MockCallableDeque,
+    callbacks: MockCallableGroup,
 ) -> DaqComponentManager:
     """
     Return a daq receiver component manager.
@@ -167,11 +121,8 @@ def daq_component_manager_fixture(
     :param empty_consumer_list_to_start: The default consumers to be started.
     :param logger: the logger to be used by this object.
     :param max_workers: max number of threads available to run a LRC.
-    :param communication_state_changed_callback: callback to be
-        called when the status of the communications channel between
-        the component manager and its component changes
-    :param component_state_changed_callback: callback to call when the
-        device state changes.
+    :param callbacks: a dictionary from which callbacks with asynchrony
+        support can be accessed.
 
     :return: a daq component manager
     """
@@ -183,8 +134,8 @@ def daq_component_manager_fixture(
         empty_consumer_list_to_start,
         logger,
         max_workers,
-        communication_state_changed_callback,
-        component_state_changed_callback,
+        callbacks["communication_state"],
+        callbacks["component_state"],
     )
 
 
@@ -198,8 +149,7 @@ def mock_daq_component_manager_fixture(
     empty_consumer_list_to_start: str,
     logger: logging.Logger,
     max_workers: int,
-    communication_state_changed_callback: MockCallable,
-    component_state_changed_callback: MockCallableDeque,
+    callbacks: MockCallableGroup,
 ) -> DaqComponentManager:
     """
     Return a daq component manager.
@@ -211,11 +161,8 @@ def mock_daq_component_manager_fixture(
     :param empty_consumer_list_to_start: The default consumers to be started.
     :param logger: the logger to be used by this object.
     :param max_workers: max number of threads available to run a LRC.
-    :param communication_state_changed_callback: callback to be
-        called when the status of the communications channel between
-        the component manager and its component changes.
-    :param component_state_changed_callback: callback to call when the
-        device state changes.
+    :param callbacks: a dictionary from which callbacks with asynchrony
+        support can be accessed.
 
     :return: a daq component manager
     """
@@ -227,8 +174,8 @@ def mock_daq_component_manager_fixture(
         empty_consumer_list_to_start,
         logger,
         max_workers,
-        communication_state_changed_callback,
-        component_state_changed_callback,
+        callbacks["communication_state"],
+        callbacks["component_state"],
     )
 
 
@@ -246,10 +193,11 @@ def mock_component_manager_fixture(
         device.
     """
     mock_component_manager = mocker.Mock()
-    mock_component_manager.start_daq = MockLongRunningCommand()
-    mock_component_manager.stop_daq = MockLongRunningCommand()
-    mock_component_manager.configure_daq = MockCallable()
-    mock_component_manager._set_consumers_to_start = MockCallable()
+    configuration = {
+        "start_daq.return_value": (TaskStatus.QUEUED, "Task queued"),
+        "stop_daq.return_value": (TaskStatus.QUEUED, "Task queued"),
+    }
+    mock_component_manager.configure_mock(**configuration)
     return mock_component_manager
 
 

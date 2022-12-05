@@ -9,12 +9,12 @@
 from __future__ import annotations
 
 import time
-from typing import Callable, Union, cast
+from typing import Union
 
 import pytest
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
+from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import CommunicationStatus, TaskStatus
-from ska_low_mccs_common.testing.mock import MockCallable
+from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 
@@ -25,16 +25,15 @@ class TestDaqComponentManager:
     def test_communication(
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
-        communication_state_changed_callback: MockCallable,
+        callbacks: MockCallableGroup,
     ) -> None:
         """
         Test the station component manager's management of communication.
 
         :param daq_component_manager: the station component manager
             under test.
-        :param communication_state_changed_callback: callback to be
-            called when the status of the communications channel between
-            the component manager and its component changes
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
         """
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
 
@@ -42,20 +41,16 @@ class TestDaqComponentManager:
 
         # allow some time for device communication to start before testing
         time.sleep(0.1)
-        communication_state_changed_callback.assert_next_call(
+        callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
-        communication_state_changed_callback.assert_next_call(
-            CommunicationStatus.ESTABLISHED
-        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
         assert (
             daq_component_manager.communication_state == CommunicationStatus.ESTABLISHED
         )
 
         daq_component_manager.stop_communicating()
-        communication_state_changed_callback.assert_next_call(
-            CommunicationStatus.DISABLED
-        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.DISABLED)
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
 
     @pytest.mark.parametrize(
@@ -79,7 +74,7 @@ class TestDaqComponentManager:
     def test_instantiate_daq(
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
-        communication_state_changed_callback: MockCallable,
+        callbacks: MockCallableGroup,
         acquisition_duration: int,
         daq_modes: list[Union[int, DaqModes]],
     ) -> None:
@@ -92,9 +87,8 @@ class TestDaqComponentManager:
 
         :param daq_component_manager: the daq receiver component manager
             under test.
-        :param communication_state_changed_callback: callback to be
-            called when the status of the communications channel between
-            the component manager and its component changes
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
         :param acquisition_duration: The duration of the data capture.
         :param daq_modes: The DAQ consumers to start.
         """
@@ -109,23 +103,24 @@ class TestDaqComponentManager:
         daq_component_manager.daq_instance.populate_configuration(daq_config)
 
         daq_component_manager.start_communicating()
-        communication_state_changed_callback.assert_last_call(
-            CommunicationStatus.ESTABLISHED
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
         )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
 
         # Start DAQ and check our consumer is running.
-        daq_task_callback = MockCallable()
         # Need exactly 1 callback per consumer started or None. Cast for Mypy.
-        data_received_callback = len(daq_modes) * [cast(Callable, MockCallable())]
         rc, message = daq_component_manager.start_daq(
-            daq_modes, data_received_callback, task_callback=daq_task_callback
+            daq_modes,
+            [callbacks[DaqModes(mode).name] for mode in daq_modes],
+            task_callback=callbacks["task"],
         )
         assert rc == TaskStatus.QUEUED
         assert message == "Task queued"
 
-        daq_task_callback.assert_next_call(status=TaskStatus.QUEUED)
-        daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
-        daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
+        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
 
         for mode in daq_modes:
             # If we're using ints instead of DaqModes make the conversion so we
@@ -137,13 +132,13 @@ class TestDaqComponentManager:
         time.sleep(daq_component_manager.daq_instance._config["acquisition_duration"])
 
         # Stop DAQ and check our consumer is not running.
-        rc, message = daq_component_manager.stop_daq(task_callback=daq_task_callback)
+        rc, message = daq_component_manager.stop_daq(task_callback=callbacks["task"])
         assert rc == TaskStatus.QUEUED
         assert message == "Task queued"
 
-        daq_task_callback.assert_next_call(status=TaskStatus.QUEUED)
-        daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
-        daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
+        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
 
         for mode in daq_modes:
             # If we're using ints instead of DaqModes make the conversion so we
@@ -157,7 +152,7 @@ class TestDaqComponentManager:
     def test_incorrect_callback_count(
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
-        communication_state_changed_callback: MockCallable,
+        callbacks: MockCallableGroup,
         num_callbacks: int,
     ) -> None:
         """
@@ -168,9 +163,8 @@ class TestDaqComponentManager:
 
         :param daq_component_manager: the daq receiver component manager
             under test.
-        :param communication_state_changed_callback: callback to be
-            called when the status of the communications channel between
-            the component manager and its component changes
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
         :param num_callbacks: A modifier to apply to the number of callbacks so
             that there are more or less than required.
         """
@@ -186,25 +180,29 @@ class TestDaqComponentManager:
         daq_component_manager.daq_instance.populate_configuration(daq_config)
 
         daq_component_manager.start_communicating()
-        communication_state_changed_callback.assert_last_call(
-            CommunicationStatus.ESTABLISHED
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
         )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
 
         # Start DAQ and check our consumer is running.
-        daq_task_callback = MockCallable()
+
         # Configure callbacks so we have either one more or less than we should.
-        # Cast for Mypy
-        data_received_callback = (num_callbacks + len(daq_modes)) * [
-            cast(Callable, MockCallable())
+        data_received_callbacks = [callbacks["extra_daq_mode"]] + [
+            callbacks[DaqModes(mode).name] for mode in daq_modes
         ]
+        data_received_callbacks = data_received_callbacks[(1 + num_callbacks) :]
+
         rc, message = daq_component_manager.start_daq(
-            daq_modes, data_received_callback, task_callback=daq_task_callback
+            daq_modes,
+            data_received_callbacks,
+            task_callback=callbacks["task"],
         )
         assert rc == TaskStatus.QUEUED
         assert message == "Task queued"
 
-        daq_task_callback.assert_next_call(status=TaskStatus.QUEUED)
-        daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
 
         # Assert that we see the warning message.
         expected_response = (
@@ -212,11 +210,11 @@ class TestDaqComponentManager:
             "There must be exactly one callback per consumer!"
             "CALLBACKS ARE BEING IGNORED!\n"
             f"Number of consumers specified: {len(daq_modes)}\n"
-            f"Number of callbacks provided: {len(data_received_callback)}"
+            f"Number of callbacks provided: {len(data_received_callbacks)}"
         )
-        daq_task_callback.assert_next_call(message=expected_response)
+        callbacks["task"].assert_call(message=expected_response)
 
-        daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
+        callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
 
         for mode in daq_modes:
             # If we're using ints instead of DaqModes make the conversion so we
@@ -228,13 +226,13 @@ class TestDaqComponentManager:
         time.sleep(daq_component_manager.daq_instance._config["acquisition_duration"])
 
         # Stop DAQ and check our consumer is not running.
-        rc, message = daq_component_manager.stop_daq(task_callback=daq_task_callback)
+        rc, message = daq_component_manager.stop_daq(task_callback=callbacks["task"])
         assert rc == TaskStatus.QUEUED
         assert message == "Task queued"
 
-        daq_task_callback.assert_next_call(status=TaskStatus.QUEUED)
-        daq_task_callback.assert_next_call(status=TaskStatus.IN_PROGRESS)
-        daq_task_callback.assert_next_call(status=TaskStatus.COMPLETED)
+        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
 
         for mode in daq_modes:
             # If we're using ints instead of DaqModes make the conversion so we

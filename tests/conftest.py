@@ -13,16 +13,15 @@ functional (BDD).
 """
 from __future__ import annotations
 
-import functools
 import logging
 import unittest
-from typing import Any, Callable, Generator, Set, cast
+from typing import Any, Callable, Generator, Optional, Set, cast
 
 import _pytest
 import pytest
 import tango
 import yaml
-from ska_low_mccs_common.testing.mock import MockChangeEventCallback, MockDeviceBuilder
+from ska_low_mccs_common.testing.mock import MockDeviceBuilder
 from ska_low_mccs_common.testing.tango_harness import (
     BaseTangoHarness,
     ClientProxyTangoHarness,
@@ -204,8 +203,8 @@ def tango_harness_factory_fixture(
     def build_harness(
         tango_config: dict[str, Any],
         devices_to_load: DevicesToLoadType,
-        mock_factory: Callable[[], unittest.mock.Mock],
-        initial_mocks: dict[str, unittest.mock.Mock],
+        mock_factory: Optional[Callable[[], unittest.mock.Mock]] = None,
+        initial_mocks: Optional[dict[str, unittest.mock.Mock]] = None,
     ) -> TangoHarness:
         """
         Build the Tango test harness.
@@ -214,9 +213,9 @@ def tango_harness_factory_fixture(
             test harness
         :param devices_to_load: fixture that provides a specification of the
             devices that are to be included in the devices_info dictionary
-        :param mock_factory: the factory to be used to build mocks
-        :param initial_mocks: a pre-build dictionary of mocks to be used
-            for particular
+        :param mock_factory: a factory to be used to build mocks
+        :param initial_mocks: a pre-built dictionary of mocks to be used
+            for particular devices
 
         :return: a tango test harness
         """
@@ -236,6 +235,10 @@ def tango_harness_factory_fixture(
 
         starting_state_harness = StartingStateTangoHarness(tango_harness)
 
+        if mock_factory is None:
+            return starting_state_harness
+
+        assert initial_mocks is not None  # for the type checker
         mocking_harness = MockingTangoHarness(
             starting_state_harness, mock_factory, initial_mocks
         )
@@ -259,19 +262,11 @@ def tango_config_fixture() -> dict[str, Any]:
 
 @pytest.fixture(name="tango_harness")
 def tango_harness_fixture(
-    tango_harness_factory: Callable[
-        [
-            dict[str, Any],
-            DevicesToLoadType,
-            Callable[[], unittest.mock.Mock],
-            dict[str, unittest.mock.Mock],
-        ],
-        TangoHarness,
-    ],
+    tango_harness_factory: Callable[..., TangoHarness],
     tango_config: dict[str, str],
     devices_to_load: DevicesToLoadType,
-    mock_factory: Callable[[], unittest.mock.Mock],
-    initial_mocks: dict[str, unittest.mock.Mock],
+    mock_factory: Optional[Callable[[], unittest.mock.Mock]] = None,
+    initial_mocks: Optional[dict[str, unittest.mock.Mock]] = None,
 ) -> Generator[TangoHarness, None, None]:
     """
     Create a test harness for testing Tango devices.
@@ -302,136 +297,3 @@ def logger_fixture() -> logging.Logger:
     :return: a logger
     """
     return logging.getLogger()
-
-
-@pytest.fixture(name="mock_callback_called_timeout")
-def mock_callback_called_timeout_fixture() -> float:
-    """
-    Return the time to wait for a mock callback to be called when a call is expected.
-
-    This is a high value because calls will usually arrive much much
-    sooner, but we should be prepared to wait plenty of time before
-    giving up and failing a test.
-
-    :return: the time to wait for a mock callback to be called when a
-        call is asserted.
-    """
-    return 7.5
-
-
-@pytest.fixture(name="mock_callback_not_called_timeout")
-def mock_callback_not_called_timeout_fixture() -> float:
-    """
-    Return the time to wait for a mock callback to be called when a call is unexpected.
-
-    An assertion that a callback has not been called can only be passed
-    once we have waited the full timeout period without a call being
-    received. Thus, having a high value for this timeout will make such
-    assertions very slow. It is better to keep this value fairly low,
-    and accept the risk of an assertion passing prematurely.
-
-    :return: the time to wait for a mock callback to be called when a
-        call is unexpected.
-    """
-    return 0.5
-
-
-@pytest.fixture(name="mock_change_event_callback_factory")
-def mock_change_event_callback_factory_fixture(
-    mock_callback_called_timeout: float,
-    mock_callback_not_called_timeout: float,
-) -> Callable[[str], MockChangeEventCallback]:
-    """
-    Return a factory that returns a new mock change event callback each call.
-
-    :param mock_callback_called_timeout: the time to wait for a mock
-        callback to be called when a call is expected
-    :param mock_callback_not_called_timeout: the time to wait for a mock
-        callback to be called when a call is unexpected
-
-    :return: a factory that returns a new mock change event callback
-        each time it is called with the name of a device attribute.
-    """
-    return functools.partial(
-        MockChangeEventCallback,
-        called_timeout=mock_callback_called_timeout,
-        not_called_timeout=mock_callback_not_called_timeout,
-    )
-
-
-@pytest.fixture(name="lrc_result_changed_callback_factory")
-def lrc_result_changed_callback_factory_fixture(
-    mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
-) -> Callable[[], MockChangeEventCallback]:
-    """
-    Return a mock change event callback factory for device LRC result change.
-
-    :param mock_change_event_callback_factory: fixture that provides a
-        mock change event callback factory (i.e. an object that returns
-        mock callbacks when called).
-
-    :return: a mock change event callback factory to be registered with
-        a device via a change event subscription, so that it gets called
-        when the device LRC in queue changes.
-    """
-
-    def _factory() -> MockChangeEventCallback:
-        return mock_change_event_callback_factory("longRunningCommandResult")
-
-    return _factory
-
-
-@pytest.fixture(name="lrc_result_changed_callback")
-def lrc_result_changed_callback_fixture(
-    lrc_result_changed_callback_factory: Callable[[], MockChangeEventCallback],
-) -> MockChangeEventCallback:
-    """
-    Return a mock change event callback for a device LRC result change.
-
-    :param lrc_result_changed_callback_factory: fixture that provides a mock
-        change event callback factory for LRC result change events.
-
-    :return: a mock change event callback to be registered with the
-        device via a change event subscription, so that it
-        gets called when the device state changes.
-    """
-    return lrc_result_changed_callback_factory()
-
-
-@pytest.fixture(name="lrc_status_changed_callback_factory")
-def lrc_status_changed_callback_factory_fixture(
-    mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
-) -> Callable[[], MockChangeEventCallback]:
-    """
-    Return a mock change event callback factory for device LRC status change.
-
-    :param mock_change_event_callback_factory: fixture that provides a
-        mock change event callback factory (i.e. an object that returns
-        mock callbacks when called).
-
-    :return: a mock change event callback factory to be registered with
-        a device via a change event subscription, so that it gets called
-        when the device LRC in queue changes.
-    """
-
-    def _factory() -> MockChangeEventCallback:
-        return mock_change_event_callback_factory("longRunningCommandStatus")
-
-    return _factory
-
-
-@pytest.fixture(name="lrc_status_changed_callback")
-def lrc_status_changed_callback_fixture(
-    lrc_status_changed_callback_factory: Callable[[], MockChangeEventCallback],
-) -> MockChangeEventCallback:
-    """
-    Return a mock change event callback for a device LRC status change.
-
-    :param lrc_status_changed_callback_factory: fixture that provides a mock
-        change event callback factory for LRC status change events.
-
-    :return: a mock change event callback to be registered with the
-        device via a change event subscription, so that it
-        gets called when the device state changes.
-    """
-    return lrc_status_changed_callback_factory()

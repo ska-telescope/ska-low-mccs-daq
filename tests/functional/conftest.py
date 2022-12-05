@@ -6,34 +6,19 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
-# import json
-# import logging
-import unittest
-from typing import Any, Callable, Generator, Optional  # , Union
+from typing import Any, Callable, Generator, Optional
 
 import pytest
 from ska_low_mccs_common import MccsDeviceProxy
-from ska_low_mccs_common.testing.mock import (
-    MockCallable,
-    MockCallableDeque,
-    MockChangeEventCallback,
-    MockDeviceBuilder,
-)
 from ska_low_mccs_common.testing.tango_harness import (
     DevicesToLoadType,
     DeviceToLoadType,
     TangoHarness,
 )
 
-# from tango.server import command
-
-# from ska_low_mccs_daq.daq_receiver import DaqComponentManager, MccsDaqReceiver
-
 
 @pytest.fixture()
-def daq_receiver(
-    tango_harness: TangoHarness,
-) -> MccsDeviceProxy:
+def daq_receiver(tango_harness: TangoHarness) -> MccsDeviceProxy:
     """
     Return the daq_receiver device.
 
@@ -96,66 +81,6 @@ def devices_to_load(
     return device_spec
 
 
-@pytest.fixture()
-def mock_callback_factory(
-    mock_callback_called_timeout: float,
-    mock_callback_not_called_timeout: float,
-) -> Callable[[], MockCallable]:
-    """
-    Return a factory that returns a new mock callback each time it is called.
-
-    Use this fixture in tests that need more than one mock_callback. If
-    your tests only needs a single mock callback, it is simpler to use
-    the :py:func:`mock_callback` fixture.
-
-    :param mock_callback_called_timeout: the time to wait for a mock
-        callback to be called when a call is expected
-    :param mock_callback_not_called_timeout: the time to wait for a mock
-        callback to be called when a call is unexpected
-
-    :return: a factory that returns a new mock callback each time it is
-        called.
-    """
-    return lambda: MockCallable(
-        called_timeout=mock_callback_called_timeout,
-        not_called_timeout=mock_callback_not_called_timeout,
-    )
-
-
-@pytest.fixture(scope="module")
-def initial_mocks() -> dict[str, unittest.mock.Mock]:
-    """
-    Fixture that registers device proxy mocks prior to patching.
-
-    By default no initial mocks are registered, but this fixture can be
-    overridden by test modules/classes that need to register initial
-    mocks.
-
-    (Overruled here with the same implementation, just to give the
-    fixture module scope)
-
-    :return: an empty dictionary
-    """
-    return {}
-
-
-@pytest.fixture(scope="module")
-def mock_factory() -> Callable[[], unittest.mock.Mock]:
-    """
-    Fixture that provides a mock factory for device proxy mocks.
-
-    This default factory provides vanilla mocks,
-    but this fixture can be overridden by test modules/classes
-    to provide mocks with specified behaviours.
-
-    (Overruled here with the same implementation, just to give the
-    fixture module scope)
-
-    :return: a factory for device proxy mocks
-    """
-    return MockDeviceBuilder()
-
-
 @pytest.fixture(scope="module")
 def tango_config() -> dict[str, Any]:
     """
@@ -165,24 +90,14 @@ def tango_config() -> dict[str, Any]:
 
     :return: a dictionary of configuration key-value pairs
     """
-    return {"process": True}
+    return {"process": False}
 
 
 @pytest.fixture(scope="module")
 def tango_harness(
-    tango_harness_factory: Callable[
-        [
-            dict[str, Any],
-            DevicesToLoadType,
-            Callable[[], unittest.mock.Mock],
-            dict[str, unittest.mock.Mock],
-        ],
-        TangoHarness,
-    ],
+    tango_harness_factory: Callable[..., TangoHarness],
     tango_config: dict[str, str],
     devices_to_load: DevicesToLoadType,
-    mock_factory: Callable[[], unittest.mock.Mock],
-    initial_mocks: dict[str, unittest.mock.Mock],
 ) -> Generator[TangoHarness, None, None]:
     """
     Create a test harness for testing Tango devices.
@@ -196,148 +111,11 @@ def tango_harness(
         test harness
     :param devices_to_load: fixture that provides a specification of the
         devices that are to be included in the devices_info dictionary
-    :param mock_factory: the factory to be used to build mocks
-    :param initial_mocks: a pre-build dictionary of mocks to be used
-        for particular
 
     :yields: the test harness
     """
-    with tango_harness_factory(
-        tango_config, devices_to_load, mock_factory, initial_mocks
-    ) as harness:
+    with tango_harness_factory(tango_config, devices_to_load) as harness:
         yield harness
-
-
-@pytest.fixture()
-def mock_callback_deque_factory(
-    mock_callback_called_timeout: float,
-    mock_callback_not_called_timeout: float,
-) -> Callable[[], MockCallableDeque]:
-    """
-    Return a factory that returns a new mock callback using a deque when called.
-
-    Use this fixture in tests that need more than one mock_callback. If
-    your tests only needs a single mock callback, it is simpler to use
-    the :py:func:`mock_callback` fixture.
-
-    :param mock_callback_called_timeout: the time to wait for a mock
-        callback to be called when a call is expected
-    :param mock_callback_not_called_timeout: the time to wait for a mock
-        callback to be called when a call is unexpected
-
-    :return: a factory that returns a new mock callback each time it is
-        called.
-    """
-    return lambda: MockCallableDeque(
-        called_timeout=mock_callback_called_timeout,
-        not_called_timeout=mock_callback_not_called_timeout,
-    )
-
-
-@pytest.fixture()
-def device_state_changed_callback(
-    mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
-) -> MockChangeEventCallback:
-    """
-    Return a mock change event callback for device state change.
-
-    :param mock_change_event_callback_factory: fixture that provides a
-        mock change event callback factory (i.e. an object that returns
-        mock callbacks whMockCallableen called).
-
-    :return: a mock change event callback to be registered with the
-        device via a change event subscription, so that it gets called
-        when the device state changes.
-    """
-    return mock_change_event_callback_factory("state")
-
-
-@pytest.fixture()
-def device_admin_mode_changed_callback(
-    mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
-) -> MockChangeEventCallback:
-    """
-    Return a mock change event callback for device admin mode change.
-
-    :param mock_change_event_callback_factory: fixture that provides a
-        mock change event callback factory (i.e. an object that returns
-        mock callbacks when called).
-
-    :return: a mock change event callback to be registered with the
-        device via a change event subscription, so that it gets called
-        when the device admin mode changes.
-    """
-    return mock_change_event_callback_factory("adminMode")
-
-
-@pytest.fixture()
-def device_health_state_changed_callback(
-    mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
-) -> MockChangeEventCallback:
-    """
-    Return a mock change event callback for device health state change.
-
-    :param mock_change_event_callback_factory: fixture that provides a
-        mock change event callback factory (i.e. an object that returns
-        mock callbacks when called).
-
-    :return: a mock change event callback to be called when the
-        device health state changes. (The callback has not yet been
-        subscribed to the device; this must be done as part of the
-        test.)
-    """
-    return mock_change_event_callback_factory("healthState")
-
-
-@pytest.fixture()
-def communication_state_changed_callback(
-    mock_callback_factory: Callable[[], unittest.mock.Mock],
-) -> unittest.mock.Mock:
-    """
-    Return a mock callback for component manager communication status.
-
-    :param mock_callback_factory: fixture that provides a mock callback
-        factory (i.e. an object that returns mock callbacks when
-        called).
-
-    :return: a mock callback to be called when the communication status
-        of a component manager changed.
-    """
-    return mock_callback_factory()
-
-
-@pytest.fixture()
-def component_fault_callback(
-    mock_callback_factory: Callable[[], unittest.mock.Mock],
-) -> unittest.mock.Mock:
-    """
-    Return a mock callback for component fault.
-
-    :param mock_callback_factory: fixture that provides a mock callback
-        factory (i.e. an object that returns mock callbacks when
-        called).
-
-    :return: a mock callback to be called when the component manager
-        detects that its component has faulted.
-    """
-    return mock_callback_factory()
-
-
-@pytest.fixture()
-def component_progress_changed_callback(
-    mock_callback_factory: Callable[[], unittest.mock.Mock],
-) -> unittest.mock.Mock:
-    """
-    Return a mock callback for component progress.
-
-    :param mock_callback_factory: fixture that provides a mock callback
-        factory (i.e. an object that returns mock callbacks when
-        called).
-
-    :return: a mock callback to be called when the component manager
-        detects that its component progress value has changed.
-    """
-    return mock_callback_factory()
 
 
 @pytest.fixture()
@@ -352,71 +130,6 @@ def device_to_load() -> Optional[DeviceToLoadType]:
     :return: specification of the device to be loaded
     """
     return None
-
-
-# These are from tarc/tests/unit/conftest. If this works they'll need
-# moving up a level to src/tests/conftest
-
-
-# @pytest.fixture()
-# def daq_component_manager(
-#     tango_harness: TangoHarness,
-#     daq_id: int,
-#     receiver_interface: str,
-#     receiver_ip: str,
-#     receiver_ports: str,
-#     default_consumers_to_start: str,
-#     logger: logging.Logger,
-#     max_workers: int,
-#     communication_state_changed_callback: MockCallable,
-#     component_state_changed_callback: MockCallableDeque,
-# ) -> DaqComponentManager:
-#     """
-#     Return a daq receiver component manager.
-
-#     :param tango_harness: a test harness for Tango devices
-#     :param daq_id: the daq id of the daq receiver
-#     :param receiver_interface: The interface this DaqReceiver is to watch.
-#     :param receiver_ip: The IP address of this DaqReceiver.
-#     :param receiver_ports: The ports this DaqReceiver is to watch.
-#     :param default_consumers_to_start: The default consumers to be started.
-#     :param logger: the logger to be used by this object.
-#     :param max_workers: max number of threads available to run a LRC.
-#     :param communication_state_changed_callback: callback to be
-#         called when the status of the communications channel between
-#         the component manager and its component changes
-#     :param component_state_changed_callback: callback to call when the
-#         device state changes.
-
-#     :return: a daq component manager
-#     """
-#     return DaqComponentManager(
-#         daq_id,
-#         receiver_interface,
-#         receiver_ip,
-#         receiver_ports,
-#         default_consumers_to_start,
-#         logger,
-#         max_workers,
-#         communication_state_changed_callback,
-#         component_state_changed_callback,
-#     )
-
-
-@pytest.fixture()
-def component_state_changed_callback(
-    mock_callback_deque_factory: Callable[[], unittest.mock.Mock],
-) -> Callable[[], None]:
-    """
-    Return a mock callback for a change in DaqReceiver state.
-
-    :param mock_callback_deque_factory: fixture that provides a mock callback deque
-        factory.
-
-    :return: a mock callback deque holding a sequence of
-        calls to component_state_changed_callback.
-    """
-    return mock_callback_deque_factory()
 
 
 @pytest.fixture()
@@ -504,56 +217,3 @@ def max_workers() -> int:
     :return: the max number of worker threads.
     """
     return 1
-
-
-# @pytest.fixture(scope="session")
-# def patched_daq_class() -> type[MccsDaqReceiver]:
-#     """
-#     Return a daq device class that has been patched for testing.
-
-#     :return: a daq device class that has been patched for testing.
-#     """
-
-#     class PatchedDaq(MccsDaqReceiver):
-#         """MccsDaqReceiver with extra commands for testing purposes."""
-
-#         @command(dtype_in="DevString")
-#         def StateChangedCallback(self, argin: Union[str, bytes]) -> None:
-#             """
-#             Passthrough for component_state_changed_callback.
-
-#             This allows us to mock a call to the state_changed_callback.
-
-#             :param argin: A json string containing the state change.
-#             """
-#             self._component_state_changed_callback(json.loads(argin))
-
-#         @command(dtype_out=bool)
-#         def GetDaqFault(self) -> bool:
-#             """
-#             Return the fault status of this DaqReceiver.
-
-#             :return: The fault state of the device.
-#             """
-#             return self._health_model._faulty
-
-#         @command(dtype_out=int)
-#         def GetDaqHealth(self) -> int:
-#             """
-#             Return the health state of this DaqReceiver.
-
-#             :return: Healthstate of the device.
-#             """
-#             return self._health_state
-
-#         @command(dtype_out=str)
-#         def GetRunningConsumers(self) -> str:
-#             """
-#             Return a dict containing running state of consumers.
-
-#             :return: Dictionary containing state of consumers.
-#             """
-#             self.component_manager: DaqComponentManager  # Typehint only.
-#             return json.dumps(self.component_manager.daq_instance._running_consumers)
-
-#     return PatchedDaq
