@@ -116,7 +116,7 @@ class Tile_1_6(Tile):
         enable_adc=True,
         dsp_core=True,
         adc_mono_channel_14_bit=False,
-        adc_mono_channel_swap=False,
+        adc_mono_channel_sel=0,
     ):
         """
         Connect to the hardware and loads initial configuration.
@@ -131,6 +131,10 @@ class Tile_1_6(Tile):
         :type enable_adc: bool
         :param dsp_core: Enable loading of DSP core plugins
         :type dsp_core: bool
+        :param adc_mono_channel_14_bit: Enable ADC mono channel 14bit mode
+        :type adc_mono_channel_14_bit: bool
+        :param adc_mono_channel_sel: Select channel in mono channel mode (0=A, 1=B)
+        :type adc_mono_channel_sel: int
         """
         # Try to connect to board, if it fails then set tpm to None
         self.tpm = TPM_1_6()
@@ -150,8 +154,8 @@ class Tile_1_6(Tile):
                 enable_ada=enable_ada,
                 enable_adc=enable_adc,
                 fsample=self._sampling_rate,
-                adc_mono_channel_14_bit=adc_mono_channel_14_bit,
-                adc_mono_channel_swap=adc_mono_channel_swap
+                mono_channel_14_bit=adc_mono_channel_14_bit,
+                mono_channel_sel=adc_mono_channel_sel
             )
         except (BoardError, LibraryError):
             self.tpm = None
@@ -186,7 +190,7 @@ class Tile_1_6(Tile):
                    is_last_tile=False,
                    qsfp_detection="auto",
                    adc_mono_channel_14_bit=False,
-                   adc_mono_channel_swap=False):
+                   adc_mono_channel_sel=0):
         """
         Connect and initialise.
 
@@ -205,13 +209,18 @@ class Tile_1_6(Tile):
                                "all", force QSFP1 and QSFP2 cable detected
                                "none", force no cable not detected
         :type qsfp_detection: str
+        :param adc_mono_channel_14_bit: Enable ADC mono channel 14bit mode
+        :type adc_mono_channel_14_bit: bool
+        :param adc_mono_channel_sel: Select channel in mono channel mode (0=A, 1=B)
+        :type adc_mono_channel_sel: int
+        """
         """
         if use_internal_pps:
             logging.error("Cannot initialise board - use_internal_pps = True not supported")
             return
 
         # Connect to board
-        self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc, adc_mono_channel_14_bit=adc_mono_channel_14_bit, adc_mono_channel_swap=adc_mono_channel_swap)
+        self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc, adc_mono_channel_14_bit=adc_mono_channel_14_bit, adc_mono_channel_sel=adc_mono_channel_sel)
 
         # Hack to reset MCU
         # self.tpm[0x30000120] = 0
