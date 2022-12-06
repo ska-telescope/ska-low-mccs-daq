@@ -250,7 +250,7 @@ class Tile(object):
                    time_delays=0,
                    is_first_tile=False,
                    is_last_tile=False,
-                   qsfp_detection="auto"
+                   qsfp_detection="auto",
                    adc_mono_channel_14_bit=False,
                    adc_mono_channel_sel=0):
         """
