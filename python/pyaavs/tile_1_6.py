@@ -155,7 +155,7 @@ class Tile_1_6(Tile):
                 enable_adc=enable_adc,
                 fsample=self._sampling_rate,
                 mono_channel_14_bit=adc_mono_channel_14_bit,
-                mono_channel_sel=adc_mono_channel_sel
+                mono_channel_sel=adc_mono_channel_sel,
             )
         except (BoardError, LibraryError):
             self.tpm = None
@@ -214,13 +214,13 @@ class Tile_1_6(Tile):
         :param adc_mono_channel_sel: Select channel in mono channel mode (0=A, 1=B)
         :type adc_mono_channel_sel: int
         """
-        """
         if use_internal_pps:
             logging.error("Cannot initialise board - use_internal_pps = True not supported")
             return
 
         # Connect to board
-        self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc, adc_mono_channel_14_bit=adc_mono_channel_14_bit, adc_mono_channel_sel=adc_mono_channel_sel)
+        self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc,
+                     adc_mono_channel_14_bit=adc_mono_channel_14_bit, adc_mono_channel_sel=adc_mono_channel_sel)
 
         # Hack to reset MCU
         # self.tpm[0x30000120] = 0
