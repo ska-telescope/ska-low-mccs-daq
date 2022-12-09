@@ -46,7 +46,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     print(tango.utils.info())
 
 
-with open("tests/testbeds.yaml", "r") as stream:
+with open("tests/testbeds.yaml", "r", encoding="utf-8") as stream:
     _testbeds: dict[str, set[str]] = yaml.safe_load(stream)
 
 
@@ -309,7 +309,9 @@ def logger() -> logging.Logger:
 
     :return: a logger
     """
-    return logging.getLogger()
+    debug_logger = logging.getLogger()
+    debug_logger.setLevel(logging.DEBUG)
+    return debug_logger
 
 
 @pytest.fixture()
