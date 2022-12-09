@@ -597,104 +597,107 @@ class Tile(object):
             return False
 
     @connected
-    def enable_fpga0_clock_monitoring(self, clock_name='all'):
+    def get_available_clocks_to_monitor(self):
         """
-        Enable clock monitoring of named clocks on FPGA0
-        Options 'jesd', 'ddr', 'udp', 'all'
-        Input is non case sensitive
+        :return: list of clock names available to be monitored
+        :rtype list of string
         """
         if self.is_programmed():
-            self.tpm.tpm_clock_monitor[0].enable_clock_monitoring(clock_name)
+            return self.tpm.tpm_clock_monitor[0].get_available_clocks_to_monitor()
 
     @connected
-    def enable_fpga1_clock_monitoring(self, clock_name='all'):
+    def enable_clock_monitoring(self, fpga_id=None, clock_name='all'):
         """
-        Enable clock monitoring of named clocks on FPGA1
+        Enable clock monitoring of named TPM clocks
         Options 'jesd', 'ddr', 'udp', 'all'
         Input is non case sensitive
+        An FPGA ID can be optionally specified to only enable monitoring on one FPGA
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+        :param clock_name: Specify name of clock
+        :type clock_name: string
         """
         if self.is_programmed():
-            self.tpm.tpm_clock_monitor[1].enable_clock_monitoring(clock_name)
-    
-    @connected
-    def disable_fpga0_clock_monitoring(self, clock_name='all'):
-        """
-        Disable clock monitoring of named clocks on FPGA0
-        Options 'jesd', 'ddr', 'udp', 'all'
-        Input is non case sensitive
-        """
-        if self.is_programmed():
-            self.tpm.tpm_clock_monitor[0].disable_clock_monitoring(clock_name)
+            if fpga_id is None:
+                fpgas = range(len(self.tpm.tpm_test_firmware))
+            else:
+                fpgas = [fpga_id]
+            for fpga in fpgas:
+                    self.tpm.tpm_clock_monitor[fpga].enable_clock_monitoring(clock_name)
+        return
 
     @connected
-    def disable_fpga1_clock_monitoring(self, clock_name='all'):
+    def disable_clock_monitoring(self, fpga_id=None, clock_name='all'):
         """
-        Disable clock monitoring of named clocks on FPGA1
+        Disable clock monitoring of named TPM clocks
         Options 'jesd', 'ddr', 'udp', 'all'
         Input is non case sensitive
+        An FPGA ID can be optionally specified to only disable monitoring on one FPGA
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+        :param clock_name: Specify name of clock
+        :type clock_name: string
         """
         if self.is_programmed():
-            self.tpm.tpm_clock_monitor[1].disable_clock_monitoring(clock_name)
+            if fpga_id is None:
+                fpgas = range(len(self.tpm.tpm_test_firmware))
+            else:
+                fpgas = [fpga_id]
+            for fpga in fpgas:
+                self.tpm.tpm_clock_monitor[fpga].disable_clock_monitoring(clock_name)
+        return
     
     @connected
-    def check_fpga0_clock_status(self, clock_name='all'):
+    def check_clock_status(self, fpga_id=None, clock_name='all'):
         """
-        Check status of named clocks on FPGA0
+        Check status of named TPM clocks
         Options 'jesd', 'ddr', 'udp', 'all'
         Input is non case sensitive
+        An FPGA ID can be optionally specified to only check status on one FPGA
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+        :param clock_name: Specify name of clock
+        :type clock_name: string
 
         :return: True when Status is OK, no errors
+        :rtype bool
         """
         if self.is_programmed():
-            return self.tpm.tpm_clock_monitor[0].check_clock_status(clock_name)
-
-    @connected
-    def check_fpga1_clock_status(self, clock_name='all'):
-        """
-        Check status of named clocks on FPGA1
-        Options 'jesd', 'ddr', 'udp', 'all'
-        Input is non case sensitive
-
-        :return: True when Status is OK, no errors
-        """
-        if self.is_programmed():
-            return self.tpm.tpm_clock_monitor[1].check_clock_status(clock_name)
+            if fpga_id is None:
+                fpgas = range(len(self.tpm.tpm_test_firmware))
+            else:
+                fpgas = [fpga_id]
+            result = []
+            for fpga in fpgas:
+                result.append(self.tpm.tpm_clock_monitor[fpga].check_clock_status(clock_name))
+            return all(result)
+        return
     
     @connected
-    def clear_fpga0_clock_status(self, clock_name='all'):
+    def clear_clock_status(self, fpga_id=None, clock_name='all'):
         """
-        Clear status of named clocks on FPGA0
+        Clear status of named TPM clocks
         Used to Clear error flags in FPGA Firmware
         Options 'jesd', 'ddr', 'udp', 'all'
         Input is non case sensitive
+        An FPGA ID can be optionally specified to only clear status on one FPGA
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+        :param clock_name: Specify name of clock
+        :type clock_name: string
         """
         if self.is_programmed():
-            self.tpm.tpm_clock_monitor[0].clear_clock_status(clock_name)
-
-    @connected
-    def clear_fpga1_clock_status(self, clock_name='all'):
-        """
-        Check status of named clocks on FPGA1
-        Used to Clear error flags in FPGA Firmware
-        Options 'jesd', 'ddr', 'udp', 'all'
-        Input is non case sensitive
-        """
-        if self.is_programmed():
-            self.tpm.tpm_clock_monitor[1].clear_clock_status(clock_name)
-
-    # Methods for the following have not been implemented but are they necessary?
-    # self.tpm.tpm_clock_monitor[X].enable_jesd_clock_monitoring()
-    # self.tpm.tpm_clock_monitor[X].enable_ddr_clock_monitoring()
-    # self.tpm.tpm_clock_monitor[X].enable_udp_clock_monitoring()
-    # self.tpm.tpm_clock_monitor[X].disable_jesd_clock_monitoring()
-    # self.tpm.tpm_clock_monitor[X].disable_ddr_clock_monitoring()
-    # self.tpm.tpm_clock_monitor[X].disable_udp_clock_monitoring()
-    # self.tpm.tpm_clock_monitor[X].check_jesd_clock_status()
-    # self.tpm.tpm_clock_monitor[X].check_ddr_clock_status()
-    # self.tpm.tpm_clock_monitor[X].check_udp_clock_status()
-    # self.tpm.tpm_clock_monitor[X].clear_jesd_clock_status()
-    # self.tpm.tpm_clock_monitor[X].clear_ddr_clock_status()
-    # self.tpm.tpm_clock_monitor[X].clear_udp_clock_status()
+            if fpga_id is None:
+                fpgas = range(len(self.tpm.tpm_test_firmware))
+            else:
+                fpgas = [fpga_id]
+            for fpga in fpgas:
+                self.tpm.tpm_clock_monitor[fpga].clear_clock_status(clock_name)
+        return    
 
     @connected
     def configure_10g_core(
