@@ -12,14 +12,16 @@ import gc
 import json
 import unittest.mock
 from time import sleep
-from typing import Union
+from typing import Generator, Union
 
 import pytest
 import tango
 from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import AdminMode, HealthState, ResultCode
-from ska_low_mccs_common import MccsDeviceProxy
-from ska_low_mccs_common.testing.tango_harness import DeviceToLoadType, TangoHarness
+from ska_tango_testing.context import (
+    TangoContextProtocol,
+    ThreadedTestTangoContextManager,
+)
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from ska_low_mccs_daq import MccsDaqReceiver
@@ -28,39 +30,77 @@ from ska_low_mccs_daq import MccsDaqReceiver
 gc.disable()
 
 
-@pytest.fixture(name="device_to_load")
-def device_to_load_fixture() -> DeviceToLoadType:
+@pytest.fixture(name="daq_name")
+def daq_name_fixture(daq_id: str) -> str:
     """
-    Fixture that specifies the device to be loaded for testing.
+    Return the name of this daq receiver.
 
-    :return: specification of the device to be loaded
+    :param daq_id: The ID of this daq receiver.
+
+    :return: the name of this daq receiver.
     """
-    return {
-        "path": "tests/data/configuration.json",
-        "package": "ska_low_mccs_daq",
-        "device": "daqreceiver_001",
-        "proxy": MccsDeviceProxy,
-    }
+    return f"low-mccs-daq/daqreceiver/{daq_id.zfill(3)}"
 
 
 @pytest.fixture(name="device_under_test")
-def device_under_test_fixture(tango_harness: TangoHarness) -> MccsDeviceProxy:
+def device_under_test_fixture(
+    tango_harness: TangoContextProtocol,
+    daq_name: str,
+) -> tango.DeviceProxy:
     """
     Fixture that returns the device under test.
 
     :param tango_harness: a test harness for Tango devices
+    :param daq_name: name of the DAQ receiver Tango device
 
     :return: the device under test
     """
-    return tango_harness.get_device("low-mccs-daq/daqreceiver/001")
+    return tango_harness.get_device(daq_name)
 
 
 class TestMccsDaqReceiver:
     """Test class for MccsDaqReceiver tests."""
 
+    @pytest.fixture(name="tango_harness")
+    def tango_harness_fixture(  # pylint: disable=too-many-arguments
+        self,
+        daq_name: str,
+        daq_id: str,
+        receiver_interface: str,
+        receiver_ip: str,
+        receiver_ports: str,
+    ) -> Generator[TangoContextProtocol, None, None]:
+        """
+        Return a tango harness against which to run tests of the deployment.
+
+        :param daq_name: name of the DAQ receiver Tango device
+        :param daq_id: id of the DAQ receiver
+        :param receiver_interface: network interface on which the DAQ
+            receiver receives packets
+        :param receiver_ip: IP address on which the DAQ receiver receives
+            packets
+        :param receiver_ports: port on which the DAQ receiver receives
+            packets.
+
+        :yields: a tango context.
+        """
+        context_manager = ThreadedTestTangoContextManager()
+        context_manager.add_device(
+            daq_name,
+            MccsDaqReceiver,
+            DaqId=daq_id,
+            ReceiverInterface=receiver_interface,
+            ReceiverIp=receiver_ip,
+            ReceiverPorts=receiver_ports,
+            ConsumersToStart=["DaqModes.INTEGRATED_CHANNEL_DATA"],
+            LoggingLevelDefault=3,
+        )
+        with context_manager as context:
+            yield context
+
     def test_healthState(
         self: TestMccsDaqReceiver,
-        device_under_test: MccsDeviceProxy,
+        device_under_test: tango.DeviceProxy,
         change_event_callbacks: MockTangoEventCallbackGroup,
     ) -> None:
         """
@@ -95,7 +135,7 @@ class TestMccsDaqReceiver:
     # pylint: disable=too-many-arguments
     def test_status(
         self: TestMccsDaqReceiver,
-        device_under_test: MccsDeviceProxy,
+        device_under_test: tango.DeviceProxy,
         modes_to_start: list[DaqModes],
         daq_interface: str,
         daq_ports: list[int],
@@ -117,8 +157,7 @@ class TestMccsDaqReceiver:
         """
         # Set adminMode so we can control device.
         device_under_test.adminMode = AdminMode.ONLINE
-        # Connect to device.
-        device_under_test.connect()
+
         # Configure.
         daq_config = {
             "receiver_ports": daq_ports,
@@ -157,24 +196,58 @@ class TestPatchedDaq:
     device are passed through to the component manager
     """
 
-    @pytest.fixture(name="device_to_load")
-    def device_to_load_fixture(
-        self: TestPatchedDaq, patched_daq_class: type[MccsDaqReceiver]
-    ) -> DeviceToLoadType:
+    @pytest.fixture(name="tango_harness")
+    def tango_harness_fixture(  # pylint: disable=too-many-arguments
+        self,
+        mock_component_manager: unittest.mock.Mock,
+        daq_name: str,
+        daq_id: str,
+        receiver_interface: str,
+        receiver_ip: str,
+        receiver_ports: str,
+    ) -> Generator[TangoContextProtocol, None, None]:
         """
-        Fixture that specifies the device to be loaded for testing.
+        Return a tango harness against which to run tests of the deployment.
 
-        :param patched_daq_class: a subclass of MccsDaqReceiver that has
-            been patched for testing
-        :return: specification of the device to be loaded
+        :param mock_component_manager: a mock to be injected into the
+            tango device under test, to take the place of its component
+            manager.
+        :param daq_name: name of the DAQ receiver Tango device
+        :param daq_id: id of the DAQ receiver
+        :param receiver_interface: network interface on which the DAQ
+            receiver receives packets
+        :param receiver_ip: IP address on which the DAQ receiver receives
+            packets
+        :param receiver_ports: port on which the DAQ receiver receives
+            packets.
+
+        :yields: a tango context.
         """
-        return {
-            "path": "tests/data/configuration.json",
-            "package": "ska_low_mccs_daq",
-            "device": "daqreceiver_001",
-            "proxy": MccsDeviceProxy,
-            "patch": patched_daq_class,
-        }
+
+        class _PatchedDaqReceiver(MccsDaqReceiver):
+            """A daq class that has had its component manager mocked out for testing."""
+
+            def create_component_manager(self) -> unittest.mock.Mock:
+                """
+                Return a mock component manager instead of the usual one.
+
+                :return: a mock component manager
+                """
+                return mock_component_manager
+
+        context_manager = ThreadedTestTangoContextManager()
+        context_manager.add_device(
+            daq_name,
+            _PatchedDaqReceiver,
+            DaqId=daq_id,
+            ReceiverInterface=receiver_interface,
+            ReceiverIp=receiver_ip,
+            ReceiverPorts=receiver_ports,
+            ConsumersToStart=["DaqModes.INTEGRATED_CHANNEL_DATA"],
+            LoggingLevelDefault=3,
+        )
+        with context_manager as context:
+            yield context
 
     @pytest.mark.parametrize(
         "daq_modes",
@@ -182,7 +255,7 @@ class TestPatchedDaq:
     )
     def test_start_daq_device(
         self: TestPatchedDaq,
-        device_under_test: MccsDeviceProxy,
+        device_under_test: tango.DeviceProxy,
         mock_component_manager: unittest.mock.Mock,
         daq_modes: list[Union[int, DaqModes]],
     ) -> None:
@@ -200,6 +273,8 @@ class TestPatchedDaq:
             been patched into the device under test
         :param daq_modes: The DAQ consumers to start.
         """
+        device_under_test.adminMode = AdminMode.ONLINE
+
         cbs = ["raw_data_cb", "beam_data_cb"]
         argin = {
             "modes_to_start": daq_modes,
@@ -234,7 +309,7 @@ class TestPatchedDaq:
     )
     def test_set_consumers_device(
         self: TestPatchedDaq,
-        device_under_test: MccsDeviceProxy,
+        device_under_test: tango.DeviceProxy,
         mock_component_manager: unittest.mock.Mock,
         consumer_list: list[Union[int, DaqModes]],
     ) -> None:

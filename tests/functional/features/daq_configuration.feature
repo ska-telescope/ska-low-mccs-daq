@@ -12,7 +12,7 @@ Feature: Daq Configuration
   I want to configure MccsDaqReceiver,
   So that we can start receiving data as desired from the TPM.
 
-@xfail
+@forked @xfail
 Scenario Outline: Check that when a configuration is sent to the MccsDaqReceiver, the DAQ_receiver interface is configured correctly
     Given A MccsDaqReceiver is available
     When We pass a <configuration> to the MccsDaqReceiver
@@ -33,7 +33,7 @@ Scenario Outline: Check that when a configuration is sent to the MccsDaqReceiver
         | {"receiver_ports": ["9999","8080", "2000"]} |{"receiver_ports": [9999,8080, 2000]}      |
         | {"receiver_ports": [9999,8080, 2000]}       |{"receiver_ports": [9999,8080, 2000]}      |
 
-@xfail
+@forked @xfail
 Scenario: Check that when we configure with no value for the receiver_ip it is dealt with appropriatly
     Given A MccsDaqReceiver is available
     When We pass parameter "receiver_ip" of value "None" to the MccsDaqReceiver
