@@ -17,6 +17,7 @@ import logging
 import unittest
 from typing import Set, cast
 
+import _pytest
 import pytest
 import tango
 import yaml
@@ -36,9 +37,10 @@ with open("tests/testbeds.yaml", "r", encoding="utf-8") as stream:
 
 
 # TODO: https://github.com/pytest-dev/pytest-forked/issues/67
-# We're stuck on pytest 6.2 until this gets fixed, and this version of
-# pytest is not fully typehinted
-def pytest_configure(config) -> None:  # type: ignore[no-untyped-def]
+# We're stuck on pytest 6.2 until this gets fixed,
+# and this version of pytest is not fully typehinted,
+# so we have to typehint against a private class for now.
+def pytest_configure(config: _pytest.config.Config) -> None:
     """
     Register custom markers to avoid pytest warnings.
 
@@ -50,9 +52,10 @@ def pytest_configure(config) -> None:  # type: ignore[no-untyped-def]
 
 
 # TODO: https://github.com/pytest-dev/pytest-forked/issues/67
-# We're stuck on pytest 6.2 until this gets fixed, and this version of
-# pytest is not fully typehinted
-def pytest_addoption(parser) -> None:  # type: ignore[no-untyped-def]
+# We're stuck on pytest 6.2 until this gets fixed,
+# and this version of pytest is not fully typehinted,
+# so we have to typehint against a private class for now.
+def pytest_addoption(parser: _pytest.config.argparsing.Parser) -> None:
     """
     Implement the add the `--testbed` option.
 
@@ -71,10 +74,11 @@ def pytest_addoption(parser) -> None:  # type: ignore[no-untyped-def]
 
 
 # TODO: https://github.com/pytest-dev/pytest-forked/issues/67
-# We're stuck on pytest 6.2 until this gets fixed, and this version of
-# pytest is not fully typehinted
-def pytest_collection_modifyitems(  # type: ignore[no-untyped-def]
-    config,
+# We're stuck on pytest 6.2 until this gets fixed,
+# and this version of pytest is not fully typehinted,
+# so we have to typehint against a private class for now.
+def pytest_collection_modifyitems(
+    config: _pytest.config.Config,
     items: list[pytest.Item],
 ) -> None:
     """
