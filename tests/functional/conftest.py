@@ -6,27 +6,15 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
-from typing import Any, Callable, Generator, Optional
+from typing import ContextManager, Generator
 
 import pytest
-from ska_low_mccs_common import MccsDeviceProxy
-from ska_low_mccs_common.testing.tango_harness import (
-    DevicesToLoadType,
-    DeviceToLoadType,
-    TangoHarness,
+from _pytest.fixtures import SubRequest
+from ska_tango_testing.context import (
+    TangoContextProtocol,
+    ThreadedTestTangoContextManager,
+    TrueTangoContextManager,
 )
-
-
-@pytest.fixture()
-def daq_receiver(tango_harness: TangoHarness) -> MccsDeviceProxy:
-    """
-    Return the daq_receiver device.
-
-    :param tango_harness: a test harness for tango devices
-
-    :return: the daq_receiver device
-    """
-    return tango_harness.get_device("low-mccs-daq/daqreceiver/001")
 
 
 def pytest_itemcollected(item: pytest.Item) -> None:
@@ -43,97 +31,8 @@ def pytest_itemcollected(item: pytest.Item) -> None:
         item.add_marker("forked")
 
 
-@pytest.fixture()
-def devices_to_load(
-    device_to_load: Optional[DeviceToLoadType],
-) -> Optional[DevicesToLoadType]:
-    """
-    Fixture that provides specifications of devices to load.
-
-    In this case, it maps the simpler single-device spec returned by the
-    "device_to_load" fixture used in unit testing, onto the more
-    general multi-device spec.
-
-    :param device_to_load: fixture that provides a specification of a
-        single device to load; used only in unit testing where tests
-        will only ever stand up one device at a time.
-
-    :return: specification of the devices (in this case, just one
-        device) to load
-    """
-    if device_to_load is None:
-        return None
-
-    device_spec: DevicesToLoadType = {
-        "path": device_to_load["path"],
-        "package": device_to_load["package"],
-        "devices": [
-            {
-                "name": device_to_load["device"],
-                "proxy": device_to_load["proxy"],
-            }
-        ],
-    }
-    if "patch" in device_to_load:
-        assert device_spec["devices"] is not None  # for the type checker
-        device_spec["devices"][0]["patch"] = device_to_load["patch"]
-
-    return device_spec
-
-
-@pytest.fixture(scope="module")
-def tango_config() -> dict[str, Any]:
-    """
-    Fixture that returns basic configuration information for a Tango test harness.
-
-    e.g. such as whether or not to run in a separate process.
-
-    :return: a dictionary of configuration key-value pairs
-    """
-    return {"process": False}
-
-
-@pytest.fixture(scope="module")
-def tango_harness(
-    tango_harness_factory: Callable[..., TangoHarness],
-    tango_config: dict[str, str],
-    devices_to_load: DevicesToLoadType,
-) -> Generator[TangoHarness, None, None]:
-    """
-    Create a test harness for testing Tango devices.
-
-    (This overwrites the `tango_harness` fixture, in order to change the
-    fixture scope.)
-
-    :param tango_harness_factory: a factory that provides a test harness
-        for testing tango devices
-    :param tango_config: basic configuration information for a tango
-        test harness
-    :param devices_to_load: fixture that provides a specification of the
-        devices that are to be included in the devices_info dictionary
-
-    :yields: the test harness
-    """
-    with tango_harness_factory(tango_config, devices_to_load) as harness:
-        yield harness
-
-
-@pytest.fixture()
-def device_to_load() -> Optional[DeviceToLoadType]:
-    """
-    Fixture that specifies the device to be loaded for testing.
-
-    This default implementation specified no devices to be loaded,
-    allowing the fixture to be left unspecified if no devices are
-    needed.
-
-    :return: specification of the device to be loaded
-    """
-    return None
-
-
-@pytest.fixture()
-def daq_id() -> str:
+@pytest.fixture(name="daq_id", scope="session")
+def daq_id_fixture() -> str:
     """
     Return the daq id of this daq receiver.
 
@@ -145,19 +44,8 @@ def daq_id() -> str:
     return "1"
 
 
-@pytest.fixture(name="daq_fqdn")
-def daq_fqdn_fixture(daq_id: str) -> str:
-    """
-    Return the fqdn of this daq receiver.
-
-    :param daq_id: The ID of this daq receiver.
-    :return: the fqdn of this daq receiver.
-    """
-    return f"low-mccs-daq/daqreceiver/{daq_id.zfill(3)}"
-
-
-@pytest.fixture()
-def receiver_interface() -> str:
+@pytest.fixture(name="receiver_interface", scope="session")
+def receiver_interface_fixture() -> str:
     """
     Return the interface this daq receiver is watching.
 
@@ -166,8 +54,8 @@ def receiver_interface() -> str:
     return "eth0"
 
 
-@pytest.fixture()
-def receiver_ip() -> str:
+@pytest.fixture(name="receiver_ip", scope="session")
+def receiver_ip_fixture() -> str:
     """
     Return the ip of this daq receiver.
 
@@ -176,8 +64,8 @@ def receiver_ip() -> str:
     return "172.17.0.230"
 
 
-@pytest.fixture()
-def acquisition_duration() -> int:
+@pytest.fixture(name="acquisition_duration", scope="session")
+def acquisition_duration_fixture() -> int:
     """
     Return the duration of data capture in seconds.
 
@@ -186,8 +74,8 @@ def acquisition_duration() -> int:
     return 2
 
 
-@pytest.fixture()
-def receiver_ports() -> str:
+@pytest.fixture(name="receiver_ports", scope="session")
+def receiver_ports_fixture() -> str:
     """
     Return the port(s) this daq receiver is watching.
 
@@ -217,3 +105,81 @@ def max_workers() -> int:
     :return: the max number of worker threads.
     """
     return 1
+
+
+@pytest.fixture(scope="session", name="testbed")
+def testbed_fixture(request: SubRequest) -> str:
+    """
+    Return the name of the testbed.
+
+    The testbed is specified by providing the `--testbed` argument to
+    pytest. Information about what testbeds are supported and what tests
+    can be run in each testbed is provided in `testbeds.yaml`
+
+    :param request: A pytest object giving access to the requesting test
+        context.
+
+    :return: the name of the testbed.
+    """
+    return request.config.getoption("--testbed")
+
+
+@pytest.fixture(name="daq_name", scope="session")
+def daq_name_fixture(daq_id: str) -> str:
+    """
+    Return the name of this daq receiver.
+
+    :param daq_id: The ID of this daq receiver.
+
+    :return: the name of this daq receiver.
+    """
+    return f"low-mccs-daq/daqreceiver/{daq_id.zfill(3)}"
+
+
+@pytest.fixture(name="tango_harness", scope="session")
+def tango_harness_fixture(
+    testbed: str,
+    daq_name: str,
+    daq_id: str,
+    receiver_interface: str,
+    receiver_ip: str,
+    receiver_ports: str,
+) -> Generator[TangoContextProtocol, None, None]:
+    """
+    Return a Tango harness against which to run tests of the deployment.
+
+    :param testbed: the name of the testbed to which these tests are
+        deployed
+    :param daq_name: name of the DAQ receiver Tango device
+    :param daq_id: id of the DAQ receiver
+    :param receiver_interface: network interface on which the DAQ
+        receiver receives packets
+    :param receiver_ip: IP address on which the DAQ receiver receives
+        packets
+    :param receiver_ports: port on which the DAQ receiver receives
+        packets.
+
+    :raises ValueError: if the testbed is unknown
+
+    :yields: a tango context.
+    """
+    context_manager: ContextManager[TangoContextProtocol]
+    if testbed == "local":
+        context_manager = TrueTangoContextManager()
+    elif testbed == "test":
+        context_manager = ThreadedTestTangoContextManager()
+        context_manager.add_device(
+            daq_name,
+            "ska_low_mccs_daq.MccsDaqReceiver",
+            DaqId=daq_id,
+            ReceiverInterface=receiver_interface,
+            ReceiverIp=receiver_ip,
+            ReceiverPorts=receiver_ports,
+            ConsumersToStart=["DaqModes.INTEGRATED_CHANNEL_DATA"],
+            LoggingLevelDefault=3,
+        )
+    else:
+        raise ValueError(f"Testbed {testbed} is not supported.")
+
+    with context_manager as context:
+        yield context

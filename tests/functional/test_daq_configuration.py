@@ -12,28 +12,9 @@ import json
 import socket
 
 import pytest
+import tango
 from pytest_bdd import given, parsers, scenarios, then, when
-from ska_low_mccs_common import MccsDeviceProxy
-from ska_low_mccs_common.testing.tango_harness import DevicesToLoadType
-
-
-@pytest.fixture(scope="module")
-def devices_to_load() -> DevicesToLoadType:
-    """
-    Fixture that specifies the devices to be loaded for testing.
-
-    Here we specify that we want a daq receiver from the ska-low-mccs-daq chart.
-
-    :return: specification of the devices to be loaded
-    """
-    return {
-        "path": "tests/data/configuration.json",
-        "package": "ska_low_mccs_daq",
-        "devices": [
-            {"name": "daqreceiver_001", "proxy": MccsDeviceProxy},
-        ],
-    }
-
+from ska_tango_testing.context import TangoContextProtocol
 
 EXTRA_TYPES = {
     "Dict": str,
@@ -42,17 +23,20 @@ EXTRA_TYPES = {
 scenarios("./features/daq_configuration.feature")
 
 
-@given("A MccsDaqReceiver is available", target_fixture="daq_receiver_bdd")
-def daq_receiver_bdd(daq_receiver: MccsDeviceProxy) -> MccsDeviceProxy:
+@given("A MccsDaqReceiver is available", target_fixture="daq_receiver")
+def daq_receiver_fixture(
+    tango_harness: TangoContextProtocol,
+    daq_name: str,
+) -> tango.DeviceProxy:
     """
-    Return a DeviceProxy to an instance of MccsDaqReceiver.
+    Return the daq_receiver device.
 
-    :param daq_receiver: The daq_receiver fixture to use.
+    :param tango_harness: a test harness for tango devices
+    :param daq_name: name of the DAQ receiver Tango device
 
-    :return: A MccsDeviceProxy instance to MccsDaqReceiver stored in the target_fixture
-        `daq_receiver_bdd`.
+    :return: the daq_receiver device
     """
-    return daq_receiver
+    return tango_harness.get_device(daq_name)
 
 
 @when(
@@ -61,17 +45,17 @@ def daq_receiver_bdd(daq_receiver: MccsDeviceProxy) -> MccsDeviceProxy:
     )
 )
 def feed_daq_configuration_file(
-    daq_receiver_bdd: MccsDeviceProxy, configuration: str
+    daq_receiver: tango.DeviceProxy, configuration: str
 ) -> None:
     """
     Feed the configuration into the daq_receiver.
 
-    :param daq_receiver_bdd: The daq_receiver fixture to use.
+    :param daq_receiver: The daq_receiver fixture to use.
     :param configuration: A string representation of a dictionary for configuration.
     """
     # MccsDaqReceiver expects a string as input, this will be a string representation
     # of a dictionary.
-    daq_receiver_bdd.Configure(configuration)
+    daq_receiver.Configure(configuration)
 
 
 @then(
@@ -81,19 +65,19 @@ def feed_daq_configuration_file(
     )
 )
 def assert_daq_instance_is_configuration_correctly(
-    daq_receiver_bdd: MccsDeviceProxy, configuration_expected: str
+    daq_receiver: tango.DeviceProxy, configuration_expected: str
 ) -> None:
     """
     Assert daq_instance has the same configuration that we sent to the daq_receiver.
 
-    :param daq_receiver_bdd: The daq_receiver fixture to use.
+    :param daq_receiver: The daq_receiver fixture to use.
     :param configuration_expected: A string representing the expected configuration
 
     Notes: we may only send a subset of the configuration to the DaqInstance.
     """
     configuration_dict = json.loads(configuration_expected)
 
-    config_jstr = daq_receiver_bdd.GetConfiguration()
+    config_jstr = daq_receiver.GetConfiguration()
     retrieved_daq_config = json.loads(config_jstr)
 
     assert configuration_dict.items() <= retrieved_daq_config.items()
@@ -109,12 +93,12 @@ def assert_daq_instance_is_configuration_correctly(
     )
 )
 def pass_key_value_to_daq(
-    daq_receiver_bdd: MccsDeviceProxy, configuration_param: str, value: str
+    daq_receiver: tango.DeviceProxy, configuration_param: str, value: str
 ) -> None:
     """
     Pass a string representation of a dictionary to MccsDaqReceiver.
 
-    :param daq_receiver_bdd: The daq_receiver fixture to use.
+    :param daq_receiver: The daq_receiver fixture to use.
     :param configuration_param: The parameter of interest
     :param value: The value of that parameter
     """
@@ -125,7 +109,7 @@ def pass_key_value_to_daq(
     configuration = f'{{"{configuration_param}":{value}}}'
 
     # configure DAQ using the string representation of a dictionary
-    daq_receiver_bdd.Configure(configuration)
+    daq_receiver.Configure(configuration)
 
 
 @then(
@@ -135,29 +119,24 @@ def pass_key_value_to_daq(
     )
 )
 def check_response_as_expected(
-    daq_receiver_bdd: MccsDeviceProxy, receiver_ip: str
+    daq_receiver: tango.DeviceProxy, receiver_ip: str
 ) -> None:
     """
     Specific parameters passed to the daq_receiver_interface are overridden.
 
-    :param daq_receiver_bdd: The daq_receiver fixture to use.
+    :param daq_receiver: The daq_receiver fixture to use.
     :param receiver_ip: The parameter of interest
 
     If the ip is not assigned it is assigned the IP address of a specified interface
     'receiver_interface'. This tests that the value has changed.
     TODO: determine what other values are allowed
     """
-    daq_config_jstr = daq_receiver_bdd.GetConfiguration()
+    daq_config_jstr = daq_receiver.GetConfiguration()
     retrieved_daq_config = json.loads(daq_config_jstr)
     receiver_port = retrieved_daq_config[receiver_ip]
 
-    if receiver_port == "":
-        # the ip address wes unchanged
-        assert True
     try:
         socket.inet_aton(receiver_port)
-        # the ip address is valid
-        assert True
     except IOError:
         # the ip address is not valid
-        assert False
+        pytest.fail("Invalid IP address causes IOError")

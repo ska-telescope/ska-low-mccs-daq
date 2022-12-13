@@ -14,10 +14,8 @@ import unittest.mock
 import pytest
 import pytest_mock
 from ska_control_model import TaskStatus
-from ska_low_mccs_common.testing import TangoHarness
 from ska_tango_testing.mock import MockCallableGroup
 
-from ska_low_mccs_daq import MccsDaqReceiver
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 
 
@@ -28,9 +26,6 @@ def daq_id_fixture() -> str:
 
     :return: the daq id of this daq receiver.
     """
-    # TODO: This must match the DaqId property of the daq receiver under
-    # test. We should refactor the harness so that we can pull it
-    # straight from the device configuration.
     return "1"
 
 
@@ -100,7 +95,6 @@ def max_workers_fixture() -> int:
 # pylint: disable=too-many-arguments
 @pytest.fixture(name="daq_component_manager")
 def daq_component_manager_fixture(
-    tango_harness: TangoHarness,
     daq_id: int,
     receiver_interface: str,
     receiver_ip: str,
@@ -113,7 +107,6 @@ def daq_component_manager_fixture(
     """
     Return a daq receiver component manager.
 
-    :param tango_harness: a test harness for Tango devices
     :param daq_id: the daq id of the daq receiver
     :param receiver_interface: The interface this DaqReceiver is to watch.
     :param receiver_ip: The IP address of this DaqReceiver.
@@ -199,32 +192,3 @@ def mock_component_manager_fixture(
     }
     mock_component_manager.configure_mock(**configuration)
     return mock_component_manager
-
-
-@pytest.fixture(name="patched_daq_class")
-def patched_daq_class_fixture(
-    mock_component_manager: unittest.mock.Mock,
-) -> type[MccsDaqReceiver]:
-    """
-    Return a daq device class that has been patched for testing.
-
-    :param mock_component_manager: the mock component manage to patch
-        into this daq receiver.
-
-    :return: a daq device class that has been patched for testing.
-    """
-
-    class PatchedDaq(MccsDaqReceiver):
-        """A daq class that has had its component manager mocked out for testing."""
-
-        def create_component_manager(
-            self: PatchedDaq,
-        ) -> unittest.mock.Mock:
-            """
-            Return a mock component manager instead of the usual one.
-
-            :return: a mock component manager
-            """
-            return mock_component_manager
-
-    return PatchedDaq
