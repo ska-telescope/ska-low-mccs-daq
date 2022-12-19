@@ -154,6 +154,7 @@ class TestDaqComponentManager:
         daq_component_manager: DaqComponentManager,
         callbacks: MockCallableGroup,
         num_callbacks: int,
+        recwarn: pytest.WarningsRecorder,
     ) -> None:
         """
         Test that an incorrect number of callbacks is handled correctly.
@@ -167,6 +168,8 @@ class TestDaqComponentManager:
             asynchrony support can be accessed.
         :param num_callbacks: A modifier to apply to the number of callbacks so
             that there are more or less than required.
+        :param recwarn: built-in pytest fixture that provides access to
+            warnings registered by the code under test
         """
         # Check create_daq has given us a receiver.
         assert hasattr(daq_component_manager, "daq_instance")
@@ -204,17 +207,22 @@ class TestDaqComponentManager:
         callbacks["task"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
 
-        # Assert that we see the warning message.
-        expected_response = (
+        callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
+
+        # TODO: ska-tango-base task callback currently does not support calling
+        # the task callback with status messages. It should!
+        # Meanwhile, the production code raises a regular warning in this case.
+        #
+        # callbacks["task"].assert_call(message=expected_response)
+        callback_warning = recwarn.pop(UserWarning)
+        assert issubclass(callback_warning.category, UserWarning)
+        assert str(callback_warning.message) == (
             "An incorrect number of callbacks was passed to `start_daq`!\n"
             "There must be exactly one callback per consumer!"
             "CALLBACKS ARE BEING IGNORED!\n"
             f"Number of consumers specified: {len(daq_modes)}\n"
             f"Number of callbacks provided: {len(data_received_callbacks)}"
         )
-        callbacks["task"].assert_call(message=expected_response)
-
-        callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
 
         for mode in daq_modes:
             # If we're using ints instead of DaqModes make the conversion so we

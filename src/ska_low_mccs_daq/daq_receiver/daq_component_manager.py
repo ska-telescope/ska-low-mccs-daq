@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import warnings
 from typing import Any, Callable, Optional, Sequence, Union
 
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
@@ -281,8 +282,12 @@ class DaqComponentManager(MccsComponentManager):
                 f"Number of callbacks provided: {len(callbacks)}"
             )
             self.logger.warn(msg)
-            if task_callback:
-                task_callback(message=msg)
+            # TODO: ska-tango-base task callback currently does not
+            # support calling with status messages. It should!
+            # Meanwhile, let's register a warning instead.
+            # if task_callback:
+            #     task_callback(message=msg)
+            warnings.warn(msg)
             callbacks = None
 
         # Cast any ints in modes_to_start to a DaqMode.
