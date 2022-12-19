@@ -54,10 +54,6 @@ instead of default python3, do as follows:
 export AAVS_INSTALL=/opt/aavs
 export VENV_INSTALL=/opt/aavs
 
-# Add DAQ-core include and lib directories. (AJC)
-export CPLUS_INCLUDE_PATH=${CPLUS_INCLUDE_PATH}:/app/aavs-system/third_party/aavs-daq/src
-export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/app/aavs-system/third_party/aavs-daq/src/build/:/opt/aavs/lib/:/usr/local/lib/:/app/aavs-system/src/build/
-
 # Installation options
 CLEAN=false
 COMPILE_CORRELATOR=OFF
