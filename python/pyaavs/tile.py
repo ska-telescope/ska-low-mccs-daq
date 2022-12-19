@@ -700,6 +700,26 @@ class Tile(object):
         return    
 
     @connected
+    def check_tile_beamformer_f2f_status(self, fpga_id=None):
+        """
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: True when Status is OK, no errors
+        :rtype bool
+        """
+        if self.is_programmed():
+            if fpga_id is None:
+                fpgas = range(len(self.tpm.tpm_test_firmware))
+            else:
+                fpgas = [fpga_id]
+            result = []
+            for fpga in fpgas:
+                result.append(self.tpm.beamf_fd[fpga].check_f2f_status())
+            return all(result)
+        return
+
+    @connected
     def configure_10g_core(
         self,
         core_id,
