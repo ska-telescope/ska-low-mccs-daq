@@ -2453,68 +2453,147 @@ class Tile(object):
     # ------------------- Test methods
 
     @connected
-    def check_jesd_lanes(self):
+    def check_jesd_lanes(self, fpga_id=None, core_id=None):
         """
         Check if JESD204 lanes are error free.
+        Checks the FPGA link error status and FPGA sync status registers.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param core_id: Specify which JESD Core, 0,1, or None for both cores
+        :type core_id: integer
 
         :return: true if all OK
         :rtype: bool
         """
-        rd = np.zeros(4, dtype=int)
-        rd[0] = self["fpga1.jesd204_if.core_id_0_link_error_status_0"]
-        rd[1] = self["fpga1.jesd204_if.core_id_1_link_error_status_0"]
-        rd[2] = self["fpga2.jesd204_if.core_id_0_link_error_status_0"]
-        rd[3] = self["fpga2.jesd204_if.core_id_1_link_error_status_0"]
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
 
-        lane_ok = True
-        for n in range(4):
-            for c in range(8):
-                if rd[n] & 0x7 != 0:
-                    self.logger.error(
-                        f"Lane {n * 8 + c} error detected! Error code: {rd[n] & 0x7}"
-                    )
-                    lane_ok = False
-                rd[n] = rd[n] >> 3
-        return lane_ok
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        if core_id is None:
+            cores = range(jesd_cores_per_fpga)
+        else:
+            cores = [core_id]
+        result = []
+        for fpga in fpgas:
+            for core in cores:
+                idx = fpga * jesd_cores_per_fpga + core
+                result.append(self.tpm.tpm_jesd[idx].check_link_error_status())
+                # result.append(self.tpm.tpm_jesd[idx].check_sync_status())
+                # TODO: What constitutes an OK or ERROR sync status?
+        return all(result)
 
-    def reset_jesd_error_counter(self):
-        """Reset errors in JESD lanes."""
-        self["fpga1.jesd204_if.core_id_0_error_reporting"] = 1
-        self["fpga1.jesd204_if.core_id_1_error_reporting"] = 1
-        self["fpga2.jesd204_if.core_id_0_error_reporting"] = 1
-        self["fpga2.jesd204_if.core_id_1_error_reporting"] = 1
+    @connected
+    def clear_jesd_error_counters(self, fpga_id=None):
+        """
+        Reset JESD error counters.
+         - JESD Error Counter
+         - JESD Resync Counter (shared between JESD cores)
+         - JESD QPLL Drop Counter (shared between JESD cores)
 
-        self["fpga1.jesd204_if.core_id_0_error_reporting"] = 0
-        self["fpga1.jesd204_if.core_id_1_error_reporting"] = 0
-        self["fpga2.jesd204_if.core_id_0_error_reporting"] = 0
-        self["fpga2.jesd204_if.core_id_1_error_reporting"] = 0
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+        """
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
+        cores = range(jesd_cores_per_fpga)
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        for fpga in fpgas:
+            for core in cores:
+                idx = fpga * jesd_cores_per_fpga + core
+                self.tpm.tpm_jesd[idx].clear_error_counters()
+        return
 
-        self["fpga1.jesd204_if.core_id_0_error_reporting"] = 1
-        self["fpga1.jesd204_if.core_id_1_error_reporting"] = 1
-        self["fpga2.jesd204_if.core_id_0_error_reporting"] = 1
-        self["fpga2.jesd204_if.core_id_1_error_reporting"] = 1
-
-    def check_jesd_error_counter(self, show_result=True):
+    @connected
+    def check_jesd_error_counter(self, fpga_id=None, core_id=None, show_result=True):
         """
         Check JESD204 lanes errors.
+        Checks the FPGA link error counter register.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param core_id: Specify which JESD Core, 0,1, or None for both cores
+        :type core_id: integer
 
         :param show_result: prints error counts on logger
         :type show_result: bool
-        :return: error count vector
-        :rtype: list(int)
+
+        :return: true if all OK
+        :rtype: bool
         """
-        errors = []
-        for lane in range(32):
-            fpga_id = lane // 16
-            core_id = (lane % 16) // 8
-            lane_id = lane % 8
-            reg = self[
-                f"fpga{fpga_id + 1}.jesd204_if.core_id_{core_id}_lane_{lane_id}_link_error_count"
-            ]
-            errors.append(reg)
-            if show_result:
-                self.logger.info("Lane " + str(lane) + " error count " + str(reg))
-        return errors
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        if core_id is None:
+            cores = range(jesd_cores_per_fpga)
+        else:
+            cores = [core_id]
+        result = []
+        for fpga in fpgas:
+            for core in cores:
+                idx = fpga * jesd_cores_per_fpga + core
+                result.append(self.tpm.tpm_jesd[idx].check_link_error_counter(show_result))
+        return all(result)
+
+    @connected
+    def check_jesd_resync_counter(self, fpga_id=None, show_result=True):
+        """
+        Check JESD204 for resync events.
+        Checks the FPGA resync counter register (shared between JESD cores).
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param show_result: prints error counts on logger
+        :type show_result: bool
+
+        :return: true if all OK
+        :rtype: bool
+        """
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        counts = []
+        for fpga in fpgas:
+            idx = fpga * jesd_cores_per_fpga
+            counts.append(self.tpm.tpm_jesd[idx].check_resync_counter(show_result))   
+        return not(any(counts)) # Return True if all counters are 0, else False
+
+    @connected
+    def check_jesd_qpll_drop_counter(self, fpga_id=None, show_result=True):
+        """
+        Check JESD204 for dropped QPLL lock events.
+        Checks the FPGA qpll lock loss counter register (shared between JESD cores).
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param show_result: prints error counts on logger
+        :type show_result: bool
+
+        :return: true if all OK
+        :rtype: bool
+        """
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        counts = []
+        for fpga in fpgas:
+            idx = fpga * jesd_cores_per_fpga
+            counts.append(self.tpm.tpm_jesd[idx].check_qpll_lock_loss_counter(show_result))
+        return not(any(counts)) # Return True if all counters are 0, else False
 
     @connected
     def start_40g_test(self, single_packet_mode=False, ipg=32):
