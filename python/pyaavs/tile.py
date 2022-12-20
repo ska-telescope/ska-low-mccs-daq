@@ -700,6 +700,67 @@ class Tile(object):
         return    
 
     @connected
+    def check_ddr_initialisation(self, fpga_id=None):
+        """
+        Check whether DDR has initialised.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: true if all OK
+        :rtype: bool
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        result = []
+        for fpga in fpgas:
+            result.append(self.tpm.tpm_test_firmware[fpga].check_ddr_initialisation())
+        return all(result)
+    
+    @connected
+    def check_ddr_reset_counter(self, fpga_id=None, show_result=True):
+        """
+        Check status of DDR user reset counter - increments each falling edge 
+        of the DDR generated user logic reset.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param show_result: prints error counts on logger
+        :type show_result: bool
+
+        :return: true if all OK (all counters are 0)
+        :rtype: bool
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        counts = []
+        for fpga in fpgas:
+            counts.append(self.tpm.tpm_test_firmware[fpga].check_ddr_user_reset_counter(show_result))
+        return not(any(counts)) # Return True if all counters are 0, else False
+    
+    @connected
+    def clear_ddr_reset_counter(self, fpga_id=None):
+        """
+        Reset value of DDR user reset counter.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        for fpga in fpgas:
+            self.tpm.tpm_test_firmware[fpga].clear_ddr_user_reset_counter()
+        return
+            
+
+    @connected
     def check_tile_beamformer_f2f_status(self, fpga_id=None):
         """
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
