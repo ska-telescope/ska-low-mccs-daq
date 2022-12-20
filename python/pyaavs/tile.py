@@ -758,8 +758,48 @@ class Tile(object):
         for fpga in fpgas:
             self.tpm.tpm_test_firmware[fpga].clear_ddr_user_reset_counter()
         return
-            
 
+    @connected
+    def check_f2f_drop_counter(self, fpga_id=None, core_id=None, show_result=True):
+        """
+        """
+        # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
+        f2f_cores_per_fpga = len(self.tpm.tpm_f2f) // len(self.tpm.tpm_test_firmware)
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        if core_id is None:
+            cores = range(f2f_cores_per_fpga)
+        else:
+            cores = [core_id]
+        counts = []
+        for fpga in fpgas:
+            for core in cores:
+                idx = fpga * f2f_cores_per_fpga + core
+                counts.append(self.tpm.tpm_f2f[idx].check_pll_lock_loss_counter(show_result))
+        return not(any(counts)) # Return True if all counters are 0, else False
+
+    @connected
+    def clear_f2f_drop_counter(self, fpga_id=None, core_id=None):
+        """
+        """
+        # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
+        f2f_cores_per_fpga = len(self.tpm.tpm_f2f) // len(self.tpm.tpm_test_firmware)
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        if core_id is None:
+            cores = range(f2f_cores_per_fpga)
+        else:
+            cores = [core_id]
+        for fpga in fpgas:
+            for core in cores:
+                idx = fpga * f2f_cores_per_fpga + core
+                self.tpm.tpm_f2f[idx].clear_pll_lock_loss_counter()
+        return
+            
     @connected
     def check_tile_beamformer_f2f_status(self, fpga_id=None):
         """
