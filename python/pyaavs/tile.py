@@ -919,6 +919,34 @@ class Tile(object):
                 result.append(self.tpm.beamf_fd[fpga].check_f2f_status())
             return all(result)
         return
+    
+    # There is currently no method of clearing the tile beamformer error flags
+
+    @connected
+    def check_station_beamformer_status(self, fpga_id=None, show_result=True):
+        """
+        Check status of Station Beamformer error flags and counters.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: True when Status is OK, no errors
+        :rtype bool
+        """
+        if self.is_programmed():
+            if fpga_id is None:
+                fpgas = range(len(self.tpm.tpm_test_firmware))
+            else:
+                fpgas = [fpga_id]
+            result = []
+            for fpga in fpgas:
+                frame_errors, errors = self.tpm.station_beamf[fpga].report_errors(show_result)
+                result.append(frame_errors)
+                result.append(errors)
+            return not any(result) # Return True if all flags and counters are 0, else False
+        return
+    
+  # There is currently no method of clearing the station beamformer error flags
 
     @connected
     def configure_10g_core(
