@@ -760,15 +760,19 @@ class Tile(object):
         return
 
     @connected
-    def check_f2f_drop_counter(self, fpga_id=None, core_id=None, show_result=True):
+    def check_f2f_drop_counter(self, core_id=None, show_result=True):
         """
+        Check for F2F PLL loss of lock events.
+
+        :param core_id: Specify which F2F Core, 0,1, or None for both cores
+        :type core_id: integer
+
+        :param show_result: prints error counts on logger
+        :type show_result: bool
         """
         # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
         f2f_cores_per_fpga = len(self.tpm.tpm_f2f) // len(self.tpm.tpm_test_firmware)
-        if fpga_id is None:
-            fpgas = range(len(self.tpm.tpm_test_firmware))
-        else:
-            fpgas = [fpga_id]
+        fpgas = range(len(self.tpm.tpm_test_firmware))
         if core_id is None:
             cores = range(f2f_cores_per_fpga)
         else:
@@ -777,19 +781,20 @@ class Tile(object):
         for fpga in fpgas:
             for core in cores:
                 idx = fpga * f2f_cores_per_fpga + core
-                counts.append(self.tpm.tpm_f2f[idx].check_pll_lock_loss_counter(show_result))
+                counts.extend(self.tpm.tpm_f2f[idx].check_pll_lock_loss_counter(show_result))
         return not(any(counts)) # Return True if all counters are 0, else False
 
     @connected
-    def clear_f2f_drop_counter(self, fpga_id=None, core_id=None):
+    def clear_f2f_drop_counter(self, core_id=None):
         """
+        Reset value of F2F PLL lock loss counter.
+
+        :param core_id: Specify which F2F Core, 0,1, or None for both cores
+        :type core_id: integer
         """
         # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
         f2f_cores_per_fpga = len(self.tpm.tpm_f2f) // len(self.tpm.tpm_test_firmware)
-        if fpga_id is None:
-            fpgas = range(len(self.tpm.tpm_test_firmware))
-        else:
-            fpgas = [fpga_id]
+        fpgas = range(len(self.tpm.tpm_test_firmware))
         if core_id is None:
             cores = range(f2f_cores_per_fpga)
         else:
