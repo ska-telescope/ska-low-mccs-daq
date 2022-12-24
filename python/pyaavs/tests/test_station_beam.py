@@ -75,7 +75,7 @@ class TestStationBeam():
         self._test_station.test_generator_set_tone(0, frequency=100e6, ampl=0.0)
         self._test_station.test_generator_set_tone(1, frequency=100e6, ampl=0.0)
         self._test_station.test_generator_set_noise(ampl=0.35, delay=1024)
-        self._csp_scale = 0 #int(np.ceil(np.log2(len(self._test_station.tiles))))
+        self._csp_scale = int(np.ceil(np.log2(len(self._test_station.tiles))))
         self._channeliser_scale = 0
         for tile in self._test_station.tiles:
             tile['fpga1.beamf_ring.csp_scaling'] = self._csp_scale

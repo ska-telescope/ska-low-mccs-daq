@@ -245,8 +245,6 @@ class SpeadRxBeamPowerRealtime(Process):
         # print(power_1_db)
         return [power_0_db, power_1_db, nof_saturation_0, nof_saturation_1, nof_sample_0, nof_sample_1]
 
-
-
     def get_power(self, channel_id, max_packets=4096):
         global realtime_pkt_buff
 
@@ -270,10 +268,10 @@ class SpeadRxBeamPowerRealtime(Process):
         pkt_reassembled = unpack('b' * 8192, realtime_pkt_buff[pkt_buffer_idx: pkt_buffer_idx + 8192])
 
         for k in range(0, 8192, 4):
-            if  pkt_reassembled[k + 0] != pattern[channel_id][0] or\
-                pkt_reassembled[k + 1] != pattern[channel_id][1] or\
-                pkt_reassembled[k + 2] != pattern[channel_id][2] or\
-                pkt_reassembled[k + 3] != pattern[channel_id][3]:
+            if pkt_reassembled[k + 0] != pattern[channel_id][0] or\
+               pkt_reassembled[k + 1] != pattern[channel_id][1] or\
+               pkt_reassembled[k + 2] != pattern[channel_id][2] or\
+               pkt_reassembled[k + 3] != pattern[channel_id][3]:
                 errors += 1
 
         return errors
