@@ -68,7 +68,10 @@ class TestDdr():
         self._test_station['fpga2.ddr_simple_test.last_addr'] = last_addr
         self._test_station['fpga1.ddr_simple_test.first_addr'] = first_addr
         self._test_station['fpga2.ddr_simple_test.first_addr'] = first_addr
-        if len(self._test_station.tiles[0].tpm.find_register("fpga1.ddr_simple_test.burst_length")) > 0:
+        if self._test_station.tiles[0].tpm.has_register('fpga1.ddr_simple_test.addr_increment'):
+            self._test_station['fpga1.ddr_simple_test.addr_increment'] = 8
+            self._test_station['fpga2.ddr_simple_test.addr_increment'] = 8
+        if self._test_station.tiles[0].tpm.has_register("fpga1.ddr_simple_test.burst_length"):
             self._test_station['fpga1.ddr_simple_test.burst_length'] = burst_length
             self._test_station['fpga2.ddr_simple_test.burst_length'] = burst_length
         self._test_station['fpga1.ddr_simple_test.pause'] = pause
