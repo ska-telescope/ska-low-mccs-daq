@@ -8,10 +8,7 @@ from pydaq.persisters import *
 from pyaavs import station
 from config_manager import ConfigManager
 from numpy import random
-from spead_beam_power_realtime import SpeadRxBeamPowerRealtime
-from spead_beam_power_offline import SpeadRxBeamPowerOffline
-import spead_beam_power_realtime
-import spead_beam_power_offline
+from spead_beam_pattern_check import SpeadRxBeamPatternCheck
 import test_functions as tf
 import numpy as np
 import tempfile
@@ -166,7 +163,7 @@ class TestStationBeam():
                 iter += 1
 
                 self._logger.info("Acquiring realtime beamformed data")
-                spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
+                spead_rx_realtime_inst = SpeadRxBeamPatternCheck(4660, self._daq_eth_if)
                 errors += np.asarray(spead_rx_realtime_inst.check_data(self._pattern))
                 self._logger.info("Checking pattern iteration %d, errors: %d" % (iter, errors))
 
@@ -187,13 +184,6 @@ class TestStationBeam():
             else:
                 self._logger.info("TEST PASSED!")
 
-
-
-            # plt.plot(np.array(realtime_power)[:, 0])
-            # plt.plot(np.array(offline_power)[:, 0] - rescale)
-            # plt.show()
-            # plt.savefig("test_full_station.png")
-            # All done, remove temporary directory
         except Exception as e:
             errors += 1
             import traceback
