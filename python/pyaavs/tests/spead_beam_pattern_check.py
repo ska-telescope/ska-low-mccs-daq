@@ -27,10 +27,72 @@ class CspSpeadHeaderDecoded:
     csp_antenna_info    : int
     offset              : int
 
+class CspSpeadHeaderDecoder(Process):
+    def __init__(self):
+        self.spead_header = CspSpeadHeaderDecoded
+        self.clear_header()
+
+    def clear_header(self):
+        self.spead_header.is_spead = False
+        self.spead_header.is_csp_packet         = False
+        self.spead_header.packet_counter        = 0
+        self.spead_header.logical_channel_id    = 0
+        self.spead_header.payload_length        = 0
+        self.spead_header.sync_time             = 0
+        self.spead_header.timestamp             = 0
+        self.spead_header.center_frequency      = 0
+        self.spead_header.csp_channel_info      = 0
+        self.spead_header.physical_channel_id   = 0
+        self.spead_header.csp_antenna_info      = 0
+        self.spead_header.offset                = 0
+
+    def decode_header(self, pkt):
+        items = unpack('>' + 'Q' * 9, pkt[0:8 * 9])
+        self.spead_header.is_spead = False
+        self.spead_header.is_csp_packet = False
+
+        for idx in range(len(items)):
+            item = items[idx]
+            id = item >> 48
+            val = item & 0x0000FFFFFFFFFFFF
+
+            if id == 0x5304 and idx == 0:
+                self.spead_header.is_spead = True
+            elif id == 0x8001 and idx == 1:
+                heap_counter = val
+                self.spead_header.packet_counter = heap_counter & 0xFFFFFFFF
+                self.spead_header.logical_channel_id = heap_counter >> 32
+            elif id == 0x8004 and idx == 2:
+                self.spead_header.payload_length = val
+            elif id == 0x9027 and idx == 3:
+                self.spead_header.sync_time = val
+            elif id == 0x9600 and idx == 4:
+                self.spead_header.timestamp = val
+            elif id == 0x9011 and idx == 5:
+                self.spead_header.center_frequency = val & 0xFFFFFFFF
+            elif id == 0xb000 and idx == 6:
+                self.spead_header.is_csp_packet = True
+                self.spead_header.csp_channel_info = val
+                self.spead_header.physical_channel_id = val & 0x3FF
+            elif id == 0xb001 and idx == 7:
+                self.spead_header.csp_antenna_info = val
+            elif id == 0x3300 and idx == 8:
+                self.spead_header.offset = 9 * 8
+            else:
+                print("Error in header")
+                print("Unexpected item " + hex(item) + " at position " + str(idx))
+                input("Press a key...")
+                break
+        return self.spead_header
+
+
+
 class SpeadRxBeamPatternCheck(Process):
     def __init__(self, port, eth_if="eth2", *args, **kwargs):
         self.port = port
         self.raw_socket = True
+        self.spead_header_decoder = SpeadHeaderDecoder()
+        self.spead_header = CspSpeadHeaderDecoded
 
         if not self.raw_socket:
             self.sock = socket.socket(socket.AF_INET,      # Internet
@@ -50,27 +112,6 @@ class SpeadRxBeamPatternCheck(Process):
             #except(socket.error):
             #    print('Socket could not be created.')
             #    sys.exit()
-
-        self.data_buff = [0] * 8192
-        self.center_frequency = 0
-        self.payload_length = 0
-        self.sync_time = 0
-        self.timestamp = 0
-        self.csp_channel_info = 0
-        self.csp_antenna_info = 0
-        self.tpm_info = 0
-        self.fpga_id = 0
-        self.offset = 13*8
-        self.pkt_cnt = 0
-        self.packet_counter = 0
-        self.logical_channel_id = 0
-        self.exp_pkt_cnt = -1
-        self.id = 0
-        self.is_spead = False
-        self.processed_frame = 0
-        self.accu_x = 0
-        self.accu_y = 0
-        self.nof_processed_samples = 0
 
     def close_socket(self):
         self.sock.close()
@@ -96,62 +137,9 @@ class SpeadRxBeamPatternCheck(Process):
                 if header[18] == self.port:
                     return nbytes
 
-    def spead_header_decode(self, pkt, first_channel = -1):
-        items = unpack('>' + 'Q'*9, pkt[0:8*9])
-        self.is_spead = False
-        is_csp_packet = False
-        # print("--------------------------------")
-        for idx in range(len(items)):
-            item = items[idx]
-            # print(hex(item))
-            id = item >> 48
-            val = item & 0x0000FFFFFFFFFFFF
-            # print(hex(id) + " " + hex(val))
-            if id == 0x5304 and idx == 0:
-                self.is_spead = True
-            elif id == 0x8001 and idx == 1:
-                heap_counter = val
-                self.packet_counter = heap_counter & 0xFFFFFFFF
-                self.logical_channel_id = heap_counter >> 32
-            elif id == 0x8004 and idx == 2:
-                self.payload_length = val
-            elif id == 0x9027 and idx == 3:
-                self.sync_time = val
-            elif id == 0x9600 and idx == 4:
-                self.timestamp = val
-            elif id == 0x9011 and idx == 5:
-                if first_channel >= 0:
-                    self.center_frequency = val & 0xFFFFFFFF
-                    exp_freq = 400e6*(self.logical_channel_id + first_channel) / 512
-                    if self.center_frequency != exp_freq:
-                        print("Error frequency ID")
-                        print("Expected ID " + str(exp_freq) + ", received " + str(self.center_frequency))
-                        print(hex(val))
-                        print("Received logical channel_id: " + str(self.logical_channel_id))
-                        input("Press a key...")
-                        # break
-            elif id == 0xb000 and idx == 6:
-                is_csp_packet = True
-                if first_channel >= 0:
-                    self.csp_channel_info = val
-                    physical_channel_id = val & 0x3FF
-                    if physical_channel_id != self.logical_channel_id + first_channel:
-                        print("Error physical channel ID")
-                        print("Expected ID " + str(self.logical_channel_id + first_channel) + ", received " + str(physical_channel_id))
-                        print(hex(val))
-                        print("Received logical channel_id: " + str(self.logical_channel_id))
-                        input("Press a key...")
-                        # break
-            elif id == 0xb001 and idx == 7:
-                self.csp_antenna_info = val
-            elif id == 0x3300 and idx == 8:
-                self.offset = 9*8
-            else:
-                print("Error in header")
-                print("Unexpected item " + hex(item) + " at position " + str(idx))
-                input("Press a key...")
-                break
-        return is_csp_packet
+    def spead_header_decode(self, pkt):
+        self.spead_header = self.spead_header_decoder(pkt)
+        return self.spead_header.is_csp_packet
 
     def check_pattern(self, pkt_buffer_idx, channel_id):
         global realtime_pattern
@@ -184,7 +172,7 @@ class SpeadRxBeamPatternCheck(Process):
                 # print(self.lmc_tpm_id)
 
                 pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72
-                errors += self.check_pattern(pkt_buffer_idx_offset, self.logical_channel_id)
+                errors += self.check_pattern(pkt_buffer_idx_offset, self.spead_header.logical_channel_id)
 
             pkt_buffer_idx += 16384
 
