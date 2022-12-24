@@ -43,6 +43,7 @@ class TestStationBeam():
     def __init__(self, station_config, logger):
         self._logger = logger
         self._station_config = station_config
+        self._test_station = None
         self._daq_eth_if = station_config['eth_if']
         self._total_bandwidth = station_config['test_config']['total_bandwidth']
         self._antennas_per_tile = station_config['test_config']['antennas_per_tile']
@@ -52,15 +53,17 @@ class TestStationBeam():
         self._csp_scale = 0
         self._channeliser_scale = 0
         self._pattern = [[0, 0, 0, 0]] * 384
+        # for n in range(384):
+        #     if n % 4 == 0:
+        #         self._pattern[n] = [n // 4, 0, 0, 0]
+        #     elif n % 4 == 1:
+        #         self._pattern[n] = [1, n // 4, 1, 1]
+        #     elif n % 4 == 2:
+        #         self._pattern[n] = [2, 2, n // 4, 2]
+        #     else:
+        #         self._pattern[n] = [3, 3, 3, n // 4]
         for n in range(384):
-            if n % 4 == 0:
-                self._pattern[n] = [n // 4, 0, 0, 0]
-            elif n % 4 == 1:
-                self._pattern[n] = [1, n // 4, 1, 1]
-            elif n % 4 == 2:
-                self._pattern[n] = [2, 2, n // 4, 2]
-            else:
-                self._pattern[n] = [3, 3, 3, n // 4]
+            self._pattern[n] = [n % 32, n // 32, n % 128, n // 2]
 
     def prepare_test(self):
         for i, tile in enumerate(self._test_station.tiles):
@@ -72,8 +75,8 @@ class TestStationBeam():
         self._test_station.test_generator_set_tone(0, frequency=100e6, ampl=0.0)
         self._test_station.test_generator_set_tone(1, frequency=100e6, ampl=0.0)
         self._test_station.test_generator_set_noise(ampl=0.35, delay=1024)
-        self._csp_scale = 0 #int(np.ceil(np.log2(len(self._test_station.tiles)))) + 1
-        self._channeliser_scale = 2
+        self._csp_scale = 0 #int(np.ceil(np.log2(len(self._test_station.tiles))))
+        self._channeliser_scale = 0
         for tile in self._test_station.tiles:
             tile['fpga1.beamf_ring.csp_scaling'] = self._csp_scale
             tile['fpga2.beamf_ring.csp_scaling'] = self._csp_scale
@@ -133,16 +136,16 @@ class TestStationBeam():
 
                 # start DDR test
                 errors = self._test_ddr_inst.prepare(first_addr=ddr_test_base_address // 8,
-                                                     last_addr=(ddr_test_base_address + ddr_test_length) // 8 - 8,
-                                                     burst_length=4,
-                                                     pause=60,
-                                                     reset_dsp=0,
-                                                     reset_ddr=0,
-                                                     stop_transmission=0)
+                                                    last_addr=(ddr_test_base_address + ddr_test_length) // 8 - 8,
+                                                    burst_length=3,
+                                                    pause=64,
+                                                    reset_dsp=0,
+                                                    reset_ddr=0,
+                                                    stop_transmission=0)
                 if errors > 0:
-                    self._logger.error("Not possible to start DDR background test")
-                    self._logger.error("TEST FAILED!")
-                    return 1
+                   self._logger.error("Not possible to start DDR background test")
+                   self._logger.error("TEST FAILED!")
+                   return 1
                 self._test_ddr_inst.start()
                 self._logger.info("DDR test started.")
 
