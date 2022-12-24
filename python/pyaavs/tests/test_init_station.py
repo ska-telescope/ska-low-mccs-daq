@@ -33,6 +33,7 @@ data_ready = False
 class TestInitStation():
     def __init__(self, station_config, logger):
         self._logger = logger
+        self._test_station = None
         self._station_config = station_config
         self._daq_eth_if = station_config['eth_if']
         self._total_bandwidth = station_config['test_config']['total_bandwidth']
@@ -54,9 +55,9 @@ class TestInitStation():
             self._logger.info("Initialising station. Iteration %d" % iter)
             self._test_station = station.Station(station_config)
             self._test_station.connect()
-            time.sleep(4)
+            time.sleep(1)
             spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
-            received_data_rate = np.asarray(spead_rx_realtime_inst.get_data_rate(expected_data_rate))
+            received_data_rate = np.asarray(spead_rx_realtime_inst.get_data_rate_net_io(expected_data_rate))
             self._logger.info("Station beam data rate: %d bytes/s" % int(received_data_rate))
 
             if received_data_rate < expected_data_rate_low or received_data_rate > expected_data_rate_hi:
@@ -69,13 +70,13 @@ class TestInitStation():
                         self._logger.error("Tile %d, F2F latency error!" % t)
                         return 1
                     if tile['%s.beamf_fd.f2f_latency.count_start' % fpga]!= 1:
-                        self._logger.error("Tile %d,F2F latency start error!" % t)
+                        self._logger.error("Tile %d, F2F latency start error!" % t)
                         return 1
                     if tile['%s.beamf_fd.f2f_latency.count_stop' % fpga] != 1:
-                        self._logger.error("Tile %d,F2F latency stop error!" % t)
+                        self._logger.error("Tile %d, F2F latency stop error!" % t)
                         return 1
-                    if tile['%s.beamf_fd.errors' % fpga]!= 0:
-                        self._logger.error("Tile %d,Tile Beamformer error!" % t)
+                    if tile['%s.beamf_fd.errors' % fpga] != 0:
+                        self._logger.error("Tile %d, Tile Beamformer error!" % t)
                         return 1
                     for core in range(2):
                         for lane in range(8):

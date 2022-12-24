@@ -150,6 +150,10 @@ class TestAntennaBuffer():
 
         self._logger.debug("Setting antenna buffer pattern...")
         dut.stop_integrated_data()
+        beamformer_running = dut.beamformer_is_running()
+        if beamformer_running:
+            dut.stop_beamformer()
+
         tf.set_pattern(dut, stage="jesd", pattern=range(1024), adders=[0] * 64, start=True)
         ab = dut.tpm.tpm_antenna_buffer[fpga_id]
         if fpga_id == 0:
@@ -240,6 +244,8 @@ class TestAntennaBuffer():
 
             self._logger.info("Iteration %d PASSED!" % k)
 
+        if beamformer_running:
+            dut.start_beamformer()
         self.clean_up()
         return errors
 

@@ -1,6 +1,9 @@
 import sys
+import time
 import socket
+import psutil
 import numpy as np
+
 from struct import *
 from builtins import input
 from time import perf_counter
@@ -41,6 +44,7 @@ class SpeadRxBeamPowerRealtime(Process):
         self.port = port
         self.raw_socket = True
         self.channel_id = 0
+        self.eth_if = eth_if
 
         if not self.raw_socket:
             self.sock = socket.socket(socket.AF_INET,      # Internet
@@ -345,7 +349,7 @@ class SpeadRxBeamPowerRealtime(Process):
         global realtime_pkt_buff
 
         pkt_buff_ptr = memoryview(realtime_pkt_buff)
-        self.recv2(pkt_buff_ptr)
+        # self.recv2(pkt_buff_ptr)
         nbytes = 0
         t1_start = perf_counter()
         while True:
@@ -354,6 +358,21 @@ class SpeadRxBeamPowerRealtime(Process):
                 t1_stop = perf_counter()
                 data_rate = nbytes / (t1_stop - t1_start)
                 return data_rate
+
+    def get_data_rate_net_io(self, bytes):
+        net = psutil.net_io_counters(pernic=True)
+        t1_sent_bytes = net[self.eth_if].bytes_recv
+        t1 = perf_counter()
+
+        time.sleep(2)
+
+        net = psutil.net_io_counters(pernic=True)
+        t2_sent_bytes = net[self.eth_if].bytes_recv
+        t2 = perf_counter()
+
+        nbytes = t2_sent_bytes - t1_sent_bytes
+        data_rate = nbytes / (t2 - t1)
+        return data_rate
 
 
 if __name__ == "__main__":

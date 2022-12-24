@@ -264,7 +264,7 @@ class TestFullStation():
                     station_ok = False
         return station_ok
 
-    def execute(self, test_channel=4, max_delay=128, background_ddr_access=False):
+    def execute(self, test_channel=4, max_delay=128, background_ddr_access=True):
         global nof_samples
 
         self._test_station = station.Station(self._station_config)
@@ -338,8 +338,8 @@ class TestFullStation():
                 # start DDR test
                 errors = self._test_ddr_inst.prepare(first_addr=ddr_test_base_address // 8,
                                                      last_addr=(ddr_test_base_address + ddr_test_length) // 8 - 8,
-                                                     burst_length=4,
-                                                     pause=60,
+                                                     burst_length=3,
+                                                     pause=64,
                                                      reset_dsp=0,
                                                      reset_ddr=0,
                                                      stop_transmission=0)
@@ -394,6 +394,8 @@ class TestFullStation():
                 self.set_delay(random_delays, max_delay)
 
                 self._logger.info("Acquiring channelised data, channel %d" % channelised_channel)
+                for tile in self._test_station.tiles:
+                    tile.stop_beamformer()
                 self._test_station.send_channelised_data_continuous(channelised_channel, daq_config['nof_channel_samples'])
 
                 scale = self._channeliser_scale
@@ -464,6 +466,8 @@ class TestFullStation():
 
                 self._test_station.stop_data_transmission()
                 offline_power.append(offline_beam_power)
+                for tile in self._test_station.tiles:
+                    tile.start_beamformer()
                 time.sleep(1)
 
                 self._logger.info("Acquiring realtime beamformed data")

@@ -1587,7 +1587,7 @@ class Tile(object):
         if ret1 and ret2:
             return True
         else:
-            self.abort()
+            self.stop_beamformer()
             return False
 
     @connected
