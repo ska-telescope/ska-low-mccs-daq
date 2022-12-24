@@ -27,10 +27,6 @@ buffers_processed = 0
 data_ready = False
 
 
-
-
-
-
 def delete_files(directory):
     """ Delete all files in directory """
     for f in os.listdir(directory):
@@ -62,7 +58,7 @@ class TestStationBeam():
         for n in range(384):
             self._pattern[n] = [n % 32, n // 32, n % 128, n // 4]
 
-    def prepare_test(self):
+    def prepare_test(self, pattern_type):
         for i, tile in enumerate(self._test_station.tiles):
             tile.set_channeliser_truncation(5)
             tf.disable_test_generator_and_pattern(tile)
@@ -78,6 +74,8 @@ class TestStationBeam():
             tile['fpga1.beamf_ring.csp_scaling'] = self._csp_scale
             tile['fpga2.beamf_ring.csp_scaling'] = self._csp_scale
             tile.set_channeliser_truncation(self._channeliser_scale)
+        self._test_station['fpga1.beamf_ring.control.enable_pattern_generator'] = pattern_type
+        self._test_station['fpga2.beamf_ring.control.enable_pattern_generator'] = pattern_type
 
         # Set time delays to 0
         for tile in self._test_station.tiles:
@@ -98,22 +96,17 @@ class TestStationBeam():
                     station_ok = False
         return station_ok
 
-    def execute(self, test_channel=4, iterations=4, background_ddr_access=True):
+    def execute(self, iterations=16, background_ddr_access=True, pattern_type=1):
         global nof_samples
 
         self._test_station = station.Station(self._station_config)
         self._test_station.connect()
 
-        self.prepare_test()
+        self.prepare_test(pattern_type)
 
         # Update channel numbers
         channel_bandwidth = float(self._total_bandwidth) / int(self._pfb_nof_channels)
         nof_channels = int(self._station_config['observation']['bandwidth'] / channel_bandwidth)
-
-        if test_channel >= nof_channels:
-            self._logger.error("Station beam does not contain selected frequency channel. Exiting...")
-            return 1
-
 
         try:
 
@@ -133,12 +126,12 @@ class TestStationBeam():
 
                 # start DDR test
                 errors = self._test_ddr_inst.prepare(first_addr=ddr_test_base_address // 8,
-                                                    last_addr=(ddr_test_base_address + ddr_test_length) // 8 - 8,
-                                                    burst_length=3,
-                                                    pause=64,
-                                                    reset_dsp=0,
-                                                    reset_ddr=0,
-                                                    stop_transmission=0)
+                                                     last_addr=(ddr_test_base_address + ddr_test_length) // 8 - 8,
+                                                     burst_length=3,
+                                                     pause=64,
+                                                     reset_dsp=0,
+                                                     reset_ddr=0,
+                                                     stop_transmission=0)
                 if errors > 0:
                    self._logger.error("Not possible to start DDR background test")
                    self._logger.error("TEST FAILED!")
@@ -164,7 +157,7 @@ class TestStationBeam():
 
                 self._logger.info("Acquiring realtime beamformed data")
                 spead_rx_realtime_inst = SpeadRxBeamPatternCheck(4660, self._daq_eth_if)
-                errors += np.asarray(spead_rx_realtime_inst.check_data(self._pattern))
+                errors += np.asarray(spead_rx_realtime_inst.check_data(self._pattern, pattern_type))
                 self._logger.info("Checking pattern iteration %d, errors: %d" % (iter, errors))
 
                 del spead_rx_realtime_inst
@@ -216,8 +209,8 @@ if __name__ == "__main__":
     parser = tf.add_default_parser_options(parser)
     parser.add_option("--iterations", action="store", dest="iterations",
                       type="str", default="128", help="Maximum antenna delay [default: 128]")
-    parser.add_option("--test_channel", action="store", dest="test_channel",
-                      type="str", default="4", help="Beam test channel ID [default: 4]")
+    parser.add_option("--pattern_type", action="store", dest="pattern_type",
+                      type="str", default="4", help="Pattern type [default: 0]")
 
     (opts, args) = parser.parse_args(argv[1:])
 
@@ -251,5 +244,5 @@ if __name__ == "__main__":
     station_config = config_manager.apply_test_configuration(opts)
 
     test_inst = TestStationBeam(station_config, test_logger)
-    test_inst.execute(int(opts.test_channel),
-                      int(opts.iterations))
+    test_inst.execute(int(opts.iterations),
+                      int(opts.pattern_type))

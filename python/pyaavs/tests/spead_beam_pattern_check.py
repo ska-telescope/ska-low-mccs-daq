@@ -7,10 +7,84 @@ from time import perf_counter
 from optparse import OptionParser
 from multiprocessing import Process, Pool
 
-realtime_nof_processes = 8
+realtime_nof_processes = 16
 realtime_pkt_buff = bytearray(16384 * 16384)
 realtime_max_packets = 4096
 realtime_pattern = [0]*1024
+realtime_pattern_type = 1
+
+
+def check_pattern(pkt_buffer_idx, channel_id):
+    global realtime_pattern
+    global realtime_pkt_buff
+
+    errors = 0
+
+    pkt_reassembled = unpack('b' * 8192, realtime_pkt_buff[pkt_buffer_idx: pkt_buffer_idx + 8192])
+
+    for k in range(0, 8192, 4):
+        if pkt_reassembled[k + 0] != realtime_pattern[channel_id][0] or \
+           pkt_reassembled[k + 1] != realtime_pattern[channel_id][1] or \
+           pkt_reassembled[k + 2] != realtime_pattern[channel_id][2] or \
+           pkt_reassembled[k + 3] != realtime_pattern[channel_id][3]:
+            errors += 1
+
+    return errors
+
+
+def extract_sample(sample):
+    channel_id = sample[0] + ((sample[1] & 0x3) << 7)
+    counter = (sample[1] >> 2) + (sample[2] << 5) + (sample[3] << 12)
+    return channel_id, counter
+
+
+def check_pattern2(pkt_buffer_idx, channel_id, timestamp):
+    global realtime_pattern
+    global realtime_pkt_buff
+
+    errors = 0
+
+    pkt_reassembled = unpack('b' * 8192, realtime_pkt_buff[pkt_buffer_idx: pkt_buffer_idx + 8192])
+
+    exp_counter = int((timestamp / 1080)) % (2**19)
+    exp_channel_id = channel_id
+
+    for k in range(0, 8192, 4):
+        channel_id, counter = extract_sample(pkt_reassembled[k: k + 4])
+        if exp_channel_id != channel_id or exp_counter != counter:
+            exp_channel_id = channel_id
+            exp_counter = counter
+
+            errors += 1
+        exp_counter += 1
+
+    return errors
+
+
+def check_buffer(id):
+    global realtime_pkt_buff
+    global realtime_max_packets
+    global realtime_nof_processes
+    global realtime_pattern_type
+
+    spead_header_decoder = CspSpeadHeaderDecoder()
+
+    errors = 0
+    pkt_buffer_idx = 16384 * id
+
+    for n in list(range(id, realtime_max_packets, realtime_nof_processes)):
+        # print(n)
+        spead_header = spead_header_decoder.decode_header(realtime_pkt_buff[pkt_buffer_idx + 42: pkt_buffer_idx + 42 + 72])
+        if spead_header.is_csp_packet:
+            pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72
+            if realtime_pattern_type == 0:
+                errors += check_pattern(pkt_buffer_idx_offset, spead_header.logical_channel_id)
+            else:
+                errors += check_pattern2(pkt_buffer_idx_offset, spead_header.logical_channel_id, spead_header.timestamp)
+
+        pkt_buffer_idx += 16384 * realtime_nof_processes
+
+    return errors
 
 
 class CspSpeadHeaderDecoded:
@@ -26,6 +100,7 @@ class CspSpeadHeaderDecoded:
     physical_channel_id : int
     csp_antenna_info    : int
     offset              : int
+
 
 class CspSpeadHeaderDecoder(Process):
     def __init__(self):
@@ -86,17 +161,16 @@ class CspSpeadHeaderDecoder(Process):
         return self.spead_header
 
 
-
 class SpeadRxBeamPatternCheck(Process):
     def __init__(self, port, eth_if="eth2", *args, **kwargs):
         self.port = port
         self.raw_socket = True
-        self.spead_header_decoder = SpeadHeaderDecoder()
+        self.spead_header_decoder = CspSpeadHeaderDecoder()
         self.spead_header = CspSpeadHeaderDecoded
 
         if not self.raw_socket:
             self.sock = socket.socket(socket.AF_INET,      # Internet
-                                socket.SOCK_DGRAM)   # UDP
+                                      socket.SOCK_DGRAM)   # UDP
             self.sock.settimeout(1)
             self.sock.bind(("0.0.0.0", self.port))
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 32*1024*1024)
@@ -138,52 +212,35 @@ class SpeadRxBeamPatternCheck(Process):
                     return nbytes
 
     def spead_header_decode(self, pkt):
-        self.spead_header = self.spead_header_decoder(pkt)
+        self.spead_header = self.spead_header_decoder.decode_header(pkt)
         return self.spead_header.is_csp_packet
 
-    def check_pattern(self, pkt_buffer_idx, channel_id):
-        global realtime_pattern
-        global realtime_pkt_buff
-
-        errors = 0
-
-        pkt_reassembled = unpack('b' * 8192, realtime_pkt_buff[pkt_buffer_idx: pkt_buffer_idx + 8192])
-
-        for k in range(0, 8192, 4):
-            if pkt_reassembled[k + 0] != realtime_pattern[channel_id][0] or \
-               pkt_reassembled[k + 1] != realtime_pattern[channel_id][1] or \
-               pkt_reassembled[k + 2] != realtime_pattern[channel_id][2] or \
-               pkt_reassembled[k + 3] != realtime_pattern[channel_id][3]:
-                errors += 1
-
-        return errors
-
-    def check_buffer(self):
+    def check_buffer_multi(self):
         global realtime_pkt_buff
         global realtime_max_packets
 
-        errors = 0
-        pkt_buffer_idx = 0
+        # t1_start = perf_counter()
+        with Pool(realtime_nof_processes) as p:
+            error_list = p.map(check_buffer, list(range(realtime_nof_processes)))
+        # t1_stop = perf_counter()
+        # elapsed = t1_stop - t1_start
+        # print(elapsed)
 
-        for n in range(realtime_max_packets):
-            # print(n)
-            if self.spead_header_decode(realtime_pkt_buff[pkt_buffer_idx + 42:pkt_buffer_idx + 42 + 72]):
-                # print(self.lmc_capture_mode)
-                # print(self.lmc_tpm_id)
-
-                pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72
-                errors += self.check_pattern(pkt_buffer_idx_offset, self.spead_header.logical_channel_id)
-
-            pkt_buffer_idx += 16384
+        if len(error_list) > 1:
+            errors = np.sum(np.asarray(error_list), axis=0)
+        else:
+            errors = error_list
 
         return errors
 
-    def check_data(self, pattern):
+    def check_data(self, pattern, pattern_type=1):
         global realtime_pkt_buff
         global realtime_max_packets
         global realtime_pattern
+        global realtime_pattern_type
 
         realtime_pattern = pattern
+        realtime_pattern_type = pattern_type
 
         pkt_buff_ptr = memoryview(realtime_pkt_buff)
         pkt_buff_idx = 0
@@ -191,4 +248,4 @@ class SpeadRxBeamPatternCheck(Process):
             self.recv2(pkt_buff_ptr)
             pkt_buff_idx += 16384
             pkt_buff_ptr = pkt_buff_ptr[16384:]
-        return self.check_buffer()
+        return self.check_buffer_multi()
