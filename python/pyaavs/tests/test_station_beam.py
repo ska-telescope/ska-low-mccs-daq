@@ -60,7 +60,7 @@ class TestStationBeam():
         #     else:
         #         self._pattern[n] = [3, 3, 3, n // 4]
         for n in range(384):
-            self._pattern[n] = [n % 32, n // 32, n % 128, n // 2]
+            self._pattern[n] = [n % 32, n // 32, n % 128, n // 4]
 
     def prepare_test(self):
         for i, tile in enumerate(self._test_station.tiles):

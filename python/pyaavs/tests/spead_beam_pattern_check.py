@@ -12,20 +12,20 @@ realtime_pkt_buff = bytearray(16384 * 16384)
 realtime_max_packets = 4096
 realtime_pattern = [0]*1024
 
-@dataclass
+
 class CspSpeadHeaderDecoded:
     is_spead            : bool
     is_csp_packet       : bool
     packet_counter      : int
     logical_channel_id  : int
-    payload_length: int
-    sync_time: int
-    timestamp: int
-    center_frequency: int
-    csp_channel_info: int
-    physical_channel_id: int
-    csp_antenna_info: int
-    offset: int
+    payload_length      : int
+    sync_time           : int
+    timestamp           : int
+    center_frequency    : int
+    csp_channel_info    : int
+    physical_channel_id : int
+    csp_antenna_info    : int
+    offset              : int
 
 class SpeadRxBeamPatternCheck(Process):
     def __init__(self, port, eth_if="eth2", *args, **kwargs):
