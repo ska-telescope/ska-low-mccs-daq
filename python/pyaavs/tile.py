@@ -731,17 +731,17 @@ class Tile(object):
         :param show_result: prints error counts on logger
         :type show_result: bool
 
-        :return: true if all OK (all counters are 0)
-        :rtype: bool
+        :return: counter values
+        :rtype: dict
         """
         if fpga_id is None:
             fpgas = range(len(self.tpm.tpm_test_firmware))
         else:
             fpgas = [fpga_id]
-        counts = []
+        counts = {}
         for fpga in fpgas:
-            counts.append(self.tpm.tpm_test_firmware[fpga].check_ddr_user_reset_counter(show_result))
-        return not any(counts) # Return True if all counters are 0, else False
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_test_firmware[fpga].check_ddr_user_reset_counter(show_result)
+        return counts # Return dict of counter values
     
     @connected
     def clear_ddr_reset_counter(self, fpga_id=None):
@@ -770,22 +770,22 @@ class Tile(object):
         :param show_result: prints error counts on logger
         :type show_result: bool
 
-        :return: true if all OK (all counters are 0)
-        :rtype: bool
+        :return: counter values
+        :rtype: dict
         """
         # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
-        f2f_cores_per_fpga = len(self.tpm.tpm_f2f) // len(self.tpm.tpm_test_firmware)
-        fpgas = range(len(self.tpm.tpm_test_firmware))
+        # The below code is temporary until nof tpm_f2f instances is corrected and
+        # nof_f2f_cores can be replaced with len(self.tpm.tpm_f2f)
+        nof_f2f_cores = 2 if self.tpm_version() == "tpm_v1_2" else 1
+        
         if core_id is None:
-            cores = range(f2f_cores_per_fpga)
+            cores = range(nof_f2f_cores)
         else:
             cores = [core_id]
-        counts = []
-        for fpga in fpgas:
-            for core in cores:
-                idx = fpga * f2f_cores_per_fpga + core
-                counts.extend(self.tpm.tpm_f2f[idx].check_pll_lock_loss_counter(show_result))
-        return not any(counts) # Return True if all counters are 0, else False
+        counts = {}
+        for core in cores:
+            counts[f'Core{core}'] = self.tpm.tpm_f2f[core].check_pll_lock_loss_counter(show_result)
+        return counts # Return dict of counter values
 
     @connected
     def clear_f2f_drop_counter(self, core_id=None):
@@ -796,47 +796,51 @@ class Tile(object):
         :type core_id: integer
         """
         # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
-        f2f_cores_per_fpga = len(self.tpm.tpm_f2f) // len(self.tpm.tpm_test_firmware)
-        fpgas = range(len(self.tpm.tpm_test_firmware))
+        # The below code is temporary until nof tpm_f2f instances is corrected and
+        # nof_f2f_cores can be replaced with len(self.tpm.tpm_f2f)
+        nof_f2f_cores = 2 if self.tpm_version() == "tpm_v1_2" else 1
+
         if core_id is None:
-            cores = range(f2f_cores_per_fpga)
+            cores = range(nof_f2f_cores)
         else:
             cores = [core_id]
-        for fpga in fpgas:
-            for core in cores:
-                idx = fpga * f2f_cores_per_fpga + core
-                self.tpm.tpm_f2f[idx].clear_pll_lock_loss_counter()
+        for core in cores:
+            self.tpm.tpm_f2f[core].clear_pll_lock_loss_counter()
         return
 
     @connected
-    def check_udp_arp_table_status(self, show_result=True):
+    def check_udp_arp_table_status(self, fpga_id=None, show_result=True):
         """
-        Check UDP ARP Table has been populated correctly.
+        Check UDP ARP Table has been populated correctly. This is a non-
+        destructive version of the method check_arp_table.
 
-        ::param show_result: prints ARP table contents on logger
+        :param show_result: prints ARP table contents on logger
         :type show_result: bool
 
-        :return: TBD
-        :rtype:
+        :return: true if all OK, entries valid and resolved.
+        :rtype: bool
         """
-        # TODO: Should core_id and fpga_id be added as arguments?
+        # This method only supports the xg_40g_eth configuration with
+        # one core per fpga, 4 ARP table IDs per core
         silent_mode = not show_result
-        if self.tpm.tpm_test_firmware[0].xg_40g_eth:
-            core_ids = range(2)
-            arp_table_ids = range(4)
+        arp_table_ids = range(4)
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
         else:
-            core_ids = range(8)
-            arp_table_ids = [0]
+            fpgas = [fpga_id]
         status = []
-        for core_id in core_ids:
+        nof_resolved_entries = 0
+        entries = []
+        for i, fpga in enumerate(fpgas):
+            entries.append([])
             for arp_table in arp_table_ids:
-                status.append(self.tpm.tpm_10g_core[core_id].get_arp_table_status(arp_table, silent_mode))
-        # TODO: What constitutes an OK or ERROR arp table status, mac_resolved = 1, valid = 1? 
-        # and check if matches number of TPMs in the station * nof FPGA per TPM?
-        # Also check if entires for 2 FPGA match?
-
-        #Has this already been done by the check_arp_status method?
-        return
+                arp_status, mac = self.tpm.tpm_10g_core[fpga].get_arp_table_status(arp_table, silent_mode)
+                if arp_status & 0x1 and arp_status & 0x4:
+                    nof_resolved_entries += 1
+                    entries[i].append(mac)
+        entries_match = True if entries.count(entries[0]) == len(entries) else False
+        return True if nof_resolved_entries == 2*len(fpgas) and entries_match else False
+        # TODO: Will it always be the case there are 2 resolved valid entries per FPGA?
 
     @connected
     def check_udp_status(self, fpga_id=None):
@@ -849,8 +853,8 @@ class Tile(object):
         :return: true if all OK (all error counters are 0)
         :rtype: bool
         """
-        # TODO: Currently only supports xg_40g_eth with one core per fpga,
-        # Does this need to be changes as in check_udp_arp_table_status
+        # This method only supports the xg_40g_eth configuration with
+        # one core per fpga, 4 ARP table IDs per core
         if fpga_id is None:
             fpgas = range(len(self.tpm.tpm_test_firmware))
         else:
@@ -868,8 +872,8 @@ class Tile(object):
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
         """
-        # TODO: Currently only supports xg_40g_eth with one core per fpga,
-        # Does this need to be changes as in check_udp_arp_table_status
+        # This method only supports the xg_40g_eth configuration with
+        # one core per fpga, 4 ARP table IDs per core
         if fpga_id is None:
             fpgas = range(len(self.tpm.tpm_test_firmware))
         else:
@@ -886,19 +890,22 @@ class Tile(object):
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
 
+        :param show_result: prints error counts on logger
+        :type show_result: bool
+
+        :return: counter values
+        :rtype: dict
         """
-        # TODO: Currently only supports xg_40g_eth with one core per fpga,
-        # Does this need to be changes as in check_udp_arp_table_status
+        # This method only supports the xg_40g_eth configuration with
+        # one core per fpga, 4 ARP table IDs per core
         if fpga_id is None:
             fpgas = range(len(self.tpm.tpm_test_firmware))
         else:
             fpgas = [fpga_id]
-        counts = []
+        counts = {}
         for fpga in fpgas:
-            counts.append(self.tpm.tpm_10g_core[fpga].check_linkup_loss_cnt(show_result))
-        return not any(counts) # Return True if all counters are 0, else False
-        # TODO: There is no way to reset this counter (That i know of?) Maybe the previous result should be restored
-        # Or should couters be propagated upwards for tango to monitor?
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].check_linkup_loss_cnt(show_result)
+        return counts # Return dict of counter values
     
     @connected
     def check_tile_beamformer_f2f_status(self, fpga_id=None):
@@ -919,8 +926,6 @@ class Tile(object):
                 result.append(self.tpm.beamf_fd[fpga].check_f2f_status())
             return all(result)
         return
-    
-    # There is currently no method of clearing the tile beamformer error flags
 
     @connected
     def check_station_beamformer_status(self, fpga_id=None, show_result=True):
@@ -929,6 +934,9 @@ class Tile(object):
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
+
+        :param show_result: prints error counts on logger
+        :type show_result: bool
 
         :return: True when Status is OK, no errors
         :rtype bool
@@ -945,8 +953,6 @@ class Tile(object):
                 result.append(errors)
             return not any(result) # Return True if all flags and counters are 0, else False
         return
-    
-  # There is currently no method of clearing the station beamformer error flags
 
     @connected
     def configure_10g_core(
@@ -1297,7 +1303,7 @@ class Tile(object):
                 if core_errors:
                     not_ready_links.append(c)
                 for a in arp_table_id:
-                    core_status = core_inst.get_arp_table_status(a, silent_mode=True)
+                    core_status, core_mac = core_inst.get_arp_table_status(a, silent_mode=True)
                     # check if valid entry has been resolved
                     if core_status & 0x1 == 1 and core_status & 0x4 == 0:
                         not_ready_links.append(c)
@@ -1346,7 +1352,7 @@ class Tile(object):
             linkup = True
             for core_id in core_ids:
                 for arp_table in arp_table_ids:
-                    core_status = self.tpm.tpm_10g_core[core_id].get_arp_table_status(
+                    core_status, core_mac = self.tpm.tpm_10g_core[core_id].get_arp_table_status(
                         arp_table, silent_mode=True
                     )
                     if core_status & 0x4 == 0:
@@ -2711,8 +2717,7 @@ class Tile(object):
             for core in cores:
                 idx = fpga * jesd_cores_per_fpga + core
                 result.append(self.tpm.tpm_jesd[idx].check_link_error_status())
-                # result.append(self.tpm.tpm_jesd[idx].check_sync_status())
-                # TODO: What constitutes an OK or ERROR sync status?
+                result.append(self.tpm.tpm_jesd[idx].check_sync_status())
         return all(result)
 
     @connected
@@ -2784,19 +2789,19 @@ class Tile(object):
         :param show_result: prints error counts on logger
         :type show_result: bool
 
-        :return: true if all OK
-        :rtype: bool
+        :return: counter values
+        :rtype: dict
         """
         jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
         if fpga_id is None:
             fpgas = range(len(self.tpm.tpm_test_firmware))
         else:
             fpgas = [fpga_id]
-        counts = []
+        counts = {}
         for fpga in fpgas:
             idx = fpga * jesd_cores_per_fpga
-            counts.append(self.tpm.tpm_jesd[idx].check_resync_counter(show_result))   
-        return not any(counts) # Return True if all counters are 0, else False
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_jesd[idx].check_resync_counter(show_result)
+        return counts # Return dict of counter values
 
     @connected
     def check_jesd_qpll_drop_counter(self, fpga_id=None, show_result=True):
@@ -2810,19 +2815,19 @@ class Tile(object):
         :param show_result: prints error counts on logger
         :type show_result: bool
 
-        :return: true if all OK
-        :rtype: bool
+        :return: counter values
+        :rtype: dict
         """
         jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
         if fpga_id is None:
             fpgas = range(len(self.tpm.tpm_test_firmware))
         else:
             fpgas = [fpga_id]
-        counts = []
+        counts = {}
         for fpga in fpgas:
             idx = fpga * jesd_cores_per_fpga
-            counts.append(self.tpm.tpm_jesd[idx].check_qpll_lock_loss_counter(show_result))
-        return not any(counts) # Return True if all counters are 0, else False
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_jesd[idx].check_qpll_lock_loss_counter(show_result)
+        return counts # Return dict of counter values
 
     @connected
     def start_40g_test(self, single_packet_mode=False, ipg=32):

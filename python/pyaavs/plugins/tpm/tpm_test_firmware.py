@@ -247,7 +247,7 @@ class TpmTestFirmware(FirmwareBlock):
         self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
         self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
 
-    # TODO: Should these move to a DDR plugin?
+    # TODO: Move to a DDR plugin
     def check_ddr_initialisation(self: TpmTestFirmware) -> bool:
         """Check whether DDR has initialised."""
         if self.board.memory_map.has_register(
@@ -266,7 +266,7 @@ class TpmTestFirmware(FirmwareBlock):
             logging.debug("DDR of " + self._device_name.upper() + " initialised!")
             return True
 
-    # TODO: Should these move to a DDR plugin?
+    # TODO: Move to a DDR plugin
     def check_ddr_user_reset_counter(self: TpmTestFirmware, show_result=True) -> int:
         """
         Return value of DDR user reset counter - increments each falling edge 
@@ -277,7 +277,7 @@ class TpmTestFirmware(FirmwareBlock):
             logging.info(f'{self._device_name.upper()} error count {count}')
         return count
     
-    # TODO: Should these move to a DDR plugin?
+    # TODO: Move to a DDR plugin
     def clear_ddr_user_reset_counter(self: TpmTestFirmware) -> None:
         """Reset value of DDR reset counter"""
         self.board[f'{self._device_name}.ddr_if.status.ddr_monitoring_reset'] = 1
