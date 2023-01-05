@@ -185,7 +185,7 @@ def device_health_state_changed_callback(
 @pytest.fixture()
 def communication_state_changed_callback(
     mock_callback_factory: Callable[[], unittest.mock.Mock],
-) -> unittest.mock.Mock:
+) -> MockCallable:
     """
     Return a mock callback for component manager communication status.
 
@@ -202,7 +202,7 @@ def communication_state_changed_callback(
 @pytest.fixture()
 def component_fault_callback(
     mock_callback_factory: Callable[[], unittest.mock.Mock],
-) -> unittest.mock.Mock:
+) -> MockCallable:
     """
     Return a mock callback for component fault.
 
@@ -219,7 +219,7 @@ def component_fault_callback(
 @pytest.fixture()
 def component_progress_changed_callback(
     mock_callback_factory: Callable[[], unittest.mock.Mock],
-) -> unittest.mock.Mock:
+) -> MockCallable:
     """
     Return a mock callback for component progress.
 
