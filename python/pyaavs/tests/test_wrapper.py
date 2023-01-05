@@ -110,7 +110,7 @@ class TestWrapper:
     def get_parameter_list(self, test):
         return self.class_dict[test]['parameter_names']
 
-    def execute(self, iterations):
+    def execute(self, iterations=1):
         for _ in range(iterations):
             test_result = []
             ret = 0

@@ -52,11 +52,20 @@ def check_pattern2(pkt_buffer_idx, channel_id, timestamp):
     for k in range(0, 8192, 4):
         channel_id, counter = extract_sample(pkt_reassembled[k: k + 4])
         if exp_channel_id != channel_id or exp_counter != counter:
+            print("Error at position " + str(k))
+            print("Timestamp: " + str(timestamp))
+            print("Timestamp: " + hex(timestamp))
+            print("channel id     : expected %s, received %s" % (exp_channel_id, channel_id))
+            print("packet counter : expected %s, received %s" % (exp_counter, counter))
+
             exp_channel_id = channel_id
             exp_counter = counter
 
             errors += 1
         exp_counter += 1
+
+        if errors > 0:
+            input()
 
     return errors
 
@@ -73,7 +82,6 @@ def check_buffer(id):
     pkt_buffer_idx = 16384 * id
 
     for n in list(range(id, realtime_max_packets, realtime_nof_processes)):
-        # print(n)
         spead_header = spead_header_decoder.decode_header(realtime_pkt_buff[pkt_buffer_idx + 42: pkt_buffer_idx + 42 + 72])
         if spead_header.is_csp_packet:
             pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72

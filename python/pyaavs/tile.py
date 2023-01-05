@@ -1574,7 +1574,7 @@ class Tile(object):
             return False
 
         if start_time == 0:
-            start_time = self.current_station_beamformer_frame() + 40
+            start_time = self.current_station_beamformer_frame() + 256
 
         start_time &= mask  # Impose a start time multiple of 8 frames
 
@@ -1583,6 +1583,15 @@ class Tile(object):
 
         ret1 = self.tpm.station_beamf[0].start(start_time, duration)
         ret2 = self.tpm.station_beamf[1].start(start_time, duration)
+
+        # check if synchronised operation is successful,
+        # time now must be smaller than start_time
+        time_now = self.current_station_beamformer_frame()
+        if time_now >= start_time:
+            logging.error("Tile start_beamformer error. Synchronised operation failed! Time difference: " +
+            str(time_now - start_time))
+            ret1 = False
+            ret2 = False
 
         if ret1 and ret2:
             return True

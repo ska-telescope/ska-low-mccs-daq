@@ -37,6 +37,9 @@ class TestDdr():
             self.clean_up()
             return 1
 
+        self._test_station['fpga1.ddr_simple_test.start'] = 0
+        self._test_station['fpga2.ddr_simple_test.start'] = 0
+
         if stop_transmission == 1:
             tf.stop_all_data_transmission(self._test_station)
 
@@ -76,8 +79,6 @@ class TestDdr():
             self._test_station['fpga2.ddr_simple_test.burst_length'] = burst_length
         self._test_station['fpga1.ddr_simple_test.pause'] = pause
         self._test_station['fpga2.ddr_simple_test.pause'] = pause
-        self._test_station['fpga1.ddr_simple_test.start'] = 0
-        self._test_station['fpga2.ddr_simple_test.start'] = 0
         self._test_station['fpga1.ddr_simple_test.error'] = 0
         self._test_station['fpga2.ddr_simple_test.error'] = 0
 

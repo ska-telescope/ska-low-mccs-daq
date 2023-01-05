@@ -390,6 +390,7 @@ class TestFullStation():
             offline_power = []
             realtime_power = []
             while max_delay > 0:
+
                 self._logger.info("Setting time domain delays, maximum %d" % max_delay)
                 self.set_delay(random_delays, max_delay)
 
@@ -524,7 +525,7 @@ class TestFullStation():
             errors += 1
             import traceback
             self._logger.error(traceback.format_exc())
-            self._logger.error("TEST FAILED!")
+
 
         finally:
             # stop_daq()

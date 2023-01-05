@@ -162,15 +162,15 @@ class TestStationBeam():
 
                 del spead_rx_realtime_inst
 
-            if background_ddr_access:
-                self._logger.info("Checking DDR test results...")
-                # Get DDR background test result
-                for fpga in ["fpga1", "fpga2"]:
-                    for n, tile in enumerate(self._test_station.tiles):
-                        if tile['%s.ddr_simple_test.error' % fpga] == 1:
-                            self._logger.error("Background DDR test error detected in Tile %d, %s" % (n, fpga.upper()))
-                            errors += 1
-                self._logger.info("...DDR result check finished.")
+                if background_ddr_access:
+                    self._logger.info("Checking DDR test results...")
+                    # Get DDR background test result
+                    for fpga in ["fpga1", "fpga2"]:
+                        for n, tile in enumerate(self._test_station.tiles):
+                            if tile['%s.ddr_simple_test.error' % fpga] == 1:
+                                self._logger.error("Background DDR test error detected in Tile %d, %s" % (n, fpga.upper()))
+                                errors += 1
+                    self._logger.info("...DDR result check finished.")
 
             if errors > 0:
                 self._logger.error("TEST FAILED!")
@@ -208,9 +208,9 @@ if __name__ == "__main__":
     parser = OptionParser(usage="usage: %test_full_station [options]")
     parser = tf.add_default_parser_options(parser)
     parser.add_option("--iterations", action="store", dest="iterations",
-                      type="str", default="128", help="Maximum antenna delay [default: 128]")
+                      type="str", default="128", help="Number of iterations [default: 128]")
     parser.add_option("--pattern_type", action="store", dest="pattern_type",
-                      type="str", default="4", help="Pattern type [default: 0]")
+                      type="str", default="0", help="Pattern type. 0: default pattern, 1: embedded pattern [default: 0]")
 
     (opts, args) = parser.parse_args(argv[1:])
 
