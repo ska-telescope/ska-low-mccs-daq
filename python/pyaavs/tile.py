@@ -830,16 +830,12 @@ class Tile(object):
             fpgas = [fpga_id]
         status = []
         nof_resolved_entries = 0
-        entries = []
         for i, fpga in enumerate(fpgas):
-            entries.append([])
             for arp_table in arp_table_ids:
                 arp_status, mac = self.tpm.tpm_10g_core[fpga].get_arp_table_status(arp_table, silent_mode)
                 if arp_status & 0x1 and arp_status & 0x4:
                     nof_resolved_entries += 1
-                    entries[i].append(mac)
-        entries_match = True if entries.count(entries[0]) == len(entries) else False
-        return True if nof_resolved_entries == 2*len(fpgas) and entries_match else False
+        return True if nof_resolved_entries == 2*len(fpgas) else False
         # TODO: Will it always be the case there are 2 resolved valid entries per FPGA?
 
     @connected
