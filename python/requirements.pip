@@ -3,7 +3,7 @@ h5py
 pyyaml
 lockfile
 scapy
-numpy
+numpy==1.23.1
 gitpython
 pytz
 configparser
