@@ -580,6 +580,29 @@ class Tile(object):
             return 0
 
     @connected
+    def get_fpga_temperature(self, fpga_id=None):
+        """
+        Get FPGA temperature.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: FPGA temperature
+        :rtype: dict
+        """
+        if fpga_id is None:
+                fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        temp_dict = {}
+        for fpga in fpgas:
+            if self.is_programmed():
+                temp_dict[f'FPGA{fpga}'] = round(self.tpm.tpm_sysmon[fpga].get_fpga_temperature(), 2)
+            else:
+                temp_dict[f'FPGA{fpga}'] = 0
+        return temp_dict
+
+    @connected
     def is_qsfp_cable_plugged(self, qsfp_id=0):
         """
         Initialise firmware components.
