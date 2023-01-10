@@ -601,6 +601,43 @@ class Tile(object):
             else:
                 temp_dict[f'FPGA{fpga}'] = 0
         return temp_dict
+    
+    def get_available_voltages(self, fpga_id=None):
+        return []
+        # TODO return available voltages from plugins
+
+    @connected
+    def get_voltage(self, fpga_id=None, voltage_name=None):
+        """
+        Get Voltage measurements for TPM.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param voltage_name: Specify name of voltage, None for all voltages
+        :type voltage_name: string
+
+        :return: TPM voltages
+        :rtype: dict
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        voltage_dict = {}
+        # LASC Plugin TPM 1.2
+        if hasattr(self.tpm, 'tpm_lasc'):
+            voltage_dict.update(self.tpm.tpm_lasc[0].get_voltage(voltage_name))
+        # MCU Plugin TPM 1.6
+        if hasattr(self.tpm, 'tpm_monitor'):
+            voltage_dict.update(self.tpm.tpm_monitor[0].get_voltage(voltage_name))
+        # System Monitor Plugin
+        for fpga in fpgas:
+            voltage_dict.update(self.tpm.tpm_sysmon[fpga].get_voltage(voltage_name))
+        if voltage_name is not None and not voltage_dict:
+            raise LibraryError(f"No voltage named '{voltage_name}' \n Options are {self.get_available_voltages} (not case sensitive)")
+            #TODO make all plugin methods non case sensitive
+        return voltage_dict
 
     @connected
     def is_qsfp_cable_plugged(self, qsfp_id=0):
