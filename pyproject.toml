@@ -6,7 +6,7 @@ license = "BSD-3-Clause"
 authors = ["MCCS team"]
 readme = "README.md"
 documentation = "https://developer.skatelescope.org/projects/ska-low-mccs-daq"
-include = ["./pyfabil-1.0-py3-none-any.whl","./aavs_system-1.1-py3-none-any.whl"]
+include = ["./aavs_system-1.1-py3-none-any.whl"]
 
 [[tool.poetry.source]]
 name = 'ska-nexus'
@@ -23,7 +23,6 @@ enum34 = "^1.1.10"
 jsonschema = "^4.9.0"
 numpy = "^1.23.0"
 pytango = "9.3.3"
-#pyfabil = {path = "./pyfabil-1.0-py3-none-any.whl"}
 PyYAML = "^6.0"
 requests = "^2.28.1"
 scipy = "^1.9.1"

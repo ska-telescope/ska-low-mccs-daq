@@ -54,10 +54,6 @@ instead of default python3, do as follows:
 export AAVS_INSTALL=/opt/aavs
 export VENV_INSTALL=/opt/aavs
 
-# Add DAQ-core include and lib directories. (AJC)
-export CPLUS_INCLUDE_PATH=${CPLUS_INCLUDE_PATH}:/app/aavs-system/third_party/aavs-daq/src
-export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/app/aavs-system/third_party/aavs-daq/src/build/:/opt/aavs/lib/:/usr/local/lib/:/app/aavs-system/src/build/
-
 # Installation options
 CLEAN=false
 COMPILE_CORRELATOR=OFF
@@ -231,11 +227,15 @@ fi
 pushd third_party || exit
 
   # Install PyFABIL
-  pip install git+https://lessju@bitbucket.org/lessju/pyfabil.git@$PYFABIL_BRANCH --force-reinstall
+  pip install git+https://lessju@bitbucket.org/lessju/pyfabil.git@$PYFABIL_SHA --force-reinstall
 
   # Install DAQ
   if [[ ! -d "aavs-daq" ]]; then
     git clone https://lessju@bitbucket.org/aavslmc/aavs-daq.git
+
+    pushd aavs-daq || exit
+      git reset --hard $AAVS_DAQ_SHA
+    popd
 
     pushd aavs-daq/src || exit
       if [[ ! -d build ]]; then
