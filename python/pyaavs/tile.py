@@ -603,8 +603,21 @@ class Tile(object):
         return temp_dict
     
     def get_available_voltages(self, fpga_id=None):
-        return []
-        # TODO return available voltages from plugins
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        available_voltages = []
+        # LASC Plugin TPM 1.2
+        if hasattr(self.tpm, 'tpm_lasc'):
+            available_voltages.extend(self.tpm.tpm_lasc[0].get_available_voltages())
+        # MCU Plugin TPM 1.6
+        if hasattr(self.tpm, 'tpm_monitor'):
+            available_voltages.extend(self.tpm.tpm_monitor[0].get_available_voltages())
+        # System Monitor Plugin
+        for fpga in fpgas:
+            available_voltages.extend(self.tpm.tpm_sysmon[fpga].get_available_voltages())
+        return available_voltages
 
     @connected
     def get_voltage(self, fpga_id=None, voltage_name=None):
@@ -635,7 +648,7 @@ class Tile(object):
         for fpga in fpgas:
             voltage_dict.update(self.tpm.tpm_sysmon[fpga].get_voltage(voltage_name))
         if voltage_name is not None and not voltage_dict:
-            raise LibraryError(f"No voltage named '{voltage_name}' \n Options are {self.get_available_voltages} (not case sensitive)")
+            raise LibraryError(f"No voltage named '{voltage_name}' \n Options are {self.get_available_voltages(fpga_id)} (not case sensitive)")
             #TODO make all plugin methods non case sensitive
         return voltage_dict
 
