@@ -657,7 +657,7 @@ class Tile(object):
         for fpga in fpgas:
             voltage_dict.update(self.tpm.tpm_sysmon[fpga].get_voltage(voltage_name))
         if voltage_name is not None and not voltage_dict:
-            raise LibraryError(f"No voltage named '{voltage_name.upper()}' \n Options are {self.get_available_voltages(fpga_id)} (not case sensitive)")
+            raise LibraryError(f"No voltage named '{voltage_name.upper()}' \n Options are {', '.join(self.get_available_voltages(fpga_id))} (not case sensitive)")
         return voltage_dict
 
     def get_available_currents(self, fpga_id=None):
@@ -715,7 +715,7 @@ class Tile(object):
         for fpga in fpgas:
             current_dict.update(self.tpm.tpm_sysmon[fpga].get_current(current_name))
         if current_name is not None and not current_dict:
-            raise LibraryError(f"No current named '{current_name.upper()}' \n Options are {self.get_available_currents(fpga_id)} (not case sensitive)")
+            raise LibraryError(f"No current named '{current_name.upper()}' \n Options are {', '.join(self.get_available_currents(fpga_id))} (not case sensitive)")
         return current_dict
 
     @connected
@@ -885,7 +885,7 @@ class Tile(object):
 
     def get_available_clock_managers(self):
         return self.tpm.tpm_clock_monitor[0].available_clock_managers
-        
+
     @connected
     def check_ddr_initialisation(self, fpga_id=None):
         """
