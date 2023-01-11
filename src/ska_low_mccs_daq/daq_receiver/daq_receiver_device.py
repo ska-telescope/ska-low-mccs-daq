@@ -117,6 +117,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self._max_workers,
             self._component_communication_state_changed,
             self._component_state_changed_callback,
+            self._received_data_callback
         )
 
     def init_command_objects(self: MccsDaqReceiver) -> None:
@@ -228,6 +229,23 @@ class MccsDaqReceiver(SKABaseDevice):
             if self._health_state != health:
                 self._health_state = cast(HealthState, health)
                 self.push_change_event("healthState", health)
+
+    def _received_data_callback(
+        self: MccsDaqReceiver,
+        data_mode: str,
+        file_name: str,
+        tile: int
+    ) -> None:
+        """
+        Handle the receiving of data from a tile.
+
+        This will be called by pydaq when data is received from a tile
+
+        :param data_mode: the DaqMode that the data was received in
+        :param file_name: the name of the file the data was saved to
+        :param tile: the number of the tile that the data was received from
+        """
+        self.push_change_event(data_mode + "_data_received", tile)
 
     # ----------
     # Attributes
@@ -370,9 +388,8 @@ class MccsDaqReceiver(SKABaseDevice):
 
         # Initialise temps and extract individual args from params.
         modes_to_start = params.get("modes_to_start", None)
-        callbacks = params.get("callbacks", None)
 
-        (result_code, message) = handler(modes_to_start, callbacks)
+        (result_code, message) = handler(modes_to_start)
         return ([result_code], [message])
 
     @command(dtype_out="DevVarLongStringArray")

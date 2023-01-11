@@ -36,6 +36,7 @@ class DaqComponentManager(MccsComponentManager):
         max_workers: int,
         communication_state_changed_callback: Callable[[CommunicationStatus], None],
         component_state_changed_callback: Callable[[dict[str, Any]], None],
+        received_data_callback: Callable[[str, str, int], None],
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -53,6 +54,8 @@ class DaqComponentManager(MccsComponentManager):
             the component manager and its component changes
         :param component_state_changed_callback: callback to be
             called when the component state changes
+        :param received_data_callback: callback to be called when data is
+            received from a tile
         """
         self._consumers_to_start: list[DaqModes] | None
 
@@ -67,6 +70,7 @@ class DaqComponentManager(MccsComponentManager):
         self._receiver_interface = receiver_interface
         self._receiver_ip = receiver_ip.encode()
         self._receiver_ports = receiver_ports
+        self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
         self._create_daq_instance()
 
@@ -235,7 +239,7 @@ class DaqComponentManager(MccsComponentManager):
         self.logger.info("Submitting `_start_daq` task.")
         return self.submit_task(
             self._start_daq,
-            args=[modes_to_start, callbacks],
+            args=[modes_to_start],
             task_callback=task_callback,
         )
 
@@ -243,7 +247,6 @@ class DaqComponentManager(MccsComponentManager):
     def _start_daq(
         self: DaqComponentManager,
         modes_to_start: Optional[list[Union[int, DaqModes]]] = None,
-        callbacks: Optional[list[Callable]] = None,
         task_callback: Optional[Callable] = None,
         task_abort_event: Union[threading.Event, None] = None,
     ) -> None:
@@ -269,26 +272,12 @@ class DaqComponentManager(MccsComponentManager):
         # Retrieve default list of modes to start if not provided.
         if modes_to_start is None:
             modes_to_start = self._get_consumers_to_start()
-        # Check that if we were passed callbacks that we have one for each consumer.
-        # If we do not then ignore callbacks.
-        if callbacks is not None and len(modes_to_start) != len(callbacks):
-            # This will raise an IndexError if passed to DAQ.
-            # Ignoring callbacks is the same action DAQ would take.
-            msg = (
-                "An incorrect number of callbacks was passed to `start_daq`!\n"
-                "There must be exactly one callback per consumer!"
-                "CALLBACKS ARE BEING IGNORED!\n"
-                f"Number of consumers specified: {len(modes_to_start)}\n"
-                f"Number of callbacks provided: {len(callbacks)}"
-            )
-            self.logger.warn(msg)
-            # TODO: ska-tango-base task callback currently does not
-            # support calling with status messages. It should!
-            # Meanwhile, let's register a warning instead.
-            # if task_callback:
-            #     task_callback(message=msg)
-            warnings.warn(msg)
-            callbacks = None
+
+        # Provide callback for each mode to start
+        if modes_to_start is not None:
+            callbacks = [self._received_data_callback] * len(modes_to_start)
+        else:
+            callbacks = []
 
         # Cast any ints in modes_to_start to a DaqMode.
         try:
