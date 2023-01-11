@@ -839,6 +839,54 @@ class Tile(object):
         return    
 
     @connected
+    def check_clock_manager_status(self, fpga_id=None, name=None):
+        """
+        Check status of named TPM clock manager cores (MMCM Core).
+        Reports the values each MMCM lock loss counter.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param name: Specify name of clock manager (non case sensitive)
+        :type name: string
+
+        :return: Counter values
+        :rtype dict
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        counts = {}
+        for fpga in fpgas:
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_clock_monitor[fpga].check_clock_manager_status(name)
+        return counts
+    
+    @connected
+    def clear_clock_manager_status(self, fpga_id=None, name=None):
+        """
+        Clear status of named TPM clock manager cores (MMCM Core).
+        Used to reset MMCM lock loss counters.
+        Options 'jesd', 'ddr', 'udp', 'all'
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param name: Specify name of clock manager (non case sensitive)
+        :type name: string
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        for fpga in fpgas:
+            self.tpm.tpm_clock_monitor[fpga].clear_clock_manager_status(name)
+        return    
+
+    def get_available_clock_managers(self):
+        return self.tpm.tpm_clock_monitor[0].available_clock_managers
+        
+    @connected
     def check_ddr_initialisation(self, fpga_id=None):
         """
         Check whether DDR has initialised.
