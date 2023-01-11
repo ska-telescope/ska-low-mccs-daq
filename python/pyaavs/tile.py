@@ -603,6 +603,15 @@ class Tile(object):
         return temp_dict
     
     def get_available_voltages(self, fpga_id=None):
+        """
+        Get list of available voltage measurements for TPM.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: TPM voltage names
+        :rtype: list
+        """
         if fpga_id is None:
             fpgas = range(len(self.tpm.tpm_test_firmware))
         else:
@@ -622,7 +631,7 @@ class Tile(object):
     @connected
     def get_voltage(self, fpga_id=None, voltage_name=None):
         """
-        Get Voltage measurements for TPM.
+        Get voltage measurements for TPM.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -648,9 +657,66 @@ class Tile(object):
         for fpga in fpgas:
             voltage_dict.update(self.tpm.tpm_sysmon[fpga].get_voltage(voltage_name))
         if voltage_name is not None and not voltage_dict:
-            raise LibraryError(f"No voltage named '{voltage_name}' \n Options are {self.get_available_voltages(fpga_id)} (not case sensitive)")
-            #TODO make all plugin methods non case sensitive
+            raise LibraryError(f"No voltage named '{voltage_name.upper()}' \n Options are {self.get_available_voltages(fpga_id)} (not case sensitive)")
         return voltage_dict
+
+    def get_available_currents(self, fpga_id=None):
+        """
+        Get list of available current measurements for TPM.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: TPM current names
+        :rtype: list
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        available_currents = []
+        # LASC Plugin TPM 1.2
+        if hasattr(self.tpm, 'tpm_lasc'):
+            available_currents.extend(self.tpm.tpm_lasc[0].get_available_currents())
+        # MCU Plugin TPM 1.6
+        if hasattr(self.tpm, 'tpm_monitor'):
+            available_currents.extend(self.tpm.tpm_monitor[0].get_available_currents())
+        # System Monitor Plugin
+        for fpga in fpgas:
+            available_currents.extend(self.tpm.tpm_sysmon[fpga].get_available_currents())
+        return available_currents
+
+    @connected
+    def get_current(self, fpga_id=None, current_name=None):
+        """
+        Get current measurements for TPM.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param current_name: Specify name of current, None for all currents
+        :type current_name: string
+
+        :return: TPM currents
+        :rtype: dict
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        current_dict = {}
+        # LASC Plugin TPM 1.2
+        if hasattr(self.tpm, 'tpm_lasc'):
+            current_dict.update(self.tpm.tpm_lasc[0].get_current(current_name))
+        # MCU Plugin TPM 1.6
+        if hasattr(self.tpm, 'tpm_monitor'):
+            current_dict.update(self.tpm.tpm_monitor[0].get_current(current_name))
+        # System Monitor Plugin
+        for fpga in fpgas:
+            current_dict.update(self.tpm.tpm_sysmon[fpga].get_current(current_name))
+        if current_name is not None and not current_dict:
+            raise LibraryError(f"No current named '{current_name.upper()}' \n Options are {self.get_available_currents(fpga_id)} (not case sensitive)")
+        return current_dict
 
     @connected
     def is_qsfp_cable_plugged(self, qsfp_id=0):
