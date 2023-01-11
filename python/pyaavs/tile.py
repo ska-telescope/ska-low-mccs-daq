@@ -887,6 +887,26 @@ class Tile(object):
         return self.tpm.tpm_clock_monitor[0].available_clock_managers
 
     @connected
+    def check_pps_status(self, fpga_id=None):
+        """
+        Check PPS is detected and error free.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: true if all OK
+        :rtype: bool
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        status = []
+        for fpga in fpgas:
+            status.append(self.tpm.tpm_test_firmware[fpga].check_pps_status())
+        return all(status)
+
+    @connected
     def check_ddr_initialisation(self, fpga_id=None):
         """
         Check whether DDR has initialised.
