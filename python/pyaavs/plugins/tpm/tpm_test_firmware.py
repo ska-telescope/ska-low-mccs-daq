@@ -295,8 +295,13 @@ class TpmTestFirmware(FirmwareBlock):
     def check_pps_status(self: TpmTestFirmware) -> bool:
         """Check PPS detected and error free"""
         pps_detect = self.board[f'{self._device_name}.pps_manager.pps_detected']
-        pps_error = self.board[f'{self._device_name}.pps_manager.pps_count_error']
+        pps_error = self.board[f'{self._device_name}.pps_manager.pps_errors.pps_count_error']
         return True if pps_detect and not pps_error else False
+    
+    def clear_pps_status(self: TpmTestFirmware) -> None:
+        """Clear PPS errors"""
+        self.board[f'{self._device_name}.pps_manager.pps_errors.pps_errors_rst'] = 1
+        return
 
     def send_raw_data(self: TpmTestFirmware) -> None:
         """Send raw data from the TPM."""

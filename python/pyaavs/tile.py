@@ -905,6 +905,23 @@ class Tile(object):
         for fpga in fpgas:
             status.append(self.tpm.tpm_test_firmware[fpga].check_pps_status())
         return all(status)
+        
+    @connected
+    def clear_pps_status(self, fpga_id=None):
+        """
+        Clear PPS error flags.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        status = []
+        for fpga in fpgas:
+            self.tpm.tpm_test_firmware[fpga].clear_pps_status()
+        return
 
     @connected
     def check_ddr_initialisation(self, fpga_id=None):
