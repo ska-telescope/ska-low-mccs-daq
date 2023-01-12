@@ -11,7 +11,7 @@ from __future__ import annotations  # allow forward references in type hints
 
 import json
 import logging
-from typing import Any, Optional, cast
+from typing import Any, Optional, Union, cast
 
 import tango
 from ska_control_model import CommunicationStatus, HealthState
@@ -22,7 +22,7 @@ from ska_tango_base.commands import (
     ResultCode,
     SubmittedSlowCommand,
 )
-from tango.server import command, device_property
+from tango.server import attribute, command, device_property
 
 from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
 from ska_low_mccs_daq.daq_receiver.daq_health_model import DaqHealthModel
@@ -82,6 +82,8 @@ class MccsDaqReceiver(SKABaseDevice):
 
         self._health_state: HealthState = HealthState.UNKNOWN
         self._health_model: DaqHealthModel
+        self._received_data_mode: str
+        self._received_data_result: str
 
     def init_device(self: MccsDaqReceiver) -> None:
         """
@@ -99,6 +101,8 @@ class MccsDaqReceiver(SKABaseDevice):
         super()._init_state_model()
         self._health_state = HealthState.UNKNOWN  # InitCommand.do() does this too late.
         self._health_model = DaqHealthModel(self._component_state_changed_callback)
+        self._received_data_mode = ""
+        self._received_data_result = ""
         self.set_change_event("healthState", True, False)
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
@@ -171,6 +175,7 @@ class MccsDaqReceiver(SKABaseDevice):
                 information purpose only.
             """
             # TODO
+            self._device.set_change_event("dataReceivedResult", True, False)
             return (ResultCode.OK, "Init command completed OK")
 
     # ----------
@@ -231,30 +236,35 @@ class MccsDaqReceiver(SKABaseDevice):
                 self.push_change_event("healthState", health)
 
     def _received_data_callback(
-        self: MccsDaqReceiver, data_mode: str, file_name: str, tile: int
+        self: MccsDaqReceiver,
+        data_mode: str,
+        file_name: str,
+        additional_info: Optional[int] = None,
     ) -> None:
         """
         Handle the receiving of data from a tile.
 
         This will be called by pydaq when data is received from a tile
 
-        :param data_mode: the DaqMode that the data was received in
-        :param file_name: the name of the file the data was saved to
-        :param tile: the number of the tile that the data was received from
+        :param data_mode: the DaqMode in which data was received.
+        :param file_name: the name of the file that the data was saved to
+        :param additional_info: the tile number that the data was received from, or the
+            amount of data received if the data_mode is station
         """
-        event_names = {
-            "burst_raw": "rawDataReceived",
-            "burst_channel": "channelDataReceived",
-            "integrated_channel": "integratedChannelDataReceived",
-            "cont_channel": "continuousChannelDataReceived",
-            "burst_beam": "beamDataReceived",
-            "integrated_beam": "integratedBeamDataReceived",
-            "correlator": "correlatorDataReceived",
-            "station": "stationBeamDataReceived",
-            "antenna_buffer": "antennaBufferDataReceived",
-        }
-        if data_mode in event_names:
-            self.push_change_event(event_names[data_mode], tile)
+        event_value: dict[str, Union[str, int]] = {"filename": file_name}
+        if data_mode == "station" and additional_info is not None:
+            event_value["amount_of_data"] = additional_info
+        elif data_mode != "correlator" and additional_info is not None:
+            event_value["tile"] = additional_info
+
+        result = json.dumps(event_value)
+        if (
+            self._received_data_mode != data_mode
+            or self._received_data_result != result
+        ):
+            self._received_data_mode = data_mode
+            self._received_data_result = result
+            self.push_change_event("dataReceivedResult", (data_mode, result))
 
     # ----------
     # Attributes
@@ -580,6 +590,20 @@ class MccsDaqReceiver(SKABaseDevice):
     #     handler = self.get_command_object("Command")
     #     (result_code, message) = handler(argin)
     #     return ([result_code], [message])
+
+    @attribute(
+        dtype=("str",),
+        max_dim_x=2,  # Always the last result (unique_id, JSON-encoded result)
+    )
+    def dataReceivedResult(self: MccsDaqReceiver) -> tuple[str, str]:
+        """
+        Read the result of the receiving of data.
+
+        :return: A tuple containing the data mode of transmission and a json
+            string with any additional data about the data such as the file
+            name.
+        """
+        return self._received_data_mode, self._received_data_result
 
 
 # ----------
