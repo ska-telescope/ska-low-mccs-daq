@@ -1128,8 +1128,9 @@ class Tile(object):
         return counts # Return dict of counter values
     
     @connected
-    def check_tile_beamformer_f2f_status(self, fpga_id=None):
+    def check_tile_beamformer_status(self, fpga_id=None):
         """
+        Check tile beamformer error flags.
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
 
@@ -1143,8 +1144,27 @@ class Tile(object):
                 fpgas = [fpga_id]
             result = []
             for fpga in fpgas:
-                result.append(self.tpm.beamf_fd[fpga].check_f2f_status())
+                result.append(self.tpm.beamf_fd[fpga].check_errors())
             return all(result)
+        return
+    
+    @connected
+    def clear_tile_beamformer_status(self, fpga_id=None):
+        """
+        Clear tile beamformer error flags.
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: True when Status is OK, no errors
+        :rtype bool
+        """
+        if self.is_programmed():
+            if fpga_id is None:
+                fpgas = range(len(self.tpm.tpm_test_firmware))
+            else:
+                fpgas = [fpga_id]
+            for fpga in fpgas:
+                self.tpm.beamf_fd[fpga].clear_errors()
         return
 
     @connected
@@ -1172,6 +1192,23 @@ class Tile(object):
                 result.append(frame_errors)
                 result.append(errors)
             return not any(result) # Return True if all flags and counters are 0, else False
+        return
+
+    @connected
+    def clear_station_beamformer_status(self, fpga_id=None):
+        """
+        Clear status of Station Beamformer error flags and counters.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+        """
+        if self.is_programmed():
+            if fpga_id is None:
+                fpgas = range(len(self.tpm.tpm_test_firmware))
+            else:
+                fpgas = [fpga_id]
+            for fpga in fpgas:
+                self.tpm.station_beamf[fpga].clear_errors()
         return
 
     @connected
