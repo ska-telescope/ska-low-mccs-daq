@@ -7,7 +7,6 @@
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
 import pytest
-from pydaq.daq_receiver_interface import DaqModes
 from ska_tango_testing.mock import MockCallableGroup
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
@@ -36,9 +35,9 @@ def callbacks_fixture() -> MockCallableGroup:
     return MockCallableGroup(
         "communication_state",
         "component_state",
+        "received_data",
         "task",
         "extra_daq_mode",
-        *[mode.name for mode in DaqModes],
         timeout=5.0,
     )
 

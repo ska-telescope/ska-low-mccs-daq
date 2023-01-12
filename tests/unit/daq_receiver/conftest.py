@@ -129,6 +129,7 @@ def daq_component_manager_fixture(
         max_workers,
         callbacks["communication_state"],
         callbacks["component_state"],
+        callbacks["received_data"],
     )
 
 
@@ -169,6 +170,7 @@ def mock_daq_component_manager_fixture(
         max_workers,
         callbacks["communication_state"],
         callbacks["component_state"],
+        callbacks["received_data"],
     )
 
 

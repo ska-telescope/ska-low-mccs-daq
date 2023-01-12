@@ -117,7 +117,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self._max_workers,
             self._component_communication_state_changed,
             self._component_state_changed_callback,
-            self._received_data_callback
+            self._received_data_callback,
         )
 
     def init_command_objects(self: MccsDaqReceiver) -> None:
@@ -231,10 +231,7 @@ class MccsDaqReceiver(SKABaseDevice):
                 self.push_change_event("healthState", health)
 
     def _received_data_callback(
-        self: MccsDaqReceiver,
-        data_mode: str,
-        file_name: str,
-        tile: int
+        self: MccsDaqReceiver, data_mode: str, file_name: str, tile: int
     ) -> None:
         """
         Handle the receiving of data from a tile.
@@ -245,7 +242,19 @@ class MccsDaqReceiver(SKABaseDevice):
         :param file_name: the name of the file the data was saved to
         :param tile: the number of the tile that the data was received from
         """
-        self.push_change_event(data_mode + "_data_received", tile)
+        event_names = {
+            "burst_raw": "rawDataReceived",
+            "burst_channel": "channelDataReceived",
+            "integrated_channel": "integratedChannelDataReceived",
+            "cont_channel": "continuousChannelDataReceived",
+            "burst_beam": "beamDataReceived",
+            "integrated_beam": "integratedBeamDataReceived",
+            "correlator": "correlatorDataReceived",
+            "station": "stationBeamDataReceived",
+            "antenna_buffer": "antennaBufferDataReceived",
+        }
+        if data_mode in event_names:
+            self.push_change_event(event_names[data_mode], tile)
 
     # ----------
     # Attributes

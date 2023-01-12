@@ -10,8 +10,7 @@ from __future__ import annotations
 
 import logging
 import threading
-import warnings
-from typing import Any, Callable, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Union
 
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import CommunicationStatus, TaskStatus
@@ -20,7 +19,7 @@ from ska_low_mccs_common.component import MccsComponentManager, check_communicat
 __all__ = ["DaqComponentManager"]
 
 
-# pylint: disable=abstract-method
+# pylint: disable=abstract-method,too-many-instance-attributes
 class DaqComponentManager(MccsComponentManager):
     """A component manager for a DaqReceiver."""
 
@@ -218,7 +217,6 @@ class DaqComponentManager(MccsComponentManager):
     def start_daq(
         self: DaqComponentManager,
         modes_to_start: Optional[list[DaqModes]] = None,
-        callbacks: Optional[Sequence[Callable]] = None,
         task_callback: Optional[Callable] = None,
     ) -> tuple[TaskStatus, str]:
         """
@@ -228,10 +226,6 @@ class DaqComponentManager(MccsComponentManager):
         them.
 
         :param modes_to_start: The DAQ consumers to start.
-        :param callbacks: The callbacks to pass to DAQ to be called when a buffer is
-            filled. One callback per DAQ mode. Callbacks will be associated with the
-            corresponding mode_to_start. e.g. callbacks[i] will be called when
-            modes_to_start[i] has a full buffer.
         :param task_callback: Update task state, defaults to None
 
         :return: a task status and response message
@@ -257,10 +251,6 @@ class DaqComponentManager(MccsComponentManager):
         them.
 
         :param modes_to_start: The DAQ consumers to start.
-        :param callbacks: The callbacks to pass to DAQ to be called when a buffer is
-            filled. One callback per DAQ mode. Callbacks will be associated with the
-            corresponding mode_to_start. e.g. callbacks[i] will be called when
-            modes_to_start[i] has a full buffer.
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Abort the task
         """

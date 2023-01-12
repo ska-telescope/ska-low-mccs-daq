@@ -112,7 +112,6 @@ class TestDaqComponentManager:
         # Need exactly 1 callback per consumer started or None. Cast for Mypy.
         rc, message = daq_component_manager.start_daq(
             daq_modes,
-            [callbacks[DaqModes(mode).name] for mode in daq_modes],
             task_callback=callbacks["task"],
         )
         assert rc == TaskStatus.QUEUED
@@ -121,108 +120,6 @@ class TestDaqComponentManager:
         callbacks["task"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
         callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
-
-        for mode in daq_modes:
-            # If we're using ints instead of DaqModes make the conversion so we
-            # can check the consumer.
-            mode_to_check = DaqModes(mode)
-            assert daq_component_manager.daq_instance._running_consumers[mode_to_check]
-
-        # Wait for data etc
-        time.sleep(daq_component_manager.daq_instance._config["acquisition_duration"])
-
-        # Stop DAQ and check our consumer is not running.
-        rc, message = daq_component_manager.stop_daq(task_callback=callbacks["task"])
-        assert rc == TaskStatus.QUEUED
-        assert message == "Task queued"
-
-        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
-        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
-        callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
-
-        for mode in daq_modes:
-            # If we're using ints instead of DaqModes make the conversion so we
-            # can check the consumer.
-            mode_to_check = DaqModes(mode)
-            assert not daq_component_manager.daq_instance._running_consumers[
-                mode_to_check
-            ]
-
-    @pytest.mark.parametrize("num_callbacks", (-1, +1))
-    def test_incorrect_callback_count(
-        self: TestDaqComponentManager,
-        daq_component_manager: DaqComponentManager,
-        callbacks: MockCallableGroup,
-        num_callbacks: int,
-        recwarn: pytest.WarningsRecorder,
-    ) -> None:
-        """
-        Test that an incorrect number of callbacks is handled correctly.
-
-        If len(callbacks) != len(daq_modes) then we expect callbacks to be set
-        to None and for a warning message to be issued.
-
-        :param daq_component_manager: the daq receiver component manager
-            under test.
-        :param callbacks: a dictionary from which callbacks with
-            asynchrony support can be accessed.
-        :param num_callbacks: A modifier to apply to the number of callbacks so
-            that there are more or less than required.
-        :param recwarn: built-in pytest fixture that provides access to
-            warnings registered by the code under test
-        """
-        # Check create_daq has given us a receiver.
-        assert hasattr(daq_component_manager, "daq_instance")
-        assert isinstance(daq_component_manager.daq_instance, DaqReceiver)
-
-        daq_config = {
-            "acquisition_duration": 1,
-            "directory": ".",
-        }
-        daq_modes = [DaqModes.BEAM_DATA, DaqModes.INTEGRATED_BEAM_DATA]
-        daq_component_manager.daq_instance.populate_configuration(daq_config)
-
-        daq_component_manager.start_communicating()
-        callbacks["communication_state"].assert_call(
-            CommunicationStatus.NOT_ESTABLISHED
-        )
-        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-
-        # Start DAQ and check our consumer is running.
-
-        # Configure callbacks so we have either one more or less than we should.
-        data_received_callbacks = [callbacks["extra_daq_mode"]] + [
-            callbacks[DaqModes(mode).name] for mode in daq_modes
-        ]
-        data_received_callbacks = data_received_callbacks[(1 + num_callbacks) :]
-
-        rc, message = daq_component_manager.start_daq(
-            daq_modes,
-            data_received_callbacks,
-            task_callback=callbacks["task"],
-        )
-        assert rc == TaskStatus.QUEUED
-        assert message == "Task queued"
-
-        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
-        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
-
-        callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
-
-        # TODO: ska-tango-base task callback currently does not support calling
-        # the task callback with status messages. It should!
-        # Meanwhile, the production code raises a regular warning in this case.
-        #
-        # callbacks["task"].assert_call(message=expected_response)
-        callback_warning = recwarn.pop(UserWarning)
-        assert issubclass(callback_warning.category, UserWarning)
-        assert str(callback_warning.message) == (
-            "An incorrect number of callbacks was passed to `start_daq`!\n"
-            "There must be exactly one callback per consumer!"
-            "CALLBACKS ARE BEING IGNORED!\n"
-            f"Number of consumers specified: {len(daq_modes)}\n"
-            f"Number of callbacks provided: {len(data_received_callbacks)}"
-        )
 
         for mode in daq_modes:
             # If we're using ints instead of DaqModes make the conversion so we
