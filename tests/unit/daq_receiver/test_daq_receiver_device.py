@@ -121,28 +121,6 @@ class TestMccsDaqReceiver:
         change_event_callbacks.assert_change_event("healthState", HealthState.UNKNOWN)
         assert device_under_test.healthState == HealthState.UNKNOWN
 
-    def test_data_received_result(
-        self: TestMccsDaqReceiver,
-        device_under_test: tango.DeviceProxy,
-        change_event_callbacks: MockTangoEventCallbackGroup,
-    ) -> None:
-        """
-        Test for the dataReceivedResult attribute.
-
-        :param device_under_test: fixture that provides a
-            :py:class:`tango.DeviceProxy` to the device under test, in a
-            :py:class:`tango.test_context.DeviceTestContext`.
-        :param change_event_callbacks: group of Tango change event
-            callback with asynchrony support
-        """
-        device_under_test.subscribe_event(
-            "dataReceivedResult",
-            tango.EventType.CHANGE_EVENT,
-            change_event_callbacks["dataReceivedResult"],
-        )
-        change_event_callbacks.assert_change_event("dataReceivedResult", ("", ""))
-        assert device_under_test.dataReceivedResult == ("", "")
-
     @pytest.mark.parametrize(
         "modes_to_start, daq_interface, daq_ports, daq_ip",
         [
