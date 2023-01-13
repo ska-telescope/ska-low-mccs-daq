@@ -66,7 +66,7 @@ oci-image-build:
     - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:${release}-dev.c${CI_COMMIT_SHORT_SHA}")
     - docker cp -a ${CONTAINER_ID}:/opt/aavs ${CI_PROJECT_DIR}/aavs
     - docker rm ${CONTAINER_ID}
-    - kubectl get storageclass
+    - kubectl get all,job,pv,pvc,ingress,cm -n ska-low-mccs-daq -o yaml > build/k8s_manifest.txt
   artifacts:
     paths:
       - ${CI_PROJECT_DIR}/aavs
