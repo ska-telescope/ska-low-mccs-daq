@@ -263,11 +263,7 @@ class DaqComponentManager(MccsComponentManager):
         if modes_to_start is None:
             modes_to_start = self._get_consumers_to_start()
 
-        # Provide callback for each mode to start
-        if modes_to_start is not None:
-            callbacks = [self._received_data_callback] * len(modes_to_start)
-        else:
-            callbacks = []
+        callbacks = [self._received_data_callback] * len(modes_to_start)
 
         # Cast any ints in modes_to_start to a DaqMode.
         try:
