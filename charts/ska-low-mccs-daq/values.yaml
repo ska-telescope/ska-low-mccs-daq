@@ -90,6 +90,15 @@ securityContext:
 # Default ska-low-mccs-daq device server instances
 deviceServers:
   daqreceiver:
+    volume:
+      name: "daq-data"
+      mountPath: "/daq-data/"
+      storage: "500Mi"
+      admin_image: 
+        registry: artefact.skao.int
+        image: ska-low-mccs-daq
+        tag: 0.1.2
+        pullPolicy: IfNotPresent
     file: "data/daq-receiver.yaml"
     devices:
       - name: daqreceiver-001
@@ -107,4 +116,20 @@ deviceServers:
 
 nodeSelector: {}
 
-affinity: {}
+affinity:
+  nodeAffinity:
+    # requiredDuringSchedulingIgnoredDuringExecution:
+    #   nodeSelectorTerms:
+    #   - matchExpressions:
+    #     - key: disktype
+    #       operator: In
+    #       values:
+    #       - high-speed-ssd
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      preference:
+        matchExpressions:
+        - key: disktype
+          operator: In
+          values:
+          - high-speed-ssd

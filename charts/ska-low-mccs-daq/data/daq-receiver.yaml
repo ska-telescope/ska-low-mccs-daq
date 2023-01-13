@@ -49,3 +49,8 @@ livenessProbe:
 {{ toYaml .Values.livenessProbe | indent 2 }}
 readinessProbe:
 {{ toYaml .Values.readinessProbe | indent 2 }}
+volume:
+  existingClaimName: "{{ .Values.deviceServers.daqreceiver.volume.name | toString }}-pvc-{{ .Release.Name }}"
+  mountPath: "{{ .Values.deviceServers.daqreceiver.volume.mountPath }}"
+  readOnly: false
+
