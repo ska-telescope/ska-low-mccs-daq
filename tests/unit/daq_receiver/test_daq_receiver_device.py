@@ -23,6 +23,7 @@ from ska_tango_testing.context import (
     ThreadedTestTangoContextManager,
 )
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
+from tango.server import command
 
 from ska_low_mccs_daq import MccsDaqReceiver
 
@@ -225,7 +226,11 @@ class TestPatchedDaq:
         """
 
         class _PatchedDaqReceiver(MccsDaqReceiver):
-            """A daq class that has had its component manager mocked out for testing."""
+            """
+            A daq class that has had its component manager mocked out for testing.
+
+            Also creates a command to expose the received data callback
+            """
 
             def create_component_manager(self) -> unittest.mock.Mock:
                 """
@@ -234,6 +239,18 @@ class TestPatchedDaq:
                 :return: a mock component manager
                 """
                 return mock_component_manager
+
+            @command(dtype_in="DevString")
+            def CallReceivedDataCallback(
+                self: _PatchedDaqReceiver, input_data: str
+            ) -> None:
+                """
+                Call to the received data callback.
+
+                :param input_data: the input data to the callback in json form.
+                """
+                params = json.loads(input_data)
+                self._received_data_callback(*params)
 
         context_manager = ThreadedTestTangoContextManager()
         context_manager.add_device(
@@ -275,10 +292,8 @@ class TestPatchedDaq:
         """
         device_under_test.adminMode = AdminMode.ONLINE
 
-        cbs = ["raw_data_cb", "beam_data_cb"]
         argin = {
             "modes_to_start": daq_modes,
-            "callbacks": cbs,
         }
         [result_code], [response] = device_under_test.Start(json.dumps(argin))
 
@@ -287,7 +302,58 @@ class TestPatchedDaq:
 
         call_args = mock_component_manager.start_daq.call_args
         assert call_args.args[0] == daq_modes
-        assert call_args.args[1] == cbs
+
+    @pytest.mark.parametrize(
+        "input_data, result",
+        [
+            (("burst_raw", "file_name", 0), {"filename": "file_name", "tile": 0}),
+            (("cont_channel", "file_name", 1), {"filename": "file_name", "tile": 1}),
+            (
+                ("integrated_channel", "file_name", 2),
+                {"filename": "file_name", "tile": 2},
+            ),
+            (("burst_channel", "file_name", 3), {"filename": "file_name", "tile": 3}),
+            (("burst_beam", "file_name", 4), {"filename": "file_name", "tile": 4}),
+            (("integrated_beam", "file_name", 5), {"filename": "file_name", "tile": 5}),
+            (
+                ("station", "file_name", 512),
+                {"filename": "file_name", "amount_of_data": 512},
+            ),
+            (("correlator", "file_name"), {"filename": "file_name"}),
+            (("antenna_buffer", "file_name", 8), {"filename": "file_name", "tile": 8}),
+        ],
+    )
+    def test_received_data_callback(
+        self: TestPatchedDaq,
+        device_under_test: tango.DeviceProxy,
+        change_event_callbacks: MockTangoEventCallbackGroup,
+        input_data: Union[tuple[str, str], tuple[str, str, int]],
+        result: dict[str, Union[str, int]],
+    ) -> None:
+        """
+        Test the received data callback.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param change_event_callbacks: group of Tango change event
+            callback with asynchrony support.
+        :param input_data: the data to pass to the callback.
+        :param result: the expected data that the change event is to be
+            called with.
+        """
+        device_under_test.subscribe_event(
+            "dataReceivedResult",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["dataReceivedResult"],
+        )
+        change_event_callbacks.assert_change_event("dataReceivedResult", ("", ""))
+        assert device_under_test.dataReceivedResult == ("", "")
+
+        device_under_test.CallReceivedDataCallback(json.dumps(input_data))
+        change_event_callbacks.assert_change_event(
+            "dataReceivedResult", (input_data[0], json.dumps(result))
+        )
 
     @pytest.mark.parametrize(
         ("consumer_list"),
