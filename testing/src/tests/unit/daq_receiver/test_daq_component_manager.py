@@ -12,10 +12,10 @@ import time
 from typing import Callable, Union, cast
 
 import pytest
+from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 from ska_control_model import CommunicationStatus, TaskStatus
 from ska_low_mccs_common.testing.mock import MockCallable
 
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 
 

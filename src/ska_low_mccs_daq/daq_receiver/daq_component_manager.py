@@ -12,10 +12,9 @@ import logging
 import threading
 from typing import Any, Callable, Optional, Union
 
+from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 from ska_control_model import CommunicationStatus, TaskStatus
 from ska_low_mccs_common.component import MccsComponentManager, check_communicating
-
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 
 __all__ = ["DaqComponentManager"]
 

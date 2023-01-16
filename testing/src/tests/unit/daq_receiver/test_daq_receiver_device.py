@@ -12,12 +12,12 @@ import json
 from typing import Union
 
 import pytest
+from pydaq.daq_receiver_interface import DaqModes  # type: ignore
 from ska_control_model import HealthState, ResultCode
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.mock import MockChangeEventCallback
 from ska_low_mccs_common.testing.tango_harness import DeviceToLoadType, TangoHarness
 
-from pydaq.daq_receiver_interface import DaqModes  # type: ignore
 from ska_low_mccs_daq import MccsDaqReceiver
 from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
 
