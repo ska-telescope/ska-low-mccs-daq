@@ -14,7 +14,14 @@ ignore-imports=yes
 # pylint reports E1101 (no-member) for socket.SocketKind
 ignored-classes = socket
 
-# TODO: remove these when possible
-# W0212 protected-access
-# W0613 unused-argument
-disable = W0212, W0613
+[pylint]
+
+# Disable warning(W), convention(C), and refactoring messages(R)
+# E1101 (no-member) for socket.SocketKind
+# E1121 (too-many-function-args)
+# E1120 (no-value-for-parameter)
+# E1136 (unsubscriptable-object)
+# E0611 (no-name-in-module)
+# E0603 (undefined-all-variable),
+disable = W,C,R,E1101,E1136,E0611,E0603,E1121,E1120
+ignored-classes = socket

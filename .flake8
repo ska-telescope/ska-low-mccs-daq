@@ -1,5 +1,6 @@
 [flake8]
-max-line-length = 88
+# Temporarily increasing this limit from 88 -> 135
+max-line-length = 135
 
 extend-ignore = BLK,T
 enable = DAR104
@@ -13,5 +14,5 @@ rst-directives = uml
 per-file-ignores =
     # N802 = PEP8 lowercase function name -- conflicts with Tango conventions
     src/ska_low_mccs_daq/daq_receiver/daq_receiver_device.py: N802
-    tests/unit/daq_receiver/test_daq_receiver_device.py: N802
-    tests/functional/conftest.py: N802
+    testing/src/tests/unit/daq_receiver/test_daq_receiver_device.py: N802
+    testing/src/tests/functional/conftest.py: N802

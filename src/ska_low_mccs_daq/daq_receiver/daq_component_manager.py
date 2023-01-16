@@ -12,18 +12,17 @@ import logging
 import threading
 from typing import Any, Callable, Optional, Union
 
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import CommunicationStatus, TaskStatus
 from ska_low_mccs_common.component import MccsComponentManager, check_communicating
+
+from pydaq.daq_receiver_interface import DaqModes, DaqReceiver  # type: ignore
 
 __all__ = ["DaqComponentManager"]
 
 
-# pylint: disable=abstract-method,too-many-instance-attributes
 class DaqComponentManager(MccsComponentManager):
     """A component manager for a DaqReceiver."""
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self: DaqComponentManager,
         daq_id: int,
@@ -35,7 +34,6 @@ class DaqComponentManager(MccsComponentManager):
         max_workers: int,
         communication_state_changed_callback: Callable[[CommunicationStatus], None],
         component_state_changed_callback: Callable[[dict[str, Any]], None],
-        received_data_callback: Callable[[str, str, int], None],
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -53,8 +51,6 @@ class DaqComponentManager(MccsComponentManager):
             the component manager and its component changes
         :param component_state_changed_callback: callback to be
             called when the component state changes
-        :param received_data_callback: callback to be called when data is
-            received from a tile
         """
         self._consumers_to_start: list[DaqModes] | None
 
@@ -64,12 +60,11 @@ class DaqComponentManager(MccsComponentManager):
             communication_state_changed_callback,
             component_state_changed_callback,
         )
-        self._receiver_started: bool = False
+
         self._daq_id = daq_id
         self._receiver_interface = receiver_interface
-        self._receiver_ip = receiver_ip.encode()
+        self._receiver_ip = receiver_ip
         self._receiver_ports = receiver_ports
-        self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
         self._create_daq_instance()
 
@@ -90,17 +85,15 @@ class DaqComponentManager(MccsComponentManager):
         # `stop_daq` stops the daq receiver.
         # This means we can't stop the receiver and start it on a new interface unless
         # we re-init the device which is suboptimal.
-        # It would be better if we could start the receiver in `start_daq` without
-        # having to initialise/reinitialise the entire daq system.
+        # It would be better if we could start the receiver in `start_daq` without having
+        # to initialise/reinitialise the entire daq system.
         try:
             self.configure_daq(self._get_daq_config())
-        # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(f"Caught exception in `_create_daq_instance`: {e}")
 
         # Initialise library and start receiver.
         self.daq_instance.initialise_daq()
-        self._receiver_started = True
         self.logger.info("Daq receiver created and initialised.")
 
     def start_communicating(self: DaqComponentManager) -> None:
@@ -129,7 +122,7 @@ class DaqComponentManager(MccsComponentManager):
         # so that we don't store and (try to) apply an unusable configuration.
 
         daq_config = {
-            "nof_tiles": 2,
+            "nof_tiles": 1,
             "receiver_ports": self._receiver_ports,
             "receiver_interface": self._receiver_interface,
             "receiver_ip": self._receiver_ip,
@@ -138,21 +131,12 @@ class DaqComponentManager(MccsComponentManager):
         }
         return daq_config
 
-    def get_configuration(self: DaqComponentManager) -> dict[str, Any]:
-        """
-        Get configuration from DAQ.
-
-        :return: The configuration in the pydaq instance.
-        """
-        return self.daq_instance.get_configuration()
-
     def _get_consumers_to_start(self: DaqComponentManager) -> list[DaqModes]:
         """
         Retrieve a list of DAQ consumers to start.
 
-        Returns the consumer list that is to be used when `start_daq` is called without
-        specifying consumers. This is empty by default and if not set will return
-        `[DaqModes.INTEGRATED_CHANNEL_DATA]`.
+        Returns the consumer list that is to be used when `start_daq` is called without specifying consumers.
+        This is empty by default and if not set will return `[DaqModes.INTEGRATED_CHANNEL_DATA]`.
 
         :return: a list of DAQ modes.
         """
@@ -169,8 +153,7 @@ class DaqComponentManager(MccsComponentManager):
         Set consumers to be started when `start_daq` is called without specifying a
         consumer.
 
-        :param consumers_to_start: A string containing a comma separated
-            list of DaqModes.
+        :param consumers_to_start: A string containing a comma separated list of DaqModes.
         """
         try:
             if consumers_to_start != "":
@@ -178,15 +161,13 @@ class DaqComponentManager(MccsComponentManager):
                 consumer_list = consumers_to_start.split(
                     ","
                 )  # Separate string into list of words.
-                # Strip whitespace, extract the enum part of the consumer
-                # (e.g. RAW_DATA) and cast into a DaqMode.
+                # Strip whitespace, extract the enum part of the consumer (e.g. RAW_DATA) and cast into a DaqMode.
                 self._consumers_to_start = [
                     DaqModes[consumer.strip().split(".")[-1]]
                     for consumer in consumer_list
                 ]
             else:
                 self._consumers_to_start = None
-        # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(
                 f"Unhandled exception caught in `_set_consumers_to_start`: {e}"
@@ -205,7 +186,6 @@ class DaqComponentManager(MccsComponentManager):
         self.logger.info("Configuring DAQ receiver.")
         try:
             self.daq_instance.populate_configuration(daq_config)
-        # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(f"Exception caught in `configure_daq`: {e}")
         # if not self._validate_daq_configuration(daq_config):
@@ -213,10 +193,47 @@ class DaqComponentManager(MccsComponentManager):
         # TODO: Raise some exception here? How do we want to deal with this?
         self.logger.info("DAQ receiver configuration complete.")
 
+    # TODO: Fix this method.
+    # It can't tell a stringified number "1111" is the same as the number 1111.
+    # Ditto for lists so we get some incorrect `False` returns.
+    # Do we need to address each config param individually to get this to work properly?
+    # def _validate_daq_configuration(
+    #     self: DaqComponentManager, daq_config: dict[str, Any]
+    # ) -> bool:
+    #     """
+    #     Check that the current DAQ config is identical to the configuration supplied.
+
+    #     :param daq_config: A dictionary containing configuration settings.
+
+    #     :return: True if the configuration was applied successfully else False.
+    #     """
+    #     self.logger.info("Validating DAQ configuration...")
+    #     for config_item, config_value in daq_config.items():
+    #         if not (self.daq_instance._config[config_item] == config_value):
+    #             # Check for cases where the config value was passed as
+    #             # a string representation of a number and suppress the warning.
+    #             t_daq = type(self.daq_instance._config[config_item])
+    #             t_config = type(config_value)
+
+    #             self.logger.warning(
+    #                 f"DAQ configuration of {config_item} "
+    #                 f"from {self.daq_instance._config[config_item]} "
+    #                 f"to {config_value} was unsuccessfully applied!"
+    #             )
+
+    #             t_daq = type(self.daq_instance._config[config_item])
+    #             t_config = type(config_value)
+    #             if t_daq is not t_config:
+    #                 self.logger.warning(f"Type mismatch! Implicit conversion from: {t_daq} to {t_config}")
+    #             return False
+    #     self.logger.info("DAQ configuration validated.")
+    #     return True
+
     @check_communicating
     def start_daq(
         self: DaqComponentManager,
         modes_to_start: Optional[list[DaqModes]] = None,
+        callbacks: Optional[list[Callable]] = None,
         task_callback: Optional[Callable] = None,
     ) -> tuple[TaskStatus, str]:
         """
@@ -226,6 +243,9 @@ class DaqComponentManager(MccsComponentManager):
         them.
 
         :param modes_to_start: The DAQ consumers to start.
+        :param callbacks: The callbacks to pass to DAQ to be called when a buffer is filled.
+            One callback per DAQ mode. Callbacks will be associated with the corresponding
+            mode_to_start. e.g. callbacks[i] will be called when modes_to_start[i] has a full buffer.
         :param task_callback: Update task state, defaults to None
 
         :return: a task status and response message
@@ -233,14 +253,15 @@ class DaqComponentManager(MccsComponentManager):
         self.logger.info("Submitting `_start_daq` task.")
         return self.submit_task(
             self._start_daq,
-            args=[modes_to_start],
+            args=[modes_to_start, callbacks],
             task_callback=task_callback,
         )
 
     @check_communicating
     def _start_daq(
         self: DaqComponentManager,
-        modes_to_start: Optional[list[Union[int, DaqModes]]] = None,
+        modes_to_start: Optional[Union[list[int], list[DaqModes]]] = None,
+        callbacks: Optional[list[Callable]] = None,
         task_callback: Optional[Callable] = None,
         task_abort_event: Union[threading.Event, None] = None,
     ) -> None:
@@ -251,19 +272,32 @@ class DaqComponentManager(MccsComponentManager):
         them.
 
         :param modes_to_start: The DAQ consumers to start.
+        :param callbacks: The callbacks to pass to DAQ to be called when a buffer is filled.
+            One callback per DAQ mode. Callbacks will be associated with the corresponding
+            mode_to_start. e.g. callbacks[i] will be called when modes_to_start[i] has a full buffer.
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Abort the task
         """
-        if not self._receiver_started:
-            self.daq_instance.initialise_daq()
-            self._receiver_started = True
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
         # Retrieve default list of modes to start if not provided.
         if modes_to_start is None:
             modes_to_start = self._get_consumers_to_start()
-
-        callbacks = [self._received_data_callback] * len(modes_to_start)
+        # Check that if we were passed callbacks that we have one for each consumer.
+        # If we do not then ignore callbacks.
+        if callbacks is not None:
+            if len(modes_to_start) != len(callbacks):
+                # This will raise an IndexError if passed to DAQ.
+                # Ignoring callbacks is the same action DAQ would take.
+                msg = f"""An incorrect number of callbacks was passed to `start_daq`!
+                There must be exactly one callback per consumer!
+                CALLBACKS ARE BEING IGNORED!
+                Number of consumers specified: {len(modes_to_start)}
+                Number of callbacks provided: {len(callbacks)}"""
+                self.logger.warn(msg)
+                if task_callback:
+                    task_callback(message=msg)
+                callbacks = None
 
         # Cast any ints in modes_to_start to a DaqMode.
         try:
@@ -275,18 +309,17 @@ class DaqComponentManager(MccsComponentManager):
                     status=TaskStatus.FAILED,
                     message=f"Value Error! Invalid DaqMode supplied! {e}",
                 )
-
-        self.logger.info(
-            (
-                f"Starting DAQ. {self.daq_instance._config['receiver_ip']} "
-                "Listening on interface: "
-                f"{self.daq_instance._config['receiver_interface']}:"
-                f"{self.daq_instance._config['receiver_ports']}"
+        else:
+            self.logger.info(
+                (
+                    f"Starting DAQ. {self.daq_instance._config['receiver_ip']} "
+                    f"Listening on interface: {self.daq_instance._config['receiver_interface']}:"
+                    f"{self.daq_instance._config['receiver_ports']}"
+                )
             )
-        )
-        self.daq_instance.start_daq(modes_to_start, callbacks)
-        if task_callback:
-            task_callback(status=TaskStatus.COMPLETED)
+            self.daq_instance.start_daq(modes_to_start, callbacks)
+            if task_callback:
+                task_callback(status=TaskStatus.COMPLETED)
 
     def stop_daq(
         self: DaqComponentManager,
@@ -319,10 +352,8 @@ class DaqComponentManager(MccsComponentManager):
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
         self.logger.info(
-            "Stopping DAQ receiver listening on interface: "
-            f"{self.daq_instance._config['receiver_interface']}"
+            f"Stopping DAQ receiver listening on interface: {self.daq_instance._config['receiver_interface']}"
         )
         self.daq_instance.stop_daq()
-        self._receiver_started = False
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)

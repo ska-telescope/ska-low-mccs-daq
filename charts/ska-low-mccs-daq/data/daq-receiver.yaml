@@ -5,9 +5,6 @@ instances:
 {{- range $device := .Values.deviceServers.daqreceiver.devices }}
   - "{{ $device.name }}"
 {{- end }}
-entrypoints:
-  - name: "daqreceiver.MccsDaqReceiver"
-    path: "/app/src/ska_low_mccs_daq/daq_receiver/daq_receiver_device.py"
 command: "MccsDaqReceiver"
 server:
   name: "MccsDaqReceiver"
