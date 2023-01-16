@@ -19,6 +19,8 @@ RUN git reset --hard ${AAVS_SYSTEM_SHA}
 # Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
 RUN cp /app/deploy.sh /app/aavs-system/
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
+RUN pip uninstall -y aavs_system
+
 # Expose the DAQ port to UDP traffic.
 EXPOSE 4660/udp
 WORKDIR /app/
