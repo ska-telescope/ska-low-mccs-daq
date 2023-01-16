@@ -14,12 +14,11 @@ import logging
 from typing import Any, Optional, Union, cast
 
 import tango
-from ska_control_model import CommunicationStatus, HealthState
+from ska_control_model import CommunicationStatus, HealthState, ResultCode
 from ska_tango_base.base import SKABaseDevice
 from ska_tango_base.commands import (
     DeviceInitCommand,
     FastCommand,
-    ResultCode,
     SubmittedSlowCommand,
 )
 from tango.server import attribute, command, device_property
