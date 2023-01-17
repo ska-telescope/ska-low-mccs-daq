@@ -39,7 +39,7 @@ class TileHealthMonitor:
         core_id = None
         voltage_name = None
         current_name = None
-        clock_name = 'all'
+        clock_name = None
         name = None
 
         # Board level monitoring points
@@ -217,16 +217,17 @@ class TileHealthMonitor:
         if self.tile.is_programmed():
             return self.tile.tpm.tpm_clock_monitor[0].get_available_clocks_to_monitor()
 
-    def enable_clock_monitoring(self, fpga_id=None, clock_name='all'):
+    def enable_clock_monitoring(self, fpga_id=None, clock_name=None):
         """
         Enable clock monitoring of named TPM clocks
-        Options 'jesd', 'ddr', 'udp', 'all'
+        Options 'jesd', 'ddr', 'udp'
         Input is non case sensitive
         An FPGA ID can be optionally specified to only enable monitoring on one FPGA
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
-        :param clock_name: Specify name of clock
+
+        :param clock_name: Specify name of clock or None for all clocks
         :type clock_name: string
         """
         if self.tile.is_programmed():
@@ -234,16 +235,17 @@ class TileHealthMonitor:
                     self.tile.tpm.tpm_clock_monitor[fpga].enable_clock_monitoring(clock_name)
         return
 
-    def disable_clock_monitoring(self, fpga_id=None, clock_name='all'):
+    def disable_clock_monitoring(self, fpga_id=None, clock_name=None):
         """
         Disable clock monitoring of named TPM clocks
-        Options 'jesd', 'ddr', 'udp', 'all'
+        Options 'jesd', 'ddr', 'udp'
         Input is non case sensitive
         An FPGA ID can be optionally specified to only disable monitoring on one FPGA
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
-        :param clock_name: Specify name of clock
+
+        :param clock_name: Specify name of clock or None for all clocks
         :type clock_name: string
         """
         if self.tile.is_programmed():
@@ -251,39 +253,41 @@ class TileHealthMonitor:
                 self.tile.tpm.tpm_clock_monitor[fpga].disable_clock_monitoring(clock_name)
         return
     
-    def check_clock_status(self, fpga_id=None, clock_name='all'):
+    def check_clock_status(self, fpga_id=None, clock_name=None):
         """
         Check status of named TPM clocks
-        Options 'jesd', 'ddr', 'udp', 'all'
+        Options 'jesd', 'ddr', 'udp'
         Input is non case sensitive
         An FPGA ID can be optionally specified to only check status on one FPGA
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
-        :param clock_name: Specify name of clock
+
+        :param clock_name: Specify name of clock or None for all clocks
         :type clock_name: string
 
         :return: True when Status is OK, no errors
         :rtype bool
         """
         if self.tile.is_programmed():
-            result = []
+            result = {}
             for fpga in self.fpga_gen(fpga_id):
-                result.append(self.tile.tpm.tpm_clock_monitor[fpga].check_clock_status(clock_name))
-            return all(result)
+                result[f'FPGA{fpga}'] = self.tile.tpm.tpm_clock_monitor[fpga].check_clock_status(clock_name)
+            return result
         return
     
-    def clear_clock_status(self, fpga_id=None, clock_name='all'):
+    def clear_clock_status(self, fpga_id=None, clock_name=None):
         """
         Clear status of named TPM clocks
         Used to Clear error flags in FPGA Firmware
-        Options 'jesd', 'ddr', 'udp', 'all'
+        Options 'jesd', 'ddr', 'udp'
         Input is non case sensitive
         An FPGA ID can be optionally specified to only clear status on one FPGA
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
-        :param clock_name: Specify name of clock
+
+        :param clock_name: Specify name of clock or None for all clocks
         :type clock_name: string
         """
         if self.tile.is_programmed():
@@ -314,7 +318,6 @@ class TileHealthMonitor:
         """
         Clear status of named TPM clock manager cores (MMCM Core).
         Used to reset MMCM lock loss counters.
-        Options 'jesd', 'ddr', 'udp', 'all'
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
