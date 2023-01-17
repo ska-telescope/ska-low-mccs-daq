@@ -26,10 +26,66 @@ class TileHealthMonitor:
         return
     
     def enable_health_monitoring(self):
-        pass
+        # For use with get_health_status and clear_health_status
+        # Enable anything that requires an enable
+        self.enable_clock_monitoring()
+        return
 
     def get_health_status(self):
-        pass
+        health_dict = {}
+
+        # Temp initialisations
+        fpga_id = None
+        core_id = None
+        voltage_name = None
+        current_name = None
+        clock_name = 'all'
+        name = None
+
+        # Board level monitoring points
+        health_dict['temperature'] = {}
+        health_dict['temperature']['board'] = self.tile.get_temperature()
+        health_dict['temperature'].update(self.get_fpga_temperature(fpga_id))
+        health_dict['voltage'] = {}
+        health_dict['voltage'].update(self.get_voltage(fpga_id, voltage_name))
+        health_dict['current'] = {}
+        health_dict['current'].update(self.get_current(fpga_id, current_name))
+
+        # Timing Signal monitoing points
+        health_dict['timing'] = {}
+        health_dict['timing']['clocks'] = self.check_clock_status(fpga_id, clock_name)
+        health_dict['timing'].update(self.check_clock_manager_status(fpga_id, name))
+        health_dict['timing']['pps'] = self.check_pps_status(fpga_id)
+        # health_dict['timing']['pll'] = self.check_pll_status() # TODO: add method
+
+
+        # JESD monitoing points
+        health_dict['jesd_if'] = {}
+        health_dict['jesd_if']['lanes'] = self.check_jesd_lanes(fpga_id, core_id)
+        health_dict['jesd_if']['error_count'] = self.check_jesd_error_counter(fpga_id, core_id)
+        health_dict['jesd_if']['resync_count'] = self.check_jesd_resync_counter(fpga_id)
+        health_dict['jesd_if']['drop_count'] = self.check_jesd_qpll_drop_counter(fpga_id)
+
+        # DDR monitoring points
+        health_dict['ddr_if'] = {}
+        health_dict['ddr_if']['initialisation'] = self.check_ddr_initialisation(fpga_id)
+        health_dict['ddr_if']['reset_counter'] = self.check_ddr_reset_counter(fpga_id)
+        
+        # F2F monitoing points
+        health_dict['f2f_if'] = {}
+        health_dict['f2f_if']['drop_count'] = self.check_f2f_drop_counter()
+
+        # UDP monitoring points
+        health_dict['udp_if'] = {}
+        health_dict['udp_if']['arp'] = self.check_udp_arp_table_status(fpga_id)
+        health_dict['udp_if']['status'] = self.check_udp_status(fpga_id)
+        health_dict['udp_if']['drop_count'] = self.check_udp_link_drop_counter(fpga_id)
+
+        # DSP monitoring points
+        health_dict['tile_beamf'] = self.check_tile_beamformer_status(fpga_id)
+        health_dict['station_beamf'] = self.check_station_beamformer_status(fpga_id)
+
+        return health_dict
     
     def clear_health_status(self):
         pass
