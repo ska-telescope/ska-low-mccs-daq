@@ -16,11 +16,7 @@ from typing import Any, Optional, Union, cast
 import tango
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
 from ska_tango_base.base import SKABaseDevice
-from ska_tango_base.commands import (
-    DeviceInitCommand,
-    FastCommand,
-    SubmittedSlowCommand,
-)
+from ska_tango_base.commands import DeviceInitCommand, FastCommand, SubmittedSlowCommand
 from tango.server import attribute, command, device_property
 
 from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
