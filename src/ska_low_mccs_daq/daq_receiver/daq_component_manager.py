@@ -67,7 +67,7 @@ class DaqComponentManager(MccsComponentManager):
         self._receiver_started: bool = False
         self._daq_id = daq_id
         self._receiver_interface = receiver_interface
-        self._receiver_ip = receiver_ip.encode()
+        self._receiver_ip = receiver_ip
         self._receiver_ports = receiver_ports
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
@@ -132,9 +132,7 @@ class DaqComponentManager(MccsComponentManager):
             "nof_tiles": 2,
             "receiver_ports": self._receiver_ports,
             "receiver_interface": self._receiver_interface,
-            # receiver_ip should be bytes, but in pydaq, automatic IP
-            # detection is triggered only by "", not b""
-            "receiver_ip": self._receiver_ip or "",
+            "receiver_ip": self._receiver_ip,
             "directory": ".",
             "acquisition_duration": -1,
         }

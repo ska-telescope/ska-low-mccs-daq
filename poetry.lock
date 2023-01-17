@@ -1,4 +1,20 @@
 [[package]]
+name = "aavs-system"
+version = "1.1"
+description = "AAVS Software"
+category = "main"
+optional = false
+python-versions = "*"
+develop = false
+
+[package.source]
+type = "git"
+url = "https://gitlab.com/ska-telescope/aavs-system.git"
+reference = "5502db425dd9939bd33d3932928d76730d8abe35"
+resolved_reference = "5502db425dd9939bd33d3932928d76730d8abe35"
+subdirectory = "python"
+
+[[package]]
 name = "astroid"
 version = "2.12.13"
 description = "An abstract syntax tree for Python with inference support."
@@ -1313,9 +1329,10 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "~3.10"
-content-hash = "3a5a678259f478e5a9eeeec855eae7ed52e1f64a85afd0f27a22ed023cf4223d"
+content-hash = "7c27728a7af652d37f8d9038d9a77ef53a932da6245bdd4619fe9dcd4658a207"
 
 [metadata.files]
+aavs-system = []
 astroid = [
     {file = "astroid-2.12.13-py3-none-any.whl", hash = "sha256:10e0ad5f7b79c435179d0d0f0df69998c4eef4597534aae44910db060baeb907"},
     {file = "astroid-2.12.13.tar.gz", hash = "sha256:1493fe8bd3dfd73dc35bd53c9d5b6e49ead98497c47b2307662556a5692d29d7"},
