@@ -12,6 +12,7 @@ name = 'ska-nexus'
 url = 'https://artefact.skao.int/repository/pypi-internal/simple'
 
 [tool.poetry.dependencies]
+# When updating this dependency, also update AAVS_SYSTEM_REF in the Dockerfile
 aavs_system = { git = "https://gitlab.com/ska-telescope/aavs-system.git", rev = "5502db425dd9939bd33d3932928d76730d8abe35", subdirectory = "python" }
 python = "~3.10"
 astropy = "^5.0.4"

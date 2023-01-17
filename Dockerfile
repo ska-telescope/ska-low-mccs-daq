@@ -4,7 +4,8 @@ FROM artefact.skao.int/ska-tango-images-pytango-runtime:9.3.19 AS runtime
 USER root
 
 # Commit SHAs to use.
-ENV AAVS_SYSTEM_SHA=5be831c54f9f702955294c1e1a41e2c752a0967f
+# When updating AAVS_SYSTEM_SHA, also update aavs_system in pyproject.toml
+ENV AAVS_SYSTEM_SHA=5502db425dd9939bd33d3932928d76730d8abe35
 ENV AAVS_DAQ_SHA=65c8339543ff94818ccc9335583168c9b7f877f4
 ENV PYFABIL_SHA=c158b27f09ee9af6e5b52927b2564409b0a68096
 
