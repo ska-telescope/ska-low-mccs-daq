@@ -990,7 +990,7 @@ class DaqReceiver:
         self._call_attach_logger(self._daq_logging_function)
 
         # Start receiver
-        if self._call_start_receiver(self._config['receiver_interface'].encode(),
+        if self._call_start_receiver(self._config['receiver_interface'],
                                      self._config['receiver_ip'],
                                      self._config['receiver_frame_size'],
                                      self._config['receiver_frames_per_block'],
@@ -1129,7 +1129,7 @@ class DaqReceiver:
         # Check if an IP address was provided, and if not get the assigned address to the interface
         if self._config['receiver_ip'] == "":
             try:
-                self._config['receiver_ip'] = self._get_ip_address(self._config['receiver_interface'].encode())
+                self._config['receiver_ip'] = self._get_ip_address(self._config['receiver_interface'])
             except IOError as e:
                 logging.error("Interface does not exist or could not get it's IP: {}".format(e))
                 exit()
@@ -1242,15 +1242,15 @@ class DaqReceiver:
         self._slack.info(message)
 
     @staticmethod
-    def _get_ip_address(interface: str) -> bytes:
+    def _get_ip_address(interface: str) -> str:
         """ Helper methode to get the IP address of a specified interface
         :param interface: Network interface name """
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         return socket.inet_ntoa(fcntl.ioctl(
             s.fileno(),
             0x8915,  # SIOCGIFADDR
-            struct.pack('256s', interface[:15])
-        )[20:24]).encode()
+            struct.pack('256s', interface.encode()[:15])
+        )[20:24])
 
     def set_slack(self, station: str) -> None:
         """ Set slack instance
@@ -1354,7 +1354,7 @@ class DaqReceiver:
         :param logging_callback: Function which will process logs """
         self._daq_library.attachLogger(logging_callback)
 
-    def _call_start_receiver(self, interface: str, ip: int, frame_size: int, frames_per_block: int,
+    def _call_start_receiver(self, interface: str, ip: str, frame_size: int, frames_per_block: int,
                              nof_blocks: int, nof_threads: int) -> Result:
         """ Start network receiver thread
         :param ip: IP address
@@ -1365,8 +1365,14 @@ class DaqReceiver:
         :param nof_threads: Number of receiver threads
         :return: Return code
         """
-        return self._daq_library.startReceiverThreaded(interface, ip, frame_size, frames_per_block, nof_blocks,
-                                                       nof_threads)
+        return self._daq_library.startReceiverThreaded(
+            interface.encode(),
+            ip.encode(),
+            frame_size,
+            frames_per_block,
+            nof_blocks,
+            nof_threads,
+        )
 
     def _call_stop_receiver(self) -> Result:
         """ Stop network receiver thread """
