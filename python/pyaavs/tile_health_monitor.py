@@ -44,7 +44,7 @@ class TileHealthMonitor:
 
         # Board level monitoring points
         health_dict['temperature'] = {}
-        health_dict['temperature']['board'] = self.tile.get_temperature()
+        health_dict['temperature']['board'] = round(self.tile.get_temperature(), 2)
         health_dict['temperature'].update(self.get_fpga_temperature(fpga_id))
         health_dict['voltage'] = {}
         health_dict['voltage'].update(self.get_voltage(fpga_id, voltage_name))
