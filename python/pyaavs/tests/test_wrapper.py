@@ -409,6 +409,7 @@ if __name__ == "__main__":
                       help="Initialise station before performing tests, ignored in interactive mode [default: False]")
 
     (conf, args) = parser.parse_args(argv[1:])
+    conf.test_todo = conf.test_todo.lower()
 
     # set up logging to file - see previous section for more details
 
