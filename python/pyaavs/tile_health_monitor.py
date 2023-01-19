@@ -78,7 +78,16 @@ class TileHealthMonitor:
         return health_dict
     
     def clear_health_status(self):
-        pass
+        self.clear_clock_status(fpga_id=None, clock_name=None)
+        self.clear_clock_manager_status(fpga_id=None, name=None)
+        self.clear_pps_status(fpga_id=None)
+        self.clear_jesd_error_counters(fpga_id=None)
+        self.clear_ddr_reset_counter(fpga_id=None)
+        self.clear_f2f_drop_counter(core_id=None)
+        self.clear_udp_status(fpga_id=None)
+        self.clear_tile_beamformer_status(fpga_id=None)
+        # self.clear_station_beamformer_status(fpga_id=None) # TODO: add register to firmware, MCCS-1307
+        return
     
     def fpga_gen(self, fpga_id):
         return range(len(self.tile.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
