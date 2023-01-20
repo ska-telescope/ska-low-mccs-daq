@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+service Daq{
+    rpc StartDaq(startDaqRequest) returns (commandResponse) {}
+    rpc StopDaq(stopDaqRequest) returns (commandResponse) {}
+    rpc InitDaq(configDaqRequest) returns (commandResponse) {}
+    rpc ConfigureDaq(configDaqRequest) returns (commandResponse) {}
+}
+
+enum ResultCode{
+    OK = 0;
+    STARTED = 1;
+    QUEUED = 2;
+    FAILED = 3;
+    UNKNOWN = 4;
+    REJECTED = 5;
+    NOT_ALLOWED = 6;
+    ABORTED = 7;
+}
+
+message startDaqRequest{
+    string modes_to_start = 1;
+}
+
+// Empty message as no params expected but this is in case it changes.
+message stopDaqRequest{
+    
+}
+
+message commandResponse{
+    ResultCode result_code = 1;
+    string message = 2;
+}
+
+message configDaqRequest{
+    string config = 1;
+}
+
+message noParamRequest{
+
+}

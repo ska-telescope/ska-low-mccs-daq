@@ -100,4 +100,6 @@ k8s-do-test:
 	helm  -n $(KUBE_NAMESPACE) uninstall $(K8S_TEST_RUNNER_CHART_RELEASE) ; \
 	exit $$EXIT_CODE
 
+grpc-code:
+	python -m grpc_tools.protoc -I ./src/ska_low_mccs_daq/gRPC_server/protos --python_out=./src/ska_low_mccs_daq/gRPC_server/generated_code --pyi_out=./src/ska_low_mccs_daq/gRPC_server/generated_code --grpc_python_out=./src/ska_low_mccs_daq/gRPC_server/generated_code daq.proto
 .PHONY: k8s-test python-post-format python-post-lint docs-pre-build

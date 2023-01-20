@@ -11,9 +11,11 @@ from __future__ import annotations
 import logging
 import threading
 from typing import Any, Callable, Optional, Union
+import grpc
+from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
 
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
-from ska_control_model import CommunicationStatus, TaskStatus
+from ska_control_model import CommunicationStatus, TaskStatus, ResultCode
 from ska_low_mccs_common.component import MccsComponentManager, check_communicating
 
 __all__ = ["DaqComponentManager"]
@@ -71,7 +73,13 @@ class DaqComponentManager(MccsComponentManager):
         self._receiver_ports = receiver_ports
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
-        self._create_daq_instance()
+        #self._create_daq_instance()
+        # Make gRPC call to InitDaq
+        print("Calling RPC INIT")
+        with grpc.insecure_channel('localhost:50051') as channel:
+            stub = daq_pb2_grpc.DaqStub(channel)
+            response = stub.InitDaq(daq_pb2.configDaqRequest(config=self._get_daq_config()))
+            assert response.result_code == ResultCode.OK
 
     def _create_daq_instance(
         self: DaqComponentManager,
@@ -231,11 +239,15 @@ class DaqComponentManager(MccsComponentManager):
         :return: a task status and response message
         """
         self.logger.info("Submitting `_start_daq` task.")
-        return self.submit_task(
-            self._start_daq,
-            args=[modes_to_start],
-            task_callback=task_callback,
-        )
+        # Retrieve default list of modes to start if not provided.
+        if modes_to_start is None:
+            modes_to_start = self._get_consumers_to_start()
+        print("CALLING RPC START")
+        with grpc.insecure_channel('localhost:50051') as channel:
+            stub = daq_pb2_grpc.DaqStub(channel)
+            response = stub.StartDaq(daq_pb2.startDaqRequest(modes_to_start=modes_to_start))
+
+        return ([response.result_code], [response.message])
 
     @check_communicating
     def _start_daq(
@@ -301,7 +313,13 @@ class DaqComponentManager(MccsComponentManager):
         :return: a task status and response message
         """
         self.logger.info("Submitting `_stop_daq` task.")
-        return self.submit_task(self._stop_daq, args=[], task_callback=task_callback)
+        #return self.submit_task(self._stop_daq, args=[], task_callback=task_callback)
+        print("CALLING RPC STOP")
+        with grpc.insecure_channel('localhost:50051') as channel:
+            stub = daq_pb2_grpc.DaqStub(channel)
+            response = stub.StartDaq(daq_pb2.stopDaqRequest())
+
+        return ([response.result_code], [response.message])
 
     def _stop_daq(
         self: DaqComponentManager,

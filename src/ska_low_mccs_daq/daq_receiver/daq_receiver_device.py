@@ -12,6 +12,8 @@ from __future__ import annotations  # allow forward references in type hints
 import json
 import logging
 from typing import Any, Optional, Union, cast
+import grpc
+from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
 
 import tango
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
