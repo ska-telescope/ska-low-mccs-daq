@@ -88,6 +88,111 @@ class TileHealthMonitor:
         self.clear_tile_beamformer_status(fpga_id=None)
         # self.clear_station_beamformer_status(fpga_id=None) # TODO: add register to firmware, MCCS-1307
         return
+
+    def get_health_acceptance_values(self):
+        EXP_VOLTAGE = {
+            # TPM 1.2 min and max ranges are estimated based on 5 or 8% tolerance
+            # See https://confluence.skatelescope.org/x/nDhED
+            "tpm_v1_2": {
+                "5V0"         : { "min": 4.750, "max": 5.250},
+                "FPGA0_CORE"  : { "min": 0.900, "max": 1.000},
+                "FPGA1_CORE"  : { "min": 0.900, "max": 1.000},
+                "MGT_AV"      : { "min": 0.850, "max": 0.950}, # Exp 0.90V instead of 1.0V
+                "MGT_AVTT"    : { "min": 1.140, "max": 1.260},
+                "SW_AVDD1"    : { "min": 1.560, "max": 1.730},
+                "SW_AVDD2"    : { "min": 2.560, "max": 2.840},
+                "SW_AVDD3"    : { "min": 3.320, "max": 3.680},
+                "VCC_AUX"     : { "min": 1.710, "max": 1.890},
+                "VIN"         : { "min": 11.40, "max": 12.60, "skip": True}, # TODO: add support for this measurement
+                "VM_ADA0"     : { "min": 3.030, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
+                "VM_ADA1"     : { "min": 3.030, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
+                "VM_AGP0"     : { "min": 0.900, "max": 1.060},
+                "VM_AGP1"     : { "min": 0.900, "max": 1.060},
+                "VM_AGP2"     : { "min": 0.900, "max": 1.060},
+                "VM_AGP3"     : { "min": 0.900, "max": 1.060},
+                "VM_CLK0B"    : { "min": 3.030, "max": 3.560},
+                "VM_DDR0_VREF": { "min": 0.620, "max": 0.730},
+                "VM_DDR0_VTT" : { "min": 0.620, "max": 0.730},
+                "VM_FE0"      : { "min": 3.220, "max": 3.780},
+                "VM_MAN1V2"   : { "min": 1.100, "max": 1.300, "skip": True}, # Not currently turned on
+                "VM_MAN2V5"   : { "min": 2.300, "max": 2.700},
+                "VM_MAN3V3"   : { "min": 3.030, "max": 3.560},
+                "VM_MGT0_AUX" : { "min": 1.650, "max": 1.940},
+                "VM_PLL"      : { "min": 3.030, "max": 3.560},
+                "VM_ADA3"     : { "min": 3.030, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
+                "VM_DDR1_VREF": { "min": 0.620, "max": 0.730},
+                "VM_DDR1_VTT" : { "min": 0.620, "max": 0.730},
+                "VM_AGP4"     : { "min": 0.900, "max": 1.060},
+                "VM_AGP5"     : { "min": 0.900, "max": 1.060},
+                "VM_AGP6"     : { "min": 0.900, "max": 1.060},
+                "VM_AGP7"     : { "min": 0.900, "max": 1.060},
+                "VM_FE1"      : { "min": 3.220, "max": 3.780},
+                "VM_DDR_VDD"  : { "min": 1.240, "max": 1.460},
+                "VM_SW_DVDD"  : { "min": 1.520, "max": 1.780},
+                "VM_MGT1_AUX" : { "min": 1.650, "max": 1.940},
+                "VM_ADA2"     : { "min": 3.030, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
+                "VM_SW_AMP"   : { "min": 3.220, "max": 3.780, "skip": True}, # Not currently turned on
+                "VM_CLK1B"    : { "min": 3.030, "max": 3.560}
+            },
+            # TPM 1.6 min and max ranges are taken from factory acceptance testing
+            # See https://confluence.skatelescope.org/x/nDhED
+            "tpm_v1_6": {
+                "VREF_2V5"    : { "min": 2.370, "max": 2.630, "skip": True}, # TODO: add support for this measurement
+                "MGT_AVCC"    : { "min": 0.850, "max": 0.950},
+                "MGT_AVTT"    : { "min": 1.140, "max": 1.260},
+                "SW_AVDD1"    : { "min": 1.040, "max": 1.160},
+                "SW_AVDD2"    : { "min": 1.850, "max": 2.050},
+                "AVDD3"       : { "min": 2.370, "max": 2.600},
+                "MAN_1V2"     : { "min": 1.140, "max": 1.260},
+                "DDR0_VREF"   : { "min": 0.570, "max": 0.630},
+                "DDR1_VREF"   : { "min": 0.570, "max": 0.630},
+                "VM_DRVDD"    : { "min": 1.710, "max": 1.890},
+                "VIN"         : { "min": 11.40, "max": 12.60},
+                "MON_3V3"     : { "min": 3.130, "max": 3.460},
+                "MON_1V8"     : { "min": 1.710, "max": 1.890},
+                "MON_5V0"     : { "min": 4.690, "max": 5.190},
+                "VM_ADA0"     : { "min": 3.040, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
+                "VM_ADA1"     : { "min": 3.040, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
+                "VM_AGP0"     : { "min": 0.840, "max": 0.990},
+                "VM_AGP1"     : { "min": 0.840, "max": 0.990},
+                "VM_AGP2"     : { "min": 0.840, "max": 0.990},
+                "VM_AGP3"     : { "min": 0.840, "max": 0.990},
+                "VM_CLK0B"    : { "min": 3.040, "max": 3.560},
+                "VM_DDR0_VTT" : { "min": 0.550, "max": 0.650},
+                "VM_FE0"      : { "min": 3.220, "max": 3.780},
+                "VM_MGT0_AUX" : { "min": 1.660, "max": 1.940},
+                "VM_PLL"      : { "min": 3.040, "max": 3.560},
+                "VM_AGP4"     : { "min": 0.840, "max": 0.990},
+                "VM_AGP5"     : { "min": 0.840, "max": 0.990},
+                "VM_AGP6"     : { "min": 0.840, "max": 0.990},
+                "VM_AGP7"     : { "min": 0.840, "max": 0.990},
+                "VM_CLK1B"    : { "min": 3.040, "max": 3.560},
+                "VM_DDR1_VDD" : { "min": 1.100, "max": 1.300},
+                "VM_DDR1_VTT" : { "min": 0.550, "max": 0.650},
+                "VM_DVDD"     : { "min": 1.010, "max": 1.190},
+                "VM_FE1"      : { "min": 3.220, "max": 3.780},
+                "VM_MGT1_AUX" : { "min": 1.660, "max": 1.940},
+                "VM_SW_AMP"   : { "min": 3.220, "max": 3.780},
+            }
+        }
+
+        EXP_CURRENT = {
+            # TPM 1.2 min and max ranges are provisional
+            # See https://confluence.skatelescope.org/x/nDhED
+            "tpm_v1_2": {
+                "ACS_5V0_VI": { "min": 0.000, "max": 25.00, "skip": True}, # TODO: add support for this measurement
+                "ACS_FE0_VI": { "min": 0.000, "max": 4.000, "skip": True}, # known defective
+                "ACS_FE1_VI": { "min": 0.000, "max": 4.000, "skip": True}  # known defective
+            },
+            # TPM 1.6 min and max ranges are taken from factory acceptance testing
+            # See https://confluence.skatelescope.org/x/nDhED
+            "tpm_v1_6": {
+                "FE0_MVA"     : { "min": 1.930, "max": 2.270},
+                "FE1_MVA"     : { "min": 2.020, "max": 2.380}
+            }
+        }
+        return EXP_VOLTAGE, EXP_CURRENT
+
     
     def fpga_gen(self, fpga_id):
         return range(len(self.tile.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
