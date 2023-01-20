@@ -17,12 +17,15 @@ from __future__ import annotations
 
 import functools
 import logging
+import threading
+import time
 import unittest
 from typing import Any, Callable, Generator, Set, cast
 
 import _pytest
 import pytest
 import tango
+import uvicorn
 import yaml
 from ska_low_mccs_common.testing.mock import MockChangeEventCallback, MockDeviceBuilder
 from ska_low_mccs_common.testing.tango_harness import (
@@ -35,6 +38,10 @@ from ska_low_mccs_common.testing.tango_harness import (
     TangoHarness,
     TestContextTangoHarness,
 )
+
+from ska_low_mccs_spshw.subrack import FanMode, SubrackData
+from ska_low_mccs_spshw.subrack.subrack_simulator import SubrackSimulator
+from ska_low_mccs_spshw.subrack.subrack_simulator_server import configure_server
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
@@ -369,79 +376,159 @@ def mock_change_event_callback_factory(
     )
 
 
+# The following fixtures are defined here because they are needed in both
+# the integration tests and the subrack unit tests
+
+
+@pytest.fixture(name="subrack_simulator_config")
+def subrack_simulator_config_fixture() -> dict[str, Any]:
+    """
+    Return attribute values with which the subrack simulator is configured.
+
+    :return: a key-value dictionary of attribute values with which the
+        subrack simulator is configured.
+    """
+    return {
+        "tpm_present": [False, True, False, False, True, False, False, False],
+        "tpm_on_off": [False, False, False, False, False, False, False, False],
+        "backplane_temperatures": [39.0, 40.0],
+        "board_temperatures": [40.0, 41.0],
+        "board_current": 1.1,
+        "power_supply_currents": [4.2, 5.8],
+        "power_supply_fan_speeds": [90.0, 100.0],
+        "power_supply_voltages": [12.0, 12.1],
+        "subrack_fan_speeds": [4999.0, 5000.0, 5001.0, 5002.0],
+        "subrack_fan_modes": [FanMode.AUTO, FanMode.AUTO, FanMode.AUTO, FanMode.AUTO],
+        "tpm_currents": [0.4] * 8,
+        "tpm_temperatures": [40.0] * 8,
+        "tpm_voltages": [12.0] * 8,
+    }
+
+
+@pytest.fixture(name="subrack_simulator_attribute_values")
+def subrack_simulator_attribute_values_fixture(
+    subrack_simulator_config,
+) -> dict[str, Any]:
+    """
+    Return attribute values that the subrack simulator is expected to report.
+
+    :param subrack_simulator_config: attribute values with which the
+        subrack simulator is configured.
+
+    :return: a key-value dictionary of attribute values that the subrack
+        simulator is expected to report.
+    """
+
+    def _approxify(list_of_floats):
+        return [pytest.approx(element) for element in list_of_floats]
+
+    return {
+        "tpm_present": subrack_simulator_config["tpm_present"],
+        "tpm_on_off": subrack_simulator_config["tpm_on_off"],
+        "backplane_temperatures": _approxify(
+            subrack_simulator_config["backplane_temperatures"]
+        ),
+        "board_temperatures": _approxify(
+            subrack_simulator_config["board_temperatures"]
+        ),
+        "board_current": pytest.approx(subrack_simulator_config["board_current"]),
+        "power_supply_currents": _approxify(
+            subrack_simulator_config["power_supply_currents"]
+        ),
+        "power_supply_fan_speeds": _approxify(
+            subrack_simulator_config["power_supply_fan_speeds"]
+        ),
+        "power_supply_voltages": _approxify(
+            subrack_simulator_config["power_supply_voltages"]
+        ),
+        "power_supply_powers": [
+            pytest.approx(c * v)
+            for c, v in zip(
+                subrack_simulator_config["power_supply_currents"],
+                subrack_simulator_config["power_supply_voltages"],
+            )
+        ],
+        "subrack_fan_speeds": subrack_simulator_config["subrack_fan_speeds"],
+        "subrack_fan_speeds_percent": [
+            pytest.approx(s * 100.0 / SubrackData.MAX_SUBRACK_FAN_SPEED)
+            for s in subrack_simulator_config["subrack_fan_speeds"]
+        ],
+        "subrack_fan_modes": subrack_simulator_config["subrack_fan_modes"],
+        "tpm_currents": _approxify(subrack_simulator_config["tpm_currents"]),
+        "tpm_temperatures": _approxify(subrack_simulator_config["tpm_temperatures"]),
+        "tpm_voltages": _approxify(subrack_simulator_config["tpm_voltages"]),
+        "tpm_powers": [
+            pytest.approx(c * v)
+            for c, v in zip(
+                subrack_simulator_config["tpm_currents"],
+                subrack_simulator_config["tpm_voltages"],
+            )
+        ],
+    }
+
+
 @pytest.fixture()
-def lrc_result_changed_callback_factory(
-    mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
-) -> Callable[[], MockChangeEventCallback]:
+def subrack_simulator(subrack_simulator_config: dict[str, Any]) -> SubrackSimulator:
     """
-    Return a mock change event callback factory for device LRC result change.
+    Return a subrack simulator.
 
-    :param mock_change_event_callback_factory: fixture that provides a
-        mock change event callback factory (i.e. an object that returns
-        mock callbacks when called).
+    This is the backend python object, not the web server interface to it.
 
-    :return: a mock change event callback factory to be registered with
-        a device via a change event subscription, so that it gets called
-        when the device LRC in queue changes.
+    :param subrack_simulator_config: a keyword dictionary that specifies
+        the desired configuration of the simulator backend.
+
+    :return: a subrack simulator.
     """
-
-    def _factory() -> MockChangeEventCallback:
-        return mock_change_event_callback_factory("longRunningCommandResult")
-
-    return _factory
+    return SubrackSimulator(**subrack_simulator_config)
 
 
 @pytest.fixture()
-def lrc_result_changed_callback(
-    lrc_result_changed_callback_factory: Callable[[], MockChangeEventCallback],
-) -> MockChangeEventCallback:
+def subrack_server(subrack_simulator: SubrackSimulator) -> None:
     """
-    Return a mock change event callback for a device LRC result change.
+    Yield a running subrack server.
 
-    :param lrc_result_changed_callback_factory: fixture that provides a mock
-        change event callback factory for LRC result change events.
+    :param subrack_simulator: the actual backend simulator to which this
+        server provides an interface.
 
-    :return: a mock change event callback to be registered with the
-        device via a change event subscription, so that it
-        gets called when the device state changes.
+    :yields: a running subrack server.
     """
-    return lrc_result_changed_callback_factory()
+
+    class ThreadableServer(uvicorn.Server):
+        def install_signal_handlers(self: ThreadableServer):
+            pass
+
+    import socket
+
+    my_socket = socket.socket()
+    server_config = configure_server(subrack_simulator, host="127.0.0.1", port=0)
+
+    the_server = ThreadableServer(config=server_config)
+    server_thread = threading.Thread(target=the_server.run, args=([my_socket],))
+    server_thread.start()
+
+    while not the_server.started:
+        time.sleep(1e-3)
+    yield my_socket.getsockname()
+    the_server.should_exit = True
+    server_thread.join()
 
 
 @pytest.fixture()
-def lrc_status_changed_callback_factory(
-    mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
-) -> Callable[[], MockChangeEventCallback]:
+def subrack_ip() -> str:
     """
-    Return a mock change event callback factory for device LRC status change.
+    Return the IP address of the subrack.
 
-    :param mock_change_event_callback_factory: fixture that provides a
-        mock change event callback factory (i.e. an object that returns
-        mock callbacks when called).
-
-    :return: a mock change event callback factory to be registered with
-        a device via a change event subscription, so that it gets called
-        when the device LRC in queue changes.
+    :return: the IP address of the subrack.
     """
-
-    def _factory() -> MockChangeEventCallback:
-        return mock_change_event_callback_factory("longRunningCommandStatus")
-
-    return _factory
+    return "127.0.0.1"
 
 
 @pytest.fixture()
-def lrc_status_changed_callback(
-    lrc_status_changed_callback_factory: Callable[[], MockChangeEventCallback],
-) -> MockChangeEventCallback:
+def subrack_port(subrack_server: None) -> int:
     """
-    Return a mock change event callback for a device LRC status change.
+    Return the subrack port.
 
-    :param lrc_status_changed_callback_factory: fixture that provides a mock
-        change event callback factory for LRC status change events.
-
-    :return: a mock change event callback to be registered with the
-        device via a change event subscription, so that it
-        gets called when the device state changes.
+    :param subrack_server: a running subrack server.
+    :return: the subrack port.
     """
-    return lrc_status_changed_callback_factory()
+    return subrack_server[1]
