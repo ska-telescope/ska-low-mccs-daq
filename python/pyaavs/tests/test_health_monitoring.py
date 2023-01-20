@@ -38,15 +38,23 @@ class TestHealthMonitoring():
             return 1
         
         for n, tile in enumerate(self._test_station.tiles):
-            EXP_VOLTAGE, EXP_CURRENT = tile.tile_health_monitor.get_health_acceptance_values()
+            EXP_TEMP, EXP_VOLTAGE, EXP_CURRENT = tile.tile_health_monitor.get_health_acceptance_values()
             tpm_version = tile.tpm_version()
             if not tile.tpm.adas_enabled:
                 self._logger.info("ADAs disabled. Skipping checks for ADA voltages.")
-                
+
             # UUT - Clear and Get Health Status
             tile.enable_health_monitoring()
             tile.clear_health_status()
             health_dict = tile.get_health_status()
+
+            # Check Temperature Measurements
+            for name, value in health_dict['temperature'].items():
+                if value > EXP_TEMP[name]['max'] or value < EXP_TEMP[name]['min']:
+                    self._logger.error(f"TPM{n} {name} Temperature is {value}\N{DEGREE SIGN}C, outside acceptable range {EXP_TEMP[name]['min']}\N{DEGREE SIGN}C - {EXP_TEMP[name]['max']}\N{DEGREE SIGN}C. Test FAILED")
+                    errors += 1
+                else:
+                    self._logger.info(f"TPM{n} {name} Temperature is {value}\N{DEGREE SIGN}C, within acceptable range {EXP_TEMP[name]['min']}\N{DEGREE SIGN}C - {EXP_TEMP[name]['max']}\N{DEGREE SIGN}C.")
 
             # Check Voltage Measurements
             for name, value in health_dict['voltage'].items():
