@@ -36,45 +36,43 @@ class TileHealthMonitor:
         Returns the current value of all TPM monitoring points.
         https://confluence.skatelescope.org/x/nDhED
         """
-        health_dict = {}
-        health_dict['temperature'] = {}
-        health_dict['voltage'] = {}
-        health_dict['current'] = {}
-        health_dict['timing'] = {}
-        health_dict['timing']['pps'] = {}
-        health_dict['io'] = {}
-        health_dict['io']['jesd_if'] = {}
-        health_dict['io']['ddr_if'] = {}
-        health_dict['io']['f2f_if'] = {}
-        health_dict['io']['udp_if'] = {}
-        health_dict['dsp'] = {}
-        # Board level monitoring points
+        health_dict = {
+            'temperature': self.get_fpga_temperature(fpga_id=None), 
+            'voltage': self.get_voltage(fpga_id=None, voltage_name=None),
+            'current': self.get_current(fpga_id=None, current_name=None),
+            'timing': {
+                'clocks': self.check_clock_status(fpga_id=None, clock_name=None),
+                'clock_managers': self.check_clock_manager_status(fpga_id=None, name=None),
+                'pps': {
+                    'status': self.check_pps_status(fpga_id=None)
+                }
+            },
+            'io': {
+                'jesd_if': {
+                    'lanes': self.check_jesd_lanes(fpga_id=None, core_id=None),
+                    'error_count' : self.check_jesd_error_counter(fpga_id=None, core_id=None, show_result=False),
+                    'resync_count': self.check_jesd_resync_counter(fpga_id=None, show_result=False),
+                    'drop_count': self.check_jesd_qpll_drop_counter(fpga_id=None, show_result=False)
+                },
+                'ddr_if': {
+                    'initialisation': self.check_ddr_initialisation(fpga_id=None),
+                    'reset_counter': self.check_ddr_reset_counter(fpga_id=None, show_result=False)
+                },
+                'f2f_if': {
+                    'drop_count': self.check_f2f_drop_counter(core_id=None, show_result=False)
+                },
+                'udp_if': {
+                    'arp': self.check_udp_arp_table_status(fpga_id=None, show_result=False),
+                    'status': self.check_udp_status(fpga_id=None),
+                    'drop_count': self.check_udp_link_drop_counter(fpga_id=None, show_result=False)
+                }
+            }, 
+            'dsp': {
+                'tile_beamf': self.check_tile_beamformer_status(fpga_id=None),
+                'station_beamf': self.check_station_beamformer_status(fpga_id=None, show_result=False)
+            }
+        }
         health_dict['temperature']['board'] = round(self.tile.get_temperature(), 2)
-        health_dict['temperature'].update(self.get_fpga_temperature(fpga_id=None))
-        health_dict['voltage'].update(self.get_voltage(fpga_id=None, voltage_name=None))
-        health_dict['current'].update(self.get_current(fpga_id=None, current_name=None))
-        # Timing Signal monitoing points
-        health_dict['timing']['clocks'] = self.check_clock_status(fpga_id=None, clock_name=None)
-        health_dict['timing']['clock_managers'] = self.check_clock_manager_status(fpga_id=None, name=None)
-        health_dict['timing']['pps']['status'] = self.check_pps_status(fpga_id=None)
-        # health_dict['timing']['pll'] = self.check_pll_status() # TODO: add method
-        # JESD monitoing points
-        health_dict['io']['jesd_if']['lanes'] = self.check_jesd_lanes(fpga_id=None, core_id=None)
-        health_dict['io']['jesd_if']['error_count'] = self.check_jesd_error_counter(fpga_id=None, core_id=None, show_result=False)
-        health_dict['io']['jesd_if']['resync_count'] = self.check_jesd_resync_counter(fpga_id=None, show_result=False)
-        health_dict['io']['jesd_if']['drop_count'] = self.check_jesd_qpll_drop_counter(fpga_id=None, show_result=False)
-        # DDR monitoring points
-        health_dict['io']['ddr_if']['initialisation'] = self.check_ddr_initialisation(fpga_id=None)
-        health_dict['io']['ddr_if']['reset_counter'] = self.check_ddr_reset_counter(fpga_id=None, show_result=False)
-        # F2F monitoing points
-        health_dict['io']['f2f_if']['drop_count'] = self.check_f2f_drop_counter(core_id=None, show_result=False)
-        # UDP monitoring points
-        health_dict['io']['udp_if']['arp'] = self.check_udp_arp_table_status(fpga_id=None, show_result=False)
-        health_dict['io']['udp_if']['status'] = self.check_udp_status(fpga_id=None)
-        health_dict['io']['udp_if']['drop_count'] = self.check_udp_link_drop_counter(fpga_id=None, show_result=False)
-        # DSP monitoring points
-        health_dict['dsp']['tile_beamf'] = self.check_tile_beamformer_status(fpga_id=None)
-        health_dict['dsp']['station_beamf'] = self.check_station_beamformer_status(fpga_id=None, show_result=False)
         return health_dict
     
     def clear_health_status(self):
@@ -199,7 +197,7 @@ class TileHealthMonitor:
 
     def fpga_gen(self, fpga_id):
         return range(len(self.tile.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
-        
+
     def get_fpga_temperature(self, fpga_id=None):
         """
         Get FPGA temperature.
