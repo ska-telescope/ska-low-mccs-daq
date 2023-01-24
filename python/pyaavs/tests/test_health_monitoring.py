@@ -26,13 +26,42 @@ class TestHealthMonitoring():
             return 1
         self._logger.info("Health Monitoring Test PASSED!")
         return 0
+
+    def check_analog_measurements(self, key, unit, expected, measurement, tpm_id):
+        # Preliminary Checks
+        if expected.keys() != measurement.keys():
+            self._logger.error(f"Got {len(measurement.keys())} {key} measurements, expected {len(expected.keys())}. Test FAILED")
+            self.errors += 1
+        # Check Measurements
+        for name, value in measurement.items():
+            if expected[name].get('skip', False):
+                self._logger.info(f"Skipping checks for TPM{tpm_id} {key.capitalize()} {name}.")
+            else:
+                if value > expected[name]['max'] or value < expected[name]['min']:
+                    self._logger.error(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}. Test FAILED")
+                    self.errors += 1
+                else:
+                    self._logger.info(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, within acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}.")
+        return
         
-    def get_health_by_path(health, path_list):
+    def get_health_by_path(self, health, path_list):
         return reduce(operator.getitem, path_list, health)
 
-    def recursive_check_health_dict(expected_health, current_health, key_list):
+    def recursive_check_health_dict(self, expected_health, current_health, key_list, tpm_id, tpm_version):
         for name, value in expected_health.items():
             key_list.append(name)
+            if key_list == ['temperature']:
+                self.check_analog_measurements('temperature', '\N{DEGREE SIGN}C', expected_health['temperature'], current_health['temperature'], tpm_id)
+                key_list.pop()
+                continue
+            if key_list == ['voltage']:
+                self.check_analog_measurements('voltage', 'V', expected_health['voltage'][tpm_version], current_health['voltage'], tpm_id)
+                key_list.pop()
+                continue
+            if key_list == ['current']:
+                self.check_analog_measurements('current', 'A', expected_health['current'][tpm_version], current_health['current'], tpm_id)
+                key_list.pop()
+                continue
             if not isinstance(value, dict):
                 if '.'.join(key_list) in MON_POINT_SKIP:
                     print(f"Skipping checks for {'->'.join(key_list)}.")
@@ -40,7 +69,7 @@ class TestHealthMonitoring():
                 else:
                     expected_value = value
                     try: 
-                        current_value = get_health_by_path(current_health, key_list)
+                        current_value = self.get_health_by_path(current_health, key_list)
                     except KeyError:
                         print(f"{'->'.join(key_list)} expected but not found in Health Status.  Test FAILED")
                         self.errors += 1
@@ -53,7 +82,7 @@ class TestHealthMonitoring():
                         print(f"{'->'.join(key_list)} is {expected_value} as expected.")
                     key_list.pop()
             else:
-                recursive_check_health_dict(value, current_health, key_list)
+                self.recursive_check_health_dict(value, current_health, key_list, tpm_id, tpm_version)
         if key_list:
             key_list.pop()
         return
@@ -75,9 +104,7 @@ class TestHealthMonitoring():
             return 1
         
         for n, tile in enumerate(self._test_station.tiles):
-            EXP_TEMP, EXP_VOLTAGE, EXP_CURRENT = tile.tile_health_monitor.get_health_acceptance_values()
             expected_health = tile.tile_health_monitor.get_exp_health()
-            # TODO: combine expected_health dict, EXP_TEMP, EXP_VOLTAGE & EXP_CURRENT
             tpm_version = tile.tpm_version()
             if not tile.tpm.adas_enabled:
                 self._logger.info("ADAs disabled. Skipping checks for ADA voltages.")
@@ -87,52 +114,9 @@ class TestHealthMonitoring():
             tile.clear_health_status()
             health_dict = tile.get_health_status()
 
-            # Preliminary Checks
-            if EXP_TEMP.keys() != health_dict['temperature'].keys():
-                self._logger.error(f"Got {len(health_dict['temperature'].keys())} temperature measurements, expected {len(EXP_TEMP.keys())}. Test FAILED")
-                self.errors += 1
-            if EXP_VOLTAGE.keys() != health_dict['voltage'].keys():
-                self._logger.error(f"Got {len(health_dict['voltage'].keys())} voltage measurements, expected {len(EXP_VOLTAGE.keys())}. Test FAILED")
-                self.errors += 1
-            if EXP_CURRENT.keys() != health_dict['current'].keys():
-                self._logger.error(f"Got {len(health_dict['current'].keys())} current measurements, expected {len(EXP_CURRENT.keys())}. Test FAILED")
-                self.errors += 1
-        
-            # Check Temperature Measurements
-            for name, value in health_dict['temperature'].items():
-                if value > EXP_TEMP[name]['max'] or value < EXP_TEMP[name]['min']:
-                    self._logger.error(f"TPM{n} {name} Temperature is {value}\N{DEGREE SIGN}C, outside acceptable range {EXP_TEMP[name]['min']}\N{DEGREE SIGN}C - {EXP_TEMP[name]['max']}\N{DEGREE SIGN}C. Test FAILED")
-                    self.errors += 1
-                else:
-                    self._logger.info(f"TPM{n} {name} Temperature is {value}\N{DEGREE SIGN}C, within acceptable range {EXP_TEMP[name]['min']}\N{DEGREE SIGN}C - {EXP_TEMP[name]['max']}\N{DEGREE SIGN}C.")
-
-            # Check Voltage Measurements
-            for name, value in health_dict['voltage'].items():
-                if EXP_VOLTAGE[tpm_version][name].get('skip', False):
-                    self._logger.info(f"Skipping checks for TPM{n} voltage {name}.")
-                else:
-                    if value > EXP_VOLTAGE[tpm_version][name]['max'] or value < EXP_VOLTAGE[tpm_version][name]['min']:
-                        self._logger.error(f"TPM{n} Voltage {name} is {value}V, outside acceptable range {EXP_VOLTAGE[tpm_version][name]['min']}V - {EXP_VOLTAGE[tpm_version][name]['max']}V. Test FAILED")
-                        self.errors += 1
-                    else:
-                        self._logger.info(f"TPM{n} Voltage {name} is {value}V, within acceptable range {EXP_VOLTAGE[tpm_version][name]['min']}V - {EXP_VOLTAGE[tpm_version][name]['max']}V.")
-
-            # Check Current Measurements
-            for name, value in health_dict['current'].items():
-                if EXP_CURRENT[tpm_version][name].get('skip', False):
-                    self._logger.info(f"Skipping checks for TPM{n} current {name}.")
-                else:
-                    if value > EXP_CURRENT[tpm_version][name]['max'] or value < EXP_CURRENT[tpm_version][name]['min']:
-                        self._logger.error(f"TPM{n} Current {name} is {value}A, outside acceptable range {EXP_CURRENT[tpm_version][name]['min']}A - {EXP_CURRENT[tpm_version][name]['max']}A. Test FAILED")
-                        self.errors += 1
-                    else:
-                        self._logger.info(f"TPM{n} Current {name} is {value}A, within acceptable range {EXP_CURRENT[tpm_version][name]['min']}A - {EXP_CURRENT[tpm_version][name]['max']}A.")
-
-            # Check the remainder of monitoring points
-            # Here all points with static expected values, not ranges are verified.
             # If an expected monitoring point is missing from health_dict an error is produced. 
             # Any extra monitoring points in health_dict, not known to expected_health are ignored.
-            recursive_check_health_dict(expected_health, health_dict, [])
+            self.recursive_check_health_dict(expected_health, health_dict, [], n, tpm_version)
 
             return self.clean_up()
 
