@@ -197,10 +197,25 @@ class TileHealthMonitor:
         }
         return EXP_TEMP, EXP_VOLTAGE, EXP_CURRENT
 
-    
     def fpga_gen(self, fpga_id):
         return range(len(self.tile.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
     
+    def get_exp_health(self):
+        health = {
+            'timing': {
+                'clocks': {'FPGA0': {'JESD': True, 'DDR': True, 'UDP': True}, 'FPGA1': {'JESD': True, 'DDR': True, 'UDP': True}},
+                'clock_managers' : {'FPGA0': {'C2C_MMCM': 0, 'JESD_MMCM': 0, 'DSP_MMCM': 0},'FPGA1': {'C2C_MMCM': 0, 'JESD_MMCM': 0, 'DSP_MMCM': 0}},
+                'pps': {'status': True}
+            },
+            'io':{
+                'jesd_if': {'lanes': True, 'error_count': True, 'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 'drop_count': {'FPGA0': 0, 'FPGA1': 0}},
+                'ddr_if': {'initialisation': True, 'reset_counter': {'FPGA0': 0, 'FPGA1': 0}},
+                'f2f_if': {'drop_count': {'Core0': [0, 0], 'Core1': [0, 0]}},
+                'udp_if': {'arp': True, 'status': True, 'drop_count': {'FPGA0': 0, 'FPGA1': 0}}},
+            'dsp': {'tile_beamf': True,'station_beamf': True}
+        }
+        return health
+        
     def get_fpga_temperature(self, fpga_id=None):
         """
         Get FPGA temperature.
