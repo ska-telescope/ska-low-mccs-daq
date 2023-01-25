@@ -15,21 +15,29 @@ functional (BDD).
 """
 from __future__ import annotations
 
-import functools
 import logging
-import socket
-import threading
-import time
-from types import TracebackType
-from typing import Any, Callable, ContextManager, Literal, Optional, Type
+from typing import Any
 
 import pytest
 import tango
-import uvicorn
 
-from ska_low_mccs_spshw.subrack import FanMode, SubrackData
-from ska_low_mccs_spshw.subrack.subrack_simulator import SubrackSimulator
-from ska_low_mccs_spshw.subrack.subrack_simulator_server import configure_server
+# TODO: We need a better solution to this.
+try:
+    from ska_low_mccs_spshw.subrack import FanMode, SubrackData
+except (ImportError, ModuleNotFoundError):
+    import enum
+
+    class SubrackData:  # type: ignore[no-redef]
+        """Facts about subracks."""
+
+        TPM_BAY_COUNT = 8
+        MAX_SUBRACK_FAN_SPEED = 8000.0
+
+    class FanMode(enum.IntEnum):  # type: ignore[no-redef]
+        """Python enumerated type for FanMode."""
+
+        MANUAL = 1
+        AUTO = 2
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
@@ -202,134 +210,6 @@ def subrack_device_attribute_values_fixture(
             )
         ],
     }
-
-
-@pytest.fixture(scope="session")
-def subrack_simulator_factory(
-    subrack_simulator_config: dict[str, Any],
-) -> Callable[[], SubrackSimulator]:
-    """
-    Return a subrack simulator factory.
-
-    :param subrack_simulator_config: a keyword dictionary that specifies
-        the desired configuration of the simulator backend.
-
-    :return: a subrack simulator factory.
-    """
-    return functools.partial(SubrackSimulator, **subrack_simulator_config)
-
-
-@pytest.fixture()
-def subrack_simulator(
-    subrack_simulator_factory: Callable[[], SubrackSimulator],
-) -> SubrackSimulator:
-    """
-    Return a subrack simulator.
-
-    :param subrack_simulator_factory: a factory that returns a backend
-        simulator to which the server will provide an interface.
-
-    :return: a subrack simulator.
-    """
-    return subrack_simulator_factory()
-
-
-@pytest.fixture(scope="session")
-def subrack_server_launcher() -> Callable[
-    [SubrackSimulator], ContextManager[tuple[str, int]]
-]:
-    """
-    Return a subrack server launcher.
-
-    :return: a callable that, when called, launches a subrack server for
-        use in testing, yields it, and tears it down afterwards.
-    """
-
-    class _ThreadableServer(uvicorn.Server):
-        def install_signal_handlers(self: _ThreadableServer):
-            pass
-
-    class _SubrackServerContextManager:
-        def __init__(self, subrack_simulator):
-            self._socket = socket.socket()
-            server_config = configure_server(
-                subrack_simulator, host="127.0.0.1", port=0
-            )
-            self._server = _ThreadableServer(config=server_config)
-            self._thread = threading.Thread(
-                target=self._server.run, args=([self._socket],), daemon=True
-            )
-
-        def __enter__(self):
-            self._thread.start()
-
-            while not self._server.started:
-                time.sleep(1e-3)
-            _, port = self._socket.getsockname()
-            return "127.0.0.1", port
-
-        def __exit__(
-            self,
-            exc_type: Optional[Type[BaseException]],
-            exception: Optional[BaseException],
-            trace: Optional[TracebackType],
-        ) -> Literal[False]:
-            """
-            Exit the context.
-
-            :param exc_type: the type of exception thrown in the with block
-            :param exception: the exception thrown in the with block
-            :param trace: a traceback
-
-            :returns: whether the exception (if any) has been fully handled
-                by this method and should be swallowed i.e. not re-raised
-            """
-            self._server.should_exit = True
-            self._thread.join()
-            return False
-
-    return _SubrackServerContextManager
-
-
-@pytest.fixture()
-def subrack_server(
-    subrack_server_launcher,
-    subrack_simulator,
-) -> tuple[str, int]:
-    """
-    Yield a running subrack server.
-
-    :param subrack_server_launcher: a callable that, when called,
-        returns a context manager that spins up a subrack server, yields
-        it for use in testing, and then shuts its down afterwards.
-    :param subrack_simulator: the actual backend simulator to which this
-        server provides an interface.
-
-    :yields: a running subrack server.
-    """
-    with subrack_server_launcher(subrack_simulator) as subrack_server:
-        yield subrack_server
-
-
-@pytest.fixture()
-def subrack_address(subrack_server: tuple[str, int]) -> tuple[str, int]:
-    """
-    Yield the address (host and port) of the subrack.
-
-    :param subrack_server: a running subrack server.
-
-    :yields: the address of a running subrack.
-    """
-    # The subrack server yields the host and port,
-    # which is exactly what we need here, so we just yield it.
-    # This fixture might seem a little pointless, but
-    # (a) it provides a better name.
-    # (b) it allows us to write tests/fixtures that depend on the subrack address,
-    # without that address necessarily being that of a simulator server that has been
-    # launched by the test harness.
-    # In functional testing, where there's a real subrack,
-    # we simply override this fixture to point at that.
-    yield subrack_server
 
 
 @pytest.fixture(name="subrack_name", scope="session")
