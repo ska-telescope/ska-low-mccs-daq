@@ -15,16 +15,17 @@ functional (BDD).
 """
 from __future__ import annotations
 
+import functools
 import logging
+import socket
 import threading
 import time
-from typing import Any, Set, cast
+from types import TracebackType
+from typing import Any, Callable, ContextManager, Literal, Optional, Type
 
-import _pytest
 import pytest
 import tango
 import uvicorn
-import yaml
 
 from ska_low_mccs_spshw.subrack import FanMode, SubrackData
 from ska_low_mccs_spshw.subrack.subrack_simulator import SubrackSimulator
@@ -40,87 +41,6 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     print(tango.utils.info())
 
 
-with open("tests/testbeds.yaml", "r", encoding="utf-8") as stream:
-    _testbeds: dict[str, set[str]] = yaml.safe_load(stream)
-
-
-# TODO: pytest is partially typehinted but does not yet export Config
-def pytest_configure(
-    config: _pytest.config.Config,  # type: ignore[name-defined]
-) -> None:
-    """
-    Register custom markers to avoid pytest warnings.
-
-    :param config: the pytest config object
-    """
-    all_tags: Set[str] = cast(Set[str], set()).union(*_testbeds.values())
-    for tag in all_tags:
-        config.addinivalue_line("markers", f"needs_{tag}")
-
-
-# TODO: pytest is partially typehinted but does not yet export Parser
-def pytest_addoption(
-    parser: _pytest.config.argparsing.Parser,  # type: ignore[name-defined]
-) -> None:
-    """
-    Implement the add the `--testbed` option.
-
-    Used to specify the context in which the test is running.
-    This could be used, for example, to skip tests that
-    have requirements not met by the context.
-
-    :param parser: the command line options parser
-    """
-    parser.addoption(
-        "--testbed",
-        choices=_testbeds.keys(),
-        default="test",
-        help="Specify the testbed on which the tests are running.",
-    )
-
-
-# TODO: pytest is partially typehinted but does not yet export Config
-def pytest_collection_modifyitems(
-    config: _pytest.config.Config,  # type: ignore[name-defined]
-    items: list[pytest.Item],
-) -> None:
-    """
-    Modify the list of tests to be run, after pytest has collected them.
-
-    This hook implementation skips tests that are marked as needing some
-    tag that is not provided by the current test context, as specified
-    by the "--testbed" option.
-
-    For example, if we have a hardware test that requires the presence
-    of a real TPM, we can tag it with "@needs_tpm". When we run in a
-    "test" context (that is, with "--testbed test" option), the test
-    will be skipped because the "test" context does not provide a TPM.
-    But when we run in "pss" context, the test will be run because the
-    "pss" context provides a TPM.
-
-    :param config: the pytest config object
-    :param items: list of tests collected by pytest
-    """
-    testbed = config.getoption("--testbed")
-    available_tags = _testbeds.get(testbed, set())
-
-    prefix = "needs_"
-    for item in items:
-        needs_tags = set(
-            tag[len(prefix) :] for tag in item.keywords if tag.startswith(prefix)
-        )
-        unmet_tags = list(needs_tags - available_tags)
-        if unmet_tags:
-            item.add_marker(
-                pytest.mark.skip(
-                    reason=(
-                        f"Testbed '{testbed}' does not meet test needs: "
-                        f"{unmet_tags}."
-                    )
-                )
-            )
-
-
 @pytest.fixture(scope="session")
 def logger() -> logging.Logger:
     """
@@ -133,11 +53,7 @@ def logger() -> logging.Logger:
     return debug_logger
 
 
-# The following fixtures are defined here because they are needed in both
-# the integration tests and the subrack unit tests
-
-
-@pytest.fixture(name="subrack_simulator_config")
+@pytest.fixture(name="subrack_simulator_config", scope="session")
 def subrack_simulator_config_fixture() -> dict[str, Any]:
     """
     Return attribute values with which the subrack simulator is configured.
@@ -154,7 +70,7 @@ def subrack_simulator_config_fixture() -> dict[str, Any]:
         "power_supply_currents": [4.2, 5.8],
         "power_supply_fan_speeds": [90.0, 100.0],
         "power_supply_voltages": [12.0, 12.1],
-        "subrack_fan_speeds": [4999.0, 5000.0, 5001.0, 5002.0],
+        "subrack_fan_speeds_percent": [95.0, 96.0, 97.0, 98.0],
         "subrack_fan_modes": [FanMode.AUTO, FanMode.AUTO, FanMode.AUTO, FanMode.AUTO],
         "tpm_currents": [0.4] * 8,
         "tpm_temperatures": [40.0] * 8,
@@ -162,7 +78,7 @@ def subrack_simulator_config_fixture() -> dict[str, Any]:
     }
 
 
-@pytest.fixture(name="subrack_simulator_attribute_values")
+@pytest.fixture(name="subrack_simulator_attribute_values", scope="session")
 def subrack_simulator_attribute_values_fixture(
     subrack_simulator_config,
 ) -> dict[str, Any]:
@@ -205,10 +121,12 @@ def subrack_simulator_attribute_values_fixture(
                 subrack_simulator_config["power_supply_voltages"],
             )
         ],
-        "subrack_fan_speeds": subrack_simulator_config["subrack_fan_speeds"],
-        "subrack_fan_speeds_percent": [
-            pytest.approx(s * 100.0 / SubrackData.MAX_SUBRACK_FAN_SPEED)
-            for s in subrack_simulator_config["subrack_fan_speeds"]
+        "subrack_fan_speeds_percent": _approxify(
+            subrack_simulator_config["subrack_fan_speeds_percent"]
+        ),
+        "subrack_fan_speeds": [
+            pytest.approx(p * SubrackData.MAX_SUBRACK_FAN_SPEED / 100.0)
+            for p in subrack_simulator_config["subrack_fan_speeds_percent"]
         ],
         "subrack_fan_modes": subrack_simulator_config["subrack_fan_modes"],
         "tpm_currents": _approxify(subrack_simulator_config["tpm_currents"]),
@@ -224,68 +142,201 @@ def subrack_simulator_attribute_values_fixture(
     }
 
 
-@pytest.fixture()
-def subrack_simulator(subrack_simulator_config: dict[str, Any]) -> SubrackSimulator:
+@pytest.fixture(name="subrack_device_attribute_values", scope="session")
+def subrack_device_attribute_values_fixture(
+    subrack_simulator_config,
+) -> dict[str, Any]:
     """
-    Return a subrack simulator.
+    Return attribute values that the subrack device is expected to report.
 
-    This is the backend python object, not the web server interface to it.
+    :param subrack_simulator_config: attribute values with which the
+        subrack simulator is configured.
+
+    :return: a key-value dictionary of attribute values that the subrack
+        device is expected to report.
+    """
+
+    def _approxify(list_of_floats):
+        return [pytest.approx(element) for element in list_of_floats]
+
+    return {
+        "tpmPresent": subrack_simulator_config["tpm_present"],
+        "tpmOnOff": subrack_simulator_config["tpm_on_off"],
+        "backplaneTemperatures": _approxify(
+            subrack_simulator_config["backplane_temperatures"]
+        ),
+        "boardTemperatures": _approxify(subrack_simulator_config["board_temperatures"]),
+        "boardCurrent": [pytest.approx(subrack_simulator_config["board_current"])],
+        "powerSupplyCurrents": _approxify(
+            subrack_simulator_config["power_supply_currents"]
+        ),
+        "powerSupplyFanSpeeds": _approxify(
+            subrack_simulator_config["power_supply_fan_speeds"]
+        ),
+        "powerSupplyVoltages": _approxify(
+            subrack_simulator_config["power_supply_voltages"]
+        ),
+        "powerSupplyPowers": [
+            pytest.approx(c * v)
+            for c, v in zip(
+                subrack_simulator_config["power_supply_currents"],
+                subrack_simulator_config["power_supply_voltages"],
+            )
+        ],
+        "subrackFanSpeedsPercent": _approxify(
+            subrack_simulator_config["subrack_fan_speeds_percent"]
+        ),
+        "subrackFanSpeeds": [
+            pytest.approx(p * SubrackData.MAX_SUBRACK_FAN_SPEED / 100.0)
+            for p in subrack_simulator_config["subrack_fan_speeds_percent"]
+        ],
+        "subrackFanModes": subrack_simulator_config["subrack_fan_modes"],
+        "tpmCurrents": _approxify(subrack_simulator_config["tpm_currents"]),
+        "tpmTemperatures": _approxify(subrack_simulator_config["tpm_temperatures"]),
+        "tpmVoltages": _approxify(subrack_simulator_config["tpm_voltages"]),
+        "tpmPowers": [
+            pytest.approx(c * v)
+            for c, v in zip(
+                subrack_simulator_config["tpm_currents"],
+                subrack_simulator_config["tpm_voltages"],
+            )
+        ],
+    }
+
+
+@pytest.fixture(scope="session")
+def subrack_simulator_factory(
+    subrack_simulator_config: dict[str, Any],
+) -> Callable[[], SubrackSimulator]:
+    """
+    Return a subrack simulator factory.
 
     :param subrack_simulator_config: a keyword dictionary that specifies
         the desired configuration of the simulator backend.
 
-    :return: a subrack simulator.
+    :return: a subrack simulator factory.
     """
-    return SubrackSimulator(**subrack_simulator_config)
+    return functools.partial(SubrackSimulator, **subrack_simulator_config)
 
 
 @pytest.fixture()
-def subrack_server(subrack_simulator: SubrackSimulator) -> None:
+def subrack_simulator(
+    subrack_simulator_factory: Callable[[], SubrackSimulator],
+) -> SubrackSimulator:
+    """
+    Return a subrack simulator.
+
+    :param subrack_simulator_factory: a factory that returns a backend
+        simulator to which the server will provide an interface.
+
+    :return: a subrack simulator.
+    """
+    return subrack_simulator_factory()
+
+
+@pytest.fixture(scope="session")
+def subrack_server_launcher() -> Callable[
+    [SubrackSimulator], ContextManager[tuple[str, int]]
+]:
+    """
+    Return a subrack server launcher.
+
+    :return: a callable that, when called, launches a subrack server for
+        use in testing, yields it, and tears it down afterwards.
+    """
+
+    class _ThreadableServer(uvicorn.Server):
+        def install_signal_handlers(self: _ThreadableServer):
+            pass
+
+    class _SubrackServerContextManager:
+        def __init__(self, subrack_simulator):
+            self._socket = socket.socket()
+            server_config = configure_server(
+                subrack_simulator, host="127.0.0.1", port=0
+            )
+            self._server = _ThreadableServer(config=server_config)
+            self._thread = threading.Thread(
+                target=self._server.run, args=([self._socket],), daemon=True
+            )
+
+        def __enter__(self):
+            self._thread.start()
+
+            while not self._server.started:
+                time.sleep(1e-3)
+            _, port = self._socket.getsockname()
+            return "127.0.0.1", port
+
+        def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exception: Optional[BaseException],
+            trace: Optional[TracebackType],
+        ) -> Literal[False]:
+            """
+            Exit the context.
+
+            :param exc_type: the type of exception thrown in the with block
+            :param exception: the exception thrown in the with block
+            :param trace: a traceback
+
+            :returns: whether the exception (if any) has been fully handled
+                by this method and should be swallowed i.e. not re-raised
+            """
+            self._server.should_exit = True
+            self._thread.join()
+            return False
+
+    return _SubrackServerContextManager
+
+
+@pytest.fixture()
+def subrack_server(
+    subrack_server_launcher,
+    subrack_simulator,
+) -> tuple[str, int]:
     """
     Yield a running subrack server.
 
+    :param subrack_server_launcher: a callable that, when called,
+        returns a context manager that spins up a subrack server, yields
+        it for use in testing, and then shuts its down afterwards.
     :param subrack_simulator: the actual backend simulator to which this
         server provides an interface.
 
     :yields: a running subrack server.
     """
-
-    class ThreadableServer(uvicorn.Server):
-        def install_signal_handlers(self: ThreadableServer):
-            pass
-
-    import socket
-
-    my_socket = socket.socket()
-    server_config = configure_server(subrack_simulator, host="127.0.0.1", port=0)
-
-    the_server = ThreadableServer(config=server_config)
-    server_thread = threading.Thread(target=the_server.run, args=([my_socket],))
-    server_thread.start()
-
-    while not the_server.started:
-        time.sleep(1e-3)
-    yield my_socket.getsockname()
-    the_server.should_exit = True
-    server_thread.join()
+    with subrack_server_launcher(subrack_simulator) as subrack_server:
+        yield subrack_server
 
 
 @pytest.fixture()
-def subrack_ip() -> str:
+def subrack_address(subrack_server: tuple[str, int]) -> tuple[str, int]:
     """
-    Return the IP address of the subrack.
-
-    :return: the IP address of the subrack.
-    """
-    return "127.0.0.1"
-
-
-@pytest.fixture()
-def subrack_port(subrack_server: None) -> int:
-    """
-    Return the subrack port.
+    Yield the address (host and port) of the subrack.
 
     :param subrack_server: a running subrack server.
-    :return: the subrack port.
+
+    :yields: the address of a running subrack.
     """
-    return subrack_server[1]
+    # The subrack server yields the host and port,
+    # which is exactly what we need here, so we just yield it.
+    # This fixture might seem a little pointless, but
+    # (a) it provides a better name.
+    # (b) it allows us to write tests/fixtures that depend on the subrack address,
+    # without that address necessarily being that of a simulator server that has been
+    # launched by the test harness.
+    # In functional testing, where there's a real subrack,
+    # we simply override this fixture to point at that.
+    yield subrack_server
+
+
+@pytest.fixture(name="subrack_name", scope="session")
+def subrack_name_fixture() -> str:
+    """
+    Return the name of the subrack Tango device.
+
+    :return: the name of the subrack Tango device.
+    """
+    return "low-mccs/subrack/0001"
