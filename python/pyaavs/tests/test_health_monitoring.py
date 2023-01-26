@@ -104,7 +104,7 @@ class TestHealthMonitoring():
             return 1
         
         for n, tile in enumerate(self._test_station.tiles):
-            expected_health = tile.tile_health_monitor.get_exp_health()
+            expected_health = tile.get_exp_health()
             tpm_version = tile.tpm_version()
             if not tile.tpm.adas_enabled:
                 self._logger.info("ADAs disabled. Skipping checks for ADA voltages.")

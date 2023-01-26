@@ -16,14 +16,8 @@ pyfabil low level software and specific hardware module plugins.
 
 class TileHealthMonitor:
     """
+    Tile Health Monitor Mixin Class, must be inherited by Tile Class
     """
-
-    def __init__(self, tile):
-        """
-        Initialise a new TileHealthMonitor instance.
-        """
-        self.tile = tile
-        return
     
     def enable_health_monitoring(self):
         # For use with get_health_status and clear_health_status
@@ -72,7 +66,7 @@ class TileHealthMonitor:
                 'station_beamf': self.check_station_beamformer_status(fpga_id=None, show_result=False)
             }
         }
-        health_dict['temperature']['board'] = round(self.tile.get_temperature(), 2)
+        health_dict['temperature']['board'] = round(self.get_temperature(), 2)
         return health_dict
     
     def clear_health_status(self):
@@ -107,8 +101,8 @@ class TileHealthMonitor:
                 "SW_AVDD3"    : { "min": 3.320, "max": 3.680},
                 "VCC_AUX"     : { "min": 1.710, "max": 1.890},
                 "VIN"         : { "min": 11.40, "max": 12.60, "skip": True}, # TODO: add support for this measurement
-                "VM_ADA0"     : { "min": 3.030, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
-                "VM_ADA1"     : { "min": 3.030, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
+                "VM_ADA0"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
+                "VM_ADA1"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
                 "VM_AGP0"     : { "min": 0.900, "max": 1.060},
                 "VM_AGP1"     : { "min": 0.900, "max": 1.060},
                 "VM_AGP2"     : { "min": 0.900, "max": 1.060},
@@ -122,7 +116,7 @@ class TileHealthMonitor:
                 "VM_MAN3V3"   : { "min": 3.030, "max": 3.560},
                 "VM_MGT0_AUX" : { "min": 1.650, "max": 1.940},
                 "VM_PLL"      : { "min": 3.030, "max": 3.560},
-                "VM_ADA3"     : { "min": 3.030, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
+                "VM_ADA3"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
                 "VM_DDR1_VREF": { "min": 0.620, "max": 0.730},
                 "VM_DDR1_VTT" : { "min": 0.620, "max": 0.730},
                 "VM_AGP4"     : { "min": 0.900, "max": 1.060},
@@ -133,7 +127,7 @@ class TileHealthMonitor:
                 "VM_DDR_VDD"  : { "min": 1.240, "max": 1.460},
                 "VM_SW_DVDD"  : { "min": 1.520, "max": 1.780},
                 "VM_MGT1_AUX" : { "min": 1.650, "max": 1.940},
-                "VM_ADA2"     : { "min": 3.030, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
+                "VM_ADA2"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
                 "VM_SW_AMP"   : { "min": 3.220, "max": 3.780, "skip": True}, # Not currently turned on
                 "VM_CLK1B"    : { "min": 3.030, "max": 3.560}
             },
@@ -154,8 +148,8 @@ class TileHealthMonitor:
                 "MON_3V3"     : { "min": 3.130, "max": 3.460},
                 "MON_1V8"     : { "min": 1.710, "max": 1.890},
                 "MON_5V0"     : { "min": 4.690, "max": 5.190},
-                "VM_ADA0"     : { "min": 3.040, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
-                "VM_ADA1"     : { "min": 3.040, "max": 3.560, "skip": not self.tile.tpm.adas_enabled},
+                "VM_ADA0"     : { "min": 3.040, "max": 3.560, "skip": not self.tpm.adas_enabled},
+                "VM_ADA1"     : { "min": 3.040, "max": 3.560, "skip": not self.tpm.adas_enabled},
                 "VM_AGP0"     : { "min": 0.840, "max": 0.990},
                 "VM_AGP1"     : { "min": 0.840, "max": 0.990},
                 "VM_AGP2"     : { "min": 0.840, "max": 0.990},
@@ -196,7 +190,7 @@ class TileHealthMonitor:
         return EXP_TEMP, EXP_VOLTAGE, EXP_CURRENT
 
     def fpga_gen(self, fpga_id):
-        return range(len(self.tile.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
+        return range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
 
     def get_fpga_temperature(self, fpga_id=None):
         """
@@ -210,8 +204,8 @@ class TileHealthMonitor:
         """
         temperature_dict = {}
         for fpga in self.fpga_gen(fpga_id):
-            if self.tile.is_programmed():
-                temperature_dict[f'FPGA{fpga}'] = round(self.tile.tpm.tpm_sysmon[fpga].get_fpga_temperature(), 2)
+            if self.is_programmed():
+                temperature_dict[f'FPGA{fpga}'] = round(self.tpm.tpm_sysmon[fpga].get_fpga_temperature(), 2)
             else:
                 temperature_dict[f'FPGA{fpga}'] = 0
         return temperature_dict
@@ -228,14 +222,14 @@ class TileHealthMonitor:
         """
         available_voltages = []
         # LASC Plugin TPM 1.2
-        if hasattr(self.tile.tpm, 'tpm_lasc'):
-            available_voltages.extend(self.tile.tpm.tpm_lasc[0].get_available_voltages())
+        if hasattr(self.tpm, 'tpm_lasc'):
+            available_voltages.extend(self.tpm.tpm_lasc[0].get_available_voltages())
         # MCU Plugin TPM 1.6
-        if hasattr(self.tile.tpm, 'tpm_monitor'):
-            available_voltages.extend(self.tile.tpm.tpm_monitor[0].get_available_voltages())
+        if hasattr(self.tpm, 'tpm_monitor'):
+            available_voltages.extend(self.tpm.tpm_monitor[0].get_available_voltages())
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
-            available_voltages.extend(self.tile.tpm.tpm_sysmon[fpga].get_available_voltages())
+            available_voltages.extend(self.tpm.tpm_sysmon[fpga].get_available_voltages())
         return available_voltages
 
     def get_voltage(self, fpga_id=None, voltage_name=None):
@@ -253,14 +247,14 @@ class TileHealthMonitor:
         """
         voltage_dict = {}
         # LASC Plugin TPM 1.2
-        if hasattr(self.tile.tpm, 'tpm_lasc'):
-            voltage_dict.update(self.tile.tpm.tpm_lasc[0].get_voltage(voltage_name))
+        if hasattr(self.tpm, 'tpm_lasc'):
+            voltage_dict.update(self.tpm.tpm_lasc[0].get_voltage(voltage_name))
         # MCU Plugin TPM 1.6
-        if hasattr(self.tile.tpm, 'tpm_monitor'):
-            voltage_dict.update(self.tile.tpm.tpm_monitor[0].get_voltage(voltage_name))
+        if hasattr(self.tpm, 'tpm_monitor'):
+            voltage_dict.update(self.tpm.tpm_monitor[0].get_voltage(voltage_name))
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
-            voltage_dict.update(self.tile.tpm.tpm_sysmon[fpga].get_voltage(voltage_name))
+            voltage_dict.update(self.tpm.tpm_sysmon[fpga].get_voltage(voltage_name))
         if voltage_name is not None and not voltage_dict:
             raise LibraryError(f"No voltage named '{voltage_name.upper()}' \n Options are {', '.join(self.get_available_voltages(fpga_id))} (not case sensitive)")
         return voltage_dict
@@ -277,14 +271,14 @@ class TileHealthMonitor:
         """
         available_currents = []
         # LASC Plugin TPM 1.2
-        if hasattr(self.tile.tpm, 'tpm_lasc'):
-            available_currents.extend(self.tile.tpm.tpm_lasc[0].get_available_currents())
+        if hasattr(self.tpm, 'tpm_lasc'):
+            available_currents.extend(self.tpm.tpm_lasc[0].get_available_currents())
         # MCU Plugin TPM 1.6
-        if hasattr(self.tile.tpm, 'tpm_monitor'):
-            available_currents.extend(self.tile.tpm.tpm_monitor[0].get_available_currents())
+        if hasattr(self.tpm, 'tpm_monitor'):
+            available_currents.extend(self.tpm.tpm_monitor[0].get_available_currents())
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
-            available_currents.extend(self.tile.tpm.tpm_sysmon[fpga].get_available_currents())
+            available_currents.extend(self.tpm.tpm_sysmon[fpga].get_available_currents())
         return available_currents
 
     def get_current(self, fpga_id=None, current_name=None):
@@ -302,14 +296,14 @@ class TileHealthMonitor:
         """
         current_dict = {}
         # LASC Plugin TPM 1.2
-        if hasattr(self.tile.tpm, 'tpm_lasc'):
-            current_dict.update(self.tile.tpm.tpm_lasc[0].get_current(current_name))
+        if hasattr(self.tpm, 'tpm_lasc'):
+            current_dict.update(self.tpm.tpm_lasc[0].get_current(current_name))
         # MCU Plugin TPM 1.6
-        if hasattr(self.tile.tpm, 'tpm_monitor'):
-            current_dict.update(self.tile.tpm.tpm_monitor[0].get_current(current_name))
+        if hasattr(self.tpm, 'tpm_monitor'):
+            current_dict.update(self.tpm.tpm_monitor[0].get_current(current_name))
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
-            current_dict.update(self.tile.tpm.tpm_sysmon[fpga].get_current(current_name))
+            current_dict.update(self.tpm.tpm_sysmon[fpga].get_current(current_name))
         if current_name is not None and not current_dict:
             raise LibraryError(f"No current named '{current_name.upper()}' \n Options are {', '.join(self.get_available_currents(fpga_id))} (not case sensitive)")
         return current_dict
@@ -319,8 +313,8 @@ class TileHealthMonitor:
         :return: list of clock names available to be monitored
         :rtype list of string
         """
-        if self.tile.is_programmed():
-            return self.tile.tpm.tpm_clock_monitor[0].get_available_clocks_to_monitor()
+        if self.is_programmed():
+            return self.tpm.tpm_clock_monitor[0].get_available_clocks_to_monitor()
 
     def enable_clock_monitoring(self, fpga_id=None, clock_name=None):
         """
@@ -335,9 +329,9 @@ class TileHealthMonitor:
         :param clock_name: Specify name of clock or None for all clocks
         :type clock_name: string
         """
-        if self.tile.is_programmed():
+        if self.is_programmed():
             for fpga in self.fpga_gen(fpga_id):
-                    self.tile.tpm.tpm_clock_monitor[fpga].enable_clock_monitoring(clock_name)
+                    self.tpm.tpm_clock_monitor[fpga].enable_clock_monitoring(clock_name)
         return
 
     def disable_clock_monitoring(self, fpga_id=None, clock_name=None):
@@ -353,9 +347,9 @@ class TileHealthMonitor:
         :param clock_name: Specify name of clock or None for all clocks
         :type clock_name: string
         """
-        if self.tile.is_programmed():
+        if self.is_programmed():
             for fpga in self.fpga_gen(fpga_id):
-                self.tile.tpm.tpm_clock_monitor[fpga].disable_clock_monitoring(clock_name)
+                self.tpm.tpm_clock_monitor[fpga].disable_clock_monitoring(clock_name)
         return
     
     def check_clock_status(self, fpga_id=None, clock_name=None):
@@ -374,10 +368,10 @@ class TileHealthMonitor:
         :return: True when Status is OK, no errors
         :rtype bool
         """
-        if self.tile.is_programmed():
+        if self.is_programmed():
             result = {}
             for fpga in self.fpga_gen(fpga_id):
-                result[f'FPGA{fpga}'] = self.tile.tpm.tpm_clock_monitor[fpga].check_clock_status(clock_name)
+                result[f'FPGA{fpga}'] = self.tpm.tpm_clock_monitor[fpga].check_clock_status(clock_name)
             return result
         return
     
@@ -395,9 +389,9 @@ class TileHealthMonitor:
         :param clock_name: Specify name of clock or None for all clocks
         :type clock_name: string
         """
-        if self.tile.is_programmed():
+        if self.is_programmed():
             for fpga in self.fpga_gen(fpga_id):
-                self.tile.tpm.tpm_clock_monitor[fpga].clear_clock_status(clock_name)
+                self.tpm.tpm_clock_monitor[fpga].clear_clock_status(clock_name)
         return    
 
     def check_clock_manager_status(self, fpga_id=None, name=None):
@@ -416,7 +410,7 @@ class TileHealthMonitor:
         """
         counts = {}
         for fpga in self.fpga_gen(fpga_id):
-            counts[f'FPGA{fpga}'] = self.tile.tpm.tpm_clock_monitor[fpga].check_clock_manager_status(name)
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_clock_monitor[fpga].check_clock_manager_status(name)
         return counts
     
     def clear_clock_manager_status(self, fpga_id=None, name=None):
@@ -431,11 +425,11 @@ class TileHealthMonitor:
         :type name: string
         """
         for fpga in self.fpga_gen(fpga_id):
-            self.tile.tpm.tpm_clock_monitor[fpga].clear_clock_manager_status(name)
+            self.tpm.tpm_clock_monitor[fpga].clear_clock_manager_status(name)
         return    
 
     def get_available_clock_managers(self):
-        return self.tile.tpm.tpm_clock_monitor[0].available_clock_managers
+        return self.tpm.tpm_clock_monitor[0].available_clock_managers
 
     def check_pps_status(self, fpga_id=None):
         """
@@ -449,7 +443,7 @@ class TileHealthMonitor:
         """
         status = []
         for fpga in self.fpga_gen(fpga_id):
-            status.append(self.tile.tpm.tpm_test_firmware[fpga].check_pps_status())
+            status.append(self.tpm.tpm_test_firmware[fpga].check_pps_status())
         return all(status)
         
     def clear_pps_status(self, fpga_id=None):
@@ -461,7 +455,7 @@ class TileHealthMonitor:
         """
         status = []
         for fpga in self.fpga_gen(fpga_id):
-            self.tile.tpm.tpm_test_firmware[fpga].clear_pps_status()
+            self.tpm.tpm_test_firmware[fpga].clear_pps_status()
         return
 
     def check_jesd_lanes(self, fpga_id=None, core_id=None):
@@ -478,14 +472,14 @@ class TileHealthMonitor:
         :return: true if all OK
         :rtype: bool
         """
-        jesd_cores_per_fpga = len(self.tile.tpm.tpm_jesd) // len(self.tile.tpm.tpm_test_firmware)
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
         cores = range(jesd_cores_per_fpga) if core_id is None else [core_id]
         result = []
         for fpga in self.fpga_gen(fpga_id):
             for core in cores:
                 idx = fpga * jesd_cores_per_fpga + core
-                result.append(self.tile.tpm.tpm_jesd[idx].check_link_error_status())
-                result.append(self.tile.tpm.tpm_jesd[idx].check_sync_status())
+                result.append(self.tpm.tpm_jesd[idx].check_link_error_status())
+                result.append(self.tpm.tpm_jesd[idx].check_sync_status())
         return all(result)
 
     def clear_jesd_error_counters(self, fpga_id=None):
@@ -498,12 +492,12 @@ class TileHealthMonitor:
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
         """
-        jesd_cores_per_fpga = len(self.tile.tpm.tpm_jesd) // len(self.tile.tpm.tpm_test_firmware)
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
         cores = range(jesd_cores_per_fpga)
         for fpga in self.fpga_gen(fpga_id):
             for core in cores:
                 idx = fpga * jesd_cores_per_fpga + core
-                self.tile.tpm.tpm_jesd[idx].clear_error_counters()
+                self.tpm.tpm_jesd[idx].clear_error_counters()
         return
 
     def check_jesd_error_counter(self, fpga_id=None, core_id=None, show_result=True):
@@ -523,13 +517,13 @@ class TileHealthMonitor:
         :return: true if all OK
         :rtype: bool
         """
-        jesd_cores_per_fpga = len(self.tile.tpm.tpm_jesd) // len(self.tile.tpm.tpm_test_firmware)
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
         cores = range(jesd_cores_per_fpga) if core_id is None else [core_id]
         result = []
         for fpga in self.fpga_gen(fpga_id):
             for core in cores:
                 idx = fpga * jesd_cores_per_fpga + core
-                result.append(self.tile.tpm.tpm_jesd[idx].check_link_error_counter(show_result))
+                result.append(self.tpm.tpm_jesd[idx].check_link_error_counter(show_result))
         return all(result)
 
     def check_jesd_resync_counter(self, fpga_id=None, show_result=True):
@@ -546,11 +540,11 @@ class TileHealthMonitor:
         :return: counter values
         :rtype: dict
         """
-        jesd_cores_per_fpga = len(self.tile.tpm.tpm_jesd) // len(self.tile.tpm.tpm_test_firmware)
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
         counts = {}
         for fpga in self.fpga_gen(fpga_id):
             idx = fpga * jesd_cores_per_fpga
-            counts[f'FPGA{fpga}'] = self.tile.tpm.tpm_jesd[idx].check_resync_counter(show_result)
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_jesd[idx].check_resync_counter(show_result)
         return counts # Return dict of counter values
 
     def check_jesd_qpll_drop_counter(self, fpga_id=None, show_result=True):
@@ -567,11 +561,11 @@ class TileHealthMonitor:
         :return: counter values
         :rtype: dict
         """
-        jesd_cores_per_fpga = len(self.tile.tpm.tpm_jesd) // len(self.tile.tpm.tpm_test_firmware)
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
         counts = {}
         for fpga in self.fpga_gen(fpga_id):
             idx = fpga * jesd_cores_per_fpga
-            counts[f'FPGA{fpga}'] = self.tile.tpm.tpm_jesd[idx].check_qpll_lock_loss_counter(show_result)
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_jesd[idx].check_qpll_lock_loss_counter(show_result)
         return counts # Return dict of counter values
 
     def check_ddr_initialisation(self, fpga_id=None):
@@ -586,7 +580,7 @@ class TileHealthMonitor:
         """
         result = []
         for fpga in self.fpga_gen(fpga_id):
-            result.append(self.tile.tpm.tpm_test_firmware[fpga].check_ddr_initialisation())
+            result.append(self.tpm.tpm_test_firmware[fpga].check_ddr_initialisation())
         return all(result)
     
     def check_ddr_reset_counter(self, fpga_id=None, show_result=True):
@@ -605,7 +599,7 @@ class TileHealthMonitor:
         """
         counts = {}
         for fpga in self.fpga_gen(fpga_id):
-            counts[f'FPGA{fpga}'] = self.tile.tpm.tpm_test_firmware[fpga].check_ddr_user_reset_counter(show_result)
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_test_firmware[fpga].check_ddr_user_reset_counter(show_result)
         return counts # Return dict of counter values
     
     def clear_ddr_reset_counter(self, fpga_id=None):
@@ -616,7 +610,7 @@ class TileHealthMonitor:
         :type fpga_id: integer
         """
         for fpga in self.fpga_gen(fpga_id):
-            self.tile.tpm.tpm_test_firmware[fpga].clear_ddr_user_reset_counter()
+            self.tpm.tpm_test_firmware[fpga].clear_ddr_user_reset_counter()
         return
 
     def check_f2f_drop_counter(self, core_id=None, show_result=True):
@@ -634,12 +628,12 @@ class TileHealthMonitor:
         """
         # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
         # The below code is temporary until nof tpm_f2f instances is corrected and
-        # nof_f2f_cores can be replaced with len(self.tile.tpm.tpm_f2f)
-        nof_f2f_cores = 2 if self.tile.tpm_version() == "tpm_v1_2" else 1
+        # nof_f2f_cores can be replaced with len(self.tpm.tpm_f2f)
+        nof_f2f_cores = 2 if self.tpm_version() == "tpm_v1_2" else 1
         cores = range(nof_f2f_cores) if core_id is None else [core_id]
         counts = {}
         for core in cores:
-            counts[f'Core{core}'] = self.tile.tpm.tpm_f2f[core].check_pll_lock_loss_counter(show_result)
+            counts[f'Core{core}'] = self.tpm.tpm_f2f[core].check_pll_lock_loss_counter(show_result)
         return counts # Return dict of counter values
 
     def clear_f2f_drop_counter(self, core_id=None):
@@ -651,11 +645,11 @@ class TileHealthMonitor:
         """
         # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
         # The below code is temporary until nof tpm_f2f instances is corrected and
-        # nof_f2f_cores can be replaced with len(self.tile.tpm.tpm_f2f)
-        nof_f2f_cores = 2 if self.tile.tpm_version() == "tpm_v1_2" else 1
+        # nof_f2f_cores can be replaced with len(self.tpm.tpm_f2f)
+        nof_f2f_cores = 2 if self.tpm_version() == "tpm_v1_2" else 1
         cores = range(nof_f2f_cores) if core_id is None else [core_id]
         for core in cores:
-            self.tile.tpm.tpm_f2f[core].clear_pll_lock_loss_counter()
+            self.tpm.tpm_f2f[core].clear_pll_lock_loss_counter()
         return
 
     def check_udp_arp_table_status(self, fpga_id=None, show_result=True):
@@ -678,7 +672,7 @@ class TileHealthMonitor:
         fpgas = self.fpga_gen(fpga_id)
         for i, fpga in enumerate(fpgas):
             for arp_table in arp_table_ids:
-                arp_status, mac = self.tile.tpm.tpm_10g_core[fpga].get_arp_table_status(arp_table, silent_mode)
+                arp_status, mac = self.tpm.tpm_10g_core[fpga].get_arp_table_status(arp_table, silent_mode)
                 if arp_status & 0x1 and arp_status & 0x4:
                     nof_resolved_entries += 1
         return True if nof_resolved_entries == 2*len(fpgas) else False
@@ -698,7 +692,7 @@ class TileHealthMonitor:
         # one core per fpga, 4 ARP table IDs per core
         errors = []
         for fpga in self.fpga_gen(fpga_id):
-            errors.append(self.tile.tpm.tpm_10g_core[fpga].check_errors())
+            errors.append(self.tpm.tpm_10g_core[fpga].check_errors())
         return not any(errors) # Return True if status OK, all errors False
     
     def clear_udp_status(self, fpga_id=None):
@@ -711,7 +705,7 @@ class TileHealthMonitor:
         # This method only supports the xg_40g_eth configuration with
         # one core per fpga, 4 ARP table IDs per core
         for fpga in self.fpga_gen(fpga_id):
-            self.tile.tpm.tpm_10g_core[fpga].reset_errors()
+            self.tpm.tpm_10g_core[fpga].reset_errors()
         return
     
     def check_udp_link_drop_counter(self, fpga_id=None, show_result=True):
@@ -731,7 +725,7 @@ class TileHealthMonitor:
         # one core per fpga, 4 ARP table IDs per core
         counts = {}
         for fpga in self.fpga_gen(fpga_id):
-            counts[f'FPGA{fpga}'] = self.tile.tpm.tpm_10g_core[fpga].check_linkup_loss_cnt(show_result)
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].check_linkup_loss_cnt(show_result)
         return counts # Return dict of counter values
     
     def check_tile_beamformer_status(self, fpga_id=None):
@@ -743,10 +737,10 @@ class TileHealthMonitor:
         :return: True when Status is OK, no errors
         :rtype bool
         """
-        if self.tile.is_programmed():
+        if self.is_programmed():
             result = []
             for fpga in self.fpga_gen(fpga_id):
-                result.append(self.tile.tpm.beamf_fd[fpga].check_errors())
+                result.append(self.tpm.beamf_fd[fpga].check_errors())
             return all(result)
         return
     
@@ -759,9 +753,9 @@ class TileHealthMonitor:
         :return: True when Status is OK, no errors
         :rtype bool
         """
-        if self.tile.is_programmed():
+        if self.is_programmed():
             for fpga in self.fpga_gen(fpga_id):
-                self.tile.tpm.beamf_fd[fpga].clear_errors()
+                self.tpm.beamf_fd[fpga].clear_errors()
         return
 
     def check_station_beamformer_status(self, fpga_id=None, show_result=True):
@@ -777,10 +771,10 @@ class TileHealthMonitor:
         :return: True when Status is OK, no errors
         :rtype bool
         """
-        if self.tile.is_programmed():
+        if self.is_programmed():
             result = []
             for fpga in self.fpga_gen(fpga_id):
-                frame_errors, errors = self.tile.tpm.station_beamf[fpga].report_errors(show_result)
+                frame_errors, errors = self.tpm.station_beamf[fpga].report_errors(show_result)
                 result.append(frame_errors)
                 result.append(errors)
             return not any(result) # Return True if all flags and counters are 0, else False
@@ -793,9 +787,9 @@ class TileHealthMonitor:
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
         """
-        if self.tile.is_programmed():
+        if self.is_programmed():
             for fpga in self.fpga_gen(fpga_id):
-                self.tile.tpm.station_beamf[fpga].clear_errors()
+                self.tpm.station_beamf[fpga].clear_errors()
         return
 
     #######################################################################################

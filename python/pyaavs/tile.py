@@ -68,7 +68,7 @@ def connected(f):
     return wrapper
 
 
-class Tile(object):
+class Tile(TileHealthMonitor):
     """
     Tile hardware interface library.
     """
@@ -110,7 +110,6 @@ class Tile(object):
         self._port = port
         self._ip = socket.gethostbyname(ip)
         self.tpm = None
-        self.tile_health_monitor = TileHealthMonitor(self)
 
         self._channeliser_truncation = 4
         self.subarray_id = 0
@@ -496,43 +495,6 @@ class Tile(object):
         :rtype: float
         """
         return self.tpm.temperature()
-
-    @connected
-    def get_voltage(self):
-        """
-        Read board voltage.
-        :return: board supply voltage
-        :rtype: float
-        """
-        # Updated method in tile_health_monitor,
-        # keeping this for backward compatibility
-        return self.tpm.voltage()
-
-    @connected
-    def get_current(self):
-        """
-        Read board current.
-        :return: board supply current
-        :rtype: float
-        """
-        # Updated method in tile_health_monitor,
-        # keeping this for backward compatibility
-        return 0.0
-
-    @connected
-    def enable_health_monitoring(self):
-        self.tile_health_monitor.enable_health_monitoring()
-        return
-
-    @connected
-    def get_health_status(self):
-        health_status = self.tile_health_monitor.get_health_status()
-        return health_status
-
-    @connected
-    def clear_health_status(self):
-        self.tile_health_monitor.clear_health_status()
-        return
 
     @connected
     def get_rx_adc_rms(self):
@@ -2348,47 +2310,6 @@ class Tile(object):
             raise AttributeError("'Tile' or 'TPM' object have no attribute " + name)
 
     # ------------------- Test methods
-
-    @connected
-    def check_jesd_lanes(self):
-        """
-        Check if JESD204 lanes are error free.
-
-        :return: true if all OK
-        :rtype: bool
-        """
-        # wrapper for backward compatibility
-        return self.tile_health_monitor.check_jesd_lanes()
-    
-    def reset_jesd_error_counter(self):
-        """Reset errors in JESD lanes."""
-        # wrapper for backward compatibility
-        self.tile_health_monitor.reset_jesd_error_counter()
-
-    def check_jesd_error_counter(self, show_result=True):
-        """
-        Check JESD204 lanes errors.
-
-        :param show_result: prints error counts on logger
-        :type show_result: bool
-        :return: error count vector
-        :rtype: list(int)
-        """
-        # Updated method in tile_health_monitor which returns 
-        # status bool, keeping this for backward compatibility
-        errors = []
-        for lane in range(32):
-            fpga_id = lane // 16
-            core_id = (lane % 16) // 8
-            lane_id = lane % 8
-            reg = self[
-                f"fpga{fpga_id + 1}.jesd204_if.core_id_{core_id}_lane_{lane_id}_link_error_count"
-            ]
-            errors.append(reg)
-            if show_result:
-                self.logger.info("Lane " + str(lane) + " error count " + str(reg))
-        return errors
-
 
     @connected
     def start_40g_test(self, single_packet_mode=False, ipg=32):
