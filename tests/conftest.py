@@ -15,29 +15,29 @@ functional (BDD).
 """
 from __future__ import annotations
 
+import enum
 import logging
 from typing import Any
 
 import pytest
 import tango
 
-# TODO: We need a better solution to this.
-try:
-    from ska_low_mccs_spshw.subrack import FanMode, SubrackData
-except (ImportError, ModuleNotFoundError):
-    import enum
+TPM_BAY_COUNT = 8
+MAX_SUBRACK_FAN_SPEED = 8000.0
 
-    class SubrackData:  # type: ignore[no-redef]
-        """Facts about subracks."""
 
-        TPM_BAY_COUNT = 8
-        MAX_SUBRACK_FAN_SPEED = 8000.0
+# TODO: [MCCS-1328] We don't want to import anything from ska-low-mccs-spshw here,
+# but we need to know the meaning of 1 and 2 in the context of fan modes,
+# so that the tests know how to drive the device. So for now we redefine it.
+# The necessity of importing or redefining this is a code smell.
+# We should change the SubrackDevice's interface to use string fan modes.
+# e.g. subrack.SetSubrackFanMode("{'fan_id': 1, 'mode'; 'auto'}")
+# which would be much more readable and self-describing.
+class FanMode(enum.IntEnum):  # type: ignore[no-redef]
+    """Redefinition of FanMode."""
 
-    class FanMode(enum.IntEnum):  # type: ignore[no-redef]
-        """Python enumerated type for FanMode."""
-
-        MANUAL = 1
-        AUTO = 2
+    MANUAL = 1
+    AUTO = 2
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
@@ -133,7 +133,7 @@ def subrack_simulator_attribute_values_fixture(
             subrack_simulator_config["subrack_fan_speeds_percent"]
         ),
         "subrack_fan_speeds": [
-            pytest.approx(p * SubrackData.MAX_SUBRACK_FAN_SPEED / 100.0)
+            pytest.approx(p * MAX_SUBRACK_FAN_SPEED / 100.0)
             for p in subrack_simulator_config["subrack_fan_speeds_percent"]
         ],
         "subrack_fan_modes": subrack_simulator_config["subrack_fan_modes"],
@@ -195,7 +195,7 @@ def subrack_device_attribute_values_fixture(
             subrack_simulator_config["subrack_fan_speeds_percent"]
         ),
         "subrackFanSpeeds": [
-            pytest.approx(p * SubrackData.MAX_SUBRACK_FAN_SPEED / 100.0)
+            pytest.approx(p * MAX_SUBRACK_FAN_SPEED / 100.0)
             for p in subrack_simulator_config["subrack_fan_speeds_percent"]
         ],
         "subrackFanModes": subrack_simulator_config["subrack_fan_modes"],
