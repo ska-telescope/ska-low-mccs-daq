@@ -78,7 +78,7 @@ def subrack_simulator_config_fixture() -> dict[str, Any]:
         "power_supply_currents": [4.2, 5.8],
         "power_supply_fan_speeds": [90.0, 100.0],
         "power_supply_voltages": [12.0, 12.1],
-        "subrack_fan_speeds_percent": [95.0, 96.0, 97.0, 98.0],
+        "subrack_fan_speed_percent": [95.0, 96.0, 97.0, 98.0],
         "subrack_fan_modes": [FanMode.AUTO, FanMode.AUTO, FanMode.AUTO, FanMode.AUTO],
         "tpm_currents": [0.4] * 8,
         "tpm_temperatures": [40.0] * 8,
@@ -129,12 +129,12 @@ def subrack_simulator_attribute_values_fixture(
                 subrack_simulator_config["power_supply_voltages"],
             )
         ],
-        "subrack_fan_speeds_percent": _approxify(
-            subrack_simulator_config["subrack_fan_speeds_percent"]
+        "subrack_fan_speed_percent": _approxify(
+            subrack_simulator_config["subrack_fan_speed_percent"]
         ),
-        "subrack_fan_speeds": [
+        "subrack_fan_speed": [
             pytest.approx(p * MAX_SUBRACK_FAN_SPEED / 100.0)
-            for p in subrack_simulator_config["subrack_fan_speeds_percent"]
+            for p in subrack_simulator_config["subrack_fan_speed_percent"]
         ],
         "subrack_fan_modes": subrack_simulator_config["subrack_fan_modes"],
         "tpm_currents": _approxify(subrack_simulator_config["tpm_currents"]),
@@ -192,11 +192,11 @@ def subrack_device_attribute_values_fixture(
             )
         ],
         "subrackFanSpeedsPercent": _approxify(
-            subrack_simulator_config["subrack_fan_speeds_percent"]
+            subrack_simulator_config["subrack_fan_speed_percent"]
         ),
         "subrackFanSpeeds": [
             pytest.approx(p * MAX_SUBRACK_FAN_SPEED / 100.0)
-            for p in subrack_simulator_config["subrack_fan_speeds_percent"]
+            for p in subrack_simulator_config["subrack_fan_speed_percent"]
         ],
         "subrackFanModes": subrack_simulator_config["subrack_fan_modes"],
         "tpmCurrents": _approxify(subrack_simulator_config["tpm_currents"]),
