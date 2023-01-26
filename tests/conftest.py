@@ -79,7 +79,7 @@ def subrack_simulator_config_fixture() -> dict[str, Any]:
         "power_supply_fan_speeds": [90.0, 100.0],
         "power_supply_voltages": [12.0, 12.1],
         "subrack_fan_speed_percent": [95.0, 96.0, 97.0, 98.0],
-        "subrack_fan_modes": [FanMode.AUTO, FanMode.AUTO, FanMode.AUTO, FanMode.AUTO],
+        "subrack_fan_mode": [FanMode.AUTO, FanMode.AUTO, FanMode.AUTO, FanMode.AUTO],
         "tpm_currents": [0.4] * 8,
         "tpm_temperatures": [40.0] * 8,
         "tpm_voltages": [12.0] * 8,
@@ -136,7 +136,7 @@ def subrack_simulator_attribute_values_fixture(
             pytest.approx(p * MAX_SUBRACK_FAN_SPEED / 100.0)
             for p in subrack_simulator_config["subrack_fan_speed_percent"]
         ],
-        "subrack_fan_modes": subrack_simulator_config["subrack_fan_modes"],
+        "subrack_fan_mode": subrack_simulator_config["subrack_fan_mode"],
         "tpm_currents": _approxify(subrack_simulator_config["tpm_currents"]),
         "tpm_temperatures": _approxify(subrack_simulator_config["tpm_temperatures"]),
         "tpm_voltages": _approxify(subrack_simulator_config["tpm_voltages"]),
@@ -198,7 +198,7 @@ def subrack_device_attribute_values_fixture(
             pytest.approx(p * MAX_SUBRACK_FAN_SPEED / 100.0)
             for p in subrack_simulator_config["subrack_fan_speed_percent"]
         ],
-        "subrackFanModes": subrack_simulator_config["subrack_fan_modes"],
+        "subrackFanModes": subrack_simulator_config["subrack_fan_mode"],
         "tpmCurrents": _approxify(subrack_simulator_config["tpm_currents"]),
         "tpmTemperatures": _approxify(subrack_simulator_config["tpm_temperatures"]),
         "tpmVoltages": _approxify(subrack_simulator_config["tpm_voltages"]),
