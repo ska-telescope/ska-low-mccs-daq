@@ -16,7 +16,7 @@ from typing import Any, Optional, Union, cast
 import tango
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
 from ska_tango_base.base import SKABaseDevice
-from ska_tango_base.commands import DeviceInitCommand, FastCommand, SubmittedSlowCommand
+from ska_tango_base.commands import DeviceInitCommand, FastCommand
 from tango.server import attribute, command, device_property
 
 from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
@@ -401,7 +401,7 @@ class MccsDaqReceiver(SKABaseDevice):
             Implement MccsDaqReceiver.StartCommand command functionality.
 
             :param argin: JSON-formatted string representing the DaqModes and their
-            corresponding callbacks to start, defaults to None.
+                corresponding callbacks to start, defaults to None.
 
             :return: A tuple containing a return code and a string
                 message indicating status. The message is for
@@ -425,13 +425,8 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
         """
         handler = self.get_command_object("Start")
-        # params = json.loads(argin) if argin else {}
-
-        # Initialise temps and extract individual args from params.
-        # modes_to_start = params.get("modes_to_start", None)
-        print("CALLING START RPC")
         (result_code, message) = handler(argin)
-        print(f"START RC/MSG: {result_code} / {message}")
+
         return ([result_code], [message])
 
     # pylint: disable=too-few-public-methods
@@ -531,7 +526,6 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
         """
         handler = self.get_command_object("Configure")
-        # params = json.loads(argin) if argin else {}
 
         (result_code, message) = handler(argin)
         return ([result_code], [message])
@@ -580,12 +574,7 @@ class MccsDaqReceiver(SKABaseDevice):
             """
             configuration = self._component_manager.get_configuration()
 
-            # we cannot simply call json dumps here since bytes input
-            for key, item in configuration.items():
-                if isinstance(item, bytes):
-                    configuration[key] = item.decode("utf-8")
-
-            return json.dumps(configuration)
+            return configuration # json.dumps(configuration)
 
     # pylint: disable=too-few-public-methods
     class SetConsumersCommand(FastCommand):

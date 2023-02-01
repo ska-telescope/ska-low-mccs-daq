@@ -7,6 +7,7 @@ service Daq{
     rpc StopDaq(stopDaqRequest) returns (commandResponse) {}
     rpc InitDaq(configDaqRequest) returns (commandResponse) {}
     rpc ConfigureDaq(configDaqRequest) returns (commandResponse) {}
+    rpc GetConfiguration(getConfigRequest) returns (getConfigResponse) {}
 }
 
 enum ResultCode{
@@ -24,9 +25,17 @@ message startDaqRequest{
     string modes_to_start = 1;
 }
 
-// Empty message as no params expected but this is in case it changes.
+// Empty messages as no params expected but this is in case it changes.
 message stopDaqRequest{
     
+}
+
+message getConfigRequest{
+    
+}
+
+message getConfigResponse{
+    string config = 1;
 }
 
 message commandResponse{

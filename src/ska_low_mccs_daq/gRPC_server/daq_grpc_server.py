@@ -29,7 +29,7 @@ def convert_daq_modes_str(consumers_to_start: str) -> list[DaqModes]:
     :param consumers_to_start: A string containing a comma separated
         list of DaqModes.
 
-    :return: a list of DaqModes
+    :return: a converted list of DaqModes or an empty list.
     """
     if consumers_to_start != "":
         # Extract consumers_to_start and convert to DaqModes if supplied.
@@ -45,6 +45,8 @@ def convert_daq_modes_str(consumers_to_start: str) -> list[DaqModes]:
         ]
 
         return converted_consumer_list
+    else:
+        return []
 
 
 def convert_daq_modes_int(modes_to_start: list[Union[int, DaqModes]]) -> list[DaqModes]:
@@ -71,15 +73,18 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         self._receiver_started: bool = False
         self.logger = logging.getLogger("daq-server")
 
-    def StartDaq(self, request, context):
+    def StartDaq(self, request, context) -> daq_pb2.commandResponse:
         """
         Start data acquisition with the current configuration.
 
-        :param request: arguments passed to StartDaq according to daq.proto.
+        :param request: arguments object containing `modes_to_start`
+            `modes_to_start`: The list of consumers to start.
         :param context: command metadata
+
+        :return: a commandResponse object containing `result_code` and `message`
         """
         self.logger.info(
-            f"Starting DAQ with current config: {self.daq_instance._config}"
+            "Starting DAQ with current config: %s", self.daq_instance._config
         )
         modes_to_start: str = request.modes_to_start
         if not self._receiver_started:
@@ -89,36 +94,41 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             # Convert string representation to DaqModes
             modes_to_start = convert_daq_modes_str(modes_to_start)
         except ValueError as e:
-            self.logger.error(f"Value Error! Invalid DaqMode supplied! {e}")
+            self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
         # TODO: callbacks
         callbacks = None
         # callbacks = [self._received_data_callback] * len(modes_to_start)
 
         self.daq_instance.start_daq(modes_to_start, callbacks)
 
-        # self.logger.info(self.daq_instance._running_consumers)
-        # config = self.daq_instance.get_configuration()
-        # self.logger.info(config)
-
-        # self.daq_instance._call_start_receiver(config['receiver_interface'],
-        #                              config['receiver_ip'],
-        #                              config['receiver_frame_size'],
-        #                              config['receiver_frames_per_block'],
-        #                              config['receiver_nof_blocks'],
-        #                              config['receiver_nof_threads'])
         self.logger.info("Daq started.")
         return daq_pb2.commandResponse(result_code=ResultCode.OK, message="Daq started")
 
-    def StopDaq(self, request, context):
-        """Stop data acquisition."""
+    def StopDaq(self, request, context) -> daq_pb2.commandResponse:
+        """
+        Stop data acquisition.
+
+        :param request: unused
+        :param context: command metadata
+
+        :return: a commandResponse object containing `result_code` and `message`
+        """
         self.logger.info("Stopping daq.")
         self.daq_instance.stop_daq()
         self._receiver_started = False
         self.logger.info("Daq stopped.")
         return daq_pb2.commandResponse(result_code=ResultCode.OK, message="Daq stopped")
 
-    def InitDaq(self, request, context):
-        """Initialise a new DaqReceiver instance."""
+    def InitDaq(self, request, context) -> daq_pb2.commandResponse:
+        """
+        Initialise a new DaqReceiver instance.
+
+        :param request: arguments object containing `config`
+            `config`: The initial daq configuration to apply.
+        :param context: command metadata
+
+        :return: a commandResponse object containing `result_code` and `message`
+        """
         self.logger.info("Initialising daq.")
         self.daq_instance = DaqReceiver()
         try:
@@ -129,7 +139,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
                 self._receiver_started = True
         # pylint: disable=broad-except
         except Exception as e:
-            self.logger.error(f"Caught exception in `daq_grcp_server.InitDaq`: {e}")
+            self.logger.error("Caught exception in `daq_grcp_server.InitDaq`: %s", e)
             return daq_pb2.commandResponse(
                 result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
             )
@@ -138,9 +148,17 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             result_code=ResultCode.OK, message="Daq successfully initialised"
         )
 
-    def ConfigureDaq(self, request, context):
-        """Apply a configuration to the DaqReceiver."""
-        self.logger.info(f"Configuring daq with: {request.config}")
+    def ConfigureDaq(self, request, context) -> daq_pb2.commandResponse:
+        """
+        Apply a configuration to the DaqReceiver.
+
+        :param request: arguments object containing `config`
+            `config`: The initial daq configuration to apply.
+        :param context: command metadata
+
+        :return: a commandResponse object containing `result_code` and `message`
+        """
+        self.logger.info("Configuring daq with: %s", request.config)
         try:
             if request.config != "":
                 self.daq_instance.populate_configuration(json.loads(request.config))
@@ -149,7 +167,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
                     result_code=ResultCode.OK, message="Daq reconfigured"
                 )
             else:
-                self.logger.error("Daq was no reconfigured, no config data supplied.")
+                self.logger.error("Daq was not reconfigured, no config data supplied.")
                 return daq_pb2.commandResponse(
                     result_code=ResultCode.REJECTED,
                     message="ERROR: No configuration data supplied.",
@@ -157,11 +175,31 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(
-                f"Caught exception in `daq_grcp_server.ConfigureDaq`: {e}"
+                "Caught exception in `daq_grcp_server.ConfigureDaq`: %s", e
             )
             return daq_pb2.commandResponse(
                 result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
             )
+        
+    def GetConfiguration(self, request, context) -> daq_pb2.commandResponse:
+        """
+        Retrieve the current DAQ configuration.
+
+        :param request: Empty argument object.
+        :param context: command metadata
+
+        :return: a commandResponse object containing the current `config`.
+        """
+        configuration = self.daq_instance.get_configuration()
+
+        # we cannot simply call json dumps here since bytes input
+        for key, item in configuration.items():
+            if isinstance(item, bytes):
+                configuration[key] = item.decode("utf-8")
+
+        return daq_pb2.getConfigResponse(
+            config=json.dumps(configuration),
+        )
 
 
 def main():

@@ -13,7 +13,8 @@ import logging
 from typing import Any, Callable, Optional
 
 import grpc
-#from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
+
+# from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_low_mccs_common.component import MccsComponentManager, check_communicating
 
@@ -48,6 +49,7 @@ class DaqComponentManager(MccsComponentManager):
         :param receiver_interface: The interface this DaqReceiver is to watch.
         :param receiver_ip: The IP address of this DaqReceiver.
         :param receiver_ports: The port this DaqReceiver is to watch.
+        :param grpc_port: The gRPC port this DaqReceiver will communicate on.
         :param consumers_to_start: The default consumers to be started.
         :param logger: the logger to be used by this object.
         :param max_workers: the maximum worker threads for the slow commands
@@ -149,26 +151,15 @@ class DaqComponentManager(MccsComponentManager):
 
     def get_configuration(self: DaqComponentManager) -> dict[str, Any]:
         """
-        Get configuration from DAQ.
+        Get the active configuration from DAQ.
 
-        :return: The configuration in the pydaq instance.
+        :return: The configuration in use by the DaqReceiver instance.
         """
-        # TODO: RPC
-        return self.daq_instance.get_configuration()
-
-    # def _get_consumers_to_start(self: DaqComponentManager) -> list[DaqModes]:
-    #     """
-    #     Retrieve a list of DAQ consumers to start.
-
-    #     Returns the consumer list that is to be used when `start_daq` is called without
-    #     specifying consumers. This is empty by default and if not set will return
-    #     `[DaqModes.INTEGRATED_CHANNEL_DATA]`.
-
-    #     :return: a list of DAQ modes.
-    #     """
-    #     if self._consumers_to_start is None:
-    #         return "DaqModes.INTEGRATED_CHANNEL_DATA"
-    #     return self._consumers_to_start
+        # Make gRPC call to configure.
+        with grpc.insecure_channel(self._grpc_channel) as channel:
+            stub = daq_pb2_grpc.DaqStub(channel)
+            response = stub.GetConfiguration(daq_pb2.getConfigRequest())
+        return response.config
 
     def _set_consumers_to_start(
         self: DaqComponentManager, consumers_to_start: str
@@ -176,8 +167,8 @@ class DaqComponentManager(MccsComponentManager):
         """
         Set default consumers to start.
 
-        Set consumers to be started when `start_daq` is called without specifying a
-        consumer.
+        Set consumers to be started when `start_daq` is called
+            without specifying a consumer.
 
         :param consumers_to_start: A string containing a comma separated
             list of DaqModes.

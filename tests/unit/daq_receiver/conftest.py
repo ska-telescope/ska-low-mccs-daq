@@ -19,7 +19,7 @@ from ska_control_model import TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
-from ska_low_mccs_daq.gRPC_server.daq_grpc_server import serve as start_daq_server
+from ska_low_mccs_daq.gRPC_server.daq_grpc_server import main as start_daq_server
 
 
 @pytest.fixture(name="daq_id")
@@ -97,6 +97,11 @@ def max_workers_fixture() -> int:
 
 @pytest.fixture(name="daq_grpc_server", scope="session")
 def daq_grpc_server_fixture():
+    """
+    Stand up a local gRPC server.
+
+    :yield: A gRPC server.
+    """
     server_thread = threading.Thread(target=start_daq_server)
     server_thread.start()
     time.sleep(0.1)
@@ -128,6 +133,7 @@ def daq_component_manager_fixture(
     :param max_workers: max number of threads available to run a LRC.
     :param callbacks: a dictionary from which callbacks with asynchrony
         support can be accessed.
+    :param daq_grpc_server: A fixture to stand up a local gRPC server for testing.
 
     :return: a daq component manager
     """

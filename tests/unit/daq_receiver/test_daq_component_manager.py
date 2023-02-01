@@ -13,7 +13,7 @@ import time
 from typing import Union
 
 import pytest
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
+from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
 
@@ -120,12 +120,13 @@ class TestDaqComponentManager:
         callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
 
         daq_modes = convert_daq_modes_str(daq_modes)
-        for mode in daq_modes:
-            # If we're using ints instead of DaqModes make the conversion so we
-            # can check the consumer.
-            mode_to_check = DaqModes(mode)
-            # TODO: Cannot check status of consumers until DaqStatus cmd is updated.
-            # assert daq_component_manager.daq_instance._running_consumers[mode_to_check]
+        # for mode in daq_modes:
+        # If we're using ints instead of DaqModes make the conversion so we
+        # can check the consumer.
+        # mode_to_check = DaqModes(mode)
+        # TODO: Cannot check status of consumers until DaqStatus cmd is updated.
+        # assert daq_component_manager.daq_instance.
+        # _running_consumers[mode_to_check]
 
         # Wait for data etc
         time.sleep(acquisition_duration)
@@ -139,14 +140,14 @@ class TestDaqComponentManager:
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
         callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
 
-        for mode in daq_modes:
-            # If we're using ints instead of DaqModes make the conversion so we
-            # can check the consumer.
-            mode_to_check = DaqModes(mode)
-            # TODO: Cannot check status of consumers until DaqStatus cmd is updated.
-            # assert not daq_component_manager.daq_instance._running_consumers[
-            #     mode_to_check
-            # ]
+        # for mode in daq_modes:
+        # If we're using ints instead of DaqModes make the conversion so we
+        # can check the consumer.
+        # mode_to_check = DaqModes(mode)
+        # TODO: Cannot check status of consumers until DaqStatus cmd is updated.
+        # assert not daq_component_manager.daq_instance._running_consumers[
+        #     mode_to_check
+        # ]
 
     @pytest.mark.parametrize(
         ("consumer_list", "daq_modes"),
