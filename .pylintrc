@@ -18,3 +18,6 @@ ignored-classes = socket
 # W0212 protected-access
 # W0613 unused-argument
 disable = W0212, W0613
+
+# Ignore gRPC generated code.
+ignore=src/ska_low_mccs_daq/gRPC_server/generated_code

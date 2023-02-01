@@ -12,8 +12,6 @@ from __future__ import annotations  # allow forward references in type hints
 import json
 import logging
 from typing import Any, Optional, Union, cast
-import grpc
-from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
 
 import tango
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
@@ -51,6 +49,11 @@ class MccsDaqReceiver(SKABaseDevice):
         dtype=str,
         doc="The port/s this DaqReceiver is monitoring.",
         default_value="4660",
+    )
+    GrpcPort = device_property(
+        dtype=str,
+        doc="The gRPC port this DaqReceiver is using.",
+        default_value=50051,
     )
     DaqId = device_property(
         dtype=int, doc="The ID of this DaqReceiver device.", default_value=0
@@ -113,6 +116,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self.ReceiverInterface,
             self.ReceiverIp,
             self.ReceiverPorts,
+            self.GrpcPort,
             self.ConsumersToStart,
             self.logger,
             self._max_workers,
@@ -130,26 +134,12 @@ class MccsDaqReceiver(SKABaseDevice):
             ("SetConsumers", self.SetConsumersCommand),
             ("DaqStatus", self.DaqStatusCommand),
             ("GetConfiguration", self.GetConfigurationCommand),
+            ("Start", self.StartCommand),
+            ("Stop", self.StopCommand),
         ]:
             self.register_command_object(
                 command_name,
                 command_object(self.component_manager, self.logger),
-            )
-
-        for (command_name, method_name) in [
-            ("Start", "start_daq"),
-            ("Stop", "stop_daq"),
-        ]:
-            self.register_command_object(
-                command_name,
-                SubmittedSlowCommand(
-                    command_name,
-                    self._command_tracker,
-                    self.component_manager,
-                    method_name,
-                    callback=None,
-                    logger=self.logger,
-                ),
             )
 
     # pylint: disable=too-few-public-methods
@@ -384,6 +374,41 @@ class MccsDaqReceiver(SKABaseDevice):
         status = handler(self._health_state)
         return status
 
+    # pylint: disable=too-few-public-methods
+    class StartCommand(FastCommand):
+        """Class for handling the Start(argin) command."""
+
+        def __init__(  # type: ignore
+            self: MccsDaqReceiver.ConfigureCommand,
+            component_manager,
+            logger: Optional[logging.Logger] = None,
+        ) -> None:
+            """
+            Initialise a new StartCommand instance.
+
+            :param component_manager: the device to which this command belongs.
+            :param logger: a logger for this command to use.
+            """
+            self._component_manager = component_manager
+            super().__init__(logger)
+
+        # pylint: disable=arguments-differ
+        def do(  # type: ignore[override]
+            self: MccsDaqReceiver.StartCommand,
+            argin: str,
+        ) -> tuple[ResultCode, str]:
+            """
+            Implement MccsDaqReceiver.StartCommand command functionality.
+
+            :param argin: JSON-formatted string representing the DaqModes and their
+            corresponding callbacks to start, defaults to None.
+
+            :return: A tuple containing a return code and a string
+                message indicating status. The message is for
+                information purpose only.
+            """
+            return self._component_manager.start_daq(argin)
+
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
     def Start(self: MccsDaqReceiver, argin: str = "") -> DevVarLongStringArrayType:
         """
@@ -400,13 +425,45 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
         """
         handler = self.get_command_object("Start")
-        params = json.loads(argin) if argin else {}
+        # params = json.loads(argin) if argin else {}
 
         # Initialise temps and extract individual args from params.
-        modes_to_start = params.get("modes_to_start", None)
-
-        (result_code, message) = handler(modes_to_start)
+        # modes_to_start = params.get("modes_to_start", None)
+        print("CALLING START RPC")
+        (result_code, message) = handler(argin)
+        print(f"START RC/MSG: {result_code} / {message}")
         return ([result_code], [message])
+
+    # pylint: disable=too-few-public-methods
+    class StopCommand(FastCommand):
+        """Class for handling the Stop() command."""
+
+        def __init__(  # type: ignore
+            self: MccsDaqReceiver.StopCommand,
+            component_manager,
+            logger: Optional[logging.Logger] = None,
+        ) -> None:
+            """
+            Initialise a new StopCommand instance.
+
+            :param component_manager: the device to which this command belongs.
+            :param logger: a logger for this command to use.
+            """
+            self._component_manager = component_manager
+            super().__init__(logger)
+
+        # pylint: disable=arguments-differ
+        def do(  # type: ignore[override]
+            self: MccsDaqReceiver.StopCommand,
+        ) -> tuple[ResultCode, str]:
+            """
+            Implement MccsDaqReceiver.StopCommand command functionality.
+
+            :return: A tuple containing a return code and a string
+                message indicating status. The message is for
+                information purpose only.
+            """
+            return self._component_manager.stop_daq()
 
     @command(dtype_out="DevVarLongStringArray")
     def Stop(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
@@ -474,9 +531,9 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
         """
         handler = self.get_command_object("Configure")
-        params = json.loads(argin) if argin else {}
+        # params = json.loads(argin) if argin else {}
 
-        (result_code, message) = handler(params)
+        (result_code, message) = handler(argin)
         return ([result_code], [message])
 
     @command(dtype_out="DevString")

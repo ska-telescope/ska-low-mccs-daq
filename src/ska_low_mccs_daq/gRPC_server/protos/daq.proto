@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package daq;
+
 service Daq{
     rpc StartDaq(startDaqRequest) returns (commandResponse) {}
     rpc StopDaq(stopDaqRequest) returns (commandResponse) {}
@@ -35,7 +37,8 @@ message commandResponse{
 message configDaqRequest{
     string config = 1;
 }
-
+/*
 message noParamRequest{
 
 }
+*/

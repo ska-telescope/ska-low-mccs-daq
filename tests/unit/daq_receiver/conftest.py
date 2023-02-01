@@ -9,6 +9,8 @@
 from __future__ import annotations
 
 import logging
+import threading
+import time
 import unittest.mock
 
 import pytest
@@ -17,6 +19,7 @@ from ska_control_model import TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
+from ska_low_mccs_daq.gRPC_server.daq_grpc_server import serve as start_daq_server
 
 
 @pytest.fixture(name="daq_id")
@@ -92,6 +95,14 @@ def max_workers_fixture() -> int:
     return 1
 
 
+@pytest.fixture(name="daq_grpc_server", scope="session")
+def daq_grpc_server_fixture():
+    server_thread = threading.Thread(target=start_daq_server)
+    server_thread.start()
+    time.sleep(0.1)
+    yield
+
+
 # pylint: disable=too-many-arguments
 @pytest.fixture(name="daq_component_manager")
 def daq_component_manager_fixture(
@@ -103,6 +114,7 @@ def daq_component_manager_fixture(
     logger: logging.Logger,
     max_workers: int,
     callbacks: MockCallableGroup,
+    daq_grpc_server,
 ) -> DaqComponentManager:
     """
     Return a daq receiver component manager.

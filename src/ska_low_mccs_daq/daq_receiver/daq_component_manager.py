@@ -8,15 +8,16 @@
 """This module implements component management for DaqReceivers."""
 from __future__ import annotations
 
+import json
 import logging
-import threading
-from typing import Any, Callable, Optional, Union
-import grpc
-from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
+from typing import Any, Callable, Optional
 
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
-from ska_control_model import CommunicationStatus, TaskStatus, ResultCode
+import grpc
+#from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
+from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_low_mccs_common.component import MccsComponentManager, check_communicating
+
+from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
 
 __all__ = ["DaqComponentManager"]
 
@@ -32,6 +33,7 @@ class DaqComponentManager(MccsComponentManager):
         receiver_interface: str,
         receiver_ip: str,
         receiver_ports: str,
+        grpc_port: str,
         consumers_to_start: str,
         logger: logging.Logger,
         max_workers: int,
@@ -58,58 +60,29 @@ class DaqComponentManager(MccsComponentManager):
         :param received_data_callback: callback to be called when data is
             received from a tile
         """
-        self._consumers_to_start: list[DaqModes] | None
-
         super().__init__(
             logger,
             max_workers,
             communication_state_changed_callback,
             component_state_changed_callback,
         )
+        self._consumers_to_start: str = "Daqmodes.INTEGRATED_CHANNEL_CONSUMER"
         self._receiver_started: bool = False
-        self._daq_id = daq_id
+        self._daq_id = str(daq_id).zfill(3)
         self._receiver_interface = receiver_interface
         self._receiver_ip = receiver_ip
         self._receiver_ports = receiver_ports
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
-        #self._create_daq_instance()
-        # Make gRPC call to InitDaq
-        print("Calling RPC INIT")
-        with grpc.insecure_channel('localhost:50051') as channel:
+        self._grpc_service_name = f"daqreceiver-{self._daq_id}-grpc-svc"
+        self._grpc_service_port = grpc_port
+        self._grpc_channel = f"{self._grpc_service_name}:{self._grpc_service_port}"
+
+        with grpc.insecure_channel(self._grpc_channel) as channel:
             stub = daq_pb2_grpc.DaqStub(channel)
-            response = stub.InitDaq(daq_pb2.configDaqRequest(config=self._get_daq_config()))
+            configuration = json.dumps(self._get_daq_config())
+            response = stub.InitDaq(daq_pb2.configDaqRequest(config=configuration))
             assert response.result_code == ResultCode.OK
-
-    def _create_daq_instance(
-        self: DaqComponentManager,
-    ) -> None:
-        """
-        Create and initialise a DAQ instance.
-
-        This method creates a DAQ instance and initialises it before
-        returning.
-        """
-        self.logger.info("Creating, configuring and initialising DAQ receiver.")
-        # Create DAQ instance
-        self.daq_instance = DaqReceiver()
-
-        # TODO: `initialise_daq` starts the daq receiver rather than `start_daq`.
-        # `stop_daq` stops the daq receiver.
-        # This means we can't stop the receiver and start it on a new interface unless
-        # we re-init the device which is suboptimal.
-        # It would be better if we could start the receiver in `start_daq` without
-        # having to initialise/reinitialise the entire daq system.
-        try:
-            self.configure_daq(self._get_daq_config())
-        # pylint: disable=broad-except
-        except Exception as e:
-            self.logger.error(f"Caught exception in `_create_daq_instance`: {e}")
-
-        # Initialise library and start receiver.
-        self.daq_instance.initialise_daq()
-        self._receiver_started = True
-        self.logger.info("Daq receiver created and initialised.")
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
@@ -137,12 +110,40 @@ class DaqComponentManager(MccsComponentManager):
         # so that we don't store and (try to) apply an unusable configuration.
 
         daq_config = {
-            "nof_tiles": 2,
-            "receiver_ports": self._receiver_ports,
-            "receiver_interface": self._receiver_interface,
-            "receiver_ip": self._receiver_ip,
+            "nof_antennas": 16,
+            "nof_channels": 512,
+            "nof_beams": 1,
+            "nof_polarisations": 2,
+            "nof_tiles": 1,
+            "nof_raw_samples": 32768,
+            "raw_rms_threshold": -1,
+            "nof_channel_samples": 1024,
+            "nof_correlator_samples": 1835008,
+            "nof_correlator_channels": 1,
+            "continuous_period": 0,
+            "nof_beam_samples": 42,
+            "nof_beam_channels": 384,
+            "nof_station_samples": 262144,
+            "append_integrated": True,
+            "sampling_time": 1.1325,
+            "sampling_rate": (800e6 / 2.0) * (32.0 / 27.0) / 512.0,
+            "oversampling_factor": 32.0 / 27.0,
+            "receiver_ports": "4660",
+            "receiver_interface": "eth0",
+            "receiver_ip": "",
+            "receiver_frame_size": 8500,
+            "receiver_frames_per_block": 32,
+            "receiver_nof_blocks": 256,
+            "receiver_nof_threads": 1,
             "directory": ".",
+            "logging": True,
+            "write_to_disk": True,
+            "station_config": None,
+            "max_filesize": None,
             "acquisition_duration": -1,
+            "acquisition_start_time": -1,
+            "description": "",
+            "observation_metadata": {},  # This is populated automatically
         }
         return daq_config
 
@@ -152,21 +153,22 @@ class DaqComponentManager(MccsComponentManager):
 
         :return: The configuration in the pydaq instance.
         """
+        # TODO: RPC
         return self.daq_instance.get_configuration()
 
-    def _get_consumers_to_start(self: DaqComponentManager) -> list[DaqModes]:
-        """
-        Retrieve a list of DAQ consumers to start.
+    # def _get_consumers_to_start(self: DaqComponentManager) -> list[DaqModes]:
+    #     """
+    #     Retrieve a list of DAQ consumers to start.
 
-        Returns the consumer list that is to be used when `start_daq` is called without
-        specifying consumers. This is empty by default and if not set will return
-        `[DaqModes.INTEGRATED_CHANNEL_DATA]`.
+    #     Returns the consumer list that is to be used when `start_daq` is called without
+    #     specifying consumers. This is empty by default and if not set will return
+    #     `[DaqModes.INTEGRATED_CHANNEL_DATA]`.
 
-        :return: a list of DAQ modes.
-        """
-        if self._consumers_to_start is None:
-            return [DaqModes.INTEGRATED_CHANNEL_DATA]
-        return self._consumers_to_start
+    #     :return: a list of DAQ modes.
+    #     """
+    #     if self._consumers_to_start is None:
+    #         return "DaqModes.INTEGRATED_CHANNEL_DATA"
+    #     return self._consumers_to_start
 
     def _set_consumers_to_start(
         self: DaqComponentManager, consumers_to_start: str
@@ -180,55 +182,34 @@ class DaqComponentManager(MccsComponentManager):
         :param consumers_to_start: A string containing a comma separated
             list of DaqModes.
         """
-        try:
-            if consumers_to_start != "":
-                # Extract consumers_to_start and convert to DaqModes if supplied.
-                consumer_list = consumers_to_start.split(
-                    ","
-                )  # Separate string into list of words.
-                # Strip whitespace, extract the enum part of the consumer
-                # (e.g. RAW_DATA) and cast into a DaqMode.
-                self._consumers_to_start = [
-                    DaqModes[consumer.strip().split(".")[-1]]
-                    for consumer in consumer_list
-                ]
-            else:
-                self._consumers_to_start = None
-        # pylint: disable=broad-except
-        except Exception as e:
-            self.logger.error(
-                f"Unhandled exception caught in `_set_consumers_to_start`: {e}"
-            )
-            self._consumers_to_start = None
+        self._consumers_to_start = consumers_to_start
 
     def configure_daq(
         self: DaqComponentManager,
-        daq_config: dict[str, Any],
+        daq_config: str,
     ) -> None:
         """
         Apply a configuration to the DaqReceiver.
 
-        :param daq_config: A dictionary containing configuration settings.
+        :param daq_config: A json containing configuration settings.
         """
         self.logger.info("Configuring DAQ receiver.")
-        try:
-            self.daq_instance.populate_configuration(daq_config)
-        # pylint: disable=broad-except
-        except Exception as e:
-            self.logger.error(f"Exception caught in `configure_daq`: {e}")
-        # if not self._validate_daq_configuration(daq_config):
-        #     self.logger.warning("DAQ configuration could not be validated!")
-        # TODO: Raise some exception here? How do we want to deal with this?
+        # Make gRPC call to configure.
+        with grpc.insecure_channel(self._grpc_channel) as channel:
+            stub = daq_pb2_grpc.DaqStub(channel)
+            # configuration = json.dumps(daq_config)
+            response = stub.InitDaq(daq_pb2.configDaqRequest(config=daq_config))
+            assert response.result_code == ResultCode.OK
         self.logger.info("DAQ receiver configuration complete.")
 
     @check_communicating
     def start_daq(
         self: DaqComponentManager,
-        modes_to_start: Optional[list[DaqModes]] = None,
+        modes_to_start: str = "",
         task_callback: Optional[Callable] = None,
-    ) -> tuple[TaskStatus, str]:
+    ) -> tuple[ResultCode, str]:
         """
-        Submit start data acquisition task with the current configuration.
+        Start data acquisition with the current configuration.
 
         Extracts the required consumers from configuration and starts
         them.
@@ -238,67 +219,25 @@ class DaqComponentManager(MccsComponentManager):
 
         :return: a task status and response message
         """
-        self.logger.info("Submitting `_start_daq` task.")
-        # Retrieve default list of modes to start if not provided.
-        if modes_to_start is None:
-            modes_to_start = self._get_consumers_to_start()
-        print("CALLING RPC START")
-        with grpc.insecure_channel('localhost:50051') as channel:
-            stub = daq_pb2_grpc.DaqStub(channel)
-            response = stub.StartDaq(daq_pb2.startDaqRequest(modes_to_start=modes_to_start))
-
-        return ([response.result_code], [response.message])
-
-    @check_communicating
-    def _start_daq(
-        self: DaqComponentManager,
-        modes_to_start: Optional[list[Union[int, DaqModes]]] = None,
-        task_callback: Optional[Callable] = None,
-        task_abort_event: Union[threading.Event, None] = None,
-    ) -> None:
-        """
-        Start data acquisition with the current configuration.
-
-        Extracts the required consumers from configuration and starts
-        them.
-
-        :param modes_to_start: The DAQ consumers to start.
-        :param task_callback: Update task state, defaults to None
-        :param task_abort_event: Abort the task
-        """
-        if not self._receiver_started:
-            self.daq_instance.initialise_daq()
-            self._receiver_started = True
+        self.logger.info("In start_daq")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
         # Retrieve default list of modes to start if not provided.
-        if modes_to_start is None:
-            modes_to_start = self._get_consumers_to_start()
+        if modes_to_start == "":
+            modes_to_start = self._consumers_to_start
 
-        callbacks = [self._received_data_callback] * len(modes_to_start)
-
-        # Cast any ints in modes_to_start to a DaqMode.
-        try:
-            modes_to_start = [DaqModes(mode) for mode in modes_to_start]
-        except ValueError as e:
-            self.logger.error(f"Value Error! Invalid DaqMode supplied! {e}")
-            if task_callback:
-                task_callback(
-                    status=TaskStatus.FAILED,
-                    message=f"Value Error! Invalid DaqMode supplied! {e}",
-                )
-
-        self.logger.info(
-            (
-                f"Starting DAQ. {self.daq_instance._config['receiver_ip']} "
-                "Listening on interface: "
-                f"{self.daq_instance._config['receiver_interface']}:"
-                f"{self.daq_instance._config['receiver_ports']}"
+        with grpc.insecure_channel(self._grpc_channel) as channel:
+            stub = daq_pb2_grpc.DaqStub(channel)
+            response = stub.StartDaq(
+                daq_pb2.startDaqRequest(modes_to_start=modes_to_start)
             )
-        )
-        self.daq_instance.start_daq(modes_to_start, callbacks)
+
         if task_callback:
-            task_callback(status=TaskStatus.COMPLETED)
+            if response.result_code == ResultCode.OK.value:
+                task_callback(status=TaskStatus.COMPLETED)
+            else:
+                task_callback(status=TaskStatus.FAILED)
+        return (response.result_code, response.message)
 
     def stop_daq(
         self: DaqComponentManager,
@@ -312,35 +251,17 @@ class DaqComponentManager(MccsComponentManager):
         :param task_callback: Update task state, defaults to None
         :return: a task status and response message
         """
-        self.logger.info("Submitting `_stop_daq` task.")
-        #return self.submit_task(self._stop_daq, args=[], task_callback=task_callback)
-        print("CALLING RPC STOP")
-        with grpc.insecure_channel('localhost:50051') as channel:
-            stub = daq_pb2_grpc.DaqStub(channel)
-            response = stub.StartDaq(daq_pb2.stopDaqRequest())
-
-        return ([response.result_code], [response.message])
-
-    def _stop_daq(
-        self: DaqComponentManager,
-        task_callback: Optional[Callable] = None,
-        task_abort_event: Union[threading.Event, None] = None,
-    ) -> None:
-        """
-        Stop data acquisition.
-
-        Stops the DAQ receiver and all running consumers.
-
-        :param task_callback: Update task state, defaults to None
-        :param task_abort_event: Abort the task
-        """
+        self.logger.info("In stop_daq")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
-        self.logger.info(
-            "Stopping DAQ receiver listening on interface: "
-            f"{self.daq_instance._config['receiver_interface']}"
-        )
-        self.daq_instance.stop_daq()
-        self._receiver_started = False
+
+        with grpc.insecure_channel(self._grpc_channel) as channel:
+            stub = daq_pb2_grpc.DaqStub(channel)
+            response = stub.StopDaq(daq_pb2.stopDaqRequest())
+
         if task_callback:
-            task_callback(status=TaskStatus.COMPLETED)
+            if response.result_code == ResultCode.OK.value:
+                task_callback(status=TaskStatus.COMPLETED)
+            else:
+                task_callback(status=TaskStatus.FAILED)
+        return (response.result_code, response.message)

@@ -31,6 +31,9 @@ server:
           - name: "ReceiverPort"
             values:
             - "{{ coalesce $device.receiver_port 4660 | toString }}"
+          - name: "GrpcPort"
+            values:
+            - "{{ coalesce $device.grpc_port 50051 | toString }}"
           - name: "ConsumersToStart"
             values:
             - "DaqModes.INTEGRATED_CHANNEL_DATA"
