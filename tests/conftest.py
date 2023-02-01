@@ -36,8 +36,8 @@ MAX_SUBRACK_FAN_SPEED = 8000.0
 class FanMode(enum.IntEnum):  # type: ignore[no-redef]
     """Redefinition of FanMode."""
 
-    MANUAL = 1
-    AUTO = 2
+    MANUAL = 0
+    AUTO = 1
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
