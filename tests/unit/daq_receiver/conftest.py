@@ -16,7 +16,7 @@ from concurrent import futures
 import grpc
 import pytest
 import pytest_mock
-from ska_control_model import TaskStatus
+from ska_control_model import ResultCode, TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
@@ -117,20 +117,12 @@ def grpc_host_fixture() -> str:
     return "localhost"
 
 
-@pytest.fixture(name="grpc_channel_override", scope="session")
-def grpc_channel_override_fixture(grpc_host, grpc_port) -> str:
-    """
-    The channel on which the gRCP server is to communicate.
-
-    :return: the gRCP channel.
-    """
-    return f"{grpc_host}:{grpc_port}"
-
-
 @pytest.fixture(name="daq_grpc_server", scope="session")
 def daq_grpc_server_fixture(grpc_port):
     """
     Stand up a local gRPC server.
+
+    Include this fixture in tests that require a gRPC DaqServer.
 
     :yield: A gRPC server.
     """
@@ -152,11 +144,11 @@ def daq_component_manager_fixture(
     receiver_ip: str,
     receiver_ports: str,
     grpc_port: str,
+    grpc_host: str,
     empty_consumer_list_to_start: str,
     logger: logging.Logger,
     max_workers: int,
     callbacks: MockCallableGroup,
-    grpc_channel_override: str,
     daq_grpc_server,
 ) -> DaqComponentManager:
     """
@@ -181,13 +173,13 @@ def daq_component_manager_fixture(
         receiver_ip,
         receiver_ports,
         grpc_port,
+        grpc_host,
         empty_consumer_list_to_start,
         logger,
         max_workers,
         callbacks["communication_state"],
         callbacks["component_state"],
         callbacks["received_data"],
-        grpc_channel_override=grpc_channel_override,
     )
 
 
@@ -199,6 +191,7 @@ def mock_daq_component_manager_fixture(
     receiver_ip: str,
     receiver_ports: str,
     grpc_port: str,
+    grpc_host: str,
     empty_consumer_list_to_start: str,
     logger: logging.Logger,
     max_workers: int,
@@ -225,6 +218,7 @@ def mock_daq_component_manager_fixture(
         receiver_ip,
         receiver_ports,
         grpc_port,
+        grpc_host,
         empty_consumer_list_to_start,
         logger,
         max_workers,
@@ -249,8 +243,12 @@ def mock_component_manager_fixture(
     """
     mock_component_manager = mocker.Mock()
     configuration = {
-        "start_daq.return_value": (TaskStatus.QUEUED, "Task queued"),
-        "stop_daq.return_value": (TaskStatus.QUEUED, "Task queued"),
+        "start_daq.return_value": (ResultCode.OK, "Daq started"),
+        "stop_daq.return_value": (ResultCode.OK, "Daq stopped"),
+        "_set_consumers_to_start.return_value": (
+            ResultCode.OK,
+            "SetConsumers command completed OK",
+        ),
     }
     mock_component_manager.configure_mock(**configuration)
     return mock_component_manager

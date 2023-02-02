@@ -34,6 +34,16 @@ class configDaqRequest(_message.Message):
     config: str
     def __init__(self, config: _Optional[str] = ...) -> None: ...
 
+class daqStatusRequest(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...
+
+class daqStatusResponse(_message.Message):
+    __slots__ = ["status"]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    def __init__(self, status: _Optional[str] = ...) -> None: ...
+
 class getConfigRequest(_message.Message):
     __slots__ = []
     def __init__(self) -> None: ...

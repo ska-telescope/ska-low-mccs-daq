@@ -40,6 +40,11 @@ class DaqStub(object):
             request_serializer=daq__pb2.getConfigRequest.SerializeToString,
             response_deserializer=daq__pb2.getConfigResponse.FromString,
         )
+        self.DaqStatus = channel.unary_unary(
+            "/daq.Daq/DaqStatus",
+            request_serializer=daq__pb2.daqStatusRequest.SerializeToString,
+            response_deserializer=daq__pb2.daqStatusResponse.FromString,
+        )
 
 
 class DaqServicer(object):
@@ -75,6 +80,12 @@ class DaqServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DaqStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_DaqServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -102,6 +113,11 @@ def add_DaqServicer_to_server(servicer, server):
             servicer.GetConfiguration,
             request_deserializer=daq__pb2.getConfigRequest.FromString,
             response_serializer=daq__pb2.getConfigResponse.SerializeToString,
+        ),
+        "DaqStatus": grpc.unary_unary_rpc_method_handler(
+            servicer.DaqStatus,
+            request_deserializer=daq__pb2.daqStatusRequest.FromString,
+            response_serializer=daq__pb2.daqStatusResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -249,6 +265,35 @@ class Daq(object):
             "/daq.Daq/GetConfiguration",
             daq__pb2.getConfigRequest.SerializeToString,
             daq__pb2.getConfigResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DaqStatus(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/daq.Daq/DaqStatus",
+            daq__pb2.daqStatusRequest.SerializeToString,
+            daq__pb2.daqStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,

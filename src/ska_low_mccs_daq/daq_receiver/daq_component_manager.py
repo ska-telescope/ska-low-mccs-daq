@@ -35,13 +35,13 @@ class DaqComponentManager(MccsComponentManager):
         receiver_ip: str,
         receiver_ports: str,
         grpc_port: str,
+        grpc_host: str,
         consumers_to_start: str,
         logger: logging.Logger,
         max_workers: int,
         communication_state_changed_callback: Callable[[CommunicationStatus], None],
         component_state_changed_callback: Callable[[dict[str, Any]], None],
         received_data_callback: Callable[[str, str, int], None],
-        grpc_channel_override: Optional[str] = None,
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -62,8 +62,8 @@ class DaqComponentManager(MccsComponentManager):
             called when the component state changes
         :param received_data_callback: callback to be called when data is
             received from a tile
-        :param grpc_channel_override: An optional override to force gRPC to
-            use a particular host:port. Used in testing.
+        :param grpc_host: An optional override to force gRPC to
+            use a particular host. Used in testing.
         """
         super().__init__(
             logger,
@@ -79,15 +79,13 @@ class DaqComponentManager(MccsComponentManager):
         self._receiver_ports = receiver_ports
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
-        self._grpc_service_name = f"daqreceiver-{self._daq_id}-grpc-svc"
-        self._grpc_service_port = grpc_port
-        self._grpc_channel = f"{self._grpc_service_name}:{self._grpc_service_port}"
-        if grpc_channel_override is not None:
-            self._grpc_channel = grpc_channel_override
+        self._grpc_host = grpc_host
+        self._grpc_port = grpc_port
+        self._grpc_channel = f"{self._grpc_host}:{self._grpc_port}"
 
         with grpc.insecure_channel(self._grpc_channel) as channel:
             stub = daq_pb2_grpc.DaqStub(channel)
-            configuration = json.dumps(self._get_daq_config())
+            configuration = json.dumps(self._get_default_config())
             response = stub.InitDaq(daq_pb2.configDaqRequest(config=configuration))
             assert response.result_code == ResultCode.OK
 
@@ -103,7 +101,7 @@ class DaqComponentManager(MccsComponentManager):
         """Break off communication with the DaqReceiver components."""
         super().stop_communicating()
 
-    def _get_daq_config(self: DaqComponentManager) -> dict[str, Any]:
+    def _get_default_config(self: DaqComponentManager) -> dict[str, Any]:
         """
         Retrieve and return a DAQ configuration.
 
@@ -168,7 +166,7 @@ class DaqComponentManager(MccsComponentManager):
 
     def _set_consumers_to_start(
         self: DaqComponentManager, consumers_to_start: str
-    ) -> None:
+    ) -> tuple[ResultCode, str]:
         """
         Set default consumers to start.
 
@@ -177,8 +175,13 @@ class DaqComponentManager(MccsComponentManager):
 
         :param consumers_to_start: A string containing a comma separated
             list of DaqModes.
+
+         :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
         """
         self._consumers_to_start = consumers_to_start
+        return (ResultCode.OK, "SetConsumers command completed OK")
 
     def configure_daq(
         self: DaqComponentManager,
@@ -247,7 +250,7 @@ class DaqComponentManager(MccsComponentManager):
         :param task_callback: Update task state, defaults to None
         :return: a task status and response message
         """
-        self.logger.info("In stop_daq")
+        self.logger.debug("Entering stop_daq")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
 
@@ -261,3 +264,22 @@ class DaqComponentManager(MccsComponentManager):
             else:
                 task_callback(status=TaskStatus.FAILED)
         return (response.result_code, response.message)
+
+    def daq_status(
+        self: DaqComponentManager,
+        task_callback: Optional[Callable] = None,
+    ) -> str:
+        """Docstring."""
+        print("ENTERING DAQ STATUS CPT MGR")
+        self.logger.debug("Entering daq_status")
+        if task_callback:
+            task_callback(status=TaskStatus.IN_PROGRESS)
+
+        with grpc.insecure_channel(self._grpc_channel) as channel:
+            stub = daq_pb2_grpc.DaqStub(channel)
+            response = stub.DaqStatus(daq_pb2.daqStatusRequest())
+
+        if task_callback:
+            task_callback(status=TaskStatus.COMPLETED)
+        print("EXITING DAQ STATUS CPT MGR")
+        return response.status

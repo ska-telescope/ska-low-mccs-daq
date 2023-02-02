@@ -179,7 +179,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
                 result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
             )
 
-    def GetConfiguration(self, request, context) -> daq_pb2.commandResponse:
+    def GetConfiguration(self, request, context) -> daq_pb2.getConfigResponse:
         """
         Retrieve the current DAQ configuration.
 
@@ -197,6 +197,44 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
 
         return daq_pb2.getConfigResponse(
             config=json.dumps(configuration),
+        )
+
+    def DaqStatus(self, request, context) -> daq_pb2.daqStatusResponse:
+        """
+        Provide status information for this MccsDaqReceiver.
+
+        This method returns status as a json string with entries for:
+            - Running Consumers: [DaqMode.name: str, DaqMode.value: int]
+            - Receiver Interface: "Interface Name": str
+            - Receiver Ports: [Port_List]: list[int]
+            - Receiver IP: "IP_Address": str
+
+        :return: A json string containing the status of this DaqReceiver.
+        """
+        print("ENTERING DAQ STATUS GRPC SERVER")
+        # 2. Get consumer list, filter by `running`
+        full_consumer_list = self.daq_instance._running_consumers.items()
+        running_consumer_list = [
+            [consumer.name, consumer.value]
+            for consumer, running in full_consumer_list
+            if running
+        ]
+        # 3. Get Receiver Interface, Ports and IP (and later `Uptime`)
+        receiver_interface = self.daq_instance._config["receiver_interface"]
+        receiver_ports = self.daq_instance._config["receiver_ports"]
+        receiver_ip = self.daq_instance._config["receiver_ip"]
+        # 4. Compose into some format and return.
+        status = {
+            "Running Consumers": running_consumer_list,
+            "Receiver Interface": receiver_interface,
+            "Receiver Ports": receiver_ports,
+            "Receiver IP": [
+                receiver_ip.decode() if isinstance(receiver_ip, bytes) else receiver_ip
+            ],
+        }
+        print("EXITING DAQ STATUS GRPC SERVER")
+        return daq_pb2.daqStatusResponse(
+            status=json.dumps(status),
         )
 
 

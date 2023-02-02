@@ -8,6 +8,7 @@ service Daq{
     rpc InitDaq(configDaqRequest) returns (commandResponse) {}
     rpc ConfigureDaq(configDaqRequest) returns (commandResponse) {}
     rpc GetConfiguration(getConfigRequest) returns (getConfigResponse) {}
+    rpc DaqStatus(daqStatusRequest) returns (daqStatusResponse) {}
 }
 
 enum ResultCode{
@@ -36,6 +37,14 @@ message getConfigRequest{
 
 message getConfigResponse{
     string config = 1;
+}
+
+message daqStatusRequest{
+
+}
+
+message daqStatusResponse{
+    string status = 1;
 }
 
 message commandResponse{

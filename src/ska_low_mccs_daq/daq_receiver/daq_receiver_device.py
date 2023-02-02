@@ -55,6 +55,9 @@ class MccsDaqReceiver(SKABaseDevice):
         doc="The gRPC port this DaqReceiver is using.",
         default_value=50051,
     )
+    GrpcHost = device_property(
+        dtype=str, doc="The gRPC host this DaqReceiver is using."
+    )
     DaqId = device_property(
         dtype=int, doc="The ID of this DaqReceiver device.", default_value=0
     )
@@ -117,6 +120,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self.ReceiverIp,
             self.ReceiverPorts,
             self.GrpcPort,
+            self.GrpcHost,
             self.ConsumersToStart,
             self.logger,
             self._max_workers,
@@ -314,7 +318,7 @@ class MccsDaqReceiver(SKABaseDevice):
         # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.DaqStatusCommand,
-            daq_health: HealthState,
+            # daq_health: HealthState,
         ) -> str:
             """
             Stateless hook for device DaqStatus() command.
@@ -322,6 +326,7 @@ class MccsDaqReceiver(SKABaseDevice):
             :param daq_health: The health state of this daq receiver.
             :return: The status of this Daq device.
             """
+            return self._component_manager.daq_status()
             # 1. Get HealthState
             health_state = [daq_health.name, daq_health.value]
             # 2. Get consumer list, filter by `running`
@@ -369,10 +374,16 @@ class MccsDaqReceiver(SKABaseDevice):
 
         :return: A json string containing the status of this DaqReceiver.
         """
+        print("ENTERING DAQ STATUS DEVICE")
         handler = self.get_command_object("DaqStatus")
-        # We can't get to the health state from the command object so we pass it in here
-        status = handler(self._health_state)
-        return status
+        # We append health_state to the status here.
+        status = json.loads(handler())
+        health_state = [self._health_state.name, self._health_state.value]
+        status["Daq Health"] = health_state
+        print("EXITING DAQ STATUS DEVICE")
+        print(status)
+        print(type(status))
+        return json.dumps(status)
 
     # pylint: disable=too-few-public-methods
     class StartCommand(FastCommand):

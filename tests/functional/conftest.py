@@ -6,8 +6,11 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
+import time
+from concurrent import futures
 from typing import ContextManager, Generator
 
+import grpc
 import pytest
 from _pytest.fixtures import SubRequest
 from ska_tango_testing.context import (
@@ -15,6 +18,9 @@ from ska_tango_testing.context import (
     ThreadedTestTangoContextManager,
     TrueTangoContextManager,
 )
+
+from ska_low_mccs_daq.gRPC_server.daq_grpc_server import MccsDaqServer
+from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
 
 
 def pytest_itemcollected(item: pytest.Item) -> None:
@@ -134,6 +140,45 @@ def daq_name_fixture(daq_id: str) -> str:
     :return: the name of this daq receiver.
     """
     return f"low-mccs-daq/daqreceiver/{daq_id.zfill(3)}"
+
+
+@pytest.fixture(name="grpc_port", scope="session")
+def grpc_port_fixture() -> str:
+    """
+    The port on which the gRCP server is to communicate.
+
+    :return: the gRCP port number.
+    """
+    return "50051"
+
+
+@pytest.fixture(name="grpc_host", scope="session")
+def grpc_host_fixture() -> str:
+    """
+    The host on which the gRCP server is available.
+
+    :return: the gRCP port number.
+    """
+    return "localhost"
+
+
+@pytest.fixture(name="daq_grpc_server", scope="session")
+def daq_grpc_server_fixture(grpc_port):
+    """
+    Stand up a local gRPC server.
+
+    Include this fixture in tests that require a gRPC DaqServer.
+
+    :yield: A gRPC server.
+    """
+    print("Starting daq server...", flush=True)
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    daq_pb2_grpc.add_DaqServicer_to_server(MccsDaqServer(), server)
+    server.add_insecure_port("[::]:" + grpc_port)
+    server.start()
+    print("Server started, listening on " + grpc_port, flush=True)
+    time.sleep(0.1)
+    yield
 
 
 @pytest.fixture(name="tango_harness", scope="session")
