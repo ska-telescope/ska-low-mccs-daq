@@ -16,7 +16,8 @@ function display_help(){
     echo "-p             Activate AAVS virtualenv in .bashrc (off by default)"
     echo "-v <venv path> specifies location of 'python' virtualenv folder (default /opt/aavs)"
     echo "-b <pyfabil_branch> specifies pyfabil branch to be installed"
-    echo "-c             clean build directories and installed python virtual environment" 
+    echo "-t <itpm_bios_branch> specifies itpm-bios branch to be installed"
+    echo "-c             clean build directories and installed python virtual environment"
     echo "-h             Print this message"
     echo "
 This script should not be executed with sudo, however the user executing it must have sudo privileges. Only the user
@@ -60,9 +61,10 @@ COMPILE_CORRELATOR=OFF
 ACTIVATE_VENV=false
 PRINT_HELP=false
 PYFABIL_BRANCH="master"
+ITPM_BIOS_BRANCH="dev"
 
 # Process command-line arguments
-while getopts "Chpcb:v:" flag
+while getopts "Chpcb:t:v:" flag
 do
     case "${flag}" in
         C) COMPILE_CORRELATOR=ON ;;
@@ -70,6 +72,7 @@ do
         p) ACTIVATE_VENV=true ;;
         c) CLEAN=true ;;
         b) PYFABIL_BRANCH=${OPTARG} ;;
+        t) ITPM_BIOS_BRANCH=${OPTARG} ;;
         v) export VENV_INSTALL=${OPTARG}
            if [[ ${VENV_INSTALL:0:1} == "-" ]]; then # If argument is next option
              echo "Error: -${flag} requires an argument."
@@ -135,9 +138,9 @@ function create_install() {
 
   # Add directory to LD_LIBRARY_PATH
   if [[ ! ":$LD_LIBRARY_PATH:" == *"aavs"* ]]; then
-    export LD_LIBRARY_PATH=$AAVS_INSTALL/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} 
+    export LD_LIBRARY_PATH=$AAVS_INSTALL/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
   fi
-  
+
   # Create bin directory and add to path
   if [ ! -d "$AAVS_INSTALL/bin" ]; then
     mkdir -p $AAVS_INSTALL/bin
@@ -154,7 +157,7 @@ function create_install() {
   if [[ ! -d "$AAVS_INSTALL/include" ]]; then
     mkdir -p $AAVS_INSTALL/include
   fi
-  
+
   # Create log directory
   sudo groupadd aavs_logger
   if [[ ! -d "$AAVS_INSTALL/log" ]]; then
@@ -195,7 +198,7 @@ function create_install() {
 install_package cmake
 install_package git
 install_package git-lfs
-install_package libyaml-dev 
+install_package libyaml-dev
 install_package python3-dev
 install_package python3-virtualenv
 install_package libnuma-dev
@@ -253,6 +256,9 @@ pushd third_party || exit
       popd
     popd
   fi
+
+  # Install itpm-bios
+  pip install git+https://gitlab.com/sanitas-eg/itpm-bios.git@$ITPM_BIOS_BRANCH --force-reinstall
 
 popd
 
