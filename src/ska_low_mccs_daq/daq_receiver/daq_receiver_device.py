@@ -574,7 +574,7 @@ class MccsDaqReceiver(SKABaseDevice):
             """
             configuration = self._component_manager.get_configuration()
 
-            return configuration # json.dumps(configuration)
+            return configuration
 
     # pylint: disable=too-few-public-methods
     class SetConsumersCommand(FastCommand):
@@ -606,8 +606,7 @@ class MccsDaqReceiver(SKABaseDevice):
                 message indicating status. The message is for
                 information purpose only.
             """
-            self._component_manager._set_consumers_to_start(argin)
-            return (ResultCode.OK, "SetConsumers command completed OK")
+            return self._component_manager._set_consumers_to_start(argin)
 
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
     def SetConsumers(self: MccsDaqReceiver, argin: str) -> DevVarLongStringArrayType:

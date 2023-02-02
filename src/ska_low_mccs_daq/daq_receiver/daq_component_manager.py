@@ -41,6 +41,7 @@ class DaqComponentManager(MccsComponentManager):
         communication_state_changed_callback: Callable[[CommunicationStatus], None],
         component_state_changed_callback: Callable[[dict[str, Any]], None],
         received_data_callback: Callable[[str, str, int], None],
+        grpc_channel_override: Optional[str] = None,
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -61,6 +62,8 @@ class DaqComponentManager(MccsComponentManager):
             called when the component state changes
         :param received_data_callback: callback to be called when data is
             received from a tile
+        :param grpc_channel_override: An optional override to force gRPC to
+            use a particular host:port. Used in testing.
         """
         super().__init__(
             logger,
@@ -79,6 +82,8 @@ class DaqComponentManager(MccsComponentManager):
         self._grpc_service_name = f"daqreceiver-{self._daq_id}-grpc-svc"
         self._grpc_service_port = grpc_port
         self._grpc_channel = f"{self._grpc_service_name}:{self._grpc_service_port}"
+        if grpc_channel_override is not None:
+            self._grpc_channel = grpc_channel_override
 
         with grpc.insecure_channel(self._grpc_channel) as channel:
             stub = daq_pb2_grpc.DaqStub(channel)

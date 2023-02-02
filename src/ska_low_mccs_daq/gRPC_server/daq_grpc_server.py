@@ -22,28 +22,30 @@ from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
 __all__ = ["MccsDaqServer", "main"]
 
 
-def convert_daq_modes_str(consumers_to_start: str) -> list[DaqModes]:
+def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     """
     Convert a string representation of DaqModes into a list of DaqModes.
+
+    Breaks a comma separated list into a list of words,
+        strips whitespace and extracts the `enum` part and casts the string
+        into a DaqMode or directly cast an int into a DaqMode.
 
     :param consumers_to_start: A string containing a comma separated
         list of DaqModes.
 
-    :return: a converted list of DaqModes or an empty list.
+    :return: a converted list of DaqModes or an empty list if no consumers supplied.
     """
     if consumers_to_start != "":
-        # Extract consumers_to_start and convert to DaqModes if supplied.
-        # consumer_list = consumers_to_start.split(",")
-        # Separate string into list of words.
-        # Strip whitespace, extract the enum part of the consumer
-        # (e.g. RAW_DATA) and cast into a DaqMode.
-        # TODO: This method needs to handle the inputs better.
-        # Something like a try/except nest for types with conversions
         consumer_list = consumers_to_start.split(",")
-        converted_consumer_list = [
-            DaqModes[consumer.strip().split(".")[-1]] for consumer in consumer_list
-        ]
-
+        converted_consumer_list = []
+        for consumer in consumer_list:
+            try:
+                # Convert string representation of a DaqMode.
+                converted_consumer = DaqModes[consumer.strip().split(".")[-1]]
+            except KeyError:
+                # Convert string representation of an int.
+                converted_consumer = DaqModes(int(consumer))
+            converted_consumer_list.append(converted_consumer)
         return converted_consumer_list
     else:
         return []
@@ -83,24 +85,20 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
 
         :return: a commandResponse object containing `result_code` and `message`
         """
-        self.logger.info(
-            "Starting DAQ with current config: %s", self.daq_instance._config
-        )
+        self.logger.info("Starting DAQ")
         modes_to_start: str = request.modes_to_start
         if not self._receiver_started:
             self.daq_instance.initialise_daq()
             self._receiver_started = True
         try:
             # Convert string representation to DaqModes
-            modes_to_start = convert_daq_modes_str(modes_to_start)
+            modes_to_start = convert_daq_modes(modes_to_start)
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
         # TODO: callbacks
         callbacks = None
         # callbacks = [self._received_data_callback] * len(modes_to_start)
-
         self.daq_instance.start_daq(modes_to_start, callbacks)
-
         self.logger.info("Daq started.")
         return daq_pb2.commandResponse(result_code=ResultCode.OK, message="Daq started")
 
@@ -134,9 +132,9 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         try:
             if request.config != "":
                 self.daq_instance.populate_configuration(json.loads(request.config))
-            if not self._receiver_started:
-                self.daq_instance.initialise_daq()
-                self._receiver_started = True
+
+            self.daq_instance.initialise_daq()
+            self._receiver_started = True
         # pylint: disable=broad-except
         except Exception as e:
             self.logger.error("Caught exception in `daq_grcp_server.InitDaq`: %s", e)
@@ -180,7 +178,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             return daq_pb2.commandResponse(
                 result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
             )
-        
+
     def GetConfiguration(self, request, context) -> daq_pb2.commandResponse:
         """
         Retrieve the current DAQ configuration.

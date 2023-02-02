@@ -18,7 +18,7 @@ from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
-from ska_low_mccs_daq.gRPC_server.daq_grpc_server import convert_daq_modes_str
+from ska_low_mccs_daq.gRPC_server.daq_grpc_server import convert_daq_modes
 
 
 class TestDaqComponentManager:
@@ -56,6 +56,71 @@ class TestDaqComponentManager:
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
 
     @pytest.mark.parametrize(
+        ("daq_modes_str", "daq_modes_list"),
+        (
+            ("DaqModes.RAW_DATA", [DaqModes.RAW_DATA]),
+            ("DaqModes.CHANNEL_DATA", [DaqModes.CHANNEL_DATA]),
+            ("DaqModes.BEAM_DATA", [DaqModes.BEAM_DATA]),
+            ("DaqModes.CONTINUOUS_CHANNEL_DATA", [DaqModes.CONTINUOUS_CHANNEL_DATA]),
+            ("DaqModes.INTEGRATED_BEAM_DATA", [DaqModes.INTEGRATED_BEAM_DATA]),
+            ("DaqModes.INTEGRATED_CHANNEL_DATA", [DaqModes.INTEGRATED_CHANNEL_DATA]),
+            ("DaqModes.STATION_BEAM_DATA", [DaqModes.STATION_BEAM_DATA]),
+            # ("DaqModes.CORRELATOR_DATA", [DaqModes.CORRELATOR_DATA]),  # Not compiled with correlator currently.
+            ("DaqModes.ANTENNA_BUFFER", [DaqModes.ANTENNA_BUFFER]),
+            (
+                "DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA",
+                [DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA],
+            ),
+            ("1, 2, 0", [DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA]),
+            (
+                "DaqModes.CONTINUOUS_CHANNEL_DATA, DaqModes.ANTENNA_BUFFER, 6",
+                [
+                    DaqModes.CONTINUOUS_CHANNEL_DATA,
+                    DaqModes.ANTENNA_BUFFER,
+                    DaqModes.STATION_BEAM_DATA,
+                ],
+            ),
+            (
+                "5, 4, DaqModes.STATION_BEAM_DATA",
+                [
+                    DaqModes.INTEGRATED_CHANNEL_DATA,
+                    DaqModes.INTEGRATED_BEAM_DATA,
+                    DaqModes.STATION_BEAM_DATA,
+                ],
+            ),
+            (
+                "RAW_DATA, 3, DaqModes.STATION_BEAM_DATA, ANTENNA_BUFFER",
+                [
+                    DaqModes.RAW_DATA,
+                    DaqModes.CONTINUOUS_CHANNEL_DATA,
+                    DaqModes.STATION_BEAM_DATA,
+                    DaqModes.ANTENNA_BUFFER,
+                ],
+            ),
+            ("", []),
+        ),
+    )
+    def test_convert_daq_modes(
+        self: TestDaqComponentManager,
+        daq_modes_str: str,
+        daq_modes_list: list[DaqModes],
+    ) -> None:
+        """
+        Test DaqModes can be properly converted.
+
+        This tests that DaqModes can be converted properly from a comma separated list
+            of ints and/or DaqModes to a list of DaqModes.
+
+        :param daq_modes_str: A comma separated list of DaqModes and/or ints.
+        :param daq_modes_list: The expected output of the conversion function.
+        """
+        converted_daq_modes = convert_daq_modes(daq_modes_str)
+        assert len(converted_daq_modes) == len(daq_modes_list)
+        for i, mode in enumerate(converted_daq_modes):
+            print(f"mode: {mode} -- expected: {daq_modes_list[i]}")
+            assert mode == daq_modes_list[i]
+
+    @pytest.mark.parametrize(
         "daq_modes",
         (
             "DaqModes.RAW_DATA",
@@ -78,7 +143,7 @@ class TestDaqComponentManager:
         daq_component_manager: DaqComponentManager,
         callbacks: MockCallableGroup,
         acquisition_duration: int,
-        daq_modes: list[Union[int, DaqModes]],
+        daq_modes: str,
     ) -> None:
         """
         Test basic DAQ functionality.
@@ -119,7 +184,7 @@ class TestDaqComponentManager:
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
         callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
 
-        daq_modes = convert_daq_modes_str(daq_modes)
+        daq_modes = convert_daq_modes(daq_modes)
         # for mode in daq_modes:
         # If we're using ints instead of DaqModes make the conversion so we
         # can check the consumer.
@@ -150,37 +215,26 @@ class TestDaqComponentManager:
         # ]
 
     @pytest.mark.parametrize(
-        ("consumer_list", "daq_modes"),
+        "consumer_list",
         (
-            ("DaqModes.RAW_DATA", [DaqModes.RAW_DATA]),
-            ("DaqModes.CHANNEL_DATA", [DaqModes.CHANNEL_DATA]),
-            ("DaqModes.BEAM_DATA", [DaqModes.BEAM_DATA]),
-            ("DaqModes.CONTINUOUS_CHANNEL_DATA", [DaqModes.CONTINUOUS_CHANNEL_DATA]),
-            ("DaqModes.INTEGRATED_BEAM_DATA", [DaqModes.INTEGRATED_BEAM_DATA]),
-            ("DaqModes.INTEGRATED_CHANNEL_DATA", [DaqModes.INTEGRATED_CHANNEL_DATA]),
-            ("DaqModes.STATION_BEAM_DATA", [DaqModes.STATION_BEAM_DATA]),
-            ("DaqModes.CORRELATOR_DATA", [DaqModes.CORRELATOR_DATA]),
-            ("DaqModes.ANTENNA_BUFFER", [DaqModes.ANTENNA_BUFFER]),
-            ("", [DaqModes.INTEGRATED_CHANNEL_DATA]),  # Default behaviour.
-            (
-                (
-                    "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
-                    " DaqModes.INTEGRATED_CHANNEL_DATA"
-                ),
-                [
-                    DaqModes.INTEGRATED_BEAM_DATA,
-                    DaqModes.ANTENNA_BUFFER,
-                    DaqModes.BEAM_DATA,
-                    DaqModes.INTEGRATED_CHANNEL_DATA,
-                ],
-            ),
+            "DaqModes.RAW_DATA",
+            "DaqModes.CHANNEL_DATA",
+            "DaqModes.BEAM_DATA",
+            "DaqModes.CONTINUOUS_CHANNEL_DATA",
+            "DaqModes.INTEGRATED_BEAM_DATA",
+            "DaqModes.INTEGRATED_CHANNEL_DATA",
+            "DaqModes.STATION_BEAM_DATA",
+            "DaqModes.CORRELATOR_DATA",
+            "DaqModes.ANTENNA_BUFFER",
+            "",  # Default behaviour.
+            "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
+            " DaqModes.INTEGRATED_CHANNEL_DATA",
         ),
     )
     def test_set_get_consumer_list(
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
         consumer_list: str,
-        daq_modes: list[DaqModes],
     ) -> None:
         """
         Test `_consumers_to_start` can be set and fetched correctly.
@@ -194,9 +248,9 @@ class TestDaqComponentManager:
         :param daq_modes: The corresponding DaqModes we expect to be set by
             the string passed in.
         """
-        assert daq_component_manager._consumers_to_start is None
+        assert daq_component_manager._consumers_to_start is ""
         daq_component_manager._set_consumers_to_start(consumer_list)
-        assert daq_component_manager._get_consumers_to_start() == daq_modes
+        assert daq_component_manager._consumers_to_start == consumer_list
 
     # def test_validate_daq_config(self: TestDaqComponentManager,
     #     daq_component_manager: DaqComponentManager,) -> None:

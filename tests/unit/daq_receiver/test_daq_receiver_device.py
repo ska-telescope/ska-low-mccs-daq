@@ -367,17 +367,14 @@ class TestPatchedDaq:
             "DaqModes.STATION_BEAM_DATA",
             "DaqModes.CORRELATOR_DATA",
             "DaqModes.ANTENNA_BUFFER",
-            (
-                "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
-                "DaqModes.INTEGRATED_CHANNEL_DATA"
-            ),
+            "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,",
         ),
     )
     def test_set_consumers_device(
         self: TestPatchedDaq,
         device_under_test: tango.DeviceProxy,
         mock_component_manager: unittest.mock.Mock,
-        consumer_list: list[Union[int, DaqModes]],
+        consumer_list: str,
     ) -> None:
         """
         Test for SetConsumers().

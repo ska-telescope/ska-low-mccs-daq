@@ -1,7 +1,10 @@
-from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
+from typing import ClassVar as _ClassVar
+from typing import Optional as _Optional
+from typing import Union as _Union
+
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 
 ABORTED: ResultCode
 DESCRIPTOR: _descriptor.FileDescriptor
@@ -19,7 +22,11 @@ class commandResponse(_message.Message):
     RESULT_CODE_FIELD_NUMBER: _ClassVar[int]
     message: str
     result_code: ResultCode
-    def __init__(self, result_code: _Optional[_Union[ResultCode, str]] = ..., message: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        result_code: _Optional[_Union[ResultCode, str]] = ...,
+        message: _Optional[str] = ...,
+    ) -> None: ...
 
 class configDaqRequest(_message.Message):
     __slots__ = ["config"]
