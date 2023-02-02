@@ -100,6 +100,12 @@ k8s-do-test:
 	helm  -n $(KUBE_NAMESPACE) uninstall $(K8S_TEST_RUNNER_CHART_RELEASE) ; \
 	exit $$EXIT_CODE
 
+
+# Compiles gRPC code and fixes the incorrect import syntax.
+GRPC_PROTOS_FOLDER = ./src/ska_low_mccs_daq/gRPC_server/protos
+GRPC_OUTPUT_FOLDER = ./src/ska_low_mccs_daq/gRPC_server/generated_code
 grpc-code:
-	python -m grpc_tools.protoc -I ./src/ska_low_mccs_daq/gRPC_server/protos --python_out=./src/ska_low_mccs_daq/gRPC_server/generated_code --pyi_out=./src/ska_low_mccs_daq/gRPC_server/generated_code --grpc_python_out=./src/ska_low_mccs_daq/gRPC_server/generated_code daq.proto
+	python -m grpc_tools.protoc -I $(GRPC_PROTOS_FOLDER) --python_out=$(GRPC_OUTPUT_FOLDER) --pyi_out=$(GRPC_OUTPUT_FOLDER) --grpc_python_out=$(GRPC_OUTPUT_FOLDER) daq.proto
+	sed -i -e 's/import daq_pb2/from . import daq_pb2/g' $(GRPC_OUTPUT_FOLDER)/daq_pb2_grpc.py
+
 .PHONY: k8s-test python-post-format python-post-lint docs-pre-build
