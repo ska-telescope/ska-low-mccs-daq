@@ -258,7 +258,7 @@ pushd third_party || exit
   fi
 
   # Install itpm-bios
-  pip install git+https://gitlab.com/sanitas-eg/itpm-bios.git@$ITPM_BIOS_BRANCH --force-reinstall
+  pip install git+https://gitlab.com/sanitaseg/itpm-bios.git@$ITPM_BIOS_BRANCH --force-reinstall
 
 popd
 
