@@ -145,9 +145,9 @@ def daq_name_fixture(daq_id: str) -> str:
 @pytest.fixture(name="grpc_port", scope="session")
 def grpc_port_fixture() -> str:
     """
-    Return the port on which the gRCP server is to communicate.
+    Return the port on which the gRPC server is to communicate.
 
-    :return: the gRCP port number.
+    :return: the gRPC port number.
     """
     return "50051"
 
@@ -155,9 +155,9 @@ def grpc_port_fixture() -> str:
 @pytest.fixture(name="grpc_host", scope="session")
 def grpc_host_fixture() -> str:
     """
-    Return the host on which the gRCP server is available.
+    Return the host on which the gRPC server is available.
 
-    :return: the gRCP port number.
+    :return: the gRPC port number.
     """
     return "localhost"
 
@@ -227,8 +227,8 @@ def tango_harness_fixture(
             ReceiverInterface=receiver_interface,
             ReceiverIp=receiver_ip,
             ReceiverPorts=receiver_ports,
-            GrcpHost=grpc_host,
-            GrcpPort=grpc_port,
+            GrpcHost=grpc_host,
+            GrpcPort=grpc_port,
             ConsumersToStart=["DaqModes.INTEGRATED_CHANNEL_DATA"],
             LoggingLevelDefault=3,
         )

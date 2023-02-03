@@ -100,9 +100,9 @@ def max_workers_fixture() -> int:
 @pytest.fixture(name="grpc_port", scope="session")
 def grpc_port_fixture() -> str:
     """
-    Return the port on which the gRCP server is to communicate.
+    Return the port on which the gRPC server is to communicate.
 
-    :return: the gRCP port number.
+    :return: the gRPC port number.
     """
     return "50051"
 
@@ -110,9 +110,9 @@ def grpc_port_fixture() -> str:
 @pytest.fixture(name="grpc_host", scope="session")
 def grpc_host_fixture() -> str:
     """
-    Return the host on which the gRCP server is available.
+    Return the host on which the gRPC server is available.
 
-    :return: the gRCP port number.
+    :return: the gRPC port number.
     """
     return "localhost"
 

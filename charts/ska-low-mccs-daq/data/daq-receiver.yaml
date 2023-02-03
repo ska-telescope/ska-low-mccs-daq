@@ -36,7 +36,7 @@ server:
             - "{{ coalesce $device.grpc_port 50051 | toString }}"
           - name: "GrpcHost"
             values:
-            - "daqreceiver-{{ '%03d' % $device.daq_id }}-grpc-svc"
+            - "{{ $device.name }}-grpc-svc"
           - name: "ConsumersToStart"
             values:
             - "DaqModes.INTEGRATED_CHANNEL_DATA"

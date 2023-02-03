@@ -148,7 +148,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             self._receiver_started = True
         # pylint: disable=broad-except
         except Exception as e:
-            self.logger.error("Caught exception in `daq_grcp_server.InitDaq`: %s", e)
+            self.logger.error("Caught exception in `daq_grpc_server.InitDaq`: %s", e)
             return daq_pb2.commandResponse(
                 result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
             )
@@ -188,7 +188,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(
-                "Caught exception in `daq_grcp_server.ConfigureDaq`: %s", e
+                "Caught exception in `daq_grpc_server.ConfigureDaq`: %s", e
             )
             return daq_pb2.commandResponse(
                 result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
