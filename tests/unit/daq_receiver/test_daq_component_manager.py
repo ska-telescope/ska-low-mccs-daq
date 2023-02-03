@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Union
 
 import pytest
 from pydaq.daq_receiver_interface import DaqModes
@@ -19,6 +18,8 @@ from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 from ska_low_mccs_daq.gRPC_server.daq_grpc_server import convert_daq_modes
+
+# from typing import Union
 
 
 class TestDaqComponentManager:
@@ -55,6 +56,7 @@ class TestDaqComponentManager:
         callbacks["communication_state"].assert_call(CommunicationStatus.DISABLED)
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
 
+    # Not compiled with correlator currently.
     @pytest.mark.parametrize(
         ("daq_modes_str", "daq_modes_list"),
         (
@@ -65,7 +67,7 @@ class TestDaqComponentManager:
             ("DaqModes.INTEGRATED_BEAM_DATA", [DaqModes.INTEGRATED_BEAM_DATA]),
             ("DaqModes.INTEGRATED_CHANNEL_DATA", [DaqModes.INTEGRATED_CHANNEL_DATA]),
             ("DaqModes.STATION_BEAM_DATA", [DaqModes.STATION_BEAM_DATA]),
-            # ("DaqModes.CORRELATOR_DATA", [DaqModes.CORRELATOR_DATA]),  # Not compiled with correlator currently.
+            # ("DaqModes.CORRELATOR_DATA", [DaqModes.CORRELATOR_DATA]),
             ("DaqModes.ANTENNA_BUFFER", [DaqModes.ANTENNA_BUFFER]),
             (
                 "DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA",
@@ -180,18 +182,19 @@ class TestDaqComponentManager:
         assert rc == ResultCode.OK.value
         assert message == "Daq started"
 
-        # callbacks["task"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
         callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
 
-        daq_modes = convert_daq_modes(daq_modes)
+        converted_daq_modes: list[DaqModes] = convert_daq_modes(daq_modes)
         # for mode in daq_modes:
         # If we're using ints instead of DaqModes make the conversion so we
         # can check the consumer.
         # mode_to_check = DaqModes(mode)
-        # TODO: Cannot check status of consumers until DaqStatus cmd is updated.
-        # assert daq_component_manager.daq_instance.
-        # _running_consumers[mode_to_check]
+        # status will not have health info when cpt mgr method is directly called.
+        status = json.loads(daq_component_manager.daq_status())
+        running_consumers = status["Running Consumers"]
+        for i, mode_to_check in enumerate(converted_daq_modes):
+            assert mode_to_check.value in running_consumers[i]
 
         # Wait for data etc
         time.sleep(acquisition_duration)
@@ -245,10 +248,8 @@ class TestDaqComponentManager:
         :param daq_component_manager: the daq receiver component manager
             under test.
         :param consumer_list: A comma separated list of consumers to start.
-        :param daq_modes: The corresponding DaqModes we expect to be set by
-            the string passed in.
         """
-        assert daq_component_manager._consumers_to_start is ""
+        assert daq_component_manager._consumers_to_start == ""
         daq_component_manager._set_consumers_to_start(consumer_list)
         assert daq_component_manager._consumers_to_start == consumer_list
 

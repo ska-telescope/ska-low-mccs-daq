@@ -52,6 +52,8 @@ def tango_harness_fixture(  # pylint: disable=too-many-arguments
         packets
     :param receiver_ports: port on which the DAQ receiver receives
         packets.
+    :param grpc_port: The gRPC port to be used.
+    :param grpc_host: The gRPC host to be used.
 
     :yields: a tango context.
     """

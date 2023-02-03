@@ -14,6 +14,7 @@ import unittest.mock
 from time import sleep
 from typing import Generator, Union
 
+import grpc
 import pytest
 import tango
 from pydaq.daq_receiver_interface import DaqModes
@@ -84,6 +85,8 @@ class TestMccsDaqReceiver:
             packets
         :param receiver_ports: port on which the DAQ receiver receives
             packets.
+        :param grpc_port: The port number to use for gRPC calls.
+        :param grpc_host: The hostname of the gRPC server to use.
 
         :yields: a tango context.
         """
@@ -153,7 +156,7 @@ class TestMccsDaqReceiver:
         daq_interface: str,
         daq_ports: list[int],
         daq_ip: str,
-        daq_grpc_server,
+        daq_grpc_server: grpc.Server,
     ) -> None:
         """
         Test for DaqStatus.
@@ -162,9 +165,12 @@ class TestMccsDaqReceiver:
             call DaqStatus to check that it reports the correct info.
 
         :param modes_to_start: A comma separated list of consumers/DaqModes to start.
+        :param expected_consumers: A list of DaqModes
+            representing the consumers to start.
         :param daq_interface: The interface for daq to listen on.
         :param daq_ports: A list of ports for daq to listen on.
         :param daq_ip: The ip address of daq.
+        :param daq_grpc_server: A fixture that stands up a gRPC server.
         :param device_under_test: fixture that provides a
             :py:class:`tango.DeviceProxy` to the device under test, in a
             :py:class:`tango.test_context.DeviceTestContext`.
@@ -236,6 +242,8 @@ class TestPatchedDaq:
             packets
         :param receiver_ports: port on which the DAQ receiver receives
             packets.
+        :param grpc_port: The port number to use for gRPC calls.
+        :param grpc_host: The hostname of the gRPC server to use.
 
         :yields: a tango context.
         """

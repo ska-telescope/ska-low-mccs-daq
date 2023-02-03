@@ -16,7 +16,7 @@ from concurrent import futures
 import grpc
 import pytest
 import pytest_mock
-from ska_control_model import ResultCode, TaskStatus
+from ska_control_model import ResultCode
 from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
@@ -100,7 +100,7 @@ def max_workers_fixture() -> int:
 @pytest.fixture(name="grpc_port", scope="session")
 def grpc_port_fixture() -> str:
     """
-    The port on which the gRCP server is to communicate.
+    Return the port on which the gRCP server is to communicate.
 
     :return: the gRCP port number.
     """
@@ -110,7 +110,7 @@ def grpc_port_fixture() -> str:
 @pytest.fixture(name="grpc_host", scope="session")
 def grpc_host_fixture() -> str:
     """
-    The host on which the gRCP server is available.
+    Return the host on which the gRCP server is available.
 
     :return: the gRCP port number.
     """
@@ -118,22 +118,23 @@ def grpc_host_fixture() -> str:
 
 
 @pytest.fixture(name="daq_grpc_server", scope="session")
-def daq_grpc_server_fixture(grpc_port):
+def daq_grpc_server_fixture(grpc_port: str) -> grpc.Server:
     """
     Stand up a local gRPC server.
 
     Include this fixture in tests that require a gRPC DaqServer.
 
+    :param grpc_port: The port number to use for gRPC calls.
+
     :yield: A gRPC server.
     """
-    print("Starting daq server...", flush=True)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     daq_pb2_grpc.add_DaqServicer_to_server(MccsDaqServer(), server)
     server.add_insecure_port("[::]:" + grpc_port)
     server.start()
-    print("Server started, listening on " + grpc_port, flush=True)
     time.sleep(0.1)
-    yield
+    yield server
+    server.stop(grace=3)
 
 
 # pylint: disable=too-many-arguments
@@ -149,7 +150,7 @@ def daq_component_manager_fixture(
     logger: logging.Logger,
     max_workers: int,
     callbacks: MockCallableGroup,
-    daq_grpc_server,
+    daq_grpc_server: grpc.Server,
 ) -> DaqComponentManager:
     """
     Return a daq receiver component manager.
@@ -158,6 +159,8 @@ def daq_component_manager_fixture(
     :param receiver_interface: The interface this DaqReceiver is to watch.
     :param receiver_ip: The IP address of this DaqReceiver.
     :param receiver_ports: The ports this DaqReceiver is to watch.
+    :param grpc_port: The port number to use for gRPC calls.
+    :param grpc_host: The hostname of the gRPC server to use.
     :param empty_consumer_list_to_start: The default consumers to be started.
     :param logger: the logger to be used by this object.
     :param max_workers: max number of threads available to run a LRC.
@@ -204,6 +207,8 @@ def mock_daq_component_manager_fixture(
     :param receiver_interface: The interface this DaqReceiver is to watch.
     :param receiver_ip: The IP address of this DaqReceiver.
     :param receiver_ports: The ports this DaqReceiver is to watch.
+    :param grpc_port: The port number to use for gRPC calls.
+    :param grpc_host: The hostname of the gRPC server to use.
     :param empty_consumer_list_to_start: The default consumers to be started.
     :param logger: the logger to be used by this object.
     :param max_workers: max number of threads available to run a LRC.

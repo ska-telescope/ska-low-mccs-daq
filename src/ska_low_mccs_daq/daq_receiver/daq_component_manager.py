@@ -27,7 +27,7 @@ __all__ = ["DaqComponentManager"]
 class DaqComponentManager(MccsComponentManager):
     """A component manager for a DaqReceiver."""
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments, too-many-locals
     def __init__(
         self: DaqComponentManager,
         daq_id: int,
@@ -241,7 +241,7 @@ class DaqComponentManager(MccsComponentManager):
     def stop_daq(
         self: DaqComponentManager,
         task_callback: Optional[Callable] = None,
-    ) -> tuple[TaskStatus, str]:
+    ) -> tuple[ResultCode, str]:
         """
         Stop data acquisition.
 
@@ -269,8 +269,12 @@ class DaqComponentManager(MccsComponentManager):
         self: DaqComponentManager,
         task_callback: Optional[Callable] = None,
     ) -> str:
-        """Docstring."""
-        print("ENTERING DAQ STATUS CPT MGR")
+        """
+        Provide status information for this MccsDaqReceiver.
+
+        :param task_callback: Update task state, defaults to None
+        :return: a task status and response message
+        """
         self.logger.debug("Entering daq_status")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
@@ -281,5 +285,4 @@ class DaqComponentManager(MccsComponentManager):
 
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
-        print("EXITING DAQ STATUS CPT MGR")
         return response.status

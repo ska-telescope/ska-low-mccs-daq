@@ -318,47 +318,13 @@ class MccsDaqReceiver(SKABaseDevice):
         # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.DaqStatusCommand,
-            # daq_health: HealthState,
         ) -> str:
             """
             Stateless hook for device DaqStatus() command.
 
-            :param daq_health: The health state of this daq receiver.
             :return: The status of this Daq device.
             """
             return self._component_manager.daq_status()
-            # 1. Get HealthState
-            health_state = [daq_health.name, daq_health.value]
-            # 2. Get consumer list, filter by `running`
-            full_consumer_list = (
-                self._component_manager.daq_instance._running_consumers.items()
-            )
-            running_consumer_list = [
-                [consumer.name, consumer.value]
-                for consumer, running in full_consumer_list
-                if running
-            ]
-            # 3. Get Receiver Interface, Ports and IP (and later `Uptime`)
-            receiver_interface = self._component_manager.daq_instance._config[
-                "receiver_interface"
-            ]
-            receiver_ports = self._component_manager.daq_instance._config[
-                "receiver_ports"
-            ]
-            receiver_ip = self._component_manager.daq_instance._config["receiver_ip"]
-            # 4. Compose into some format and return.
-            status = {
-                "Daq Health": health_state,
-                "Running Consumers": running_consumer_list,
-                "Receiver Interface": receiver_interface,
-                "Receiver Ports": receiver_ports,
-                "Receiver IP": [
-                    receiver_ip.decode()
-                    if isinstance(receiver_ip, bytes)
-                    else receiver_ip
-                ],
-            }
-            return json.dumps(status)
 
     @command(dtype_out="DevString")
     def DaqStatus(self: MccsDaqReceiver) -> str:
@@ -374,15 +340,11 @@ class MccsDaqReceiver(SKABaseDevice):
 
         :return: A json string containing the status of this DaqReceiver.
         """
-        print("ENTERING DAQ STATUS DEVICE")
         handler = self.get_command_object("DaqStatus")
         # We append health_state to the status here.
         status = json.loads(handler())
         health_state = [self._health_state.name, self._health_state.value]
         status["Daq Health"] = health_state
-        print("EXITING DAQ STATUS DEVICE")
-        print(status)
-        print(type(status))
         return json.dumps(status)
 
     # pylint: disable=too-few-public-methods
@@ -390,7 +352,7 @@ class MccsDaqReceiver(SKABaseDevice):
         """Class for handling the Start(argin) command."""
 
         def __init__(  # type: ignore
-            self: MccsDaqReceiver.ConfigureCommand,
+            self: MccsDaqReceiver.StartCommand,
             component_manager,
             logger: Optional[logging.Logger] = None,
         ) -> None:

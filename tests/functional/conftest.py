@@ -145,7 +145,7 @@ def daq_name_fixture(daq_id: str) -> str:
 @pytest.fixture(name="grpc_port", scope="session")
 def grpc_port_fixture() -> str:
     """
-    The port on which the gRCP server is to communicate.
+    Return the port on which the gRCP server is to communicate.
 
     :return: the gRCP port number.
     """
@@ -155,7 +155,7 @@ def grpc_port_fixture() -> str:
 @pytest.fixture(name="grpc_host", scope="session")
 def grpc_host_fixture() -> str:
     """
-    The host on which the gRCP server is available.
+    Return the host on which the gRCP server is available.
 
     :return: the gRCP port number.
     """
@@ -163,13 +163,15 @@ def grpc_host_fixture() -> str:
 
 
 @pytest.fixture(name="daq_grpc_server", scope="session")
-def daq_grpc_server_fixture(grpc_port):
+def daq_grpc_server_fixture(grpc_port: str) -> grpc.Server:
     """
     Stand up a local gRPC server.
 
     Include this fixture in tests that require a gRPC DaqServer.
 
-    :yield: A gRPC server.
+    :param grpc_port: The port to use for gRPC calls.
+
+    :yield: A gRPC server listening on `grpc_port`.
     """
     print("Starting daq server...", flush=True)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
@@ -178,7 +180,8 @@ def daq_grpc_server_fixture(grpc_port):
     server.start()
     print("Server started, listening on " + grpc_port, flush=True)
     time.sleep(0.1)
-    yield
+    yield server
+    server.stop(grace=3)
 
 
 @pytest.fixture(name="tango_harness", scope="session")
@@ -189,6 +192,8 @@ def tango_harness_fixture(
     receiver_interface: str,
     receiver_ip: str,
     receiver_ports: str,
+    grpc_port: str,
+    grpc_host: str,
 ) -> Generator[TangoContextProtocol, None, None]:
     """
     Return a Tango harness against which to run tests of the deployment.
@@ -203,6 +208,8 @@ def tango_harness_fixture(
         packets
     :param receiver_ports: port on which the DAQ receiver receives
         packets.
+    :param grpc_port: The port number to use for gRPC calls.
+    :param grpc_host: The hostname of the gRPC server to use.
 
     :raises ValueError: if the testbed is unknown
 
@@ -220,6 +227,8 @@ def tango_harness_fixture(
             ReceiverInterface=receiver_interface,
             ReceiverIp=receiver_ip,
             ReceiverPorts=receiver_ports,
+            GrcpHost=grpc_host,
+            GrcpPort=grpc_port,
             ConsumersToStart=["DaqModes.INTEGRATED_CHANNEL_DATA"],
             LoggingLevelDefault=3,
         )
