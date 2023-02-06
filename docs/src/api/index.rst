@@ -6,4 +6,5 @@ API
   :caption: Device subpackages
   :maxdepth: 2
 
-  DAQ<daq_receiver/index>
+  DAQ Receiver<daq_receiver/index>
+  DAQ Server<gRPC_server/index>
