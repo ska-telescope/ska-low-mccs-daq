@@ -61,7 +61,7 @@ COMPILE_CORRELATOR=OFF
 ACTIVATE_VENV=false
 PRINT_HELP=false
 PYFABIL_BRANCH="master"
-ITPM_BIOS_BRANCH="dev"
+ITPM_BIOS_BRANCH="main"
 
 # Process command-line arguments
 while getopts "Chpcb:t:v:" flag
@@ -318,4 +318,5 @@ ln -s $PWD/config $DIR
 
 echo ""
 echo "Installation finished. Please check your .bashrc file and source it to update your environment"
+echo "Please follow instruction at https://gitlab.com/sanitaseg/itpm-bios to perform TPM bios update"
 echo ""
