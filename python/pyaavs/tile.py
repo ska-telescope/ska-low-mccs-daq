@@ -165,6 +165,8 @@ class Tile(object):
         enable_ada=False,
         enable_adc=True,
         dsp_core=True,
+        adc_mono_channel_14_bit=False,
+        adc_mono_channel_sel=0,
     ):
         """
         Connect to the hardware and loads initial configuration.
@@ -179,6 +181,10 @@ class Tile(object):
         :type enable_adc: bool
         :param dsp_core: Enable loading of DSP core plugins
         :type dsp_core: bool
+        :param adc_mono_channel_14_bit: Enable ADC mono channel 14bit mode
+        :type adc_mono_channel_14_bit: bool
+        :param adc_mono_channel_sel: Select channel in mono channel mode (0=A, 1=B)
+        :type adc_mono_channel_sel: int
         """
         # Try to connect to board, if it fails then set tpm to None
         self.tpm = TPM()
@@ -186,7 +192,7 @@ class Tile(object):
         # Add plugin directory (load module locally)
         tf = __import__("pyaavs.plugins.tpm.tpm_test_firmware", fromlist=[None])
         self.tpm.add_plugin_directory(os.path.dirname(tf.__file__))
-        
+
         # Connect using tpm object.
         # simulator parameter is used not to load the TPM specific plugins,
         # no actual simulation is performed.
@@ -199,6 +205,8 @@ class Tile(object):
                 enable_ada=enable_ada,
                 enable_adc=enable_adc,
                 fsample=self._sampling_rate,
+                mono_channel_14_bit=adc_mono_channel_14_bit,
+                mono_channel_sel=adc_mono_channel_sel,
             )
         except (BoardError, LibraryError):
             self.tpm = None
@@ -242,7 +250,9 @@ class Tile(object):
                    time_delays=0,
                    is_first_tile=False,
                    is_last_tile=False,
-                   qsfp_detection="auto"):
+                   qsfp_detection="auto",
+                   adc_mono_channel_14_bit=False,
+                   adc_mono_channel_sel=0):
         """
         Connect and initialise.
 
@@ -295,10 +305,14 @@ class Tile(object):
                                "all", force QSFP1 and QSFP2 cable detected
                                "none", force no cable not detected
         :type qsfp_detection: str
-
+        :param adc_mono_channel_14_bit: Enable ADC mono channel 14bit mode
+        :type adc_mono_channel_14_bit: bool
+        :param adc_mono_channel_sel: Select channel in mono channel mode (0=A, 1=B)
+        :type adc_mono_channel_sel: int
         """
         # Connect to board
-        self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc)
+        self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc,
+                     adc_mono_channel_14_bit=adc_mono_channel_14_bit, adc_mono_channel_sel=adc_mono_channel_sel)
 
         # Before initialing, check if TPM is programmed
         if not self.tpm.is_programmed():
@@ -369,7 +383,7 @@ class Tile(object):
         # This will create a loopback between the two FPGAs
         self.set_default_eth_configuration(src_ip_fpga1, src_ip_fpga2,
                                            dst_ip_fpga1, dst_ip_fpga2,
-                                           src_port, dst_port, 
+                                           src_port, dst_port,
                                            qsfp_detection)
 
         for firmware in self.tpm.tpm_test_firmware:
@@ -946,10 +960,10 @@ class Tile(object):
 
     def get_arp_table(self):
         """
-        Check that ARP table has been populated in for all used cores. 
+        Check that ARP table has been populated in for all used cores.
         Returns a dictionary with an entry for each core present in the firmware
         Each entry contains a list of the ARP table IDs which have been resolved
-        by the ARP state machine. 
+        by the ARP state machine.
 
         :return: list of populated core ids and arp table entries
         :rtype: dict(list)
@@ -2477,4 +2491,3 @@ class Tile(object):
 if __name__ == "__main__":
     tile = Tile(ip="10.0.10.2", port=10000)
     tile.connect()
-
