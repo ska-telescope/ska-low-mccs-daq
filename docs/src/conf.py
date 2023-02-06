@@ -303,5 +303,5 @@ intersphinx_mapping = {
         "https://developer.skao.int/projects/ska-low-mccs-common/en/latest/",
         None,
     ),
-    "grpc": ("https://grpc.io/docs/"),
+    "grpc": ("https://grpc.io/docs/", None,),
 }
