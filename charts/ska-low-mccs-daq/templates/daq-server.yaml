@@ -4,7 +4,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ $device.name }}-data-svc
-  namespace: ska-low-mccs-daq
+  namespace: {{ .local.Release.Namespace }}
   labels:
     component: {{ $device.name }}-data-svc
 spec:
@@ -21,7 +21,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ $device.name }}-grpc-svc
-  namespace: ska-low-mccs-daq
+  namespace: {{ .local.Release.Namespace }}
   labels:
     component: {{ $device.name }}-grpc-svc
 spec:
@@ -38,7 +38,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ $device.name }}-data-server
-  namespace: ska-low-mccs-daq
+  namespace: {{ .local.Release.Namespace }}
   labels:
     component: {{ $device.name }}-data-server
 spec:
