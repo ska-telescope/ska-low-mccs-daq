@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2 as daq__pb2
+from ska_low_mccs_daq.gRPC_server import daq_pb2 as daq__pb2
 
 
 class DaqStub(object):
