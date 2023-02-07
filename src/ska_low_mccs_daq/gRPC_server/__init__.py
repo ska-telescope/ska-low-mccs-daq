@@ -10,6 +10,9 @@
 
 __all__ = [
     "MccsDaqServer",
+    "daq_pb2",
+    "daq_pb2_grpc",
 ]
 
 from .daq_grpc_server import MccsDaqServer
+from .generated_code import daq_pb2, daq_pb2_grpc

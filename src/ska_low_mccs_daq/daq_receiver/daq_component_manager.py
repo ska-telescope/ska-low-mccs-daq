@@ -18,7 +18,7 @@ import grpc
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_low_mccs_common.component import MccsComponentManager, check_communicating
 
-from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
+from ska_low_mccs_daq.gRPC_server import daq_pb2, daq_pb2_grpc
 
 __all__ = ["DaqComponentManager"]
 
