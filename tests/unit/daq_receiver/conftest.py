@@ -20,7 +20,8 @@ from ska_control_model import ResultCode
 from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
-from ska_low_mccs_daq.gRPC_server import MccsDaqServer, daq_pb2_grpc
+from ska_low_mccs_daq.gRPC_server import MccsDaqServer
+from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
 
 
 @pytest.fixture(name="daq_id")

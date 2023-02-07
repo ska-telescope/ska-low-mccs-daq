@@ -19,7 +19,8 @@ from ska_tango_testing.context import (
     TrueTangoContextManager,
 )
 
-from ska_low_mccs_daq.gRPC_server import MccsDaqServer, daq_pb2_grpc
+from ska_low_mccs_daq.gRPC_server import MccsDaqServer
+from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
 
 
 def pytest_itemcollected(item: pytest.Item) -> None:
