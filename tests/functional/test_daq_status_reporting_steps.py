@@ -10,25 +10,10 @@ from __future__ import annotations
 
 import pytest
 import tango
-
-# from pydaq.daq_receiver_interface import DaqModes
 from pytest_bdd import given, parsers, scenarios, then, when
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.tango_harness import DevicesToLoadType
-
-# from ska_control_model import AdminMode, CommunicationStatus, HealthState
-from ska_tango_testing.context import (  # ThreadedTestTangoContextManager,
-    TangoContextProtocol,
-)
-
-# from ska_low_mccs_daq.daq_receiver import MccsDaqReceiver  , DaqComponentManager
-
-# from typing import Generator
-
-
-# import json
-# import time
-
+from ska_tango_testing.context import TangoContextProtocol
 
 scenarios("./features/daq_status_reporting.feature")
 

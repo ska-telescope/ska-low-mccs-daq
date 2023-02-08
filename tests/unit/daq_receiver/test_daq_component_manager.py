@@ -19,8 +19,6 @@ from ska_tango_testing.mock import MockCallableGroup
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 from ska_low_mccs_daq.gRPC_server.daq_grpc_server import convert_daq_modes
 
-# from typing import Union
-
 
 class TestDaqComponentManager:
     """Tests of the Daq Receiver component manager."""
@@ -252,39 +250,3 @@ class TestDaqComponentManager:
         assert daq_component_manager._consumers_to_start == ""
         daq_component_manager._set_consumers_to_start(consumer_list)
         assert daq_component_manager._consumers_to_start == consumer_list
-
-    # def test_validate_daq_config(self: TestDaqComponentManager,
-    #     daq_component_manager: DaqComponentManager,) -> None:
-    #     """
-    #     This tests daq's configuration and validation.
-
-    #     :param daq_component_manager: the daq receiver component manager
-    #         under test.
-    #     """
-    #     time.sleep(2)
-    #     new_daq_config = {"nof_antennas": 32,
-    #                     "nof_channels": 256,
-    #                     "nof_beams": 2,
-    #                     "nof_tiles": 4,
-    #                     "nof_raw_samples": 16384,
-    #                     "nof_channel_samples": 1024,
-    #                     "nof_beam_samples": 16,
-    #                     "append_integrated": False,
-    #                     "receiver_ports": "6244",
-    #                     "receiver_interface": "eth0",
-    #                     "receiver_ip": "",
-    #                     "receiver_frame_size": 8500,
-    #                     "receiver_frames_per_block": 32,
-    #                     "receiver_nof_blocks": 256,
-    #                     "directory": ".",
-    #                     "acquisition_duration": -1,
-    #                     "description": "",
-    #                     }
-
-    #     # This first call should return `False` as DAQ still has its default config.
-    #     # The function should report that DAQ configuration was unsuccessfully applied
-    #     assert not daq_component_manager._validate_daq_configuration(new_daq_config)
-
-    #     # This second call should return `True` after reconfiguring the DaqReceiver.
-    #     daq_component_manager.configure_daq(new_daq_config)
-    #     assert daq_component_manager._validate_daq_configuration(new_daq_config)

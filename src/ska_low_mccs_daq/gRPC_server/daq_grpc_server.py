@@ -11,7 +11,6 @@ import json
 import logging
 import os
 from concurrent import futures
-from typing import Union
 
 import grpc
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
@@ -48,21 +47,6 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
             converted_consumer_list.append(converted_consumer)
         return converted_consumer_list
     return []
-
-
-def convert_daq_modes_int(modes_to_start: list[Union[int, DaqModes]]) -> list[DaqModes]:
-    """
-    Convert an integer or mixed list of modes_to_start into a list of DaqModes.
-
-    If modes_to_start is already a list of DaqModes then the same list is returned.
-
-    :param modes_to_start: A list of either integers representing DaqModes or a
-        mixed list of integers and Daqmodes.
-
-    :returns: A list of DaqModes.
-    """
-    converted_modes_to_start = [DaqModes(mode) for mode in modes_to_start]
-    return converted_modes_to_start
 
 
 class MccsDaqServer(daq_pb2_grpc.DaqServicer):

@@ -13,8 +13,6 @@ import logging
 from typing import Any, Callable, Optional
 
 import grpc
-
-# from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_low_mccs_common.component import MccsComponentManager, check_communicating
 
@@ -103,17 +101,10 @@ class DaqComponentManager(MccsComponentManager):
 
     def _get_default_config(self: DaqComponentManager) -> dict[str, Any]:
         """
-        Retrieve and return a DAQ configuration.
+        Retrieve and return a default DAQ configuration.
 
         :return: A DAQ configuration.
         """
-        # Read config from wherever we'll keep it (yaml/json?) then return it.
-        # For now just return whatever config is useful for testing.
-        # Anything not specified here will revert to default settings.
-
-        # TODO: Might want to put some type checking in here for IP addresses and such
-        # so that we don't store and (try to) apply an unusable configuration.
-
         daq_config = {
             "nof_antennas": 16,
             "nof_channels": 512,
