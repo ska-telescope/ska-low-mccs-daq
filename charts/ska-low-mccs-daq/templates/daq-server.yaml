@@ -60,7 +60,8 @@ spec:
           - retry
           - --max=60
           - --
-          - python /app/src/ska_low_mccs_daq/gRPC_server/daq_grpc_server.py
+          - "MccsDaqServer"
+          #- python /app/src/ska_low_mccs_daq/gRPC_server/daq_grpc_server.py
         env:
           - name: DAQ_DATA_PORT
             value: "{{ $device.receiver_port }}"
