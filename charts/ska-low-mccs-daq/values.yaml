@@ -86,6 +86,23 @@ securityContext:
   capabilities:
     add: ["NET_RAW", "IPC_LOCK", "SYS_NICE", "SYS_ADMIN", "KILL", "SYS_TIME"]
 
+jupyterhub:
+  hub:
+    baseUrl: /jupyterhub/
+  ingress:
+    pathType: Prefix
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+  singleuser:
+    image:
+      name: registry.gitlab.com/ska-telescope/sdi/ska-cicd-deploy-low-itf/tango-notebook
+      tag: 0.1.1
+    extraEnv:
+      TANGO_HOST: "databaseds-tango-base-test.ska-low-mccs-daq:10000"
+  proxy:
+    service:
+      type: ClusterIP
 
 # Default ska-low-mccs-daq device server instances
 deviceServers:
@@ -98,12 +115,14 @@ deviceServers:
         receiver_interface: eth0  # optional: defaults to "eth0"
         receiver_ip: "10.0.10.150"  # mandatory
         receiver_port: 4660  # optional: defaults to 4660
+        grpc_port: 50051
       - name: daqreceiver-002
         device_name: low-mccs-daq/daqreceiver/002  # mandatory
         daq_id: 2  # optional: defaults to position in this list
         receiver_interface: eth0  # optional: defaults to "eth0"
         receiver_ip: "10.0.10.151"  # mandatory
         receiver_port: 4661  # optional: defaults to 4660
+        grpc_port: 50052
 
 nodeSelector: {}
 

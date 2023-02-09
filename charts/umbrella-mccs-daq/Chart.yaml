@@ -10,9 +10,6 @@ dependencies:
   version: 0.3.10
   repository: https://artefact.skao.int/repository/helm-internal
   condition: ska-tango-base.enabled,global.sub-system.ska-tango-base.enable
-- name: ska-low-mccs
-  version: 0.9.1
-  repository: https://artefact.skao.int/repository/helm-internal
 - name: ska-low-mccs-daq
   version: 0.1.2 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
   repository: file://../ska-low-mccs-daq
@@ -37,4 +34,10 @@ dependencies:
   condition: ska-taranta-auth.enabled
 - name: ska-tango-util
   version: 0.3.23
+  repository: https://artefact.skao.int/repository/helm-internal
+- name: jupyterhub
+  version: 2.0.0
+  repository: https://jupyterhub.github.io/helm-chart/
+- name: ska-low-mccs-spshw
+  version: 0.2.1 
   repository: https://artefact.skao.int/repository/helm-internal

@@ -8,6 +8,8 @@
 """This module contains the bdd test steps of the daq status reporting."""
 from __future__ import annotations
 
+from typing import Generator
+
 import pytest
 import tango
 
@@ -15,16 +17,61 @@ import tango
 from pytest_bdd import given, parsers, scenarios, then, when
 
 # from ska_control_model import AdminMode, CommunicationStatus, HealthState
-from ska_tango_testing.context import TangoContextProtocol
+from ska_tango_testing.context import (
+    TangoContextProtocol,
+    ThreadedTestTangoContextManager,
+)
+
+from ska_low_mccs_daq.daq_receiver import MccsDaqReceiver  # , DaqComponentManager
 
 # import json
 # import time
 
 
-# from ska_low_mccs_daq.daq_receiver import DaqComponentManager, MccsDaqReceiver
-
-
 scenarios("./features/daq_status_reporting.feature")
+
+
+@pytest.fixture(name="tango_harness")
+def tango_harness_fixture(  # pylint: disable=too-many-arguments
+    daq_name: str,
+    daq_id: str,
+    receiver_interface: str,
+    receiver_ip: str,
+    receiver_ports: str,
+    grpc_port: str,
+    grpc_host: str,
+) -> Generator[TangoContextProtocol, None, None]:
+    """
+    Return a tango harness against which to run tests of the deployment.
+
+    :param daq_name: name of the DAQ receiver Tango device
+    :param daq_id: id of the DAQ receiver
+    :param receiver_interface: network interface on which the DAQ
+        receiver receives packets
+    :param receiver_ip: IP address on which the DAQ receiver receives
+        packets
+    :param receiver_ports: port on which the DAQ receiver receives
+        packets.
+    :param grpc_port: The gRPC port to be used.
+    :param grpc_host: The gRPC host to be used.
+
+    :yields: a tango context.
+    """
+    context_manager = ThreadedTestTangoContextManager()
+    context_manager.add_device(
+        daq_name,
+        MccsDaqReceiver,
+        DaqId=daq_id,
+        ReceiverInterface=receiver_interface,
+        ReceiverIp=receiver_ip,
+        ReceiverPorts=receiver_ports,
+        GrpcPort=grpc_port,
+        GrpcHost=grpc_host,
+        ConsumersToStart="DaqModes.INTEGRATED_CHANNEL_DATA",
+        LoggingLevelDefault=3,
+    )
+    with context_manager as context:
+        yield context
 
 
 @given("an MccsDaqReceiver", target_fixture="daq_receiver")

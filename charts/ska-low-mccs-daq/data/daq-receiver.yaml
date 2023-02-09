@@ -31,12 +31,18 @@ server:
           - name: "ReceiverPort"
             values:
             - "{{ coalesce $device.receiver_port 4660 | toString }}"
+          - name: "GrpcPort"
+            values:
+            - "{{ coalesce $device.grpc_port 50051 | toString }}"
+          - name: "GrpcHost"
+            values:
+            - "{{ $device.name }}-grpc-svc"
           - name: "ConsumersToStart"
             values:
             - "DaqModes.INTEGRATED_CHANNEL_DATA"
           - name: "LoggingLevelDefault"
             values: 
-            - "{{ coalesce $device.logging_level_default 3 | toString }}"
+            - "{{ coalesce $device.logging_level_default 5 | toString }}"
     {{- end }} # devices
 depends_on:
   - device: sys/database/2
