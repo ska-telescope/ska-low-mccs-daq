@@ -213,6 +213,16 @@ def subrack_device_attribute_values_fixture(
     }
 
 
+@pytest.fixture(name="station_name", scope="session")
+def station_name_fixture() -> str:
+    """
+    Return the name of the station Tango device.
+
+    :return: the name of the station Tango device.
+    """
+    return "low-mccs/station/001"
+
+
 @pytest.fixture(name="subrack_name", scope="session")
 def subrack_name_fixture() -> str:
     """
