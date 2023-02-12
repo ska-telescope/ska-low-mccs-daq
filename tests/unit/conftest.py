@@ -1,5 +1,3 @@
-# type: ignore
-# pylint: skip-file
 # -*- coding: utf-8 -*
 #
 # This file is part of the SKA Low MCCS project
@@ -37,8 +35,8 @@ def pytest_itemcollected(item: pytest.Item) -> None:
         item.add_marker("forked")
 
 
-@pytest.fixture()
-def devices_to_load(
+@pytest.fixture(name="devices_to_load")
+def devices_to_load_fixture(
     device_to_load: Optional[DeviceToLoadType],
 ) -> Optional[DevicesToLoadType]:
     """
@@ -75,8 +73,8 @@ def devices_to_load(
     return device_spec
 
 
-@pytest.fixture()
-def mock_callback_factory(
+@pytest.fixture(name="mock_callback_factory")
+def mock_callback_factory_fixture(
     mock_callback_called_timeout: float,
     mock_callback_not_called_timeout: float,
 ) -> Callable[[], MockCallable]:
@@ -101,8 +99,8 @@ def mock_callback_factory(
     )
 
 
-@pytest.fixture()
-def mock_callback_deque_factory(
+@pytest.fixture(name="mock_callback_deque_factory")
+def mock_callback_deque_factory_fixture(
     mock_callback_called_timeout: float,
     mock_callback_not_called_timeout: float,
 ) -> Callable[[], MockCallableDeque]:
@@ -127,8 +125,8 @@ def mock_callback_deque_factory(
     )
 
 
-@pytest.fixture()
-def device_state_changed_callback(
+@pytest.fixture(name="device_state_changed_callback")
+def device_state_changed_callback_fixture(
     mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
 ) -> MockChangeEventCallback:
     """
@@ -145,8 +143,8 @@ def device_state_changed_callback(
     return mock_change_event_callback_factory("state")
 
 
-@pytest.fixture()
-def device_admin_mode_changed_callback(
+@pytest.fixture(name="device_admin_mode_changed_callback")
+def device_admin_mode_changed_callback_fixture(
     mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
 ) -> MockChangeEventCallback:
     """
@@ -163,8 +161,8 @@ def device_admin_mode_changed_callback(
     return mock_change_event_callback_factory("adminMode")
 
 
-@pytest.fixture()
-def device_health_state_changed_callback(
+@pytest.fixture(name="device_health_state_changed_callback")
+def device_health_state_changed_callback_fixture(
     mock_change_event_callback_factory: Callable[[str], MockChangeEventCallback],
 ) -> MockChangeEventCallback:
     """
@@ -182,8 +180,8 @@ def device_health_state_changed_callback(
     return mock_change_event_callback_factory("healthState")
 
 
-@pytest.fixture()
-def communication_state_changed_callback(
+@pytest.fixture(name="communication_state_changed_callback")
+def communication_state_changed_callback_fixture(
     mock_callback_factory: Callable[[], unittest.mock.Mock],
 ) -> MockCallable:
     """
@@ -199,8 +197,8 @@ def communication_state_changed_callback(
     return mock_callback_factory()
 
 
-@pytest.fixture()
-def component_fault_callback(
+@pytest.fixture(name="component_fault_callback")
+def component_fault_callback_fixture(
     mock_callback_factory: Callable[[], unittest.mock.Mock],
 ) -> MockCallable:
     """
@@ -216,8 +214,8 @@ def component_fault_callback(
     return mock_callback_factory()
 
 
-@pytest.fixture()
-def component_progress_changed_callback(
+@pytest.fixture(name="component_progress_changed_callback")
+def component_progress_changed_callback_fixture(
     mock_callback_factory: Callable[[], unittest.mock.Mock],
 ) -> MockCallable:
     """
@@ -233,8 +231,8 @@ def component_progress_changed_callback(
     return mock_callback_factory()
 
 
-@pytest.fixture()
-def device_to_load() -> Optional[DeviceToLoadType]:
+@pytest.fixture(name="device_to_load")
+def device_to_load_fixture() -> Optional[DeviceToLoadType]:
     """
     Fixture that specifies the device to be loaded for testing.
 

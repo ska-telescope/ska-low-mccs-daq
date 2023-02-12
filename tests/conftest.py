@@ -1,5 +1,3 @@
-# type: ignore
-# pylint: skip-file
 # -*- coding: utf-8 -*
 #
 # This file is part of the SKA Low MCCS project
@@ -21,6 +19,7 @@ from typing import Any
 
 import pytest
 import tango
+from _pytest.python_api import ApproxBase
 
 TPM_BAY_COUNT = 8
 MAX_SUBRACK_FAN_SPEED = 8000.0
@@ -49,8 +48,8 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     print(tango.utils.info())
 
 
-@pytest.fixture(scope="session")
-def logger() -> logging.Logger:
+@pytest.fixture(scope="session", name="logger")
+def logger_fixture() -> logging.Logger:
     """
     Fixture that returns a default logger.
 
@@ -88,7 +87,7 @@ def subrack_simulator_config_fixture() -> dict[str, Any]:
 
 @pytest.fixture(name="subrack_simulator_attribute_values", scope="session")
 def subrack_simulator_attribute_values_fixture(
-    subrack_simulator_config,
+    subrack_simulator_config: dict[str, Any],
 ) -> dict[str, Any]:
     """
     Return attribute values that the subrack simulator is expected to report.
@@ -100,7 +99,7 @@ def subrack_simulator_attribute_values_fixture(
         simulator is expected to report.
     """
 
-    def _approxify(list_of_floats):
+    def _approxify(list_of_floats: list[float]) -> list[ApproxBase]:
         return [pytest.approx(element) for element in list_of_floats]
 
     return {
@@ -153,7 +152,7 @@ def subrack_simulator_attribute_values_fixture(
 
 @pytest.fixture(name="subrack_device_attribute_values", scope="session")
 def subrack_device_attribute_values_fixture(
-    subrack_simulator_config,
+    subrack_simulator_config: dict[str, Any],
 ) -> dict[str, Any]:
     """
     Return attribute values that the subrack device is expected to report.
@@ -165,7 +164,7 @@ def subrack_device_attribute_values_fixture(
         device is expected to report.
     """
 
-    def _approxify(list_of_floats):
+    def _approxify(list_of_floats: list[float]) -> list[ApproxBase]:
         return [pytest.approx(element) for element in list_of_floats]
 
     return {
