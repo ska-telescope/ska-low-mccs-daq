@@ -1,9 +1,9 @@
-ipython==1.23.5
+ipython
 h5py
 pyyaml
 lockfile
 scapy
-numpy
+numpy==1.23.5
 gitpython
 pytz
 configparser
