@@ -133,7 +133,9 @@ class TpmTestFirmware(FirmwareBlock):
         self._jesd2 = self.board.load_plugin("TpmJesd", device=self._device, core=1, frame_length=216)
         self._fpga = self.board.load_plugin("TpmFpga", device=self._device)
         if self.xg_eth and self.xg_40g_eth:
-            self._fortyg = self.board.load_plugin("TpmFortyGCoreXg", device=self._device, core=0            )
+            self._fortyg = self.board.load_plugin(
+                "TpmFortyGCoreXg", device=self._device, core=0
+            )
         self._f2f = [
             self.board.load_plugin("TpmFpga2Fpga", core=0),
             self.board.load_plugin("TpmFpga2Fpga", core=1),
@@ -143,13 +145,25 @@ class TpmTestFirmware(FirmwareBlock):
             if self.tile_beamformer_implemented:
                 self._beamf = self.board.load_plugin("BeamfFD", device=self._device)
             if self.station_beamformer_implemented:
-                self._station_beamf = self.board.load_plugin("StationBeamformer", device=self._device)
+                self._station_beamf = self.board.load_plugin(
+                    "StationBeamformer", device=self._device
+                )
             if self.antenna_buffer_implemented:
-                self._antenna_buffer = self.board.load_plugin("AntennaBuffer", device=self._device)
-            self._testgen = self.board.load_plugin("TpmTestGenerator", device=self._device, fsample=self._fsample)
-            self._patterngen = self.board.load_plugin("TpmPatternGenerator", device=self._device, fsample=self._fsample)
-            self._power_meter = self.board.load_plugin("AdcPowerMeter", device=self._device, fsample=self._fsample)
-            self._integrator = self.board.load_plugin("TpmIntegrator", device=self._device, fsample=self._fsample)
+                self._antenna_buffer = self.board.load_plugin(
+                    "AntennaBuffer", device=self._device
+                )
+            self._testgen = self.board.load_plugin(
+                "TpmTestGenerator", device=self._device, fsample=self._fsample
+            )
+            self._patterngen = self.board.load_plugin(
+                "TpmPatternGenerator", device=self._device, fsample=self._fsample
+            )
+            self._power_meter = self.board.load_plugin(
+                "AdcPowerMeter", device=self._device, fsample=self._fsample
+            )
+            self._integrator = self.board.load_plugin(
+                "TpmIntegrator", device=self._device, fsample=self._fsample
+            )
             self._spead_gen = [
                 self.board.load_plugin("SpeadTxGen", device=self._device, core=0),
                 self.board.load_plugin("SpeadTxGen", device=self._device, core=1),
@@ -157,7 +171,9 @@ class TpmTestFirmware(FirmwareBlock):
                 self.board.load_plugin("SpeadTxGen", device=self._device, core=3),
             ]
             if self.multiple_channel_tx_implemented:
-                self._multiple_channel_tx = self.board.load_plugin("MultipleChannelTx", device=self._device)
+                self._multiple_channel_tx = self.board.load_plugin(
+                    "MultipleChannelTx", device=self._device
+                )
 
     def start_ddr_initialisation(self: TpmTestFirmware) -> None:
         """Start DDR initialisation."""

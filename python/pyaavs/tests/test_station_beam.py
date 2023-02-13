@@ -1,7 +1,3 @@
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-
 from pydaq import daq_receiver as receiver
 from datetime import datetime, timedelta
 from pydaq.persisters import *
@@ -46,15 +42,6 @@ class TestStationBeam():
         self._csp_scale = 0
         self._channeliser_scale = 0
         self._pattern = [[0, 0, 0, 0]] * 384
-        # for n in range(384):
-        #     if n % 4 == 0:
-        #         self._pattern[n] = [n // 4, 0, 0, 0]
-        #     elif n % 4 == 1:
-        #         self._pattern[n] = [1, n // 4, 1, 1]
-        #     elif n % 4 == 2:
-        #         self._pattern[n] = [2, 2, n // 4, 2]
-        #     else:
-        #         self._pattern[n] = [3, 3, 3, n // 4]
         for n in range(384):
             self._pattern[n] = [n % 32, n // 32, n % 128, n // 4]
 

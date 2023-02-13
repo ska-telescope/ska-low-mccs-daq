@@ -1,4 +1,4 @@
-ipython
+ipython==1.23.5
 h5py
 pyyaml
 lockfile

@@ -280,41 +280,6 @@ class SpeadRxBeamPowerRealtime(Process):
 
         return errors
 
-    def check_buffer(self, pattern, max_packets):
-        global realtime_pkt_buff
-
-        errors = 0
-        pkt_buffer_idx = 0
-
-        for n in range(max_packets):
-            # print(n)
-            if self.spead_header_decode(realtime_pkt_buff[pkt_buffer_idx + 42:pkt_buffer_idx + 42 + 72]):
-                # print(self.lmc_capture_mode)
-                # print(self.lmc_tpm_id)
-
-                channel_id = self.logical_channel_id
-
-                if self.logical_channel_id == self.channel_id:
-                    pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72
-                    errors += self.check_pattern(pkt_buffer_idx_offset, channel_id, pattern)
-
-            pkt_buffer_idx += 16384
-
-        return errors
-
-    def check_data(self, pattern):
-        global realtime_pkt_buff
-
-        max_packets = 4096
-        while True:
-            pkt_buff_ptr = memoryview(realtime_pkt_buff)
-            pkt_buff_idx = 0
-            for n in range(max_packets):
-                self.recv2(pkt_buff_ptr)
-                pkt_buff_idx += 16384
-                pkt_buff_ptr = pkt_buff_ptr[16384:]
-            return self.check_buffer(pattern, max_packets)
-
     def get_data(self, channel_id, max_packets=4096, contiguous_packets=128):
         global realtime_pkt_buff
         global realtime_timestamp_idx_list
@@ -344,20 +309,6 @@ class SpeadRxBeamPowerRealtime(Process):
                 samples[3, k // 4] = pkt_reassembled[k + 3]
         print(samples[0, :128])
         return samples
-
-    def get_data_rate(self, bytes):
-        global realtime_pkt_buff
-
-        pkt_buff_ptr = memoryview(realtime_pkt_buff)
-        # self.recv2(pkt_buff_ptr)
-        nbytes = 0
-        t1_start = perf_counter()
-        while True:
-            nbytes += self.recv2(pkt_buff_ptr)
-            if nbytes > bytes:
-                t1_stop = perf_counter()
-                data_rate = nbytes / (t1_stop - t1_start)
-                return data_rate
 
     def get_data_rate_net_io(self, bytes):
         net = psutil.net_io_counters(pernic=True)
