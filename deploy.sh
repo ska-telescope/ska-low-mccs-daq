@@ -317,6 +317,7 @@ ln -s $PWD/config $DIR
 
 
 echo ""
-echo "Installation finished. Please check your .bashrc file and source it to update your environment"
-echo "Please follow instruction at https://gitlab.com/sanitaseg/itpm-bios to perform TPM bios update"
+echo "Installation finished. Please check your .bashrc file and source it to update your environment."
+echo ""
+echo "Instructions to update the TPM BIOS are available here: https://gitlab.com/sanitaseg/itpm-bios"
 echo ""

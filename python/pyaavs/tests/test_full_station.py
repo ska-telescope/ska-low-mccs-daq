@@ -219,6 +219,10 @@ class TestFullStation():
         self._pfb_nof_channels = station_config['test_config']['pfb_nof_channels']
         self._test_ddr_inst = TestDdr(station_config, logger)
         self._test_antenna_buffer_inst = TestAntennaBuffer(station_config, logger)
+        self._csp_scale = 1
+        self._channeliser_scale = 2
+        self._start_and_stop = False
+        self._ddr_bug_fixed = False
 
     def prepare_test(self):
         for i, tile in enumerate(self._test_station.tiles):
@@ -236,6 +240,10 @@ class TestFullStation():
             tile['fpga1.beamf_ring.csp_scaling'] = self._csp_scale
             tile['fpga2.beamf_ring.csp_scaling'] = self._csp_scale
             tile.set_channeliser_truncation(self._channeliser_scale)
+        # we check for this register because start/stop of station beamformer was not working before this register was implemented
+        if self._test_station.tiles[0].tpm.has_register('fpga1.beamf_ring.control.enable_pattern_generator'):
+            self._start_and_stop = True
+            self._ddr_bug_fixed = True
 
     def set_delay(self, random_delays, max_delay):
         delays = np.array(random_delays * max_delay, dtype=np.int)
@@ -323,7 +331,7 @@ class TestFullStation():
 
             errors = 0
 
-            if background_ddr_access:
+            if background_ddr_access and self._ddr_bug_fixed:
 
                 for tile in self._test_station.tiles:
                     tile.tpm.set_shutdown_temperature(70)
@@ -395,8 +403,9 @@ class TestFullStation():
                 self.set_delay(random_delays, max_delay)
 
                 self._logger.info("Acquiring channelised data, channel %d" % channelised_channel)
-                for tile in self._test_station.tiles:
-                    tile.stop_beamformer()
+                if self._start_and_stop:
+                    for tile in self._test_station.tiles:
+                        tile.stop_beamformer()
                 self._test_station.send_channelised_data_continuous(channelised_channel, daq_config['nof_channel_samples'])
 
                 scale = self._channeliser_scale
@@ -467,8 +476,9 @@ class TestFullStation():
 
                 self._test_station.stop_data_transmission()
                 offline_power.append(offline_beam_power)
-                for tile in self._test_station.tiles:
-                    tile.start_beamformer()
+                if self._start_and_stop:
+                    for tile in self._test_station.tiles:
+                        tile.start_beamformer()
                 time.sleep(1)
 
                 self._logger.info("Acquiring realtime beamformed data")
