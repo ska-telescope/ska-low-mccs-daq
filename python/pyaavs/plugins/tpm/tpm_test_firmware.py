@@ -132,24 +132,10 @@ class TpmTestFirmware(FirmwareBlock):
         self._jesd1 = self.board.load_plugin("TpmJesd", device=self._device, core=0, frame_length=216)
         self._jesd2 = self.board.load_plugin("TpmJesd", device=self._device, core=1, frame_length=216)
         self._fpga = self.board.load_plugin("TpmFpga", device=self._device)
-        if self.xg_eth and not self.xg_40g_eth:
-            self._teng = [
-                self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=0),
-                self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=1),
-                self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=2),
-                self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=3),
-            ]
-        elif self.xg_eth and self.xg_40g_eth:
+        if self.xg_eth and self.xg_40g_eth:
             self._fortyg = self.board.load_plugin(
                 "TpmFortyGCoreXg", device=self._device, core=0
             )
-        else:
-            self._teng = [
-                self.board.load_plugin("TpmTenGCore", device=self._device, core=0),
-                self.board.load_plugin("TpmTenGCore", device=self._device, core=1),
-                self.board.load_plugin("TpmTenGCore", device=self._device, core=2),
-                self.board.load_plugin("TpmTenGCore", device=self._device, core=3),
-            ]
         self._f2f = [
             self.board.load_plugin("TpmFpga2Fpga", core=0),
             self.board.load_plugin("TpmFpga2Fpga", core=1),
