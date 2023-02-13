@@ -89,6 +89,11 @@ class TestStationBeam():
         self._test_station = station.Station(self._station_config)
         self._test_station.connect()
 
+        if not self._test_station.tiles[0].tpm.has_register('fpga1.beamf_ring.control.enable_pattern_generator'):
+            self._logger.error("Station beamformer pattern generator is not implemented in FPGA. Skipping test...")
+            self._logger.error("TEST FAILED!")
+            return 1
+
         self.prepare_test(pattern_type)
 
         # Update channel numbers

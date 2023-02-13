@@ -149,8 +149,9 @@ def disable_test_generator_and_pattern(tile):
     tile.test_generator_set_tone(1, 0.0, 0.0)
     tile.test_generator_set_noise(0.0)
     tile.test_generator_input_select(0x00000000)
-    tile['fpga1.beamf_ring.control.enable_pattern_generator'] = 0
-    tile['fpga2.beamf_ring.control.enable_pattern_generator'] = 0
+    if tile.tpm.has_register('fpga1.beamf_ring.control.enable_pattern_generator'):
+        tile['fpga1.beamf_ring.control.enable_pattern_generator'] = 0
+        tile['fpga2.beamf_ring.control.enable_pattern_generator'] = 0
 
 
 def set_chennelizer_walking_pattern(tile):
