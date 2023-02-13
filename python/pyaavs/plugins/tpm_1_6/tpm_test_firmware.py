@@ -153,7 +153,7 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
         self._f2f = self.board.load_plugin(
             "TpmFpga2FpgaAurora", device=self._device, core=0
         )
-        self._sysmon = self.board.load_plugin("TpmSysmon", device=self._device)
+        self._sysmon = self.board.load_plugin("Tpm_1_6_Sysmon", device=self._device)
         if self._dsp_core:
             if self.tile_beamformer_implemented:
                 self._beamf = self.board.load_plugin("BeamfFD", device=self._device)
