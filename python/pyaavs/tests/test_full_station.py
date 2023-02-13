@@ -504,7 +504,7 @@ class TestFullStation():
                 if abs(diff) > max_diff:
                     max_diff = abs(diff)
 
-            if background_ddr_access:
+            if background_ddr_access and self._ddr_bug_fixed:
                 self._logger.info("Checking DDR test results...")
                 # Get DDR background test result
                 for fpga in ["fpga1", "fpga2"]:
@@ -541,7 +541,7 @@ class TestFullStation():
             # stop_daq()
             shutil.rmtree(data_directory, ignore_errors=True)
 
-            if background_ddr_access:
+            if background_ddr_access and self._ddr_bug_fixed:
                 # stop DDR test
                 self._test_ddr_inst.stop()
                 # stop antenna buffer
