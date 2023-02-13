@@ -221,3 +221,13 @@ def subrack_name_fixture() -> str:
     :return: the name of the subrack Tango device.
     """
     return "low-mccs/subrack/0001"
+
+
+@pytest.fixture(name="tile_name", scope="session")
+def tile_name_fixture() -> str:
+    """
+    Return the name of the subrack Tango device.
+
+    :return: the name of the subrack Tango device.
+    """
+    return "low-mccs/tile/0001"
