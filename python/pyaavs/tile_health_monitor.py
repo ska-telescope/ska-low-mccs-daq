@@ -46,19 +46,19 @@ class TileHealthMonitor:
                     'lanes': self.check_jesd_lanes(fpga_id=None, core_id=None),
                     'error_count' : self.check_jesd_error_counter(fpga_id=None, core_id=None, show_result=False),
                     'resync_count': self.check_jesd_resync_counter(fpga_id=None, show_result=False),
-                    'drop_count': self.check_jesd_qpll_drop_counter(fpga_id=None, show_result=False)
+                    'qpll_lock_loss_count': self.check_jesd_qpll_lock_loss_counter(fpga_id=None, show_result=False)
                 },
                 'ddr_if': {
                     'initialisation': self.check_ddr_initialisation(fpga_id=None),
                     'reset_counter': self.check_ddr_reset_counter(fpga_id=None, show_result=False)
                 },
                 'f2f_if': {
-                    'drop_count': self.check_f2f_drop_counter(core_id=None, show_result=False)
+                    'pll_lock_loss_count': self.check_f2f_pll_lock_loss_counter(core_id=None, show_result=False)
                 },
                 'udp_if': {
                     'arp': self.check_udp_arp_table_status(fpga_id=None, show_result=False),
                     'status': self.check_udp_status(fpga_id=None),
-                    'drop_count': self.check_udp_link_drop_counter(fpga_id=None, show_result=False)
+                    'linkup_loss_count': self.check_udp_linkup_loss_counter(fpga_id=None, show_result=False)
                 }
             }, 
             'dsp': {
@@ -75,7 +75,7 @@ class TileHealthMonitor:
         self.clear_pps_status(fpga_id=None)
         self.clear_jesd_error_counters(fpga_id=None)
         self.clear_ddr_reset_counter(fpga_id=None)
-        self.clear_f2f_drop_counter(core_id=None)
+        self.clear_f2f_pll_lock_loss_counter(core_id=None)
         self.clear_udp_status(fpga_id=None)
         self.clear_tile_beamformer_status(fpga_id=None)
         # self.clear_station_beamformer_status(fpga_id=None) # TODO: add register to firmware, MCCS-1307
@@ -487,7 +487,7 @@ class TileHealthMonitor:
         Reset JESD error counters.
          - JESD Error Counter
          - JESD Resync Counter (shared between JESD cores)
-         - JESD QPLL Drop Counter (shared between JESD cores)
+         - JESD QPLL Lock Loss Counter (shared between JESD cores)
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -547,9 +547,9 @@ class TileHealthMonitor:
             counts[f'FPGA{fpga}'] = self.tpm.tpm_jesd[idx].check_resync_counter(show_result)
         return counts # Return dict of counter values
 
-    def check_jesd_qpll_drop_counter(self, fpga_id=None, show_result=True):
+    def check_jesd_qpll_lock_loss_counter(self, fpga_id=None, show_result=True):
         """
-        Check JESD204 for dropped QPLL lock events.
+        Check JESD204 for loss of QPLL lock events.
         Checks the FPGA qpll lock loss counter register (shared between JESD cores).
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
@@ -613,7 +613,7 @@ class TileHealthMonitor:
             self.tpm.tpm_test_firmware[fpga].clear_ddr_user_reset_counter()
         return
 
-    def check_f2f_drop_counter(self, core_id=None, show_result=True):
+    def check_f2f_pll_lock_loss_counter(self, core_id=None, show_result=True):
         """
         Check for F2F PLL loss of lock events.
 
@@ -636,7 +636,7 @@ class TileHealthMonitor:
             counts[f'Core{core}'] = self.tpm.tpm_f2f[core].check_pll_lock_loss_counter(show_result)
         return counts # Return dict of counter values
 
-    def clear_f2f_drop_counter(self, core_id=None):
+    def clear_f2f_pll_lock_loss_counter(self, core_id=None):
         """
         Reset value of F2F PLL lock loss counter.
 
@@ -708,9 +708,9 @@ class TileHealthMonitor:
             self.tpm.tpm_10g_core[fpga].reset_errors()
         return
     
-    def check_udp_link_drop_counter(self, fpga_id=None, show_result=True):
+    def check_udp_linkup_loss_counter(self, fpga_id=None, show_result=True):
         """
-        Check UDP interface for link drop events.
+        Check UDP interface for linkup loss events.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -805,10 +805,10 @@ class TileHealthMonitor:
                 'pps': {'status': True}
             },
             'io':{
-                'jesd_if': {'lanes': True, 'error_count': True, 'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 'drop_count': {'FPGA0': 0, 'FPGA1': 0}},
+                'jesd_if': {'lanes': True, 'error_count': True, 'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 'qpll_lock_loss_count': {'FPGA0': 0, 'FPGA1': 0}},
                 'ddr_if': {'initialisation': True, 'reset_counter': {'FPGA0': 0, 'FPGA1': 0}},
-                'f2f_if': {'drop_count': {'Core0': [0, 0], 'Core1': [0, 0]}},
-                'udp_if': {'arp': True, 'status': True, 'drop_count': {'FPGA0': 0, 'FPGA1': 0}}},
+                'f2f_if': {'pll_lock_loss_count': {'Core0': [0, 0], 'Core1': [0, 0]}},
+                'udp_if': {'arp': True, 'status': True, 'linkup_loss_count': {'FPGA0': 0, 'FPGA1': 0}}},
             'dsp': {'tile_beamf': True,'station_beamf': True}
         }
         return health
