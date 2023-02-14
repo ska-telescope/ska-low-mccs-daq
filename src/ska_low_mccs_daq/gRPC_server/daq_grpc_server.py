@@ -82,6 +82,9 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             converted_modes_to_start: list[DaqModes] = convert_daq_modes(modes_to_start)
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
+            return daq_pb2.commandResponse(
+                result_code=ResultCode.FAILED, message="Invalid DaqMode supplied"
+            )
         # TODO: callbacks
         callbacks = None
         # callbacks = [self._received_data_callback] * len(converted_modes_to_start)
@@ -155,20 +158,23 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
 
         :return: a commandResponse object containing `result_code` and `message`
         """
-        self.logger.info("Configuring daq with: %s", request.config)
+        empty_config = ["", {}]
+        daq_config = json.loads(request.config)
+        self.logger.info("Configuring daq with: %s", daq_config)
         try:
-            if request.config != "":
-                self.daq_instance.populate_configuration(json.loads(request.config))
-                self.logger.info("Daq successfully reconfigured.")
+            if daq_config in empty_config:
+                self.logger.error("Daq was not reconfigured, no config data supplied.")
                 return daq_pb2.commandResponse(
-                    result_code=ResultCode.OK, message="Daq reconfigured"
+                    result_code=ResultCode.REJECTED,
+                    message="No configuration data supplied.",
                 )
             # else
-            self.logger.error("Daq was not reconfigured, no config data supplied.")
+            self.daq_instance.populate_configuration(daq_config)
+            self.logger.info("Daq successfully reconfigured.")
             return daq_pb2.commandResponse(
-                result_code=ResultCode.REJECTED,
-                message="ERROR: No configuration data supplied.",
+                result_code=ResultCode.OK, message="Daq reconfigured"
             )
+
         # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(

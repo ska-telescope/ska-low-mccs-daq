@@ -87,6 +87,9 @@ source = ["src"]
 data_file = ".coverage/.coverage"
 branch = true
 source = ["ska_low_mccs_daq"]
+omit = [
+    "*/gRPC_server/generated_code/*",
+    ]
 
 [tool.coverage.report]
 show_missing = false

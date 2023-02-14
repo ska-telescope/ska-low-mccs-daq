@@ -114,11 +114,12 @@ class TestDaqComponentManager:
         :param daq_modes_str: A comma separated list of DaqModes and/or ints.
         :param daq_modes_list: The expected output of the conversion function.
         """
-        converted_daq_modes = convert_daq_modes(daq_modes_str)
-        assert len(converted_daq_modes) == len(daq_modes_list)
-        for i, mode in enumerate(converted_daq_modes):
-            print(f"mode: {mode} -- expected: {daq_modes_list[i]}")
-            assert mode == daq_modes_list[i]
+        # converted_daq_modes = convert_daq_modes(daq_modes_str)
+        assert convert_daq_modes(daq_modes_str) == daq_modes_list
+        # assert len(converted_daq_modes) == len(daq_modes_list)
+        # for i, mode in enumerate(converted_daq_modes):
+        #     print(f"mode: {mode} -- expected: {daq_modes_list[i]}")
+        #     assert mode == daq_modes_list[i]
 
     @pytest.mark.parametrize(
         "daq_modes",

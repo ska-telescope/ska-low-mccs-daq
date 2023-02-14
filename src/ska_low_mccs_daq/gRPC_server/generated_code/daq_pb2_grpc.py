@@ -6,7 +6,7 @@ from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2 as daq__pb2
 
 
 class DaqStub(object):
-    """Missing associated documentation comment in .proto file."""
+    """A class holding the DAQ service implementation."""
 
     def __init__(self, channel):
         """
@@ -48,40 +48,99 @@ class DaqStub(object):
 
 
 class DaqServicer(object):
-    """Missing associated documentation comment in .proto file."""
+    """A class holding the DAQ service implementation."""
 
     def StartDaq(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """
+        Start the DaqConsumers.
+
+        The MccsDaqReceiver will begin watching the interface specified in the
+        configuration and will start the configured consumers.
+
+        :param argin: JSON-formatted string representing the DaqModes and their
+        corresponding callbacks to start, defaults an empty string.
+
+        :return: A tuple containing a return code and a string
+        message indicating status. The message is for
+        information purpose only.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def StopDaq(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """
+        Stop the DaqReceiver.
+
+        The DAQ receiver will cease watching the specified interface
+        and will stop all running consumers.
+
+        :return: A tuple containing a return code and a string
+        message indicating status. The message is for
+        information purpose only.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def InitDaq(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """
+        Initialise a new DaqReceiver instance.
+
+        :param request: arguments object containing `config`
+        `config`: The initial daq configuration to apply.
+        :param context: command metadata
+
+        :return: a commandResponse object containing `result_code` and `message`
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def ConfigureDaq(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """
+        Configure the DaqReceiver.
+
+        Applies the specified configuration to the DaqReceiver.
+
+        :param argin: The daq configuration to apply.
+        :return: A tuple containing a return code and a string
+        message indicating status. The message is for
+        information purpose only.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def GetConfiguration(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """
+        Get the Configuration from DAQ.
+
+        :return: A JSON-encoded dictionary of the configuration.
+
+        :example:
+
+        >>> dp.tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+        >>> jstr = dp.command_inout("GetConfiguration")
+        >>> dict = json.loads(jstr)
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def DaqStatus(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """
+        Provide status information for this MccsDaqReceiver.
+
+        This method returns status as a json string with entries for:
+        - Daq Health: [HealthState.name: str, HealthState.value: int]
+        - Running Consumers: [DaqMode.name: str, DaqMode.value: int]
+        - Receiver Interface: "Interface Name": str
+        - Receiver Ports: [Port_List]: list[int]
+        - Receiver IP: "IP_Address": str
+
+        :return: A json string containing the status of this DaqReceiver.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -128,7 +187,7 @@ def add_DaqServicer_to_server(servicer, server):
 
 # This class is part of an EXPERIMENTAL API.
 class Daq(object):
-    """Missing associated documentation comment in .proto file."""
+    """A class holding the DAQ service implementation."""
 
     @staticmethod
     def StartDaq(

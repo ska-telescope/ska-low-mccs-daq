@@ -49,6 +49,8 @@ class DaqComponentManager(MccsComponentManager):
         :param receiver_ip: The IP address of this DaqReceiver.
         :param receiver_ports: The port this DaqReceiver is to watch.
         :param grpc_port: The gRPC port this DaqReceiver will communicate on.
+        :param grpc_host: An optional override to force gRPC to
+            use a particular host. Used in testing.
         :param consumers_to_start: The default consumers to be started.
         :param logger: the logger to be used by this object.
         :param max_workers: the maximum worker threads for the slow commands
@@ -60,8 +62,6 @@ class DaqComponentManager(MccsComponentManager):
             called when the component state changes
         :param received_data_callback: callback to be called when data is
             received from a tile
-        :param grpc_host: An optional override to force gRPC to
-            use a particular host. Used in testing.
         """
         super().__init__(
             logger,
@@ -85,7 +85,10 @@ class DaqComponentManager(MccsComponentManager):
             stub = daq_pb2_grpc.DaqStub(channel)
             configuration = json.dumps(self._get_default_config())
             response = stub.InitDaq(daq_pb2.configDaqRequest(config=configuration))
-            assert response.result_code == ResultCode.OK
+            if response.result_code != ResultCode.OK:
+                self.logger.error(
+                    "InitDaq failed with response: %i", response.result_code
+                )
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
@@ -124,9 +127,9 @@ class DaqComponentManager(MccsComponentManager):
             "sampling_time": 1.1325,
             "sampling_rate": (800e6 / 2.0) * (32.0 / 27.0) / 512.0,
             "oversampling_factor": 32.0 / 27.0,
-            "receiver_ports": "4660",
-            "receiver_interface": "eth0",
-            "receiver_ip": "",
+            "receiver_ports": self._receiver_ports,
+            "receiver_interface": self._receiver_interface,
+            "receiver_ip": self._receiver_ip,
             "receiver_frame_size": 8500,
             "receiver_frames_per_block": 32,
             "receiver_nof_blocks": 256,
@@ -187,9 +190,11 @@ class DaqComponentManager(MccsComponentManager):
         # Make gRPC call to configure.
         with grpc.insecure_channel(self._grpc_channel) as channel:
             stub = daq_pb2_grpc.DaqStub(channel)
-            # configuration = json.dumps(daq_config)
-            response = stub.InitDaq(daq_pb2.configDaqRequest(config=daq_config))
-            assert response.result_code == ResultCode.OK
+            response = stub.ConfigureDaq(daq_pb2.configDaqRequest(config=daq_config))
+            if response.result_code != ResultCode.OK:
+                self.logger.error(
+                    "Configure failed with response: %i", response.result_code
+                )
         self.logger.info("DAQ receiver configuration complete.")
 
     @check_communicating
