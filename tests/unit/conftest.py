@@ -6,14 +6,13 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
-import pytest
-from ska_tango_testing.mock import MockCallableGroup
-from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 import time
 from concurrent import futures
 
 import grpc
 import pytest
+from ska_tango_testing.mock import MockCallableGroup
+from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from ska_low_mccs_daq.gRPC_server import MccsDaqServer
 from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
@@ -63,6 +62,7 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
         "dataReceivedResult",
         # TODO: Add more event types here as the tests grow
     )
+
 
 @pytest.fixture(name="daq_id")
 def daq_id_fixture() -> str:

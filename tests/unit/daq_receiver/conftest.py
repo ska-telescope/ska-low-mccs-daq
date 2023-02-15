@@ -19,6 +19,7 @@ from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 
+
 # pylint: disable=too-many-arguments
 @pytest.fixture(name="daq_component_manager")
 def daq_component_manager_fixture(
