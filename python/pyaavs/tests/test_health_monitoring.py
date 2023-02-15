@@ -118,7 +118,7 @@ class TestHealthMonitoring():
             # Any extra monitoring points in health_dict, not known to expected_health are ignored.
             self.recursive_check_health_dict(expected_health, health_dict, [], n, tpm_version)
 
-            return self.clean_up()
+        return self.clean_up()
 
 if __name__ == "__main__":
 

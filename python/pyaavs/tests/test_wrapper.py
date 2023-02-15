@@ -91,7 +91,7 @@ class TestWrapper:
             self.test_todo = self.available_tests
         for test in self.test_todo:
             if test not in self.available_tests:
-                logging.error("Requested test: %s is not available!")
+                logging.error(f"Requested test: {test} is not available!")
                 logging.info("Avalable tests are:")
                 self.print_available_test()
                 logging.info("Exiting")
