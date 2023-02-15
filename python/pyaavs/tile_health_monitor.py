@@ -63,7 +63,7 @@ class TileHealthMonitor:
             }, 
             'dsp': {
                 'tile_beamf': self.check_tile_beamformer_status(fpga_id=None),
-                'station_beamf': self.check_station_beamformer_status(fpga_id=None, show_result=False)
+                'station_beamf': self.check_station_beamformer_status(fpga_id=None)
             }
         }
         health_dict['temperature']['board'] = round(self.get_temperature(), 2)
@@ -758,7 +758,7 @@ class TileHealthMonitor:
                 self.tpm.beamf_fd[fpga].clear_errors()
         return
 
-    def check_station_beamformer_status(self, fpga_id=None, show_result=True):
+    def check_station_beamformer_status(self, fpga_id=None):
         """
         Check status of Station Beamformer error flags and counters.
 
@@ -772,12 +772,10 @@ class TileHealthMonitor:
         :rtype bool
         """
         if self.is_programmed():
-            result = []
+            errors = []
             for fpga in self.fpga_gen(fpga_id):
-                frame_errors, errors = self.tpm.station_beamf[fpga].report_errors(show_result)
-                result.append(frame_errors)
-                result.append(errors)
-            return not any(result) # Return True if all flags and counters are 0, else False
+                errors.append(self.tpm.station_beamf[fpga].report_errors())
+            return not any(errors) # Return True if all flags and counters are 0, else False
         return
 
     def clear_station_beamformer_status(self, fpga_id=None):
