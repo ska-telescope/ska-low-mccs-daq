@@ -5,9 +5,6 @@ instances:
 {{- range $device := .Values.deviceServers.daqreceiver.devices }}
   - "{{ $device.name }}"
 {{- end }}
-entrypoints:
-  - name: "daqreceiver.MccsDaqReceiver"
-    path: "/app/src/ska_low_mccs_daq/daq_receiver/daq_receiver_device.py"
 command: "MccsDaqReceiver"
 server:
   name: "MccsDaqReceiver"
@@ -31,6 +28,12 @@ server:
           - name: "ReceiverPort"
             values:
             - "{{ coalesce $device.receiver_port 4660 | toString }}"
+          - name: "GrpcPort"
+            values:
+            - "{{ coalesce $device.grpc_port 50051 | toString }}"
+          - name: "GrpcHost"
+            values:
+            - "{{ $device.name }}-grpc-svc"
           - name: "ConsumersToStart"
             values:
             - "DaqModes.INTEGRATED_CHANNEL_DATA"

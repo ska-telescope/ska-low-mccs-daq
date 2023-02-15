@@ -16,7 +16,7 @@ from typing import Any, Optional, Union, cast
 import tango
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
 from ska_tango_base.base import SKABaseDevice
-from ska_tango_base.commands import DeviceInitCommand, FastCommand, SubmittedSlowCommand
+from ska_tango_base.commands import DeviceInitCommand, FastCommand
 from tango.server import attribute, command, device_property
 
 from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
@@ -49,6 +49,14 @@ class MccsDaqReceiver(SKABaseDevice):
         dtype=str,
         doc="The port/s this DaqReceiver is monitoring.",
         default_value="4660",
+    )
+    GrpcPort = device_property(
+        dtype=str,
+        doc="The gRPC port this DaqReceiver is using.",
+        default_value=50051,
+    )
+    GrpcHost = device_property(
+        dtype=str, doc="The gRPC host this DaqReceiver is using."
     )
     DaqId = device_property(
         dtype=int, doc="The ID of this DaqReceiver device.", default_value=0
@@ -111,6 +119,8 @@ class MccsDaqReceiver(SKABaseDevice):
             self.ReceiverInterface,
             self.ReceiverIp,
             self.ReceiverPorts,
+            self.GrpcPort,
+            self.GrpcHost,
             self.ConsumersToStart,
             self.logger,
             self._max_workers,
@@ -128,26 +138,12 @@ class MccsDaqReceiver(SKABaseDevice):
             ("SetConsumers", self.SetConsumersCommand),
             ("DaqStatus", self.DaqStatusCommand),
             ("GetConfiguration", self.GetConfigurationCommand),
+            ("Start", self.StartCommand),
+            ("Stop", self.StopCommand),
         ]:
             self.register_command_object(
                 command_name,
                 command_object(self.component_manager, self.logger),
-            )
-
-        for (command_name, method_name) in [
-            ("Start", "start_daq"),
-            ("Stop", "stop_daq"),
-        ]:
-            self.register_command_object(
-                command_name,
-                SubmittedSlowCommand(
-                    command_name,
-                    self._command_tracker,
-                    self.component_manager,
-                    method_name,
-                    callback=None,
-                    logger=self.logger,
-                ),
             )
 
     # pylint: disable=too-few-public-methods
@@ -322,46 +318,13 @@ class MccsDaqReceiver(SKABaseDevice):
         # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.DaqStatusCommand,
-            daq_health: HealthState,
         ) -> str:
             """
             Stateless hook for device DaqStatus() command.
 
-            :param daq_health: The health state of this daq receiver.
             :return: The status of this Daq device.
             """
-            # 1. Get HealthState
-            health_state = [daq_health.name, daq_health.value]
-            # 2. Get consumer list, filter by `running`
-            full_consumer_list = (
-                self._component_manager.daq_instance._running_consumers.items()
-            )
-            running_consumer_list = [
-                [consumer.name, consumer.value]
-                for consumer, running in full_consumer_list
-                if running
-            ]
-            # 3. Get Receiver Interface, Ports and IP (and later `Uptime`)
-            receiver_interface = self._component_manager.daq_instance._config[
-                "receiver_interface"
-            ]
-            receiver_ports = self._component_manager.daq_instance._config[
-                "receiver_ports"
-            ]
-            receiver_ip = self._component_manager.daq_instance._config["receiver_ip"]
-            # 4. Compose into some format and return.
-            status = {
-                "Daq Health": health_state,
-                "Running Consumers": running_consumer_list,
-                "Receiver Interface": receiver_interface,
-                "Receiver Ports": receiver_ports,
-                "Receiver IP": [
-                    receiver_ip.decode()
-                    if isinstance(receiver_ip, bytes)
-                    else receiver_ip
-                ],
-            }
-            return json.dumps(status)
+            return self._component_manager.daq_status()
 
     @command(dtype_out="DevString")
     def DaqStatus(self: MccsDaqReceiver) -> str:
@@ -376,11 +339,53 @@ class MccsDaqReceiver(SKABaseDevice):
             - Receiver IP: "IP_Address": str
 
         :return: A json string containing the status of this DaqReceiver.
+
+        :example:
+            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> jstr = daq.DaqStatus()
+            >>> dict = json.loads(jstr)
         """
         handler = self.get_command_object("DaqStatus")
-        # We can't get to the health state from the command object so we pass it in here
-        status = handler(self._health_state)
-        return status
+        # We append health_state to the status here.
+        status = json.loads(handler())
+        health_state = [self._health_state.name, self._health_state.value]
+        status["Daq Health"] = health_state
+        return json.dumps(status)
+
+    # pylint: disable=too-few-public-methods
+    class StartCommand(FastCommand):
+        """Class for handling the Start(argin) command."""
+
+        def __init__(  # type: ignore
+            self: MccsDaqReceiver.StartCommand,
+            component_manager,
+            logger: Optional[logging.Logger] = None,
+        ) -> None:
+            """
+            Initialise a new StartCommand instance.
+
+            :param component_manager: the device to which this command belongs.
+            :param logger: a logger for this command to use.
+            """
+            self._component_manager = component_manager
+            super().__init__(logger)
+
+        # pylint: disable=arguments-differ
+        def do(  # type: ignore[override]
+            self: MccsDaqReceiver.StartCommand,
+            argin: str = "",
+        ) -> tuple[ResultCode, str]:
+            """
+            Implement MccsDaqReceiver.StartCommand command functionality.
+
+            :param argin: String representing the DaqModes and their
+                corresponding callbacks to start or an empty string.
+
+            :return: A tuple containing a return code and a string
+                message indicating status. The message is for
+                information purpose only.
+            """
+            return self._component_manager.start_daq(argin)
 
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
     def Start(self: MccsDaqReceiver, argin: str = "") -> DevVarLongStringArrayType:
@@ -390,21 +395,54 @@ class MccsDaqReceiver(SKABaseDevice):
         The MccsDaqReceiver will begin watching the interface specified in the
         configuration and will start the configured consumers.
 
-        :param argin: JSON-formatted string representing the DaqModes and their
-            corresponding callbacks to start, defaults to None.
+        :param argin: String representing the DaqModes and their
+            corresponding callbacks to start or an empty string.
 
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
+
+        :example:
+            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> consumers = "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
+            >>> daq.Start(consumers)    # Uses specified consumers.
+            >>> daq.Start("")           # Uses default consumers.
         """
         handler = self.get_command_object("Start")
-        params = json.loads(argin) if argin else {}
+        (result_code, message) = handler(argin)
 
-        # Initialise temps and extract individual args from params.
-        modes_to_start = params.get("modes_to_start", None)
-
-        (result_code, message) = handler(modes_to_start)
         return ([result_code], [message])
+
+    # pylint: disable=too-few-public-methods
+    class StopCommand(FastCommand):
+        """Class for handling the Stop() command."""
+
+        def __init__(  # type: ignore
+            self: MccsDaqReceiver.StopCommand,
+            component_manager,
+            logger: Optional[logging.Logger] = None,
+        ) -> None:
+            """
+            Initialise a new StopCommand instance.
+
+            :param component_manager: the device to which this command belongs.
+            :param logger: a logger for this command to use.
+            """
+            self._component_manager = component_manager
+            super().__init__(logger)
+
+        # pylint: disable=arguments-differ
+        def do(  # type: ignore[override]
+            self: MccsDaqReceiver.StopCommand,
+        ) -> tuple[ResultCode, str]:
+            """
+            Implement MccsDaqReceiver.StopCommand command functionality.
+
+            :return: A tuple containing a return code and a string
+                message indicating status. The message is for
+                information purpose only.
+            """
+            return self._component_manager.stop_daq()
 
     @command(dtype_out="DevVarLongStringArray")
     def Stop(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
@@ -417,6 +455,10 @@ class MccsDaqReceiver(SKABaseDevice):
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
+
+        :example:
+            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> daq.Stop()
         """
         handler = self.get_command_object("Stop")
         (result_code, message) = handler()
@@ -466,15 +508,22 @@ class MccsDaqReceiver(SKABaseDevice):
 
         Applies the specified configuration to the DaqReceiver.
 
-        :param argin: The daq configuration to apply.
+        :param argin: A JSON string containing the daq configuration to apply.
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
+
+        :example:
+            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> daq_config = {
+                "receiver_ports": "4660",
+                "receiver_interface": "eth0",
+            }
+            >>> daq.Configure(json.dumps(daq_config))
         """
         handler = self.get_command_object("Configure")
-        params = json.loads(argin) if argin else {}
 
-        (result_code, message) = handler(params)
+        (result_code, message) = handler(argin)
         return ([result_code], [message])
 
     @command(dtype_out="DevString")
@@ -485,10 +534,9 @@ class MccsDaqReceiver(SKABaseDevice):
         :return: A JSON-encoded dictionary of the configuration.
 
         :example:
-
-        >>> dp.tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
-        >>> jstr = dp.command_inout("GetConfiguration")
-        >>> dict = json.loads(jstr)
+            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> jstr = daq.GetConfiguration()
+            >>> dict = json.loads(jstr)
         """
         handler = self.get_command_object("GetConfiguration")
         return handler()
@@ -519,14 +567,7 @@ class MccsDaqReceiver(SKABaseDevice):
 
             :return: The configuration as received from pydaq
             """
-            configuration = self._component_manager.get_configuration()
-
-            # we cannot simply call json dumps here since bytes input
-            for key, item in configuration.items():
-                if isinstance(item, bytes):
-                    configuration[key] = item.decode("utf-8")
-
-            return json.dumps(configuration)
+            return self._component_manager.get_configuration()
 
     # pylint: disable=too-few-public-methods
     class SetConsumersCommand(FastCommand):
@@ -553,13 +594,13 @@ class MccsDaqReceiver(SKABaseDevice):
             """
             Implement MccsDaqReceiver.SetConsumersCommand command functionality.
 
-            :param argin: A configuration dictionary.
+            :param argin: A string containing a comma separated
+                list of DaqModes.
             :return: A tuple containing a return code and a string
                 message indicating status. The message is for
                 information purpose only.
             """
-            self._component_manager._set_consumers_to_start(argin)
-            return (ResultCode.OK, "SetConsumers command completed OK")
+            return self._component_manager._set_consumers_to_start(argin)
 
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
     def SetConsumers(self: MccsDaqReceiver, argin: str) -> DevVarLongStringArrayType:
@@ -574,6 +615,11 @@ class MccsDaqReceiver(SKABaseDevice):
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
+
+        :example:
+            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> consumers = "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
+            >>> daq.SetConsumers(consumers)
         """
         handler = self.get_command_object("SetConsumers")
         (result_code, message) = handler(argin)

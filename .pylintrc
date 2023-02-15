@@ -14,7 +14,12 @@ ignore-imports=yes
 # pylint reports E1101 (no-member) for socket.SocketKind
 ignored-classes = socket
 
+generated-members = daq_pb2.*, daq_pb2_gprc.*
+
 # TODO: remove these when possible
 # W0212 protected-access
 # W0613 unused-argument
 disable = W0212, W0613
+
+# Ignore gRPC generated code.
+ignore=daq_pb2_gprc.*, daq_pb2.*

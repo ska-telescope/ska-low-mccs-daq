@@ -14,6 +14,7 @@ import unittest.mock
 from time import sleep
 from typing import Generator, Union
 
+import grpc
 import pytest
 import tango
 from pydaq.daq_receiver_interface import DaqModes
@@ -70,6 +71,8 @@ class TestMccsDaqReceiver:
         receiver_interface: str,
         receiver_ip: str,
         receiver_ports: str,
+        grpc_port: str,
+        grpc_host: str,
     ) -> Generator[TangoContextProtocol, None, None]:
         """
         Return a tango harness against which to run tests of the deployment.
@@ -82,6 +85,8 @@ class TestMccsDaqReceiver:
             packets
         :param receiver_ports: port on which the DAQ receiver receives
             packets.
+        :param grpc_port: The port number to use for gRPC calls.
+        :param grpc_host: The hostname of the gRPC server to use.
 
         :yields: a tango context.
         """
@@ -93,7 +98,9 @@ class TestMccsDaqReceiver:
             ReceiverInterface=receiver_interface,
             ReceiverIp=receiver_ip,
             ReceiverPorts=receiver_ports,
-            ConsumersToStart=["DaqModes.INTEGRATED_CHANNEL_DATA"],
+            GrpcPort=grpc_port,
+            GrpcHost=grpc_host,
+            ConsumersToStart="DaqModes.INTEGRATED_CHANNEL_DATA",
             LoggingLevelDefault=3,
         )
         with context_manager as context:
@@ -122,10 +129,17 @@ class TestMccsDaqReceiver:
         assert device_under_test.healthState == HealthState.UNKNOWN
 
     @pytest.mark.parametrize(
-        "modes_to_start, daq_interface, daq_ports, daq_ip",
+        "modes_to_start, expected_consumers, daq_interface, daq_ports, daq_ip",
         [
-            ([DaqModes.INTEGRATED_CHANNEL_DATA], "lo", [4567], "123.456.789.000"),
             (
+                "DaqModes.INTEGRATED_CHANNEL_DATA",
+                [DaqModes.INTEGRATED_CHANNEL_DATA],
+                "lo",
+                [4567],
+                "123.456.789.000",
+            ),
+            (
+                "DaqModes.ANTENNA_BUFFER, DaqModes.RAW_DATA",
                 [DaqModes.ANTENNA_BUFFER, DaqModes.RAW_DATA],
                 "eth0",
                 [9873, 4952],
@@ -137,10 +151,12 @@ class TestMccsDaqReceiver:
     def test_status(
         self: TestMccsDaqReceiver,
         device_under_test: tango.DeviceProxy,
-        modes_to_start: list[DaqModes],
+        modes_to_start: str,
+        expected_consumers: list[DaqModes],
         daq_interface: str,
         daq_ports: list[int],
         daq_ip: str,
+        daq_grpc_server: grpc.Server,
     ) -> None:
         """
         Test for DaqStatus.
@@ -148,10 +164,13 @@ class TestMccsDaqReceiver:
         Here we configure DAQ with some non-default settings and then
             call DaqStatus to check that it reports the correct info.
 
-        :param modes_to_start: A list of consumers/DaqModes to start.
+        :param modes_to_start: A comma separated list of consumers/DaqModes to start.
+        :param expected_consumers: A list of DaqModes
+            representing the consumers to start.
         :param daq_interface: The interface for daq to listen on.
         :param daq_ports: A list of ports for daq to listen on.
         :param daq_ip: The ip address of daq.
+        :param daq_grpc_server: A fixture that stands up a gRPC server.
         :param device_under_test: fixture that provides a
             :py:class:`tango.DeviceProxy` to the device under test, in a
             :py:class:`tango.test_context.DeviceTestContext`.
@@ -167,13 +186,13 @@ class TestMccsDaqReceiver:
         }
         device_under_test.Configure(json.dumps(daq_config))
         # Start a consumer to check with DaqStatus.
-        device_under_test.Start(json.dumps({"modes_to_start": modes_to_start}))
+        device_under_test.Start(modes_to_start)
         # We can't check immediately so wait for consumer(s) to start.
 
         # I'd like to pass `task_callback=MockCallback()` to `Start`.
         # However it isn't json serializable so we can't do that here.
         # Instead we resort to this...
-        sleep(2)
+        sleep(1)
 
         # Check status.
         status = json.loads(device_under_test.DaqStatus())
@@ -181,7 +200,7 @@ class TestMccsDaqReceiver:
         assert status["Daq Health"] == [HealthState.OK.name, HealthState.OK.value]
         # Check the consumers we specified to run are in this list.
         assert status["Running Consumers"] == [
-            [consumer.name, consumer.value] for consumer in modes_to_start
+            [consumer.name, consumer.value] for consumer in expected_consumers
         ]
         # Check it reports we're listening on the interface we chose.
         assert status["Receiver Interface"] == daq_interface
@@ -206,6 +225,8 @@ class TestPatchedDaq:
         receiver_interface: str,
         receiver_ip: str,
         receiver_ports: str,
+        grpc_port: str,
+        grpc_host: str,
     ) -> Generator[TangoContextProtocol, None, None]:
         """
         Return a tango harness against which to run tests of the deployment.
@@ -221,6 +242,8 @@ class TestPatchedDaq:
             packets
         :param receiver_ports: port on which the DAQ receiver receives
             packets.
+        :param grpc_port: The port number to use for gRPC calls.
+        :param grpc_host: The hostname of the gRPC server to use.
 
         :yields: a tango context.
         """
@@ -260,6 +283,8 @@ class TestPatchedDaq:
             ReceiverInterface=receiver_interface,
             ReceiverIp=receiver_ip,
             ReceiverPorts=receiver_ports,
+            GrpcPort=grpc_port,
+            GrpcHost=grpc_host,
             ConsumersToStart=["DaqModes.INTEGRATED_CHANNEL_DATA"],
             LoggingLevelDefault=3,
         )
@@ -268,18 +293,18 @@ class TestPatchedDaq:
 
     @pytest.mark.parametrize(
         "daq_modes",
-        ([DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA], [1, 2, 0]),
+        ("DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA", "1, 2, 0"),
     )
-    def test_start_daq_device(
+    def test_start_stop_daq_device(
         self: TestPatchedDaq,
         device_under_test: tango.DeviceProxy,
         mock_component_manager: unittest.mock.Mock,
-        daq_modes: list[Union[int, DaqModes]],
+        daq_modes: str,
     ) -> None:
         """
         Test for Start().
 
-        This tests that when we pass a valid json string to the `Start`
+        This tests that when we pass a valid string to the `Start`
         command that it is successfully parsed into the proper
         parameters so that `start_daq` can be called.
 
@@ -292,16 +317,18 @@ class TestPatchedDaq:
         """
         device_under_test.adminMode = AdminMode.ONLINE
 
-        argin = {
-            "modes_to_start": daq_modes,
-        }
-        [result_code], [response] = device_under_test.Start(json.dumps(argin))
+        [result_code], [response] = device_under_test.Start(daq_modes)
 
-        assert result_code == ResultCode.QUEUED
-        assert "Start" in response.split("_")[-1]
+        assert result_code == ResultCode.OK
+        assert response == "Daq started"
 
         call_args = mock_component_manager.start_daq.call_args
         assert call_args.args[0] == daq_modes
+
+        [result_code], [response] = device_under_test.Stop()
+        assert result_code == ResultCode.OK
+        assert response == "Daq stopped"
+        mock_component_manager.stop_daq.assert_called_once_with()
 
     @pytest.mark.parametrize(
         "input_data, result",
@@ -367,17 +394,14 @@ class TestPatchedDaq:
             "DaqModes.STATION_BEAM_DATA",
             "DaqModes.CORRELATOR_DATA",
             "DaqModes.ANTENNA_BUFFER",
-            (
-                "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
-                "DaqModes.INTEGRATED_CHANNEL_DATA"
-            ),
+            "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,",
         ),
     )
     def test_set_consumers_device(
         self: TestPatchedDaq,
         device_under_test: tango.DeviceProxy,
         mock_component_manager: unittest.mock.Mock,
-        consumer_list: list[Union[int, DaqModes]],
+        consumer_list: str,
     ) -> None:
         """
         Test for SetConsumers().
