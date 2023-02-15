@@ -10,21 +10,28 @@ from __future__ import annotations
 
 import pytest
 import tango
-
-# from pydaq.daq_receiver_interface import DaqModes
 from pytest_bdd import given, parsers, scenarios, then, when
-
-# from ska_control_model import AdminMode, CommunicationStatus, HealthState
+from ska_low_mccs_common import MccsDeviceProxy
+from ska_low_mccs_common.testing.tango_harness import DevicesToLoadType
 from ska_tango_testing.context import TangoContextProtocol
 
-# import json
-# import time
-
-
-# from ska_low_mccs_daq.daq_receiver import DaqComponentManager, MccsDaqReceiver
-
-
 scenarios("./features/daq_status_reporting.feature")
+
+
+@pytest.fixture(scope="module")
+def devices_to_load() -> DevicesToLoadType:
+    """
+    Fixture that specifies the devices to be loaded for testing.
+
+    :return: specification of the devices to be loaded.
+    """
+    return {
+        "path": "tests/data/configuration.json",
+        "package": "ska_low_mccs_daq",
+        "devices": [
+            {"name": "daqreceiver_001", "proxy": MccsDeviceProxy},
+        ],
+    }
 
 
 @given("an MccsDaqReceiver", target_fixture="daq_receiver")

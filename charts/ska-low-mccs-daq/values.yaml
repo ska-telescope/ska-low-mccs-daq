@@ -98,12 +98,14 @@ deviceServers:
         receiver_interface: eth0  # optional: defaults to "eth0"
         receiver_ip: "10.0.10.150"  # mandatory
         receiver_port: 4660  # optional: defaults to 4660
+        grpc_port: 50051
       - name: daqreceiver-002
         device_name: low-mccs-daq/daqreceiver/002  # mandatory
         daq_id: 2  # optional: defaults to position in this list
         receiver_interface: eth0  # optional: defaults to "eth0"
         receiver_ip: "10.0.10.151"  # mandatory
         receiver_port: 4661  # optional: defaults to 4660
+        grpc_port: 50052
 
 nodeSelector: {}
 
