@@ -8,7 +8,6 @@ PROJECT = ska-low-mccs-daq
 
 HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq
 
-PYTHON_SWITCHES_FOR_ISORT = --skip-glob=*/__init__.py
 PYTHON_SWITCHES_FOR_BLACK = --line-length 88
 PYTHON_TEST_FILE = tests
 PYTHON_VARS_AFTER_PYTEST = --forked
@@ -30,9 +29,6 @@ include .make/helm.mk
 
 # include your own private variables for custom deployment configuration
 -include PrivateRules.mak
-
-python-post-format:
-	$(PYTHON_RUNNER) docformatter -r -i --wrap-summaries 88 --wrap-descriptions 72 --pre-summary-newline $(PYTHON_LINT_TARGET)
 
 python-post-lint:
 	$(PYTHON_RUNNER) mypy --config-file mypy.ini src/ tests/
@@ -108,4 +104,4 @@ grpc-code:
 	python -m grpc_tools.protoc -I $(GRPC_PROTOS_FOLDER) --python_out=$(GRPC_OUTPUT_FOLDER) --pyi_out=$(GRPC_OUTPUT_FOLDER) --grpc_python_out=$(GRPC_OUTPUT_FOLDER) daq.proto
 	sed -i -e 's/import daq_pb2/from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2/g' $(GRPC_OUTPUT_FOLDER)/daq_pb2_grpc.py
 
-.PHONY: k8s-test python-post-format python-post-lint docs-pre-build
+.PHONY: k8s-test python-post-lint docs-pre-build

@@ -8,10 +8,5 @@ sphinx == 5.1.1
 sphinx-autodoc-typehints == 1.19.1
 sphinx-rtd-theme
 sphinxcontrib-plantuml
-backoff
-fire
-jsonschema
-strict_rfc3339
-typing_extensions
 pyyaml
-uritools
+ska-control-model == 0.3.1

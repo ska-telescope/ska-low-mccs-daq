@@ -19,8 +19,8 @@ from ska_tango_base.base import SKABaseDevice
 from ska_tango_base.commands import DeviceInitCommand, FastCommand
 from tango.server import attribute, command, device_property
 
-from ska_low_mccs_daq.daq_receiver.daq_component_manager import DaqComponentManager
-from ska_low_mccs_daq.daq_receiver.daq_health_model import DaqHealthModel
+from .daq_component_manager import DaqComponentManager
+from .daq_health_model import DaqHealthModel
 
 __all__ = ["MccsDaqReceiver", "main"]
 
