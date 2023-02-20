@@ -33,10 +33,11 @@ include .make/helm.mk
 _remote_tracking_branch = $(shell git status -sb | head -1 | sed 's/\.\.\./\n/' | tail -1)
 _gitlab_tag = $(VERSION)-dev.c$(shell git rev-parse --short=8 $(_remote_tracking_branch))
  
+PROJECT_NAME_TWO=low_mccs_daq
 K8S_CHART_PARAMS = \
   --set global.minikube=false \
-  --set $(PROJECT_NAME).image.registry=registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq \
-  --set $(PROJECT_NAME).image.tag=$(_gitlab_tag)
+  --set $(PROJECT_NAME_TWO).image.registry=registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq \
+  --set $(PROJECT_NAME_TWO).image.tag=$(_gitlab_tag)
 
 python-post-lint:
 	$(PYTHON_RUNNER) mypy --config-file mypy.ini src/ tests/
