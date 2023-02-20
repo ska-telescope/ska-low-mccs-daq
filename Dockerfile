@@ -11,7 +11,7 @@ ENV PYFABIL_SHA=c158b27f09ee9af6e5b52927b2564409b0a68096
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive TZ="United_Kingdom/London" apt-get install -y \
-    build-essential ca-certificates cmake libcap2-bin git make tzdata
+    build-essential ca-certificates cmake libcap2-bin git make tzdata net-tools
 
 # Install AAVS DAQ
 RUN git clone https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
