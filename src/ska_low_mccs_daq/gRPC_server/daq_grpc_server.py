@@ -16,7 +16,7 @@ import grpc
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode
 
-from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
+from .generated_code import daq_pb2, daq_pb2_grpc
 
 __all__ = ["MccsDaqServer", "main"]
 

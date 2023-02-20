@@ -14,6 +14,6 @@ __all__ = [
     "MccsDaqReceiver",
 ]
 
-from .daq_health_model import DaqHealthModel
 from .daq_component_manager import DaqComponentManager
+from .daq_health_model import DaqHealthModel
 from .daq_receiver_device import MccsDaqReceiver
