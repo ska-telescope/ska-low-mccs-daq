@@ -295,7 +295,7 @@ class TestPatchedDaq:
         "daq_modes",
         ("DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA", "1, 2, 0"),
     )
-    def test_start_daq_device(
+    def test_start_stop_daq_device(
         self: TestPatchedDaq,
         device_under_test: tango.DeviceProxy,
         mock_component_manager: unittest.mock.Mock,
@@ -324,6 +324,11 @@ class TestPatchedDaq:
 
         call_args = mock_component_manager.start_daq.call_args
         assert call_args.args[0] == daq_modes
+
+        [result_code], [response] = device_under_test.Stop()
+        assert result_code == ResultCode.OK
+        assert response == "Daq stopped"
+        mock_component_manager.stop_daq.assert_called_once_with()
 
     @pytest.mark.parametrize(
         "input_data, result",

@@ -60,10 +60,8 @@ spec:
           - retry
           - --max=60
           - --
+          #- MccsDaqServer
           - python /app/src/ska_low_mccs_daq/gRPC_server/daq_grpc_server.py
-          #- python /app/aavs-system/python/pydaq/daq_receiver_interface.py -D --dt 300
-          #- MccsDaqReceiver
-          #- daqreceiver-002
         env:
           - name: DAQ_DATA_PORT
             value: "{{ $device.receiver_port }}"
@@ -75,10 +73,8 @@ spec:
             value: "{{ $device.name }}-data-svc"
         ports:
           - containerPort: {{ $device.receiver_port }}
-            #name: daqserver-001-data{{ $device.name }}-data-port
             protocol: UDP
           - containerPort: {{ $device.grpc_port }}
-            #name: {{ $device.name }}-grpc-server-port
             protocol: TCP
         securityContext:
           capabilities:

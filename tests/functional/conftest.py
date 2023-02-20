@@ -162,28 +162,6 @@ def grpc_host_fixture() -> str:
     return "localhost"
 
 
-@pytest.fixture(name="daq_grpc_server", scope="session")
-def daq_grpc_server_fixture(grpc_port: str) -> grpc.Server:
-    """
-    Stand up a local gRPC server.
-
-    Include this fixture in tests that require a gRPC DaqServer.
-
-    :param grpc_port: The port to use for gRPC calls.
-
-    :yield: A gRPC server listening on `grpc_port`.
-    """
-    print("Starting daq server...", flush=True)
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    daq_pb2_grpc.add_DaqServicer_to_server(MccsDaqServer(), server)
-    server.add_insecure_port("[::]:" + grpc_port)
-    server.start()
-    print("Server started, listening on " + grpc_port, flush=True)
-    time.sleep(0.1)
-    yield server
-    server.stop(grace=3)
-
-
 @pytest.fixture(name="tango_harness", scope="session")
 def tango_harness_fixture(
     testbed: str,

@@ -45,17 +45,10 @@ sys.path.insert(0, os.path.abspath("../../src"))
 # -- Path set up --------------------------------------------------------------
 # pylint: disable=invalid-name
 autodoc_mock_imports = [
-    "astropy",
     "numpy",
-    "pyfabil",
-    "pyaavs",
-    "scipy",
     "ska_tango_base",
     "tango",
-    "ska_control_model",
     "ska_low_mccs_common",
-    "h5py",
-    "matplotlib",
     "pydaq",
     "grpc",
     "google",
@@ -96,14 +89,8 @@ nitpick_ignore = [
     # so that these external dependencies don't leak out through our
     # public interface.
     ("py:class", "Angle"),
-    ("py:class", "astropy.time.core.Time"),
     ("py:class", "numpy.complex"),
-    ("py:exc", "fire.core.FireError"),
     ("py:exc", "yaml.YAMLError"),
-    # These last two come from ska-control-model so might be impossible
-    # to # factor out of the public interface.
-    ("py:class", "HealthState"),
-    ("py:class", "ResultCode"),
     ("py:class", "pydaq.daq_receiver_interface.DaqReceiver"),
     ("py:class", "pydaq.daq_receiver_interface.DaqModes"),
 ]
@@ -289,7 +276,6 @@ typing.TYPE_CHECKING = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3.10/", None),
-    "astropy": ("https://docs.astropy.org/en/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pytango": ("https://pytango.readthedocs.io/en/stable/", None),
     "ska-control-model": (
