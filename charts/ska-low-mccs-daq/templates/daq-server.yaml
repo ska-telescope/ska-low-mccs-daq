@@ -52,6 +52,8 @@ spec:
       labels:
         component: {{ $device.name }}-data-server
     spec:
+      hostNetwork: true
+      nodeName: psi-node2
       containers:
       - name: {{ $device.name }}-data-server
         image: {{$.Values.low_mccs_daq.image.registry}}/{{$.Values.low_mccs_daq.image.image}}:{{$.Values.low_mccs_daq.image.tag}}

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from typing import Any, Callable, Optional
 
 import grpc
@@ -84,14 +85,19 @@ class DaqComponentManager(MccsComponentManager):
         self._grpc_port = grpc_port
         self._grpc_channel = f"{self._grpc_host}:{self._grpc_port}"
 
-        with grpc.insecure_channel(self._grpc_channel) as channel:
-            stub = daq_pb2_grpc.DaqStub(channel)
-            configuration = json.dumps(self._get_default_config())
-            response = stub.InitDaq(daq_pb2.configDaqRequest(config=configuration))
-            if response.result_code != ResultCode.OK:
-                self.logger.error(
-                    "InitDaq failed with response: %i", response.result_code
-                )
+        try:
+            with grpc.insecure_channel(self._grpc_channel) as channel:
+                stub = daq_pb2_grpc.DaqStub(channel)
+                configuration = json.dumps(self._get_default_config())
+                response = stub.InitDaq(daq_pb2.configDaqRequest(config=configuration))
+                if response.result_code != ResultCode.OK:
+                    self.logger.error(
+                        "InitDaq failed with response: %i", response.result_code
+                    )
+        # pylint: disable=broad-except
+        except Exception:
+            # Initialisation failure. Rely on k8s retry.
+            sys.exit()
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
