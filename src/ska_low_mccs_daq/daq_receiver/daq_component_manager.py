@@ -85,7 +85,7 @@ class DaqComponentManager(MccsComponentManager):
         self._grpc_port = grpc_port
         self._grpc_channel = f"{self._grpc_host}:{self._grpc_port}"
 
-        with grpc.insecure_channel(self._grpc_channel) as channel:
+        with grpc.insecure_channel(self._grpc_channel, options=(('grpc.enable_http_proxy', 0),)) as channel:
             stub = daq_pb2_grpc.DaqStub(channel)
             configuration = json.dumps(self._get_default_config())
             response = stub.InitDaq(daq_pb2.configDaqRequest(config=configuration))
