@@ -22,3 +22,24 @@ dependencies:
 - name: ska-low-mccs-spshw
   version: 0.2.1 
   repository: https://artefact.skao.int/repository/helm-internal
+- name: ska-tango-taranta-dashboard
+  version: 1.3.0
+  repository: https://artefact.skao.int/repository/helm-internal
+  condition: ska-taranta-dashboard.enabled
+- name: ska-tango-taranta-dashboard-pvc
+  version: 1.3.0
+  #repository: https://artefact.skao.int/repository/helm-internal
+  repository: file://../ska-tango-taranta-dashboard-pvc
+  condition: ska-taranta-dashboard.enabled
+- name: ska-tango-tangogql
+  version: 1.3.6
+  #repository: https://artefact.skao.int/repository/helm-internal
+  repository: file://../ska-tango-tangogql
+- name: ska-tango-taranta
+  version: 1.3.6
+  repository: https://artefact.skao.int/repository/helm-internal
+  condition: ska-taranta.enabled
+- name: ska-taranta-auth
+  version: 0.1.5
+  repository: https://artefact.skao.int/repository/helm-internal
+  condition: ska-taranta-auth.enabled

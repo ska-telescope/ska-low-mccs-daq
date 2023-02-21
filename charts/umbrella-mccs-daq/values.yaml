@@ -79,3 +79,28 @@ ska-low-mccs:
     # change controller command
     controller:
       command: "SimController"
+
+ska-taranta:
+  enabled: true
+  ingress:
+    enabled: true
+    nginx: true
+    hostname: k8s.stfc.skao.int
+  tangogql:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 600m  # 600m = 0.6 CPU
+        memory: 512Mi  # 512Mi = 0.5 GB mem
+
+ska-taranta-dashboard:
+  ingress:
+    enabled: true
+    nginx: true
+    hostname: test-taranta.k8s.stfc.skao.int
+
+ska-taranta-auth:
+  ingress:
+    enabled: true
+    nginx: true
+    hostname: test-taranta.k8s.stfc.skao.int
