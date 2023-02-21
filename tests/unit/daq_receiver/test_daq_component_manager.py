@@ -235,17 +235,17 @@ class TestDaqComponentManager:
         :param acquisition_duration: The duration of the data capture.
         :param daq_modes: The DAQ consumers to start.
         """
-        daq_config = {
-            "acquisition_duration": acquisition_duration,
-            "directory": ".",
-        }
-        daq_component_manager.configure_daq(json.dumps(daq_config))
-
         daq_component_manager.start_communicating()
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        daq_config = {
+            "acquisition_duration": acquisition_duration,
+            "directory": ".",
+        }
+        daq_component_manager.configure_daq(json.dumps(daq_config))
 
         # Start DAQ and check our consumer is running.
         # Need exactly 1 callback per consumer started or None. Cast for Mypy.
