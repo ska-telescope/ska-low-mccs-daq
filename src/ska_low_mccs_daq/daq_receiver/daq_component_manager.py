@@ -160,6 +160,7 @@ class DaqComponentManager(MccsComponentManager):
         }
         return daq_config
 
+    @check_communicating
     def get_configuration(self: DaqComponentManager) -> dict[str, Any]:
         """
         Get the active configuration from DAQ.
@@ -191,6 +192,7 @@ class DaqComponentManager(MccsComponentManager):
         self._consumers_to_start = consumers_to_start
         return (ResultCode.OK, "SetConsumers command completed OK")
 
+    @check_communicating
     def configure_daq(
         self: DaqComponentManager,
         daq_config: str,
@@ -253,6 +255,7 @@ class DaqComponentManager(MccsComponentManager):
                 task_callback(status=TaskStatus.FAILED)
         return (response.result_code, response.message)
 
+    @check_communicating
     def stop_daq(
         self: DaqComponentManager,
         task_callback: Optional[Callable] = None,
@@ -280,6 +283,7 @@ class DaqComponentManager(MccsComponentManager):
                 task_callback(status=TaskStatus.FAILED)
         return (response.result_code, response.message)
 
+    @check_communicating
     def daq_status(
         self: DaqComponentManager,
         task_callback: Optional[Callable] = None,
