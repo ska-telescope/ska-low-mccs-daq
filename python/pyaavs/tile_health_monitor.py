@@ -660,23 +660,28 @@ class TileHealthMonitor:
         :param show_result: prints ARP table contents on logger
         :type show_result: bool
 
-        :return: true if all OK, entries valid and resolved.
+        :return: true if each FPGA has at least one entry valid and resolved.
         :rtype: bool
         """
         # This method only supports the xg_40g_eth configuration with
-        # one core per fpga, 4 ARP table IDs per core
+        # one core per fpga
         silent_mode = not show_result
-        arp_table_ids = range(4)
-        status = []
-        nof_resolved_entries = 0
-        fpgas = self.fpga_gen(fpga_id)
-        for i, fpga in enumerate(fpgas):
+        arp_table_ids = range(self.tpm.tpm_10g_core[0].get_number_of_arp_table_entries())
+        fpga_resolved_entries = []
+        fpga_unresolved_entries = []
+        for fpga in self.fpga_gen(fpga_id):
+            resolved_cnt = 0
+            unresolved_cnt = 0
             for arp_table in arp_table_ids:
                 arp_status, mac = self.tpm.tpm_10g_core[fpga].get_arp_table_status(arp_table, silent_mode)
-                if arp_status & 0x1 and arp_status & 0x4:
-                    nof_resolved_entries += 1
-        return True if nof_resolved_entries == 2*len(fpgas) else False
-        # TODO: Will it always be the case there are 2 resolved valid entries per FPGA?
+                if arp_status & 0x1:
+                    if arp_status & 0x4:
+                        resolved_cnt += 1
+                    else:
+                        unresolved_cnt += 1
+            fpga_resolved_entries.append(resolved_cnt)
+            fpga_unresolved_entries.append(unresolved_cnt)
+        return True if all(fpga_resolved_entries) and not any(fpga_unresolved_entries) else False
 
     def check_udp_status(self, fpga_id=None):
         """
