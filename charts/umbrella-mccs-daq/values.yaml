@@ -79,3 +79,54 @@ ska-taranta-auth:
 #     # change controller command
 #     controller:
 #       command: "SimController"
+ska-low-mccs-spshw:
+  facility: psi-low 
+  ska-tango-base:
+    enabled: false
+  simulators:
+    subracks:
+      1:
+        host: subrack-simulator-1
+        
+  deviceServers:
+    tpms:
+      instances:
+        10:
+          enabled: true
+          simulation_config: 0 #connected to a real entity.
+        13:
+          enabled: true
+          simulation_config: 0 #connected to a real entity.
+
+      logging_level_default: 5
+      resources:
+        requests:
+          memory: 512Mi
+
+ska-low-mccs-daq:
+  ska-tango-base:
+    enabled: false
+  low_mccs_daq:
+    enabled: true
+    image:
+      registry: artefact.skao.int
+      image: ska-low-mccs-daq
+      tag: 0.2.0 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
+      pullPolicy: IfNotPresent
+  securityContext:
+    capabilities:
+      add: ["NET_RAW", "IPC_LOCK", "SYS_NICE", "SYS_ADMIN", "KILL", "SYS_TIME"]
+  deviceServers:
+    daqreceiver:
+      file: "data/daq-receiver.yaml"
+      devices:
+        - name: daqreceiver-001
+          device_name: low-mccs-daq/daqreceiver/001  # mandatory
+          daq_id: 1  # optional: defaults to position in this list
+          #This interface should be the 40G interface at the site of deployment.
+          receiver_interface: eno33np0  # currently this has to be adjusted per site interfaces 
+          receiver_ip: ""  # This can be worked out from the receiver interface
+          receiver_port: 4660  # port on the receiver interface to listen for udp spead packets
+          # This is the IP:PORT for the gRPC to form its TCP connection.
+          grpc_ip: "10.2.2.184" 
+          grpc_port: 50051
