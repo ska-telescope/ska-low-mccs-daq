@@ -7,7 +7,7 @@ metadata:
 subsets:
  - addresses:
     #TODO: template this parameter.
-     - ip: "10.2.2.184"  # IP of your desire end point 
+     - ip: {{ $device.grpc_ip}}  # IP of your desire end point 
    ports:
      - port: {{ $device.grpc_port}} # Port that you want to access
 
