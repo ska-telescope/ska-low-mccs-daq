@@ -43,6 +43,7 @@ ska-low-mccs-spshw:
         3:
           host: 10.0.10.5 #Not needed as default (it is good practice to ensure this way?)
           enabled: true
+          simulation_config: 0
         4:
           enabled: false
       logging_level_default: 5
@@ -73,11 +74,8 @@ ska-low-mccs-daq:
         - name: daqreceiver-001
           device_name: low-mccs-daq/daqreceiver/001  # mandatory
           daq_id: 1  # optional: defaults to position in this list
-          #This interface should be the 40G interface at the site of deployment.
-          receiver_interface: enp34s0  # currently this has to be adjusted per site interfaces 
-          receiver_ip: ""  # This can be worked out from the receiver interface
-          receiver_port: 4660  # port on the receiver interface to listen for udp spead packets
-          # This is the IP:PORT for the gRPC to form its TCP connection.
-          grpc_ip: "10.2.2.184" 
+          receiver_interface: ens4  # optional: defaults to "eth0"
+          receiver_ip: ""  # mandatory
+          receiver_port: 4660  # optional: defaults to 4660
           grpc_port: 50051
-          
+          grpc_ip: "172.17.6.145" 

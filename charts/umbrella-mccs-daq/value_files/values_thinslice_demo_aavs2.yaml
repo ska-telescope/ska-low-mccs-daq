@@ -26,7 +26,7 @@ jupyterhub:
 #Dissable all the TPMs except the one of interest.
 #From spshw we want a TPM and a Subrack simulator
 ska-low-mccs-spshw:
-  facility: oxford 
+  facility: aavs2 
   ska-tango-base:
     enabled: false
   simulators:
@@ -42,8 +42,33 @@ ska-low-mccs-spshw:
           enabled: false
         3:
           host: 10.0.10.5 #Not needed as default (it is good practice to ensure this way?)
-          enabled: true
+          enabled: false
+          #simulation_config: 0
         4:
+          enabled: false
+        5:
+          enabled: false
+        6:
+          enabled: false
+        7:
+          enabled: false
+        8:
+          enabled: false
+        9:
+          enabled: false
+        10:
+          enabled: false
+        11:
+          enabled: false
+        12:
+          enabled: false
+        13:
+          enabled: false
+        14:
+          enabled: false
+        15:
+          enabled: false
+        16:
           enabled: false
       logging_level_default: 5
       resources:
@@ -73,11 +98,8 @@ ska-low-mccs-daq:
         - name: daqreceiver-001
           device_name: low-mccs-daq/daqreceiver/001  # mandatory
           daq_id: 1  # optional: defaults to position in this list
-          #This interface should be the 40G interface at the site of deployment.
-          receiver_interface: enp34s0  # currently this has to be adjusted per site interfaces 
-          receiver_ip: ""  # This can be worked out from the receiver interface
-          receiver_port: 4660  # port on the receiver interface to listen for udp spead packets
-          # This is the IP:PORT for the gRPC to form its TCP connection.
-          grpc_ip: "10.2.2.184" 
+          receiver_interface: enp216s0f0  # optional: defaults to "eth0"
+          receiver_ip: ""  # mandatory
+          receiver_port: 4660  # optional: defaults to 4660
           grpc_port: 50051
-          
+          grpc_ip: "10.128.16.50" 
