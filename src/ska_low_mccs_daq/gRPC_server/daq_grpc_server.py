@@ -21,8 +21,6 @@ from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
 
 __all__ = ["MccsDaqServer", "main"]
 
-
-
 # def create_state_response(
 #         call_state: daq_pb2.CallState.State) -> daq_pb2.startDaqResponse:
 #     response = daq_pb2.startDaqResponse()
@@ -35,56 +33,56 @@ class DaqStatus(IntEnum):
     RECEIVING = 1
     STOPPED = 2
 
-# class DaqCallbackBuffer:
-#     '''
-#     A DAQ callback buffer to flush to gRPC Client every poll
-#     '''
-#     def __init__(self, logger):
-#         self.logger = logger
-#         self.data_types_received = []
-#         self.written_files = []
-#         self.extra_info = []
-#         self.pending_evaluation = False
+class DaqCallbackBuffer:
+    '''
+    A DAQ callback buffer to flush to gRPC Client every poll
+    '''
+    def __init__(self, logger):
+        self.logger = logger
+        self.data_types_received = []
+        self.written_files = []
+        self.extra_info = []
+        self.pending_evaluation = False
 
-#     def add(self: DaqCallbackBuffer, data_type, file_name, additional_info: Optional[int] = None):
-#     	'''
-#     	Add a item to the buffer to send on the next poll
-#     	'''
-#         self.logger.info("File added to buffer")
+    def add(self: DaqCallbackBuffer, data_type, file_name, additional_info = None):
+        '''
+        Add a item to the buffer to send on the next poll
+        '''
+        self.logger.info(f"File: {file_name}, with data: {data_type} added to buffer")
         
-#         self.data_types_received.append(data_mode)
-#         self.written_files.append(file_name)
-#         if not additional_info == None:
-#             self.extra_info.append(additional_info)
+        self.data_types_received.append(data_type)
+        self.written_files.append(file_name)
+        if not additional_info == None:
+            self.extra_info.append(additional_info)
             
-#         self.pending_evaluation = True
+        self.pending_evaluation = True
 
-#     def clear_buffer(self: DaqCallbackBuffer):
-#     	'''
-#     	Clear buffer and set evaluation status to false. 
-#     	'''
-#         self.data_types_received.clear()
-#         self.written_files.clear()
-#         self.extra_info.clear()
-#         self.pending_evaluation = False
+    def clear_buffer(self: DaqCallbackBuffer):
+        '''
+        Clear buffer and set evaluation status to false. 
+        '''
+        self.data_types_received.clear()
+        self.written_files.clear()
+        self.extra_info.clear()
+        self.pending_evaluation = False
 	
-#     def send_buffer_to_client(self: DaqCallbackBuffer):
-#         '''
-#         Send buffer then clear buffer.
-#         '''
-#         for i in range(self.written_files):
-#             call_info = daq_pb2.CallInfo()
-#             call_info.data_types_received = self.data_types_received[i]
-#             call_info.files_written = self.written_files[i]
+    def send_buffer_to_client(self: DaqCallbackBuffer):
+        '''
+        Send buffer then clear buffer.
+        '''
+        for i in range(len(self.written_files)):
+            call_info = daq_pb2.CallInfo()
+            call_info.data_types_received = self.data_types_received[i]
+            call_info.files_written = self.written_files[i]
 
-#             response = daq_pb2.startDaqResponse()
-#             response.call_info.data_types_received = call_info.data_types_received 
-#             response.call_info.files_written = call_info.files_written
+            response = daq_pb2.startDaqResponse()
+            response.call_info.data_types_received = call_info.data_types_received 
+            response.call_info.files_written = call_info.files_written
 
-#             yield response
+            yield response
                 
-#         #after yield clear buffer
-#         self.clear_buffer()
+        #after yield clear buffer
+        self.clear_buffer()
 
 def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     """
@@ -125,14 +123,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
 
         self.state = DaqStatus.STOPPED
 
-        ###self.buffer = DaqCallbackBuffer(logger)
-
-        self.packets_received = False
-        self.metadata = None
-        self.data_types_received_since_last_poll = []
-        self.files_written_since_last_poll = []
-        self.extra_info_since_last_poll = []
-        self.number_of_files_dumped = 0
+        self.buffer = DaqCallbackBuffer(self.logger)
 
     def file_dump_callback(
         self,
@@ -141,24 +132,16 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         additional_info: Optional[int] = None,
     ) -> None:
 
-        ###if not additional_info == None:
-        ###    self.buffer.add(data_mode, file_name, additional_info)
-        ###else:
-        ###    self.buffer.add(data_mode, file_name)
-
-        self.logger.info("File dumped,, add to dictionary and tell the component manager when it asks")
-        self.packets_received = True
-        self.data_types_received_since_last_poll.append(data_mode)
-        self.files_written_since_last_poll.append(file_name)
         if not additional_info == None:
-            self.extra_info_since_last_poll.append(additional_info)
-        self.number_of_files_dumped += 1
+            self.buffer.add(data_mode, file_name, additional_info)
+        else:
+            self.buffer.add(data_mode, file_name)
+
 
     def update_status(self):
         if self.state == DaqStatus.STOPPED:
             return
-        ### if self.buffer.pending_evaluation:
-        if self.packets_received:
+        if self.buffer.pending_evaluation:
             self.state = DaqStatus.RECEIVING
         else:
             self.state = DaqStatus.LISTENING
@@ -213,29 +196,9 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
                 self.logger.info("Daq listening.")
 
             elif self.state == DaqStatus.RECEIVING:
-                #There will be some dictionary will the callbacks captured from last poll
-                #This will need to be put into Accepted RPC format and sent back to the 
-                #Component manager.
                 self.logger.info("Daq received")
-
-                #only yield the call information.
-                for i in range(self.number_of_files_dumped):
-                    call_info = daq_pb2.CallInfo()
-                    call_info.data_types_received = self.data_types_received_since_last_poll[i]
-                    call_info.files_written = self.files_written_since_last_poll[i]
-
-                    response = daq_pb2.startDaqResponse()
-                    response.call_info.data_types_received = call_info.data_types_received 
-                    response.call_info.files_written = call_info.files_written
-
-                    yield response
-
-                #once yielded clear the buffer
-                self.number_of_files_dumped = 0
-                self.data_types_received_since_last_poll =[]
-                self.files_written_since_last_poll=[]
-                self.packets_received = False
-
+                #send buffer to client
+                yield from self.buffer.send_buffer_to_client()
 
             #wait before checking status again.
             time.sleep(5)
@@ -248,8 +211,8 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         response = daq_pb2.startDaqResponse()
         response.call_state.state = daq_pb2.CallState.STOPPED
         yield response  
-        
-         
+
+
     def StopDaq(
         self: MccsDaqServer,
         request: daq_pb2.stopDaqRequest,
