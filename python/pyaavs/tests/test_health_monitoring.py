@@ -47,7 +47,7 @@ class TestHealthMonitoring():
     def get_health_by_path(self, health, path_list):
         return reduce(operator.getitem, path_list, health)
 
-    def recursive_check_health_dict(self, expected_health, current_health, key_list, tpm_id, tpm_version):
+    def recursive_check_health_dict(self, expected_health, current_health, key_list, tpm_id):
         for name, value in expected_health.items():
             key_list.append(name)
             if key_list == ['temperature']:
@@ -55,11 +55,11 @@ class TestHealthMonitoring():
                 key_list.pop()
                 continue
             if key_list == ['voltage']:
-                self.check_analog_measurements('voltage', 'V', expected_health['voltage'][tpm_version], current_health['voltage'], tpm_id)
+                self.check_analog_measurements('voltage', 'V', expected_health['voltage'], current_health['voltage'], tpm_id)
                 key_list.pop()
                 continue
             if key_list == ['current']:
-                self.check_analog_measurements('current', 'A', expected_health['current'][tpm_version], current_health['current'], tpm_id)
+                self.check_analog_measurements('current', 'A', expected_health['current'], current_health['current'], tpm_id)
                 key_list.pop()
                 continue
             if not isinstance(value, dict):
@@ -82,7 +82,7 @@ class TestHealthMonitoring():
                         print(f"{'->'.join(key_list)} is {expected_value} as expected.")
                     key_list.pop()
             else:
-                self.recursive_check_health_dict(value, current_health, key_list, tpm_id, tpm_version)
+                self.recursive_check_health_dict(value, current_health, key_list, tpm_id)
         if key_list:
             key_list.pop()
         return
@@ -105,7 +105,6 @@ class TestHealthMonitoring():
         
         for n, tile in enumerate(self._test_station.tiles):
             expected_health = tile.get_exp_health()
-            tpm_version = tile.tpm_version()
             if not tile.tpm.adas_enabled:
                 self._logger.info("ADAs disabled. Skipping checks for ADA voltages.")
 
@@ -116,7 +115,7 @@ class TestHealthMonitoring():
 
             # If an expected monitoring point is missing from health_dict an error is produced. 
             # Any extra monitoring points in health_dict, not known to expected_health are ignored.
-            self.recursive_check_health_dict(expected_health, health_dict, [], n, tpm_version)
+            self.recursive_check_health_dict(expected_health, health_dict, [], n)
 
         return self.clean_up()
 
