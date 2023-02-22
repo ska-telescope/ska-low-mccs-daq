@@ -22,6 +22,8 @@ from pyfabil.base.definitions import Device, LibraryError, BoardError, Status
 from pyfabil.base.utils import ip2long
 from pyfabil.boards.tpm import TPM
 
+from pyaavs.tile_health_monitor import TileHealthMonitor
+
 
 # Helper to disallow certain function calls on unconnected tiles
 def connected(f):
@@ -66,7 +68,7 @@ def connected(f):
     return wrapper
 
 
-class Tile(object):
+class Tile(TileHealthMonitor):
     """
     Tile hardware interface library.
     """
@@ -108,6 +110,7 @@ class Tile(object):
         self._port = port
         self._ip = socket.gethostbyname(ip)
         self.tpm = None
+        self.preadus_enabled = False
 
         self._channeliser_truncation = 4
         self.subarray_id = 0
@@ -346,6 +349,7 @@ class Tile(object):
         # Switch off both PREADUs
         for preadu in self.tpm.tpm_preadu:
             preadu.switch_off()
+        self.preadus_enabled = False
 
         # Switch on preadu
         for preadu in self.tpm.tpm_preadu:
@@ -353,7 +357,7 @@ class Tile(object):
             time.sleep(1)
             preadu.select_low_passband()
             preadu.read_configuration()
-
+        self.preadus_enabled = True
         # Synchronise FPGAs
         self.sync_fpga_time(use_internal_pps=use_internal_pps)
 
@@ -493,26 +497,6 @@ class Tile(object):
         :rtype: float
         """
         return self.tpm.temperature()
-
-    @connected
-    def get_voltage(self):
-        """
-        Read board voltage.
-        :return: board supply voltage
-        :rtype: float
-        """
-        return self.tpm.voltage()
-
-    @connected
-    def get_current(self):
-        """
-        Read board current.
-        :return: board supply current
-        :rtype: float
-        """
-        # not implemented
-        # return self.tpm.current()
-        return 0.0
 
     @connected
     def get_rx_adc_rms(self):
@@ -945,7 +929,7 @@ class Tile(object):
                 if core_errors:
                     not_ready_links.append(c)
                 for a in arp_table_id:
-                    core_status = core_inst.get_arp_table_status(a, silent_mode=True)
+                    core_status, core_mac = core_inst.get_arp_table_status(a, silent_mode=True)
                     # check if valid entry has been resolved
                     if core_status & 0x1 == 1 and core_status & 0x4 == 0:
                         not_ready_links.append(c)
@@ -994,7 +978,7 @@ class Tile(object):
             linkup = True
             for core_id in core_ids:
                 for arp_table in arp_table_ids:
-                    core_status = self.tpm.tpm_10g_core[core_id].get_arp_table_status(
+                    core_status, core_mac = self.tpm.tpm_10g_core[core_id].get_arp_table_status(
                         arp_table, silent_mode=True
                     )
                     if core_status & 0x4 == 0:
@@ -2328,70 +2312,6 @@ class Tile(object):
             raise AttributeError("'Tile' or 'TPM' object have no attribute " + name)
 
     # ------------------- Test methods
-
-    @connected
-    def check_jesd_lanes(self):
-        """
-        Check if JESD204 lanes are error free.
-
-        :return: true if all OK
-        :rtype: bool
-        """
-        rd = np.zeros(4, dtype=int)
-        rd[0] = self["fpga1.jesd204_if.core_id_0_link_error_status_0"]
-        rd[1] = self["fpga1.jesd204_if.core_id_1_link_error_status_0"]
-        rd[2] = self["fpga2.jesd204_if.core_id_0_link_error_status_0"]
-        rd[3] = self["fpga2.jesd204_if.core_id_1_link_error_status_0"]
-
-        lane_ok = True
-        for n in range(4):
-            for c in range(8):
-                if rd[n] & 0x7 != 0:
-                    self.logger.error(
-                        f"Lane {n * 8 + c} error detected! Error code: {rd[n] & 0x7}"
-                    )
-                    lane_ok = False
-                rd[n] = rd[n] >> 3
-        return lane_ok
-
-    def reset_jesd_error_counter(self):
-        """Reset errors in JESD lanes."""
-        self["fpga1.jesd204_if.core_id_0_error_reporting"] = 1
-        self["fpga1.jesd204_if.core_id_1_error_reporting"] = 1
-        self["fpga2.jesd204_if.core_id_0_error_reporting"] = 1
-        self["fpga2.jesd204_if.core_id_1_error_reporting"] = 1
-
-        self["fpga1.jesd204_if.core_id_0_error_reporting"] = 0
-        self["fpga1.jesd204_if.core_id_1_error_reporting"] = 0
-        self["fpga2.jesd204_if.core_id_0_error_reporting"] = 0
-        self["fpga2.jesd204_if.core_id_1_error_reporting"] = 0
-
-        self["fpga1.jesd204_if.core_id_0_error_reporting"] = 1
-        self["fpga1.jesd204_if.core_id_1_error_reporting"] = 1
-        self["fpga2.jesd204_if.core_id_0_error_reporting"] = 1
-        self["fpga2.jesd204_if.core_id_1_error_reporting"] = 1
-
-    def check_jesd_error_counter(self, show_result=True):
-        """
-        Check JESD204 lanes errors.
-
-        :param show_result: prints error counts on logger
-        :type show_result: bool
-        :return: error count vector
-        :rtype: list(int)
-        """
-        errors = []
-        for lane in range(32):
-            fpga_id = lane // 16
-            core_id = (lane % 16) // 8
-            lane_id = lane % 8
-            reg = self[
-                f"fpga{fpga_id + 1}.jesd204_if.core_id_{core_id}_lane_{lane_id}_link_error_count"
-            ]
-            errors.append(reg)
-            if show_result:
-                self.logger.info("Lane " + str(lane) + " error count " + str(reg))
-        return errors
 
     @connected
     def start_40g_test(self, single_packet_mode=False, ipg=32):

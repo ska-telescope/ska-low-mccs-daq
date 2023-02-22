@@ -30,6 +30,7 @@ class TestWrapper:
                        'full_station': "Check operation of networked beamformer comparing offline and realtime beam "
                                        "power.",
                        'ddr': "Check on-board DDR using FPGA embedded test.",
+                       'health_monitoring' : "Check correct reading and clearing of TPM health monitoring points.",
                        'f2f': "Check fast data link between FPGAs using FPGA embedded test.",
                        'eth40g': "Check 40G UDP using FPGA embedded test.",
                        'c2c': "Check communication bus between CPLD and FPGAs.\nWARNING: this test will overwrite the "
@@ -90,7 +91,7 @@ class TestWrapper:
             self.test_todo = self.available_tests
         for test in self.test_todo:
             if test not in self.available_tests:
-                logging.error("Requested test: %s is not available!")
+                logging.error(f"Requested test: {test} is not available!")
                 logging.info("Avalable tests are:")
                 self.print_available_test()
                 logging.info("Exiting")
@@ -408,6 +409,7 @@ if __name__ == "__main__":
                       help="Initialise station before performing tests, ignored in interactive mode [default: False]")
 
     (conf, args) = parser.parse_args(argv[1:])
+    conf.test_todo = conf.test_todo.lower()
 
     # set up logging to file - see previous section for more details
 

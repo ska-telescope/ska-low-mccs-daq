@@ -266,6 +266,7 @@ class Tile_1_6(Tile):
         #     time.sleep(1)
         #     preadu.select_low_passband()
         #     preadu.read_configuration()
+        # self.preadus_enabled = True
 
         # Synchronise FPGAs
         self.sync_fpga_time(use_internal_pps=False)
