@@ -38,14 +38,12 @@ class TestDaqComponentManager:
             asynchrony support can be accessed.
         """
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
-        assert daq_component_manager._initialised is False
 
         daq_component_manager.start_communicating()
 
         # allow some time for device communication to start before testing
         time.sleep(0.1)
 
-        assert daq_component_manager._initialised is True
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
@@ -80,10 +78,8 @@ class TestDaqComponentManager:
         """
         # 1. Establish comms with DaqReceiver.
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
-        assert daq_component_manager._initialised is False
         daq_component_manager.start_communicating()
         time.sleep(0.1)
-        assert daq_component_manager._initialised is True
 
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
@@ -102,7 +98,7 @@ class TestDaqComponentManager:
         daq_component_manager.configure_daq(json.dumps(non_standard_config))
 
         # 3. Assert config was applied.
-        daq_config = json.loads(daq_component_manager.get_configuration())
+        daq_config = daq_component_manager.get_configuration()
         assert daq_config["receiver_ports"] == [9876]
         assert daq_config["nof_tiles"] == 55
         assert daq_config["nof_channels"] == 1234
@@ -113,7 +109,6 @@ class TestDaqComponentManager:
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
         daq_component_manager.start_communicating()
         time.sleep(0.1)
-        assert daq_component_manager._initialised is True
 
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
@@ -124,7 +119,7 @@ class TestDaqComponentManager:
         )
 
         # 5. Assert that our previously set config remains valid.
-        daq_config = json.loads(daq_component_manager.get_configuration())
+        daq_config = daq_component_manager.get_configuration()
         assert daq_config["receiver_ports"] == [9876]
         assert daq_config["nof_tiles"] == 55
         assert daq_config["nof_channels"] == 1234

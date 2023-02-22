@@ -84,31 +84,30 @@ class DaqComponentManager(MccsComponentManager):
         self._grpc_host = grpc_host
         self._grpc_port = grpc_port
         self._grpc_channel = f"{self._grpc_host}:{self._grpc_port}"
-        self._initialised: bool = False
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
         super().start_communicating()
         # Do things that might need to be done.
-        # I'd prefer a better way of achieving this.
-        if not self._initialised:
-            try:
-                with grpc.insecure_channel(self._grpc_channel) as channel:
-                    stub = daq_pb2_grpc.DaqStub(channel)
-                    configuration = json.dumps(self._get_default_config())
-                    response = stub.InitDaq(
-                        daq_pb2.configDaqRequest(config=configuration)
+        try:
+            with grpc.insecure_channel(self._grpc_channel) as channel:
+                stub = daq_pb2_grpc.DaqStub(channel)
+                configuration = json.dumps(self._get_default_config())
+                response = stub.InitDaq(daq_pb2.configDaqRequest(config=configuration))
+
+                # Anticipated "normal" operation.
+                if response.result_code in [ResultCode.OK, ResultCode.REJECTED]:
+                    self.logger.info(response.message)
+                else:
+                    self.logger.error(
+                        "InitDaq failed with response: %i: %s",
+                        response.result_code,
+                        response.message,
                     )
-                    if response.result_code != ResultCode.OK:
-                        self.logger.error(
-                            "InitDaq failed with response: %i", response.result_code
-                        )
-                    else:
-                        self._initialised = True
-            # pylint: disable=broad-except
-            except Exception as e:
-                self.logger.error("Caught exception in start_communicating: %s", e)
-                sys.exit()
+        # pylint: disable=broad-except
+        except Exception as e:
+            self.logger.error("Caught exception in start_communicating: %s", e)
+            sys.exit()
 
         self.update_communication_state(CommunicationStatus.ESTABLISHED)
 
@@ -171,7 +170,7 @@ class DaqComponentManager(MccsComponentManager):
         with grpc.insecure_channel(self._grpc_channel) as channel:
             stub = daq_pb2_grpc.DaqStub(channel)
             response = stub.GetConfiguration(daq_pb2.getConfigRequest())
-        return response.config
+        return json.loads(response.config)
 
     def _set_consumers_to_start(
         self: DaqComponentManager, consumers_to_start: str
