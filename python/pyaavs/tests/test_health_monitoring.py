@@ -34,14 +34,15 @@ class TestHealthMonitoring():
             self.errors += 1
         # Check Measurements
         for name, value in measurement.items():
-            if expected[name].get('skip', False):
-                self._logger.info(f"Skipping checks for TPM{tpm_id} {key.capitalize()} {name}.")
-            else:
-                if value > expected[name]['max'] or value < expected[name]['min']:
+            comparison_value = value if value is not None else -20000.0 #Arbitrary negative value to represent None
+            if comparison_value > expected[name]['max'] or comparison_value < expected[name]['min']:
+                if expected[name].get('skip', False):
+                    self._logger.warning(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}. Expected Failure")
+                else:
                     self._logger.error(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}. Test FAILED")
                     self.errors += 1
-                else:
-                    self._logger.info(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, within acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}.")
+            else:
+                self._logger.info(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, within acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}.")
         return
         
     def get_health_by_path(self, health, path_list):

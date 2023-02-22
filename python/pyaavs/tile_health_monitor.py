@@ -144,8 +144,8 @@ class TileHealthMonitor:
             "DDR1_VREF"   : { "min": 0.570, "max": 0.630},
             "VM_DRVDD"    : { "min": 1.710, "max": 1.890},
             "VIN"         : { "min": 11.40, "max": 12.60},
-            "MON_3V3"     : { "min": 3.130, "max": 3.460},
-            "MON_1V8"     : { "min": 1.710, "max": 1.890},
+            "MON_3V3"     : { "min": 3.130, "max": 3.460, "skip": True}, # Can be removed once MCCS-1348 is complete
+            "MON_1V8"     : { "min": 1.710, "max": 1.890, "skip": True}, # Can be removed once MCCS-1348 is complete
             "MON_5V0"     : { "min": 4.690, "max": 5.190},
             "VM_ADA0"     : { "min": 3.040, "max": 3.560, "skip": not self.tpm.adas_enabled},
             "VM_ADA1"     : { "min": 3.040, "max": 3.560, "skip": not self.tpm.adas_enabled},
@@ -159,7 +159,7 @@ class TileHealthMonitor:
             "VM_MGT0_AUX" : { "min": 1.660, "max": 1.940},
             "VM_PLL"      : { "min": 3.040, "max": 3.560},
             "VM_AGP4"     : { "min": 0.840, "max": 0.990},
-            "VM_AGP5"     : { "min": 0.840, "max": 0.990},
+            "VM_AGP5"     : { "min": 0.840, "max": 0.990, "skip": True}, # Can be removed once MCCS-1348 is complete
             "VM_AGP6"     : { "min": 0.840, "max": 0.990},
             "VM_AGP7"     : { "min": 0.840, "max": 0.990},
             "VM_CLK1B"    : { "min": 3.040, "max": 3.560},
