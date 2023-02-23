@@ -53,10 +53,6 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     return []
 
 
-class NotInitialisedError(Exception):
-    """Exception raised by DAQ when methods are called but DAQ is uninitialised."""
-
-
 def check_initialisation(func: Wrapped) -> Wrapped:
     """
     Return a function that checks component initialisation before calling.
@@ -90,16 +86,15 @@ def check_initialisation(func: Wrapped) -> Wrapped:
         :param args: positional arguments to the wrapped function
         :param kwargs: keyword arguments to the wrapped function
 
-        :raises NotInitialisedError: if component initialisation has
+        :raises ValueError: if component initialisation has
             not been completed.
         :return: whatever the wrapped function returns
         """
-        print(f"In decorator: {self._initialised}")
         if self._initialised is False:
-            raise NotInitialisedError(
+            raise ValueError(
                 f"Cannot execute '{type(self).__name__}.{func.__name__}'. "
                 "DaqReceiver has not been initialised. "
-                "Set adminMode to ONLINE to re-initialise"
+                "Set adminMode to ONLINE to re-initialise."
             )
         return func(self, *args, **kwargs)
 

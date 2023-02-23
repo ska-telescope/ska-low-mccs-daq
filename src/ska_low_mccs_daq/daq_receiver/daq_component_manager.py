@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 from typing import Any, Callable, Optional
 
 import grpc
@@ -97,6 +96,8 @@ class DaqComponentManager(MccsComponentManager):
 
                 # Anticipated "normal" operation.
                 if response.result_code in [ResultCode.OK, ResultCode.REJECTED]:
+                    if self._faulty:
+                        self.component_state_changed_callback({"fault": False})
                     self.logger.info(response.message)
                 else:
                     self.logger.error(
@@ -106,8 +107,8 @@ class DaqComponentManager(MccsComponentManager):
                     )
         # pylint: disable=broad-except
         except Exception as e:
+            self.component_state_changed_callback({"fault": True})
             self.logger.error("Caught exception in start_communicating: %s", e)
-            sys.exit()
 
         self.update_communication_state(CommunicationStatus.ESTABLISHED)
 
