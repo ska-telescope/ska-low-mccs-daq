@@ -8,8 +8,6 @@
 """This module contains the bdd test steps of the daq status reporting."""
 from __future__ import annotations
 
-from typing import Generator
-
 import pytest
 import tango
 from pytest_bdd import given, parsers, scenarios, then, when

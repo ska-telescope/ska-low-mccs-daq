@@ -9,9 +9,7 @@
 from __future__ import annotations
 
 import logging
-import time
 import unittest.mock
-from concurrent import futures
 
 import grpc
 import pytest
@@ -20,8 +18,6 @@ from ska_control_model import ResultCode
 from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
-from ska_low_mccs_daq.gRPC_server.daq_grpc_server import MccsDaqServer
-from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
 
 
 # pylint: disable=too-many-arguments

@@ -15,35 +15,35 @@ class DaqStub(object):
             channel: A grpc.Channel.
         """
         self.StartDaq = channel.unary_stream(
-                '/daq.Daq/StartDaq',
-                request_serializer=daq__pb2.startDaqRequest.SerializeToString,
-                response_deserializer=daq__pb2.startDaqResponse.FromString,
-                )
+            "/daq.Daq/StartDaq",
+            request_serializer=daq__pb2.startDaqRequest.SerializeToString,
+            response_deserializer=daq__pb2.startDaqResponse.FromString,
+        )
         self.StopDaq = channel.unary_unary(
-                '/daq.Daq/StopDaq',
-                request_serializer=daq__pb2.stopDaqRequest.SerializeToString,
-                response_deserializer=daq__pb2.commandResponse.FromString,
-                )
+            "/daq.Daq/StopDaq",
+            request_serializer=daq__pb2.stopDaqRequest.SerializeToString,
+            response_deserializer=daq__pb2.commandResponse.FromString,
+        )
         self.InitDaq = channel.unary_unary(
-                '/daq.Daq/InitDaq',
-                request_serializer=daq__pb2.configDaqRequest.SerializeToString,
-                response_deserializer=daq__pb2.commandResponse.FromString,
-                )
+            "/daq.Daq/InitDaq",
+            request_serializer=daq__pb2.configDaqRequest.SerializeToString,
+            response_deserializer=daq__pb2.commandResponse.FromString,
+        )
         self.ConfigureDaq = channel.unary_unary(
-                '/daq.Daq/ConfigureDaq',
-                request_serializer=daq__pb2.configDaqRequest.SerializeToString,
-                response_deserializer=daq__pb2.commandResponse.FromString,
-                )
+            "/daq.Daq/ConfigureDaq",
+            request_serializer=daq__pb2.configDaqRequest.SerializeToString,
+            response_deserializer=daq__pb2.commandResponse.FromString,
+        )
         self.GetConfiguration = channel.unary_unary(
-                '/daq.Daq/GetConfiguration',
-                request_serializer=daq__pb2.getConfigRequest.SerializeToString,
-                response_deserializer=daq__pb2.getConfigResponse.FromString,
-                )
+            "/daq.Daq/GetConfiguration",
+            request_serializer=daq__pb2.getConfigRequest.SerializeToString,
+            response_deserializer=daq__pb2.getConfigResponse.FromString,
+        )
         self.DaqStatus = channel.unary_unary(
-                '/daq.Daq/DaqStatus',
-                request_serializer=daq__pb2.daqStatusRequest.SerializeToString,
-                response_deserializer=daq__pb2.daqStatusResponse.FromString,
-                )
+            "/daq.Daq/DaqStatus",
+            request_serializer=daq__pb2.daqStatusRequest.SerializeToString,
+            response_deserializer=daq__pb2.daqStatusResponse.FromString,
+        )
 
 
 class DaqServicer(object):
@@ -52,180 +52,253 @@ class DaqServicer(object):
     def StartDaq(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def StopDaq(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def InitDaq(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def ConfigureDaq(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def GetConfiguration(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def DaqStatus(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
 
 def add_DaqServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'StartDaq': grpc.unary_stream_rpc_method_handler(
-                    servicer.StartDaq,
-                    request_deserializer=daq__pb2.startDaqRequest.FromString,
-                    response_serializer=daq__pb2.startDaqResponse.SerializeToString,
-            ),
-            'StopDaq': grpc.unary_unary_rpc_method_handler(
-                    servicer.StopDaq,
-                    request_deserializer=daq__pb2.stopDaqRequest.FromString,
-                    response_serializer=daq__pb2.commandResponse.SerializeToString,
-            ),
-            'InitDaq': grpc.unary_unary_rpc_method_handler(
-                    servicer.InitDaq,
-                    request_deserializer=daq__pb2.configDaqRequest.FromString,
-                    response_serializer=daq__pb2.commandResponse.SerializeToString,
-            ),
-            'ConfigureDaq': grpc.unary_unary_rpc_method_handler(
-                    servicer.ConfigureDaq,
-                    request_deserializer=daq__pb2.configDaqRequest.FromString,
-                    response_serializer=daq__pb2.commandResponse.SerializeToString,
-            ),
-            'GetConfiguration': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetConfiguration,
-                    request_deserializer=daq__pb2.getConfigRequest.FromString,
-                    response_serializer=daq__pb2.getConfigResponse.SerializeToString,
-            ),
-            'DaqStatus': grpc.unary_unary_rpc_method_handler(
-                    servicer.DaqStatus,
-                    request_deserializer=daq__pb2.daqStatusRequest.FromString,
-                    response_serializer=daq__pb2.daqStatusResponse.SerializeToString,
-            ),
+        "StartDaq": grpc.unary_stream_rpc_method_handler(
+            servicer.StartDaq,
+            request_deserializer=daq__pb2.startDaqRequest.FromString,
+            response_serializer=daq__pb2.startDaqResponse.SerializeToString,
+        ),
+        "StopDaq": grpc.unary_unary_rpc_method_handler(
+            servicer.StopDaq,
+            request_deserializer=daq__pb2.stopDaqRequest.FromString,
+            response_serializer=daq__pb2.commandResponse.SerializeToString,
+        ),
+        "InitDaq": grpc.unary_unary_rpc_method_handler(
+            servicer.InitDaq,
+            request_deserializer=daq__pb2.configDaqRequest.FromString,
+            response_serializer=daq__pb2.commandResponse.SerializeToString,
+        ),
+        "ConfigureDaq": grpc.unary_unary_rpc_method_handler(
+            servicer.ConfigureDaq,
+            request_deserializer=daq__pb2.configDaqRequest.FromString,
+            response_serializer=daq__pb2.commandResponse.SerializeToString,
+        ),
+        "GetConfiguration": grpc.unary_unary_rpc_method_handler(
+            servicer.GetConfiguration,
+            request_deserializer=daq__pb2.getConfigRequest.FromString,
+            response_serializer=daq__pb2.getConfigResponse.SerializeToString,
+        ),
+        "DaqStatus": grpc.unary_unary_rpc_method_handler(
+            servicer.DaqStatus,
+            request_deserializer=daq__pb2.daqStatusRequest.FromString,
+            response_serializer=daq__pb2.daqStatusResponse.SerializeToString,
+        ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'daq.Daq', rpc_method_handlers)
+        "daq.Daq", rpc_method_handlers
+    )
     server.add_generic_rpc_handlers((generic_handler,))
 
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 class Daq(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def StartDaq(request,
+    def StartDaq(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_stream(
+            request,
             target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/daq.Daq/StartDaq',
+            "/daq.Daq/StartDaq",
             daq__pb2.startDaqRequest.SerializeToString,
             daq__pb2.startDaqResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
-    def StopDaq(request,
+    def StopDaq(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
             target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/daq.Daq/StopDaq',
+            "/daq.Daq/StopDaq",
             daq__pb2.stopDaqRequest.SerializeToString,
             daq__pb2.commandResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
-    def InitDaq(request,
+    def InitDaq(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
             target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/daq.Daq/InitDaq',
+            "/daq.Daq/InitDaq",
             daq__pb2.configDaqRequest.SerializeToString,
             daq__pb2.commandResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
-    def ConfigureDaq(request,
+    def ConfigureDaq(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
             target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/daq.Daq/ConfigureDaq',
+            "/daq.Daq/ConfigureDaq",
             daq__pb2.configDaqRequest.SerializeToString,
             daq__pb2.commandResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
-    def GetConfiguration(request,
+    def GetConfiguration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
             target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/daq.Daq/GetConfiguration',
+            "/daq.Daq/GetConfiguration",
             daq__pb2.getConfigRequest.SerializeToString,
             daq__pb2.getConfigResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
-    def DaqStatus(request,
+    def DaqStatus(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
             target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/daq.Daq/DaqStatus',
+            "/daq.Daq/DaqStatus",
             daq__pb2.daqStatusRequest.SerializeToString,
             daq__pb2.daqStatusResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )

@@ -10,33 +10,30 @@ from __future__ import annotations
 import json
 import logging
 import os
-from concurrent import futures
-from typing import Union
 import time
+from concurrent import futures
+from enum import IntEnum
+
 import grpc
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode
-from enum import IntEnum
+
 from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
 
 __all__ = ["MccsDaqServer", "main"]
 
-# def create_state_response(
-#         call_state: daq_pb2.CallState.State) -> daq_pb2.startDaqResponse:
-#     response = daq_pb2.startDaqResponse()
-#     response.call_state.state = call_state
-#     return response
 
 class DaqStatus(IntEnum):
-    """ DAQ Status enumeration """
+    """DAQ Status."""
+
     LISTENING = 0
     RECEIVING = 1
     STOPPED = 2
 
+
 class DaqCallbackBuffer:
-    '''
-    A DAQ callback buffer to flush to gRPC Client every poll
-    '''
+    """A DAQ callback buffer to flush to gRPC Client every poll."""
+
     def __init__(self, logger):
         self.logger = logger
         self.data_types_received = []
@@ -44,45 +41,51 @@ class DaqCallbackBuffer:
         self.extra_info = []
         self.pending_evaluation = False
 
-    def add(self: DaqCallbackBuffer, data_type, file_name, additional_info = None):
-        '''
-        Add a item to the buffer to send on the next poll
-        '''
+    def add(self: DaqCallbackBuffer, data_type, file_name, additional_info=None):
+        """
+        Add a item to the buffer and set pending evaluation to true.
+
+        :param data_type: The DAQ data type written
+        :param file_name: The filename written
+        :param additional_info: Any additional information.
+        """
         self.logger.info(f"File: {file_name}, with data: {data_type} added to buffer")
-        
+
         self.data_types_received.append(data_type)
         self.written_files.append(file_name)
-        if not additional_info == None:
+        if additional_info is not None:
             self.extra_info.append(additional_info)
-            
+
         self.pending_evaluation = True
 
     def clear_buffer(self: DaqCallbackBuffer):
-        '''
-        Clear buffer and set evaluation status to false. 
-        '''
+        """Clear buffer and set evaluation status to false."""
         self.data_types_received.clear()
         self.written_files.clear()
         self.extra_info.clear()
         self.pending_evaluation = False
-	
+
     def send_buffer_to_client(self: DaqCallbackBuffer):
-        '''
+        """
         Send buffer then clear buffer.
-        '''
-        for i in range(len(self.written_files)):
+
+        :yields response: the call_info response.
+        """
+        for i, _ in enumerate(self.written_files):
             call_info = daq_pb2.CallInfo()
             call_info.data_types_received = self.data_types_received[i]
             call_info.files_written = self.written_files[i]
 
             response = daq_pb2.startDaqResponse()
-            response.call_info.data_types_received = call_info.data_types_received 
+            response.call_info.data_types_received = call_info.data_types_received
             response.call_info.files_written = call_info.files_written
 
             yield response
-                
-        #after yield clear buffer
+
+        # after yield clear buffer
         self.clear_buffer()
+        self.logger.info("Buffer sent and cleared.")
+
 
 def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     """
@@ -129,16 +132,22 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         self,
         data_mode: str,
         file_name: str,
-        additional_info: Optional[int] = None,
+        additional_info=None,
     ) -> None:
+        """
+        Add metadata to buffer.
 
-        if not additional_info == None:
+        :param data_mode: The DAQ data type written
+        :param file_name: The filename written
+        :param additional_info: Any additional information.
+        """
+        if additional_info is not None:
             self.buffer.add(data_mode, file_name, additional_info)
         else:
             self.buffer.add(data_mode, file_name)
 
-
     def update_status(self):
+        """Update the status of DAQ."""
         if self.state == DaqStatus.STOPPED:
             return
         if self.buffer.pending_evaluation:
@@ -146,7 +155,6 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         else:
             self.state = DaqStatus.LISTENING
 
-        #
     def StartDaq(
         self: MccsDaqServer,
         request: daq_pb2.startDaqRequest,
@@ -155,19 +163,21 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         """
         Start data acquisition with the current configuration.
 
+        A infinite streaming loop will be started until told to stop.
+        This will notify the gRPC client of state changes and metadata
+        of files written to disk, e.g. `data_type`.`file_name`.
+        The client will be notified on a cadence set by the polling period.
+
         :param request: arguments object containing `modes_to_start`
             `modes_to_start`: The list of consumers to start.
+            `polling_period`: The period to send the buffer to the
+            gRPC client.
         :param context: command metadata
 
-        :return: a commandResponse object containing `result_code` and `message`
+        :yields: A streamed gRPC response.
         """
-        # TODO: send more information back to the tango device.
-        # For the time being this will stream to client any:
-        # - change events
-        # - how many file dumps to disk since last poll.
-
-        self.logger.info("Starting DAQ")
         modes_to_start: str = request.modes_to_start
+        polling_period: int = request.polling_period
 
         if not self._receiver_started:
             self.daq_instance.initialise_daq()
@@ -177,12 +187,10 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             converted_modes_to_start: list[DaqModes] = convert_daq_modes(modes_to_start)
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
-        # TODO: callbacks this will collect all necessary 
-        #callbacks = None
+        # TODO: callbacks this will collect all necessary
+        # callbacks = None
 
-        callbacks = [self.file_dump_callback]
-
-        self.logger.info("Daq starting.")
+        callbacks = [self.file_dump_callback] * len(converted_modes_to_start)
         self.daq_instance.start_daq(converted_modes_to_start, callbacks)
 
         response = daq_pb2.startDaqResponse()
@@ -190,28 +198,26 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         yield response
 
         self.state = DaqStatus.LISTENING
-        #infinite loop (until told to stop)
+        # infinite loop (until told to stop)
         while self.state != DaqStatus.STOPPED:
             if self.state == DaqStatus.LISTENING:
-                self.logger.info("Daq listening.")
+                self.logger.info("Daq listening......")
 
             elif self.state == DaqStatus.RECEIVING:
-                self.logger.info("Daq received")
-                #send buffer to client
+                self.logger.info("Sending buffer to client ......")
+                # send buffer to client
                 yield from self.buffer.send_buffer_to_client()
 
-            #wait before checking status again.
-            time.sleep(5)
+            # This is not a time sensitive operation
+            time.sleep(polling_period)
 
-            #check callbacks
+            # check callbacks
             self.update_status()
 
-        #if we have got here we have stopped
-        self.logger.info("Daq stopped.")
+        # if we have got here we have stopped
         response = daq_pb2.startDaqResponse()
         response.call_state.state = daq_pb2.CallState.STOPPED
-        yield response  
-
+        yield response
 
     def StopDaq(
         self: MccsDaqServer,
@@ -280,20 +286,23 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
 
         :return: a commandResponse object containing `result_code` and `message`
         """
-        self.logger.info("Configuring daq with: %s", request.config)
+        empty_config = ["", {}]
+        daq_config = json.loads(request.config)
+        self.logger.info("Configuring daq with: %s", daq_config)
         try:
-            if request.config != "":
-                self.daq_instance.populate_configuration(json.loads(request.config))
-                self.logger.info("Daq successfully reconfigured.")
+            if daq_config in empty_config:
+                self.logger.error("Daq was not reconfigured, no config data supplied.")
                 return daq_pb2.commandResponse(
-                    result_code=ResultCode.OK, message="Daq reconfigured"
+                    result_code=ResultCode.REJECTED,
+                    message="No configuration data supplied.",
                 )
             # else
-            self.logger.error("Daq was not reconfigured, no config data supplied.")
+            self.daq_instance.populate_configuration(daq_config)
+            self.logger.info("Daq successfully reconfigured.")
             return daq_pb2.commandResponse(
-                result_code=ResultCode.REJECTED,
-                message="ERROR: No configuration data supplied.",
+                result_code=ResultCode.OK, message="Daq reconfigured"
             )
+
         # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(

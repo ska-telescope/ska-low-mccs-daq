@@ -6,11 +6,8 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
-import time
-from concurrent import futures
 from typing import ContextManager, Generator
 
-import grpc
 import pytest
 from _pytest.fixtures import SubRequest
 from ska_tango_testing.context import (
@@ -18,9 +15,6 @@ from ska_tango_testing.context import (
     ThreadedTestTangoContextManager,
     TrueTangoContextManager,
 )
-
-from ska_low_mccs_daq.gRPC_server.daq_grpc_server import MccsDaqServer
-from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
 
 
 def pytest_itemcollected(item: pytest.Item) -> None:

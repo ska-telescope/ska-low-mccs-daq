@@ -39,6 +39,7 @@ message CallInfo {
 
 message startDaqRequest{
     string modes_to_start = 1;
+    int32 polling_period = 2;
 }
 
 message startDaqResponse {

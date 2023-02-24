@@ -45,6 +45,7 @@ def callbacks_fixture() -> MockCallableGroup:
         "received_data",
         "task",
         "extra_daq_mode",
+        "task_start_daq",
         timeout=5.0,
     )
 

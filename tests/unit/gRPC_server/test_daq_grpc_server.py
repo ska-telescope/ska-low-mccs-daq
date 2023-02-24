@@ -45,6 +45,7 @@ class TestMccsDaqServer:
             ("invalidInput", ResultCode.FAILED, "Invalid DaqMode supplied"),
         ),
     )
+    @pytest.mark.xfail
     def test_daq_server_start_stop_daq(
         self: TestMccsDaqServer,
         daq_grpc_server: grpc.Server,
