@@ -7,18 +7,22 @@
 """This module implements the DaqServer part of the MccsDaqReceiver device."""
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
 from concurrent import futures
+from typing import Any, Callable, TypeVar, cast
 
 import grpc
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode
 
-from .generated_code import daq_pb2, daq_pb2_grpc
+from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
 
 __all__ = ["MccsDaqServer", "main"]
+
+Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 
 
 def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
@@ -49,6 +53,54 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     return []
 
 
+def check_initialisation(func: Wrapped) -> Wrapped:
+    """
+    Return a function that checks component initialisation before calling.
+
+    This function is intended to be used as a decorator:
+
+    .. code-block:: python
+
+        @check_initialisation
+        def scan(self):
+            ...
+
+    :param func: the wrapped function
+
+    :return: the wrapped function
+    """
+
+    @functools.wraps(func)
+    def _wrapper(
+        self: MccsDaqServer,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Check for component initialisation before calling the function.
+
+        This is a wrapper function that implements the functionality of
+        the decorator.
+
+        :param self: This instance of an MccsDaqServer.
+        :param args: positional arguments to the wrapped function
+        :param kwargs: keyword arguments to the wrapped function
+
+        :raises ValueError: if component initialisation has
+            not been completed.
+        :return: whatever the wrapped function returns
+        """
+        if self._initialised is False:
+            raise ValueError(
+                f"Cannot execute '{type(self).__name__}.{func.__name__}'. "
+                "DaqReceiver has not been initialised. "
+                "Set adminMode to ONLINE to re-initialise."
+            )
+        return func(self, *args, **kwargs)
+
+    return cast(Wrapped, _wrapper)
+
+
 class MccsDaqServer(daq_pb2_grpc.DaqServicer):
     """An implementation of a MccsDaqServer device."""
 
@@ -56,8 +108,10 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         """Initialise this device."""
         self.daq_instance: DaqReceiver = None
         self._receiver_started: bool = False
+        self._initialised: bool = False
         self.logger = logging.getLogger("daq-server")
 
+    @check_initialisation
     def StartDaq(
         self: MccsDaqServer,
         request: daq_pb2.startDaqRequest,
@@ -92,6 +146,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         self.logger.info("Daq started.")
         return daq_pb2.commandResponse(result_code=ResultCode.OK, message="Daq started")
 
+    @check_initialisation
     def StopDaq(
         self: MccsDaqServer,
         request: daq_pb2.stopDaqRequest,
@@ -125,25 +180,35 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
 
         :return: a commandResponse object containing `result_code` and `message`
         """
-        self.logger.info("Initialising daq.")
-        self.daq_instance = DaqReceiver()
-        try:
-            if request.config != "":
-                self.daq_instance.populate_configuration(json.loads(request.config))
+        if self._initialised is False:
+            self.logger.info("Initialising daq.")
+            self.daq_instance = DaqReceiver()
+            try:
+                if request.config != "":
+                    self.daq_instance.populate_configuration(json.loads(request.config))
 
-            self.daq_instance.initialise_daq()
-            self._receiver_started = True
-        # pylint: disable=broad-except
-        except Exception as e:
-            self.logger.error("Caught exception in `daq_grpc_server.InitDaq`: %s", e)
+                self.daq_instance.initialise_daq()
+                self._receiver_started = True
+                self._initialised = True
+            # pylint: disable=broad-except
+            except Exception as e:
+                self.logger.error(
+                    "Caught exception in `daq_grpc_server.InitDaq`: %s", e
+                )
+                return daq_pb2.commandResponse(
+                    result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
+                )
+            self.logger.info("Daq initialised.")
             return daq_pb2.commandResponse(
-                result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
+                result_code=ResultCode.OK, message="Daq successfully initialised"
             )
-        self.logger.info("Daq initialised.")
+        # else
+        self.logger.info("Daq already initialised")
         return daq_pb2.commandResponse(
-            result_code=ResultCode.OK, message="Daq successfully initialised"
+            result_code=ResultCode.REJECTED, message="Daq already initialised"
         )
 
+    @check_initialisation
     def ConfigureDaq(
         self: MccsDaqServer,
         request: daq_pb2.configDaqRequest,
@@ -184,6 +249,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
                 result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
             )
 
+    @check_initialisation
     def GetConfiguration(
         self: MccsDaqServer,
         request: daq_pb2.getConfigRequest,
@@ -208,6 +274,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             config=json.dumps(configuration),
         )
 
+    @check_initialisation
     def DaqStatus(
         self: MccsDaqServer,
         request: daq_pb2.daqStatusRequest,

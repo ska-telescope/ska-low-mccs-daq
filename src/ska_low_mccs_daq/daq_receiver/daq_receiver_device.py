@@ -527,11 +527,11 @@ class MccsDaqReceiver(SKABaseDevice):
         return ([result_code], [message])
 
     @command(dtype_out="DevString")
-    def GetConfiguration(self: MccsDaqReceiver) -> str:
+    def GetConfiguration(self: MccsDaqReceiver) -> dict[str, Any]:
         """
         Get the Configuration from DAQ.
 
-        :return: A JSON-encoded dictionary of the configuration.
+        :return: A dictionary of the configuration.
 
         :example:
             >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
