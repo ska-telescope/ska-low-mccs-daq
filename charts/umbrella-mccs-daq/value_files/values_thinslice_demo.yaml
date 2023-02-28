@@ -78,6 +78,7 @@ ska-low-mccs-daq:
           receiver_ip: ""  # This can be worked out from the receiver interface
           receiver_port: 4660  # port on the receiver interface to listen for udp spead packets
           # This is the IP:PORT for the gRPC to form its TCP connection.
+          grpc_host_type: "internal"
           grpc_ip: "10.2.2.184" 
           grpc_port: 50051
           

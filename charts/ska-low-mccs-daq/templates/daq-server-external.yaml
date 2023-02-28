@@ -1,0 +1,29 @@
+{{ define "ska-low-mccs-daq.daq-server-external.tpl" }}
+---
+{{ $device_name := .name }}
+{{ $device_spec := .device }}
+
+kind: Endpoints
+apiVersion: v1
+metadata:
+ name: {{ $device_name }}-grpc-svc
+subsets:
+ - addresses:
+    #TODO: template this parameter.
+     - ip: {{ $device_spec.grpc_ip}}  # IP of your desire end point 
+   ports:
+     - port: {{ $device_spec.grpc_port}} # Port that you want to access
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+ name: {{ $device_name }}-grpc-svc
+spec:
+ type: ClusterIP
+ ports:
+ - port: {{ $device_spec.grpc_port}} # container port exposed by the deployment
+   targetPort: {{ $device_spec.grpc_port}} # port on minikube to direct traffic to.
+
+---
+{{- end }}

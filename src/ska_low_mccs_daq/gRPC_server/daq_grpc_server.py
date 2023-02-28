@@ -193,6 +193,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         callbacks = [self.file_dump_callback] * len(converted_modes_to_start)
         self.daq_instance.start_daq(converted_modes_to_start, callbacks)
 
+        # yield listening only once to notify client that daq is listening.
         response = daq_pb2.startDaqResponse()
         response.call_state.state = daq_pb2.CallState.LISTENING
         yield response

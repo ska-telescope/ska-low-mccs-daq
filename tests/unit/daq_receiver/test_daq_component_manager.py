@@ -176,7 +176,7 @@ class TestDaqComponentManager:
         # Need exactly 1 callback per consumer started or None. Cast for Mypy.
         rc, message = daq_component_manager.start_daq(
             daq_modes,
-            grpc_polling_period = 3,
+            grpc_polling_period=3,
             task_callback=callbacks["task_start_daq"],
         )
         # assert rc == ResultCode.OK.value

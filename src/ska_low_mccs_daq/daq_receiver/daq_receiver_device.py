@@ -318,7 +318,9 @@ class MccsDaqReceiver(SKABaseDevice):
         :param additional_info: the tile number that the data was received from, or the
             amount of data received if the data_mode is station
         """
-        self.logger.info("DAQ has receiver data YAAAAAAAAAY")
+        self.logger.info(
+            f"Data of type {data_mode} has been written to file {file_name}"
+        )
 
         event_value: dict[str, Union[str, int]] = {"filename": file_name}
         if data_mode == "station" and additional_info is not None:

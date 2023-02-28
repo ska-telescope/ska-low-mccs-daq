@@ -267,10 +267,11 @@ class DaqComponentManager(MccsComponentManager):
                         polling_period=grpc_polling_period,
                     )
                 )
-                # TODO: this can be made more generic, but not
+                # TODO: this can probably be made more generic, but not
                 # needed for now as only one instance of a streamed response.
                 self.evaluate_start_daq_responses(responses, task_callback)
 
+        # pylint: disable-next=broad-except
         except Exception as e:
             if task_callback:
                 task_callback(status=TaskStatus.FAILED, result=f"Exception: {e}")
@@ -282,7 +283,7 @@ class DaqComponentManager(MccsComponentManager):
         Evaluate the responses from gRPC server.
 
         :param responses: The streamed gRPC responses
-        :param task_callback: Update task state, defaults to Non
+        :param task_callback: Update task state, defaults to None
         """
         for response in responses:
             if response.HasField("call_state"):

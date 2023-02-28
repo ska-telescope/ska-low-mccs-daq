@@ -1,26 +1,14 @@
+{{ $localchart := . }}
 {{- range $key, $device := .Values.deviceServers.daqreceiver.devices }}
 ---
-kind: Endpoints
-apiVersion: v1
-metadata:
- name: {{ $device.name }}-grpc-svc
-subsets:
- - addresses:
-    #TODO: template this parameter.
-     - ip: {{ $device.grpc_ip}}  # IP of your desire end point 
-   ports:
-     - port: {{ $device.grpc_port}} # Port that you want to access
-
----
-kind: Service
-apiVersion: v1
-metadata:
- name: {{ $device.name }}-grpc-svc
-spec:
- type: ClusterIP
- ports:
- - port: {{ $device.grpc_port}} # container port exposed by the deployment
-   targetPort: {{ $device.grpc_port}} # port on minikube to direct traffic to.
-
----
+{{- $context := dict "name" $device.name "device" $device "local" $localchart}}
+{{- if hasKey $device "grpc_host_type" }}
+{{- if eq $device.grpc_host_type "external" }}
+{{ template "ska-low-mccs-daq.daq-server-external.tpl" $context }}
+{{- else }}
+{{ template "ska-low-mccs-daq.daq-server-internal.tpl" $context }}
+{{- end }}
+{{ else }}
+{{ template "ska-low-mccs-daq.daq-server-internal.tpl" $context }}
+{{- end }}  
 {{- end }}
