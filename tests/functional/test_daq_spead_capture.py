@@ -14,15 +14,19 @@ import struct
 import threading
 import time
 from time import sleep
+from typing import Any
 
 import numpy as np
 import pytest
 import tango
 from pytest_bdd import given, parsers, scenarios, then, when
 from ska_control_model import ResultCode
+from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 
-def send_data_thread(data, event):
+def send_data_thread(
+    data: IntegratedChannelDataSimulator, event: threading.Event
+) -> None:
     """
     Thread to send data until told to stop.
 
@@ -40,7 +44,7 @@ def send_data_thread(data, event):
 class IntegratedChannelDataSimulator(object):
     """A class to send simulated integrated channel data."""
 
-    def __init__(self, ip, port, nof_tiles=1):
+    def __init__(self, ip: str, port: int, nof_tiles: int = 1) -> None:
         """
         Init simulator.
 
@@ -93,7 +97,9 @@ class IntegratedChannelDataSimulator(object):
         # Create socket
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def send_data(self, sleep_between_antennas):
+    def send_data(
+        self: IntegratedChannelDataSimulator, sleep_between_antennas: int
+    ) -> None:
         """
         Generate integrated channel data.
 
@@ -120,8 +126,13 @@ class IntegratedChannelDataSimulator(object):
         self._timestamp += 1
 
     def _transmit_packet(
-        self, tpm_id, fpga_id, timestamp, start_antenna, start_channel
-    ):
+        self: IntegratedChannelDataSimulator,
+        tpm_id: int,
+        fpga_id: int,
+        timestamp: int,
+        start_antenna: int,
+        start_channel: int,
+    ) -> None:
         """
         Generate a packet.
 
@@ -167,7 +178,13 @@ class IntegratedChannelDataSimulator(object):
 
         self._socket.sendto(packet, (self._ip, self._port))
 
-    def _generate_data(self, tpm_id, fpga_id, start_antenna, start_channel):
+    def _generate_data(
+        self: IntegratedChannelDataSimulator,
+        tpm_id: int,
+        fpga_id: int,
+        start_antenna: int,
+        start_channel: int,
+    ) -> Any:
         """
         Generate samples data set.
 
@@ -218,7 +235,7 @@ def daq_short_name_fixture() -> str:
 @given(parsers.cfparse("interface {interface}"), target_fixture="interface")
 def daq_interface(
     interface: str,
-) -> tango.DeviceProxy:
+) -> str:
     """
     Interface to send/listen on.
 
@@ -235,7 +252,7 @@ def daq_interface(
 )
 def daq_port(
     port: int,
-) -> tango.DeviceProxy:
+) -> int:
     """
     Port to send/listen on.
 
@@ -248,8 +265,8 @@ def daq_port(
 
 @given("an MccsDaqReceiver", target_fixture="daq_receiver")
 def daq_receiver_fixture(
-    daq_short_name,
-    get_device,
+    daq_short_name: str,
+    get_device: tango.DeviceProxy,
 ) -> tango.DeviceProxy:
     """
     Return the daq_receiver device.
@@ -264,8 +281,8 @@ def daq_receiver_fixture(
 
 @given("the daq receiver is stopped")
 def stop_daq(
-    daq_receiver,
-) -> tango.DeviceProxy:
+    daq_receiver: tango.DeviceProxy,
+) -> None:
     """
     Return the daq_receiver device.
 
@@ -275,7 +292,7 @@ def stop_daq(
 
 
 @given(parsers.cfparse("Daq is configured to listen on specified interface:port"))
-def configure_daq(daq_receiver, interface, port):
+def configure_daq(daq_receiver: tango.DeviceProxy, interface: str, port: int) -> None:
     """
     Configure the Daq device.
 
@@ -294,7 +311,11 @@ def configure_daq(daq_receiver, interface, port):
 
 
 @given(parsers.cfparse("The daq is started with '{daq_modes_of_interest}'"))
-def start_daq(daq_receiver, daq_modes_of_interest, change_event_callbacks):
+def start_daq(
+    daq_receiver: tango.DeviceProxy,
+    daq_modes_of_interest: str,
+    change_event_callbacks: MockTangoEventCallbackGroup,
+) -> None:
     """
     Start the daq device.
 
@@ -325,7 +346,9 @@ def start_daq(daq_receiver, daq_modes_of_interest, change_event_callbacks):
     ),
     target_fixture="stop_data_event",
 )
-def send_simulated_data(no_of_tiles, daq_modes_of_interest, interface, port):
+def send_simulated_data(
+    no_of_tiles: int, daq_modes_of_interest: str, interface: str, port: int
+) -> threading.Event:
     """
     Start sending simulated data in a loop.
 
@@ -349,8 +372,11 @@ def send_simulated_data(no_of_tiles, daq_modes_of_interest, interface, port):
     parsers.cfparse("Daq reports that is has captured data '{daq_modes_of_interest}'")
 )
 def check_capture(
-    daq_receiver, daq_modes_of_interest, stop_data_event, change_event_callbacks
-):
+    daq_receiver: tango.DeviceProxy,
+    daq_modes_of_interest: str,
+    stop_data_event: threading.Event,
+    change_event_callbacks: MockTangoEventCallbackGroup,
+) -> None:
     """
     Confirm Daq has received the correct data.
 
@@ -367,7 +393,7 @@ def check_capture(
 
 
 @then("Daq writes to a file.")
-def check_writes(daq_receiver):
+def check_writes(daq_receiver: tango.DeviceProxy) -> None:
     """
     Check file written is correct.
 

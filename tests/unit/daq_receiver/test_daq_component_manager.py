@@ -174,14 +174,14 @@ class TestDaqComponentManager:
 
         # Start DAQ and check our consumer is running.
         # Need exactly 1 callback per consumer started or None. Cast for Mypy.
-        rc, message = daq_component_manager.start_daq(
+        ts, message = daq_component_manager.start_daq(
             daq_modes,
             grpc_polling_period=3,
             task_callback=callbacks["task_start_daq"],
         )
         # assert rc == ResultCode.OK.value
         # assert message == "Daq started"
-        assert rc == TaskStatus.QUEUED
+        assert ts == TaskStatus.QUEUED
         assert message == "Task queued"
 
         # TODO: Why is this queued 2 times?

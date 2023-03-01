@@ -45,7 +45,7 @@ class DaqComponentManager(MccsComponentManager):
         max_workers: int,
         communication_state_changed_callback: Callable[[CommunicationStatus], None],
         component_state_changed_callback: Callable[[dict[str, Any]], None],
-        received_data_callback: Callable[[str, str, int], None],
+        received_data_callback: Callable[[str, str], None],
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -213,7 +213,7 @@ class DaqComponentManager(MccsComponentManager):
         modes_to_start: str,
         grpc_polling_period: int,
         task_callback: Optional[Callable] = None,
-    ) -> tuple[ResultCode, str]:
+    ) -> tuple[TaskStatus, str]:
         """
         Start data acquisition with the current configuration.
 
@@ -233,10 +233,10 @@ class DaqComponentManager(MccsComponentManager):
         )
 
     def _start_daq(
-        self,
+        self: DaqComponentManager,
         modes_to_start: str,
         grpc_polling_period: int,
-        task_callback: Optional[Callable] = None,
+        task_callback: Callable,
         task_abort_event: Optional[threading.Event] = None,
     ) -> None:
         """
@@ -281,7 +281,9 @@ class DaqComponentManager(MccsComponentManager):
                 task_callback(status=TaskStatus.FAILED, result=f"Exception: {e}")
             return
 
-    def evaluate_start_daq_responses(self, responses, task_callback):
+    def evaluate_start_daq_responses(
+        self: DaqComponentManager, responses: Any, task_callback: Callable
+    ) -> None:
         """
         Evaluate the responses from gRPC server.
 

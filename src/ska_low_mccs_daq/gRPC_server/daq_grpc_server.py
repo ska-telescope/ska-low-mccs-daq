@@ -12,6 +12,7 @@ import logging
 import os
 from concurrent import futures
 from enum import IntEnum
+from typing import Any, List, Optional
 
 import grpc
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
@@ -33,14 +34,19 @@ class DaqStatus(IntEnum):
 class DaqCallbackBuffer:
     """A DAQ callback buffer to flush to gRPC Client every poll."""
 
-    def __init__(self, logger):
-        self.logger = logger
-        self.data_types_received = []
-        self.written_files = []
-        self.extra_info = []
-        self.pending_evaluation = False
+    def __init__(self: DaqCallbackBuffer, logger: logging.Logger):
+        self.logger: logging.Logger = logger
+        self.data_types_received: List[str] = []
+        self.written_files: List[str] = []
+        self.extra_info: Any = []
+        self.pending_evaluation: bool = False
 
-    def add(self: DaqCallbackBuffer, data_type, file_name, additional_info=None):
+    def add(
+        self: DaqCallbackBuffer,
+        data_type: str,
+        file_name: str,
+        additional_info: Optional[str] = None,
+    ) -> None:
         """
         Add a item to the buffer and set pending evaluation to true.
 
@@ -57,14 +63,16 @@ class DaqCallbackBuffer:
 
         self.pending_evaluation = True
 
-    def clear_buffer(self: DaqCallbackBuffer):
+    def clear_buffer(self: DaqCallbackBuffer) -> None:
         """Clear buffer and set evaluation status to false."""
         self.data_types_received.clear()
         self.written_files.clear()
         self.extra_info.clear()
         self.pending_evaluation = False
 
-    def send_buffer_to_client(self: DaqCallbackBuffer):
+    def send_buffer_to_client(
+        self: DaqCallbackBuffer,
+    ) -> Any:
         """
         Send buffer then clear buffer.
 
@@ -127,10 +135,10 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         self.buffer = DaqCallbackBuffer(self.logger)
 
     def file_dump_callback(
-        self,
+        self: MccsDaqServer,
         data_mode: str,
         file_name: str,
-        additional_info=None,
+        additional_info: Optional[str] = None,
     ) -> None:
         """
         Add metadata to buffer.
@@ -144,7 +152,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         else:
             self.buffer.add(data_mode, file_name)
 
-    def update_status(self):
+    def update_status(self: MccsDaqServer) -> None:
         """Update the status of DAQ."""
         if self.state == DaqStatus.STOPPED:
             return
