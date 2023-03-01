@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#
+# pylint: skip-file
 # This file is part of the SKA Low MCCS project
 #
 #
@@ -8,19 +8,15 @@
 """This module contains pytest-specific test harness for MCCS unit tests."""
 from __future__ import annotations
 
-import datetime
-import json
-import time
 from functools import lru_cache
-from typing import Any, Callable, Generator
+from typing import Any, Callable, ContextManager, Generator
 
 import pytest
 import tango
-from pytest_bdd import given, scenarios, then, when
-from ska_control_model import AdminMode, PowerState, ResultCode
-from ska_low_mccs_common.testing.tango_harness import DevicesToLoadType
+from _pytest.fixtures import SubRequest
 from ska_tango_testing.context import (
     TangoContextProtocol,
+    ThreadedTestTangoContextManager,
     TrueTangoContextManager,
 )
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
@@ -248,8 +244,6 @@ def change_event_callbacks_fixture(
 def device_mapping_fixture() -> DeviceMappingType:
     """
     Return a mapping from short to canonical Tango device names.
-
-    :param tpm_number: the sequence number of the TPM in use
 
     :return: a map of short names to full Tango device names of the form
         "<domain>/<class>/<instance>", as well as attributes to subscribe to change

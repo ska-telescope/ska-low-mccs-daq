@@ -187,7 +187,12 @@ class TestDaqComponentManager:
         # TODO: Why is this queued 2 times?
         callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
-        callbacks["task_start_daq"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task_start_daq"].assert_call(
+            status=TaskStatus.IN_PROGRESS, result="Start Command issued to gRPC stub"
+        )
+        callbacks["task_start_daq"].assert_call(
+            status=TaskStatus.COMPLETED, result="Daq has been started and is listening"
+        )
 
         converted_daq_modes: list[DaqModes] = convert_daq_modes(daq_modes)
         # for mode in daq_modes:
@@ -216,7 +221,7 @@ class TestDaqComponentManager:
         # Once we issue the stop command on the DAQ this will stop the thread
         # with the streamed response. We need to wait for the start_daq thread
         # to complete.
-        callbacks["task_start_daq"].assert_call(status=TaskStatus.COMPLETED)
+
         # for mode in daq_modes:
         # If we're using ints instead of DaqModes make the conversion so we
         # can check the consumer.

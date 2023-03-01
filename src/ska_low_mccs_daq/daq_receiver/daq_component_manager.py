@@ -267,6 +267,10 @@ class DaqComponentManager(MccsComponentManager):
                         polling_period=grpc_polling_period,
                     )
                 )
+                task_callback(
+                    status=TaskStatus.IN_PROGRESS,
+                    result="Start Command issued to gRPC stub",
+                )
                 # TODO: this can probably be made more generic, but not
                 # needed for now as only one instance of a streamed response.
                 self.evaluate_start_daq_responses(responses, task_callback)
@@ -276,7 +280,6 @@ class DaqComponentManager(MccsComponentManager):
             if task_callback:
                 task_callback(status=TaskStatus.FAILED, result=f"Exception: {e}")
             return
-        task_callback(status=TaskStatus.COMPLETED)
 
     def evaluate_start_daq_responses(self, responses, task_callback):
         """
@@ -294,10 +297,15 @@ class DaqComponentManager(MccsComponentManager):
                 # When we start the daq it will respond with a streaming update
                 # When it streams listening we notify the task_callback.
                 if daq_state == daq_pb2.CallState.State.LISTENING:
-                    task_callback(status=TaskStatus.IN_PROGRESS)
+                    task_callback(
+                        status=TaskStatus.COMPLETED,
+                        result="Daq has been started and is listening",
+                    )
                 # When stopped we need to ensure we clean up the thread.
                 # This is done with responses.cancel()
                 if daq_state == daq_pb2.CallState.State.STOPPED:
+                    # First the gRPC server hangs up the call.
+                    # then the Client hangs up the call.
                     responses.cancel()
 
             if response.HasField("call_info"):

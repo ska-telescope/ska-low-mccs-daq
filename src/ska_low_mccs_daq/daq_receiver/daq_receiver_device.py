@@ -319,7 +319,7 @@ class MccsDaqReceiver(SKABaseDevice):
             amount of data received if the data_mode is station
         """
         self.logger.info(
-            f"Data of type {data_mode} has been written to file {file_name}"
+            "Data of type %s has been written to file %s", data_mode, file_name
         )
 
         event_value: dict[str, Union[str, int]] = {"filename": file_name}
@@ -335,7 +335,9 @@ class MccsDaqReceiver(SKABaseDevice):
         ):
             self._received_data_mode = data_mode
             self._received_data_result = result
-            self.push_change_event("dataReceivedResult", (data_mode, result))
+            self.push_change_event(
+                "dataReceivedResult", (self._received_data_mode, "_")
+            )
 
     # ----------
     # Attributes

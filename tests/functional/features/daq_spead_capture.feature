@@ -19,24 +19,25 @@ Feature: Receiving SPEAD packets.
     #  - Daq will receive these packets. 
 
   Background:
-    Given interface "eth0" 
-    Given port "4660" 
+    Given interface eth0
+    Given port 4660
 
   Scenario Outline: Sending SPEAD packets to be captured by DAQ
       Given an MccsDaqReceiver
+      And the daq receiver is stopped
       And Daq is configured to listen on specified interface:port
       And The daq is started with <daq_modes_of_interest>
-      When Simulated data from <no_of_tiles> of type <daq_modes_of_interest> is sent to a specified interface:port
+      When Simulated data from <no_of_tiles> of type <daq_modes_of_interest> is sent
       Then Daq reports that is has captured data <daq_modes_of_interest>
       And Daq writes to a file.
 
       Examples: modes of interest
           |   daq_modes_of_interest       |  no_of_tiles      |
-          #|   'RAW_DATA'                  |      16           | 
           |   'INTEGRATED_CHANNEL_DATA'   |      16           |
-          # |   'RAW_DATA'                  |      16           | 
-          # |   'established'               |      16           |
-          # |   'established'               |      16           |
-          # |   'disabled'                  |      16           |
+          # |   'RAW_DATA'                  |      16           | # no simulator exists yet
+          # |   'RAW_DATA'                  |      16           | # no simulator exists yet
+          # |   'established'               |      16           | # no simulator exists yet
+          # |   'established'               |      16           | # no simulator exists yet
+          # |   'disabled'                  |      16           | # no simulator exists yet
   #       ---------------------------------
 

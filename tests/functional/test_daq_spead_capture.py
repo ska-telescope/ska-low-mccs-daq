@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#
+# pylint: skip-file
 # This file is part of the SKA Low MCCS project
 #
 #
@@ -19,11 +19,16 @@ import numpy as np
 import pytest
 import tango
 from pytest_bdd import given, parsers, scenarios, then, when
-from ska_tango_testing.context import TangoContextProtocol
+from ska_control_model import ResultCode
 
 
 def send_data_thread(data, event):
-    """Thread to send data untill told to stop."""
+    """
+    Thread to send data until told to stop.
+
+    :param data: the data generator.
+    :param event: a event to stop thread
+    """
     while True:
         data.send_data(1)
         sleep(1)
@@ -31,11 +36,18 @@ def send_data_thread(data, event):
             break
 
 
+# TODO: this simulation class should be moved of imported
 class IntegratedChannelDataSimulator(object):
     """A class to send simulated integrated channel data."""
 
     def __init__(self, ip, port, nof_tiles=1):
+        """
+        Init simulator.
 
+        :param ip: IP
+        :param port: Port
+        :param nof_tiles: number of tiles
+        """
         self._ip = ip
         self._port = port
 
@@ -82,7 +94,11 @@ class IntegratedChannelDataSimulator(object):
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     def send_data(self, sleep_between_antennas):
-        """Generate integrated channel data."""
+        """
+        Generate integrated channel data.
+
+        :param sleep_between_antennas: time in seconds.
+        """
         for tile in range(self._nof_tiles):
 
             for ant in range(self._nof_ants_per_fpga):
@@ -106,7 +122,15 @@ class IntegratedChannelDataSimulator(object):
     def _transmit_packet(
         self, tpm_id, fpga_id, timestamp, start_antenna, start_channel
     ):
-        """Generate a packet."""
+        """
+        Generate a packet.
+
+        :param tpm_id: Id of the TPM
+        :param fpga_id: Id of the FPGA
+        :param timestamp: Time
+        :param start_antenna: start antenna
+        :param start_channel: start channel
+        """
         header = 0x53 << 56 | 0x04 << 48 | 0x02 << 40 | 0x06 << 32 | 0x08
         heap_counter = 1 << 63 | 0x0001 << 48 | timestamp
         pkt_len = 1 << 63 | 0x0004 << 48 | self._packet_payload_length
@@ -144,8 +168,16 @@ class IntegratedChannelDataSimulator(object):
         self._socket.sendto(packet, (self._ip, self._port))
 
     def _generate_data(self, tpm_id, fpga_id, start_antenna, start_channel):
-        """Generate samples data set."""
+        """
+        Generate samples data set.
 
+        :param tpm_id: Id of the TPM
+        :param fpga_id: Id of the FPGA
+        :param start_antenna: start antenna
+        :param start_channel: start channel
+
+        :return: the packet data
+        """
         start_antenna = (
             tpm_id * self._nof_ants_per_fpga * self._nof_fpgas
             + fpga_id * self._nof_ants_per_fpga
@@ -174,11 +206,11 @@ scenarios("./features/daq_spead_capture.feature")
 
 
 @pytest.fixture(name="daq_short_name", scope="module")
-def subrack_short_name_fixture() -> str:
+def daq_short_name_fixture() -> str:
     """
-    Return the short name of the subrack device.
+    Return the short name of the DAQ device.
 
-    :return: the short name of the subrack device
+    :return: the short name of the DAQ device
     """
     return "daq"
 
@@ -188,21 +220,28 @@ def daq_interface(
     interface: str,
 ) -> tango.DeviceProxy:
     """
-    A fixture representing the interface to send data to.
+    Interface to send/listen on.
 
-    :param interface: The interface to send data to.
+    :param interface: The interface to send/listen on.
+
+    :return: the network interface
     """
     return interface
 
 
-@given(parsers.cfparse("port {port}"), target_fixture="port")
+@given(
+    parsers.cfparse("port {port:Number}", extra_types={"Number": int}),
+    target_fixture="port",
+)
 def daq_port(
-    port: str,
+    port: int,
 ) -> tango.DeviceProxy:
     """
-    A fixture representing the port to send data to.
+    Port to send/listen on.
 
-    :param port: The port to send data to.
+    :param port: The port to send/listen on.
+
+    :return: the port to send/receive
     """
     return port
 
@@ -216,9 +255,23 @@ def daq_receiver_fixture(
     Return the daq_receiver device.
 
     :param daq_short_name: Short name of the DAQ receiver Tango device
+    :param get_device: returns device proxy with all change event subscription.
+
     :return: the daq_receiver device
     """
     return get_device(daq_short_name)
+
+
+@given("the daq receiver is stopped")
+def stop_daq(
+    daq_receiver,
+) -> tango.DeviceProxy:
+    """
+    Return the daq_receiver device.
+
+    :param daq_receiver: the daq_receiver device
+    """
+    assert [[ResultCode.OK], ["Daq stopped"]] == daq_receiver.Stop()
 
 
 @given(parsers.cfparse("Daq is configured to listen on specified interface:port"))
@@ -231,8 +284,8 @@ def configure_daq(daq_receiver, interface, port):
     :param port: The port to send data to.
     """
     daq_config = {
-        "receiver_ports": [4660],
-        "receiver_interface": "127.0.0.1",
+        "receiver_ports": [port],
+        "receiver_interface": interface,
     }
     daq_receiver.Configure(json.dumps(daq_config))
 
@@ -241,12 +294,13 @@ def configure_daq(daq_receiver, interface, port):
 
 
 @given(parsers.cfparse("The daq is started with '{daq_modes_of_interest}'"))
-def start_daq(daq_receiver, daq_modes_of_interest):
+def start_daq(daq_receiver, daq_modes_of_interest, change_event_callbacks):
     """
     Start the daq device.
 
     :param daq_receiver: the daq_receiver device
     :param daq_modes_of_interest: the modes to listen for.
+    :param change_event_callbacks: A change event callback dictionary.
     """
     print(f"modes : {daq_modes_of_interest}")
 
@@ -255,36 +309,39 @@ def start_daq(daq_receiver, daq_modes_of_interest):
         "modes_to_start": daq_modes_of_interest,
         "grpc_polling_period": 1,
     }
-    daq_receiver.Start(json.dumps(daq_config))
-    ##assert this worked
+    print(daq_receiver.GetConfiguration())
+    # Start daq and assert command was a success.
+    [_], [unique_id] = daq_receiver.Start(json.dumps(daq_config))
+    change_event_callbacks[
+        f"{daq_receiver.dev_name()}/longRunningCommandResult"
+    ].assert_change_event(
+        (unique_id, '"Daq has been started and is listening"'), lookahead=2
+    )
 
 
 @when(
     parsers.cfparse(
-        "Simulated data from {no_of_tiles} of type '{daq_modes_of_interest}' is sent to a specified interface:port"
+        "Simulated data from {no_of_tiles} of type '{daq_modes_of_interest}' is sent"
     ),
     target_fixture="stop_data_event",
 )
-def send_simulated_data(
-    daq_receiver, no_of_tiles, daq_modes_of_interest, interface, port
-):
+def send_simulated_data(no_of_tiles, daq_modes_of_interest, interface, port):
     """
     Start sending simulated data in a loop.
 
-    :param daq_receiver: the daq_receiver device
     :param no_of_tiles: the number of tiles to simulate
     :param daq_modes_of_interest: the modes to listen for.
     :param interface: The interface to send data to.
     :param port: The port to send data to.
 
-    :return stop_data_event: a event to stop thread.
+    :return: a event to stop thread.
     """
-    # the test runner can utilise the data services of DAQ allowing us to send data to the correct location.
-    data = IntegratedChannelDataSimulator("daqreceiver-001-data-svc", 4660, 1)
+    # the test runner can utilise the data services of DAQ allowing
+    # us to send data to the correct location.
+    data = IntegratedChannelDataSimulator("daqreceiver-001-data-svc", port, 1)
     stop_data_event = threading.Event()
     thread = threading.Thread(target=send_data_thread, args=[data, stop_data_event])
     thread.start()
-    print(f"modes : {daq_modes_of_interest}, {interface}: {port}")
     return stop_data_event
 
 
@@ -294,22 +351,30 @@ def send_simulated_data(
 def check_capture(
     daq_receiver, daq_modes_of_interest, stop_data_event, change_event_callbacks
 ):
-    """ """
-    assert "integrated_channel" in daq_receiver.dataReceivedResult
+    """
+    Confirm Daq has received the correct data.
 
-    # change_event_callbacks[
-    #     f"{daq_receiver.dev_name()}/dataReceivedResult"
-    # ].assert_change_event(
-    #     "integrated_channel", lookahead=4
-    # )
-
+    :param daq_receiver: the daq_receiver device
+    :param daq_modes_of_interest: the modes to listen for.
+    :param stop_data_event: A event to stop the sending of data
+    :param change_event_callbacks: A change event callback dictionary.
+    """
+    change_event_callbacks[
+        f"{daq_receiver.dev_name()}/dataReceivedResult"
+    ].assert_change_event(("integrated_channel", "_"))
     stop_data_event.set()
+    stop_daq(daq_receiver)
 
 
 @then("Daq writes to a file.")
 def check_writes(daq_receiver):
+    """
+    Check file written is correct.
+
+    :param daq_receiver: the daq_receiver device.
+    """
     # TODO:
     # - set up persistent volume
     # - search for the file written
     # - validate the file content
-    print("done")
+    assert ".hdf5" in daq_receiver.dataReceivedResult[1]

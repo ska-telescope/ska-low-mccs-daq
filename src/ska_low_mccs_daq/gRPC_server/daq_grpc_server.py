@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import time
 from concurrent import futures
 from enum import IntEnum
 
@@ -123,9 +122,8 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         self.daq_instance: DaqReceiver = None
         self._receiver_started: bool = False
         self.logger = logging.getLogger("daq-server")
-
         self.state = DaqStatus.STOPPED
-
+        self.request_stop = False
         self.buffer = DaqCallbackBuffer(self.logger)
 
     def file_dump_callback(
@@ -177,7 +175,6 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         :yields: A streamed gRPC response.
         """
         modes_to_start: str = request.modes_to_start
-        polling_period: int = request.polling_period
 
         if not self._receiver_started:
             self.daq_instance.initialise_daq()
@@ -191,7 +188,9 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         # callbacks = None
 
         callbacks = [self.file_dump_callback] * len(converted_modes_to_start)
+
         self.daq_instance.start_daq(converted_modes_to_start, callbacks)
+        self.request_stop = False
 
         # yield listening only once to notify client that daq is listening.
         response = daq_pb2.startDaqResponse()
@@ -199,18 +198,15 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         yield response
 
         self.state = DaqStatus.LISTENING
-        # infinite loop (until told to stop)
-        while self.state != DaqStatus.STOPPED:
-            if self.state == DaqStatus.LISTENING:
-                self.logger.info("Daq listening......")
+        self.logger.info("Daq listening......")
 
-            elif self.state == DaqStatus.RECEIVING:
+        # infinite loop (until told to stop)
+        # TODO: should this be in a thread?
+        while self.request_stop is False:
+            if self.state == DaqStatus.RECEIVING:
                 self.logger.info("Sending buffer to client ......")
                 # send buffer to client
                 yield from self.buffer.send_buffer_to_client()
-
-            # This is not a time sensitive operation
-            time.sleep(polling_period)
 
             # check callbacks
             self.update_status()
@@ -233,11 +229,10 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
 
         :return: a commandResponse object containing `result_code` and `message`
         """
-        self.logger.info("Stopping daq.")
+        self.logger.info("Stopping daq.....")
         self.daq_instance.stop_daq()
         self._receiver_started = False
-        self.logger.info("Daq stopped.")
-        self.state = DaqStatus.STOPPED
+        self.request_stop = True
         return daq_pb2.commandResponse(result_code=ResultCode.OK, message="Daq stopped")
 
     def InitDaq(

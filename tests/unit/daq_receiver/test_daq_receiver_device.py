@@ -382,8 +382,9 @@ class TestPatchedDaq:
 
         device_under_test.CallReceivedDataCallback(json.dumps(input_data))
         change_event_callbacks.assert_change_event(
-            "dataReceivedResult", (input_data[0], json.dumps(result))
+            "dataReceivedResult", (input_data[0], "_")
         )
+        assert json.dumps(result) in device_under_test.dataReceivedResult[1]
 
     @pytest.mark.parametrize(
         ("consumer_list"),
