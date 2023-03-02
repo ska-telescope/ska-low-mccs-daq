@@ -227,7 +227,6 @@ class DaqComponentManager(MccsComponentManager):
     def start_daq(
         self: DaqComponentManager,
         modes_to_start: str,
-        grpc_polling_period: int,
         task_callback: Optional[Callable] = None,
     ) -> tuple[TaskStatus, str]:
         """
@@ -237,21 +236,19 @@ class DaqComponentManager(MccsComponentManager):
         them.
 
         :param modes_to_start: A comma separated string of daq modes.
-        :param grpc_polling_period: gRPC server poll period in seconds
         :param task_callback: Update task state, defaults to None
 
         :return: a task status and response message
         """
         return self.submit_task(
             self._start_daq,
-            args=[modes_to_start, grpc_polling_period],
+            args=[modes_to_start],
             task_callback=task_callback,
         )
 
     def _start_daq(
         self: DaqComponentManager,
         modes_to_start: str,
-        grpc_polling_period: int,
         task_callback: Callable,
         task_abort_event: Optional[threading.Event] = None,
     ) -> None:
@@ -264,7 +261,6 @@ class DaqComponentManager(MccsComponentManager):
         obvious way to register a callback mechanism in gRPC.
 
         :param modes_to_start: A comma separated string of daq modes.
-        :param grpc_polling_period: gRPC server poll period in seconds
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Check for abort, defaults to None
 
@@ -280,7 +276,6 @@ class DaqComponentManager(MccsComponentManager):
                 responses = stub.StartDaq(
                     daq_pb2.startDaqRequest(
                         modes_to_start=modes_to_start,
-                        polling_period=grpc_polling_period,
                     )
                 )
                 task_callback(

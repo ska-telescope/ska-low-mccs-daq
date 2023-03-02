@@ -328,7 +328,6 @@ def start_daq(
     daq_receiver.adminMode = 0
     daq_config = {
         "modes_to_start": daq_modes_of_interest,
-        "grpc_polling_period": 1,
     }
     # Start daq and assert command was a success.
     [_], [unique_id] = daq_receiver.Start(json.dumps(daq_config))

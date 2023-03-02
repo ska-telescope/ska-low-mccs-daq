@@ -186,9 +186,7 @@ class TestMccsDaqReceiver:
         }
         device_under_test.Configure(json.dumps(daq_config))
         # Start a consumer to check with DaqStatus.
-        device_under_test.Start(
-            json.dumps({"modes_to_start": modes_to_start, "grpc_polling_period": 2})
-        )
+        device_under_test.Start(json.dumps({"modes_to_start": modes_to_start}))
         # We can't check immediately so wait for consumer(s) to start.
 
         # I'd like to pass `task_callback=MockCallback()` to `Start`.

@@ -85,14 +85,10 @@ class getConfigResponse(_message.Message):
     def __init__(self, config: _Optional[str] = ...) -> None: ...
 
 class startDaqRequest(_message.Message):
-    __slots__ = ["modes_to_start", "polling_period"]
+    __slots__ = ["modes_to_start"]
     MODES_TO_START_FIELD_NUMBER: _ClassVar[int]
-    POLLING_PERIOD_FIELD_NUMBER: _ClassVar[int]
     modes_to_start: str
-    polling_period: int
-    def __init__(
-        self, modes_to_start: _Optional[str] = ..., polling_period: _Optional[int] = ...
-    ) -> None: ...
+    def __init__(self, modes_to_start: _Optional[str] = ...) -> None: ...
 
 class startDaqResponse(_message.Message):
     __slots__ = ["call_info", "call_state"]

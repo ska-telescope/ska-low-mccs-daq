@@ -70,7 +70,6 @@ class _StartDaqCommand(SubmittedSlowCommand):
         self: _StartDaqCommand,
         *args: Any,
         modes_to_start: str = "",
-        grpc_polling_period: int = 3,
         **kwargs: Any,
     ) -> tuple[ResultCode, str]:
         """
@@ -79,7 +78,6 @@ class _StartDaqCommand(SubmittedSlowCommand):
         :param args: unspecified positional arguments. This should be
             empty and is provided for typehinting purposes only.
         :param modes_to_start: A DAQ mode, must be a string
-        :param grpc_polling_period: period to flush gRPC server buffer.
         :param kwargs: unspecified keyword arguments. This should be
             empty and is provided for typehinting purposes only.
 
@@ -91,7 +89,7 @@ class _StartDaqCommand(SubmittedSlowCommand):
             not args and not kwargs
         ), f"do method has unexpected arguments: {args}, {kwargs}"
 
-        return super().do(modes_to_start, grpc_polling_period)
+        return super().do(modes_to_start)
 
 
 class MccsDaqReceiver(SKABaseDevice):
@@ -443,7 +441,7 @@ class MccsDaqReceiver(SKABaseDevice):
             configuration and will start the configured consumers.
 
         :param argin: A json dictionary with optional keywords.
-            '{"modes_to_start": , "grpc_polling_period": }'.
+            '{"modes_to_start"}'.
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
@@ -451,7 +449,7 @@ class MccsDaqReceiver(SKABaseDevice):
         :example:
             >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
             >>> argin = '{"modes_to_start": "INTEGRATED_CHANNEL_DATA,
-            RAW_DATA", "grpc_polling_period": 1}'
+            RAW_DATA"}'
             >>> daq.Start(argin) # use specified consumers
             >>> daq.Start("") # Uses default consumers.
         """
