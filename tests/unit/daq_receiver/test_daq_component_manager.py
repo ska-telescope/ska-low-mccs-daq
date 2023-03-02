@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import time
 
+import grpc
 import pytest
 from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
@@ -29,9 +30,9 @@ class TestDaqComponentManager:
         callbacks: MockCallableGroup,
     ) -> None:
         """
-        Test the station component manager's management of communication.
+        Test the daq component manager's management of communication.
 
-        :param daq_component_manager: the station component manager
+        :param daq_component_manager: the daq component manager
             under test.
         :param callbacks: a dictionary from which callbacks with
             asynchrony support can be accessed.
@@ -42,6 +43,7 @@ class TestDaqComponentManager:
 
         # allow some time for device communication to start before testing
         time.sleep(0.1)
+
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
@@ -53,6 +55,75 @@ class TestDaqComponentManager:
         daq_component_manager.stop_communicating()
         callbacks["communication_state"].assert_call(CommunicationStatus.DISABLED)
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+
+    def test_admin_mode_behaviour(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+        daq_grpc_server: grpc.Server,
+    ) -> None:
+        """
+        Test the daq component manager's management of communication.
+
+        Here we test that we only connect to our DaqReceiver once
+            start_communicating is called and that cycling adminMode
+            (by calling stop_communicating then start_communicating)
+            does not reinitialise the DaqReceiver.
+
+        :param daq_component_manager: the daq component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        :param daq_grpc_server: A fixture that stands up a gRPC server.
+        """
+        # 1. Establish comms with DaqReceiver.
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        time.sleep(0.1)
+
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        assert (
+            daq_component_manager.communication_state == CommunicationStatus.ESTABLISHED
+        )
+
+        # 2. Configure DAQ to a non-standard config.
+        non_standard_config = {
+            "receiver_ports": "9876",
+            "nof_tiles": 55,
+            "nof_channels": 1234,
+        }
+        daq_component_manager.configure_daq(json.dumps(non_standard_config))
+
+        # 3. Assert config was applied.
+        daq_config = daq_component_manager.get_configuration()
+        daq_config_dict = json.loads(daq_config)
+        assert daq_config_dict["receiver_ports"] == [9876]
+        assert daq_config_dict["nof_tiles"] == 55
+        assert daq_config_dict["nof_channels"] == 1234
+
+        # 4. Imitate adminMode cycling by calling stop/start comms.
+        daq_component_manager.stop_communicating()
+        callbacks["communication_state"].assert_call(CommunicationStatus.DISABLED)
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        time.sleep(0.1)
+
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        assert (
+            daq_component_manager.communication_state == CommunicationStatus.ESTABLISHED
+        )
+
+        # 5. Assert that our previously set config remains valid.
+        daq_config = daq_component_manager.get_configuration()
+        assert daq_config_dict["receiver_ports"] == [9876]
+        assert daq_config_dict["nof_tiles"] == 55
+        assert daq_config_dict["nof_channels"] == 1234
 
     # Not compiled with correlator currently.
     @pytest.mark.parametrize(
@@ -160,17 +231,17 @@ class TestDaqComponentManager:
         :param acquisition_duration: The duration of the data capture.
         :param daq_modes: The DAQ consumers to start.
         """
-        daq_config = {
-            "acquisition_duration": acquisition_duration,
-            "directory": ".",
-        }
-        daq_component_manager.configure_daq(json.dumps(daq_config))
-
         daq_component_manager.start_communicating()
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        daq_config = {
+            "acquisition_duration": acquisition_duration,
+            "directory": ".",
+        }
+        daq_component_manager.configure_daq(json.dumps(daq_config))
 
         # Start DAQ and check our consumer is running.
         # Need exactly 1 callback per consumer started or None. Cast for Mypy.

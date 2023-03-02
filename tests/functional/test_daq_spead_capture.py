@@ -276,7 +276,9 @@ def daq_receiver_fixture(
 
     :return: the daq_receiver device
     """
-    return get_device(daq_short_name)
+    daq = get_device(daq_short_name)
+    daq.adminMode = 0
+    return daq
 
 
 @given("the daq receiver is stopped")
@@ -305,9 +307,7 @@ def configure_daq(daq_receiver: tango.DeviceProxy, interface: str, port: int) ->
         "receiver_interface": interface,
     }
     daq_receiver.Configure(json.dumps(daq_config))
-
     assert daq_config.items() <= json.loads(daq_receiver.GetConfiguration()).items()
-    # assert this worked
 
 
 @given(parsers.cfparse("The daq is started with '{daq_modes_of_interest}'"))
@@ -330,7 +330,6 @@ def start_daq(
         "modes_to_start": daq_modes_of_interest,
         "grpc_polling_period": 1,
     }
-    print(daq_receiver.GetConfiguration())
     # Start daq and assert command was a success.
     [_], [unique_id] = daq_receiver.Start(json.dumps(daq_config))
     change_event_callbacks[
@@ -399,7 +398,6 @@ def check_writes(daq_receiver: tango.DeviceProxy) -> None:
 
     :param daq_receiver: the daq_receiver device.
     """
-    # TODO:
     # - set up persistent volume
     # - search for the file written
     # - validate the file content

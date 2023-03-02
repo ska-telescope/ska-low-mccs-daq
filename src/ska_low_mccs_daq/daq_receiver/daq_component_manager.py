@@ -31,7 +31,7 @@ __all__ = ["DaqComponentManager"]
 class DaqComponentManager(MccsComponentManager):
     """A component manager for a DaqReceiver."""
 
-    # pylint: disable=too-many-arguments, too-many-locals
+    # pylint: disable=too-many-arguments
     def __init__(
         self: DaqComponentManager,
         daq_id: int,
@@ -89,23 +89,32 @@ class DaqComponentManager(MccsComponentManager):
         self._grpc_port = grpc_port
         self._grpc_channel = f"{self._grpc_host}:{self._grpc_port}"
 
-        with grpc.insecure_channel(
-            self._grpc_channel, options=(("grpc.enable_http_proxy", 0),)
-        ) as channel:
-            stub = daq_pb2_grpc.DaqStub(channel)
-            configuration = json.dumps(self._get_default_config())
-            response = stub.InitDaq(daq_pb2.configDaqRequest(config=configuration))
-            if response.result_code != ResultCode.OK:
-                self.logger.error(
-                    "InitDaq failed with response: %i", response.result_code
-                )
-
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
         super().start_communicating()
         # Do things that might need to be done.
-        # e.g. Do we need to be connected to a station etc?
-        # For now we'll just set comms to ESTABLISHED since there's no physical device.
+        try:
+            with grpc.insecure_channel(self._grpc_channel) as channel:
+                stub = daq_pb2_grpc.DaqStub(channel)
+                configuration = json.dumps(self._get_default_config())
+                response = stub.InitDaq(daq_pb2.configDaqRequest(config=configuration))
+
+                # Anticipated "normal" operation.
+                if response.result_code in [ResultCode.OK, ResultCode.REJECTED]:
+                    if self._faulty:
+                        self.component_state_changed_callback({"fault": False})
+                    self.logger.info(response.message)
+                else:
+                    self.logger.error(
+                        "InitDaq failed with response: %i: %s",
+                        response.result_code,
+                        response.message,
+                    )
+        # pylint: disable=broad-except
+        except Exception as e:
+            self.component_state_changed_callback({"fault": True})
+            self.logger.error("Caught exception in start_communicating: %s", e)
+
         self.update_communication_state(CommunicationStatus.ESTABLISHED)
 
     def stop_communicating(self: DaqComponentManager) -> None:
@@ -156,7 +165,8 @@ class DaqComponentManager(MccsComponentManager):
         }
         return daq_config
 
-    def get_configuration(self: DaqComponentManager) -> dict[str, Any]:
+    @check_communicating
+    def get_configuration(self: DaqComponentManager) -> str:
         """
         Get the active configuration from DAQ.
 
@@ -180,21 +190,26 @@ class DaqComponentManager(MccsComponentManager):
         :param consumers_to_start: A string containing a comma separated
             list of DaqModes.
 
-         :return: A tuple containing a return code and a string
+        :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
         """
         self._consumers_to_start = consumers_to_start
         return (ResultCode.OK, "SetConsumers command completed OK")
 
+    @check_communicating
     def configure_daq(
         self: DaqComponentManager,
         daq_config: str,
-    ) -> None:
+    ) -> tuple[ResultCode, str]:
         """
         Apply a configuration to the DaqReceiver.
 
         :param daq_config: A json containing configuration settings.
+
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
         """
         self.logger.info("Configuring DAQ receiver.")
         # Make gRPC call to configure.
@@ -206,6 +221,7 @@ class DaqComponentManager(MccsComponentManager):
                     "Configure failed with response: %i", response.result_code
                 )
         self.logger.info("DAQ receiver configuration complete.")
+        return (response.result_code, response.message)
 
     @check_communicating
     def start_daq(
@@ -317,6 +333,7 @@ class DaqComponentManager(MccsComponentManager):
                 # send all this information to the callback
                 self._received_data_callback(data_types_received, files_written)
 
+    @check_communicating
     def stop_daq(
         self: DaqComponentManager,
         task_callback: Optional[Callable] = None,
@@ -344,6 +361,7 @@ class DaqComponentManager(MccsComponentManager):
                 task_callback(status=TaskStatus.FAILED)
         return (response.result_code, response.message)
 
+    @check_communicating
     def daq_status(
         self: DaqComponentManager,
         task_callback: Optional[Callable] = None,
