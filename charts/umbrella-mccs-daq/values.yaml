@@ -57,7 +57,24 @@ ska-taranta:
         cpu: 1000m # 1000m = 1 CPU
         memory: 1024Mi # 1024Mi = 1 GB mem
 
-
+jupyterhub:
+  hub:
+    baseUrl: /jupyterhub/
+  ingress:
+    pathType: Prefix
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+  singleuser:
+    image:
+      name: registry.gitlab.com/ska-telescope/sdi/ska-cicd-deploy-low-itf/tango-notebook
+      tag: 0.1.1
+    extraEnv:
+      TANGO_HOST: "databaseds-tango-base-test.ska-low-mccs-daq:10000"
+  proxy:
+    service:
+      type: ClusterIP
+      
 ska-taranta-dashboard:
   ingress:
     enabled: true
