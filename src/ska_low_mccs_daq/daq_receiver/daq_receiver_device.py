@@ -97,7 +97,9 @@ class MccsDaqReceiver(SKABaseDevice):
         util = tango.Util.instance()
         util.set_serial_model(tango.SerialModel.NO_SYNC)
         self._max_workers = 1
+        print("before super init".upper())
         super().init_device()
+        print("after super init".upper())
 
     def _init_state_model(self: MccsDaqReceiver) -> None:
         """Initialise the state model."""
@@ -202,7 +204,9 @@ class MccsDaqReceiver(SKABaseDevice):
 
     def _component_state_changed_callback(
         self: MccsDaqReceiver,
-        state_change: dict[str, Any],
+        fault: Optional[bool] = None,
+        health: Optional[HealthState] = None,
+        **kwargs: Optional[Any],
     ) -> None:
         """
         Handle change in the state of the component.
@@ -210,18 +214,18 @@ class MccsDaqReceiver(SKABaseDevice):
         This is a callback hook, called by the component manager when
         the state of the component changes.
 
-        :param state_change: state change parameters.
+        :param fault: New fault state of device.
+        :param health: New health state of device.
+        :param kwargs: Other state changes of device.
         """
-        if "fault" in state_change.keys():
-            is_fault = state_change.get("fault")
-            if is_fault:
+        if fault is not None:
+            if fault:
                 self.op_state_model.perform_action("component_fault")
                 self._health_model.component_fault(True)
             else:
                 self._health_model.component_fault(False)
 
-        if "health_state" in state_change.keys():
-            health = state_change.get("health_state")
+        if health is not None:
             if self._health_state != health:
                 self._health_state = cast(HealthState, health)
                 self.push_change_event("healthState", health)

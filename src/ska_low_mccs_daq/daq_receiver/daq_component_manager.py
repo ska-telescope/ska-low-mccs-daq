@@ -41,7 +41,7 @@ class DaqComponentManager(MccsComponentManager):
         logger: logging.Logger,
         max_workers: int,
         communication_state_changed_callback: Callable[[CommunicationStatus], None],
-        component_state_changed_callback: Callable[[dict[str, Any]], None],
+        component_state_changed_callback: Callable[..., None],
         received_data_callback: Callable[[str, str, int], None],
     ) -> None:
         """
@@ -97,7 +97,7 @@ class DaqComponentManager(MccsComponentManager):
                 # Anticipated "normal" operation.
                 if response.result_code in [ResultCode.OK, ResultCode.REJECTED]:
                     if self._faulty:
-                        self.component_state_changed_callback({"fault": False})
+                        self._component_state_changed_callback(fault=False)
                     self.logger.info(response.message)
                 else:
                     self.logger.error(
@@ -107,7 +107,7 @@ class DaqComponentManager(MccsComponentManager):
                     )
         # pylint: disable=broad-except
         except Exception as e:
-            self.component_state_changed_callback({"fault": True})
+            self._component_state_changed_callback(fault=True)
             self.logger.error("Caught exception in start_communicating: %s", e)
 
         self.update_communication_state(CommunicationStatus.ESTABLISHED)

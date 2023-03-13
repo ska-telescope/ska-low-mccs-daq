@@ -8,7 +8,7 @@
 """An implementation of a health model for a DAQ receiver."""
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Callable
 
 from ska_control_model import HealthState
 from ska_low_mccs_common.health import HealthModel
@@ -21,7 +21,7 @@ class DaqHealthModel(HealthModel):
 
     def __init__(
         self: DaqHealthModel,
-        component_state_changed_callback: Callable[[Any], None],
+        component_state_changed_callback: Callable[..., None],
     ) -> None:
         """
         Initialise a new instance.
