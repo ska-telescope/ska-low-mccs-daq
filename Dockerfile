@@ -5,9 +5,9 @@ USER root
 
 # Commit SHAs to use.
 # When updating AAVS_SYSTEM_SHA, also update aavs_system in pyproject.toml
-ENV AAVS_SYSTEM_SHA=5502db425dd9939bd33d3932928d76730d8abe35
+ENV AAVS_SYSTEM_SHA=498662646fcbb50c4995a1246f207852e2430006
 ENV AAVS_DAQ_SHA=65c8339543ff94818ccc9335583168c9b7f877f4
-ENV PYFABIL_SHA=c158b27f09ee9af6e5b52927b2564409b0a68096
+ENV PYFABIL_SHA=1aa0dc954fb701fd2a7fed03df21639fc4c50560
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive TZ="United_Kingdom/London" apt-get install -y \
