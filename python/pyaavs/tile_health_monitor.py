@@ -60,8 +60,9 @@ class TileHealthMonitor:
             },
             'io': {
                 'jesd_if': {
-                    'lanes': self.check_jesd_lanes(fpga_id=None, core_id=None),
-                    'error_count' : self.check_jesd_error_counter(fpga_id=None, core_id=None, show_result=False),
+                    'link_status' : self.check_jesd_link_status(fpga_id=None, core_id=None),
+                    'lane_error_count': self.check_jesd_lane_error_counter(fpga_id=None, core_id=None),
+                    'lane_status': self.check_jesd_lane_status(fpga_id=None, core_id=None),
                     'resync_count': self.check_jesd_resync_counter(fpga_id=None, show_result=False),
                     'qpll_lock_loss_count': self.check_jesd_qpll_lock_loss_counter(fpga_id=None, show_result=False)
                 },
@@ -472,10 +473,10 @@ class TileHealthMonitor:
             self.tpm.tpm_test_firmware[fpga].clear_pps_status()
         return
 
-    def check_jesd_lanes(self, fpga_id=None, core_id=None):
+    def check_jesd_link_status(self, fpga_id=None, core_id=None):
         """
-        Check if JESD204 lanes are error free.
-        Checks the FPGA link error status and FPGA sync status registers.
+        Check if JESD204 lanes are synchronized.
+        Checks the FPGA sync status register.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -492,7 +493,6 @@ class TileHealthMonitor:
         for fpga in self.fpga_gen(fpga_id):
             for core in cores:
                 idx = fpga * jesd_cores_per_fpga + core
-                result.append(self.tpm.tpm_jesd[idx].check_link_error_status())
                 result.append(self.tpm.tpm_jesd[idx].check_sync_status())
         return all(result)
 
@@ -514,7 +514,7 @@ class TileHealthMonitor:
                 self.tpm.tpm_jesd[idx].clear_error_counters()
         return
 
-    def check_jesd_error_counter(self, fpga_id=None, core_id=None, show_result=True):
+    def check_jesd_lane_error_counter(self, fpga_id=None, core_id=None):
         """
         Check JESD204 lanes errors.
         Checks the FPGA link error counter register.
@@ -525,20 +525,42 @@ class TileHealthMonitor:
         :param core_id: Specify which JESD Core, 0,1, or None for both cores
         :type core_id: integer
 
-        :param show_result: prints error counts on logger
-        :type show_result: bool
-
         :return: true if all OK
         :rtype: bool
         """
         jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
         cores = range(jesd_cores_per_fpga) if core_id is None else [core_id]
-        result = []
+        counter_dict = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counter_dict[f'FPGA{fpga}'] = {}
+            for core in cores:
+                idx = fpga * jesd_cores_per_fpga + core
+                counter_dict[f'FPGA{fpga}'][f'Core{core}'] = self.tpm.tpm_jesd[idx].check_link_error_counter()
+        return counter_dict
+
+    def check_jesd_lane_status(self, fpga_id=None, core_id=None):
+        """
+        Check JESD204 lanes errors.
+        Checks the FPGA link error counter register.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param core_id: Specify which JESD Core, 0,1, or None for both cores
+        :type core_id: integer
+
+        :return: true if all error counters are 0
+        :rtype: bool
+        """
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
+        cores = range(jesd_cores_per_fpga) if core_id is None else [core_id]
+        errors = []
         for fpga in self.fpga_gen(fpga_id):
             for core in cores:
                 idx = fpga * jesd_cores_per_fpga + core
-                result.append(self.tpm.tpm_jesd[idx].check_link_error_counter(show_result))
-        return all(result)
+                count_dict = self.tpm.tpm_jesd[idx].check_link_error_counter()
+                errors.extend(list(count_dict.values()))
+        return not any(errors) # Return True if all error counters are 0
 
     def check_jesd_resync_counter(self, fpga_id=None, show_result=True):
         """
@@ -819,13 +841,22 @@ class TileHealthMonitor:
             'timing': {
                 'clocks': {'FPGA0': {'JESD': True, 'DDR': True, 'UDP': True}, 'FPGA1': {'JESD': True, 'DDR': True, 'UDP': True}},
                 'clock_managers' : {'FPGA0': {'C2C_MMCM': 0, 'JESD_MMCM': 0, 'DSP_MMCM': 0},'FPGA1': {'C2C_MMCM': 0, 'JESD_MMCM': 0, 'DSP_MMCM': 0}},
-                'pps': {'status': True}
-            },
+                'pps': {'status': True}},
             'io':{ 
-                'jesd_if': {'lanes': True, 'error_count': True, 'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 'qpll_lock_loss_count': {'FPGA0': 0, 'FPGA1': 0}},
+                'jesd_if': {
+                    'link_status': True, 
+                    'lane_error_count': {
+                        'FPGA0': {
+                            'Core0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}, 
+                            'Core1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}}, 
+                        'FPGA1': {
+                            'Core0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}, 
+                            'Core1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}}},
+                    'lane_status' : True, 
+                    'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 
+                    'qpll_lock_loss_count': {'FPGA0': 0, 'FPGA1': 0}},
                 'ddr_if': {'initialisation': True, 'reset_counter': {'FPGA0': 0, 'FPGA1': 0}},
                 'f2f_if': {'pll_lock_loss_count': {'Core0': [0, 0], 'Core1': [0, 0]} if self.tpm_version() == "tpm_v1_2" else {'Core0' : 0}},
                 'udp_if': {'arp': True, 'status': True, 'linkup_loss_count': {'FPGA0': 0, 'FPGA1': 0}}},
-            'dsp': {'tile_beamf': True,'station_beamf': True}
-        }
+            'dsp': {'tile_beamf': True,'station_beamf': True}}
         return health
