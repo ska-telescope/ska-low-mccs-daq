@@ -39,7 +39,7 @@ server:
             - "DaqModes.INTEGRATED_CHANNEL_DATA"
           - name: "LoggingLevelDefault"
             values: 
-            - "{{ coalesce $device.logging_level_default 5 | toString }}"
+            - "{{ coalesce $device.logging_level_default 3 | toString }}"
     {{- end }} # devices
 depends_on:
   - device: sys/database/2

@@ -455,7 +455,6 @@ class MccsDaqReceiver(SKABaseDevice):
         """
         if argin != "":
             kwargs = json.loads(argin)
-            print(kwargs)
         else:
             kwargs = {}
         handler = self.get_command_object("Start")

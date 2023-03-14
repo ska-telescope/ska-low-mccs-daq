@@ -9,7 +9,7 @@ metadata:
  name: {{ $device_name }}-grpc-svc
 subsets:
  - addresses:
-    #TODO: template this parameter.
+    #TCP protocol
      - ip: {{ $device_spec.grpc_ip}}  # IP of your desire end point 
    ports:
      - port: {{ $device_spec.grpc_port}} # Port that you want to access
