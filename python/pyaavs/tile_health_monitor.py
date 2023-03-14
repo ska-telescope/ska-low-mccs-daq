@@ -78,7 +78,7 @@ class TileHealthMonitor:
         self.clear_f2f_pll_lock_loss_counter(core_id=None)
         self.clear_udp_status(fpga_id=None)
         self.clear_tile_beamformer_status(fpga_id=None)
-        # self.clear_station_beamformer_status(fpga_id=None) # TODO: add register to firmware, MCCS-1307
+        self.clear_station_beamformer_status(fpga_id=None)
         return
 
     def get_health_acceptance_values(self):
