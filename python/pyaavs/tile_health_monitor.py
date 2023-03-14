@@ -13,18 +13,35 @@ This depends heavily on the
 pyfabil low level software and specific hardware module plugins.
 """
 
+from pyfabil.base.definitions import LibraryError, BoardError
+
+def health_monitoring_compatible(func):
+    """
+    Decorator method to check if provided firmware supports TPM health monitoring.
+    Achieved by attempting to access a register which was added for TPM health monitoring.
+    Bitstreams generated prior to ~03/2023 will not support TPM health monitoring.
+    """
+    def inner_func(self):
+        try:
+            self['fpga1.pps_manager.pps_errors']
+        except:
+            raise LibraryError(f"TPM Health Monitoring not supported by FPGA firmware!")
+        return func(self)
+    return inner_func
 
 class TileHealthMonitor:
     """
     Tile Health Monitor Mixin Class, must be inherited by Tile Class
     """
-    
+
+    @health_monitoring_compatible
     def enable_health_monitoring(self):
         # For use with get_health_status and clear_health_status
         # Enable anything that requires an enable
         self.enable_clock_monitoring()
         return
 
+    @health_monitoring_compatible
     def get_health_status(self):
         """
         Returns the current value of all TPM monitoring points.
@@ -69,6 +86,7 @@ class TileHealthMonitor:
         health_dict['temperature']['board'] = round(self.get_temperature(), 2)
         return health_dict
     
+    @health_monitoring_compatible
     def clear_health_status(self):
         self.clear_clock_status(fpga_id=None, clock_name=None)
         self.clear_clock_manager_status(fpga_id=None, name=None)
