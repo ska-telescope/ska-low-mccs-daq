@@ -1801,10 +1801,22 @@ class Tile(TileHealthMonitor):
         for fpga in self.tpm.tpm_fpga:
             fpga.fpga_apply_sync_delay(t1)
 
-        tn1 = self.tpm["fpga1.pps_manager.timestamp_read_val"]
-        tn2 = self.tpm["fpga2.pps_manager.timestamp_read_val"]
-        if max(tn1, tn2) >= t1:
+    @connected
+    def check_synchronised_data_operation(self):
+        """
+        Check if synchronise data operations between FPGAs is successful.
+
+        :return: Operation success
+        :rtype: bool
+        """
+        t_arm1 = self.tpm["fpga1.pps_manager.timestamp_req_val"]
+        t_arm2 = self.tpm["fpga1.pps_manager.timestamp_req_val"]
+        t_now1 = self.tpm["fpga1.pps_manager.timestamp_read_val"]
+        t_now2 = self.tpm["fpga2.pps_manager.timestamp_read_val"]
+        if max(t_now1, t_now2) >= max(t_arm1, t_arm2):
             self.logger.error("Synchronised operation failed!")
+            return False
+        return True
 
     @connected
     def synchronised_beamformer_coefficients(self, timestamp=None, seconds=0.2):
@@ -1999,6 +2011,9 @@ class Tile(TileHealthMonitor):
             else:
                 self.tpm.tpm_test_firmware[i].send_raw_data()
 
+        # Check if synchronisation is successful
+        self.check_synchronised_data_operation()
+
     @connected
     def send_raw_data_synchronised(
         self, timestamp=None, seconds=0.2
@@ -2047,6 +2062,9 @@ class Tile(TileHealthMonitor):
                 number_of_samples, first_channel, last_channel
             )
 
+        # Check if synchronisation is successful
+        self.check_synchronised_data_operation()
+
     # ---------------------------- Wrapper for data acquisition: BEAM ------------------------------------
     @connected
     def send_beam_data(self, timeout=0, timestamp=None, seconds=0.2):
@@ -2062,6 +2080,9 @@ class Tile(TileHealthMonitor):
         # Send data from all FPGAs
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].send_beam_data()
+
+        # Check if synchronisation is successful
+        self.check_synchronised_data_operation()
 
     # ---------------------------- Wrapper for data acquisition: CONT CHANNEL ----------------------------
     @connected
@@ -2090,6 +2111,9 @@ class Tile(TileHealthMonitor):
             self.tpm.tpm_test_firmware[i].send_channelised_data_continuous(
                 channel_id, number_of_samples
             )
+
+        # Check if synchronisation is successful
+        self.check_synchronised_data_operation()
 
     # ---------------------------- Wrapper for data acquisition: NARROWBAND CHANNEL ----------------------------
     @connected
@@ -2120,6 +2144,9 @@ class Tile(TileHealthMonitor):
             self.tpm.tpm_test_firmware[i].send_channelised_data_narrowband(
                 frequency, round_bits, number_of_samples
             )
+
+        # Check if synchronisation is successful
+        self.check_synchronised_data_operation()
 
     def stop_channelised_data_continuous(self):
         """ Stop sending channelised data """
