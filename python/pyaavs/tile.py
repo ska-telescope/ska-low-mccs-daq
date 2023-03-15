@@ -1811,12 +1811,20 @@ class Tile(TileHealthMonitor):
         :rtype: bool
         """
         t_arm1 = self.tpm["fpga1.pps_manager.timestamp_req_val"]
-        t_arm2 = self.tpm["fpga1.pps_manager.timestamp_req_val"]
+        t_arm2 = self.tpm["fpga2.pps_manager.timestamp_req_val"]
         t_now1 = self.tpm["fpga1.pps_manager.timestamp_read_val"]
         t_now2 = self.tpm["fpga2.pps_manager.timestamp_read_val"]
-        if max(t_now1, t_now2) >= max(t_arm1, t_arm2):
+        t_now_max = max(t_now1, t_now2)
+        t_arm_min = min(t_arm1, t_arm2)
+        t_margin = t_arm_min - t_now_max
+        if t_margin <= 0:
             self.logger.error("Synchronised operation failed!")
+            self.logger.error("Requested timestamp: " + str(t_arm_min))
+            self.logger.error("Current timestamp: " + str(t_now_max))
             return False
+        self.logger.debug("Synchronised operation successful!")
+        self.logger.debug("Requested timestamp: " + str(t_arm_min))
+        self.logger.debug("Current timestamp: " + str(t_now_max))
         return True
 
     @connected
