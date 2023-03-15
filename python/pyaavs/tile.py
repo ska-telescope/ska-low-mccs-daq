@@ -1824,6 +1824,7 @@ class Tile(TileHealthMonitor):
         self.logger.debug("Synchronised operation successful!")
         self.logger.debug("Requested timestamp: " + str(t_arm_min))
         self.logger.debug("Current timestamp: " + str(t_now_max))
+        self.logger.debug("Margin: " + str((t_arm_min - t_now_max) * 256 * 1.08e-6) + "s")
         return True
 
     @connected
