@@ -447,6 +447,10 @@ class TpmTestFirmware(FirmwareBlock):
             self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"
         ] = 0x0
 
+    def clear_lmc_data_request(self: TpmTestFirmware) -> None:
+        """Stop transmission of all LMC data."""
+        self.board[self._device_name + ".lmc_gen.request"] = 0
+
     def send_beam_data(self: TpmTestFirmware) -> None:
         """Send beam data from the TPM."""
         self.board[self._device_name + ".lmc_gen.request.beamformed_data"] = 0x1
