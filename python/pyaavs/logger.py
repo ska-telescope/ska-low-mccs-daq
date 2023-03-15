@@ -22,8 +22,9 @@ root_logger.addHandler(console_handler)
 
 
 def set_console_log_level(log_level="INFO"):
-    h = logging.StreamHandler(sys.stdout)
     if log_level == "INFO":
-        h.setLevel(logging.INFO)
+        root_logger.setLevel(logging.INFO)
+        console_handler.setLevel(logging.INFO)
     elif log_level == "DEBUG":
-        h.setLevel(logging.DEBUG)
+        root_logger.setLevel(logging.DEBUG)
+        console_handler.setLevel(logging.DEBUG)
