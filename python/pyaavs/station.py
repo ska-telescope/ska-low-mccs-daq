@@ -869,8 +869,13 @@ if __name__ == "__main__":
                       type="float", default=None, help="Beamformer scaling [default: None]")
     parser.add_option("--fft_sign_invert", action="store_true", dest="fft_sign_invert",
                       default=False, help="Conjugate FFT output [default: False]")
+    parser.add_option("--debug", action="store_true", dest="debug",
+                      default=False, help="Set console output to DEBUG log level [default: False]")
 
     (conf, args) = parser.parse_args(argv[1:])
+
+    if conf.debug:
+        pyaavs.logger.set_console_log_level("DEBUG")
 
     # Set current thread name
     threading.current_thread().name = "Station"
