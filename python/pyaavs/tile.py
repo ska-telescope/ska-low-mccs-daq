@@ -2163,6 +2163,13 @@ class Tile(TileHealthMonitor):
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].stop_channelised_data_continuous()
 
+    def clear_lmc_data_request(self):
+        """ Clear LMC data request register. This would be normally self-cleared by the firmware, however in case
+        of failed synchronisation, the firmware will not clear the register. In that case the request register can
+        be cleared by software to allow the next data request to be executed successfully."""
+        for i in range(len(self.tpm.tpm_test_firmware)):
+            self.tpm.tpm_test_firmware[i].clear_lmc_data_request()
+
     @connected
     def stop_data_transmission(self):
         """ Stop all data transmission from TPM"""
