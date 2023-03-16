@@ -2,13 +2,9 @@
 {{- range $key, $device := .Values.deviceServers.daqreceiver.devices }}
 ---
 {{- $context := dict "name" $device.name "device" $device "local" $localchart}}
-{{- if hasKey $device "grpc_host_type" }}
-{{- if eq $device.grpc_host_type "external" }}
+{{- if eq (default "internal" $device.grpc_host_type) "external" }}
 {{ template "ska-low-mccs-daq.daq-server-external.tpl" $context }}
 {{- else }}
 {{ template "ska-low-mccs-daq.daq-server-internal.tpl" $context }}
 {{- end }}
-{{ else }}
-{{ template "ska-low-mccs-daq.daq-server-internal.tpl" $context }}
-{{- end }}  
 {{- end }}

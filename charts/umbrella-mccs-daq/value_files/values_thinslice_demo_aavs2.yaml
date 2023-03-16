@@ -1,4 +1,4 @@
-#This deployment is aimed at oxford.
+#This deployment is aimed at aavs2.
 #This is a temporary file for performing the demo in MCCS-1203
 #We want the following deployment:
 # - TPM (x1)
@@ -35,41 +35,13 @@ ska-low-mccs-spshw:
         host: subrack-simulator-1
   deviceServers:
     tpms:
+      enabled: false
       instances:
-        1:
-          enabled: false
-        2:
-          enabled: false
         3:
-          host: 10.0.10.19 #Not needed as default (it is good practice to ensure this way?)
           enabled: true
+          host: 10.0.10.19 #Not needed as default (it is good practice to ensure this way?)
           simulation_config: 0
-        4:
-          enabled: false
-        5:
-          enabled: false
-        6:
-          enabled: false
-        7:
-          enabled: false
-        8:
-          enabled: false
-        9:
-          enabled: false
-        10:
-          enabled: false
-        11:
-          enabled: false
-        12:
-          enabled: false
-        13:
-          enabled: false
-        14:
-          enabled: false
-        15:
-          enabled: false
-        16:
-          enabled: false
+
       logging_level_default: 5
       resources:
         requests:

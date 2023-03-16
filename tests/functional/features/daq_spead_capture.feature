@@ -14,7 +14,7 @@ Feature: Receiving SPEAD packets.
 
     # Acceptance Criteria:
     #  - I will be able to configure the DAQ to listen on a specific port interface.
-    #  - I will be able to start DAQ for capturing data of each mode.
+    #  - I will be able to start DAQ for capturing data.
     #  - I will have a simulated SPEAD data sending to a specific IP:PORT 
     #  - Daq will receive these packets. 
 
@@ -40,9 +40,5 @@ Feature: Receiving SPEAD packets.
           |   daq_modes_of_interest       |  no_of_tiles      |
           |   'INTEGRATED_CHANNEL_DATA'   |      16           |
           # |   'RAW_DATA'                  |      16           | # no simulator exists yet
-          # |   'RAW_DATA'                  |      16           | # no simulator exists yet
-          # |   'established'               |      16           | # no simulator exists yet
-          # |   'established'               |      16           | # no simulator exists yet
-          # |   'disabled'                  |      16           | # no simulator exists yet
   #       ---------------------------------
 

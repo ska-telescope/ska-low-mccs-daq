@@ -73,7 +73,7 @@ class _StartDaqCommand(SubmittedSlowCommand):
         **kwargs: Any,
     ) -> tuple[ResultCode, str]:
         """
-        Implement :py:meth:`.MccsSubrack.SetSubrackFanSpeed` command.
+        Implement :py:meth:`.MccsDaqReceiver.Start` command.
 
         :param args: unspecified positional arguments. This should be
             empty and is provided for typehinting purposes only.
@@ -615,7 +615,8 @@ class MccsDaqReceiver(SKABaseDevice):
 
             :return: The configuration as received from pydaq
             """
-            return self._component_manager.get_configuration()
+            response = self._component_manager.get_configuration()
+            return json.dumps(response)
 
     # pylint: disable=too-few-public-methods
     class SetConsumersCommand(FastCommand):

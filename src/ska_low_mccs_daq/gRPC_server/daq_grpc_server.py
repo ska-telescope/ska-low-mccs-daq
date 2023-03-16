@@ -224,12 +224,10 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         A infinite streaming loop will be started until told to stop.
         This will notify the gRPC client of state changes and metadata
         of files written to disk, e.g. `data_type`.`file_name`.
-        The client will be notified on a cadence set by the polling period.
 
         :param request: arguments object containing `modes_to_start`
             `modes_to_start`: The list of consumers to start.
-            `polling_period`: The period to send the buffer to the
-            gRPC client.
+
         :param context: command metadata
 
         :yields: A streamed gRPC response.
@@ -244,9 +242,8 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             converted_modes_to_start: list[DaqModes] = convert_daq_modes(modes_to_start)
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
-        # TODO: callbacks this will collect all necessary
-        # callbacks = None
 
+        # yuck
         callbacks = [self.file_dump_callback] * len(converted_modes_to_start)
 
         self.daq_instance.start_daq(converted_modes_to_start, callbacks)
@@ -384,7 +381,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         self: MccsDaqServer,
         request: daq_pb2.getConfigRequest,
         context: grpc.ServicerContext,
-    ) -> daq_pb2.getConfigResponse:
+    ) -> daq_pb2.ConfigurationResponse:
         """
         Retrieve the current DAQ configuration.
 
@@ -394,15 +391,17 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         :return: a commandResponse object containing the current `config`.
         """
         configuration = self.daq_instance.get_configuration()
+        # we make a copy as we want to modify type for gRPC communications.
+        configuration_copy = configuration.copy()
 
-        # we cannot simply call json dumps here since bytes input
-        for key, item in configuration.items():
-            if isinstance(item, bytes):
-                configuration[key] = item.decode("utf-8")
-
-        return daq_pb2.getConfigResponse(
-            config=json.dumps(configuration),
+        # observation_metadata is returned from aavs library as a dict.
+        # Here we are casting to (str) type to match proto grpc configurations.
+        configuration_copy["observation_metadata"] = str(
+            configuration_copy["observation_metadata"]
         )
+        configuration_copy["receiver_ports"] = str(configuration_copy["receiver_ports"])
+
+        return daq_pb2.ConfigurationResponse(**configuration_copy)
 
     @check_initialisation
     def DaqStatus(

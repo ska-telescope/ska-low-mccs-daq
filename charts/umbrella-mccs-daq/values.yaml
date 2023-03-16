@@ -59,7 +59,7 @@ ska-taranta:
 
 jupyterhub:
   hub:
-    baseUrl: /jupyterhub/
+    baseUrl: /jupyterhub
   ingress:
     pathType: Prefix
     enabled: true
@@ -87,15 +87,15 @@ ska-taranta-auth:
     nginx: true
     hostname: test-taranta.k8s.stfc.skao.int
 
-#example overrides
-ska-low-mccs:
-  deviceServers:
-    # no tiles
-    tiles:
-      instances: []
-    # change controller command
-    controller:
-      command: "SimController"
+# #example overrides
+# ska-low-mccs:
+#   deviceServers:
+#     # no tiles
+#     tiles:
+#       instances: []
+#     # change controller command
+#     controller:
+#       instances: []
 
 ska-taranta:
   enabled: true

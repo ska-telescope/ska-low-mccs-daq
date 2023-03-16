@@ -14,8 +14,7 @@ import threading
 from typing import Any, Callable, Optional
 
 import grpc
-
-# from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
+from google.protobuf.json_format import MessageToDict
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_low_mccs_common.component import (
     MccsComponentManager,
@@ -68,8 +67,6 @@ class DaqComponentManager(MccsComponentManager):
             called when the component state changes
         :param received_data_callback: callback to be called when data is
             received from a tile
-        :param grpc_host: An optional override to force gRPC to
-            use a particular host. Used in testing.
         """
         super().__init__(
             logger,
@@ -166,7 +163,7 @@ class DaqComponentManager(MccsComponentManager):
         return daq_config
 
     @check_communicating
-    def get_configuration(self: DaqComponentManager) -> str:
+    def get_configuration(self: DaqComponentManager) -> dict[str, str]:
         """
         Get the active configuration from DAQ.
 
@@ -176,7 +173,8 @@ class DaqComponentManager(MccsComponentManager):
         with grpc.insecure_channel(self._grpc_channel) as channel:
             stub = daq_pb2_grpc.DaqStub(channel)
             response = stub.GetConfiguration(daq_pb2.getConfigRequest())
-        return response.config
+
+        return MessageToDict(message=response, preserving_proto_field_name=True)
 
     def _set_consumers_to_start(
         self: DaqComponentManager, consumers_to_start: str
@@ -284,7 +282,7 @@ class DaqComponentManager(MccsComponentManager):
                 )
                 # TODO: this can probably be made more generic, but not
                 # needed for now as only one instance of a streamed response.
-                self.evaluate_start_daq_responses(responses, task_callback)
+                self._evaluate_start_daq_responses(responses, task_callback)
 
         # pylint: disable-next=broad-except
         except Exception as e:
@@ -292,7 +290,7 @@ class DaqComponentManager(MccsComponentManager):
                 task_callback(status=TaskStatus.FAILED, result=f"Exception: {e}")
             return
 
-    def evaluate_start_daq_responses(
+    def _evaluate_start_daq_responses(
         self: DaqComponentManager, responses: Any, task_callback: Callable
     ) -> None:
         """

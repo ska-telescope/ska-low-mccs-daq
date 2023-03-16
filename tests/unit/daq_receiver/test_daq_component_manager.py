@@ -98,9 +98,8 @@ class TestDaqComponentManager:
         daq_component_manager.configure_daq(json.dumps(non_standard_config))
 
         # 3. Assert config was applied.
-        daq_config = daq_component_manager.get_configuration()
-        daq_config_dict = json.loads(daq_config)
-        assert daq_config_dict["receiver_ports"] == [9876]
+        daq_config_dict = daq_component_manager.get_configuration()
+        assert daq_config_dict["receiver_ports"] == "[9876]"
         assert daq_config_dict["nof_tiles"] == 55
         assert daq_config_dict["nof_channels"] == 1234
 
@@ -120,9 +119,8 @@ class TestDaqComponentManager:
         )
 
         # 5. Assert that our previously set config remains valid.
-        daq_config = daq_component_manager.get_configuration()
-        daq_config_dict = json.loads(daq_config)
-        assert daq_config_dict["receiver_ports"] == [9876]
+        daq_config_dict = daq_component_manager.get_configuration()
+        assert daq_config_dict["receiver_ports"] == "[9876]"
         assert daq_config_dict["nof_tiles"] == 55
         assert daq_config_dict["nof_channels"] == 1234
 

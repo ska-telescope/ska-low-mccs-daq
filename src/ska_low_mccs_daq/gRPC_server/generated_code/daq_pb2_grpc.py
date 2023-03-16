@@ -39,7 +39,7 @@ class DaqStub(object):
         self.GetConfiguration = channel.unary_unary(
             "/daq.Daq/GetConfiguration",
             request_serializer=daq__pb2.getConfigRequest.SerializeToString,
-            response_deserializer=daq__pb2.getConfigResponse.FromString,
+            response_deserializer=daq__pb2.ConfigurationResponse.FromString,
         )
         self.DaqStatus = channel.unary_unary(
             "/daq.Daq/DaqStatus",
@@ -60,10 +60,10 @@ class DaqServicer(object):
         The MccsDaqReceiver will begin watching the interface specified in the
         configuration and will start the configured consumers.
 
-        :param argin: String representing the DaqModes and their
+        ;param argin; String representing the DaqModes and their
         corresponding callbacks to start or an empty string.
 
-        :return: A streamed response containing a the call_state or call_info
+        ;return; A streamed response containing a the call_state or call_info
         message indicating events posted by server. The message is for
         information purpose only.
         """
@@ -78,7 +78,7 @@ class DaqServicer(object):
         The DAQ receiver will cease watching the specified interface
         and will stop all running consumers.
 
-        :return: A tuple containing a return code and a string
+        ;return; A tuple containing a return code and a string
         message indicating status. The message is for
         information purpose only.
         """
@@ -90,11 +90,11 @@ class DaqServicer(object):
         """
         Initialise a new DaqReceiver instance.
 
-        :param request: arguments object containing `config`
-        `config`: The initial daq configuration to apply.
-        :param context: command metadata
+        ;param request; arguments object containing `config`
+        `config`; The initial daq configuration to apply.
+        ;param context; command metadata
 
-        :return: a commandResponse object containing `result_code` and `message`
+        ;return; a commandResponse object containing `result_code` and `message`
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -106,8 +106,8 @@ class DaqServicer(object):
 
         Applies the specified configuration to the DaqReceiver.
 
-        :param argin: The daq configuration to apply.
-        :return: A tuple containing a return code and a string
+        ;param argin; The daq configuration to apply.
+        ;return; A tuple containing a return code and a string
         message indicating status. The message is for
         information purpose only.
         """
@@ -119,9 +119,9 @@ class DaqServicer(object):
         """
         Get the Configuration from DAQ.
 
-        :return: A JSON-encoded dictionary of the configuration.
+        ;return; A JSON-encoded dictionary of the configuration.
 
-        :example:
+        ;example;
 
         >>> dp.tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
         >>> jstr = dp.command_inout("GetConfiguration")
@@ -135,14 +135,14 @@ class DaqServicer(object):
         """
         Provide status information for this MccsDaqReceiver.
 
-        This method returns status as a json string with entries for:
-        - Daq Health: [HealthState.name: str, HealthState.value: int]
-        - Running Consumers: [DaqMode.name: str, DaqMode.value: int]
-        - Receiver Interface: "Interface Name": str
-        - Receiver Ports: [Port_List]: list[int]
-        - Receiver IP: "IP_Address": str
+        This method returns status as a json string with entries for;
+        - Daq Health; [HealthState.name; str, HealthState.value; int]
+        - Running Consumers; [DaqMode.name; str, DaqMode.value; int]
+        - Receiver Interface; "Interface Name"; str
+        - Receiver Ports; [Port_List]; list[int]
+        - Receiver IP; "IP_Address"; str
 
-        :return: A json string containing the status of this DaqReceiver.
+        ;return; A json string containing the status of this DaqReceiver.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -174,7 +174,7 @@ def add_DaqServicer_to_server(servicer, server):
         "GetConfiguration": grpc.unary_unary_rpc_method_handler(
             servicer.GetConfiguration,
             request_deserializer=daq__pb2.getConfigRequest.FromString,
-            response_serializer=daq__pb2.getConfigResponse.SerializeToString,
+            response_serializer=daq__pb2.ConfigurationResponse.SerializeToString,
         ),
         "DaqStatus": grpc.unary_unary_rpc_method_handler(
             servicer.DaqStatus,
@@ -328,7 +328,7 @@ class Daq(object):
             target,
             "/daq.Daq/GetConfiguration",
             daq__pb2.getConfigRequest.SerializeToString,
-            daq__pb2.getConfigResponse.FromString,
+            daq__pb2.ConfigurationResponse.FromString,
             options,
             channel_credentials,
             insecure,
