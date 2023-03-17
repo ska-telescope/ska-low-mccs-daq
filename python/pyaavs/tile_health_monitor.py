@@ -29,11 +29,30 @@ def health_monitoring_compatible(func):
         return func(self)
     return inner_func
 
+def communication_check(func):
+    """
+    Decorator method to check if communication is established between FPGA and CPLD.
+    Non destructive version of tile tpm_communication_check.
+    """
+    def inner_func(self):
+        try:
+            magic0 = self[0x4]
+            magic1 = self[0x10000004]
+            if magic0 == magic1 == 0xA1CE55AD:
+                return func(self)
+            else:
+                self.logger.info(f"FPGA magic numbers are not correct {hex(magic0)}, {hex(magic1)}")
+                return
+        except:
+            raise BoardError(f"Not possible to communicate with the FPGAs.")
+    return inner_func
+
 class TileHealthMonitor:
     """
     Tile Health Monitor Mixin Class, must be inherited by Tile Class
     """
 
+    @communication_check
     @health_monitoring_compatible
     def enable_health_monitoring(self):
         # For use with get_health_status and clear_health_status
@@ -41,6 +60,7 @@ class TileHealthMonitor:
         self.enable_clock_monitoring()
         return
 
+    @communication_check
     @health_monitoring_compatible
     def get_health_status(self):
         """
@@ -87,6 +107,7 @@ class TileHealthMonitor:
         health_dict['temperature']['board'] = round(self.get_temperature(), 2)
         return health_dict
     
+    @communication_check
     @health_monitoring_compatible
     def clear_health_status(self):
         self.clear_clock_status(fpga_id=None, clock_name=None)
