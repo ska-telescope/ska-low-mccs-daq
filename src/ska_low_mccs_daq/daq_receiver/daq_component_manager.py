@@ -21,7 +21,7 @@ from ska_low_mccs_common.component import (
     check_communicating,
 )
 
-from ska_low_mccs_daq.gRPC_server import daq_pb2, daq_pb2_grpc
+from ..gRPC_server import daq_pb2, daq_pb2_grpc
 
 __all__ = ["DaqComponentManager"]
 

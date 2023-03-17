@@ -29,9 +29,9 @@ Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 class DaqStatus(IntEnum):
     """DAQ Status."""
 
-    LISTENING = 0
+    STOPPED = 0
     RECEIVING = 1
-    STOPPED = 2
+    LISTENING = 2
 
 
 class DaqCallbackBuffer:
