@@ -5,23 +5,6 @@
 # - DAQ (x1)
 # - Subrack (simulated x1)
 # - Jupyter Notebook
-jupyterhub:
-  hub:
-    baseUrl: /jupyterhub/
-  ingress:
-    pathType: Prefix
-    enabled: true
-    annotations:
-      kubernetes.io/ingress.class: nginx
-  singleuser:
-    image:
-      name: registry.gitlab.com/ska-telescope/sdi/ska-cicd-deploy-low-itf/tango-notebook
-      tag: 0.1.1
-    extraEnv:
-      TANGO_HOST: "databaseds-tango-base-test.ska-low-mccs-daq:10000"
-  proxy:
-    service:
-      type: ClusterIP
 
 #Dissable all the TPMs except the one of interest.
 #From spshw we want a TPM and a Subrack simulator
