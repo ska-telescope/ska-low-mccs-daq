@@ -213,6 +213,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         else:
             self.state = DaqStatus.LISTENING
 
+    @check_initialisation
     def StartDaq(
         self: MccsDaqServer,
         request: daq_pb2.startDaqRequest,
@@ -395,7 +396,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         configuration_copy = configuration.copy()
 
         # Here we are casting to (str) type to match proto grpc configurations.
-        attributes_to_cast=["observation_metadata", "receiver_ports"]
+        attributes_to_cast = ["observation_metadata", "receiver_ports"]
 
         for attribute in attributes_to_cast:
             configuration_copy[attribute] = str(configuration_copy[attribute])
