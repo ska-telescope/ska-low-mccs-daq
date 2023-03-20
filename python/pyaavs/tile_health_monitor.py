@@ -71,6 +71,7 @@ class TileHealthMonitor:
             'temperature': self.get_fpga_temperature(fpga_id=None), 
             'voltage': self.get_voltage(fpga_id=None, voltage_name=None),
             'current': self.get_current(fpga_id=None, current_name=None),
+            'alarms' : None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms(),
             'timing': {
                 'clocks': self.check_clock_status(fpga_id=None, clock_name=None),
                 'clock_managers': self.check_clock_manager_status(fpga_id=None, name=None),
@@ -861,6 +862,7 @@ class TileHealthMonitor:
         EXP_TEMP, EXP_VOLTAGE, EXP_CURRENT = self.get_health_acceptance_values()
         health = {
             'temperature': EXP_TEMP, 'voltage': EXP_VOLTAGE, 'current': EXP_CURRENT,
+            'alarms': None if self.tpm_version() == "tpm_v1_2" else {'I2C_access_alm': 0, 'temperature_alm': 0, 'voltage_alm': 0, 'SEM_wd': 0, 'MCU_wd': 0},
             'timing': {
                 'clocks': {'FPGA0': {'JESD': True, 'DDR': True, 'UDP': True}, 'FPGA1': {'JESD': True, 'DDR': True, 'UDP': True}},
                 'clock_managers' : {
