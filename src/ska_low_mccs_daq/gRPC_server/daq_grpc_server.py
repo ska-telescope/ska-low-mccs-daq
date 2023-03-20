@@ -394,12 +394,11 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         # we make a copy as we want to modify type for gRPC communications.
         configuration_copy = configuration.copy()
 
-        # observation_metadata is returned from aavs library as a dict.
         # Here we are casting to (str) type to match proto grpc configurations.
-        configuration_copy["observation_metadata"] = str(
-            configuration_copy["observation_metadata"]
-        )
-        configuration_copy["receiver_ports"] = str(configuration_copy["receiver_ports"])
+        attributes_to_cast=["observation_metadata", "receiver_ports"]
+
+        for attribute in attributes_to_cast:
+            configuration_copy[attribute] = str(configuration_copy[attribute])
 
         return daq_pb2.ConfigurationResponse(**configuration_copy)
 

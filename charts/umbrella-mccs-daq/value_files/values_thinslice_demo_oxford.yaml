@@ -24,7 +24,6 @@ ska-low-mccs-spshw:
         2:
           enabled: false
         3:
-          host: 10.0.10.5 #Not needed as default (it is good practice to ensure this way?)
           enabled: true
           simulation_config: 0
         4:
