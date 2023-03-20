@@ -97,6 +97,8 @@ class TileHealthMonitor:
                 'udp_if': {
                     'arp': self.check_udp_arp_table_status(fpga_id=None, show_result=False),
                     'status': self.check_udp_status(fpga_id=None),
+                    'crc_error_count': self.check_udp_crc_error_counter(fpga_id=None),
+                    'bip_error_count': self.check_udp_bip_error_counter(fpga_id=None),
                     'linkup_loss_count': self.check_udp_linkup_loss_counter(fpga_id=None, show_result=False)
                 }
             }, 
@@ -792,6 +794,36 @@ class TileHealthMonitor:
         for fpga in self.fpga_gen(fpga_id):
             counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].check_linkup_loss_cnt(show_result)
         return counts # Return dict of counter values
+
+    def check_udp_crc_error_counter(self, fpga_id=None):
+        """
+        Check UDP interface for CRC errors.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: counter values
+        :rtype: dict
+        """
+        counts = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_crc_error_count()
+        return counts # Return dict of counter values
+    
+    def check_udp_bip_error_counter(self, fpga_id=None):
+        """
+        Check UDP interface for BIP errors.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: counter values
+        :rtype: dict
+        """
+        counts = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_bip_error_count()
+        return counts # Return dict of counter values
     
     def check_tile_beamformer_status(self, fpga_id=None):
         """
@@ -884,6 +916,11 @@ class TileHealthMonitor:
                     'qpll_status': {'FPGA0': (True, 0), 'FPGA1': (True, 0)}},
                 'ddr_if': {'initialisation': True, 'reset_counter': {'FPGA0': 0, 'FPGA1': 0}},
                 'f2f_if': {'pll_status': {'Core0': [(True, 0), (True, 0)], 'Core1': [(True, 0), (True, 0)]} if self.tpm_version() == "tpm_v1_2" else {'Core0' : (True, 0)}},
-                'udp_if': {'arp': True, 'status': True, 'linkup_loss_count': {'FPGA0': 0, 'FPGA1': 0}}},
+                'udp_if': {
+                    'arp': True, 
+                    'status': True, 
+                    'crc_error_count': {'FPGA0': 0, 'FPGA1': 0}, 
+                    'bip_error_count': {'FPGA0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}, 'FPGA1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}}, 
+                    'linkup_loss_count': {'FPGA0': 0, 'FPGA1': 0}}},
             'dsp': {'tile_beamf': True,'station_beamf': True}}
         return health
