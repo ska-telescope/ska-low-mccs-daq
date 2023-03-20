@@ -18,11 +18,40 @@ ska-low-mccs-spshw:
         host: subrack-simulator-1
   deviceServers:
     tpms:
-      enabled: false
       instances:
+        1:
+          enabled: false
+        2:
+          enabled: false
         3:
           enabled: true
           simulation_config: 0
+        4:
+          enabled: false
+        5:
+          enabled: false
+        6:
+          enabled: false
+        7:
+          enabled: false
+        8:
+          enabled: false
+        9:
+          enabled: false
+        10:
+          enabled: false
+        11:
+          enabled: false
+        12:
+          enabled: false
+        13:
+          enabled: false
+        14:
+          enabled: false
+        15:
+          enabled: false
+        16:
+          enabled: false
 
       logging_level_default: 5
       resources:
