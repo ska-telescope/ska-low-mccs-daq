@@ -15,8 +15,13 @@ from typing import Any, Optional, Union, cast
 
 import tango
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
-from ska_tango_base.base import SKABaseDevice
-from ska_tango_base.commands import DeviceInitCommand, FastCommand
+from ska_tango_base.base import BaseComponentManager, SKABaseDevice
+from ska_tango_base.commands import (
+    CommandTrackerProtocol,
+    DeviceInitCommand,
+    FastCommand,
+    SubmittedSlowCommand,
+)
 from tango.server import attribute, command, device_property
 
 from .daq_component_manager import DaqComponentManager
@@ -25,6 +30,66 @@ from .daq_health_model import DaqHealthModel
 __all__ = ["MccsDaqReceiver", "main"]
 
 DevVarLongStringArrayType = tuple[list[ResultCode], list[Optional[str]]]
+
+
+# pylint: disable-next=too-few-public-methods
+class _StartDaqCommand(SubmittedSlowCommand):
+    """
+    Class for handling the Start command.
+
+    This command starts the DAQ device to
+    listen for UDP traffic on a specific interface
+    A streamed gRPC response is returned with updates on the
+    state of DAQ.
+    """
+
+    def __init__(
+        self: _StartDaqCommand,
+        command_tracker: CommandTrackerProtocol,
+        component_manager: BaseComponentManager,
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
+        """
+        Initialise a new instance.
+
+        :param command_tracker: the device's command tracker
+        :param component_manager: the component manager on which this
+            command acts.
+        :param logger: a logger for this command to use.
+        """
+        super().__init__(
+            "Start",
+            command_tracker,
+            component_manager,
+            "start_daq",
+            callback=None,
+            logger=logger,
+        )
+
+    def do(  # type: ignore[override]
+        self: _StartDaqCommand,
+        *args: Any,
+        modes_to_start: str = "",
+        **kwargs: Any,
+    ) -> tuple[ResultCode, str]:
+        """
+        Implement :py:meth:`.MccsDaqReceiver.Start` command.
+
+        :param args: unspecified positional arguments. This should be
+            empty and is provided for typehinting purposes only.
+        :param modes_to_start: A DAQ mode, must be a string
+        :param kwargs: unspecified keyword arguments. This should be
+            empty and is provided for typehinting purposes only.
+
+        :return: A tuple containing a return code and a string
+                message indicating status. The message is for
+                information purpose only.
+        """
+        assert (
+            not args and not kwargs
+        ), f"do method has unexpected arguments: {args}, {kwargs}"
+
+        return super().do(modes_to_start)
 
 
 class MccsDaqReceiver(SKABaseDevice):
@@ -138,12 +203,21 @@ class MccsDaqReceiver(SKABaseDevice):
             ("SetConsumers", self.SetConsumersCommand),
             ("DaqStatus", self.DaqStatusCommand),
             ("GetConfiguration", self.GetConfigurationCommand),
-            ("Start", self.StartCommand),
             ("Stop", self.StopCommand),
         ]:
             self.register_command_object(
                 command_name,
                 command_object(self.component_manager, self.logger),
+            )
+
+        for (command_name, command_class) in [
+            ("Start", _StartDaqCommand),
+        ]:
+            self.register_command_object(
+                command_name,
+                command_class(
+                    self._command_tracker, self.component_manager, logger=self.logger
+                ),
             )
 
     # pylint: disable=too-few-public-methods
@@ -242,6 +316,10 @@ class MccsDaqReceiver(SKABaseDevice):
         :param additional_info: the tile number that the data was received from, or the
             amount of data received if the data_mode is station
         """
+        self.logger.info(
+            "Data of type %s has been written to file %s", data_mode, file_name
+        )
+
         event_value: dict[str, Union[str, int]] = {"filename": file_name}
         if data_mode == "station" and additional_info is not None:
             event_value["amount_of_data"] = additional_info
@@ -255,7 +333,9 @@ class MccsDaqReceiver(SKABaseDevice):
         ):
             self._received_data_mode = data_mode
             self._received_data_result = result
-            self.push_change_event("dataReceivedResult", (data_mode, result))
+            self.push_change_event(
+                "dataReceivedResult", (self._received_data_mode, "_")
+            )
 
     # ----------
     # Attributes
@@ -352,65 +432,33 @@ class MccsDaqReceiver(SKABaseDevice):
         status["Daq Health"] = health_state
         return json.dumps(status)
 
-    # pylint: disable=too-few-public-methods
-    class StartCommand(FastCommand):
-        """Class for handling the Start(argin) command."""
-
-        def __init__(  # type: ignore
-            self: MccsDaqReceiver.StartCommand,
-            component_manager,
-            logger: Optional[logging.Logger] = None,
-        ) -> None:
-            """
-            Initialise a new StartCommand instance.
-
-            :param component_manager: the device to which this command belongs.
-            :param logger: a logger for this command to use.
-            """
-            self._component_manager = component_manager
-            super().__init__(logger)
-
-        # pylint: disable=arguments-differ
-        def do(  # type: ignore[override]
-            self: MccsDaqReceiver.StartCommand,
-            argin: str = "",
-        ) -> tuple[ResultCode, str]:
-            """
-            Implement MccsDaqReceiver.StartCommand command functionality.
-
-            :param argin: String representing the DaqModes and their
-                corresponding callbacks to start or an empty string.
-
-            :return: A tuple containing a return code and a string
-                message indicating status. The message is for
-                information purpose only.
-            """
-            return self._component_manager.start_daq(argin)
-
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
     def Start(self: MccsDaqReceiver, argin: str = "") -> DevVarLongStringArrayType:
         """
         Start the DaqConsumers.
 
         The MccsDaqReceiver will begin watching the interface specified in the
-        configuration and will start the configured consumers.
+            configuration and will start the configured consumers.
 
-        :param argin: String representing the DaqModes and their
-            corresponding callbacks to start or an empty string.
-
+        :param argin: A json dictionary with optional keywords.
+            '{"modes_to_start"}'.
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
 
         :example:
             >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
-            >>> consumers = "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
-            >>> daq.Start(consumers)    # Uses specified consumers.
-            >>> daq.Start("")           # Uses default consumers.
+            >>> argin = '{"modes_to_start": "INTEGRATED_CHANNEL_DATA,
+            RAW_DATA"}'
+            >>> daq.Start(argin) # use specified consumers
+            >>> daq.Start("") # Uses default consumers.
         """
+        if argin != "":
+            kwargs = json.loads(argin)
+        else:
+            kwargs = {}
         handler = self.get_command_object("Start")
-        (result_code, message) = handler(argin)
-
+        (result_code, message) = handler(**kwargs)
         return ([result_code], [message])
 
     # pylint: disable=too-few-public-methods
@@ -527,11 +575,11 @@ class MccsDaqReceiver(SKABaseDevice):
         return ([result_code], [message])
 
     @command(dtype_out="DevString")
-    def GetConfiguration(self: MccsDaqReceiver) -> dict[str, Any]:
+    def GetConfiguration(self: MccsDaqReceiver) -> str:
         """
         Get the Configuration from DAQ.
 
-        :return: A dictionary of the configuration.
+        :return: A JSON-encoded dictionary of the configuration.
 
         :example:
             >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
@@ -567,7 +615,8 @@ class MccsDaqReceiver(SKABaseDevice):
 
             :return: The configuration as received from pydaq
             """
-            return self._component_manager.get_configuration()
+            response = self._component_manager.get_configuration()
+            return json.dumps(response)
 
     # pylint: disable=too-few-public-methods
     class SetConsumersCommand(FastCommand):

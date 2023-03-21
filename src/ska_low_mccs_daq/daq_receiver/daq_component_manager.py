@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from typing import Any, Callable, Optional
 
 import grpc
+from google.protobuf.json_format import MessageToDict
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_low_mccs_common.component import (
     MccsComponentManager,
@@ -42,7 +44,7 @@ class DaqComponentManager(MccsComponentManager):
         max_workers: int,
         communication_state_changed_callback: Callable[[CommunicationStatus], None],
         component_state_changed_callback: Callable[[dict[str, Any]], None],
-        received_data_callback: Callable[[str, str, int], None],
+        received_data_callback: Callable[[str, str], None],
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -161,7 +163,7 @@ class DaqComponentManager(MccsComponentManager):
         return daq_config
 
     @check_communicating
-    def get_configuration(self: DaqComponentManager) -> dict[str, Any]:
+    def get_configuration(self: DaqComponentManager) -> dict[str, str]:
         """
         Get the active configuration from DAQ.
 
@@ -171,7 +173,8 @@ class DaqComponentManager(MccsComponentManager):
         with grpc.insecure_channel(self._grpc_channel) as channel:
             stub = daq_pb2_grpc.DaqStub(channel)
             response = stub.GetConfiguration(daq_pb2.getConfigRequest())
-        return json.loads(response.config)
+
+        return MessageToDict(message=response, preserving_proto_field_name=True)
 
     def _set_consumers_to_start(
         self: DaqComponentManager, consumers_to_start: str
@@ -221,39 +224,107 @@ class DaqComponentManager(MccsComponentManager):
     @check_communicating
     def start_daq(
         self: DaqComponentManager,
-        modes_to_start: str = "",
+        modes_to_start: str,
         task_callback: Optional[Callable] = None,
-    ) -> tuple[ResultCode, str]:
+    ) -> tuple[TaskStatus, str]:
         """
         Start data acquisition with the current configuration.
 
         Extracts the required consumers from configuration and starts
         them.
 
-        :param modes_to_start: The DAQ consumers to start.
+        :param modes_to_start: A comma separated string of daq modes.
         :param task_callback: Update task state, defaults to None
 
         :return: a task status and response message
         """
-        self.logger.info("In start_daq")
-        if task_callback:
-            task_callback(status=TaskStatus.IN_PROGRESS)
-        # Retrieve default list of modes to start if not provided.
-        if modes_to_start == "":
-            modes_to_start = self._consumers_to_start
+        return self.submit_task(
+            self._start_daq,
+            args=[modes_to_start],
+            task_callback=task_callback,
+        )
 
-        with grpc.insecure_channel(self._grpc_channel) as channel:
-            stub = daq_pb2_grpc.DaqStub(channel)
-            response = stub.StartDaq(
-                daq_pb2.startDaqRequest(modes_to_start=modes_to_start)
-            )
+    def _start_daq(
+        self: DaqComponentManager,
+        modes_to_start: str,
+        task_callback: Callable,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
+        """
+        Start DAQ on the gRPC server, stream response.
 
+        This will request the gRPC server to send a streamed response,
+        We can then loop through the responses and respond. The reason we use
+        a streamed response rather than a callback is there is no
+        obvious way to register a callback mechanism in gRPC.
+
+        :param modes_to_start: A comma separated string of daq modes.
+        :param task_callback: Update task state, defaults to None
+        :param task_abort_event: Check for abort, defaults to None
+
+        :return: none
+        """
         if task_callback:
-            if response.result_code == ResultCode.OK.value:
-                task_callback(status=TaskStatus.COMPLETED)
-            else:
-                task_callback(status=TaskStatus.FAILED)
-        return (response.result_code, response.message)
+            task_callback(status=TaskStatus.QUEUED)
+        try:
+            if modes_to_start == "":
+                modes_to_start = self._consumers_to_start
+            with grpc.insecure_channel(self._grpc_channel) as channel:
+                stub = daq_pb2_grpc.DaqStub(channel)
+                responses = stub.StartDaq(
+                    daq_pb2.startDaqRequest(
+                        modes_to_start=modes_to_start,
+                    )
+                )
+                task_callback(
+                    status=TaskStatus.IN_PROGRESS,
+                    result="Start Command issued to gRPC stub",
+                )
+                # TODO: this can probably be made more generic, but not
+                # needed for now as only one instance of a streamed response.
+                self._evaluate_start_daq_responses(responses, task_callback)
+
+        # pylint: disable-next=broad-except
+        except Exception as e:
+            if task_callback:
+                task_callback(status=TaskStatus.FAILED, result=f"Exception: {e}")
+            return
+
+    def _evaluate_start_daq_responses(
+        self: DaqComponentManager, responses: Any, task_callback: Callable
+    ) -> None:
+        """
+        Evaluate the responses from gRPC server.
+
+        :param responses: The streamed gRPC responses
+        :param task_callback: Update task state, defaults to None
+        """
+        for response in responses:
+            if response.HasField("call_state"):
+                daq_state = response.call_state.state
+                self.logger.info(
+                    f"gRPC callState: {daq_pb2.CallState.State.Name(daq_state)}"
+                )
+                # When we start the daq it will respond with a streaming update
+                # When it streams listening we notify the task_callback.
+                if daq_state == daq_pb2.CallState.State.LISTENING:
+                    task_callback(
+                        status=TaskStatus.COMPLETED,
+                        result="Daq has been started and is listening",
+                    )
+                # When stopped we need to ensure we clean up the thread.
+                # This is done with responses.cancel()
+                if daq_state == daq_pb2.CallState.State.STOPPED:
+                    # First the gRPC server hangs up the call.
+                    # then the Client hangs up the call.
+                    responses.cancel()
+
+            if response.HasField("call_info"):
+                data_types_received = response.call_info.data_types_received
+                files_written = response.call_info.files_written
+                self.logger.info(f"File: {files_written}, Type: {data_types_received}")
+                # send all this information to the callback
+                self._received_data_callback(data_types_received, files_written)
 
     @check_communicating
     def stop_daq(

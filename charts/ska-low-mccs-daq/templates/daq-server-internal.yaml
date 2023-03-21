@@ -1,0 +1,91 @@
+{{ define "ska-low-mccs-daq.daq-server-internal.tpl" }}
+---
+{{ $device_name := .name }}
+{{ $device_spec := .device }}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $device_name }}-data-svc
+  namespace: {{ $.local.Release.Namespace }}
+  labels:
+    component: {{ $device_name}}-data-svc
+spec:
+  ports:
+  - name: {{ $device_name }}-data-port
+    port: {{ $device_spec.receiver_port }}
+    targetPort: {{ $device_spec.receiver_port }}
+    protocol: UDP
+  type: LoadBalancer
+  selector:
+    component: {{ $device_name }}-data-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $device_name}}-grpc-svc
+  namespace: {{ $.local.Release.Namespace }}
+  labels:
+    component: {{ $device_name}}-grpc-svc
+spec:
+  ports:
+  - name: {{ $device_name }}-grpc-port
+    port: {{ $device_spec.grpc_port }}
+    targetPort: {{ $device_spec.grpc_port }}
+    protocol: TCP
+  type: NodePort
+  selector:
+    component: {{ $device_name }}-data-server
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $device_name }}-data-server
+  namespace: {{ $.local.Release.Namespace }}
+  labels:
+    component: {{ $device_name }}-data-server
+spec:
+  selector:
+    matchLabels:
+      component: {{ $device_name }}-data-server
+  serviceName: {{ $device_name }}-data-svc
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        component: {{ $device_name }}-data-server
+    spec:
+      containers:
+      - name: {{ $device_name }}-data-server
+        image: {{$.local.Values.low_mccs_daq.image.registry}}/{{$.local.Values.low_mccs_daq.image.image}}:{{$.local.Values.low_mccs_daq.image.tag}}
+        imagePullPolicy: IfNotPresent
+        command:
+          - retry
+          - --max=60
+          - --
+          #- MccsDaqServer
+          - python /app/src/ska_low_mccs_daq/gRPC_server/daq_grpc_server.py
+        env:
+          - name: DAQ_DATA_PORT
+            value: "{{ $device_spec.receiver_port }}"
+          - name: DAQ_DATA_SVC_NAME
+            value: "{{ $device_name}}-data-svc"
+          - name: DAQ_GRPC_PORT
+            value: "{{ $device_spec.grpc_port }}"
+          - name: DAQ_GRPC_SVC_NAME
+            value: "{{ $device_name }}-data-svc"
+        ports:
+          - containerPort: {{ $device_spec.receiver_port }}
+            protocol: UDP
+          - containerPort: {{ $device_spec.grpc_port }}
+            protocol: TCP
+        securityContext:
+          capabilities:
+            add:
+            - NET_RAW
+            - IPC_LOCK
+            - SYS_NICE
+            - SYS_ADMIN
+            - KILL
+            - SYS_TIME
+{{- end }}

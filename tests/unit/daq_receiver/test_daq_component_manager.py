@@ -98,10 +98,10 @@ class TestDaqComponentManager:
         daq_component_manager.configure_daq(json.dumps(non_standard_config))
 
         # 3. Assert config was applied.
-        daq_config = daq_component_manager.get_configuration()
-        assert daq_config["receiver_ports"] == [9876]
-        assert daq_config["nof_tiles"] == 55
-        assert daq_config["nof_channels"] == 1234
+        daq_config_dict = daq_component_manager.get_configuration()
+        assert daq_config_dict["receiver_ports"] == "[9876]"
+        assert daq_config_dict["nof_tiles"] == 55
+        assert daq_config_dict["nof_channels"] == 1234
 
         # 4. Imitate adminMode cycling by calling stop/start comms.
         daq_component_manager.stop_communicating()
@@ -119,10 +119,10 @@ class TestDaqComponentManager:
         )
 
         # 5. Assert that our previously set config remains valid.
-        daq_config = daq_component_manager.get_configuration()
-        assert daq_config["receiver_ports"] == [9876]
-        assert daq_config["nof_tiles"] == 55
-        assert daq_config["nof_channels"] == 1234
+        daq_config_dict = daq_component_manager.get_configuration()
+        assert daq_config_dict["receiver_ports"] == "[9876]"
+        assert daq_config_dict["nof_tiles"] == 55
+        assert daq_config_dict["nof_channels"] == 1234
 
     # Not compiled with correlator currently.
     @pytest.mark.parametrize(
@@ -244,15 +244,24 @@ class TestDaqComponentManager:
 
         # Start DAQ and check our consumer is running.
         # Need exactly 1 callback per consumer started or None. Cast for Mypy.
-        rc, message = daq_component_manager.start_daq(
+        ts, message = daq_component_manager.start_daq(
             daq_modes,
-            task_callback=callbacks["task"],
+            task_callback=callbacks["task_start_daq"],
         )
-        assert rc == ResultCode.OK.value
-        assert message == "Daq started"
+        # assert rc == ResultCode.OK.value
+        # assert message == "Daq started"
+        assert ts == TaskStatus.QUEUED
+        assert message == "Task queued"
 
-        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
-        callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
+        # TODO: Why is this queued 2 times?
+        callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task_start_daq"].assert_call(
+            status=TaskStatus.IN_PROGRESS, result="Start Command issued to gRPC stub"
+        )
+        callbacks["task_start_daq"].assert_call(
+            status=TaskStatus.COMPLETED, result="Daq has been started and is listening"
+        )
 
         converted_daq_modes: list[DaqModes] = convert_daq_modes(daq_modes)
         # for mode in daq_modes:
@@ -261,7 +270,9 @@ class TestDaqComponentManager:
         # mode_to_check = DaqModes(mode)
         # status will not have health info when cpt mgr method is directly called.
         status = json.loads(daq_component_manager.daq_status())
+
         running_consumers = status["Running Consumers"]
+
         for i, mode_to_check in enumerate(converted_daq_modes):
             assert mode_to_check.value in running_consumers[i]
 
@@ -276,6 +287,9 @@ class TestDaqComponentManager:
         # callbacks["task"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
         callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
+        # Once we issue the stop command on the DAQ this will stop the thread
+        # with the streamed response. We need to wait for the start_daq thread
+        # to complete.
 
         # for mode in daq_modes:
         # If we're using ints instead of DaqModes make the conversion so we
@@ -299,8 +313,8 @@ class TestDaqComponentManager:
             "DaqModes.CORRELATOR_DATA",
             "DaqModes.ANTENNA_BUFFER",
             "",  # Default behaviour.
-            "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
-            " DaqModes.INTEGRATED_CHANNEL_DATA",
+            "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA",
+            "DaqModes.INTEGRATED_CHANNEL_DATA",
         ),
     )
     def test_set_get_consumer_list(
