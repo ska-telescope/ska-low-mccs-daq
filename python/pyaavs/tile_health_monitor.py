@@ -37,14 +37,17 @@ def communication_check(func):
     def inner_func(self):
         try:
             magic0 = self[0x4]
-            magic1 = self[0x10000004]
-            if magic0 == magic1 == 0xA1CE55AD:
-                return func(self)
-            else:
-                self.logger.info(f"FPGA magic numbers are not correct {hex(magic0)}, {hex(magic1)}")
-                return
         except:
-            raise BoardError(f"Not possible to communicate with the FPGAs.")
+            raise BoardError(f"Not possible to communicate with the FPGA0")
+        try:
+            magic1 = self[0x10000004]
+        except:
+            raise BoardError(f"Not possible to communicate with the FPGA1")
+        if magic0 == magic1 == 0xA1CE55AD:
+            return func(self)
+        else:
+            self.logger.info(f"FPGA magic numbers are not correct {hex(magic0)}, {hex(magic1)}")
+            return
     return inner_func
 
 class TileHealthMonitor:
