@@ -417,8 +417,9 @@ class Tile(TileHealthMonitor):
         self.set_time_delays(time_delays)
 
         # set first/last tile flag
-        for _station_beamf in self.tpm.station_beamf:
-            _station_beamf.set_first_last_tile(is_first_tile, is_last_tile)
+        if self.tpm.tpm_test_firmware[0].station_beamformer_implemented:
+            for _station_beamf in self.tpm.station_beamf:
+                _station_beamf.set_first_last_tile(is_first_tile, is_last_tile)
 
     def program_fpgas(self, bitfile):
         """
@@ -2132,6 +2133,71 @@ class Tile(TileHealthMonitor):
         self.logger.info("Stopping all transmission")
         # All data format transmission except channelised data continuous stops autonomously
         self.stop_channelised_data_continuous()
+
+    # ---------------------------- Wrapper for multi channel acquisition ------------------------------------
+    # -------------------- multichannel_tx is experimental - not needed in MCCS -----------------------------
+    @connected
+    def set_multi_channel_tx(self, instance_id, channel_id, destination_id):
+        """ Set multichannel transmitter instance
+        :param instance_id: Transmitter instance ID
+        :param channel_id: Channel ID
+        :param destination_id: 40G destination ID"""
+
+        if not self.tpm.tpm_test_firmware[0].multiple_channel_tx_implemented:
+            self.logger.error("Multichannel transmitter is not implemented in current FPGA firmware")
+
+        # Data transmission should be synchronised across FPGAs
+        self.tpm.multiple_channel_tx[0].set_instance(instance_id, channel_id, destination_id)
+        self.tpm.multiple_channel_tx[1].set_instance(instance_id, channel_id, destination_id)
+
+    @connected
+    def start_multi_channel_tx(self, instances, timestamp=None, seconds=0.2):
+        """ Start multichannel data transmission from the TPM
+        :param instances: 64 bit integer, each bit addresses the corresponding TX transmitter
+        :param seconds: synchronisation delay ID"""
+
+        if not self.tpm.tpm_test_firmware[0].multiple_channel_tx_implemented:
+            self.logger.error("Multichannel transmitter is not implemented in current FPGA firmware")
+
+        if timestamp is None:
+            t0 = max(
+                self.tpm["fpga1.pps_manager.timestamp_read_val"],
+                self.tpm["fpga2.pps_manager.timestamp_read_val"],
+            )
+        else:
+            t0 = timestamp
+
+        # Set arm timestamp
+        # delay = number of frames to delay * frame time (shift by 8)
+        delay = seconds * (1 / (1080 * 1e-9) / 256)
+        t1 = t0 + int(delay)
+
+        self.tpm.multiple_channel_tx[0].start(instances, t1)
+        self.tpm.multiple_channel_tx[1].start(instances, t1)
+
+        tn1 = self.tpm["fpga1.pps_manager.timestamp_read_val"]
+        tn2 = self.tpm["fpga2.pps_manager.timestamp_read_val"]
+        if max(tn1, tn2) >= t1:
+            self.logger.error("Synchronised operation failed!")
+
+    @connected
+    def stop_multi_channel_tx(self):
+        """ Stop multichannel TX data transmission """
+        if not self.tpm.tpm_test_firmware[0].multiple_channel_tx_implemented:
+            self.logger.error("Multichannel transmitter is not implemented in current FPGA firmware")
+
+        self.tpm.multiple_channel_tx[0].stop()
+        self.tpm.multiple_channel_tx[1].stop()
+
+    def set_multi_channel_dst_ip(self, dst_ip, destination_id):
+        """ Set destination IP for a multichannel destination ID
+                :param dst_ip: Destination IP address
+                :param destination_id: 40G destination ID"""
+        if not self.tpm.tpm_test_firmware[0].multiple_channel_tx_implemented:
+            self.logger.error("Multichannel transmitter is not implemented in current FPGA firmware")
+
+        for udp_core in self.tpm.tpm_10g_core:
+            udp_core.set_dst_ip(dst_ip, destination_id)
 
     # ----------------------------
     # Wrapper for preadu methods

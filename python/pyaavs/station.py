@@ -721,6 +721,32 @@ class Station(object):
         logging.debug("Data sync check: timestamp={}, delay={}".format(str(timestamps), delay))
         return all([(t0 + delay) > t1 for t1 in timestamps])
 
+    # ------------------------------------ MULTICHANNEL TX DATA OPERATIONS -----------------------------
+    def set_multi_channel_tx(self, instance_id, channel_id, destination_id):
+        """ Set multichannel transmitter instance
+        :param instance_id: Transmitter instance ID
+        :param channel_id: Channel ID
+        :param destination_id: 40G destination ID"""
+        for tile in self.tiles:
+            tile.set_multi_channel_tx(instance_id, channel_id, destination_id)
+
+    def start_multi_channel_tx(self, instances, seconds=0.2):
+        """ Start multichannel data transmission from the TPM
+        :param instances: 64 bit integer, each bit addresses the corresponding TX transmitter
+        :param seconds: synchronisation delay ID"""
+        t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
+        for tile in self.tiles:
+            tile.start_multi_channel_tx(instances, t0, seconds=1)
+
+    def stop_multi_channel_tx(self):
+        """ Stop multichannel TX data transmission """
+        for tile in self.tiles:
+            tile.stop_multi_channel_tx()
+
+    def set_multi_channel_dst_ip(self, dst_ip, destination_id):
+        for tile in self.tiles:
+            tile.set_multi_channel_dst_ip(dst_ip, destination_id)
+
     # ------------------------------------------- TEST FUNCTIONS ---------------------------------------
 
     # ------------------------------------------- OVERLOADED FUNCTIONS ---------------------------------------
