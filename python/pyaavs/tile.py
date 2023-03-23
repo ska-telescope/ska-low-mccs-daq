@@ -322,6 +322,9 @@ class Tile(TileHealthMonitor):
             self.logger.error("Cannot initialise board which is not programmed")
             return
 
+        # Set board shutdown temperature. The CPLD will shut off the FPGAs if board temperature goes above 70 degrees.
+        self.tpm.set_shutdown_temperature(70)
+
         # Disable debug UDP header
         self['board.regfile.header_config'] = 0x2
 
