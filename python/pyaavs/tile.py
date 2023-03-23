@@ -1781,7 +1781,7 @@ class Tile(TileHealthMonitor):
             self.tpm["fpga1.lmc_gen.request"] != 0
             or self.tpm["fpga2.lmc_gen.request"] != 0
         ):
-            self.logger.info("Waiting for enable to be reset")
+            self.logger.info("Waiting for data request to be cleared by firmware...")
             time.sleep(0.05)
 
         self.logger.debug("Command accepted")
