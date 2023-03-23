@@ -1774,6 +1774,9 @@ class Tile(TileHealthMonitor):
 
         :param seconds: Number of seconds to delay operation
         :param timestamp: Timestamp at which tile will be synchronised
+
+        :return: timestamp written into FPGA timestamp request register
+        :rtype: int
         """
         # Wait while previous data requests are processed
         while (
@@ -1800,17 +1803,25 @@ class Tile(TileHealthMonitor):
         t1 = t0 + int(delay)
         for fpga in self.tpm.tpm_fpga:
             fpga.fpga_apply_sync_delay(t1)
+        return t1
 
     @connected
-    def check_synchronised_data_operation(self):
+    def check_synchronised_data_operation(self, requested_timestamp=None):
         """
         Check if synchronise data operations between FPGAs is successful.
+
+        :param requested_timestamp: Timestamp written into FPGA timestamp request register, if None it will be read
+        from the FPGA register
 
         :return: Operation success
         :rtype: bool
         """
-        t_arm1 = self.tpm["fpga1.pps_manager.timestamp_req_val"]
-        t_arm2 = self.tpm["fpga2.pps_manager.timestamp_req_val"]
+        if requested_timestamp is None:
+            t_arm1 = self.tpm["fpga1.pps_manager.timestamp_req_val"]
+            t_arm2 = self.tpm["fpga2.pps_manager.timestamp_req_val"]
+        else:
+            t_arm1 = requested_timestamp
+            t_arm2 = requested_timestamp
         t_now1 = self.tpm["fpga1.pps_manager.timestamp_read_val"]
         t_now2 = self.tpm["fpga2.pps_manager.timestamp_read_val"]
         t_now_max = max(t_now1, t_now2)
@@ -2007,7 +2018,7 @@ class Tile(TileHealthMonitor):
 
         self.stop_data_transmission()
         # Data transmission should be synchronised across FPGAs
-        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+        t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
         # Send data from all FPGAs
         if fpga_id is None:
@@ -2021,7 +2032,7 @@ class Tile(TileHealthMonitor):
                 self.tpm.tpm_test_firmware[i].send_raw_data()
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation()
+        self.check_synchronised_data_operation(t_request)
 
     @connected
     def send_raw_data_synchronised(
@@ -2063,7 +2074,7 @@ class Tile(TileHealthMonitor):
 
         self.stop_data_transmission()
         # Data transmission should be synchronised across FPGAs
-        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+        t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
         # Send data from all FPGAs
         for i in range(len(self.tpm.tpm_test_firmware)):
@@ -2072,7 +2083,7 @@ class Tile(TileHealthMonitor):
             )
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation()
+        self.check_synchronised_data_operation(t_request)
 
     # ---------------------------- Wrapper for data acquisition: BEAM ------------------------------------
     @connected
@@ -2084,14 +2095,14 @@ class Tile(TileHealthMonitor):
 
         self.stop_data_transmission()
         # Data transmission should be syncrhonised across FPGAs
-        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+        t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
         # Send data from all FPGAs
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].send_beam_data()
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation()
+        self.check_synchronised_data_operation(t_request)
 
     # ---------------------------- Wrapper for data acquisition: CONT CHANNEL ----------------------------
     @connected
@@ -2114,7 +2125,7 @@ class Tile(TileHealthMonitor):
 
         self.stop_data_transmission()
         # Data transmission should be synchronised across FPGAs
-        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+        t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].send_channelised_data_continuous(
@@ -2122,7 +2133,7 @@ class Tile(TileHealthMonitor):
             )
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation()
+        self.check_synchronised_data_operation(t_request)
 
     # ---------------------------- Wrapper for data acquisition: NARROWBAND CHANNEL ----------------------------
     @connected
@@ -2147,7 +2158,7 @@ class Tile(TileHealthMonitor):
 
         self.stop_data_transmission()
         # Data transmission should be synchronised across FPGAs
-        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+        t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].send_channelised_data_narrowband(
@@ -2155,7 +2166,7 @@ class Tile(TileHealthMonitor):
             )
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation()
+        self.check_synchronised_data_operation(t_request)
 
     def stop_channelised_data_continuous(self):
         """ Stop sending channelised data """
