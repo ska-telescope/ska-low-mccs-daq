@@ -326,28 +326,29 @@ class TpmTestFirmware(FirmwareBlock):
         :param first_channel: First channel transmitted
         :param last_channel: Last channel transmitted + 1 (python range convention)
         """
+
+        # get bitfiled configuration of single_channel_mode register
+        single_channel_mode_enable_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"].shift
+        single_channel_mode_last_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.last"].shift
+        single_channel_mode_last_id = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"].shift
+
+        # build register value
+        single_channel_mode_register = (0 << single_channel_mode_enable_shift) | \
+                                       (last_channel << single_channel_mode_last_shift) | \
+                                       (first_channel << single_channel_mode_last_id)
+
+        # write register value into firmware register
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode"
+        ] = single_channel_mode_register
+
         self.board[self._device_name + ".lmc_gen.channelized_pkt_length"] = (
             number_of_samples - 1
         )
-        self.board[
-            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"
-        ] = first_channel
-        if (
-            len(
-                self.board.find_register(
-                    self._device_name + ".lmc_gen.channelized_single_channel_mode.last"
-                )
-            )
-            != 0
-        ):
-            self.board[
-                self._device_name + ".lmc_gen.channelized_single_channel_mode.last"
-            ] = last_channel
-        else:
-            if last_channel != 511:
-                logging.warning(
-                    "Burst channel data in chunk mode is not supported by the running FPGA firmware"
-                )
+
         if (
             len(
                 self.board.find_register(
@@ -368,13 +369,29 @@ class TpmTestFirmware(FirmwareBlock):
         :param channel_id: Channel ID
         :param number_of_samples: contiguous time samples sent per channel
         """
-        self.board[self._device_name + ".lmc_gen.channelized_single_channel_mode"] = (
-            channel_id & 0x1FF
-        ) | 0x80000000
+
+        # get bitfiled configuration of single_channel_mode register
+        single_channel_mode_enable_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"].shift
+        single_channel_mode_last_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.last"].shift
+        single_channel_mode_last_id = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"].shift
+
+        # build register value
+        single_channel_mode_register = (1 << single_channel_mode_enable_shift) | \
+                                       (0x1FF << single_channel_mode_last_shift) | \
+                                       (channel_id << single_channel_mode_last_id)
+
+        # write register value into firmware register
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode"
+            ] = single_channel_mode_register
+
         self.board[self._device_name + ".lmc_gen.channelized_pkt_length"] = (
             number_of_samples - 1
         )
-        self.board[self._device_name + ".lmc_gen.request.channelized_data"] = 0x1
+
         if (
             len(
                 self.board.find_register(
@@ -384,6 +401,7 @@ class TpmTestFirmware(FirmwareBlock):
             != 0
         ):
             self.board[self._device_name + ".lmc_gen.channelized_ddc_mode"] = 0x0
+        self.board[self._device_name + ".lmc_gen.request.channelized_data"] = 0x1
 
     def send_channelised_data_narrowband(
         self: TpmTestFirmware,
@@ -398,6 +416,20 @@ class TpmTestFirmware(FirmwareBlock):
         :param round_bits: number of bits rounded after filter
         :param number_of_samples: samples per lmc packet
         """
+
+        if (
+                len(
+                    self.board.find_register(
+                        self._device_name + ".lmc_gen.channelized_ddc_mode"
+                    )
+                )
+                == 0
+        ):
+            logging.error(
+                "Narrowband channelizer is not implemented in current FPGA firmware!"
+            )
+            return
+
         channel_spacing = 800e6 / 1024
         downsampling_factor = 128
         # Number of LO steps in the channel spacing
@@ -412,9 +444,24 @@ class TpmTestFirmware(FirmwareBlock):
         lo_frequency = (
             int(round((hw_frequency - channel_id) * lo_steps_per_channel)) & 0xFFFFFF
         )
-        self.board[self._device_name + ".lmc_gen.channelized_single_channel_mode"] = (
-            channel_id & 0x1FF
-        ) | 0x80000000
+
+        # get bitfiled configuration of single_channel_mode register
+        single_channel_mode_enable_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"].shift
+        single_channel_mode_last_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.last"].shift
+        single_channel_mode_last_id = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"].shift
+
+        # build register value
+        single_channel_mode_register = (1 << single_channel_mode_enable_shift) | \
+                                       (0x1FF << single_channel_mode_last_shift) | \
+                                       (channel_id << single_channel_mode_last_id)
+
+        # write register value into firmware register
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode"
+            ] = single_channel_mode_register
         self.board[self._device_name + ".lmc_gen.channelized_pkt_length"] = (
             number_of_samples * downsampling_factor - 1
         )
