@@ -129,7 +129,7 @@ class TileHealthMonitor:
 
     def get_health_acceptance_values(self):
         EXP_TEMP = {
-            "board": { "min": 10.00, "max": 65.00},
+            "board": { "min": 10.00, "max": 68.00},
             "FPGA0": { "min": 10.00, "max": 95.00},
             "FPGA1": { "min": 10.00, "max": 95.00}
         }
