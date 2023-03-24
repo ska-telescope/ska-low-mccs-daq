@@ -15,6 +15,7 @@ pyfabil low level software and specific hardware module plugins.
 
 from pyfabil.base.definitions import LibraryError, BoardError
 
+
 def health_monitoring_compatible(func):
     """
     Decorator method to check if provided firmware supports TPM health monitoring.
@@ -24,31 +25,36 @@ def health_monitoring_compatible(func):
     def inner_func(self):
         try:
             self['fpga1.pps_manager.pps_errors']
-        except:
+        except Exception as e:  # noqa: F841
             raise LibraryError(f"TPM Health Monitoring not supported by FPGA firmware!")
         return func(self)
     return inner_func
 
+
 def communication_check(func):
     """
     Decorator method to check if communication is established between FPGA and CPLD.
-    Non destructive version of tile tpm_communication_check.
+    Non-destructive version of tile tpm_communication_check.
     """
     def inner_func(self):
         try:
             magic0 = self[0x4]
-        except:
-            raise BoardError(f"Not possible to communicate with the FPGA0")
+        except Exception as e:  # noqa: F841
+            raise BoardError(f"Not possible to communicate with the FPGA0: " + str(e))
         try:
             magic1 = self[0x10000004]
-        except:
-            raise BoardError(f"Not possible to communicate with the FPGA1")
+        except Exception as e:  # noqa: F841
+            raise BoardError(f"Not possible to communicate with the FPGA1: " + str(e))
         if magic0 == magic1 == 0xA1CE55AD:
             return func(self)
         else:
-            self.logger.info(f"FPGA magic numbers are not correct {hex(magic0)}, {hex(magic1)}")
+            if magic0 != 0xA1CE55AD:
+                self.logger.error(f"FPGA0 magic number is not correct {hex(magic0)}, expected: 0xA1CE55AD")
+            if magic1 != 0xA1CE55AD:
+                self.logger.error(f"FPGA1 magic number is not correct {hex(magic1)}, expected: 0xA1CE55AD")
             return
     return inner_func
+
 
 class TileHealthMonitor:
     """
@@ -145,7 +151,7 @@ class TileHealthMonitor:
             "SW_AVDD2"    : { "min": 2.560, "max": 2.840},
             "SW_AVDD3"    : { "min": 3.320, "max": 3.680},
             "VCC_AUX"     : { "min": 1.710, "max": 1.890},
-            "VIN"         : { "min": 11.40, "max": 12.60, "skip": True}, # TODO: add support for this measurement
+            "VIN"         : { "min": 11.40, "max": 12.60, "skip": True},  # TODO: add support for this measurement
             "VM_ADA0"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
             "VM_ADA1"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
             "VM_AGP0"     : { "min": 0.900, "max": 1.060},
