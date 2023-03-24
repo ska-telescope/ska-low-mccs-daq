@@ -13,18 +13,64 @@ This depends heavily on the
 pyfabil low level software and specific hardware module plugins.
 """
 
+from pyfabil.base.definitions import LibraryError, BoardError
+
+
+def health_monitoring_compatible(func):
+    """
+    Decorator method to check if provided firmware supports TPM health monitoring.
+    Achieved by attempting to access a register which was added for TPM health monitoring.
+    Bitstreams generated prior to ~03/2023 will not support TPM health monitoring.
+    """
+    def inner_func(self):
+        try:
+            self['fpga1.pps_manager.pps_errors']
+        except Exception as e:  # noqa: F841
+            raise LibraryError(f"TPM Health Monitoring not supported by FPGA firmware!")
+        return func(self)
+    return inner_func
+
+
+def communication_check(func):
+    """
+    Decorator method to check if communication is established between FPGA and CPLD.
+    Non-destructive version of tile tpm_communication_check.
+    """
+    def inner_func(self):
+        try:
+            magic0 = self[0x4]
+        except Exception as e:  # noqa: F841
+            raise BoardError(f"Not possible to communicate with the FPGA0: " + str(e))
+        try:
+            magic1 = self[0x10000004]
+        except Exception as e:  # noqa: F841
+            raise BoardError(f"Not possible to communicate with the FPGA1: " + str(e))
+        if magic0 == magic1 == 0xA1CE55AD:
+            return func(self)
+        else:
+            if magic0 != 0xA1CE55AD:
+                self.logger.error(f"FPGA0 magic number is not correct {hex(magic0)}, expected: 0xA1CE55AD")
+            if magic1 != 0xA1CE55AD:
+                self.logger.error(f"FPGA1 magic number is not correct {hex(magic1)}, expected: 0xA1CE55AD")
+            return
+    return inner_func
+
 
 class TileHealthMonitor:
     """
     Tile Health Monitor Mixin Class, must be inherited by Tile Class
     """
-    
+
+    @communication_check
+    @health_monitoring_compatible
     def enable_health_monitoring(self):
         # For use with get_health_status and clear_health_status
         # Enable anything that requires an enable
         self.enable_clock_monitoring()
         return
 
+    @communication_check
+    @health_monitoring_compatible
     def get_health_status(self):
         """
         Returns the current value of all TPM monitoring points.
@@ -34,6 +80,7 @@ class TileHealthMonitor:
             'temperature': self.get_fpga_temperature(fpga_id=None), 
             'voltage': self.get_voltage(fpga_id=None, voltage_name=None),
             'current': self.get_current(fpga_id=None, current_name=None),
+            'alarms' : None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms(),
             'timing': {
                 'clocks': self.check_clock_status(fpga_id=None, clock_name=None),
                 'clock_managers': self.check_clock_manager_status(fpga_id=None, name=None),
@@ -43,21 +90,24 @@ class TileHealthMonitor:
             },
             'io': {
                 'jesd_if': {
-                    'lanes': self.check_jesd_lanes(fpga_id=None, core_id=None),
-                    'error_count' : self.check_jesd_error_counter(fpga_id=None, core_id=None, show_result=False),
+                    'link_status' : self.check_jesd_link_status(fpga_id=None, core_id=None),
+                    'lane_error_count': self.check_jesd_lane_error_counter(fpga_id=None, core_id=None),
+                    'lane_status': self.check_jesd_lane_status(fpga_id=None, core_id=None),
                     'resync_count': self.check_jesd_resync_counter(fpga_id=None, show_result=False),
-                    'qpll_lock_loss_count': self.check_jesd_qpll_lock_loss_counter(fpga_id=None, show_result=False)
+                    'qpll_status': self.check_jesd_qpll_status(fpga_id=None, show_result=False)
                 },
                 'ddr_if': {
                     'initialisation': self.check_ddr_initialisation(fpga_id=None),
                     'reset_counter': self.check_ddr_reset_counter(fpga_id=None, show_result=False)
                 },
                 'f2f_if': {
-                    'pll_lock_loss_count': self.check_f2f_pll_lock_loss_counter(core_id=None, show_result=False)
+                    'pll_status': self.check_f2f_pll_status(core_id=None, show_result=False)
                 },
                 'udp_if': {
                     'arp': self.check_udp_arp_table_status(fpga_id=None, show_result=False),
                     'status': self.check_udp_status(fpga_id=None),
+                    'crc_error_count': self.check_udp_crc_error_counter(fpga_id=None),
+                    'bip_error_count': self.check_udp_bip_error_counter(fpga_id=None),
                     'linkup_loss_count': self.check_udp_linkup_loss_counter(fpga_id=None, show_result=False)
                 }
             }, 
@@ -69,6 +119,8 @@ class TileHealthMonitor:
         health_dict['temperature']['board'] = round(self.get_temperature(), 2)
         return health_dict
     
+    @communication_check
+    @health_monitoring_compatible
     def clear_health_status(self):
         self.clear_clock_status(fpga_id=None, clock_name=None)
         self.clear_clock_manager_status(fpga_id=None, name=None)
@@ -78,12 +130,12 @@ class TileHealthMonitor:
         self.clear_f2f_pll_lock_loss_counter(core_id=None)
         self.clear_udp_status(fpga_id=None)
         self.clear_tile_beamformer_status(fpga_id=None)
-        # self.clear_station_beamformer_status(fpga_id=None) # TODO: add register to firmware, MCCS-1307
+        self.clear_station_beamformer_status(fpga_id=None)
         return
 
     def get_health_acceptance_values(self):
         EXP_TEMP = {
-            "board": { "min": 10.00, "max": 65.00},
+            "board": { "min": 10.00, "max": 68.00},
             "FPGA0": { "min": 10.00, "max": 95.00},
             "FPGA1": { "min": 10.00, "max": 95.00}
         }
@@ -99,7 +151,7 @@ class TileHealthMonitor:
             "SW_AVDD2"    : { "min": 2.560, "max": 2.840},
             "SW_AVDD3"    : { "min": 3.320, "max": 3.680},
             "VCC_AUX"     : { "min": 1.710, "max": 1.890},
-            "VIN"         : { "min": 11.40, "max": 12.60, "skip": True}, # TODO: add support for this measurement
+            "VIN"         : { "min": 11.40, "max": 12.60, "skip": True},  # TODO: add support for this measurement
             "VM_ADA0"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
             "VM_ADA1"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
             "VM_AGP0"     : { "min": 0.900, "max": 1.060},
@@ -393,7 +445,7 @@ class TileHealthMonitor:
     def check_clock_manager_status(self, fpga_id=None, name=None):
         """
         Check status of named TPM clock manager cores (MMCM Core).
-        Reports the values each MMCM lock loss counter.
+        Reports the status of each MMCM lock and its lock loss counter.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -401,13 +453,13 @@ class TileHealthMonitor:
         :param name: Specify name of clock manager (non case sensitive)
         :type name: string
 
-        :return: Counter values
+        :return: Status and Counter values
         :rtype dict
         """
-        counts = {}
+        status = {}
         for fpga in self.fpga_gen(fpga_id):
-            counts[f'FPGA{fpga}'] = self.tpm.tpm_clock_monitor[fpga].check_clock_manager_status(name)
-        return counts
+            status[f'FPGA{fpga}'] = self.tpm.tpm_clock_monitor[fpga].check_clock_manager_status(name)
+        return status
     
     def clear_clock_manager_status(self, fpga_id=None, name=None):
         """
@@ -454,10 +506,10 @@ class TileHealthMonitor:
             self.tpm.tpm_test_firmware[fpga].clear_pps_status()
         return
 
-    def check_jesd_lanes(self, fpga_id=None, core_id=None):
+    def check_jesd_link_status(self, fpga_id=None, core_id=None):
         """
-        Check if JESD204 lanes are error free.
-        Checks the FPGA link error status and FPGA sync status registers.
+        Check if JESD204 lanes are synchronized.
+        Checks the FPGA sync status register.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -474,7 +526,6 @@ class TileHealthMonitor:
         for fpga in self.fpga_gen(fpga_id):
             for core in cores:
                 idx = fpga * jesd_cores_per_fpga + core
-                result.append(self.tpm.tpm_jesd[idx].check_link_error_status())
                 result.append(self.tpm.tpm_jesd[idx].check_sync_status())
         return all(result)
 
@@ -496,7 +547,7 @@ class TileHealthMonitor:
                 self.tpm.tpm_jesd[idx].clear_error_counters()
         return
 
-    def check_jesd_error_counter(self, fpga_id=None, core_id=None, show_result=True):
+    def check_jesd_lane_error_counter(self, fpga_id=None, core_id=None):
         """
         Check JESD204 lanes errors.
         Checks the FPGA link error counter register.
@@ -507,20 +558,42 @@ class TileHealthMonitor:
         :param core_id: Specify which JESD Core, 0,1, or None for both cores
         :type core_id: integer
 
-        :param show_result: prints error counts on logger
-        :type show_result: bool
-
         :return: true if all OK
         :rtype: bool
         """
         jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
         cores = range(jesd_cores_per_fpga) if core_id is None else [core_id]
-        result = []
+        counter_dict = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counter_dict[f'FPGA{fpga}'] = {}
+            for core in cores:
+                idx = fpga * jesd_cores_per_fpga + core
+                counter_dict[f'FPGA{fpga}'][f'Core{core}'] = self.tpm.tpm_jesd[idx].check_link_error_counter()
+        return counter_dict
+
+    def check_jesd_lane_status(self, fpga_id=None, core_id=None):
+        """
+        Check JESD204 lanes errors.
+        Checks the FPGA link error counter register.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :param core_id: Specify which JESD Core, 0,1, or None for both cores
+        :type core_id: integer
+
+        :return: true if all error counters are 0
+        :rtype: bool
+        """
+        jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
+        cores = range(jesd_cores_per_fpga) if core_id is None else [core_id]
+        errors = []
         for fpga in self.fpga_gen(fpga_id):
             for core in cores:
                 idx = fpga * jesd_cores_per_fpga + core
-                result.append(self.tpm.tpm_jesd[idx].check_link_error_counter(show_result))
-        return all(result)
+                count_dict = self.tpm.tpm_jesd[idx].check_link_error_counter()
+                errors.extend(list(count_dict.values()))
+        return not any(errors) # Return True if all error counters are 0
 
     def check_jesd_resync_counter(self, fpga_id=None, show_result=True):
         """
@@ -543,10 +616,10 @@ class TileHealthMonitor:
             counts[f'FPGA{fpga}'] = self.tpm.tpm_jesd[idx].check_resync_counter(show_result)
         return counts # Return dict of counter values
 
-    def check_jesd_qpll_lock_loss_counter(self, fpga_id=None, show_result=True):
+    def check_jesd_qpll_status(self, fpga_id=None, show_result=True):
         """
-        Check JESD204 for loss of QPLL lock events.
-        Checks the FPGA qpll lock loss counter register (shared between JESD cores).
+        Check JESD204 current status and for loss of QPLL lock events.
+        Checks the FPGA qpll lock and qpll lock loss counter registers (shared between JESD cores).
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -554,15 +627,17 @@ class TileHealthMonitor:
         :param show_result: prints error counts on logger
         :type show_result: bool
 
-        :return: counter values
+        :return: current status and counter value tuple
         :rtype: dict
         """
         jesd_cores_per_fpga = len(self.tpm.tpm_jesd) // len(self.tpm.tpm_test_firmware)
-        counts = {}
+        status = {}
         for fpga in self.fpga_gen(fpga_id):
             idx = fpga * jesd_cores_per_fpga
-            counts[f'FPGA{fpga}'] = self.tpm.tpm_jesd[idx].check_qpll_lock_loss_counter(show_result)
-        return counts # Return dict of counter values
+            lock_status = self.tpm.tpm_jesd[idx].check_qpll_lock_status()
+            lock_loss_cnt = self.tpm.tpm_jesd[idx].check_qpll_lock_loss_counter(show_result)
+            status[f'FPGA{fpga}'] = (lock_status, lock_loss_cnt)
+        return status # Return dict of tuple (current status and counter values)
 
     def check_ddr_initialisation(self, fpga_id=None):
         """
@@ -609,9 +684,9 @@ class TileHealthMonitor:
             self.tpm.tpm_test_firmware[fpga].clear_ddr_user_reset_counter()
         return
 
-    def check_f2f_pll_lock_loss_counter(self, core_id=None, show_result=True):
+    def check_f2f_pll_status(self, core_id=None, show_result=True):
         """
-        Check for F2F PLL loss of lock events.
+        Check current F2F PLL lock status and for loss of lock events.
 
         :param core_id: Specify which F2F Core, 0,1, or None for both cores
         :type core_id: integer
@@ -619,7 +694,7 @@ class TileHealthMonitor:
         :param show_result: prints error counts on logger
         :type show_result: bool
 
-        :return: counter values
+        :return: current status and counter values
         :rtype: dict
         """
         # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
@@ -629,7 +704,7 @@ class TileHealthMonitor:
         cores = range(nof_f2f_cores) if core_id is None else [core_id]
         counts = {}
         for core in cores:
-            counts[f'Core{core}'] = self.tpm.tpm_f2f[core].check_pll_lock_loss_counter(show_result)
+            counts[f'Core{core}'] = self.tpm.tpm_f2f[core].check_pll_lock_status(show_result)
         return counts # Return dict of counter values
 
     def clear_f2f_pll_lock_loss_counter(self, core_id=None):
@@ -728,6 +803,36 @@ class TileHealthMonitor:
         for fpga in self.fpga_gen(fpga_id):
             counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].check_linkup_loss_cnt(show_result)
         return counts # Return dict of counter values
+
+    def check_udp_crc_error_counter(self, fpga_id=None):
+        """
+        Check UDP interface for CRC errors.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: counter values
+        :rtype: dict
+        """
+        counts = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_crc_error_count()
+        return counts # Return dict of counter values
+    
+    def check_udp_bip_error_counter(self, fpga_id=None):
+        """
+        Check UDP interface for BIP errors.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: counter values
+        :rtype: dict
+        """
+        counts = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_bip_error_count()
+        return counts # Return dict of counter values
     
     def check_tile_beamformer_status(self, fpga_id=None):
         """
@@ -798,16 +903,33 @@ class TileHealthMonitor:
         EXP_TEMP, EXP_VOLTAGE, EXP_CURRENT = self.get_health_acceptance_values()
         health = {
             'temperature': EXP_TEMP, 'voltage': EXP_VOLTAGE, 'current': EXP_CURRENT,
+            'alarms': None if self.tpm_version() == "tpm_v1_2" else {'I2C_access_alm': 0, 'temperature_alm': 0, 'voltage_alm': 0, 'SEM_wd': 0, 'MCU_wd': 0},
             'timing': {
                 'clocks': {'FPGA0': {'JESD': True, 'DDR': True, 'UDP': True}, 'FPGA1': {'JESD': True, 'DDR': True, 'UDP': True}},
-                'clock_managers' : {'FPGA0': {'C2C_MMCM': 0, 'JESD_MMCM': 0, 'DSP_MMCM': 0},'FPGA1': {'C2C_MMCM': 0, 'JESD_MMCM': 0, 'DSP_MMCM': 0}},
-                'pps': {'status': True}
-            },
+                'clock_managers' : {
+                    'FPGA0': {'C2C_MMCM': (True, 0), 'JESD_MMCM': (True, 0), 'DSP_MMCM': (True, 0)},
+                    'FPGA1': {'C2C_MMCM': (True, 0), 'JESD_MMCM': (True, 0), 'DSP_MMCM': (True, 0)}},
+                'pps': {'status': True}},
             'io':{ 
-                'jesd_if': {'lanes': True, 'error_count': True, 'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 'qpll_lock_loss_count': {'FPGA0': 0, 'FPGA1': 0}},
+                'jesd_if': {
+                    'link_status': True, 
+                    'lane_error_count': {
+                        'FPGA0': {
+                            'Core0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}, 
+                            'Core1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}}, 
+                        'FPGA1': {
+                            'Core0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}, 
+                            'Core1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}}},
+                    'lane_status' : True, 
+                    'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 
+                    'qpll_status': {'FPGA0': (True, 0), 'FPGA1': (True, 0)}},
                 'ddr_if': {'initialisation': True, 'reset_counter': {'FPGA0': 0, 'FPGA1': 0}},
-                'f2f_if': {'pll_lock_loss_count': {'Core0': [0, 0], 'Core1': [0, 0]} if self.tpm_version() == "tpm_v1_2" else {'Core0' : 0}},
-                'udp_if': {'arp': True, 'status': True, 'linkup_loss_count': {'FPGA0': 0, 'FPGA1': 0}}},
-            'dsp': {'tile_beamf': True,'station_beamf': True}
-        }
+                'f2f_if': {'pll_status': {'Core0': [(True, 0), (True, 0)], 'Core1': [(True, 0), (True, 0)]} if self.tpm_version() == "tpm_v1_2" else {'Core0' : (True, 0)}},
+                'udp_if': {
+                    'arp': True, 
+                    'status': True, 
+                    'crc_error_count': {'FPGA0': 0, 'FPGA1': 0}, 
+                    'bip_error_count': {'FPGA0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}, 'FPGA1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}}, 
+                    'linkup_loss_count': {'FPGA0': 0, 'FPGA1': 0}}},
+            'dsp': {'tile_beamf': True,'station_beamf': True}}
         return health

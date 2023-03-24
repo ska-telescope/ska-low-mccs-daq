@@ -8,7 +8,6 @@ import operator
 
 # Add to this list any monitoring points that are expected to fail
 MON_POINT_SKIP = [
-    'dsp.station_beamf',                  # Can be removed once MCCS-1307 is complete
     'io.udp_if.linkup_loss_count.FPGA0',  # Can be removed once MCCS-1308 is complete
     'io.udp_if.linkup_loss_count.FPGA1',  # Can be removed once MCCS-1308 is complete
     'timing.pps.status'                   # Can be removed once MCCS-1282 is complete

@@ -106,9 +106,6 @@ class TestStationBeam():
 
             if background_ddr_access:
 
-                for tile in self._test_station.tiles:
-                    tile.tpm.set_shutdown_temperature(70)
-
                 self._logger.info("Enabling DDR background access...")
                 # Set DDR address for background DDR and antenna buffer instances
                 ddr_test_base_address = 512 * 1024 * 1024
@@ -185,9 +182,6 @@ class TestStationBeam():
                         for i in [0, 1]:
                             ab_inst = tile.tpm.tpm_antenna_buffer[i]
                             ab_inst.stop_now()
-
-            for tile in self._test_station.tiles:
-                tile.tpm.set_shutdown_temperature(65)
 
             return errors
 
