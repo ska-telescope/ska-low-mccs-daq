@@ -417,8 +417,9 @@ class Tile(TileHealthMonitor):
         self.set_time_delays(time_delays)
 
         # set first/last tile flag
-        for _station_beamf in self.tpm.station_beamf:
-            _station_beamf.set_first_last_tile(is_first_tile, is_last_tile)
+        if self.tpm.tpm_test_firmware[0].station_beamformer_implemented:
+            for _station_beamf in self.tpm.station_beamf:
+                _station_beamf.set_first_last_tile(is_first_tile, is_last_tile)
 
     def program_fpgas(self, bitfile):
         """
@@ -1774,13 +1775,16 @@ class Tile(TileHealthMonitor):
 
         :param seconds: Number of seconds to delay operation
         :param timestamp: Timestamp at which tile will be synchronised
+
+        :return: timestamp written into FPGA timestamp request register
+        :rtype: int
         """
         # Wait while previous data requests are processed
         while (
             self.tpm["fpga1.lmc_gen.request"] != 0
             or self.tpm["fpga2.lmc_gen.request"] != 0
         ):
-            self.logger.info("Waiting for enable to be reset")
+            self.logger.info("Waiting for data request to be cleared by firmware...")
             time.sleep(0.05)
 
         self.logger.debug("Command accepted")
@@ -1800,11 +1804,40 @@ class Tile(TileHealthMonitor):
         t1 = t0 + int(delay)
         for fpga in self.tpm.tpm_fpga:
             fpga.fpga_apply_sync_delay(t1)
+        return t1
 
-        tn1 = self.tpm["fpga1.pps_manager.timestamp_read_val"]
-        tn2 = self.tpm["fpga2.pps_manager.timestamp_read_val"]
-        if max(tn1, tn2) >= t1:
+    @connected
+    def check_synchronised_data_operation(self, requested_timestamp=None):
+        """
+        Check if synchronise data operations between FPGAs is successful.
+
+        :param requested_timestamp: Timestamp written into FPGA timestamp request register, if None it will be read
+        from the FPGA register
+
+        :return: Operation success
+        :rtype: bool
+        """
+        if requested_timestamp is None:
+            t_arm1 = self.tpm["fpga1.pps_manager.timestamp_req_val"]
+            t_arm2 = self.tpm["fpga2.pps_manager.timestamp_req_val"]
+        else:
+            t_arm1 = requested_timestamp
+            t_arm2 = requested_timestamp
+        t_now1 = self.tpm["fpga1.pps_manager.timestamp_read_val"]
+        t_now2 = self.tpm["fpga2.pps_manager.timestamp_read_val"]
+        t_now_max = max(t_now1, t_now2)
+        t_arm_min = min(t_arm1, t_arm2)
+        t_margin = t_arm_min - t_now_max
+        if t_margin <= 0:
             self.logger.error("Synchronised operation failed!")
+            self.logger.error("Requested timestamp: " + str(t_arm_min))
+            self.logger.error("Current timestamp: " + str(t_now_max))
+            return False
+        self.logger.debug("Synchronised operation successful!")
+        self.logger.debug("Requested timestamp: " + str(t_arm_min))
+        self.logger.debug("Current timestamp: " + str(t_now_max))
+        self.logger.debug("Margin: " + str((t_arm_min - t_now_max) * 256 * 1.08e-6) + "s")
+        return True
 
     @connected
     def synchronised_beamformer_coefficients(self, timestamp=None, seconds=0.2):
@@ -1986,7 +2019,7 @@ class Tile(TileHealthMonitor):
 
         self.stop_data_transmission()
         # Data transmission should be synchronised across FPGAs
-        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+        t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
         # Send data from all FPGAs
         if fpga_id is None:
@@ -1998,6 +2031,9 @@ class Tile(TileHealthMonitor):
                 self.tpm.tpm_test_firmware[i].send_raw_data_synchronised()
             else:
                 self.tpm.tpm_test_firmware[i].send_raw_data()
+
+        # Check if synchronisation is successful
+        self.check_synchronised_data_operation(t_request)
 
     @connected
     def send_raw_data_synchronised(
@@ -2039,13 +2075,16 @@ class Tile(TileHealthMonitor):
 
         self.stop_data_transmission()
         # Data transmission should be synchronised across FPGAs
-        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+        t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
         # Send data from all FPGAs
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].send_channelised_data(
                 number_of_samples, first_channel, last_channel
             )
+
+        # Check if synchronisation is successful
+        self.check_synchronised_data_operation(t_request)
 
     # ---------------------------- Wrapper for data acquisition: BEAM ------------------------------------
     @connected
@@ -2057,11 +2096,14 @@ class Tile(TileHealthMonitor):
 
         self.stop_data_transmission()
         # Data transmission should be syncrhonised across FPGAs
-        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+        t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
         # Send data from all FPGAs
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].send_beam_data()
+
+        # Check if synchronisation is successful
+        self.check_synchronised_data_operation(t_request)
 
     # ---------------------------- Wrapper for data acquisition: CONT CHANNEL ----------------------------
     @connected
@@ -2084,12 +2126,15 @@ class Tile(TileHealthMonitor):
 
         self.stop_data_transmission()
         # Data transmission should be synchronised across FPGAs
-        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+        t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].send_channelised_data_continuous(
                 channel_id, number_of_samples
             )
+
+        # Check if synchronisation is successful
+        self.check_synchronised_data_operation(t_request)
 
     # ---------------------------- Wrapper for data acquisition: NARROWBAND CHANNEL ----------------------------
     @connected
@@ -2114,17 +2159,27 @@ class Tile(TileHealthMonitor):
 
         self.stop_data_transmission()
         # Data transmission should be synchronised across FPGAs
-        self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
+        t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].send_channelised_data_narrowband(
                 frequency, round_bits, number_of_samples
             )
 
+        # Check if synchronisation is successful
+        self.check_synchronised_data_operation(t_request)
+
     def stop_channelised_data_continuous(self):
         """ Stop sending channelised data """
         for i in range(len(self.tpm.tpm_test_firmware)):
             self.tpm.tpm_test_firmware[i].stop_channelised_data_continuous()
+
+    def clear_lmc_data_request(self):
+        """ Clear LMC data request register. This would be normally self-cleared by the firmware, however in case
+        of failed synchronisation, the firmware will not clear the register. In that case the request register can
+        be cleared by software to allow the next data request to be executed successfully."""
+        for i in range(len(self.tpm.tpm_test_firmware)):
+            self.tpm.tpm_test_firmware[i].clear_lmc_data_request()
 
     @connected
     def stop_data_transmission(self):
@@ -2132,6 +2187,71 @@ class Tile(TileHealthMonitor):
         self.logger.info("Stopping all transmission")
         # All data format transmission except channelised data continuous stops autonomously
         self.stop_channelised_data_continuous()
+
+    # ---------------------------- Wrapper for multi channel acquisition ------------------------------------
+    # -------------------- multichannel_tx is experimental - not needed in MCCS -----------------------------
+    @connected
+    def set_multi_channel_tx(self, instance_id, channel_id, destination_id):
+        """ Set multichannel transmitter instance
+        :param instance_id: Transmitter instance ID
+        :param channel_id: Channel ID
+        :param destination_id: 40G destination ID"""
+
+        if not self.tpm.tpm_test_firmware[0].multiple_channel_tx_implemented:
+            self.logger.error("Multichannel transmitter is not implemented in current FPGA firmware")
+
+        # Data transmission should be synchronised across FPGAs
+        self.tpm.multiple_channel_tx[0].set_instance(instance_id, channel_id, destination_id)
+        self.tpm.multiple_channel_tx[1].set_instance(instance_id, channel_id, destination_id)
+
+    @connected
+    def start_multi_channel_tx(self, instances, timestamp=None, seconds=0.2):
+        """ Start multichannel data transmission from the TPM
+        :param instances: 64 bit integer, each bit addresses the corresponding TX transmitter
+        :param seconds: synchronisation delay ID"""
+
+        if not self.tpm.tpm_test_firmware[0].multiple_channel_tx_implemented:
+            self.logger.error("Multichannel transmitter is not implemented in current FPGA firmware")
+
+        if timestamp is None:
+            t0 = max(
+                self.tpm["fpga1.pps_manager.timestamp_read_val"],
+                self.tpm["fpga2.pps_manager.timestamp_read_val"],
+            )
+        else:
+            t0 = timestamp
+
+        # Set arm timestamp
+        # delay = number of frames to delay * frame time (shift by 8)
+        delay = seconds * (1 / (1080 * 1e-9) / 256)
+        t1 = t0 + int(delay)
+
+        self.tpm.multiple_channel_tx[0].start(instances, t1)
+        self.tpm.multiple_channel_tx[1].start(instances, t1)
+
+        tn1 = self.tpm["fpga1.pps_manager.timestamp_read_val"]
+        tn2 = self.tpm["fpga2.pps_manager.timestamp_read_val"]
+        if max(tn1, tn2) >= t1:
+            self.logger.error("Synchronised operation failed!")
+
+    @connected
+    def stop_multi_channel_tx(self):
+        """ Stop multichannel TX data transmission """
+        if not self.tpm.tpm_test_firmware[0].multiple_channel_tx_implemented:
+            self.logger.error("Multichannel transmitter is not implemented in current FPGA firmware")
+
+        self.tpm.multiple_channel_tx[0].stop()
+        self.tpm.multiple_channel_tx[1].stop()
+
+    def set_multi_channel_dst_ip(self, dst_ip, destination_id):
+        """ Set destination IP for a multichannel destination ID
+                :param dst_ip: Destination IP address
+                :param destination_id: 40G destination ID"""
+        if not self.tpm.tpm_test_firmware[0].multiple_channel_tx_implemented:
+            self.logger.error("Multichannel transmitter is not implemented in current FPGA firmware")
+
+        for udp_core in self.tpm.tpm_10g_core:
+            udp_core.set_dst_ip(dst_ip, destination_id)
 
     # ----------------------------
     # Wrapper for preadu methods

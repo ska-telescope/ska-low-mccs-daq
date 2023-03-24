@@ -721,6 +721,32 @@ class Station(object):
         logging.debug("Data sync check: timestamp={}, delay={}".format(str(timestamps), delay))
         return all([(t0 + delay) > t1 for t1 in timestamps])
 
+    # ------------------------------------ MULTICHANNEL TX DATA OPERATIONS -----------------------------
+    def set_multi_channel_tx(self, instance_id, channel_id, destination_id):
+        """ Set multichannel transmitter instance
+        :param instance_id: Transmitter instance ID
+        :param channel_id: Channel ID
+        :param destination_id: 40G destination ID"""
+        for tile in self.tiles:
+            tile.set_multi_channel_tx(instance_id, channel_id, destination_id)
+
+    def start_multi_channel_tx(self, instances, seconds=0.2):
+        """ Start multichannel data transmission from the TPM
+        :param instances: 64 bit integer, each bit addresses the corresponding TX transmitter
+        :param seconds: synchronisation delay ID"""
+        t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
+        for tile in self.tiles:
+            tile.start_multi_channel_tx(instances, t0, seconds=1)
+
+    def stop_multi_channel_tx(self):
+        """ Stop multichannel TX data transmission """
+        for tile in self.tiles:
+            tile.stop_multi_channel_tx()
+
+    def set_multi_channel_dst_ip(self, dst_ip, destination_id):
+        for tile in self.tiles:
+            tile.set_multi_channel_dst_ip(dst_ip, destination_id)
+
     # ------------------------------------------- TEST FUNCTIONS ---------------------------------------
 
     # ------------------------------------------- OVERLOADED FUNCTIONS ---------------------------------------
@@ -869,8 +895,13 @@ if __name__ == "__main__":
                       type="float", default=None, help="Beamformer scaling [default: None]")
     parser.add_option("--fft_sign_invert", action="store_true", dest="fft_sign_invert",
                       default=False, help="Conjugate FFT output [default: False]")
+    parser.add_option("--debug", action="store_true", dest="debug",
+                      default=False, help="Set console output to DEBUG log level [default: False]")
 
     (conf, args) = parser.parse_args(argv[1:])
+
+    if conf.debug:
+        pyaavs.logger.set_console_log_level("DEBUG")
 
     # Set current thread name
     threading.current_thread().name = "Station"
