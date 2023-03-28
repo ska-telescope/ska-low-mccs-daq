@@ -29,8 +29,8 @@ class TestWrapper:
                        'station_beam': "Check operation of networked beamformer using synthetic data pattern. ",
                        'full_station': "Check operation of networked beamformer comparing offline and realtime beam "
                                        "power.",
-                       'ddr': "Check on-board DDR using FPGA embedded test.",
                        'health_monitoring' : "Check correct reading and clearing of TPM health monitoring points.",
+                       'ddr': "Check on-board DDR using FPGA embedded test.",
                        'f2f': "Check fast data link between FPGAs using FPGA embedded test.",
                        'eth40g': "Check 40G UDP using FPGA embedded test.",
                        'c2c': "Check communication bus between CPLD and FPGAs.\nWARNING: this test will overwrite the "

@@ -13,6 +13,7 @@ This depends heavily on the
 pyfabil low level software and specific hardware module plugins.
 """
 
+import time
 from pyfabil.base.definitions import LibraryError, BoardError
 
 
@@ -953,19 +954,20 @@ class TileHealthMonitor:
                     'linkup_loss_count': {'FPGA0': 0, 'FPGA1': 0}}},
             'dsp': {
                 'tile_beamf': True,
-                'station_beamf': { 'status': True, 'ddr_parity_error_count': 0}
+                'station_beamf': { 'status': True, 'ddr_parity_error_count': {'FPGA0': 0, 'FPGA1': 0}}
             }
         }
         return health
     
     def inject_ddr_parity_error(self, fpga_id=None):
         for fpga in self.fpga_gen(fpga_id):
-            self.logger.info(f"Injecting DDR Parity Error - FPHA{fpga}")
-            self[f'fpga{fpga}.beamf_ring.ddr_parity_error_inject'] = 1
+            board = f'fpga{fpga+1}'
+            self.logger.info(f"Injecting DDR Parity Error - FPGA{fpga}")
+            self[f'{board}.beamf_ring.ddr_parity_error_inject'] = 1
             timeout = 60 # 30 seconds
             count = 0
             while True:
-                reg = self[f'fpga{fpga}.beamf_ring.ddr_parity_error_inject']
+                reg = self[f'{board}.beamf_ring.ddr_parity_error_inject']
                 if reg == 0:  # Register deasserts once injection has completed
                     break
                 if count % 4 == 0: # Every 2 seconds

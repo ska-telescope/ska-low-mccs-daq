@@ -87,6 +87,38 @@ class TestHealthMonitoring():
             key_list.pop()
         return
 
+    def test_ddr_parity_error_injection_and_detection(self, tile):
+        def check_parity_error(expected_dict):
+            error_dict = tile.check_ddr_parity_error_counter()
+            for fpga in ['FPGA0', 'FPGA1']:
+                if error_dict[fpga] != expected_dict[fpga]:
+                    print(f"{fpga} DDR parity error count is {error_dict[fpga]}, expected {expected_dict[fpga]}.  Test FAILED")
+                    self.errors += 1
+                else:
+                    print(f"{fpga} DDR parity error count is {error_dict[fpga]} as expected.")
+            return
+        print("Testing DDR parity error injection and detection...")
+        print("Clearing DDR parity error count for both FPGAs.")
+        tile.clear_station_beamformer_status()
+        check_parity_error({'FPGA0': 0, 'FPGA1': 0})
+        tile.inject_ddr_parity_error(fpga_id=0)
+        check_parity_error({'FPGA0': 1, 'FPGA1': 0})
+        tile.inject_ddr_parity_error(fpga_id=0)
+        check_parity_error({'FPGA0': 2, 'FPGA1': 0})
+        tile.inject_ddr_parity_error(fpga_id=1)
+        tile.inject_ddr_parity_error(fpga_id=1)
+        tile.inject_ddr_parity_error(fpga_id=1)
+        check_parity_error({'FPGA0': 2, 'FPGA1': 3})
+        print("Clearing DDR parity error count for FPGA0.")
+        tile.clear_station_beamformer_status(fpga_id=0)
+        check_parity_error({'FPGA0': 0, 'FPGA1': 3})
+        tile.inject_ddr_parity_error()
+        check_parity_error({'FPGA0': 1, 'FPGA1': 4})
+        print("Clearing DDR parity error count for both FPGAs.")
+        tile.clear_station_beamformer_status()
+        check_parity_error({'FPGA0': 0, 'FPGA1': 0})
+        return
+
     def execute(self, placeholder=None):
 
         self._test_station = station.Station(self._station_config)
@@ -116,6 +148,9 @@ class TestHealthMonitoring():
             # If an expected monitoring point is missing from health_dict an error is produced. 
             # Any extra monitoring points in health_dict, not known to expected_health are ignored.
             self.recursive_check_health_dict(expected_health, health_dict, [], n)
+
+            # Test Station Beamformer DDR Parity Error Injection & Dectection
+            self.test_ddr_parity_error_injection_and_detection(tile)
 
         return self.clean_up()
 
