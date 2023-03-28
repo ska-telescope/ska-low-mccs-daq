@@ -113,7 +113,10 @@ class TileHealthMonitor:
             }, 
             'dsp': {
                 'tile_beamf': self.check_tile_beamformer_status(fpga_id=None),
-                'station_beamf': self.check_station_beamformer_status(fpga_id=None)
+                'station_beamf': {
+                    'status' : self.check_station_beamformer_status(fpga_id=None),
+                    'ddr_parity_error_count': self.check_ddr_parity_error_counter(fpga_id=None)
+                }
             }
         }
         health_dict['temperature']['board'] = round(self.get_temperature(), 2)
@@ -684,6 +687,22 @@ class TileHealthMonitor:
             self.tpm.tpm_test_firmware[fpga].clear_ddr_user_reset_counter()
         return
 
+    def check_ddr_parity_error_counter(self, fpga_id=None):
+        """
+        Check status of DDR parity error counter - used only with station beamformer
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: counter values
+        :rtype: dict
+        """
+        counts = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counts[f'FPGA{fpga}'] = self.tpm.station_beamf[fpga].check_ddr_parity_error_counter()
+        return counts
+    
+
     def check_f2f_pll_status(self, core_id=None, show_result=True):
         """
         Check current F2F PLL lock status and for loss of lock events.
@@ -887,6 +906,7 @@ class TileHealthMonitor:
     def clear_station_beamformer_status(self, fpga_id=None):
         """
         Clear status of Station Beamformer error flags and counters.
+        Including DDR parity error counter.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -931,5 +951,28 @@ class TileHealthMonitor:
                     'crc_error_count': {'FPGA0': 0, 'FPGA1': 0}, 
                     'bip_error_count': {'FPGA0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}, 'FPGA1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}}, 
                     'linkup_loss_count': {'FPGA0': 0, 'FPGA1': 0}}},
-            'dsp': {'tile_beamf': True,'station_beamf': True}}
+            'dsp': {
+                'tile_beamf': True,
+                'station_beamf': { 'status': True, 'ddr_parity_error_count': 0}
+            }
+        }
         return health
+    
+    def inject_ddr_parity_error(self, fpga_id=None):
+        for fpga in self.fpga_gen(fpga_id):
+            self.logger.info(f"Injecting DDR Parity Error - FPHA{fpga}")
+            self[f'fpga{fpga}.beamf_ring.ddr_parity_error_inject'] = 1
+            timeout = 60 # 30 seconds
+            count = 0
+            while True:
+                reg = self[f'fpga{fpga}.beamf_ring.ddr_parity_error_inject']
+                if reg == 0:  # Register deasserts once injection has completed
+                    break
+                if count % 4 == 0: # Every 2 seconds
+                    self.logger.info("Waiting for valid DDR read transaction...")
+                if count > timeout:
+                    self.logger.error("Timed out waiting for DDR parity error injection acknowledge. No valid DDR read transaction")
+                    break
+                time.sleep(0.5)
+                count += 1
+        return
