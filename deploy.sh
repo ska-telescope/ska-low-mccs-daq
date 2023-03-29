@@ -282,6 +282,13 @@ pushd python || exit
 popd
 
 # Link required scripts to bin directory
+FILE=$AAVS_BIN/acquire_station_beam
+if [ -e $FILE ]; then
+  sudo rm $FILE
+fi
+sudo cp $PWD/src/build/acquire_station_beam $AAVS_BIN/
+chmod u+x $FILE
+
 FILE=$AAVS_BIN/daq_plotter.py
 if [ -e $FILE ]; then
   sudo rm $FILE
