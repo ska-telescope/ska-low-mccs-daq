@@ -18,6 +18,7 @@ stages:
   - lint
   - build
   - test
+  - test-psi-low
   - publish
   - pages
   - scan
