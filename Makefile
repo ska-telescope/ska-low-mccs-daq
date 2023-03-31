@@ -38,7 +38,7 @@ docs-pre-build:
 	python3 -m pip install -r docs/requirements.txt
 
 K8S_FACILITY ?= k8s-test
-K8S_CHART_PARAMS += --values charts/ska-low-mccs-spshw/values-$(K8S_FACILITY).yaml
+K8S_CHART_PARAMS += --values charts/ska-low-mccs-daq/values-$(K8S_FACILITY).yaml
 
 # THIS IS SPECIFIC TO THIS REPO
 ifdef CI_REGISTRY_IMAGE
