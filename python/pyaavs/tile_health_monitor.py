@@ -102,7 +102,9 @@ class TileHealthMonitor:
                     'reset_counter': self.check_ddr_reset_counter(fpga_id=None, show_result=False)
                 },
                 'f2f_if': {
-                    'pll_status': self.check_f2f_pll_status(core_id=None, show_result=False)
+                    'pll_status': self.check_f2f_pll_status(core_id=None, show_result=False),
+                    'soft_error': self.check_f2f_soft_errors(),
+                    'hard_error': self.check_f2f_hard_errors()
                 },
                 'udp_if': {
                     'arp': self.check_udp_arp_table_status(fpga_id=None, show_result=False),
@@ -727,6 +729,26 @@ class TileHealthMonitor:
             counts[f'Core{core}'] = self.tpm.tpm_f2f[core].check_pll_lock_status(show_result)
         return counts # Return dict of counter values
 
+    def check_f2f_soft_errors(self):
+        """
+        Check F2F for soft errors.
+        Asserted for a single user_clk period.
+
+        :return: soft_err register value
+        :rtype: integer
+        """
+        return None if self.tpm_version() == "tpm_v1_2" else self.tpm.tpm_f2f[0].get_soft_err()
+    
+    def check_f2f_hard_errors(self):
+        """
+        Check F2F for hard errors.
+        Asserted until the core resets.
+
+        :return: hard_err register value
+        :rtype: integer
+        """
+        return None if self.tpm_version() == "tpm_v1_2" else self.tpm.tpm_f2f[0].get_hard_err()
+
     def clear_f2f_pll_lock_loss_counter(self, core_id=None):
         """
         Reset value of F2F PLL lock loss counter.
@@ -945,7 +967,10 @@ class TileHealthMonitor:
                     'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 
                     'qpll_status': {'FPGA0': (True, 0), 'FPGA1': (True, 0)}},
                 'ddr_if': {'initialisation': True, 'reset_counter': {'FPGA0': 0, 'FPGA1': 0}},
-                'f2f_if': {'pll_status': {'Core0': [(True, 0), (True, 0)], 'Core1': [(True, 0), (True, 0)]} if self.tpm_version() == "tpm_v1_2" else {'Core0' : (True, 0)}},
+                'f2f_if': {
+                    'pll_status': {'Core0': [(True, 0), (True, 0)], 'Core1': [(True, 0), (True, 0)]} if self.tpm_version() == "tpm_v1_2" else {'Core0' : (True, 0)},
+                    'soft_error': None if self.tpm_version() == "tpm_v1_2" else 0,
+                    'hard_error': None if self.tpm_version() == "tpm_v1_2" else 0},
                 'udp_if': {
                     'arp': True, 
                     'status': True, 
