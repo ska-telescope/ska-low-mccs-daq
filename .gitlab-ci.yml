@@ -113,3 +113,66 @@ python-test:
         - setup.py
         - tests/requirements.txt
         - tests/pytest.ini
+
+psi-low-k8s-test:
+  stage: test-psi-low
+  when: manual
+  tags:
+    - k8srunner-psi-low
+  environment:
+    name: test-psi-low/$CI_COMMIT_REF_SLUG
+    on_stop: psi-low-stop-k8s
+    auto_stop_in: 1 minute
+  variables:
+    TANGO_HOST: "tango-databaseds.$KUBE_NAMESPACE:10000"
+    KUBE_NAMESPACE: 'ci-$CI_PROJECT_NAME-$CI_COMMIT_SHORT_SHA'
+    K8S_FACILITY: psi-low
+    PASS_PROXY_CONFIG: "yes"
+    JUNITXML_REPORT_PATH: build/reports/psi-low-functional-tests.xml
+    CUCUMBER_JSON_PATH: build/reports/psi-low-cucumber.json
+    JSON_REPORT_PATH: build/reports/psi-low-report.json
+  before_script:
+    - make k8s-install-chart
+    - make k8s-wait
+  script:
+    - make k8s-test
+  artifacts:
+    name: "$CI_PROJECT_NAME-$CI_JOB_ID"
+    paths:
+      - "build/"
+    reports:
+      junit: build/report.xml
+    when: always
+
+psi-low-xray-publish:
+  stage: test-psi-low
+  needs:
+    - psi-low-k8s-test
+  tags:
+    - k8srunner
+  image: $SKA_K8S_TOOLS_BUILD_DEPLOY
+  variables:
+    TEST_ENV: PSI-LOW
+    REALHW_OR_SIMULATED: real
+    XRAY_TEST_RESULT_FILE: build/reports/psi-low-cucumber.json
+  script:
+    - make xray-publish
+  allow_failure: true
+
+psi-low-stop-k8s:
+  stage: test-psi-low
+  needs:
+    - psi-low-k8s-test
+  tags:
+    - k8srunner-psi-low
+  environment:
+    name: test-psi-low/$CI_COMMIT_REF_SLUG
+    action: stop
+  image: $SKA_K8S_TOOLS_BUILD_DEPLOY
+  variables:
+    KUBE_NAMESPACE: 'ci-$CI_PROJECT_NAME-$CI_COMMIT_SHORT_SHA'
+  script:
+    - make k8s-uninstall-chart
+    - kubectl -n $KUBE_NAMESPACE delete pods,svc,daemonsets,deployments,replicasets,statefulsets,cronjobs,jobs,ingresses,configmaps --all
+    - make k8s-delete-namespace
+  allow_failure: true

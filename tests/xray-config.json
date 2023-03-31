@@ -1,0 +1,79 @@
+{
+    "test_plans": [
+      {
+        "select_from_tag": {
+          "default": "XTP-21181"
+        }
+      },
+      {
+        "select_from_tag": {
+          "default": "XTP-21188"
+        }
+      }
+    ],
+    "name": {
+      "env": "CI_COMMIT_BRANCH",
+      "maps_to": {
+        "default": "branch execution",
+        "main": "main branch execution"
+      }
+    },
+    "chart_info": {
+      "env": "DEPLOYMENT_CONFIGURATION",
+      "maps_to": {
+        "default": "charts/ska-low-mccs-daq/Chart.yaml"
+      }
+    },
+    "test_report": "build/reports/psi-low-report.json",
+    "jira_url": "https://jira.skatelescope.org",
+    "project": {
+      "id": "XTP",
+      "issuetype_id": 11602,
+      "customfield_mapping": {
+        "start_date": "customfield_11918",
+        "end_date": "customfield_11917",
+        "test_plans": "customfield_11927",
+        "test_environments": "customfield_11925"
+      }
+    },
+    "description": "Test execution results as generated from https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq\n",
+    "test_environments": [
+      {
+        "env": "TEST_ENV",
+        "maps_to": {
+          "default": "STFC-CI",
+          "ITF-MID": "ITF-MID",
+          "PSI-LOW": "PSI-LOW",
+          "dev": "dev-testing",
+          "PSI-LOW-TOPIC": "PSI-LOW-TOPIC",
+          "ITF-LOW": "ITF-LOW",
+          "PSI-MID-MDA": "PSI-MID-MDA"
+        }
+      }
+    ],
+    "labels": [
+      {
+        "env": "CI_COMMIT_BRANCH",
+        "maps_to": {
+          "default": "branch",
+          "master": "master",
+          "main": "main"
+        }
+      }
+    ],
+    "versions": [
+      {
+        "env": "CI_COMMIT_BRANCH",
+        "maps_to": {
+          "default": "",
+          "master": "PI18",
+          "main": "PI18"
+        }
+      }
+    ],
+    "environment_variables": [
+      "CI_JOB_URL",
+      "CI_COMMIT_TITLE",
+      "CI_JOB_STARTED_AT"
+    ]
+  }
