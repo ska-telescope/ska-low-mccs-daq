@@ -1,20 +1,27 @@
 # -*- coding: utf-8 -*-
-#
+# pylint: skip-file
 # This file is part of the SKA Low MCCS project
 #
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains pytest-specific test harness for MCCS unit tests."""
-from typing import ContextManager, Generator
+from __future__ import annotations
+
+from functools import lru_cache
+from typing import Any, Callable, ContextManager, Generator
 
 import pytest
+import tango
 from _pytest.fixtures import SubRequest
 from ska_tango_testing.context import (
     TangoContextProtocol,
     ThreadedTestTangoContextManager,
     TrueTangoContextManager,
 )
+from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
+
+DeviceMappingType = dict[str, dict[str, Any]]
 
 
 def pytest_itemcollected(item: pytest.Item) -> None:
@@ -209,3 +216,100 @@ def tango_harness_fixture(
 
     with context_manager as context:
         yield context
+
+
+@pytest.fixture(name="change_event_callbacks", scope="module")
+def change_event_callbacks_fixture(
+    device_mapping: DeviceMappingType,
+) -> MockTangoEventCallbackGroup:
+    """
+    Return a dictionary of change event callbacks with asynchrony support.
+
+    :param device_mapping: a map from short to canonical device names
+
+    :returns: a callback group.
+    """
+    keys = [
+        f"{info['name']}/{attr}"
+        for info in device_mapping.values()
+        for attr in info["subscriptions"]
+    ]
+    return MockTangoEventCallbackGroup(
+        *keys,
+        timeout=30.0,  # TPM takes a long time to initialise
+    )
+
+
+@pytest.fixture(name="device_mapping", scope="module")
+def device_mapping_fixture() -> DeviceMappingType:
+    """
+    Return a mapping from short to canonical Tango device names.
+
+    :return: a map of short names to full Tango device names of the form
+        "<domain>/<class>/<instance>", as well as attributes to subscribe to change
+        events of
+    """
+    return {
+        "daq": {
+            "name": "low-mccs-daq/daqreceiver/001",
+            "subscriptions": [
+                "adminMode",
+                "state",
+                "longRunningCommandResult",
+                "dataReceivedResult",
+            ],
+        },
+    }
+
+
+@pytest.fixture(name="tango_context", scope="module")
+def tango_context_fixture() -> Generator[TangoContextProtocol, None, None]:
+    """
+    Yield a Tango context containing the device/s under test.
+
+    :yields: a Tango context containing the devices under test
+    """
+    with TrueTangoContextManager() as context:
+        yield context
+
+
+@pytest.fixture(name="get_device", scope="module")
+def get_device_fixture(
+    tango_context: TangoContextProtocol,
+    device_mapping: DeviceMappingType,
+    change_event_callbacks: MockTangoEventCallbackGroup,
+) -> Callable[[str], tango.DeviceProxy]:
+    """
+    Return a memoized function that returns a DeviceProxy for a given name.
+
+    :param tango_context: a TangoContextProtocol to instantiate DeviceProxys
+    :param device_mapping: a map from short to canonical device names
+    :param change_event_callbacks: dictionary of mock change event
+        callbacks with asynchrony support
+
+    :return: a memoized function that takes a name and returns a DeviceProxy
+    """
+
+    @lru_cache
+    def _get_device(short_name: str) -> tango.DeviceProxy:
+        device_data = device_mapping[short_name]
+        name: str = device_data["name"]
+        tango_device = tango_context.get_device(name)
+        device_info = tango_device.info()
+        dev_class = device_info.dev_class
+        print(f"Created DeviceProxy for {short_name} - {dev_class} {name}")
+        for attr in device_data.get("subscriptions", []):
+            attr_value = tango_device.read_attribute(attr).value
+            attr_event = change_event_callbacks[f"{name}/{attr}"]
+            tango_device.subscribe_event(
+                attr,
+                tango.EventType.CHANGE_EVENT,
+                attr_event,
+            )
+            print(f"Subscribed to {name}/{attr}")
+            attr_event.assert_change_event(attr_value)
+            print(f"Received initial value for {name}/{attr}: {attr_value}")
+
+        return tango_device
+
+    return _get_device

@@ -1,0 +1,70 @@
+# Default values for taranta.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+display: ":0"
+xauthority: "~/.Xauthority"
+
+basename: true
+
+logging: 
+  level: CRITICAL
+
+global:
+  minikube: true
+  tango_host: databaseds-tango-base-test:10000
+
+itango:
+  enabled: false
+  image:
+    registry: artefact.skao.int
+    image: ska-tango-images-tango-itango
+    tag: 9.3.6
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m     # 00m = 0.1 CPU
+      memory: 128Mi # 128Mi = 0.125 GB mem
+      ephemeral-storage: 512Mi
+    limits:
+      cpu: 100m     # 00m = 0.1 CPU
+      memory: 128Mi # 128Mi = 0.125 GB mem
+      ephemeral-storage: 512Mi
+
+tangogql:
+  image:
+    registry: artefact.skao.int
+    image: ska-tango-tangogql
+    tag: 1.3.6
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests:
+      cpu: 600m     # 600m = 0.6 CPU
+      memory: 512Mi # 512Mi = 0.5 GB mem
+    limits:
+      cpu: 1000m     # 1000m = 1 CPU
+      memory: 1024Mi # 1024Mi = 1 GB mem
+
+# Configure Ingress resource that allow you to access the Tango REST API
+ingress:
+  enabled: true
+  nginx: true
+  hostname: k8s.stfc.skao.int
+
+  # Ingress annotations
+  annotations: {}
+
+  # Ingress TLS configuration
+  #
+  tls:
+    enabled: true
+    secretname: "tls-secret-{{ template \"tangogql.name\" . }}-{{ .Release.Name }}"
+    hostname: "{{ .Values.ingress.hostname }}"
+
+
+nodeSelector: {}
+
+affinity: {}
+
+tolerations: []

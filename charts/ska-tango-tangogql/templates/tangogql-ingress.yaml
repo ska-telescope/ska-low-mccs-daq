@@ -1,0 +1,84 @@
+{{ if .Values.ingress.nginx }}
+# Use NGINX
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tangogql-ing-{{ template "tangogql.name" . }}-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/rewrite-target: /$1
+    {{- range $key, $value := .Values.ingress.annotations }}
+      {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  rules:
+    - http:
+        {{ if eq .Values.basename false }}
+        host: {{ .Values.ingress.hostname }}
+        {{ end }}
+        paths:
+        - path: {{ if .Values.basename }}/{{ .Release.Namespace }}{{ end }}/taranta/(db.*)
+          pathType: Prefix
+          backend:
+           service:
+            name: tangogql-{{ template "tangogql.name" . }}-{{ .Release.Name }}
+            port:
+              number: 5004
+        - path: {{ if .Values.basename }}/{{ .Release.Namespace }}{{ end }}/taranta/(graphiql.*)
+          pathType: Prefix
+          backend:
+           service:
+            name: tangogql-{{ template "tangogql.name" . }}-{{ .Release.Name }}
+            port:
+              number: 5004
+        - path: {{ if .Values.basename }}/{{ .Release.Namespace }}{{ end }}/taranta/(socket.*)
+          pathType: Prefix
+          backend:
+           service:
+            name: tangogql-{{ template "tangogql.name" . }}-{{ .Release.Name }}
+            port:
+              number: 5004
+
+{{ else }}
+# use Traefik
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tangogql-ing-{{ template "tangogql.name" . }}-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/request-modifier: "ReplacePathRegex: {{ if .Values.basename }}/{{ .Release.Namespace }}{{ end }}/taranta/((db|socket|graphiql).*?) /$1"
+spec:
+  rules:
+    - http:
+        {{ if eq .Values.basename false }}
+        host: {{ .Values.ingress.hostname }}
+        {{ end }}
+        paths:
+        - path: {{ if .Values.basename }}/{{ .Release.Namespace }}{{ end }}/taranta/db
+          pathType: Prefix
+          backend:
+           service:
+            name: tangogql-{{ template "tangogql.name" . }}-{{ .Release.Name }}
+            port:
+              number: 5004
+        - path: {{ if .Values.basename }}/{{ .Release.Namespace }}{{ end }}/taranta/socket
+          pathType: Prefix
+          backend:
+           service:
+            name: tangogql-{{ template "tangogql.name" . }}-{{ .Release.Name }}
+            port:
+              number: 5004
+        - path: {{ if .Values.basename }}/{{ .Release.Namespace }}{{ end }}/taranta/graphiql
+          pathType: Prefix
+          backend:
+           service:
+            name: tangogql-{{ template "tangogql.name" . }}-{{ .Release.Name }}
+            port:
+              number: 5004
+
+{{ end }}

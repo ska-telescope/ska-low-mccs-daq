@@ -12,7 +12,8 @@ import json
 import logging
 import os
 from concurrent import futures
-from typing import Any, Callable, TypeVar, cast
+from enum import IntEnum
+from typing import Any, Callable, List, Optional, TypeVar, cast
 
 import grpc
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
@@ -23,6 +24,77 @@ from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
 __all__ = ["MccsDaqServer", "main"]
 
 Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
+
+
+class DaqStatus(IntEnum):
+    """DAQ Status."""
+
+    STOPPED = 0
+    RECEIVING = 1
+    LISTENING = 2
+
+
+class DaqCallbackBuffer:
+    """A DAQ callback buffer to flush to gRPC Client every poll."""
+
+    def __init__(self: DaqCallbackBuffer, logger: logging.Logger):
+        self.logger: logging.Logger = logger
+        self.data_types_received: List[str] = []
+        self.written_files: List[str] = []
+        self.extra_info: Any = []
+        self.pending_evaluation: bool = False
+
+    def add(
+        self: DaqCallbackBuffer,
+        data_type: str,
+        file_name: str,
+        additional_info: Optional[str] = None,
+    ) -> None:
+        """
+        Add a item to the buffer and set pending evaluation to true.
+
+        :param data_type: The DAQ data type written
+        :param file_name: The filename written
+        :param additional_info: Any additional information.
+        """
+        self.logger.info(f"File: {file_name}, with data: {data_type} added to buffer")
+
+        self.data_types_received.append(data_type)
+        self.written_files.append(file_name)
+        if additional_info is not None:
+            self.extra_info.append(additional_info)
+
+        self.pending_evaluation = True
+
+    def clear_buffer(self: DaqCallbackBuffer) -> None:
+        """Clear buffer and set evaluation status to false."""
+        self.data_types_received.clear()
+        self.written_files.clear()
+        self.extra_info.clear()
+        self.pending_evaluation = False
+
+    def send_buffer_to_client(
+        self: DaqCallbackBuffer,
+    ) -> Any:
+        """
+        Send buffer then clear buffer.
+
+        :yields response: the call_info response.
+        """
+        for i, _ in enumerate(self.written_files):
+            call_info = daq_pb2.CallInfo()
+            call_info.data_types_received = self.data_types_received[i]
+            call_info.files_written = self.written_files[i]
+
+            response = daq_pb2.startDaqResponse()
+            response.call_info.data_types_received = call_info.data_types_received
+            response.call_info.files_written = call_info.files_written
+
+            yield response
+
+        # after yield clear buffer
+        self.clear_buffer()
+        self.logger.info("Buffer sent and cleared.")
 
 
 def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
@@ -110,6 +182,36 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         self._receiver_started: bool = False
         self._initialised: bool = False
         self.logger = logging.getLogger("daq-server")
+        self.state = DaqStatus.STOPPED
+        self.request_stop = False
+        self.buffer = DaqCallbackBuffer(self.logger)
+
+    def file_dump_callback(
+        self: MccsDaqServer,
+        data_mode: str,
+        file_name: str,
+        additional_info: Optional[str] = None,
+    ) -> None:
+        """
+        Add metadata to buffer.
+
+        :param data_mode: The DAQ data type written
+        :param file_name: The filename written
+        :param additional_info: Any additional information.
+        """
+        if additional_info is not None:
+            self.buffer.add(data_mode, file_name, additional_info)
+        else:
+            self.buffer.add(data_mode, file_name)
+
+    def update_status(self: MccsDaqServer) -> None:
+        """Update the status of DAQ."""
+        if self.state == DaqStatus.STOPPED:
+            return
+        if self.buffer.pending_evaluation:
+            self.state = DaqStatus.RECEIVING
+        else:
+            self.state = DaqStatus.LISTENING
 
     @check_initialisation
     def StartDaq(
@@ -120,14 +222,19 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         """
         Start data acquisition with the current configuration.
 
+        A infinite streaming loop will be started until told to stop.
+        This will notify the gRPC client of state changes and metadata
+        of files written to disk, e.g. `data_type`.`file_name`.
+
         :param request: arguments object containing `modes_to_start`
             `modes_to_start`: The list of consumers to start.
+
         :param context: command metadata
 
-        :return: a commandResponse object containing `result_code` and `message`
+        :yields: A streamed gRPC response.
         """
-        self.logger.info("Starting DAQ")
         modes_to_start: str = request.modes_to_start
+
         if not self._receiver_started:
             self.daq_instance.initialise_daq()
             self._receiver_started = True
@@ -136,15 +243,36 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             converted_modes_to_start: list[DaqModes] = convert_daq_modes(modes_to_start)
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
-            return daq_pb2.commandResponse(
-                result_code=ResultCode.FAILED, message="Invalid DaqMode supplied"
-            )
-        # TODO: callbacks
-        callbacks = None
-        # callbacks = [self._received_data_callback] * len(converted_modes_to_start)
+
+        # yuck
+        callbacks = [self.file_dump_callback] * len(converted_modes_to_start)
+
         self.daq_instance.start_daq(converted_modes_to_start, callbacks)
-        self.logger.info("Daq started.")
-        return daq_pb2.commandResponse(result_code=ResultCode.OK, message="Daq started")
+        self.request_stop = False
+
+        # yield listening only once to notify client that daq is listening.
+        response = daq_pb2.startDaqResponse()
+        response.call_state.state = daq_pb2.CallState.LISTENING
+        yield response
+
+        self.state = DaqStatus.LISTENING
+        self.logger.info("Daq listening......")
+
+        # infinite loop (until told to stop)
+        # TODO: should this be in a thread?
+        while self.request_stop is False:
+            if self.state == DaqStatus.RECEIVING:
+                self.logger.info("Sending buffer to client ......")
+                # send buffer to client
+                yield from self.buffer.send_buffer_to_client()
+
+            # check callbacks
+            self.update_status()
+
+        # if we have got here we have stopped
+        response = daq_pb2.startDaqResponse()
+        response.call_state.state = daq_pb2.CallState.STOPPED
+        yield response
 
     @check_initialisation
     def StopDaq(
@@ -160,10 +288,10 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
 
         :return: a commandResponse object containing `result_code` and `message`
         """
-        self.logger.info("Stopping daq.")
+        self.logger.info("Stopping daq.....")
         self.daq_instance.stop_daq()
         self._receiver_started = False
-        self.logger.info("Daq stopped.")
+        self.request_stop = True
         return daq_pb2.commandResponse(result_code=ResultCode.OK, message="Daq stopped")
 
     def InitDaq(
@@ -254,7 +382,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         self: MccsDaqServer,
         request: daq_pb2.getConfigRequest,
         context: grpc.ServicerContext,
-    ) -> daq_pb2.getConfigResponse:
+    ) -> daq_pb2.ConfigurationResponse:
         """
         Retrieve the current DAQ configuration.
 
@@ -264,15 +392,16 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         :return: a commandResponse object containing the current `config`.
         """
         configuration = self.daq_instance.get_configuration()
+        # we make a copy as we want to modify type for gRPC communications.
+        configuration_copy = configuration.copy()
 
-        # we cannot simply call json dumps here since bytes input
-        for key, item in configuration.items():
-            if isinstance(item, bytes):
-                configuration[key] = item.decode("utf-8")
+        # Here we are casting to (str) type to match proto grpc configurations.
+        attributes_to_cast = ["observation_metadata", "receiver_ports"]
 
-        return daq_pb2.getConfigResponse(
-            config=json.dumps(configuration),
-        )
+        for attribute in attributes_to_cast:
+            configuration_copy[attribute] = str(configuration_copy[attribute])
+
+        return daq_pb2.ConfigurationResponse(**configuration_copy)
 
     @check_initialisation
     def DaqStatus(
