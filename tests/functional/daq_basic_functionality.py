@@ -8,16 +8,17 @@
 """This module contains the tests of the daq basic functionality."""
 from __future__ import annotations
 
+import json
+from time import sleep
+
 import pytest
 import tango
+from pytest_bdd import given, scenarios, then, when
 from ska_control_model import AdminMode, HealthState
-from pytest_bdd import given, parsers, scenarios, then, when
 from ska_tango_testing.context import TangoContextProtocol
-from time import sleep
-import json
-
 
 scenarios("./features/daq_basic_functionality.feature")
+
 
 @given("the DAQ is available", target_fixture="daq_receiver")
 def daq_receiver_fixture(
@@ -34,12 +35,13 @@ def daq_receiver_fixture(
     """
     return tango_harness.get_device(daq_name)
 
+
 @given("the DAQ is in the OFF state")
 def daq_device_is_off(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Assert that daq receiver is OFF
+    Assert that daq receiver is OFF.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
@@ -54,24 +56,23 @@ def daq_device_is_unknown_health(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Assert that daq receiver is in health mode unknown
+    Assert that daq receiver is in health mode unknown.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
     if daq_receiver.healthState is not HealthState.UNKNOWN:
-        pytest.fail('Initial conditions not met, health state not unknown')
+        pytest.fail("Initial conditions not met, health state not unknown")
 
 
 @given("the DAQ is in adminMode")
-def daq_device_is_in_adminMode(
+def daq_device_is_in_admin_mode(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Assert that daq receiver is in admin mode ONLINE
+    Assert that daq receiver is in admin mode ONLINE.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-
     if daq_receiver.adminMode is not AdminMode.OFFLINE:
         daq_receiver.adminMode = AdminMode.ONLINE
     assert daq_receiver.adminMode is AdminMode.ONLINE
@@ -80,11 +81,10 @@ def daq_device_is_in_adminMode(
 @when("I send the ON command")
 def daq_sent_on_command(daq_receiver: tango.DeviceProxy) -> None:
     """
-    Send to on command to the daq receiver
+    Send to on command to the daq receiver.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-
     print("attempting to turn on daq")
     daq_receiver.On()
     sleep(2)
@@ -117,7 +117,7 @@ def daq_device_is_on(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Assert that daq receiver is ON
+    Assert that daq receiver is ON.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
@@ -127,29 +127,26 @@ def daq_device_is_on(
     assert daq_receiver.state() is tango.DevState.ON
 
 
-
 @given("And the DAQ is in health state OK")
 def daq_device_is_online_health(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Assert that daq receiver is in health mode OK
+    Assert that daq receiver is in health mode OK.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-
     if daq_receiver.healthState is not HealthState.OK:
-        pytest.fail('Initial conditions not met, health state not OK')
+        pytest.fail("Initial conditions not met, health state not OK")
 
 
 @when("I send the OFF command")
 def daq_sent_off_command(daq_receiver: tango.DeviceProxy) -> None:
     """
-    Send to off command to the daq receiver
+    Send to off command to the daq receiver.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-
     print("attempting to turn off daq")
     daq_receiver.Off()
     sleep(2)
@@ -169,11 +166,10 @@ def check_daq_is_off(daq_receiver: tango.DeviceProxy) -> None:
 @when("I send the Configure command with raw data")
 def daq_sent_configure_raw(daq_receiver: tango.DeviceProxy) -> None:
     """
-    Send configure raw command to the daq receiver
+    Send configure raw command to the daq receiver.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-
     print("configure raw sent")
     daq_receiver.Start("DaqModes.RAW_DATA")
     sleep(2)
@@ -191,17 +187,16 @@ def check_daq_config_is_raw(daq_receiver: tango.DeviceProxy) -> None:
     if "RAW_DATA" in running_commands:
         print("daq has raw data stream")
     else:
-        pytest.fail('Raw data failed to start')
+        pytest.fail("Raw data failed to start")
 
 
 @when("I send the Configure command with channelised data")
 def daq_sent_configure_channelised(daq_receiver: tango.DeviceProxy) -> None:
     """
-    Send configure channelised command to the daq receiver
+    Send configure channelised command to the daq receiver.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-
     print("configure channelised sent")
     daq_receiver.Start("DaqModes.CHANNELISED_DATA")
     sleep(2)
@@ -219,13 +214,13 @@ def check_daq_config_is_channelised(daq_receiver: tango.DeviceProxy) -> None:
     if "CHANNELISED_DATA" in running_commands:
         print("daq has raw data stream")
     else:
-        pytest.fail('Channelsied failed to start')
+        pytest.fail("Channelsied failed to start")
 
 
 @given("the DAQ is receiving data")
 def daq_is_receiving_data(daq_receiver: tango.DeviceProxy) -> None:
     """
-    Assertthat the daq is receiving data and saving it to file
+    Assertthat the daq is receiving data and saving it to file.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
