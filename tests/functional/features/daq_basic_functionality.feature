@@ -6,6 +6,7 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         Given the DAQ is available
         And the DAQ is in the OFF state
         And the DAQ is in health state UNKNOWN
+        And the DAQ is in adminMode
         When I send the ON command
         Then the DAQ is in the ON state
         And the DAQ is in health state OK
@@ -14,7 +15,7 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
     Scenario: Turning the DAQ off
         Given the DAQ is available
         And the DAQ is in the ON state
-        And the DAQ is in health state ONLINE
+        And the DAQ is in health state OK
         When I send the OFF command
         Then the DAQ is in the OFF state
 
