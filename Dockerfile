@@ -19,7 +19,7 @@ RUN distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive TZ="United_Kingdom/London" apt-get install -y \
-    build-essential ca-certificates cmake libcap2-bin git make tzdata nvidia-cuda-toolkit nvidia-utils-525 nvidia-container-toolkit
+    build-essential ca-certificates cmake libcap2-bin git make tzdata nvidia-cuda-toolkit nvidia-utils-525 nvidia-container-toolkit nvidia-driver-525
 
 #RUN nvidia-ctk
 
