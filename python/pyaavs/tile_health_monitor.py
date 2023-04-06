@@ -82,12 +82,17 @@ class TileHealthMonitor:
             'voltage': self.get_voltage(fpga_id=None, voltage_name=None),
             'current': self.get_current(fpga_id=None, current_name=None),
             'alarms' : None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms(),
+            'adcs': {
+                'pll_status' : self.check_adc_pll_status(adc_id=None),
+                'sysref_status' : self.check_adc_sysref_status(adc_id=None, show_info=False)
+            },
             'timing': {
                 'clocks': self.check_clock_status(fpga_id=None, clock_name=None),
                 'clock_managers': self.check_clock_manager_status(fpga_id=None, name=None),
                 'pps': {
                     'status': self.check_pps_status(fpga_id=None)
-                }
+                },
+                'pll': self.check_ad9528_pll_status()
             },
             'io': {
                 'jesd_if': {
@@ -361,7 +366,93 @@ class TileHealthMonitor:
         if current_name is not None and not current_dict:
             raise LibraryError(f"No current named '{current_name.upper()}' \n Options are {', '.join(self.get_available_currents(fpga_id))} (not case sensitive)")
         return current_dict
+
+    def check_adc_pll_status(self, adc_id=None):
+        adcs = range(16) if adc_id is None else [adc_id]
+        status_dict = {}
+        for adc in adcs:
+            reg = self[f'adc{adc}', 0x056F]
+            lock_is_up = reg & 0x80 > 0
+            loss_of_lock = reg & 0x8 > 0
+            status_dict[f'ADC{adc}'] = lock_is_up and not loss_of_lock
+        return status_dict
     
+    def _check_adc_sysref_setup_and_hold(self, device, show_info=True):
+        case_dict = { 
+            'case1': {'hold': [0x0], 'setup': [0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7], 'status': False, 'msg': "Possible setup error.The smaller this number, the smaller the setup margin."},
+            'case2': {'hold': [0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8], 'setup': [0x8], 'status': True, 'msg': "No setup or hold error (best hold margin)."},
+            'case3': {'hold': [0x8], 'setup': [0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF], 'status': True, 'msg': "No setup or hold error (best setup and hold margin)."},
+            'case4': {'hold': [0x8], 'setup': [0x0], 'status': True, 'msg': "No setup or hold error (best setup margin)."},
+            'case5': {'hold': [0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF], 'setup': [0x0], 'status': False, 'msg': "Possible hold error. The larger this number the smaller the hold margin."},
+            'case6': {'hold': [0x8], 'setup': [0x0], 'status': False, 'msg': "Possible setup or hold error."}
+        }
+        reg = self[device, 0x0128]
+        hold = (reg & 0xF0) >> 4
+        setup = reg & 0x0F
+        for case in case_dict.values():
+            if hold in case['hold'] and setup in case['setup']:
+                if show_info:
+                    self.logger.info(f"{device.upper()} {case['msg']} Setup: {hex(setup)}, Hold {hex(hold)}.")
+                return case['status']
+        else:
+            if show_info:
+                self.logger.error(f"{device.upper()} Invalid Setup and Hold values. Setup: {hex(setup)}, Hold {hex(hold)}.")
+            return False
+
+    def _check_adc_sysref_counter(self, device, show_info=True):
+        timeout = time.time() + 1 # 1 second timeout
+        while True:
+            start_time = time.perf_counter()
+            read1 = self[device, 0x012A]
+            read2 = self[device, 0x012A]
+            end_time = time.perf_counter()
+            if show_info:
+                self.logger.info(f"read1: {read1}")
+                self.logger.info(f"read2: {read2}")
+                self.logger.info(f"{(end_time - start_time) * 1000} ms")
+            if end_time - start_time < 0.003:
+                break
+            if time.time() > timeout:
+                raise BoardError(f"Timed out trying to read {device.upper()} SYSREF counter - 0x012A twice in under 3 ms.")
+        return read1 != read2
+
+        
+    def check_adc_sysref_status(self, adc_id=None, show_info=True):
+        adcs = range(16) if adc_id is None else [adc_id]
+        status_dict = {}
+        for adc in adcs:
+            setup_hold_ok = self._check_adc_sysref_setup_and_hold(f'adc{adc}', show_info)
+            counter_ok = self._check_adc_sysref_counter(f'adc{adc}', show_info)
+            status_dict[f'ADC{adc}'] = setup_hold_ok and counter_ok 
+        return status_dict
+    
+    def check_ad9528_pll_status(self):
+        """
+        Status of TPM AD9528 PLL chip
+        
+        TPM 1.2 has no CPLD registers for PLL status.
+
+        For TPM 1.2 the CPLD cannot read the status pins
+        of the PLL directly so PLL status must be obtained 
+        from registers in the PLL over SPI.
+        This is slower.
+
+        This method returns lock status True if both PLLs
+        in the AD9528 are locked. The lock loss counter 
+        increments for a loss of lock event on either PLL.
+
+        :return: current lock status and lock loss counter value
+        :rtype tuple
+        """
+
+        if self.tpm_version() == "tpm_v1_2":
+            lock = self['pll', 0x508] & 0x3 == 0x3
+            loss_of_lock = None # This will be added in MCCS-1247
+        else:
+            lock = self['board.regfile.pll.status'] == 0x3
+            loss_of_lock = self['board.regfile.pll_lol']
+        return lock, loss_of_lock
+
     def get_available_clocks_to_monitor(self):
         """
         :return: list of clock names available to be monitored
@@ -947,12 +1038,16 @@ class TileHealthMonitor:
         health = {
             'temperature': EXP_TEMP, 'voltage': EXP_VOLTAGE, 'current': EXP_CURRENT,
             'alarms': None if self.tpm_version() == "tpm_v1_2" else {'I2C_access_alm': 0, 'temperature_alm': 0, 'voltage_alm': 0, 'SEM_wd': 0, 'MCU_wd': 0},
+            'adcs': {
+                'pll_status': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True},
+                'sysref_status': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True}},
             'timing': {
                 'clocks': {'FPGA0': {'JESD': True, 'DDR': True, 'UDP': True}, 'FPGA1': {'JESD': True, 'DDR': True, 'UDP': True}},
                 'clock_managers' : {
                     'FPGA0': {'C2C_MMCM': (True, 0), 'JESD_MMCM': (True, 0), 'DSP_MMCM': (True, 0)},
                     'FPGA1': {'C2C_MMCM': (True, 0), 'JESD_MMCM': (True, 0), 'DSP_MMCM': (True, 0)}},
-                'pps': {'status': True}},
+                'pps': {'status': True},
+                'pll': (True, None) if self.tpm_version() == "tpm_v1_2" else (True, 0)}, # This can be changed after MCCS-1247 is complete
             'io':{ 
                 'jesd_if': {
                     'link_status': True, 
