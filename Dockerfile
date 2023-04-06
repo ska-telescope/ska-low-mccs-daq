@@ -9,9 +9,19 @@ ENV AAVS_SYSTEM_SHA=498662646fcbb50c4995a1246f207852e2430006
 ENV AAVS_DAQ_SHA=65c8339543ff94818ccc9335583168c9b7f877f4
 ENV PYFABIL_SHA=1aa0dc954fb701fd2a7fed03df21639fc4c50560
 
+# Setup NVIDIA Container Toolkit package repo + GPG key.
+RUN apt-get update && apt-get install -y gpg
+RUN distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
+      && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+      && curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+            sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+            sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive TZ="United_Kingdom/London" apt-get install -y \
-    build-essential ca-certificates cmake libcap2-bin git make tzdata nvidia-cuda-toolkit nvidia-utils-525
+    build-essential ca-certificates cmake libcap2-bin git make tzdata nvidia-cuda-toolkit nvidia-utils-525 nvidia-container-toolkit
+
+#RUN nvidia-ctk
 
 # Install AAVS DAQ
 RUN git clone https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
@@ -20,6 +30,11 @@ RUN git reset --hard ${AAVS_SYSTEM_SHA}
 # Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
 RUN cp /app/deploy.sh /app/aavs-system/
 RUN ["/bin/bash", "-cC", "source /app/aavs-system/deploy.sh"]
+# Install xGPU and replace a header file with one that has custom values.
+# RUN git clone https://github.com/GPU-correlators/xGPU.git
+# RUN cp /app/xgpu_info.h /app/xGPU/src/
+# WORKDIR /app/xGPU/src/
+# RUN make install
 # Expose the DAQ port to UDP traffic.
 EXPOSE 4660/udp
 WORKDIR /app/
