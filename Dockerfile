@@ -11,7 +11,7 @@ ENV PYFABIL_SHA=1aa0dc954fb701fd2a7fed03df21639fc4c50560
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive TZ="United_Kingdom/London" apt-get install -y \
-    build-essential ca-certificates cmake libcap2-bin git make tzdata
+    build-essential ca-certificates cmake libcap2-bin git make tzdata nvidia-cuda-toolkit
 
 # Install AAVS DAQ
 RUN git clone https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
@@ -19,7 +19,7 @@ WORKDIR /app/aavs-system
 RUN git reset --hard ${AAVS_SYSTEM_SHA}
 # Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
 RUN cp /app/deploy.sh /app/aavs-system/
-RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
+RUN ["/bin/bash", "-cC", "source /app/aavs-system/deploy.sh"]
 # Expose the DAQ port to UDP traffic.
 EXPOSE 4660/udp
 WORKDIR /app/

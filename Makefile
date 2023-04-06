@@ -30,6 +30,17 @@ include .make/helm.mk
 # include your own private variables for custom deployment configuration
 -include PrivateRules.mak
 
+# VERSION is set in the above include
+PROJECT_NAME = low_mccs_daq
+
+_remote_tracking_branch = $(shell git status -sb | head -1 | sed 's/\.\.\./\n/' | tail -1)
+_gitlab_tag = $(VERSION)-dev.c$(shell git rev-parse --short=8 $(_remote_tracking_branch))
+ 
+K8S_CHART_PARAMS = \
+  --set global.minikube=false \
+  --set $(PROJECT_NAME).image.registry=registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq \
+  --set $(PROJECT_NAME).image.tag=$(_gitlab_tag)
+
 python-post-lint:
 	$(PYTHON_RUNNER) mypy --config-file mypy.ini src/ tests/
 
