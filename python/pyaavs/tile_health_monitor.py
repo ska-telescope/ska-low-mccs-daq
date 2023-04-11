@@ -13,6 +13,7 @@ This depends heavily on the
 pyfabil low level software and specific hardware module plugins.
 """
 
+import time
 from pyfabil.base.definitions import LibraryError, BoardError
 
 
@@ -81,12 +82,18 @@ class TileHealthMonitor:
             'voltage': self.get_voltage(fpga_id=None, voltage_name=None),
             'current': self.get_current(fpga_id=None, current_name=None),
             'alarms' : None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms(),
+            'adcs': {
+                'pll_status': self.check_adc_pll_status(adc_id=None),
+                'sysref_timing_requirements': self.check_adc_sysref_setup_and_hold(adc_id=None, show_info=False),
+                'sysref_counter': self.check_adc_sysref_counter(adc_id=None, show_info=False)
+            },
             'timing': {
                 'clocks': self.check_clock_status(fpga_id=None, clock_name=None),
                 'clock_managers': self.check_clock_manager_status(fpga_id=None, name=None),
                 'pps': {
                     'status': self.check_pps_status(fpga_id=None)
-                }
+                },
+                'pll': self.check_ad9528_pll_status()
             },
             'io': {
                 'jesd_if': {
@@ -101,7 +108,9 @@ class TileHealthMonitor:
                     'reset_counter': self.check_ddr_reset_counter(fpga_id=None, show_result=False)
                 },
                 'f2f_if': {
-                    'pll_status': self.check_f2f_pll_status(core_id=None, show_result=False)
+                    'pll_status': self.check_f2f_pll_status(core_id=None, show_result=False),
+                    'soft_error': self.check_f2f_soft_errors(),
+                    'hard_error': self.check_f2f_hard_errors()
                 },
                 'udp_if': {
                     'arp': self.check_udp_arp_table_status(fpga_id=None, show_result=False),
@@ -113,7 +122,10 @@ class TileHealthMonitor:
             }, 
             'dsp': {
                 'tile_beamf': self.check_tile_beamformer_status(fpga_id=None),
-                'station_beamf': self.check_station_beamformer_status(fpga_id=None)
+                'station_beamf': {
+                    'status' : self.check_station_beamformer_status(fpga_id=None),
+                    'ddr_parity_error_count': self.check_ddr_parity_error_counter(fpga_id=None)
+                }
             }
         }
         health_dict['temperature']['board'] = round(self.get_temperature(), 2)
@@ -355,7 +367,144 @@ class TileHealthMonitor:
         if current_name is not None and not current_dict:
             raise LibraryError(f"No current named '{current_name.upper()}' \n Options are {', '.join(self.get_available_currents(fpga_id))} (not case sensitive)")
         return current_dict
+
+    def check_adc_pll_status(self, adc_id=None):
+        """
+        Status of ADC PLL.
+
+        This method returns True if the lock of the PLL is up
+        and no loss of PLL lock has been observed.
+
+        A dictionary is returned with an entry for each ADC.
+
+        :return: True if all OK
+        :rtype dict of bool
+        """
+        adcs = range(16) if adc_id is None else [adc_id]
+        status_dict = {}
+        for adc in adcs:
+            reg = self[f'adc{adc}', 0x056F]
+            lock_is_up = reg & 0x80 > 0
+            loss_of_lock = reg & 0x8 > 0
+            status_dict[f'ADC{adc}'] = lock_is_up and not loss_of_lock
+        return status_dict
     
+    def check_adc_sysref_setup_and_hold(self, adc_id=None, show_info=True):
+        """
+        Status of the ADC status and hold monitor.
+        Returns True if no setup or hold error for a given ADC.
+        Returns a dictionary of bool, one for each ADC.
+
+        If show info enabled then desciptions from AD9695/AD9680 
+        documentation are also displayed to explain the value of 
+        the setup and hold monitor.
+
+        :param adc_id: Specify which ADC, 0-15, None for all ADCs
+        :type adc_id: integer
+
+        :param show_info: displays info messages about current setup/hold
+        :type show_info: bool
+
+        :return: True if timing requirements OK
+        :rtype dict of bool
+        """
+        case_dict = { 
+            'case1': {'hold': [0x0], 'setup': [0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7], 'status': False, 'msg': "Possible setup error.The smaller this number, the smaller the setup margin."},
+            'case2': {'hold': [0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8], 'setup': [0x8], 'status': True, 'msg': "No setup or hold error (best hold margin)."},
+            'case3': {'hold': [0x8], 'setup': [0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF], 'status': True, 'msg': "No setup or hold error (best setup and hold margin)."},
+            'case4': {'hold': [0x8], 'setup': [0x0], 'status': True, 'msg': "No setup or hold error (best setup margin)."},
+            'case5': {'hold': [0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF], 'setup': [0x0], 'status': False, 'msg': "Possible hold error. The larger this number the smaller the hold margin."},
+            'case6': {'hold': [0x0], 'setup': [0x0], 'status': False, 'msg': "Possible setup or hold error."}
+        }
+        adcs = range(16) if adc_id is None else [adc_id]
+        status_dict = {}
+        for adc in adcs:
+            reg = self[f'adc{adc}', 0x0128]
+            hold = (reg & 0xF0) >> 4
+            setup = reg & 0x0F
+            for case in case_dict.values():
+                if hold in case['hold'] and setup in case['setup']:
+                    if show_info:
+                        self.logger.info(f"ADC{adc} {case['msg']} Setup: {hex(setup)}, Hold {hex(hold)}.")
+                    status_dict[f'ADC{adc}'] = case['status']
+                    break
+            else:
+                if show_info:
+                    self.logger.error(f"ADC{adc} Invalid Setup and Hold values. Setup: {hex(setup)}, Hold {hex(hold)}.")
+                status_dict[f'ADC{adc}'] = False
+        return status_dict
+
+    def check_adc_sysref_counter(self, adc_id=None, show_info=True):
+        """
+        Checks ADC sysref counter is incrementing.
+        Sysref counter increments for each sysref event and
+        overflows at 255 ~ every 3.28ms.
+
+        Returns True if counter is incrementing for a given ADC.
+        Returns a dictionary of bool, one for each ADC.
+
+        Will retry for 1 second until two readings can be taken in 
+        under 3ms to guarantee no overflow.
+
+        For debugging, if show info is enabled then each counter 
+        reading will be displayed along with the elapsed time.
+
+        :param adc_id: Specify which ADC, 0-15, None for all ADCs
+        :type adc_id: integer
+
+        :param show_info: displays info messages
+        :type show_info: bool
+
+        :return: True if sysref counter incrementing
+        :rtype dict of bool
+        """
+        adcs = range(16) if adc_id is None else [adc_id]
+        status_dict = {}
+        for adc in adcs:
+            timeout = time.time() + 1 # 1 second timeout
+            while True:
+                start_time = time.perf_counter()
+                read1 = self[f'adc{adc}', 0x012A]
+                read2 = self[f'adc{adc}', 0x012A]
+                end_time = time.perf_counter()
+                if show_info:
+                    self.logger.info(f"read1: {read1}")
+                    self.logger.info(f"read2: {read2}")
+                    self.logger.info(f"{(end_time - start_time) * 1000} ms")
+                if end_time - start_time < 0.003:
+                    break
+                if time.time() > timeout:
+                    raise BoardError(f"Timed out trying to read ADC{adc} SYSREF counter - 0x012A twice in under 3 ms.")
+            status_dict[f'ADC{adc}'] = read1 != read2
+        return status_dict
+    
+    def check_ad9528_pll_status(self):
+        """
+        Status of TPM AD9528 PLL chip
+        
+        TPM 1.2 has no CPLD registers for PLL status.
+
+        For TPM 1.2 the CPLD cannot read the status pins
+        of the PLL directly so PLL status must be obtained 
+        from registers in the PLL over SPI.
+        This is slower.
+
+        This method returns lock status True if both PLLs
+        in the AD9528 are locked. The lock loss counter 
+        increments for a loss of lock event on either PLL.
+
+        :return: current lock status and lock loss counter value
+        :rtype tuple
+        """
+
+        if self.tpm_version() == "tpm_v1_2":
+            lock = self['pll', 0x508] & 0x3 == 0x3
+            loss_of_lock = None # This will be added in MCCS-1247
+        else:
+            lock = self['board.regfile.pll.status'] == 0x3
+            loss_of_lock = self['board.regfile.pll_lol']
+        return lock, loss_of_lock
+
     def get_available_clocks_to_monitor(self):
         """
         :return: list of clock names available to be monitored
@@ -684,6 +833,22 @@ class TileHealthMonitor:
             self.tpm.tpm_test_firmware[fpga].clear_ddr_user_reset_counter()
         return
 
+    def check_ddr_parity_error_counter(self, fpga_id=None):
+        """
+        Check status of DDR parity error counter - used only with station beamformer
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: counter values
+        :rtype: dict
+        """
+        counts = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counts[f'FPGA{fpga}'] = self.tpm.station_beamf[fpga].check_ddr_parity_error_counter()
+        return counts
+    
+
     def check_f2f_pll_status(self, core_id=None, show_result=True):
         """
         Check current F2F PLL lock status and for loss of lock events.
@@ -706,6 +871,26 @@ class TileHealthMonitor:
         for core in cores:
             counts[f'Core{core}'] = self.tpm.tpm_f2f[core].check_pll_lock_status(show_result)
         return counts # Return dict of counter values
+
+    def check_f2f_soft_errors(self):
+        """
+        Check F2F for soft errors.
+        Asserted for a single user_clk period.
+
+        :return: soft_err register value
+        :rtype: integer
+        """
+        return None if self.tpm_version() == "tpm_v1_2" else self.tpm.tpm_f2f[0].get_soft_err()
+    
+    def check_f2f_hard_errors(self):
+        """
+        Check F2F for hard errors.
+        Asserted until the core resets.
+
+        :return: hard_err register value
+        :rtype: integer
+        """
+        return None if self.tpm_version() == "tpm_v1_2" else self.tpm.tpm_f2f[0].get_hard_err()
 
     def clear_f2f_pll_lock_loss_counter(self, core_id=None):
         """
@@ -887,6 +1072,7 @@ class TileHealthMonitor:
     def clear_station_beamformer_status(self, fpga_id=None):
         """
         Clear status of Station Beamformer error flags and counters.
+        Including DDR parity error counter.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -904,12 +1090,17 @@ class TileHealthMonitor:
         health = {
             'temperature': EXP_TEMP, 'voltage': EXP_VOLTAGE, 'current': EXP_CURRENT,
             'alarms': None if self.tpm_version() == "tpm_v1_2" else {'I2C_access_alm': 0, 'temperature_alm': 0, 'voltage_alm': 0, 'SEM_wd': 0, 'MCU_wd': 0},
+            'adcs': {
+                'pll_status': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True},
+                'sysref_timing_requirements': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True},
+                'sysref_counter': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True}},
             'timing': {
                 'clocks': {'FPGA0': {'JESD': True, 'DDR': True, 'UDP': True}, 'FPGA1': {'JESD': True, 'DDR': True, 'UDP': True}},
                 'clock_managers' : {
                     'FPGA0': {'C2C_MMCM': (True, 0), 'JESD_MMCM': (True, 0), 'DSP_MMCM': (True, 0)},
                     'FPGA1': {'C2C_MMCM': (True, 0), 'JESD_MMCM': (True, 0), 'DSP_MMCM': (True, 0)}},
-                'pps': {'status': True}},
+                'pps': {'status': True},
+                'pll': (True, None) if self.tpm_version() == "tpm_v1_2" else (True, 0)}, # This can be changed after MCCS-1247 is complete
             'io':{ 
                 'jesd_if': {
                     'link_status': True, 
@@ -924,12 +1115,39 @@ class TileHealthMonitor:
                     'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 
                     'qpll_status': {'FPGA0': (True, 0), 'FPGA1': (True, 0)}},
                 'ddr_if': {'initialisation': True, 'reset_counter': {'FPGA0': 0, 'FPGA1': 0}},
-                'f2f_if': {'pll_status': {'Core0': [(True, 0), (True, 0)], 'Core1': [(True, 0), (True, 0)]} if self.tpm_version() == "tpm_v1_2" else {'Core0' : (True, 0)}},
+                'f2f_if': {
+                    'pll_status': {'Core0': [(True, 0), (True, 0)], 'Core1': [(True, 0), (True, 0)]} if self.tpm_version() == "tpm_v1_2" else {'Core0' : (True, 0)},
+                    'soft_error': None if self.tpm_version() == "tpm_v1_2" else 0,
+                    'hard_error': None if self.tpm_version() == "tpm_v1_2" else 0},
                 'udp_if': {
                     'arp': True, 
                     'status': True, 
                     'crc_error_count': {'FPGA0': 0, 'FPGA1': 0}, 
                     'bip_error_count': {'FPGA0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}, 'FPGA1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}}, 
                     'linkup_loss_count': {'FPGA0': 0, 'FPGA1': 0}}},
-            'dsp': {'tile_beamf': True,'station_beamf': True}}
+            'dsp': {
+                'tile_beamf': True,
+                'station_beamf': { 'status': True, 'ddr_parity_error_count': {'FPGA0': 0, 'FPGA1': 0}}
+            }
+        }
         return health
+    
+    def inject_ddr_parity_error(self, fpga_id=None):
+        for fpga in self.fpga_gen(fpga_id):
+            board = f'fpga{fpga+1}'
+            self.logger.info(f"Injecting DDR Parity Error - FPGA{fpga}")
+            self[f'{board}.beamf_ring.ddr_parity_error_inject'] = 1
+            timeout = 60 # 30 seconds
+            count = 0
+            while True:
+                reg = self[f'{board}.beamf_ring.ddr_parity_error_inject']
+                if reg == 0:  # Register deasserts once injection has completed
+                    break
+                if count % 4 == 0: # Every 2 seconds
+                    self.logger.info("Waiting for valid DDR read transaction...")
+                if count > timeout:
+                    self.logger.error("Timed out waiting for DDR parity error injection acknowledge. No valid DDR read transaction")
+                    break
+                time.sleep(0.5)
+                count += 1
+        return
