@@ -83,8 +83,9 @@ class TileHealthMonitor:
             'current': self.get_current(fpga_id=None, current_name=None),
             'alarms' : None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms(),
             'adcs': {
-                'pll_status' : self.check_adc_pll_status(adc_id=None),
-                'sysref_status' : self.check_adc_sysref_status(adc_id=None, show_info=False)
+                'pll_status': self.check_adc_pll_status(adc_id=None),
+                'sysref_timing_requirements': self.check_adc_sysref_setup_and_hold(adc_id=None, show_info=False),
+                'sysref_counter': self.check_adc_sysref_counter(adc_id=None, show_info=False)
             },
             'timing': {
                 'clocks': self.check_clock_status(fpga_id=None, clock_name=None),
@@ -368,6 +369,17 @@ class TileHealthMonitor:
         return current_dict
 
     def check_adc_pll_status(self, adc_id=None):
+        """
+        Status of ADC PLL.
+
+        This method returns True if the lock of the PLL is up
+        and no loss of PLL lock has been observed.
+
+        A dictionary is returned with an entry for each ADC.
+
+        :return: True if all OK
+        :rtype dict of bool
+        """
         adcs = range(16) if adc_id is None else [adc_id]
         status_dict = {}
         for adc in adcs:
@@ -377,53 +389,93 @@ class TileHealthMonitor:
             status_dict[f'ADC{adc}'] = lock_is_up and not loss_of_lock
         return status_dict
     
-    def _check_adc_sysref_setup_and_hold(self, device, show_info=True):
+    def check_adc_sysref_setup_and_hold(self, adc_id=None, show_info=True):
+        """
+        Status of the ADC status and hold monitor.
+        Returns True if no setup or hold error for a given ADC.
+        Returns a dictionary of bool, one for each ADC.
+
+        If show info enabled then desciptions from AD9695/AD9680 
+        documentation are also displayed to explain the value of 
+        the setup and hold monitor.
+
+        :param adc_id: Specify which ADC, 0-15, None for all ADCs
+        :type adc_id: integer
+
+        :param show_info: displays info messages about current setup/hold
+        :type show_info: bool
+
+        :return: True if timing requirements OK
+        :rtype dict of bool
+        """
         case_dict = { 
             'case1': {'hold': [0x0], 'setup': [0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7], 'status': False, 'msg': "Possible setup error.The smaller this number, the smaller the setup margin."},
             'case2': {'hold': [0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8], 'setup': [0x8], 'status': True, 'msg': "No setup or hold error (best hold margin)."},
             'case3': {'hold': [0x8], 'setup': [0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF], 'status': True, 'msg': "No setup or hold error (best setup and hold margin)."},
             'case4': {'hold': [0x8], 'setup': [0x0], 'status': True, 'msg': "No setup or hold error (best setup margin)."},
             'case5': {'hold': [0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF], 'setup': [0x0], 'status': False, 'msg': "Possible hold error. The larger this number the smaller the hold margin."},
-            'case6': {'hold': [0x8], 'setup': [0x0], 'status': False, 'msg': "Possible setup or hold error."}
+            'case6': {'hold': [0x0], 'setup': [0x0], 'status': False, 'msg': "Possible setup or hold error."}
         }
-        reg = self[device, 0x0128]
-        hold = (reg & 0xF0) >> 4
-        setup = reg & 0x0F
-        for case in case_dict.values():
-            if hold in case['hold'] and setup in case['setup']:
-                if show_info:
-                    self.logger.info(f"{device.upper()} {case['msg']} Setup: {hex(setup)}, Hold {hex(hold)}.")
-                return case['status']
-        else:
-            if show_info:
-                self.logger.error(f"{device.upper()} Invalid Setup and Hold values. Setup: {hex(setup)}, Hold {hex(hold)}.")
-            return False
-
-    def _check_adc_sysref_counter(self, device, show_info=True):
-        timeout = time.time() + 1 # 1 second timeout
-        while True:
-            start_time = time.perf_counter()
-            read1 = self[device, 0x012A]
-            read2 = self[device, 0x012A]
-            end_time = time.perf_counter()
-            if show_info:
-                self.logger.info(f"read1: {read1}")
-                self.logger.info(f"read2: {read2}")
-                self.logger.info(f"{(end_time - start_time) * 1000} ms")
-            if end_time - start_time < 0.003:
-                break
-            if time.time() > timeout:
-                raise BoardError(f"Timed out trying to read {device.upper()} SYSREF counter - 0x012A twice in under 3 ms.")
-        return read1 != read2
-
-        
-    def check_adc_sysref_status(self, adc_id=None, show_info=True):
         adcs = range(16) if adc_id is None else [adc_id]
         status_dict = {}
         for adc in adcs:
-            setup_hold_ok = self._check_adc_sysref_setup_and_hold(f'adc{adc}', show_info)
-            counter_ok = self._check_adc_sysref_counter(f'adc{adc}', show_info)
-            status_dict[f'ADC{adc}'] = setup_hold_ok and counter_ok 
+            reg = self[f'adc{adc}', 0x0128]
+            hold = (reg & 0xF0) >> 4
+            setup = reg & 0x0F
+            for case in case_dict.values():
+                if hold in case['hold'] and setup in case['setup']:
+                    if show_info:
+                        self.logger.info(f"ADC{adc} {case['msg']} Setup: {hex(setup)}, Hold {hex(hold)}.")
+                    status_dict[f'ADC{adc}'] = case['status']
+                    break
+            else:
+                if show_info:
+                    self.logger.error(f"ADC{adc} Invalid Setup and Hold values. Setup: {hex(setup)}, Hold {hex(hold)}.")
+                status_dict[f'ADC{adc}'] = False
+        return status_dict
+
+    def check_adc_sysref_counter(self, adc_id=None, show_info=True):
+        """
+        Checks ADC sysref counter is incrementing.
+        Sysref counter increments for each sysref event and
+        overflows at 255 ~ every 3.28ms.
+
+        Returns True if counter is incrementing for a given ADC.
+        Returns a dictionary of bool, one for each ADC.
+
+        Will retry for 1 second until two readings can be taken in 
+        under 3ms to guarantee no overflow.
+
+        For debugging, if show info is enabled then each counter 
+        reading will be displayed along with the elapsed time.
+
+        :param adc_id: Specify which ADC, 0-15, None for all ADCs
+        :type adc_id: integer
+
+        :param show_info: displays info messages
+        :type show_info: bool
+
+        :return: True if sysref counter incrementing
+        :rtype dict of bool
+        """
+        adcs = range(16) if adc_id is None else [adc_id]
+        status_dict = {}
+        for adc in adcs:
+            timeout = time.time() + 1 # 1 second timeout
+            while True:
+                start_time = time.perf_counter()
+                read1 = self[f'adc{adc}', 0x012A]
+                read2 = self[f'adc{adc}', 0x012A]
+                end_time = time.perf_counter()
+                if show_info:
+                    self.logger.info(f"read1: {read1}")
+                    self.logger.info(f"read2: {read2}")
+                    self.logger.info(f"{(end_time - start_time) * 1000} ms")
+                if end_time - start_time < 0.003:
+                    break
+                if time.time() > timeout:
+                    raise BoardError(f"Timed out trying to read ADC{adc} SYSREF counter - 0x012A twice in under 3 ms.")
+            status_dict[f'ADC{adc}'] = read1 != read2
         return status_dict
     
     def check_ad9528_pll_status(self):
@@ -1040,7 +1092,8 @@ class TileHealthMonitor:
             'alarms': None if self.tpm_version() == "tpm_v1_2" else {'I2C_access_alm': 0, 'temperature_alm': 0, 'voltage_alm': 0, 'SEM_wd': 0, 'MCU_wd': 0},
             'adcs': {
                 'pll_status': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True},
-                'sysref_status': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True}},
+                'sysref_timing_requirements': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True},
+                'sysref_counter': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True}},
             'timing': {
                 'clocks': {'FPGA0': {'JESD': True, 'DDR': True, 'UDP': True}, 'FPGA1': {'JESD': True, 'DDR': True, 'UDP': True}},
                 'clock_managers' : {
