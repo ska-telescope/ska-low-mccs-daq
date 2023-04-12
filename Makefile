@@ -31,11 +31,15 @@ include .make/xray.mk
 # include your own private variables for custom deployment configuration
 -include PrivateRules.mak
 
-python-post-lint:
-	$(PYTHON_RUNNER) mypy --config-file mypy.ini src/ tests/
+python-post-format:
+	docformatter -r -i --wrap-summaries 88 --wrap-descriptions 72 --pre-summary-newline src/ tests/
 
-docs-pre-build:
-	python3 -m pip install -r docs/requirements.txt
+python-post-lint:
+	mypy --config-file mypy.ini src/ tests
+
+
+K8S_FACILITY ?= k8s-test
+K8S_CHART_PARAMS += --values charts/ska-low-mccs-spshw/values-$(K8S_FACILITY).yaml
 
 
 # THIS IS SPECIFIC TO THIS REPO
