@@ -45,7 +45,15 @@ K8S_CHART_PARAMS = \
 	--set low_mccs_daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
 endif
 
-K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --testbed local --junitxml=build/reports/functional-tests.xml
+JUNITXML_REPORT_PATH ?= build/reports/functional-tests.xml
+CUCUMBER_JSON_PATH ?= build/reports/cucumber.json
+JSON_REPORT_PATH ?= build/reports/report.json
+
+K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --true-context \
+    --junitxml=$(JUNITXML_REPORT_PATH) \
+    --cucumberjson=$(CUCUMBER_JSON_PATH) \
+	--json-report --json-report-file=$(JSON_REPORT_PATH)
+
 K8S_TEST_RUNNER_PYTEST_TARGET = tests/functional
 K8S_TEST_RUNNER_PIP_INSTALL_ARGS = -r tests/functional/requirements.txt
 
