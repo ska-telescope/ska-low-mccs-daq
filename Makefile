@@ -31,8 +31,8 @@ include .make/xray.mk
 # include your own private variables for custom deployment configuration
 -include PrivateRules.mak
 
-python-post-format:
-	docformatter -r -i --wrap-summaries 88 --wrap-descriptions 72 --pre-summary-newline src/ tests/
+docs-pre-build:
+	python3 -m pip install -r docs/requirements.txt
 
 python-post-lint:
 	mypy --config-file mypy.ini src/ tests
@@ -53,7 +53,7 @@ JUNITXML_REPORT_PATH ?= build/reports/functional-tests.xml
 CUCUMBER_JSON_PATH ?= build/reports/cucumber.json
 JSON_REPORT_PATH ?= build/reports/report.json
 
-K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --true-context \
+K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --true-context --testbed local\
     --junitxml=$(JUNITXML_REPORT_PATH) \
     --cucumberjson=$(CUCUMBER_JSON_PATH) \
 	--json-report --json-report-file=$(JSON_REPORT_PATH)
