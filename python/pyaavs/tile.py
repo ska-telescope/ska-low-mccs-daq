@@ -1622,6 +1622,10 @@ class Tile(TileHealthMonitor):
             self.tpm[f + ".pps_manager.pps_gen_tc"] = int(100e6) - 1  # PPS generator runs at 100 Mhz
             self.tpm[f + ".pps_manager.sync_cnt_enable"] = 0x7
             self.tpm[f + ".pps_manager.sync_cnt_enable"] = 0x0
+            try: 
+                self.tpm[f + ".pps_manager.pps_exp_tc"] = int(200e6) - 1  # PPS validation runs at 200 Mhz
+            except Exception as e:
+                self.logger.warning("FPGA Firmware does not support updated PPS validation. Requires > sbf415. Status of PPS error flag should be ignored.")  
 
         # Setting internal PPS generator
         if use_internal_pps:
