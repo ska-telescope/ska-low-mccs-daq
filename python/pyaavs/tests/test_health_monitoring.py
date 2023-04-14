@@ -7,9 +7,7 @@ import logging
 import operator
 
 # Add to this list any monitoring points that are expected to fail
-MON_POINT_SKIP = [
-    'timing.pps.status'                   # Can be removed once MCCS-1282 is complete
-]
+MON_POINT_SKIP = []
 
 class TestHealthMonitoring():
     def __init__(self, station_config, logger):
