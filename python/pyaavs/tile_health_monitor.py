@@ -630,7 +630,9 @@ class TileHealthMonitor:
 
     def check_pps_status(self, fpga_id=None):
         """
-        Check PPS is detected and error free.
+        Check PPS is detected and PPS period is as expected.
+        Firmware counts number of cycles between PPS and sets an error flag
+        if the value does not match the pps_exp_tc register.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer

@@ -1717,6 +1717,26 @@ class Tile(TileHealthMonitor):
             self.logger.debug("FPGA2 is locked to external PPS")
         else:
             self.logger.warning("FPGA2 is not locked to external PPS")
+        
+        # Check PPS valid
+        try: 
+            self.tpm["fpga1.pps_manager.pps_exp_tc"]
+            if self.tpm[f'fpga1.pps_manager.pps_errors.pps_count_error'] == 0x0:
+                self.logger.debug("FPGA1 PPS period is as expected.")
+            else:
+                self.logger.error("FPGA1 PPS period is not as expected.")
+                result = False
+        except Exception as e:
+            self.logger.warning("FPGA1 Firmware does not support updated PPS validation. Requires > sbf415. Ignoring PPS status of error flag.")
+        try: 
+            self.tpm["fpga2.pps_manager.pps_exp_tc"]
+            if self.tpm[f'fpga2.pps_manager.pps_errors.pps_count_error'] == 0x0:
+                self.logger.debug("FPGA2 PPS period is as expected.")
+            else:
+                self.logger.error("FPGA2 PPS period is not as expected.")
+                result = False
+        except Exception as e:
+            self.logger.warning("FPGA2 Firmware does not support updated PPS validation. Requires > sbf415. Ignoring PPS status of error flag.")  
 
         # check FPGA time
         self.wait_pps_event()
