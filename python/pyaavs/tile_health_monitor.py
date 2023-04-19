@@ -15,6 +15,12 @@ pyfabil low level software and specific hardware module plugins.
 
 import time
 from pyfabil.base.definitions import LibraryError, BoardError
+from copy import copy
+from functools import reduce
+import operator
+
+from pyaavs.tpm_1_6_monitoring_point_lookup import load_tpm_1_6_lookup
+from pyaavs.tpm_1_2_monitoring_point_lookup import load_tpm_1_2_lookup
 
 
 def health_monitoring_compatible(func):
@@ -23,12 +29,12 @@ def health_monitoring_compatible(func):
     Achieved by attempting to access a register which was added for TPM health monitoring.
     Bitstreams generated prior to ~03/2023 will not support TPM health monitoring.
     """
-    def inner_func(self):
+    def inner_func(self, *args, **kwargs):
         try:
             self['fpga1.pps_manager.pps_errors']
         except Exception as e:  # noqa: F841
             raise LibraryError(f"TPM Health Monitoring not supported by FPGA firmware!")
-        return func(self)
+        return func(self, *args, **kwargs)
     return inner_func
 
 
@@ -37,7 +43,7 @@ def communication_check(func):
     Decorator method to check if communication is established between FPGA and CPLD.
     Non-destructive version of tile tpm_communication_check.
     """
-    def inner_func(self):
+    def inner_func(self, *args, **kwargs):
         try:
             magic0 = self[0x4]
         except Exception as e:  # noqa: F841
@@ -47,7 +53,7 @@ def communication_check(func):
         except Exception as e:  # noqa: F841
             raise BoardError(f"Not possible to communicate with the FPGA1: " + str(e))
         if magic0 == magic1 == 0xA1CE55AD:
-            return func(self)
+            return func(self, *args, **kwargs)
         else:
             if magic0 != 0xA1CE55AD:
                 self.logger.error(f"FPGA0 magic number is not correct {hex(magic0)}, expected: 0xA1CE55AD")
@@ -57,10 +63,17 @@ def communication_check(func):
     return inner_func
 
 
-class TileHealthMonitor:
+class TileHealthMonitor():
     """
     Tile Health Monitor Mixin Class, must be inherited by Tile Class
     """
+    def init_health_monitoring(self):
+        # Load tpm monitoring point format and lookup from other files
+        self.monitoring_point_lookup_dict = load_tpm_1_2_lookup(self) if  self.tpm_version() == "tpm_v1_2" else load_tpm_1_6_lookup(self)
+        # All monitoring points default to 'fast' rate
+        #TODO remove below
+        self.monitoring_point_rates = dict.fromkeys(self.all_monitoring_points(), 'fast')
+        return
 
     @communication_check
     @health_monitoring_compatible
@@ -70,6 +83,54 @@ class TileHealthMonitor:
         self.enable_clock_monitoring()
         return
 
+    def all_monitoring_points(self, include_all_categories=False):
+        def find_leaf_dict_recursive(health_dict, key_list=[], monitoring_point_list=[]):
+            for name, value in health_dict.items():
+                key_list.append(name)
+                if not isinstance(value, dict):
+                    monitoring_point_list.append('.'.join(key_list))
+                    key_list.pop()
+                else:
+                    if include_all_categories:
+                        monitoring_point_list.append('.'.join(key_list))
+                    find_leaf_dict_recursive(value, key_list, monitoring_point_list)
+            if key_list:
+                key_list.pop()
+            return monitoring_point_list
+            
+        # Find leaves of nested dict
+        monitoring_point_list = find_leaf_dict_recursive(self.monitoring_point_lookup_dict)
+        # Strip .method, .exp_value, .rate and .group from point names
+        for i, point in enumerate(monitoring_point_list):
+            point = point.split('.method')[0]
+            point = point.split('.exp_value')[0]
+            point = point.split('.rate')[0]
+            point = point.split('.group')[0]
+            monitoring_point_list[i] = point
+        # Uniquify monitoring_point_list
+        monitoring_point_list = list(dict.fromkeys(monitoring_point_list))
+        return monitoring_point_list
+
+    def all_monitoring_categories(self):
+        return self.all_monitoring_points(include_all_categories=True)
+
+    def set_monitoring_point_rate(self, point, rate):
+        #TODO: Change to use new lookup_dict
+        # Create general version to set rate and group "set_monitoring_point_attr(rate)"
+        point = point.lower()
+        rate = rate.lower()
+        if point not in self.all_monitoring_categories():
+            raise LibraryError(f"No monitoring point matching: {point}\nUse:\nall_monitoring_points()\nall_monitoring_categories()\nto see available options.")
+        if rate not in available_rates:
+            raise LibraryError(f"No rate matching: {rate}. Options are {', '.join(available_rates)} (not case sensitive)")
+        for monitoring_point in self.monitoring_point_rates.keys():
+            if monitoring_point.startswith(point):
+                self.monitoring_point_rates[monitoring_point] = rate
+        return
+
+    def parse_dict_by_path(self, dictionary, path_list):
+        return reduce(operator.getitem, path_list, dictionary)
+
     @communication_check
     @health_monitoring_compatible
     def get_health_status(self):
@@ -77,59 +138,34 @@ class TileHealthMonitor:
         Returns the current value of all TPM monitoring points.
         https://confluence.skatelescope.org/x/nDhED
         """
-        health_dict = {
-            'temperature': self.get_fpga_temperature(fpga_id=None), 
-            'voltage': self.get_voltage(fpga_id=None, voltage_name=None),
-            'current': self.get_current(fpga_id=None, current_name=None),
-            'alarms' : None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms(),
-            'adcs': {
-                'pll_status': self.check_adc_pll_status(adc_id=None),
-                'sysref_timing_requirements': self.check_adc_sysref_setup_and_hold(adc_id=None, show_info=False),
-                'sysref_counter': self.check_adc_sysref_counter(adc_id=None, show_info=False)
-            },
-            'timing': {
-                'clocks': self.check_clock_status(fpga_id=None, clock_name=None),
-                'clock_managers': self.check_clock_manager_status(fpga_id=None, name=None),
-                'pps': {
-                    'status': self.check_pps_status(fpga_id=None)
-                },
-                'pll': self.check_ad9528_pll_status()
-            },
-            'io': {
-                'jesd_if': {
-                    'link_status' : self.check_jesd_link_status(fpga_id=None, core_id=None),
-                    'lane_error_count': self.check_jesd_lane_error_counter(fpga_id=None, core_id=None),
-                    'lane_status': self.check_jesd_lane_status(fpga_id=None, core_id=None),
-                    'resync_count': self.check_jesd_resync_counter(fpga_id=None, show_result=False),
-                    'qpll_status': self.check_jesd_qpll_status(fpga_id=None, show_result=False)
-                },
-                'ddr_if': {
-                    'initialisation': self.check_ddr_initialisation(fpga_id=None),
-                    'reset_counter': self.check_ddr_reset_counter(fpga_id=None, show_result=False)
-                },
-                'f2f_if': {
-                    'pll_status': self.check_f2f_pll_status(core_id=None, show_result=False),
-                    'soft_error': self.check_f2f_soft_errors(),
-                    'hard_error': self.check_f2f_hard_errors()
-                },
-                'udp_if': {
-                    'arp': self.check_udp_arp_table_status(fpga_id=None, show_result=False),
-                    'status': self.check_udp_status(fpga_id=None),
-                    'crc_error_count': self.check_udp_crc_error_counter(fpga_id=None),
-                    'bip_error_count': self.check_udp_bip_error_counter(fpga_id=None),
-                    'linkup_loss_count': self.check_udp_linkup_loss_counter(fpga_id=None, show_result=False)
-                }
-            }, 
-            'dsp': {
-                'tile_beamf': self.check_tile_beamformer_status(fpga_id=None),
-                'station_beamf': {
-                    'status' : self.check_station_beamformer_status(fpga_id=None),
-                    'ddr_parity_error_count': self.check_ddr_parity_error_counter(fpga_id=None)
-                }
-            }
-        }
-        health_dict['temperature']['board'] = round(self.get_temperature(), 2)
-        return health_dict
+        def create_nested_dict(key_list, value, nested_dict={}):
+            current_dict = nested_dict
+            for key in key_list[:-1]:
+                if key not in current_dict:
+                    current_dict[key] = {}
+                current_dict = current_dict[key]
+            current_dict[key_list[-1]] = value
+            return nested_dict
+
+        health_status = {}
+        all_monitoing_points = self.all_monitoring_points()
+        for monitoring_point in all_monitoing_points:
+            lookup = monitoring_point.split('.')
+            lookup_entry = self.parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
+            # call method stored in lookup entry
+            value = lookup_entry["method"]()
+            # Resolve nested values with only one value i.e
+            # get_voltage("voltage_name") returns {"voltage_name": voltage}
+            # get_clock_manager_status(fpga_id, name) returns {"FPGAid": {"name": status}}
+            while True:
+                if not isinstance(value, dict):
+                    break
+                if len(value) != 1:
+                    break
+                value = list(value.values())[0]
+            # Create dictionary of monitoring points in same format as lookup
+            health_status = create_nested_dict(lookup, value, health_status)
+        return health_status
     
     @communication_check
     @health_monitoring_compatible
@@ -146,6 +182,7 @@ class TileHealthMonitor:
         return
 
     def get_health_acceptance_values(self):
+        # TODO: move these values to lookup files
         EXP_TEMP = {
             "board": { "min": 10.00, "max": 68.00},
             "FPGA0": { "min": 10.00, "max": 95.00},
@@ -269,7 +306,10 @@ class TileHealthMonitor:
             else:
                 temperature_dict[f'FPGA{fpga}'] = 0
         return temperature_dict
-    
+
+    def check_global_status_alarms(self):
+        return None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms()
+        
     def get_available_voltages(self, fpga_id=None):
         """
         Get list of available voltage measurements for TPM.
@@ -315,8 +355,9 @@ class TileHealthMonitor:
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
             voltage_dict.update(self.tpm.tpm_sysmon[fpga].get_voltage(voltage_name))
+        # if name specified and results are empty
         if voltage_name is not None and not voltage_dict:
-            raise LibraryError(f"No voltage named '{voltage_name.upper()}' \n Options are {', '.join(self.get_available_voltages(fpga_id))} (not case sensitive)")
+            raise LibraryError(f"No voltage named '{voltage_name}' \n Options are {', '.join(self.get_available_voltages(fpga_id))} (case sensitive)")
         return voltage_dict
 
     def get_available_currents(self, fpga_id=None):
@@ -364,8 +405,9 @@ class TileHealthMonitor:
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
             current_dict.update(self.tpm.tpm_sysmon[fpga].get_current(current_name))
+        # if name specified and results are empty
         if current_name is not None and not current_dict:
-            raise LibraryError(f"No current named '{current_name.upper()}' \n Options are {', '.join(self.get_available_currents(fpga_id))} (not case sensitive)")
+            raise LibraryError(f"No current named '{current_name}' \n Options are {', '.join(self.get_available_currents(fpga_id))} (case sensitive)")
         return current_dict
 
     def check_adc_pll_status(self, adc_id=None):
@@ -1087,10 +1129,11 @@ class TileHealthMonitor:
     #######################################################################################
     # ------------------- Test methods
 
+    #TODO: move exp health to lookup_dict files
     def get_exp_health(self):
         EXP_TEMP, EXP_VOLTAGE, EXP_CURRENT = self.get_health_acceptance_values()
         health = {
-            'temperature': EXP_TEMP, 'voltage': EXP_VOLTAGE, 'current': EXP_CURRENT,
+            'temperatures': EXP_TEMP, 'voltages': EXP_VOLTAGE, 'currents': EXP_CURRENT,
             'alarms': None if self.tpm_version() == "tpm_v1_2" else {'I2C_access_alm': 0, 'temperature_alm': 0, 'voltage_alm': 0, 'SEM_wd': 0, 'MCU_wd': 0},
             'adcs': {
                 'pll_status': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True},
@@ -1104,7 +1147,7 @@ class TileHealthMonitor:
                 'pps': {'status': True},
                 'pll': (True, None) if self.tpm_version() == "tpm_v1_2" else (True, 0)}, # This can be changed after MCCS-1247 is complete
             'io':{ 
-                'jesd_if': {
+                'jesd_interface': {
                     'link_status': True, 
                     'lane_error_count': {
                         'FPGA0': {
@@ -1116,12 +1159,12 @@ class TileHealthMonitor:
                     'lane_status' : True, 
                     'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 
                     'qpll_status': {'FPGA0': (True, 0), 'FPGA1': (True, 0)}},
-                'ddr_if': {'initialisation': True, 'reset_counter': {'FPGA0': 0, 'FPGA1': 0}},
-                'f2f_if': {
-                    'pll_status': {'Core0': [(True, 0), (True, 0)], 'Core1': [(True, 0), (True, 0)]} if self.tpm_version() == "tpm_v1_2" else {'Core0' : (True, 0)},
+                'ddr_interface': {'initialisation': True, 'reset_counter': {'FPGA0': 0, 'FPGA1': 0}},
+                'f2f_interface': {
+                    'pll_status': {'Core0': [(True, 0), (True, 0)], 'Core1': [(True, 0), (True, 0)]} if self.tpm_version() == "tpm_v1_2" else (True, 0),
                     'soft_error': None if self.tpm_version() == "tpm_v1_2" else 0,
                     'hard_error': None if self.tpm_version() == "tpm_v1_2" else 0},
-                'udp_if': {
+                'udp_interface': {
                     'arp': True, 
                     'status': True, 
                     'crc_error_count': {'FPGA0': 0, 'FPGA1': 0}, 

@@ -46,16 +46,16 @@ class TestHealthMonitoring():
     def recursive_check_health_dict(self, expected_health, current_health, key_list, tpm_id):
         for name, value in expected_health.items():
             key_list.append(name)
-            if key_list == ['temperature']:
-                self.check_analog_measurements('temperature', '\N{DEGREE SIGN}C', expected_health['temperature'], current_health['temperature'], tpm_id)
+            if key_list == ['temperatures']:
+                self.check_analog_measurements('temperatures', '\N{DEGREE SIGN}C', expected_health['temperatures'], current_health['temperatures'], tpm_id)
                 key_list.pop()
                 continue
-            if key_list == ['voltage']:
-                self.check_analog_measurements('voltage', 'V', expected_health['voltage'], current_health['voltage'], tpm_id)
+            if key_list == ['voltages']:
+                self.check_analog_measurements('voltages', 'V', expected_health['voltages'], current_health['voltages'], tpm_id)
                 key_list.pop()
                 continue
-            if key_list == ['current']:
-                self.check_analog_measurements('current', 'A', expected_health['current'], current_health['current'], tpm_id)
+            if key_list == ['currents']:
+                self.check_analog_measurements('currents', 'A', expected_health['currents'], current_health['currents'], tpm_id)
                 key_list.pop()
                 continue
             if not isinstance(value, dict):
