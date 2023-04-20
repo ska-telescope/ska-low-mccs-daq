@@ -30,40 +30,43 @@ class TestHealthMonitoring():
         # Check Measurements
         for name, value in measurement.items():
             comparison_value = value if value is not None else -20000.0 #Arbitrary negative value to represent None
-            if comparison_value > expected[name]['max'] or comparison_value < expected[name]['min']:
-                if expected[name].get('skip', False):
-                    self._logger.warning(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}. Expected Failure")
+            if comparison_value > expected[name]['exp_value']['max'] or comparison_value < expected[name]['exp_value']['min']:
+                if expected[name]['exp_value'].get('skip', False):
+                    self._logger.warning(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['exp_value']['min']}{unit} - {expected[name]['exp_value']['max']}{unit}. Expected Failure")
                 else:
-                    self._logger.error(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}. Test FAILED")
+                    self._logger.error(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['exp_value']['min']}{unit} - {expected[name]['exp_value']['max']}{unit}. Test FAILED")
                     self.errors += 1
             else:
-                self._logger.info(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, within acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}.")
+                self._logger.info(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, within acceptable range {expected[name]['exp_value']['min']}{unit} - {expected[name]['exp_value']['max']}{unit}.")
         return
         
     def get_health_by_path(self, health, path_list):
         return reduce(operator.getitem, path_list, health)
 
-    def recursive_check_health_dict(self, expected_health, current_health, key_list, tpm_id):
-        for name, value in expected_health.items():
-            key_list.append(name)
+    def recursive_check_health_dict(self, reference_health, current_health, key_list, tpm_id):
+        for key, val in reference_health.items():
+            key_list.append(key)
             if key_list == ['temperatures']:
-                self.check_analog_measurements('temperatures', '\N{DEGREE SIGN}C', expected_health['temperatures'], current_health['temperatures'], tpm_id)
+                self.check_analog_measurements('temperatures', '\N{DEGREE SIGN}C', reference_health['temperatures'], current_health['temperatures'], tpm_id)
                 key_list.pop()
                 continue
             if key_list == ['voltages']:
-                self.check_analog_measurements('voltages', 'V', expected_health['voltages'], current_health['voltages'], tpm_id)
+                self.check_analog_measurements('voltages', 'V', reference_health['voltages'], current_health['voltages'], tpm_id)
                 key_list.pop()
                 continue
             if key_list == ['currents']:
-                self.check_analog_measurements('currents', 'A', expected_health['currents'], current_health['currents'], tpm_id)
+                self.check_analog_measurements('currents', 'A', reference_health['currents'], current_health['currents'], tpm_id)
                 key_list.pop()
                 continue
-            if not isinstance(value, dict):
+            if not isinstance(val, dict):
+               key_list.pop()
+               continue
+            if 'exp_value' in val:
                 if '.'.join(key_list) in MON_POINT_SKIP:
                     print(f"Skipping checks for {'->'.join(key_list)}.")
                     key_list.pop()
                 else:
-                    expected_value = value
+                    expected_value = val['exp_value']
                     try: 
                         current_value = self.get_health_by_path(current_health, key_list)
                     except KeyError:
@@ -78,7 +81,7 @@ class TestHealthMonitoring():
                         print(f"{'->'.join(key_list)} is {expected_value} as expected.")
                     key_list.pop()
             else:
-                self.recursive_check_health_dict(value, current_health, key_list, tpm_id)
+                self.recursive_check_health_dict(val, current_health, key_list, tpm_id)
         if key_list:
             key_list.pop()
         return
@@ -139,7 +142,6 @@ class TestHealthMonitoring():
                 self._logger.warning("FPGA Firmware does not support updated PPS validation. PPS checks will be skipped.")
                 MON_POINT_SKIP.append('timing.pps.status')
 
-            expected_health = tile.get_exp_health()
             if not tile.tpm.adas_enabled:
                 self._logger.info("ADAs disabled. Skipping checks for ADA voltages.")
 
@@ -149,8 +151,8 @@ class TestHealthMonitoring():
             health_dict = tile.get_health_status()
 
             # If an expected monitoring point is missing from health_dict an error is produced. 
-            # Any extra monitoring points in health_dict, not known to expected_health are ignored.
-            self.recursive_check_health_dict(expected_health, health_dict, [], n)
+            # Any extra monitoring points in health_dict, not known to the monitoring point lookup are ignored.
+            self.recursive_check_health_dict(tile.monitoring_point_lookup_dict, health_dict, [], n)
 
             # Test Station Beamformer DDR Parity Error Injection & Dectection
             self.test_ddr_parity_error_injection_and_detection(tile)
