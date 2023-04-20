@@ -67,12 +67,16 @@ class TileHealthMonitor():
     """
     Tile Health Monitor Mixin Class, must be inherited by Tile Class
     """
+
     def init_health_monitoring(self):
-        # Load tpm monitoring point format and lookup from other files
+        """
+        Method to load monitoring point lookup dict into attribute.
+
+        TPM monitoring point format and lookup loaded from:
+        tpm_1_2_monitoring_point_lookup.py
+        tpm_1_6_monitoring_point_lookup.py
+        """
         self.monitoring_point_lookup_dict = load_tpm_1_2_lookup(self) if  self.tpm_version() == "tpm_v1_2" else load_tpm_1_6_lookup(self)
-        # All monitoring points default to 'fast' rate
-        #TODO remove below
-        self.monitoring_point_rates = dict.fromkeys(self.all_monitoring_points(), 'fast')
         return
 
     @communication_check
@@ -83,49 +87,57 @@ class TileHealthMonitor():
         self.enable_clock_monitoring()
         return
 
-    def all_monitoring_points(self, include_all_categories=False):
-        def find_leaf_dict_recursive(health_dict, key_list=[], monitoring_point_list=[]):
+    def all_monitoring_points(self):
+        def find_leaf_dict_recursive(health_dict, key_list=[], output_list=[]):
             for name, value in health_dict.items():
                 key_list.append(name)
                 if not isinstance(value, dict):
-                    monitoring_point_list.append('.'.join(key_list))
+                    output_list.append('.'.join(key_list))
                     key_list.pop()
                 else:
-                    if include_all_categories:
-                        monitoring_point_list.append('.'.join(key_list))
-                    find_leaf_dict_recursive(value, key_list, monitoring_point_list)
+                    find_leaf_dict_recursive(value, key_list, output_list)
             if key_list:
                 key_list.pop()
-            return monitoring_point_list
+            return output_list
             
         # Find leaves of nested dict
-        monitoring_point_list = find_leaf_dict_recursive(self.monitoring_point_lookup_dict)
-        # Strip .method, .exp_value, .rate and .group from point names
-        for i, point in enumerate(monitoring_point_list):
-            point = point.split('.method')[0]
-            point = point.split('.exp_value')[0]
-            point = point.split('.rate')[0]
-            point = point.split('.group')[0]
-            monitoring_point_list[i] = point
-        # Uniquify monitoring_point_list
-        monitoring_point_list = list(dict.fromkeys(monitoring_point_list))
+        dict_leaf_list = find_leaf_dict_recursive(self.monitoring_point_lookup_dict)
+        # Keep only points ending in .method, then remove the .method
+        monitoring_point_list = []
+        for point in dict_leaf_list:
+            if point.endswith('.method'):
+                monitoring_point_list.append(point[:-7])
         return monitoring_point_list
 
     def all_monitoring_categories(self):
-        return self.all_monitoring_points(include_all_categories=True)
+        all_monitoring_points = self.all_monitoring_points()
+        categories = set()
+        for monitroing_point in all_monitoring_points:
+            parts = monitroing_point.split('.')
+            for i in range(len(parts)):
+                categories.add('.'.join(parts[:i+1]))
+        categories_list = list(categories)
+        categories_list.sort()
+        return categories_list
 
-    def set_monitoring_point_rate(self, point, rate):
-        #TODO: Change to use new lookup_dict
-        # Create general version to set rate and group "set_monitoring_point_attr(rate)"
-        point = point.lower()
-        rate = rate.lower()
+    def set_monitoring_point_attr(self, point, override=True, **kwargs):
         if point not in self.all_monitoring_categories():
             raise LibraryError(f"No monitoring point matching: {point}\nUse:\nall_monitoring_points()\nall_monitoring_categories()\nto see available options.")
-        if rate not in available_rates:
-            raise LibraryError(f"No rate matching: {rate}. Options are {', '.join(available_rates)} (not case sensitive)")
-        for monitoring_point in self.monitoring_point_rates.keys():
-            if monitoring_point.startswith(point):
-                self.monitoring_point_rates[monitoring_point] = rate
+        for monitoring_point in self.all_monitoring_points():
+              if monitoring_point.startswith(point):
+                lookup = monitoring_point.split('.')
+                lookup_entry = self.parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
+                for key, value in kwargs.items():
+                    if not isinstance(value, list):
+                        value = [value]
+                    if override or key not in lookup_entry:
+                        self.logger.info(f"Setting {key} for {monitoring_point} to {', '.join(value)}.")
+                        lookup_entry[key] = copy(value)
+                    else:
+                        self.logger.info(f"Appending {key} for {monitoring_point} with {', '.join(value)}.")
+                        lookup_entry[key].extend(value)
+                        lookup_entry[key] = copy(list(set(lookup_entry[key])))  # remove duplicates from list by converting to set and back
+                        self.logger.info(f"{key} for {monitoring_point} now {lookup_entry[key]}.")
         return
 
     def parse_dict_by_path(self, dictionary, path_list):
@@ -133,7 +145,7 @@ class TileHealthMonitor():
 
     @communication_check
     @health_monitoring_compatible
-    def get_health_status(self):
+    def get_health_status(self, **kwargs):
         """
         Returns the current value of all TPM monitoring points.
         https://confluence.skatelescope.org/x/nDhED
@@ -148,8 +160,22 @@ class TileHealthMonitor():
             return nested_dict
 
         health_status = {}
-        all_monitoing_points = self.all_monitoring_points()
-        for monitoring_point in all_monitoing_points:
+        if kwargs:
+            # get list of monitoring points to be polled based on kwargs
+            mon_point_list = []
+            for monitoring_point in self.all_monitoring_points():
+                lookup = monitoring_point.split('.')
+                lookup_entry = self.parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
+                keep = 0
+                for key, val in kwargs.items():
+                    if val in lookup_entry.get(key, []):
+                        keep +=1
+                if keep == len(kwargs):
+                    mon_point_list.append(monitoring_point)
+        else:
+            mon_point_list = self.all_monitoring_points()
+        # TODO: combine below with above once tested
+        for monitoring_point in mon_point_list:
             lookup = monitoring_point.split('.')
             lookup_entry = self.parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
             # call method stored in lookup entry

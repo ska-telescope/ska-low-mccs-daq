@@ -151,8 +151,9 @@ class Tile(TileHealthMonitor):
                                   29: {'preadu_id': 0, 'channel': 13},
                                   30: {'preadu_id': 0, 'channel': 14},
                                   31: {'preadu_id': 0, 'channel': 15}}
-
+                                  
         self.init_health_monitoring()
+
     # ---------------------------- Main functions ------------------------------------
     def tpm_version(self):
         """
