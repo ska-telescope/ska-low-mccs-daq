@@ -87,25 +87,30 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
         self.multiple_channel_tx_implemented = False
         self.multiple_channel_tx_nof_channels = 0
 
-        if self.board["fpga1.regfile.feature.xg_eth_implemented"] == 1:
-            self.xg_eth = True
+        if self.board.memory_map.has_register("fpga1.regfile.feature.xg_eth_implemented"):
+            if self.board["fpga1.regfile.feature.xg_eth_implemented"] == 1:
+                self.xg_eth = True
 
-        if self.board["fpga1.regfile.feature.xg_eth_40g_implemented"] == 1:
-            self.xg_40g_eth = True
+        if self.board.memory_map.has_register("fpga1.regfile.feature.xg_eth_40g_implemented"):
+            if self.board["fpga1.regfile.feature.xg_eth_40g_implemented"] == 1:
+                self.xg_40g_eth = True
 
-        if self.board["fpga1.dsp_regfile.feature.tile_beamformer_implemented"] == 1:
-            self.tile_beamformer_implemented = True
+        if self.board.memory_map.has_register("fpga1.dsp_regfile.feature.tile_beamformer_implemented"):
+            if self.board["fpga1.dsp_regfile.feature.tile_beamformer_implemented"] == 1:
+                self.tile_beamformer_implemented = True
+        
+        if self.board.memory_map.has_register("fpga1.dsp_regfile.feature.station_beamformer_implemented"):
+            if self.board["fpga1.dsp_regfile.feature.station_beamformer_implemented"] == 1:
+                self.station_beamformer_implemented = True
 
-        if self.board["fpga1.dsp_regfile.feature.station_beamformer_implemented"] == 1:
-            self.station_beamformer_implemented = True
+        if self.board.memory_map.has_register("fpga1.dsp_regfile.feature.antenna_buffer_implemented"):
+            if self.board["fpga1.dsp_regfile.feature.antenna_buffer_implemented"] == 1:
+                self.antenna_buffer_implemented = True
 
-        if self.board["fpga1.dsp_regfile.feature.antenna_buffer_implemented"] == 1:
-            self.antenna_buffer_implemented = True
-
-        if self.board.memory_map.has_register("fpga1.dsp_regfile.feature.multiple_channels_mode_implemented") and\
-           self.board["fpga1.dsp_regfile.feature.multiple_channels_mode_implemented"] == 1:
-            self.multiple_channel_tx_implemented = True
-            self.multiple_channel_tx_nof_channels = self.board["fpga1.dsp_regfile.feature.nof_multiple_channels"]
+        if self.board.memory_map.has_register("fpga1.dsp_regfile.feature.multiple_channels_mode_implemented"):
+            if self.board["fpga1.dsp_regfile.feature.multiple_channels_mode_implemented"] == 1:
+                self.multiple_channel_tx_implemented = True
+                self.multiple_channel_tx_nof_channels = self.board["fpga1.dsp_regfile.feature.nof_multiple_channels"]
 
         # plugins
         self._jesd1 = None
