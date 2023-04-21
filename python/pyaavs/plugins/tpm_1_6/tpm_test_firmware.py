@@ -248,3 +248,11 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
                     teng.initialise_core()
 
         self._patterngen.initialise()
+
+    def configure_40g_core_flyover_test(self):
+        """
+        Configure 40G cable polarity for SAMTEC board-to-board cable ARC6-08-07.0-LU-LD-2R-1, activable via qsfp_detection = "flyover_test"
+        """
+        if self._device is Device.FPGA_1:
+            self.board['fpga1.xg_udp.phy_ctrl.rx_polarity']=0xc
+            self.board['fpga1.xg_udp.phy_ctrl.tx_polarity']=0xc
