@@ -26,8 +26,10 @@ class TestWrapper:
                        'init_station': "Program, initialise station and start station beamformer.\nCheck if station "
                                        "beam data rate is within expected range.",
                        'antenna_buffer': "Check operation of the antenna buffer in DDR using incremental pattern.",
+                       'station_beam': "Check operation of networked beamformer using synthetic data pattern. ",
                        'full_station': "Check operation of networked beamformer comparing offline and realtime beam "
                                        "power.",
+                       'health_monitoring' : "Check correct reading and clearing of TPM health monitoring points.",
                        'ddr': "Check on-board DDR using FPGA embedded test.",
                        'f2f': "Check fast data link between FPGAs using FPGA embedded test.",
                        'eth40g': "Check 40G UDP using FPGA embedded test.",
@@ -66,6 +68,7 @@ class TestWrapper:
             del self._tests['tile_beamformer']
             del self._tests['flagging']
             del self._tests['antenna_buffer']
+            del self._tests['station_beam']
             del self._tests['full_station']
 
     def get_class(self, test_name):
@@ -88,7 +91,7 @@ class TestWrapper:
             self.test_todo = self.available_tests
         for test in self.test_todo:
             if test not in self.available_tests:
-                logging.error("Requested test: %s is not available!")
+                logging.error(f"Requested test: {test} is not available!")
                 logging.info("Avalable tests are:")
                 self.print_available_test()
                 logging.info("Exiting")
@@ -108,38 +111,45 @@ class TestWrapper:
     def get_parameter_list(self, test):
         return self.class_dict[test]['parameter_names']
 
-    def execute(self):
-        test_result = []
-        ret = 0
-        for test in self.test_todo:
-            class_ = self.get_class(test)
-            test_logger = logging.getLogger('TEST_' + test.upper())
-            test_instance = class_(self.tpm_config, test_logger)
-            print()
-            print("* Executing %s test with following parameters:" % test.upper())
-            for n in list(range(len(self.class_dict[test]['parameter_names']))):
-                param_name = self.class_dict[test]['parameter_names'][n]
-                param_value = self.class_dict[test]['parameter_values'][n]
-                if param_name != "self":
-                    print("    + %s = %s" % (param_name, param_value))
-            print()
-            ret_val = test_instance.execute(*self.class_dict[test]['parameter_values'])
-            test_result.append(ret_val)
-        logging.info("----------------- TEST RESULTS -----------------")
-        table = []
-        for n, ret_val in enumerate(test_result):
-            if ret_val == 0:
-                result = "PASSED!"
+    def execute(self, iterations=1):
+        for _ in range(iterations):
+            test_result = []
+            ret = 0
+            for test in self.test_todo:
+                class_ = self.get_class(test)
+                test_logger = logging.getLogger('TEST_' + test.upper())
+                test_instance = class_(self.tpm_config, test_logger)
+                print()
+                print("* Executing %s test iterations %d/%d with following parameters:" % (test.upper(), _ + 1, iterations))
+                for n in list(range(len(self.class_dict[test]['parameter_names']))):
+                    param_name = self.class_dict[test]['parameter_names'][n]
+                    param_value = self.class_dict[test]['parameter_values'][n]
+                    if param_name != "self":
+                        print("    + %s = %s" % (param_name, param_value))
+                print()
+                ret_val = test_instance.execute(*self.class_dict[test]['parameter_values'])
+                test_result.append(ret_val)
+            logging.info("----------------- TEST RESULTS -----------------")
+            table = []
+            for n, ret_val in enumerate(test_result):
+                if ret_val == 0:
+                    result = "PASSED!"
+                else:
+                    result = "FAILED!"
+                    ret = 1
+                table.append(["TEST_" + self.test_todo[n].upper(), result])
+            table_txt = tabulate(table, tablefmt="plain")
+            table_lines = table_txt.split('\n')
+            for table_line in table_lines:
+                logging.info(table_line)
+            if not any(test_result):
+                logging.info("ALL TESTS PASSED!")
             else:
-                result = "FAILED!"
-                ret = 1
-            table.append(["TEST_" + self.test_todo[n].upper(), result])
-        table_txt = tabulate(table, tablefmt="plain")
-        table_lines = table_txt.split('\n')
-        for table_line in table_lines:
-            logging.info(table_line)
-        self.log_filter()
-        return ret
+                logging.info(f"{sum(1 for x in test_result if x)} TESTS FAILED!")
+            self.log_filter()
+            if ret > 0:
+                return ret
+        return 0
 
     def initialise_station(self, max_power=False, start_beamformer=True):
         station_config = self.tpm_config
@@ -200,7 +210,7 @@ class TestWrapper:
 class UI:
     def __init__(self, test_wrapper):
         self._test_wrapper = test_wrapper
-
+        self.iterations = 1
         self._signal_generator_config = {'Sine wave 0 frequency (Hz)': 100e6,
                                          'Sine wave 1 frequency (Hz)': 100e6,
                                          'Sine wave 0 amplitude [0, 1]': 0.3,
@@ -240,6 +250,22 @@ class UI:
                     print()
                     print("Input not valid.")
 
+    def test_iterations(self):
+        test_wrapper = self._test_wrapper
+        while True:
+            user_input = None
+            print()
+            print("Enter number of selected tests iterations or Q to exit: " + str(self.iterations))
+            try:
+                user_input = input()
+                self.iterations = int(user_input)
+            except:
+                if user_input.upper() == "Q":
+                    return
+                else:
+                    print()
+                    print("Input not valid.")
+
     def configuration_menu(self):
         test_wrapper = self._test_wrapper
         while True:
@@ -249,6 +275,7 @@ class UI:
             table = []
             for n, test in enumerate(test_wrapper.available_tests):
                 table.append(["%d)" % (n + 1), test.upper()])
+            table.append(["I)", "Set iterations"])
             table.append(["Q)", "Exit"])
             print(tabulate(table, tablefmt="plain"))
             try:
@@ -257,6 +284,8 @@ class UI:
                 selected_test = test_wrapper.available_tests[test_id - 1]
                 self.test_configuration(selected_test)
             except:
+                if user_input.upper() == "I":
+                    self.test_iterations()
                 if user_input.upper() == "Q":
                     return
                 else:
@@ -357,7 +386,7 @@ parameter is 1.
                 print("Input not valid.")
         if selected_test != "":
             test_wrapper.load_tests(selected_test)
-            test_wrapper.execute()
+            test_wrapper.execute(self.iterations)
         print()
 
 
@@ -384,6 +413,7 @@ if __name__ == "__main__":
                       help="Initialise station before performing tests, ignored in interactive mode [default: False]")
 
     (conf, args) = parser.parse_args(argv[1:])
+    conf.test_todo = conf.test_todo.lower()
 
     # set up logging to file - see previous section for more details
 

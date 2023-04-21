@@ -282,6 +282,13 @@ pushd python || exit
 popd
 
 # Link required scripts to bin directory
+FILE=$AAVS_BIN/acquire_station_beam
+if [ -e $FILE ]; then
+  sudo rm $FILE
+fi
+sudo cp $PWD/src/build/acquire_station_beam $AAVS_BIN/
+chmod u+x $FILE
+
 FILE=$AAVS_BIN/daq_plotter.py
 if [ -e $FILE ]; then
   sudo rm $FILE
@@ -317,6 +324,7 @@ ln -s $PWD/config $DIR
 
 
 echo ""
-echo "Installation finished. Please check your .bashrc file and source it to update your environment"
-echo "Please follow instruction at https://gitlab.com/sanitaseg/itpm-bios to perform TPM bios update"
+echo "Installation finished. Please check your .bashrc file and source it to update your environment."
+echo ""
+echo "Instructions to update the TPM BIOS are available here: https://gitlab.com/sanitaseg/itpm-bios"
 echo ""

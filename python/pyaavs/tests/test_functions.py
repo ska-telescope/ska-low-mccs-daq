@@ -94,30 +94,29 @@ def set_pattern(tile, stage, pattern, adders, start, shift=0, zero=0):
             tile.tpm.tpm_pattern_generator[i].start_pattern(stage)
 
 
-def set_station_beam_pattern(station, start=True, shift=0, zero=0):
+def set_station_beam_pattern(station, pattern, start=True, shift=0, zero=0, csp_rounding=0):
     stage = "beamf"
     signal_adder = [0] * 64
-    rounding = int(np.log2(len(station.tiles)))
+    #rounding = int(np.log2(len(station.tiles)))
 
     pattern0 = []
     pattern1 = []
-    for n in range(256):
-        sample = list(range(4 * n + 1, 4 * (n + 1) + 1))
+    for n in range(384):
+        sample = pattern[n]
+
         if n % 2 == 0:
             pattern0 += sample
         else:
             pattern1 += sample
 
     for tile in station.tiles:
-        tile.set_csp_rounding(rounding)
+        tile.set_csp_rounding(csp_rounding)
         tile.tpm.tpm_pattern_generator[0].set_pattern(pattern0, stage)
         tile.tpm.tpm_pattern_generator[1].set_pattern(pattern1, stage)
         for i in range(2):
             tile.tpm.tpm_pattern_generator[i].set_signal_adder(signal_adder, stage)
             tile['fpga1.pattern_gen.%s_left_shift' % stage] = shift
             tile['fpga2.pattern_gen.%s_left_shift' % stage] = shift
-            tile['fpga1.pattern_gen.beamf_left_shift'] = 0
-            tile['fpga2.pattern_gen.beamf_left_shift'] = 0
             tile['fpga1.pattern_gen.%s_zero' % stage] = zero
             tile['fpga2.pattern_gen.%s_zero' % stage] = zero
         if start:
@@ -150,6 +149,9 @@ def disable_test_generator_and_pattern(tile):
     tile.test_generator_set_tone(1, 0.0, 0.0)
     tile.test_generator_set_noise(0.0)
     tile.test_generator_input_select(0x00000000)
+    if tile.tpm.has_register('fpga1.beamf_ring.control.enable_pattern_generator'):
+        tile['fpga1.beamf_ring.control.enable_pattern_generator'] = 0
+        tile['fpga2.beamf_ring.control.enable_pattern_generator'] = 0
 
 
 def set_chennelizer_walking_pattern(tile):

@@ -116,6 +116,7 @@ class TpmTestFirmware(FirmwareBlock):
         self._spead_gen = []
         self._fortyg = None
         self._sysmon = None
+        self._clock_monitor = None
         self._beamf = None
         self._testgen = None
         self._patterngen = None
@@ -132,29 +133,16 @@ class TpmTestFirmware(FirmwareBlock):
         self._jesd1 = self.board.load_plugin("TpmJesd", device=self._device, core=0, frame_length=216)
         self._jesd2 = self.board.load_plugin("TpmJesd", device=self._device, core=1, frame_length=216)
         self._fpga = self.board.load_plugin("TpmFpga", device=self._device)
-        if self.xg_eth and not self.xg_40g_eth:
-            self._teng = [
-                self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=0),
-                self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=1),
-                self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=2),
-                self.board.load_plugin("TpmTenGCoreXg", device=self._device, core=3),
-            ]
-        elif self.xg_eth and self.xg_40g_eth:
+        if self.xg_eth and self.xg_40g_eth:
             self._fortyg = self.board.load_plugin(
                 "TpmFortyGCoreXg", device=self._device, core=0
             )
-        else:
-            self._teng = [
-                self.board.load_plugin("TpmTenGCore", device=self._device, core=0),
-                self.board.load_plugin("TpmTenGCore", device=self._device, core=1),
-                self.board.load_plugin("TpmTenGCore", device=self._device, core=2),
-                self.board.load_plugin("TpmTenGCore", device=self._device, core=3),
-            ]
         self._f2f = [
             self.board.load_plugin("TpmFpga2Fpga", core=0),
             self.board.load_plugin("TpmFpga2Fpga", core=1),
         ]
         self._sysmon = self.board.load_plugin("TpmSysmon", device=self._device)
+        self._clock_monitor = self.board.load_plugin("TpmClockmon", device=self._device)
         if self._dsp_core:
             if self.tile_beamformer_implemented:
                 self._beamf = self.board.load_plugin("BeamfFD", device=self._device)
@@ -188,65 +176,6 @@ class TpmTestFirmware(FirmwareBlock):
                 self._multiple_channel_tx = self.board.load_plugin(
                     "MultipleChannelTx", device=self._device
                 )
-
-    def start_ddr_initialisation(self: TpmTestFirmware) -> None:
-        """Start DDR initialisation."""
-        if self.board["board.regfile.ctrl.en_ddr_vdd"] == 0:
-            self.board["board.regfile.ctrl.en_ddr_vdd"] = 1
-            time.sleep(0.5)
-        logging.debug(self._device_name + " DDR3 reset")
-        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
-        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
-
-    def check_ddr_initialisation(self: TpmTestFirmware) -> None:
-        """Check whether DDR has initialised."""
-        if self.board.memory_map.has_register(
-            self._device_name + ".regfile.stream_status.ddr_init_done"
-        ):
-            status = self.board[
-                self._device_name + ".regfile.stream_status.ddr_init_done"
-            ]
-        else:
-            status = self.board[self._device_name + ".regfile.status.ddr_init_done"]
-
-        if status == 0x0:
-            logging.debug("DDR3 " + self._device_name + " is not initialised")
-            self.initialise_ddr()
-        else:
-            logging.debug("DDR3 " + self._device_name + " initialised!")
-            return
-
-    def initialise_ddr(self: TpmTestFirmware) -> None:
-        """Initialise DDR."""
-        if self.board["board.regfile.ctrl.en_ddr_vdd"] == 0:
-            self.board["board.regfile.ctrl.en_ddr_vdd"] = 1
-            time.sleep(0.5)
-
-        for _n in range(3):
-            logging.debug(self._device_name + " DDR3 reset")
-            self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
-            self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
-
-            for _m in range(5):
-                if self.board.memory_map.has_register(
-                    self._device_name + ".regfile.stream_status.ddr_init_done"
-                ):
-                    status = self.board[
-                        self._device_name + ".regfile.stream_status.ddr_init_done"
-                    ]
-                else:
-                    status = self.board[
-                        self._device_name + ".regfile.status.ddr_init_done"
-                    ]
-
-                if status == 0x0:
-                    logging.debug("Wait DDR3 " + self._device_name + " init")
-                    time.sleep(0.2)
-                else:
-                    logging.debug("DDR3 " + self._device_name + " initialised!")
-                    return
-
-        logging.error("Cannot initilaise DDR3 " + self._device_name)
 
     def initialise_firmware(self: TpmTestFirmware) -> None:
         """
@@ -318,6 +247,7 @@ class TpmTestFirmware(FirmwareBlock):
         self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
         self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
 
+    # TODO: Move to a DDR plugin
     def check_ddr_initialisation(self: TpmTestFirmware) -> bool:
         """Check whether DDR has initialised."""
         if self.board.memory_map.has_register(
@@ -336,6 +266,22 @@ class TpmTestFirmware(FirmwareBlock):
             logging.debug("DDR of " + self._device_name.upper() + " initialised!")
             return True
 
+    # TODO: Move to a DDR plugin
+    def check_ddr_user_reset_counter(self: TpmTestFirmware, show_result=True) -> int:
+        """
+        Return value of DDR user reset counter - increments each falling edge 
+        of the DDR generated user logic reset.
+        """
+        count = self.board[f'{self._device_name}.ddr_if.status.ddr_user_rst_cnt']
+        if show_result:
+            logging.info(f'{self._device_name.upper()} error count {count}')
+        return count
+    
+    # TODO: Move to a DDR plugin
+    def clear_ddr_user_reset_counter(self: TpmTestFirmware) -> None:
+        """Reset value of DDR reset counter"""
+        self.board[f'{self._device_name}.ddr_if.status.ddr_monitoring_reset'] = 1
+
     def initialise_ddr(self: TpmTestFirmware) -> None:
         """Initialise DDR."""
         for _n in range(3):
@@ -345,6 +291,17 @@ class TpmTestFirmware(FirmwareBlock):
                 if self.check_ddr_initialisation():
                     return
         logging.error("Cannot initialise DDR of " + self._device_name.upper())
+
+    def check_pps_status(self: TpmTestFirmware) -> bool:
+        """Check PPS detected and error free"""
+        pps_detect = self.board[f'{self._device_name}.pps_manager.pps_detected']
+        pps_error = self.board[f'{self._device_name}.pps_manager.pps_errors.pps_count_error']
+        return True if pps_detect and not pps_error else False
+    
+    def clear_pps_status(self: TpmTestFirmware) -> None:
+        """Clear PPS errors"""
+        self.board[f'{self._device_name}.pps_manager.pps_errors.pps_errors_rst'] = 1
+        return
 
     def send_raw_data(self: TpmTestFirmware) -> None:
         """Send raw data from the TPM."""
@@ -369,28 +326,29 @@ class TpmTestFirmware(FirmwareBlock):
         :param first_channel: First channel transmitted
         :param last_channel: Last channel transmitted + 1 (python range convention)
         """
+
+        # get bitfiled configuration of single_channel_mode register
+        single_channel_mode_enable_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"].shift
+        single_channel_mode_last_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.last"].shift
+        single_channel_mode_last_id = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"].shift
+
+        # build register value
+        single_channel_mode_register = (0 << single_channel_mode_enable_shift) | \
+                                       (last_channel << single_channel_mode_last_shift) | \
+                                       (first_channel << single_channel_mode_last_id)
+
+        # write register value into firmware register
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode"
+        ] = single_channel_mode_register
+
         self.board[self._device_name + ".lmc_gen.channelized_pkt_length"] = (
             number_of_samples - 1
         )
-        self.board[
-            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"
-        ] = first_channel
-        if (
-            len(
-                self.board.find_register(
-                    self._device_name + ".lmc_gen.channelized_single_channel_mode.last"
-                )
-            )
-            != 0
-        ):
-            self.board[
-                self._device_name + ".lmc_gen.channelized_single_channel_mode.last"
-            ] = last_channel
-        else:
-            if last_channel != 511:
-                logging.warning(
-                    "Burst channel data in chunk mode is not supported by the running FPGA firmware"
-                )
+
         if (
             len(
                 self.board.find_register(
@@ -411,13 +369,29 @@ class TpmTestFirmware(FirmwareBlock):
         :param channel_id: Channel ID
         :param number_of_samples: contiguous time samples sent per channel
         """
-        self.board[self._device_name + ".lmc_gen.channelized_single_channel_mode"] = (
-            channel_id & 0x1FF
-        ) | 0x80000000
+
+        # get bitfiled configuration of single_channel_mode register
+        single_channel_mode_enable_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"].shift
+        single_channel_mode_last_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.last"].shift
+        single_channel_mode_last_id = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"].shift
+
+        # build register value
+        single_channel_mode_register = (1 << single_channel_mode_enable_shift) | \
+                                       (0x1FF << single_channel_mode_last_shift) | \
+                                       (channel_id << single_channel_mode_last_id)
+
+        # write register value into firmware register
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode"
+            ] = single_channel_mode_register
+
         self.board[self._device_name + ".lmc_gen.channelized_pkt_length"] = (
             number_of_samples - 1
         )
-        self.board[self._device_name + ".lmc_gen.request.channelized_data"] = 0x1
+
         if (
             len(
                 self.board.find_register(
@@ -427,6 +401,7 @@ class TpmTestFirmware(FirmwareBlock):
             != 0
         ):
             self.board[self._device_name + ".lmc_gen.channelized_ddc_mode"] = 0x0
+        self.board[self._device_name + ".lmc_gen.request.channelized_data"] = 0x1
 
     def send_channelised_data_narrowband(
         self: TpmTestFirmware,
@@ -441,6 +416,20 @@ class TpmTestFirmware(FirmwareBlock):
         :param round_bits: number of bits rounded after filter
         :param number_of_samples: samples per lmc packet
         """
+
+        if (
+                len(
+                    self.board.find_register(
+                        self._device_name + ".lmc_gen.channelized_ddc_mode"
+                    )
+                )
+                == 0
+        ):
+            logging.error(
+                "Narrowband channelizer is not implemented in current FPGA firmware!"
+            )
+            return
+
         channel_spacing = 800e6 / 1024
         downsampling_factor = 128
         # Number of LO steps in the channel spacing
@@ -455,9 +444,24 @@ class TpmTestFirmware(FirmwareBlock):
         lo_frequency = (
             int(round((hw_frequency - channel_id) * lo_steps_per_channel)) & 0xFFFFFF
         )
-        self.board[self._device_name + ".lmc_gen.channelized_single_channel_mode"] = (
-            channel_id & 0x1FF
-        ) | 0x80000000
+
+        # get bitfiled configuration of single_channel_mode register
+        single_channel_mode_enable_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"].shift
+        single_channel_mode_last_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.last"].shift
+        single_channel_mode_last_id = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"].shift
+
+        # build register value
+        single_channel_mode_register = (1 << single_channel_mode_enable_shift) | \
+                                       (0x1FF << single_channel_mode_last_shift) | \
+                                       (channel_id << single_channel_mode_last_id)
+
+        # write register value into firmware register
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode"
+            ] = single_channel_mode_register
         self.board[self._device_name + ".lmc_gen.channelized_pkt_length"] = (
             number_of_samples * downsampling_factor - 1
         )
@@ -489,6 +493,10 @@ class TpmTestFirmware(FirmwareBlock):
         self.board[
             self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"
         ] = 0x0
+
+    def clear_lmc_data_request(self: TpmTestFirmware) -> None:
+        """Stop transmission of all LMC data."""
+        self.board[self._device_name + ".lmc_gen.request"] = 0
 
     def send_beam_data(self: TpmTestFirmware) -> None:
         """Send beam data from the TPM."""

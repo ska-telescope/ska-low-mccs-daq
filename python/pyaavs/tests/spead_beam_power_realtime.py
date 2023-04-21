@@ -1,6 +1,9 @@
 import sys
+import time
 import socket
+import psutil
 import numpy as np
+
 from struct import *
 from builtins import input
 from time import perf_counter
@@ -41,6 +44,7 @@ class SpeadRxBeamPowerRealtime(Process):
         self.port = port
         self.raw_socket = True
         self.channel_id = 0
+        self.eth_if = eth_if
 
         if not self.raw_socket:
             self.sock = socket.socket(socket.AF_INET,      # Internet
@@ -259,6 +263,23 @@ class SpeadRxBeamPowerRealtime(Process):
             self.process_buffer(max_packets)
             return self.calculate_power()
 
+    def check_pattern(self, pkt_buffer_idx, channel_id, pattern):
+
+        global realtime_pkt_buff
+
+        errors = 0
+
+        pkt_reassembled = unpack('b' * 8192, realtime_pkt_buff[pkt_buffer_idx: pkt_buffer_idx + 8192])
+
+        for k in range(0, 8192, 4):
+            if pkt_reassembled[k + 0] != pattern[channel_id][0] or\
+               pkt_reassembled[k + 1] != pattern[channel_id][1] or\
+               pkt_reassembled[k + 2] != pattern[channel_id][2] or\
+               pkt_reassembled[k + 3] != pattern[channel_id][3]:
+                errors += 1
+
+        return errors
+
     def get_data(self, channel_id, max_packets=4096, contiguous_packets=128):
         global realtime_pkt_buff
         global realtime_timestamp_idx_list
@@ -289,19 +310,20 @@ class SpeadRxBeamPowerRealtime(Process):
         print(samples[0, :128])
         return samples
 
-    def get_data_rate(self, bytes):
-        global realtime_pkt_buff
+    def get_data_rate_net_io(self, bytes):
+        net = psutil.net_io_counters(pernic=True)
+        t1_sent_bytes = net[self.eth_if].bytes_recv
+        t1 = perf_counter()
 
-        pkt_buff_ptr = memoryview(realtime_pkt_buff)
-        self.recv2(pkt_buff_ptr)
-        nbytes = 0
-        t1_start = perf_counter()
-        while True:
-            nbytes += self.recv2(pkt_buff_ptr)
-            if nbytes > bytes:
-                t1_stop = perf_counter()
-                data_rate = nbytes / (t1_stop - t1_start)
-                return data_rate
+        time.sleep(2)
+
+        net = psutil.net_io_counters(pernic=True)
+        t2_sent_bytes = net[self.eth_if].bytes_recv
+        t2 = perf_counter()
+
+        nbytes = t2_sent_bytes - t1_sent_bytes
+        data_rate = nbytes / (t2 - t1)
+        return data_rate
 
 
 if __name__ == "__main__":
