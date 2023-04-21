@@ -1622,10 +1622,10 @@ class Tile(TileHealthMonitor):
             self.tpm[f + ".pps_manager.pps_gen_tc"] = int(100e6) - 1  # PPS generator runs at 100 Mhz
             self.tpm[f + ".pps_manager.sync_cnt_enable"] = 0x7
             self.tpm[f + ".pps_manager.sync_cnt_enable"] = 0x0
-            try: 
+            if self.tpm.has_register("fpga1.pps_manager.pps_exp_tc"):
                 self.tpm[f + ".pps_manager.pps_exp_tc"] = int(200e6) - 1  # PPS validation runs at 200 Mhz
-            except Exception as e:
-                self.logger.warning("FPGA Firmware does not support updated PPS validation. Requires > sbf415. Status of PPS error flag should be ignored.")  
+            else:
+                self.logger.info("FPGA Firmware does not support updated PPS validation. Status of PPS error flag should be ignored.")  
 
         # Setting internal PPS generator
         if use_internal_pps:
@@ -1719,24 +1719,22 @@ class Tile(TileHealthMonitor):
             self.logger.warning("FPGA2 is not locked to external PPS")
         
         # Check PPS valid
-        try: 
-            self.tpm["fpga1.pps_manager.pps_exp_tc"]
+        if self.tpm.has_register("fpga1.pps_manager.pps_exp_tc"):
             if self.tpm[f'fpga1.pps_manager.pps_errors.pps_count_error'] == 0x0:
                 self.logger.debug("FPGA1 PPS period is as expected.")
             else:
                 self.logger.error("FPGA1 PPS period is not as expected.")
                 result = False
-        except Exception as e:
-            self.logger.warning("FPGA1 Firmware does not support updated PPS validation. Requires > sbf415. Ignoring PPS status of error flag.")
-        try: 
-            self.tpm["fpga2.pps_manager.pps_exp_tc"]
+        else:
+            self.logger.info("FPGA1 Firmware does not support updated PPS validation. Ignoring status of PPS error flag.")
+        if self.tpm.has_register("fpga2.pps_manager.pps_exp_tc"):
             if self.tpm[f'fpga2.pps_manager.pps_errors.pps_count_error'] == 0x0:
                 self.logger.debug("FPGA2 PPS period is as expected.")
             else:
                 self.logger.error("FPGA2 PPS period is not as expected.")
                 result = False
-        except Exception as e:
-            self.logger.warning("FPGA2 Firmware does not support updated PPS validation. Requires > sbf415. Ignoring PPS status of error flag.")  
+        else:
+            self.logger.info("FPGA2 Firmware does not support updated PPS validation. Ignoring status of PPS error flag.")  
 
         # check FPGA time
         self.wait_pps_event()
