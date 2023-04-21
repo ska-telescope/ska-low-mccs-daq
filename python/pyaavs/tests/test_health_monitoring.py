@@ -7,9 +7,7 @@ import logging
 import operator
 
 # Add to this list any monitoring points that are expected to fail
-MON_POINT_SKIP = [
-    'timing.pps.status'                   # Can be removed once MCCS-1282 is complete
-]
+MON_POINT_SKIP = []
 
 class TestHealthMonitoring():
     def __init__(self, station_config, logger):
@@ -125,15 +123,22 @@ class TestHealthMonitoring():
         self._logger.info("Executing Health Monitoring test")
 
         self.errors = 0
-
-        try:
-            self._test_station['fpga1.pps_manager.pps_errors']
-        except:
-            self._logger.error("Health Monitoring Test not supported by FPGA firmware!")
-            self._logger.error("Health Monitoring Test FAILED!")
-            return 1
         
         for n, tile in enumerate(self._test_station.tiles):
+            
+            # Bitfiles sbf410 and older do not support health monitoring
+            # Check for existance of moved pps register
+            if not tile.tpm.has_register('fpga1.pps_manager.pps_errors'):
+                self._logger.error("Health Monitoring Test not supported by FPGA firmware!")
+                self._logger.error("Health Monitoring Test FAILED!")
+                return 1
+            
+            # Bitfiles sbf415 and older do not pass PPS monitoring checks
+            # check for existance of additional pps_exp_tc register
+            if not tile.tpm.has_register('fpga1.pps_manager.pps_exp_tc'):
+                self._logger.warning("FPGA Firmware does not support updated PPS validation. PPS checks will be skipped.")
+                MON_POINT_SKIP.append('timing.pps.status')
+
             expected_health = tile.get_exp_health()
             if not tile.tpm.adas_enabled:
                 self._logger.info("ADAs disabled. Skipping checks for ADA voltages.")
