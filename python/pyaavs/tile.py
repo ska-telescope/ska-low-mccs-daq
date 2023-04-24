@@ -211,9 +211,10 @@ class Tile(TileHealthMonitor):
                 mono_channel_14_bit=adc_mono_channel_14_bit,
                 mono_channel_sel=adc_mono_channel_sel,
             )
-        except (BoardError, LibraryError):
+        except (BoardError, LibraryError) as e:
             self.tpm = None
             self.logger.error("Failed to connect to board at " + self._ip)
+            self.logger.error("Exception: " + str(e))
             return
 
         # Load tpm test firmware for both FPGAs (no need to load in simulation)

@@ -523,7 +523,9 @@ int main(int argc, char *argv[])
             {"max_packet_size", 9000}
     };
 
-    if (loadConsumer("libaavsdaq.so", "stationdataraw") != SUCCESS) {
+    // Workaround to avoid shared object not found, specify default location
+    // if (loadConsumer("libaavsdaq.so", "stationdataraw") != SUCCESS) {
+    if (loadConsumer("/opt/aavs/lib/libaavsdaq.so", "stationdataraw") != SUCCESS) {
         LOG(ERROR, "Failed to load station data consumser");
         return 0;
     }
