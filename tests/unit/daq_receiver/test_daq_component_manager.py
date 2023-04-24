@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import time
 
-import grpc
 import pytest
 from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
@@ -60,7 +59,6 @@ class TestDaqComponentManager:
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
         callbacks: MockCallableGroup,
-        daq_grpc_server: grpc.Server,
     ) -> None:
         """
         Test the daq component manager's management of communication.
@@ -74,7 +72,6 @@ class TestDaqComponentManager:
             under test.
         :param callbacks: a dictionary from which callbacks with
             asynchrony support can be accessed.
-        :param daq_grpc_server: A fixture that stands up a gRPC server.
         """
         # 1. Establish comms with DaqReceiver.
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED

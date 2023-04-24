@@ -8,24 +8,16 @@
 """This module contains pytest-specific test harness for MCCS unit tests."""
 from __future__ import annotations
 
-import time
-from concurrent import futures
+import os
 from functools import lru_cache
-from typing import Any, Callable, ContextManager, Generator
+from typing import Any, Callable, Iterator
 
-import grpc
 import pytest
 import tango
-from _pytest.fixtures import SubRequest
-from ska_tango_testing.context import (
-    TangoContextProtocol,
-    ThreadedTestTangoContextManager,
-    TrueTangoContextManager,
-)
+from ska_tango_testing.harness import TangoTestHarnessContext
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
-# from ska_low_mccs_daq.gRPC_server import MccsDaqServer
-# from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
+from tests.harness import DaqTangoTestHarness
 
 DeviceMappingType = dict[str, dict[str, Any]]
 
@@ -40,21 +32,18 @@ def pytest_itemcollected(item: pytest.Item) -> None:
 
     :param item: the collected test for which this hook is called
     """
-    if "tango_harness" in item.fixturenames:  # type: ignore[attr-defined]
+    if "test_context" in item.fixturenames:  # type: ignore[attr-defined]
         item.add_marker("forked")
 
 
 @pytest.fixture(name="daq_id", scope="session")
-def daq_id_fixture() -> str:
+def daq_id_fixture() -> int:
     """
     Return the daq id of this daq receiver.
 
     :return: the daq id of this daq receiver.
     """
-    # TODO: This must match the DaqId property of the daq receiver under
-    # test. We should refactor the harness so that we can pull it
-    # straight from the device configuration.
-    return "1"
+    return 1
 
 
 @pytest.fixture(name="receiver_interface", scope="session")
@@ -88,13 +77,13 @@ def acquisition_duration_fixture() -> int:
 
 
 @pytest.fixture(name="receiver_ports", scope="session")
-def receiver_ports_fixture() -> str:
+def receiver_ports_fixture() -> list[int]:
     """
     Return the port(s) this daq receiver is watching.
 
     :return: the port(s) this daq receiver is watching.
     """
-    return "4660"
+    return [4660]
 
 
 @pytest.fixture()
@@ -107,149 +96,68 @@ def default_consumers_to_start() -> str:
     return ""
 
 
-@pytest.fixture()
-def max_workers() -> int:
+@pytest.fixture(name="true_context", scope="session")
+def true_context_fixture(request: pytest.FixtureRequest) -> bool:
     """
-    Max worker threads available to run a LRC.
+    Return whether to test against an existing Tango deployment.
 
-    Return an integer specifying the maximum number of worker threads available to
-        execute long-running-commands.
+    If True, then Tango is already deployed, and the tests will be run
+    against that deployment.
 
-    :return: the max number of worker threads.
-    """
-    return 1
-
-
-@pytest.fixture(scope="session", name="testbed")
-def testbed_fixture(request: SubRequest) -> str:
-    """
-    Return the name of the testbed.
-
-    The testbed is specified by providing the `--testbed` argument to
-    pytest. Information about what testbeds are supported and what tests
-    can be run in each testbed is provided in `testbeds.yaml`
+    If False, then Tango is not deployed, so the test harness will stand
+    up a test context and run the tests against that.
 
     :param request: A pytest object giving access to the requesting test
         context.
 
-    :return: the name of the testbed.
+    :return: whether to test against an existing Tango deployment
     """
-    return request.config.getoption("--testbed")
+    if request.config.getoption("--true-context"):
+        return True
+    if os.getenv("TRUE_TANGO_CONTEXT", None):
+        return True
+    return False
 
 
-@pytest.fixture(name="daq_name", scope="session")
-def daq_name_fixture(daq_id: str) -> str:
-    """
-    Return the name of this daq receiver.
-
-    :param daq_id: The ID of this daq receiver.
-
-    :return: the name of this daq receiver.
-    """
-    return f"low-mccs-daq/daqreceiver/{daq_id.zfill(3)}"
-
-
-@pytest.fixture(name="grpc_port", scope="session")
-def grpc_port_fixture() -> str:
-    """
-    Return the port on which the gRPC server is to communicate.
-
-    :return: the gRPC port number.
-    """
-    return "50051"
-
-
-@pytest.fixture(name="grpc_host", scope="session")
-def grpc_host_fixture() -> str:
-    """
-    Return the host on which the gRPC server is available.
-
-    :return: the gRPC port number.
-    """
-    return "localhost"
-
-
-@pytest.fixture(name="daq_grpc_server", scope="session")
-def daq_grpc_server_fixture(testbed: str, grpc_port: str) -> grpc.Server:
-    """
-    Stand up a local gRPC server.
-
-    Include this fixture in tests that require a gRPC DaqServer.
-
-    :param testbed: Testbed fixture.
-    :param grpc_port: The port number to use for gRPC calls.
-
-    :yield: A gRPC server.
-    """
-    if testbed == "local":
-        yield
-    elif testbed == "test":
-        from ska_low_mccs_daq.gRPC_server import MccsDaqServer
-        from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
-
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        daq_pb2_grpc.add_DaqServicer_to_server(MccsDaqServer(), server)
-        server.add_insecure_port("[::]:" + grpc_port)
-        print("Starting gRPC server...")
-        server.start()
-        time.sleep(1)
-        yield server
-        server.stop(grace=5)
-
-
-@pytest.fixture(name="tango_harness", scope="session")
-def tango_harness_fixture(
-    testbed: str,
-    daq_name: str,
-    daq_id: str,
+@pytest.fixture(name="test_context", scope="session")
+def test_context_fixture(
+    true_context: bool,
+    daq_id: int,
     receiver_interface: str,
     receiver_ip: str,
-    receiver_ports: str,
-    grpc_port: str,
-    grpc_host: str,
-) -> Generator[TangoContextProtocol, None, None]:
+    receiver_ports: list[int],
+) -> Iterator[TangoTestHarnessContext]:
     """
-    Return a Tango harness against which to run tests of the deployment.
+    Return a tango harness against which to run tests of the deployment.
 
-    :param testbed: the name of the testbed to which these tests are
-        deployed
-    :param daq_name: name of the DAQ receiver Tango device
-    :param daq_id: id of the DAQ receiver
+    :param true_context: Whether to test against an existing Tango
+        deployment
+    :param daq_id: the ID of the daq receiver
     :param receiver_interface: network interface on which the DAQ
         receiver receives packets
     :param receiver_ip: IP address on which the DAQ receiver receives
         packets
     :param receiver_ports: port on which the DAQ receiver receives
         packets.
-    :param grpc_port: The port number to use for gRPC calls.
-    :param grpc_host: The hostname of the gRPC server to use.
 
-    :raises ValueError: if the testbed is unknown
-
-    :yields: a tango context.
+    :yields: a test harness context.
     """
-    context_manager: ContextManager[TangoContextProtocol]
-    if testbed == "local":
-        context_manager = TrueTangoContextManager()
-    elif testbed == "test":
-        context_manager = ThreadedTestTangoContextManager()
-        context_manager.add_device(
-            daq_name,
-            "ska_low_mccs_daq.MccsDaqReceiver",
-            DaqId=daq_id,
-            ReceiverInterface=receiver_interface,
-            ReceiverIp=receiver_ip,
-            ReceiverPorts=receiver_ports,
-            GrpcHost=grpc_host,
-            GrpcPort=grpc_port,
-            ConsumersToStart=["DaqModes.INTEGRATED_CHANNEL_DATA"],
-            LoggingLevelDefault=3,
-        )
-    else:
-        raise ValueError(f"Testbed {testbed} is not supported.")
+    test_harness = DaqTangoTestHarness()
+    if not true_context:
+        from ska_low_mccs_daq.gRPC_server.daq_grpc_server import MccsDaqServer
 
-    with context_manager as context:
-        yield context
+        test_harness.add_daq_instance(daq_id, MccsDaqServer())
+        test_harness.add_daq_device(
+            daq_id,
+            address=None,  # dynamically get address of DAQ instance
+            receiver_interface=receiver_interface,
+            receiver_ip=receiver_ip,
+            receiver_ports=receiver_ports,
+            consumers_to_start=["DaqModes.INTEGRATED_CHANNEL_DATA"],
+        )
+
+    with test_harness as test_context:
+        yield test_context
 
 
 @pytest.fixture(name="change_event_callbacks", scope="module")
@@ -296,20 +204,9 @@ def device_mapping_fixture() -> DeviceMappingType:
     }
 
 
-@pytest.fixture(name="tango_context", scope="module")
-def tango_context_fixture() -> Generator[TangoContextProtocol, None, None]:
-    """
-    Yield a Tango context containing the device/s under test.
-
-    :yields: a Tango context containing the devices under test
-    """
-    with TrueTangoContextManager() as context:
-        yield context
-
-
 @pytest.fixture(name="get_device", scope="module")
 def get_device_fixture(
-    tango_context: TangoContextProtocol,
+    tango_context: TangoTestHarnessContext,
     device_mapping: DeviceMappingType,
     change_event_callbacks: MockTangoEventCallbackGroup,
 ) -> Callable[[str], tango.DeviceProxy]:

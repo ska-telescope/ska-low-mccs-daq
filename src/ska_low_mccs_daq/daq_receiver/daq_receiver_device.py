@@ -32,7 +32,6 @@ __all__ = ["MccsDaqReceiver", "main"]
 DevVarLongStringArrayType = tuple[list[ResultCode], list[Optional[str]]]
 
 
-# pylint: disable-next=too-few-public-methods
 class _StartDaqCommand(SubmittedSlowCommand):
     """
     Class for handling the Start command.
@@ -220,7 +219,6 @@ class MccsDaqReceiver(SKABaseDevice):
                 ),
             )
 
-    # pylint: disable=too-few-public-methods
     class InitCommand(DeviceInitCommand):
         """Implements device initialisation for the MccsDaqReceiver device."""
 
@@ -461,7 +459,6 @@ class MccsDaqReceiver(SKABaseDevice):
         (result_code, message) = handler(**kwargs)
         return ([result_code], [message])
 
-    # pylint: disable=too-few-public-methods
     class StopCommand(FastCommand):
         """Class for handling the Stop() command."""
 
@@ -512,7 +509,6 @@ class MccsDaqReceiver(SKABaseDevice):
         (result_code, message) = handler()
         return ([result_code], [message])
 
-    # pylint: disable=too-few-public-methods
     class ConfigureCommand(FastCommand):
         """Class for handling the Configure(argin) command."""
 
@@ -618,7 +614,6 @@ class MccsDaqReceiver(SKABaseDevice):
             response = self._component_manager.get_configuration()
             return json.dumps(response)
 
-    # pylint: disable=too-few-public-methods
     class SetConsumersCommand(FastCommand):
         """Class for handling the SetConsumersCommand(argin) command."""
 

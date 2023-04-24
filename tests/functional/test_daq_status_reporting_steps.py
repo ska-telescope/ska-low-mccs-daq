@@ -13,7 +13,7 @@ import tango
 from pytest_bdd import given, parsers, scenarios, then, when
 from ska_low_mccs_common import MccsDeviceProxy
 from ska_low_mccs_common.testing.tango_harness import DevicesToLoadType
-from ska_tango_testing.context import TangoContextProtocol
+from ska_tango_testing.harness import TangoTestHarnessContext
 
 scenarios("./features/daq_status_reporting.feature")
 
@@ -36,18 +36,18 @@ def devices_to_load() -> DevicesToLoadType:
 
 @given("an MccsDaqReceiver", target_fixture="daq_receiver")
 def daq_receiver_fixture(
-    tango_harness: TangoContextProtocol,
-    daq_name: str,
+    test_context: TangoTestHarnessContext,
+    daq_id: int,
 ) -> tango.DeviceProxy:
     """
     Return the daq_receiver device.
 
-    :param tango_harness: a test harness for tango devices
-    :param daq_name: name of the DAQ receiver Tango device
+    :param test_context: the context in which the test is running.
+    :param daq_id: the ID of the daq receiver
 
     :return: the daq_receiver device
     """
-    return tango_harness.get_device(daq_name)
+    return test_context.get_device(f"low-mccs/daq/{daq_id:03}")
 
 
 @given(parsers.cfparse("MccsDaqReceiver AdminMode is set to '{admin_mode_value}'"))
