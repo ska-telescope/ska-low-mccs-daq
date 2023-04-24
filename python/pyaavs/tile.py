@@ -566,7 +566,7 @@ class Tile(TileHealthMonitor):
             return 0
 
     @connected
-    def is_qsfp_cable_plugged(self, qsfp_id=0):
+    def is_qsfp_module_plugged(self, qsfp_id=0):
         """
         Initialise firmware components.
 
@@ -728,7 +728,7 @@ class Tile(TileHealthMonitor):
 
                 if qsfp_detection == "all":
                     cable_detected = True
-                elif qsfp_detection == "auto" and self.is_qsfp_cable_plugged(n):
+                elif qsfp_detection == "auto" and self.is_qsfp_module_plugged(n):
                     cable_detected = True
                 elif n == 0 and qsfp_detection == "qsfp1":
                     cable_detected = True

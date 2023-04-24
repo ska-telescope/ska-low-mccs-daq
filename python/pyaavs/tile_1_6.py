@@ -349,7 +349,7 @@ class Tile_1_6(Tile):
         for f2f in self.tpm.tpm_f2f:
             f2f.stop_test()
 
-    def is_qsfp_cable_plugged(self, qsfp_id=0):
+    def is_qsfp_module_plugged(self, qsfp_id=0):
         """
         Initialise firmware components.
 
