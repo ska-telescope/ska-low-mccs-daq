@@ -169,7 +169,7 @@ class MccsDaqReceiver(SKABaseDevice):
         """Initialise the state model."""
         super()._init_state_model()
         self._health_state = HealthState.UNKNOWN  # InitCommand.do() does this too late.
-        self._health_model = DaqHealthModel(self._component_state_changed_callback)
+        self._health_model = DaqHealthModel(self._component_state_callback)
         self._received_data_mode = ""
         self._received_data_result = ""
         self.set_change_event("healthState", True, False)
@@ -191,7 +191,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self.logger,
             self._max_workers,
             self._component_communication_state_changed,
-            self._component_state_changed_callback,
+            self._component_state_callback,
             self._received_data_callback,
         )
 
@@ -274,7 +274,7 @@ class MccsDaqReceiver(SKABaseDevice):
             communication_state == CommunicationStatus.ESTABLISHED
         )
 
-    def _component_state_changed_callback(
+    def _component_state_callback(
         self: MccsDaqReceiver,
         fault: Optional[bool] = None,
         health: Optional[HealthState] = None,

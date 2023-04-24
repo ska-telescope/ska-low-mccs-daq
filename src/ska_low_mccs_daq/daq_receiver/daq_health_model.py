@@ -21,16 +21,16 @@ class DaqHealthModel(HealthModel):
 
     def __init__(
         self: DaqHealthModel,
-        component_state_changed_callback: Callable[..., None],
+        component_state_callback: Callable[..., None],
     ) -> None:
         """
         Initialise a new instance.
 
-        :param component_state_changed_callback: callback to be called whenever
+        :param component_state_callback: callback to be called whenever
             there is a change to this component's state, including the health
             model's evaluated health state.
         """
-        super().__init__(component_state_changed_callback)
+        super().__init__(component_state_callback)
 
     def evaluate_health(
         self: DaqHealthModel,
