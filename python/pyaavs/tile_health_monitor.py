@@ -126,7 +126,7 @@ class TileHealthMonitor():
         for monitoring_point in self.all_monitoring_points():
               if monitoring_point.startswith(point):
                 lookup = monitoring_point.split('.')
-                lookup_entry = self.parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
+                lookup_entry = self._parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
                 for key, value in kwargs.items():
                     if not isinstance(value, list):
                         value = [value]
@@ -140,8 +140,33 @@ class TileHealthMonitor():
                         self.logger.info(f"{key} for {monitoring_point} now {lookup_entry[key]}.")
         return
 
-    def parse_dict_by_path(self, dictionary, path_list):
+    def _parse_dict_by_path(self, dictionary, path_list):
         return reduce(operator.getitem, path_list, dictionary)
+
+    def _create_nested_dict(self, key_list, value, nested_dict={}):
+        current_dict = nested_dict
+        for key in key_list[:-1]:
+            if key not in current_dict:
+                current_dict[key] = {}
+            current_dict = current_dict[key]
+        current_dict[key_list[-1]] = value
+        return nested_dict
+
+    def _kwargs_handler(self, kwargs):
+        if not kwargs:
+            return self.all_monitoring_points()
+        # get list of monitoring points to be polled based on kwargs
+        mon_point_list = []
+        for monitoring_point in self.all_monitoring_points():
+            lookup = monitoring_point.split('.')
+            lookup_entry = self._parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
+            keep = 0
+            for key, val in kwargs.items():
+                if val in lookup_entry.get(key, []):
+                    keep +=1
+            if keep == len(kwargs):
+                mon_point_list.append(monitoring_point)
+        return mon_point_list
 
     @communication_check
     @health_monitoring_compatible
@@ -150,34 +175,11 @@ class TileHealthMonitor():
         Returns the current value of all TPM monitoring points.
         https://confluence.skatelescope.org/x/nDhED
         """
-        def create_nested_dict(key_list, value, nested_dict={}):
-            current_dict = nested_dict
-            for key in key_list[:-1]:
-                if key not in current_dict:
-                    current_dict[key] = {}
-                current_dict = current_dict[key]
-            current_dict[key_list[-1]] = value
-            return nested_dict
-
         health_status = {}
-        if kwargs:
-            # get list of monitoring points to be polled based on kwargs
-            mon_point_list = []
-            for monitoring_point in self.all_monitoring_points():
-                lookup = monitoring_point.split('.')
-                lookup_entry = self.parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
-                keep = 0
-                for key, val in kwargs.items():
-                    if val in lookup_entry.get(key, []):
-                        keep +=1
-                if keep == len(kwargs):
-                    mon_point_list.append(monitoring_point)
-        else:
-            mon_point_list = self.all_monitoring_points()
-        # TODO: combine below with above once tested
+        mon_point_list = self._kwargs_handler(kwargs)
         for monitoring_point in mon_point_list:
             lookup = monitoring_point.split('.')
-            lookup_entry = self.parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
+            lookup_entry = self._parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
             # call method stored in lookup entry
             value = lookup_entry["method"]()
             # Resolve nested values with only one value i.e
@@ -190,7 +192,7 @@ class TileHealthMonitor():
                     break
                 value = list(value.values())[0]
             # Create dictionary of monitoring points in same format as lookup
-            health_status = create_nested_dict(lookup, value, health_status)
+            health_status = self._create_nested_dict(lookup, value, health_status)
         return health_status
     
     @communication_check
