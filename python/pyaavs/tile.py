@@ -211,9 +211,10 @@ class Tile(TileHealthMonitor):
                 mono_channel_14_bit=adc_mono_channel_14_bit,
                 mono_channel_sel=adc_mono_channel_sel,
             )
-        except (BoardError, LibraryError):
+        except (BoardError, LibraryError) as e:
             self.tpm = None
             self.logger.error("Failed to connect to board at " + self._ip)
+            self.logger.error("Exception: " + str(e))
             return
 
         # Load tpm test firmware for both FPGAs (no need to load in simulation)
@@ -565,7 +566,7 @@ class Tile(TileHealthMonitor):
             return 0
 
     @connected
-    def is_qsfp_cable_plugged(self, qsfp_id=0):
+    def is_qsfp_module_plugged(self, qsfp_id=0):
         """
         Initialise firmware components.
 
@@ -727,7 +728,7 @@ class Tile(TileHealthMonitor):
 
                 if qsfp_detection == "all":
                     cable_detected = True
-                elif qsfp_detection == "auto" and self.is_qsfp_cable_plugged(n):
+                elif qsfp_detection == "auto" and self.is_qsfp_module_plugged(n):
                     cable_detected = True
                 elif n == 0 and qsfp_detection == "qsfp1":
                     cable_detected = True
