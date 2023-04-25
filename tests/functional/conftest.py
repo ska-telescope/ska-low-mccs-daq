@@ -24,8 +24,8 @@ from ska_tango_testing.context import (
 )
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
-from ska_low_mccs_daq.gRPC_server import MccsDaqServer
-from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
+# from ska_low_mccs_daq.gRPC_server import MccsDaqServer
+# from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
 
 DeviceMappingType = dict[str, dict[str, Any]]
 
@@ -167,6 +167,36 @@ def grpc_host_fixture() -> str:
     :return: the gRPC port number.
     """
     return "localhost"
+
+
+@pytest.fixture(name="daq_grpc_server", scope="session")
+def daq_grpc_server_fixture(
+    testbed: str,
+    grpc_port: str
+) -> grpc.Server:
+    """
+    Stand up a local gRPC server.
+
+    Include this fixture in tests that require a gRPC DaqServer.
+
+    :param grpc_port: The port number to use for gRPC calls.
+
+    :yield: A gRPC server.
+    """
+    if testbed == "local":
+        yield
+    elif testbed == "test":
+        from ska_low_mccs_daq.gRPC_server import MccsDaqServer
+        from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2_grpc
+
+        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        daq_pb2_grpc.add_DaqServicer_to_server(MccsDaqServer(), server)
+        server.add_insecure_port("[::]:" + grpc_port)
+        print("Starting gRPC server...")
+        server.start()
+        time.sleep(1)
+        yield server
+        server.stop(grace=5)
 
 
 @pytest.fixture(name="tango_harness", scope="session")
@@ -321,22 +351,22 @@ def get_device_fixture(
     return _get_device
 
 
-@pytest.fixture(name="daq_grpc_server", scope="session")
-def daq_grpc_server_fixture(grpc_port: str) -> grpc.Server:
-    """
-    Stand up a local gRPC server.
+# @pytest.fixture(name="daq_grpc_server", scope="session")
+# def daq_grpc_server_fixture(grpc_port: str) -> grpc.Server:
+#     """
+#     Stand up a local gRPC server.
 
-    Include this fixture in tests that require a gRPC DaqServer.
+#     Include this fixture in tests that require a gRPC DaqServer.
 
-    :param grpc_port: The port number to use for gRPC calls.
+#     :param grpc_port: The port number to use for gRPC calls.
 
-    :yield: A gRPC server.
-    """
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    daq_pb2_grpc.add_DaqServicer_to_server(MccsDaqServer(), server)
-    server.add_insecure_port("[::]:" + grpc_port)
-    print("Starting gRPC server...")
-    server.start()
-    time.sleep(1)
-    yield server
-    server.stop(grace=5)
+#     :yield: A gRPC server.
+#     """
+#     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+#     daq_pb2_grpc.add_DaqServicer_to_server(MccsDaqServer(), server)
+#     server.add_insecure_port("[::]:" + grpc_port)
+#     print("Starting gRPC server...")
+#     server.start()
+#     time.sleep(1)
+#     yield server
+#     server.stop(grace=5)
