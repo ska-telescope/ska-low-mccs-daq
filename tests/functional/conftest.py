@@ -170,15 +170,13 @@ def grpc_host_fixture() -> str:
 
 
 @pytest.fixture(name="daq_grpc_server", scope="session")
-def daq_grpc_server_fixture(
-    testbed: str,
-    grpc_port: str
-) -> grpc.Server:
+def daq_grpc_server_fixture(testbed: str, grpc_port: str) -> grpc.Server:
     """
     Stand up a local gRPC server.
 
     Include this fixture in tests that require a gRPC DaqServer.
 
+    :param testbed: Testbed fixture.
     :param grpc_port: The port number to use for gRPC calls.
 
     :yield: A gRPC server.

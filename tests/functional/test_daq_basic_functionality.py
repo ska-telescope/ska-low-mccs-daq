@@ -8,14 +8,12 @@
 """This module contains the tests of the daq basic functionality."""
 from __future__ import annotations
 
-import json
 from time import sleep
 
 import grpc
 import pytest
 import tango
 from pytest_bdd import given, scenarios, then, when
-from ska_control_model import AdminMode, HealthState
 from ska_tango_testing.context import TangoContextProtocol
 
 scenarios("./features/daq_basic_functionality.feature")
@@ -54,8 +52,6 @@ def daq_receiver_fixture(
 
     :param tango_harness: a test harness for tango devices
     :param daq_name: name of the daq device
-
-    :return: the daq_receiver device
     """
     pytest.xfail(reason="Not implemented yet")
     # return tango_harness.get_device(daq_name)
@@ -69,8 +65,6 @@ def daq_receiver_is_available(
     Return the daq_receiver device.
 
     :param daq_receiver_device: a test harness for tango devices
-
-    :return: the daq_receiver_device device
     """
     pytest.xfail(reason="Not implemented yet")
     # return daq_receiver_device
