@@ -201,6 +201,7 @@ class TileHealthMonitor():
         self.clear_clock_status(fpga_id=None, clock_name=None)
         self.clear_clock_manager_status(fpga_id=None, name=None)
         self.clear_pps_status(fpga_id=None)
+        self.clear_ad9528_pll_status()
         self.clear_jesd_error_counters(fpga_id=None)
         self.clear_ddr_reset_counter(fpga_id=None)
         self.clear_f2f_pll_lock_loss_counter(core_id=None)
@@ -446,13 +447,6 @@ class TileHealthMonitor():
     def check_ad9528_pll_status(self):
         """
         Status of TPM AD9528 PLL chip
-        
-        TPM 1.2 has no CPLD registers for PLL status.
-
-        For TPM 1.2 the CPLD cannot read the status pins
-        of the PLL directly so PLL status must be obtained 
-        from registers in the PLL over SPI.
-        This is slower.
 
         This method returns lock status True if both PLLs
         in the AD9528 are locked. The lock loss counter 
@@ -461,14 +455,16 @@ class TileHealthMonitor():
         :return: current lock status and lock loss counter value
         :rtype tuple
         """
-
-        if self.tpm_version() == "tpm_v1_2":
-            lock = self['pll', 0x508] & 0x3 == 0x3
-            loss_of_lock = None # This will be added in MCCS-1247
-        else:
-            lock = self['board.regfile.pll.status'] == 0x3
-            loss_of_lock = self['board.regfile.pll_lol']
+        lock = self['board.regfile.pll.status'] == 0x3
+        loss_of_lock = self['board.regfile.pll_lol']
         return lock, loss_of_lock
+
+    def clear_ad9528_pll_status(self):
+        """
+        Resets the value in the AD9528 PLL lock loss counter to 0.
+        """
+        self.tpm.tpm_pll[0].reset_pll_loss_of_lock()
+        return
 
     def get_available_clocks_to_monitor(self):
         """

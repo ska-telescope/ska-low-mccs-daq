@@ -159,7 +159,7 @@ def load_tpm_1_2_lookup(obj):
             'pps': {
                 'status': {"method": obj.check_pps_status, "rate": ["fast"], "group": ["timing", "pps"], "exp_value": True}
             },
-            'pll': {"method": obj.check_ad9528_pll_status, "rate": ["fast"], "group": ["timing", "pll"], "exp_value": (True, None)}  # Expected value should be (True, 0) after MCCS-1247 is complete
+            'pll': {"method": obj.check_ad9528_pll_status, "rate": ["fast"], "group": ["timing", "pll"], "exp_value": (True, 0)}
         },
         'io':{
             'jesd_interface': {
