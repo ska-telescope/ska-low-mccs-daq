@@ -338,21 +338,25 @@ class TileHealthMonitor():
         """
         Status of ADC PLL.
 
-        This method returns True if the lock of the PLL is up
-        and no loss of PLL lock has been observed.
+        This method returns a tuple, True if the lock of
+        the PLL is up and True if no loss of PLL 
+        lock has been observed respectively.
+
+        NOTE: AD9680 used in TPM 1.2 does not support loss of lock
+        bit, only current lock status. Will return None.
 
         A dictionary is returned with an entry for each ADC.
 
-        :return: True if all OK
-        :rtype dict of bool
+        :return: (True, True) if lock is up and no loss of lock
+        :rtype dict of tuple
         """
         adcs = range(16) if adc_id is None else [adc_id]
         status_dict = {}
         for adc in adcs:
             reg = self[f'adc{adc}', 0x056F]
             lock_is_up = reg & 0x80 > 0
-            loss_of_lock = reg & 0x8 > 0
-            status_dict[f'ADC{adc}'] = lock_is_up and not loss_of_lock
+            no_loss_of_lock = None if self.tpm_version() == "tpm_v1_2" else reg & 0x8 == 0
+            status_dict[f'ADC{adc}'] = (lock_is_up, no_loss_of_lock)
         return status_dict
     
     def check_adc_sysref_setup_and_hold(self, adc_id=None, show_info=True):
