@@ -72,6 +72,21 @@ def pytest_addoption(parser: _pytest.config.argparsing.Parser) -> None:
         help="Specify the testbed on which the tests are running.",
     )
 
+    # This is a pytest hook, here implemented to add the `--true-context`
+    # option, used to indicate that a true Tango subsystem is available,
+    # so there is no need for the test harness to spin up a Tango test
+    # context.
+
+    parser.addoption(
+        "--true-context",
+        action="store_true",
+        default=False,
+        help=(
+            "Tell pytest that you have a true Tango context and don't "
+            "need to spin up a Tango test context"
+        ),
+    )
+
 
 # TODO: https://github.com/pytest-dev/pytest-forked/issues/67
 # We're stuck on pytest 6.2 until this gets fixed,
