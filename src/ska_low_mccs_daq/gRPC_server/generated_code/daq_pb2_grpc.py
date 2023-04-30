@@ -123,7 +123,7 @@ class DaqServicer(object):
 
         ;example;
 
-        >>> dp.tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+        >>> dp.tango.DeviceProxy("low-mccs/daqreceiver/001")
         >>> jstr = dp.command_inout("GetConfiguration")
         >>> dict = json.loads(jstr)
         """

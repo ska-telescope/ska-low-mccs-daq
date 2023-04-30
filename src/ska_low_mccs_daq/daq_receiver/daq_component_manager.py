@@ -37,8 +37,8 @@ class DaqComponentManager(MccsComponentManager):
         receiver_interface: str,
         receiver_ip: str,
         receiver_ports: str,
-        grpc_port: str,
         grpc_host: str,
+        grpc_port: int,
         consumers_to_start: str,
         logger: logging.Logger,
         max_workers: int,
@@ -53,9 +53,9 @@ class DaqComponentManager(MccsComponentManager):
         :param receiver_interface: The interface this DaqReceiver is to watch.
         :param receiver_ip: The IP address of this DaqReceiver.
         :param receiver_ports: The port this DaqReceiver is to watch.
-        :param grpc_port: The gRPC port this DaqReceiver will communicate on.
         :param grpc_host: An optional override to force gRPC to
             use a particular host. Used in testing.
+        :param grpc_port: The gRPC port this DaqReceiver will communicate on.
         :param consumers_to_start: The default consumers to be started.
         :param logger: the logger to be used by this object.
         :param max_workers: the maximum worker threads for the slow commands

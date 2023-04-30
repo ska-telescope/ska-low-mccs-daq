@@ -54,7 +54,7 @@ ska-low-mccs-daq:
       file: "data/daq-receiver.yaml"
       devices:
         - name: daqreceiver-001
-          device_name: low-mccs-daq/daqreceiver/001  # mandatory
+          device_name: low-mccs/daqreceiver/001  # mandatory
           daq_id: 1  # optional: defaults to position in this list
           receiver_interface: ens4  # optional: defaults to "eth0"
           receiver_ip: ""  # mandatory
