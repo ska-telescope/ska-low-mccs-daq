@@ -9,15 +9,12 @@
 from __future__ import annotations
 
 import os
-from functools import lru_cache
-from typing import Any, Callable, Iterator
+from typing import Any, Iterator
 
 import pytest
-import tango
-from ska_tango_testing.harness import TangoTestHarnessContext
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
-from tests.harness import DaqTangoTestHarness
+from tests.harness import DaqTangoTestHarness, DaqTangoTestHarnessContext
 
 DeviceMappingType = dict[str, dict[str, Any]]
 
@@ -27,7 +24,7 @@ def pytest_itemcollected(item: pytest.Item) -> None:
     Modify a test after it has been collected by pytest.
 
     This pytest hook implementation adds the "forked" custom mark to all
-    tests that use the ``tango_harness`` fixture, causing them to be
+    tests that use the ``test_context`` fixture, causing them to be
     sandboxed in their own process.
 
     :param item: the collected test for which this hook is called
@@ -126,7 +123,7 @@ def test_context_fixture(
     receiver_interface: str,
     receiver_ip: str,
     receiver_ports: list[int],
-) -> Iterator[TangoTestHarnessContext]:
+) -> Iterator[DaqTangoTestHarnessContext]:
     """
     Return a tango harness against which to run tests of the deployment.
 
@@ -161,107 +158,13 @@ def test_context_fixture(
 
 
 @pytest.fixture(name="change_event_callbacks", scope="module")
-def change_event_callbacks_fixture(
-    device_mapping: DeviceMappingType,
-) -> MockTangoEventCallbackGroup:
+def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
     """
     Return a dictionary of change event callbacks with asynchrony support.
 
-    :param device_mapping: a map from short to canonical device names
-
     :returns: a callback group.
     """
-    keys = [
-        f"{info['name']}/{attr}"
-        for info in device_mapping.values()
-        for attr in info["subscriptions"]
-    ]
     return MockTangoEventCallbackGroup(
-        *keys,
+        "state",
         timeout=30.0,  # TPM takes a long time to initialise
     )
-
-
-@pytest.fixture(name="device_mapping", scope="module")
-def device_mapping_fixture() -> DeviceMappingType:
-    """
-    Return a mapping from short to canonical Tango device names.
-
-    :return: a map of short names to full Tango device names of the form
-        "<domain>/<class>/<instance>", as well as attributes to subscribe to change
-        events of
-    """
-    return {
-        "daq": {
-            "name": "low-mccs-daq/daqreceiver/001",
-            "subscriptions": [
-                "adminMode",
-                "state",
-                "longRunningCommandResult",
-                "dataReceivedResult",
-            ],
-        },
-    }
-
-
-@pytest.fixture(name="get_device", scope="module")
-def get_device_fixture(
-    tango_context: TangoTestHarnessContext,
-    device_mapping: DeviceMappingType,
-    change_event_callbacks: MockTangoEventCallbackGroup,
-) -> Callable[[str], tango.DeviceProxy]:
-    """
-    Return a memoized function that returns a DeviceProxy for a given name.
-
-    :param tango_context: a TangoContextProtocol to instantiate DeviceProxys
-    :param device_mapping: a map from short to canonical device names
-    :param change_event_callbacks: dictionary of mock change event
-        callbacks with asynchrony support
-
-    :return: a memoized function that takes a name and returns a DeviceProxy
-    """
-
-    @lru_cache
-    def _get_device(short_name: str) -> tango.DeviceProxy:
-        device_data = device_mapping[short_name]
-        name: str = device_data["name"]
-        tango_device = tango_context.get_device(name)
-        device_info = tango_device.info()
-        dev_class = device_info.dev_class
-        print(f"Created DeviceProxy for {short_name} - {dev_class} {name}")
-        for attr in device_data.get("subscriptions", []):
-            attr_value = tango_device.read_attribute(attr).value
-            attr_event = change_event_callbacks[f"{name}/{attr}"]
-            tango_device.subscribe_event(
-                attr,
-                tango.EventType.CHANGE_EVENT,
-                attr_event,
-            )
-            print(f"Subscribed to {name}/{attr}")
-            attr_event.assert_change_event(attr_value)
-            print(f"Received initial value for {name}/{attr}: {attr_value}")
-
-        return tango_device
-
-    return _get_device
-
-
-# @pytest.fixture(name="daq_grpc_server", scope="session")
-# def daq_grpc_server_fixture(grpc_port: str) -> grpc.Server:
-#     """
-#     Stand up a local gRPC server.
-
-#     Include this fixture in tests that require a gRPC DaqServer.
-
-#     :param grpc_port: The port number to use for gRPC calls.
-
-#     :yield: A gRPC server.
-#     """
-#     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-#     daq_pb2_grpc.add_DaqServicer_to_server(MccsDaqServer(), server)
-#     server.add_insecure_port("[::]:" + grpc_port)
-#     print("Starting gRPC server...")
-#     server.start()
-#     time.sleep(1)
-#     yield server
-#     server.stop(grace=5)

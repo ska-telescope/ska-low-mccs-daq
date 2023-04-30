@@ -2,7 +2,5 @@ pytest==7.2.0
 pytest-bdd==6.1.1
 pytest-json-report==1.5.0
 pyyaml==6.0
-ska-control-model==0.1.2
-ska-low-mccs-common==0.1.2
-grpcio==1.51.1
-grpcio-tools==1.51.1
+ska-control-model==0.3.1
+ska-tango-testing==0.6.0

@@ -8,46 +8,31 @@
 """This module contains the bdd test steps of the daq status reporting."""
 from __future__ import annotations
 
+from typing import Iterator
+
 import pytest
 import tango
 from pytest_bdd import given, parsers, scenarios, then, when
-from ska_low_mccs_common import MccsDeviceProxy
-from ska_low_mccs_common.testing.tango_harness import DevicesToLoadType
-from ska_tango_testing.harness import TangoTestHarnessContext
+
+from tests.harness import DaqTangoTestHarnessContext
 
 scenarios("./features/daq_status_reporting.feature")
 
 
-@pytest.fixture(scope="module")
-def devices_to_load() -> DevicesToLoadType:
-    """
-    Fixture that specifies the devices to be loaded for testing.
-
-    :return: specification of the devices to be loaded.
-    """
-    return {
-        "path": "tests/data/configuration.json",
-        "package": "ska_low_mccs_daq",
-        "devices": [
-            {"name": "daqreceiver_001", "proxy": MccsDeviceProxy},
-        ],
-    }
-
-
 @given("an MccsDaqReceiver", target_fixture="daq_receiver")
 def daq_receiver_fixture(
-    test_context: TangoTestHarnessContext,
+    test_context: DaqTangoTestHarnessContext,
     daq_id: int,
-) -> tango.DeviceProxy:
+) -> Iterator[tango.DeviceProxy]:
     """
-    Return the daq_receiver device.
+    Yield the DAQ receiver device under test.
 
     :param test_context: the context in which the test is running.
     :param daq_id: the ID of the daq receiver
 
-    :return: the daq_receiver device
+    :yield: the DAQ receiver device
     """
-    return test_context.get_device(f"low-mccs/daq/{daq_id:03}")
+    yield test_context.get_daq_device(daq_id)
 
 
 @given(parsers.cfparse("MccsDaqReceiver AdminMode is set to '{admin_mode_value}'"))
