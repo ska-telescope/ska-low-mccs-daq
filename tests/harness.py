@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Iterator
 
+import tango
 from ska_control_model import LoggingLevel
 from ska_tango_testing.harness import TangoTestHarness, TangoTestHarnessContext
 from tango import DeviceProxy
@@ -80,9 +81,34 @@ class DaqTangoTestHarnessContext:
 
         :param daq_id: the ID number of the DAQ receiver.
 
+        :raises RuntimeError: if the device fails to become ready.
+
         :returns: a proxy to the DAQ receiver Tango device.
         """
-        return self._tango_context.get_device(get_device_name_from_id(daq_id))
+        device_name = get_device_name_from_id(daq_id)
+        device_proxy = self._tango_context.get_device(device_name)
+
+        # TODO: This should simply be
+        #     return device_proxy
+        # but sadly, when we test against a fresh k8s deployment,
+        # the device is not actually ready to be tested
+        # until many seconds after the readiness probe reports it to be ready.
+        # This should be fixed in the k8s readiness probe,
+        # but for now we have to check for readiness here.
+        for sleep_time in [0, 1, 2, 4, 8, 15, 30, 60]:
+            if sleep_time:
+                print(f"Sleeping {sleep_time} second(s)...")
+                time.sleep(sleep_time)
+            try:
+                if device_proxy.state() != tango.DevState.INIT:
+                    return device_proxy
+                print(f"Device {device_name} still initialising.")
+            except tango.DevFailed as dev_failed:
+                print(
+                    f"Device {device_name} raised DevFailed on state() call:\n"
+                    f"{repr(dev_failed)}."
+                )
+        raise RuntimeError(f"Device {device_name} failed readiness.")
 
     def get_grpc_address(self, daq_id: int) -> tuple[str, int]:
         """
