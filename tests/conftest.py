@@ -57,21 +57,6 @@ def pytest_addoption(
         ),
     )
 
-    # This is a pytest hook, here implemented to add the `--true-context`
-    # option, used to indicate that a true Tango subsystem is available,
-    # so there is no need for the test harness to spin up a Tango test
-    # context.
-
-    parser.addoption(
-        "--true-context",
-        action="store_true",
-        default=False,
-        help=(
-            "Tell pytest that you have a true Tango context and don't "
-            "need to spin up a Tango test context"
-        ),
-    )
-
 
 @pytest.fixture(name="initial_mocks")
 def initial_mocks_fixture() -> dict[str, unittest.mock.Mock]:

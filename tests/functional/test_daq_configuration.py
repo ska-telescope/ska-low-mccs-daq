@@ -86,8 +86,8 @@ def feed_daq_configuration_file(daq_receiver: tango.DeviceProxy) -> None:
     # daq_receiver.Configure(configuration)
 
 
-@then("he DAQ_receiver interface has the expected configuration")
-def assert_daq_instance_is_configuration_correctly(
+@then("The DAQ_receiver interface has the expected configuration")
+def assert_daq_instance_is_configured_correctly(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
