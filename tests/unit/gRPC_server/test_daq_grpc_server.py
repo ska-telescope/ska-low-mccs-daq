@@ -23,22 +23,9 @@ from ska_low_mccs_daq.gRPC_server import daq_pb2, daq_pb2_grpc
 gc.disable()
 
 
-@pytest.fixture(name="daq_name")
-def daq_name_fixture(daq_id: str) -> str:
-    """
-    Return the name of this daq receiver.
-
-    :param daq_id: The ID of this daq receiver.
-
-    :return: the name of this daq receiver.
-    """
-    return f"low-mccs-daq/daqreceiver/{daq_id.zfill(3)}"
-
-
 class TestMccsDaqServer:
     """Test class for MccsDaqServer tests."""
 
-    # pylint: disable=too-many-arguments
     @pytest.mark.parametrize(
         ("args", "expected_rc", "expected_msg"),
         (
@@ -49,7 +36,6 @@ class TestMccsDaqServer:
     @pytest.mark.xfail
     def test_daq_server_start_stop_daq(
         self: TestMccsDaqServer,
-        daq_grpc_server: grpc.Server,
         grpc_channel: str,
         args: str,
         expected_rc: ResultCode,
@@ -58,7 +44,6 @@ class TestMccsDaqServer:
         """
         Test for Daq gRPC server start and stop.
 
-        :param daq_grpc_server: A fixture that stands up a gRPC server.
         :param grpc_channel: The gRPC channel to communicate on.
         :param args: The argument with which to call `StartDaq`.
         :param expected_rc: The result code expected from `StartDaq`.
@@ -95,10 +80,8 @@ class TestMccsDaqServer:
             ("", ResultCode.REJECTED, "No configuration data supplied."),
         ),
     )
-    # pylint: disable=too-many-locals
     def test_daq_server_configuration(
         self: TestMccsDaqServer,
-        daq_grpc_server: grpc.Server,
         grpc_channel: str,
         daq_config: dict[str, Any],
         expected_rc: ResultCode,
@@ -107,7 +90,6 @@ class TestMccsDaqServer:
         """
         Test for Daq gRPC server configuration.
 
-        :param daq_grpc_server: A fixture that stands up a gRPC server.
         :param grpc_channel: The gRPC channel to communicate on.
         :param daq_config: The configuration to apply.
         :param expected_rc: The result code expected from `Configure`.

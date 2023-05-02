@@ -9,12 +9,16 @@
 from __future__ import annotations
 
 from time import sleep
+from typing import TYPE_CHECKING
 
-import grpc
 import pytest
 import tango
 from pytest_bdd import given, scenarios, then, when
 from ska_tango_testing.context import TangoContextProtocol
+
+if TYPE_CHECKING:
+    import grpc
+
 
 scenarios("./features/daq_basic_functionality.feature")
 

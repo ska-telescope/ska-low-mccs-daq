@@ -53,7 +53,7 @@ ska-low-mccs-daq:
       file: "data/daq-receiver.yaml"
       devices:
         - name: daqreceiver-001
-          device_name: low-mccs-daq/daqreceiver/001  # mandatory
+          device_name: low-mccs/daqreceiver/001  # mandatory
           daq_id: 1  # optional: defaults to position in this list
           #This interface should be the 40G interface at the site of deployment.
           receiver_interface: eth0  # currently this has to be adjusted per site interfaces 

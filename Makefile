@@ -53,7 +53,7 @@ JUNITXML_REPORT_PATH ?= build/reports/functional-tests.xml
 CUCUMBER_JSON_PATH ?= build/reports/cucumber.json
 JSON_REPORT_PATH ?= build/reports/report.json
 
-K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --true-context --testbed local\
+K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --true-context \
     --junitxml=$(JUNITXML_REPORT_PATH) \
     --cucumberjson=$(CUCUMBER_JSON_PATH) \
 	--json-report --json-report-file=$(JSON_REPORT_PATH)
@@ -64,7 +64,7 @@ K8S_TEST_RUNNER_PIP_INSTALL_ARGS = -r tests/functional/requirements.txt
 # ALL THIS SHOULD BE UPSTREAMED
 K8S_TEST_RUNNER_CHART_REGISTRY ?= https://artefact.skao.int/repository/helm-internal
 K8S_TEST_RUNNER_CHART_NAME ?= ska-low-mccs-k8s-test-runner
-K8S_TEST_RUNNER_CHART_TAG ?= 0.6.0
+K8S_TEST_RUNNER_CHART_TAG ?= 0.6.1
 
 K8S_TEST_RUNNER_CHART_OVERRIDES =
 

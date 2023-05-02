@@ -1,4 +1,0 @@
-test: !!set {}
-local: !!set {tangodb}
-STFC: !!set {tangodb}
-PSI: !!set {tangodb, tpm}

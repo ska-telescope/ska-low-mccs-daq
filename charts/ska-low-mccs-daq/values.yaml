@@ -93,7 +93,7 @@ deviceServers:
     file: "data/daq-receiver.yaml"
     devices:
       - name: daqreceiver-001
-        device_name: low-mccs-daq/daqreceiver/001  # mandatory
+        device_name: low-mccs/daqreceiver/001  # mandatory
         daq_id: 1  # optional: defaults to position in this list
         receiver_interface: eth0  # optional: defaults to "eth0"
         receiver_ip: ""  # Determined automatically using interface name
@@ -101,7 +101,7 @@ deviceServers:
         grpc_ip: "10.0.10.151" 
         grpc_port: 50051
       - name: daqreceiver-002
-        device_name: low-mccs-daq/daqreceiver/002  # mandatory
+        device_name: low-mccs/daqreceiver/002  # mandatory
         daq_id: 2  # optional: defaults to position in this list
         receiver_interface: eth0  # optional: defaults to "eth0"
         receiver_ip: ""  # Determined automatically using interface name
