@@ -295,7 +295,7 @@ class TileHealthMonitor():
         io.udp_interface.bip_error_count.FPGA1
         io.udp_interface.linkup_loss_count.FPGA0
         io.udp_interface.linkup_loss_count.FPGA1
-        
+
         Full documentation on usage available at https://confluence.skatelescope.org/x/nDhED
         """
         health_status = {}
@@ -376,10 +376,10 @@ class TileHealthMonitor():
         """
         available_voltages = []
         # LASC Plugin TPM 1.2
-        if hasattr(self.tpm, 'tpm_lasc'):
+        if self.tpm_version() == "tpm_v1_2":
             available_voltages.extend(self.tpm.tpm_lasc[0].get_available_voltages())
         # MCU Plugin TPM 1.6
-        if hasattr(self.tpm, 'tpm_monitor'):
+        else:
             available_voltages.extend(self.tpm.tpm_monitor[0].get_available_voltages())
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
@@ -401,10 +401,10 @@ class TileHealthMonitor():
         """
         voltage_dict = {}
         # LASC Plugin TPM 1.2
-        if hasattr(self.tpm, 'tpm_lasc'):
+        if self.tpm_version() == "tpm_v1_2":
             voltage_dict.update(self.tpm.tpm_lasc[0].get_voltage(voltage_name))
         # MCU Plugin TPM 1.6
-        if hasattr(self.tpm, 'tpm_monitor'):
+        else:
             voltage_dict.update(self.tpm.tpm_monitor[0].get_voltage(voltage_name))
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
@@ -426,10 +426,10 @@ class TileHealthMonitor():
         """
         available_currents = []
         # LASC Plugin TPM 1.2
-        if hasattr(self.tpm, 'tpm_lasc'):
+        if self.tpm_version() == "tpm_v1_2":
             available_currents.extend(self.tpm.tpm_lasc[0].get_available_currents())
         # MCU Plugin TPM 1.6
-        if hasattr(self.tpm, 'tpm_monitor'):
+        else:
             available_currents.extend(self.tpm.tpm_monitor[0].get_available_currents())
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
@@ -451,10 +451,10 @@ class TileHealthMonitor():
         """
         current_dict = {}
         # LASC Plugin TPM 1.2
-        if hasattr(self.tpm, 'tpm_lasc'):
+        if self.tpm_version() == "tpm_v1_2":
             current_dict.update(self.tpm.tpm_lasc[0].get_current(current_name))
         # MCU Plugin TPM 1.6
-        if hasattr(self.tpm, 'tpm_monitor'):
+        else:
             current_dict.update(self.tpm.tpm_monitor[0].get_current(current_name))
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
