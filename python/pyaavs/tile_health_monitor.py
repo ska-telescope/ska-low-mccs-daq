@@ -92,7 +92,7 @@ class TileHealthMonitor():
         Returns a list of all monitoring points by finding all leaf nodes
         in the lookup dict that have a corresponding method field.
 
-        The monitoring points returned are strings produced from '.' delimiter 
+        The monitoring points returned are strings produced from '.' delimited 
         keys. For example:
         voltages.5V0
         io.udp_interface.crc_error_count.FPGA0
@@ -155,16 +155,16 @@ class TileHealthMonitor():
         categories_list.sort()
         return categories_list
 
-    def set_monitoring_point_attr(self, point, override=True, **kwargs):
+    def set_monitoring_point_attr(self, path, override=True, **kwargs):
         """
         Specify attributes for a monitoring point or subset of monitoring points. 
-        Point is a string name produced from '.' delimiter keys of the lookup dict.
+        Specified by path, a string name produced from '.' delimited keys of the lookup dict.
         All available options returned from all_monitoring_categories().
 
         See https://confluence.skatelescope.org/x/nDhED for example usage.
 
-        :param point: Monitoring point (i.e any of:'io.udp_interface.crc_error_count', 'io.udp_interface', 'timing', 'io')
-        :type point: str
+        :param path: Monitoring point path (i.e any of:'io.udp_interface.crc_error_count', 'io.udp_interface', 'timing', 'io')
+        :type path: str
 
         :param override: Overrides the specified attribute if true, if False appends
         :type override: bool
@@ -172,10 +172,10 @@ class TileHealthMonitor():
         :param **kwargs: key word args (i.e rate='fast' or rate=8, group='my_group' or group=['my_group1', 'my_group2'])
         :type kwargs: values can be int,str,bool,float etc. or list of these. Tuples not supported
         """
-        if point not in self.all_monitoring_categories():
-            raise LibraryError(f"No monitoring point matching: {point}\nUse:\nall_monitoring_points()\nall_monitoring_categories()\nto see available options.")
+        if path not in self.all_monitoring_categories():
+            raise LibraryError(f"No monitoring point paths matching: {path}\nUse:\nall_monitoring_points()\nall_monitoring_categories()\nto see available options.")
         for monitoring_point in self.all_monitoring_points():
-              if monitoring_point.startswith(point):
+              if monitoring_point.startswith(path):
                 lookup = monitoring_point.split('.')
                 lookup_entry = self._parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
                 for key, value in kwargs.items():
