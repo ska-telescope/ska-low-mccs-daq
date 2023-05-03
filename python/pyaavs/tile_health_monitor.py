@@ -88,6 +88,20 @@ class TileHealthMonitor():
         return
 
     def all_monitoring_points(self):
+        """
+        Returns a list of all monitoring points by finding all leaf nodes
+        in the lookup dict that have a corresponding method field.
+
+        The monitoring points returned are strings produced from '.' delimiter 
+        keys. For example:
+        voltages.5V0
+        io.udp_interface.crc_error_count.FPGA0
+
+        More info at https://confluence.skatelescope.org/x/nDhED
+
+        :return: list of monitoring points
+        :rtype: list of strings
+        """
         def find_leaf_dict_recursive(health_dict, key_list=[], output_list=[]):
             for name, value in health_dict.items():
                 key_list.append(name)
@@ -110,6 +124,27 @@ class TileHealthMonitor():
         return monitoring_point_list
 
     def all_monitoring_categories(self):
+        """
+        Returns a list of all monitoring point 'categories'.
+        Here categories is a super-set of monitoring points and is 
+        the full list of accepted strings to set_monitoring_point_attr. 
+        For example, these monitoring points:
+        voltages.5V0
+        io.udp_interface.crc_error_count.FPGA0
+
+        would have these associated categories:
+        voltages
+        voltages.5V0
+        io
+        io.udp_interface
+        io.udp_interface.crc_error_count
+        io.udp_interface.crc_error_count.FPGA0
+
+        More info at https://confluence.skatelescope.org/x/nDhED
+
+        :return: list of categories
+        :rtype: list of strings
+        """
         all_monitoring_points = self.all_monitoring_points()
         categories = set()
         for monitroing_point in all_monitoring_points:
@@ -121,6 +156,22 @@ class TileHealthMonitor():
         return categories_list
 
     def set_monitoring_point_attr(self, point, override=True, **kwargs):
+        """
+        Specify attributes for a monitoring point or subset of monitoring points. 
+        Point is a string name produced from '.' delimiter keys of the lookup dict.
+        All available options returned from all_monitoring_categories().
+
+        See https://confluence.skatelescope.org/x/nDhED for example usage.
+
+        :param point: Monitoring point (i.e any of:'io.udp_interface.crc_error_count', 'io.udp_interface', 'timing', 'io')
+        :type point: str
+
+        :param override: Overrides the specified attribute if true, if False appends
+        :type override: bool
+
+        :param **kwargs: key word args (i.e rate='fast' or rate=8, group='my_group' or group=['my_group1', 'my_group2'])
+        :type kwargs: values can be int,str,bool,float etc. or list of these. Tuples not supported
+        """
         if point not in self.all_monitoring_categories():
             raise LibraryError(f"No monitoring point matching: {point}\nUse:\nall_monitoring_points()\nall_monitoring_categories()\nto see available options.")
         for monitoring_point in self.all_monitoring_points():
@@ -141,9 +192,48 @@ class TileHealthMonitor():
         return
 
     def _parse_dict_by_path(self, dictionary, path_list):
+        """
+        General purpose method to parse a nested dictory by a list of keys.
+
+        Example:
+        test_dict = {'parent': {'child1': 10, 'child2':12}, 'parent2': {'child3': 14}}
+        self._parse_dict_by_path(test_dict, ['parent', 'child2']) would return 12
+        self._parse_dict_by_path(test_dict, ['parent2', 'child3']) would return 14
+        self._parse_dict_by_path(test_dict, ['parent']) would return {'child1': 10, 'child2':12}
+
+        :param dictionary: Input nested dictionary
+        :type dictionary: dict
+
+        :param path_list: List of dictionary keys, from top to bottom
+        :type path_list: list
+
+        :return: value
+        """
         return reduce(operator.getitem, path_list, dictionary)
 
     def _create_nested_dict(self, key_list, value, nested_dict={}):
+        """
+        General purpose method to append to a nested dictionary based on a provided
+        list of keys and a value.
+        If nested_dict is not specified a new dictionary is created. Subsequent calls
+        with the same nested_dict provided will append.
+        Used to recreate a nested dictionary hierarchy from scratch.
+
+        NOTE: nested_dict is not copied so due to Python dictionaries being mutable,
+        the returned nested_dict is optional, required for creation of new dictionaries.
+
+        :param key_list: List of dictionary keys, from top to bottom
+        :type key_list: list
+
+        :param value: Value to be stored at path specified by key_list
+        :type value: anything
+
+        :param nested_dict: Input nested dictionary
+        :type nested_dict: dict
+
+        :return: nested_dict
+        :rtype: dict
+        """
         current_dict = nested_dict
         for key in key_list[:-1]:
             if key not in current_dict:
@@ -153,6 +243,19 @@ class TileHealthMonitor():
         return nested_dict
 
     def _kwargs_handler(self, kwargs):
+        """
+        For use with get_health_status method.
+        Filter all monitoring points to a subset based on monitoring 
+        point attr match to kwargs in monitoring point lookup dict.
+
+        NOTE: when multiple args specified, all must match
+
+        :param kwargs: dictionary of kwargs
+        :type kwargs: dict
+
+        :return: monitoring point list
+        :rtype: list
+        """
         if not kwargs:
             return self.all_monitoring_points()
         # get list of monitoring points to be polled based on kwargs
@@ -172,8 +275,28 @@ class TileHealthMonitor():
     @health_monitoring_compatible
     def get_health_status(self, **kwargs):
         """
-        Returns the current value of all TPM monitoring points.
-        https://confluence.skatelescope.org/x/nDhED
+        Returns the current value of TPM monitoring points with the 
+        specified attributes as set in the method set_monitoring_point_attr.
+        If no arguments given, current value of all monitoring points is returned.
+
+        For example:
+        If configured with:
+        tile.set_monitoring_point_attr(io.udp_interface, my_category='yes', my_other_category=87)
+
+        Subsequent calls to:
+        tile.get_health_status(my_category='yes', my_other_category=87)
+
+        would return only the health status for:
+        io.udp_interface.arp
+        io.udp_interface.status
+        io.udp_interface.crc_error_count.FPGA0
+        io.udp_interface.crc_error_count.FPGA1
+        io.udp_interface.bip_error_count.FPGA0
+        io.udp_interface.bip_error_count.FPGA1
+        io.udp_interface.linkup_loss_count.FPGA0
+        io.udp_interface.linkup_loss_count.FPGA1
+        
+        Full documentation on usage available at https://confluence.skatelescope.org/x/nDhED
         """
         health_status = {}
         mon_point_list = self._kwargs_handler(kwargs)
@@ -232,6 +355,13 @@ class TileHealthMonitor():
         return temperature_dict
 
     def check_global_status_alarms(self):
+        """
+        Wrapper for tpm get_global_status_alarms method
+        Returns none if tpm version is 1.2
+
+        :return: alarm status dict
+        :rtype: dict
+        """
         return None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms()
         
     def get_available_voltages(self, fpga_id=None):
