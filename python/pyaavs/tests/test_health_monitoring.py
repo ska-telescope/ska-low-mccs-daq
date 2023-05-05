@@ -142,6 +142,11 @@ class TestHealthMonitoring():
                 self._logger.warning("FPGA Firmware does not support updated PPS validation. PPS checks will be skipped.")
                 MON_POINT_SKIP.append('timing.pps.status')
 
+            # Some TPM 1.2 CPLD firmware may not have support for PLL lock loss counter
+            if not tile.tpm.has_register('board.regfile.pll_lol'):
+                self._logger.warning("CPLD Firmware does not have updated PLL status registers. PLL checks will be skipped.")
+                MON_POINT_SKIP.append('timing.pll')
+
             if not tile.tpm.adas_enabled:
                 self._logger.info("ADAs disabled. Skipping checks for ADA voltages.")
 

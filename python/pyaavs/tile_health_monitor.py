@@ -589,8 +589,16 @@ class TileHealthMonitor():
         :return: current lock status and lock loss counter value
         :rtype tuple
         """
-        lock = self['board.regfile.pll.status'] == 0x3
-        loss_of_lock = self['board.regfile.pll_lol']
+        locks = self.tpm.tpm_pll[0].get_pll_status()
+        loss_of_lock = self.tpm.tpm_pll[0].get_pll_loss_of_lock()
+        # The above calls will return None if CPLD firmware does 
+        # not support PLL status
+        if locks is None:
+            # if unsuccessful try alternative i2c method
+            # should only be needed for TPM 1.2 on old CPLD firmware
+            lock = self['pll', 0x508] & 0x3 == 0x3
+        else:
+            lock = locks == 0x3
         return lock, loss_of_lock
 
     def clear_ad9528_pll_status(self):
