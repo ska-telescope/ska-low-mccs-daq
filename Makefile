@@ -44,7 +44,7 @@ K8S_CHART_PARAMS += --values charts/ska-low-mccs-daq/values-$(K8S_FACILITY).yaml
 
 # THIS IS SPECIFIC TO THIS REPO
 ifdef CI_REGISTRY_IMAGE
-K8S_CHART_PARAMS = \
+K8S_CHART_PARAMS += \
 	--set low_mccs_daq.image.registry=$(CI_REGISTRY_IMAGE) \
 	--set low_mccs_daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
 endif
