@@ -161,6 +161,7 @@ private:
     uint16_t nof_channels = 1;        // Number of channels
     uint32_t nof_samples = 0;         // Number of time samples
     bool transpose = true;            // Transpose samples when writing to buffer
+    double capture_start_time = -1;      // Capture start time in Unix epoch time
 
 };
 

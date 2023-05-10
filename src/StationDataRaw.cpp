@@ -43,13 +43,19 @@ bool StationRawData::initialiseConsumer(json configuration)
         return false;
     }
 
+    if (!(key_in_json(configuration, "capture_start_time"))) {
+        LOG(FATAL, "Missing configuration item capture_start_time");
+        return false;
+    }
+
 
     // Set local values
     start_channel = configuration["start_channel"];
     nof_channels = configuration["nof_channels"];
     nof_samples  = configuration["nof_samples"];
-    transpose = (configuration["transpose_samples"] == 1) ? true : false;
+    transpose = (configuration["transpose_samples"] == 1);
     packet_size = configuration["max_packet_size"];
+    capture_start_time = round((double) configuration["start_time"]);;
     nof_pols = 2;
 
     // Create ring buffer
@@ -212,6 +218,12 @@ bool StationRawData::processPacket()
 
     // Calculate packet time
     double packet_time = sync_time + timestamp * 1.0e-9; // timestamp_scale;
+
+    // Check whether packet timestamp is past start time
+    if (capture_start_time > 0 and packet_time < capture_start_time) {
+        ring_buffer -> pull_ready();
+        return true;
+    }
 
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));

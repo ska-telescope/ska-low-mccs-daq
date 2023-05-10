@@ -4,7 +4,7 @@
 #include <getopt.h>
 #include <cstring>
 #include <cstdlib>
-#include <time.h>
+#include <ctime>
 #include <bits/stdc++.h>
 
 #include "DAQ.h"
@@ -28,6 +28,7 @@ uint64_t nof_samples = 262144 * 4;
 uint32_t start_channel = 0;
 uint32_t nof_channels = 1;
 uint32_t duration = 60;
+double capture_start_time = -1;
 uint64_t max_file_size_gb = 1;
 
 bool simulate_write = false;
@@ -359,6 +360,7 @@ static void print_usage(char *name)
               << "\t-D/--dada\t\t\tGenerate binary file with DADA header\n"
 	          << "\t-I/--individual\t\t\tGenerate separate channels files\n"
 	          << "\t-W/--simulate\t\t\tSimulate writing to disk\n"
+              << "\t-C/--capture_time\t\t\tSet a start capture time (UTC). Format should be YYYY/MM/DD_HH:MM:SS\n"
               << "\t-T/--test_acquisition\t\tTest acquisition of station beam with fake data"
               << std::endl;
 }
@@ -367,7 +369,7 @@ static void print_usage(char *name)
 static void parse_arguments(int argc, char *argv[])
 {
     // Define options
-    const char* const short_opts = "d:t:s:i:p:c:m:n:S:DIWT";
+    const char* const short_opts = "d:t:s:i:p:c:m:n:C:S:DIWT";
     const option long_opts[] = {
             {"directory", required_argument, nullptr, 'd'},
             {"max_file_size", required_argument, nullptr, 'm'},
@@ -382,6 +384,7 @@ static void parse_arguments(int argc, char *argv[])
 	        {"simulate", no_argument, nullptr, 'W'},
             {"individual", no_argument, nullptr, 'I'},
             {"test_acquisition", no_argument, nullptr, 'T'},
+            {"capture_time", required_argument, nullptr, 'C'},
             {nullptr, no_argument, nullptr, 0}
     };
 
@@ -432,6 +435,18 @@ static void parse_arguments(int argc, char *argv[])
             case 'T':
                 test_acquisition = true;
                 break;
+            case 'C': {
+                // Parse capture time
+                std::string utc_date = string(optarg);
+
+                // Convert UTC datetime string to Unix timestamp
+                std::tm tm_utc = {};
+                std::stringstream ss(utc_date);
+                ss >> std::get_time(&tm_utc, "%Y/%m/%d_%H:%M");
+                capture_start_time = static_cast<double>(timegm(&tm_utc));
+
+                break;
+            }
             default: /* '?' */
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
@@ -440,6 +455,13 @@ static void parse_arguments(int argc, char *argv[])
 
     printf("Running acquire_station_beam with %ld samples starting from logical channel %d and saving %d channels.\n",
 		    nof_samples, start_channel, nof_channels);
+    if (capture_start_time > 0) {
+        char datetime_str[20];
+        auto unix_time = (std::time_t) capture_start_time;
+        std::tm *tm_utc = std::gmtime(&unix_time);
+        std::strftime(datetime_str, 20, "%Y/%m/%d_%H:%M", tm_utc);
+        std::cout << "Capture will start at " << datetime_str << " UTC" << std::endl;
+    }
     if (simulate_write)
 	    printf("Simulating disk write, nothing will be physically written to disk\n");
     else
@@ -520,7 +542,8 @@ int main(int argc, char *argv[])
             {"nof_channels", nof_channels},
             {"nof_samples", nof_samples},
             {"transpose_samples", (individual_channel_files) ? 0 : 1},
-            {"max_packet_size", 9000}
+            {"max_packet_size", 9000},
+            {"start_capture_time", capture_start_time}
     };
 
     // Workaround to avoid shared object not found, specify default location
