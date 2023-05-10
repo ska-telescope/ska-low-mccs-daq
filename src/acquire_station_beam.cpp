@@ -461,11 +461,11 @@ static void parse_arguments(int argc, char *argv[])
                 // Convert UTC datetime string to Unix timestamp
                 std::tm tm_utc = {};
                 std::stringstream ss(utc_date);
-                ss >> std::get_time(&tm_utc, "%Y/%m/%d_%H:%M:%S");
+                ss >> std::get_time(&tm_utc, "%Y/%m/%d_%H:%M");
                 capture_start_time = static_cast<double>(timegm(&tm_utc));
 
-		// Set number of skips to 0
-		skip = 0;
+                // Set number of skips to 0
+                skip = 0;
 
                 break;
             }
@@ -484,7 +484,7 @@ static void parse_arguments(int argc, char *argv[])
         auto unix_time = (std::time_t) capture_start_time;
         std::tm *tm_utc = std::gmtime(&unix_time);
         std::strftime(datetime_str, 20, "%Y/%m/%d_%H:%M", tm_utc);
-        std::cout << "Capture will start at " << datetime_str << " UTC (epoch time: " << (int) capture_start_time << ") in " 
+        std::cout << "Capture will start at " << datetime_str << " UTC (epoch time: " << (int) capture_start_time << ") in "
 		  << (int) (capture_start_time - std::time(nullptr)) << "s"  << std::endl;
     }
 

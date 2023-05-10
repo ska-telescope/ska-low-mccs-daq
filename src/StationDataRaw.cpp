@@ -226,17 +226,6 @@ bool StationRawData::processPacket()
         // Multiply packet_counter by rollover counts
         timestamp += timestamp_rollover << 48;
 
-<<<<<<< src/StationDataRaw.cpp
-=======
-    // Calculate packet time
-    double packet_time = sync_time + timestamp * timestamp_scale;
-
-    // Calculate frequency if not present
-    if (frequency == 0) {
-	frequency = 781250 * frequency_id;
-    }
-
->>>>>>> src/StationDataRaw.cpp
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
 
@@ -278,6 +267,10 @@ bool StationRawData::processPacket()
         // Multiply packet_counter by rollover counts
         packet_counter += rollover_counter << 32;
 
+    // Calculate frequency if not present
+    if (frequency == 0)
+        frequency = 781250 * frequency_id;
+
     // If this is channel of interest, save, otherwise ignore
     if (logical_channel_id >= start_channel && logical_channel_id < start_channel + nof_channels)
 
@@ -287,8 +280,8 @@ bool StationRawData::processPacket()
                                     packet_counter,
                                     reinterpret_cast<uint16_t *>(payload + payload_offset),
                                     packet_time, 
-				           frequency & 0xFFFFFFFF,
-				                     start_sample_offset);
+				                    frequency & 0xFFFFFFFF,
+				                    start_sample_offset);
 
     // Ready from packet
     ring_buffer -> pull_ready();
