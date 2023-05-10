@@ -360,7 +360,7 @@ static void print_usage(char *name)
               << "\t-D/--dada\t\t\tGenerate binary file with DADA header\n"
 	          << "\t-I/--individual\t\t\tGenerate separate channels files\n"
 	          << "\t-W/--simulate\t\t\tSimulate writing to disk\n"
-              << "\t-C/--capture_time\t\t\tSet a start capture time (UTC). Format should be YYYY/MM/DD_HH:MM:SS\n"
+              << "\t-C/--capture_time\t\tSet a start capture time (UTC). Format should be YYYY/MM/DD_hh:mm:ss\n"
               << "\t-T/--test_acquisition\t\tTest acquisition of station beam with fake data"
               << std::endl;
 }
