@@ -1,5 +1,5 @@
 #
-# Project makefile for a SKA low MCCS DAQ project. 
+# Project makefile for a SKA low MCCS DAQ project.
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE.txt for more info.
@@ -26,34 +26,61 @@ include .make/raw.mk
 include .make/base.mk
 include .make/docs.mk
 include .make/helm.mk
+include .make/xray.mk
 
 # include your own private variables for custom deployment configuration
 -include PrivateRules.mak
 
-python-post-lint:
-	$(PYTHON_RUNNER) mypy --config-file mypy.ini src/ tests/
-
 docs-pre-build:
 	python3 -m pip install -r docs/requirements.txt
+
+python-post-lint:
+	mypy --config-file mypy.ini src/ tests
+
+
+K8S_FACILITY ?= k8s-test
+K8S_CHART_PARAMS += --values charts/ska-low-mccs-daq/values-$(K8S_FACILITY).yaml
 
 
 # THIS IS SPECIFIC TO THIS REPO
 ifdef CI_REGISTRY_IMAGE
-K8S_CHART_PARAMS = \
+K8S_CHART_PARAMS += \
 	--set low_mccs_daq.image.registry=$(CI_REGISTRY_IMAGE) \
 	--set low_mccs_daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
 endif
 
-K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --testbed local --junitxml=build/reports/functional-tests.xml
+JUNITXML_REPORT_PATH ?= build/reports/functional-tests.xml
+CUCUMBER_JSON_PATH ?= build/reports/cucumber.json
+JSON_REPORT_PATH ?= build/reports/report.json
+
+K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --true-context \
+    --junitxml=$(JUNITXML_REPORT_PATH) \
+    --cucumberjson=$(CUCUMBER_JSON_PATH) \
+	--json-report --json-report-file=$(JSON_REPORT_PATH)
+
 K8S_TEST_RUNNER_PYTEST_TARGET = tests/functional
 K8S_TEST_RUNNER_PIP_INSTALL_ARGS = -r tests/functional/requirements.txt
 
 # ALL THIS SHOULD BE UPSTREAMED
 K8S_TEST_RUNNER_CHART_REGISTRY ?= https://artefact.skao.int/repository/helm-internal
 K8S_TEST_RUNNER_CHART_NAME ?= ska-low-mccs-k8s-test-runner
-K8S_TEST_RUNNER_CHART_TAG ?= 0.2.0
+K8S_TEST_RUNNER_CHART_TAG ?= 0.6.1
 
 K8S_TEST_RUNNER_CHART_OVERRIDES =
+
+ifdef PASS_PROXY_CONFIG
+FACILITY_HTTP_PROXY ?= $(http_proxy)
+FACILITY_HTTPS_PROXY ?= $(https_proxy)
+endif
+
+ifdef FACILITY_HTTP_PROXY
+K8S_TEST_RUNNER_CHART_OVERRIDES += --set global.http_proxy=$(FACILITY_HTTP_PROXY)
+endif
+
+ifdef FACILITY_HTTPS_PROXY
+K8S_TEST_RUNNER_CHART_OVERRIDES += --set global.https_proxy=$(FACILITY_HTTPS_PROXY)
+endif
+
 ifdef K8S_TEST_RUNNER_IMAGE_REGISTRY
 K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.registry=$(K8S_TEST_RUNNER_IMAGE_REGISTRY)
 endif
@@ -82,7 +109,7 @@ K8S_TEST_RUNNER_WORKING_DIRECTORY ?= /home/tango
 k8s-do-test:
 	helm -n $(KUBE_NAMESPACE) install --repo $(K8S_TEST_RUNNER_CHART_REGISTRY) \
 		$(K8S_TEST_RUNNER_CHART_RELEASE) $(K8S_TEST_RUNNER_CHART_NAME) \
-		--version $(K8S_TEST_RUNNER_CHART_TAG) $(K8S_TEST_RUNNER_CHART_OVERRIDES) 
+		--version $(K8S_TEST_RUNNER_CHART_TAG) $(K8S_TEST_RUNNER_CHART_OVERRIDES)
 	kubectl -n $(KUBE_NAMESPACE) wait pod ska-low-mccs-k8s-test-runner \
 		--for=condition=ready --timeout=$(K8S_TIMEOUT)
 	kubectl -n $(KUBE_NAMESPACE) cp tests/ ska-low-mccs-k8s-test-runner:$(K8S_TEST_RUNNER_WORKING_DIRECTORY)/tests

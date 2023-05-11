@@ -1,0 +1,11 @@
+deviceServers:
+  daqreceiver:
+    devices:
+      - name: daqreceiver-001
+        device_name: low-mccs/daqreceiver/001  # mandatory
+        daq_id: 1  # optional: defaults to position in this list
+        receiver_interface: eth0  # optional: defaults to "eth0"
+        receiver_ip: ""  # Determined automatically using interface name
+        receiver_port: 4660  # optional: defaults to 4660
+        # grpc_ip: "10.0.10.151"  # optional: gRPC IP for a pre-existing DAQ
+        # grpc_port: 50051  # optional: gRPC port for a pre-existing DAQ

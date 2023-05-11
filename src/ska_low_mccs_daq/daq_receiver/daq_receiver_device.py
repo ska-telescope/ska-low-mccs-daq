@@ -185,8 +185,8 @@ class MccsDaqReceiver(SKABaseDevice):
             self.ReceiverInterface,
             self.ReceiverIp,
             self.ReceiverPorts,
-            self.GrpcPort,
             self.GrpcHost,
+            self.GrpcPort,
             self.ConsumersToStart,
             self.logger,
             self._max_workers,
@@ -423,7 +423,7 @@ class MccsDaqReceiver(SKABaseDevice):
         :return: A json string containing the status of this DaqReceiver.
 
         :example:
-            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
             >>> jstr = daq.DaqStatus()
             >>> dict = json.loads(jstr)
         """
@@ -449,7 +449,7 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
 
         :example:
-            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
             >>> argin = '{"modes_to_start": "INTEGRATED_CHANNEL_DATA,
             RAW_DATA"}'
             >>> daq.Start(argin) # use specified consumers
@@ -506,7 +506,7 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
 
         :example:
-            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
             >>> daq.Stop()
         """
         handler = self.get_command_object("Stop")
@@ -562,7 +562,7 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
 
         :example:
-            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
             >>> daq_config = {
                 "receiver_ports": "4660",
                 "receiver_interface": "eth0",
@@ -582,7 +582,7 @@ class MccsDaqReceiver(SKABaseDevice):
         :return: A JSON-encoded dictionary of the configuration.
 
         :example:
-            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
             >>> jstr = daq.GetConfiguration()
             >>> dict = json.loads(jstr)
         """
@@ -665,7 +665,7 @@ class MccsDaqReceiver(SKABaseDevice):
             information purpose only.
 
         :example:
-            >>> daq = tango.DeviceProxy("low-mccs-daq/daqreceiver/001")
+            >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
             >>> consumers = "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
             >>> daq.SetConsumers(consumers)
         """

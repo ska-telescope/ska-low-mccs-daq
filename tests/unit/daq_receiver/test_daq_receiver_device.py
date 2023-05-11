@@ -12,99 +12,41 @@ import gc
 import json
 import unittest.mock
 from time import sleep
-from typing import Generator, Union
+from typing import Union
 
-import grpc
 import pytest
+import pytest_mock
 import tango
 from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import AdminMode, HealthState, ResultCode
-from ska_tango_testing.context import (
-    TangoContextProtocol,
-    ThreadedTestTangoContextManager,
-)
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
-from tango.server import command
+from tango.server import Device, command
 
 from ska_low_mccs_daq import MccsDaqReceiver
+from tests.harness import DaqTangoTestHarnessContext
 
 # TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
 gc.disable()
 
 
-@pytest.fixture(name="daq_name")
-def daq_name_fixture(daq_id: str) -> str:
-    """
-    Return the name of this daq receiver.
-
-    :param daq_id: The ID of this daq receiver.
-
-    :return: the name of this daq receiver.
-    """
-    return f"low-mccs-daq/daqreceiver/{daq_id.zfill(3)}"
-
-
 @pytest.fixture(name="device_under_test")
 def device_under_test_fixture(
-    tango_harness: TangoContextProtocol,
-    daq_name: str,
+    test_context: DaqTangoTestHarnessContext,
+    daq_id: int,
 ) -> tango.DeviceProxy:
     """
     Fixture that returns the device under test.
 
-    :param tango_harness: a test harness for Tango devices
-    :param daq_name: name of the DAQ receiver Tango device
+    :param test_context: the context in which the tests are running.
+    :param daq_id: the ID of the DAQ instance under test.
 
     :return: the device under test
     """
-    return tango_harness.get_device(daq_name)
+    return test_context.get_daq_device(daq_id)
 
 
 class TestMccsDaqReceiver:
     """Test class for MccsDaqReceiver tests."""
-
-    @pytest.fixture(name="tango_harness")
-    def tango_harness_fixture(  # pylint: disable=too-many-arguments
-        self,
-        daq_name: str,
-        daq_id: str,
-        receiver_interface: str,
-        receiver_ip: str,
-        receiver_ports: str,
-        grpc_port: str,
-        grpc_host: str,
-    ) -> Generator[TangoContextProtocol, None, None]:
-        """
-        Return a tango harness against which to run tests of the deployment.
-
-        :param daq_name: name of the DAQ receiver Tango device
-        :param daq_id: id of the DAQ receiver
-        :param receiver_interface: network interface on which the DAQ
-            receiver receives packets
-        :param receiver_ip: IP address on which the DAQ receiver receives
-            packets
-        :param receiver_ports: port on which the DAQ receiver receives
-            packets.
-        :param grpc_port: The port number to use for gRPC calls.
-        :param grpc_host: The hostname of the gRPC server to use.
-
-        :yields: a tango context.
-        """
-        context_manager = ThreadedTestTangoContextManager()
-        context_manager.add_device(
-            daq_name,
-            MccsDaqReceiver,
-            DaqId=daq_id,
-            ReceiverInterface=receiver_interface,
-            ReceiverIp=receiver_ip,
-            ReceiverPorts=receiver_ports,
-            GrpcPort=grpc_port,
-            GrpcHost=grpc_host,
-            ConsumersToStart="DaqModes.INTEGRATED_CHANNEL_DATA",
-            LoggingLevelDefault=3,
-        )
-        with context_manager as context:
-            yield context
 
     def test_healthState(
         self: TestMccsDaqReceiver,
@@ -156,7 +98,6 @@ class TestMccsDaqReceiver:
         daq_interface: str,
         daq_ports: list[int],
         daq_ip: str,
-        daq_grpc_server: grpc.Server,
     ) -> None:
         """
         Test for DaqStatus.
@@ -170,7 +111,6 @@ class TestMccsDaqReceiver:
         :param daq_interface: The interface for daq to listen on.
         :param daq_ports: A list of ports for daq to listen on.
         :param daq_ip: The ip address of daq.
-        :param daq_grpc_server: A fixture that stands up a gRPC server.
         :param device_under_test: fixture that provides a
             :py:class:`tango.DeviceProxy` to the device under test, in a
             :py:class:`tango.test_context.DeviceTestContext`.
@@ -216,36 +156,45 @@ class TestPatchedDaq:
     device are passed through to the component manager
     """
 
-    @pytest.fixture(name="tango_harness")
-    def tango_harness_fixture(  # pylint: disable=too-many-arguments
+    @pytest.fixture(name="mock_component_manager")
+    def mock_component_manager_fixture(
+        self: TestPatchedDaq,
+        mocker: pytest_mock.MockerFixture,
+    ) -> unittest.mock.Mock:
+        """
+        Return a mock to be used as a component manager for the daq device.
+
+        :param mocker: fixture that wraps the :py:mod:`unittest.mock`
+            module
+
+        :return: a mock to be used as a component manager for the daq
+            device.
+        """
+        mock_component_manager = mocker.Mock()
+        configuration = {
+            "start_daq.return_value": (ResultCode.OK, "Daq started"),
+            "stop_daq.return_value": (ResultCode.OK, "Daq stopped"),
+            "_set_consumers_to_start.return_value": (
+                ResultCode.OK,
+                "SetConsumers command completed OK",
+            ),
+        }
+        mock_component_manager.configure_mock(**configuration)
+        return mock_component_manager
+
+    @pytest.fixture(name="device_class_under_test")
+    def device_class_under_test_fixture(
         self,
         mock_component_manager: unittest.mock.Mock,
-        daq_name: str,
-        daq_id: str,
-        receiver_interface: str,
-        receiver_ip: str,
-        receiver_ports: str,
-        grpc_port: str,
-        grpc_host: str,
-    ) -> Generator[TangoContextProtocol, None, None]:
+    ) -> type[Device] | str:
         """
-        Return a tango harness against which to run tests of the deployment.
+        Return the device class under test.
 
         :param mock_component_manager: a mock to be injected into the
             tango device under test, to take the place of its component
             manager.
-        :param daq_name: name of the DAQ receiver Tango device
-        :param daq_id: id of the DAQ receiver
-        :param receiver_interface: network interface on which the DAQ
-            receiver receives packets
-        :param receiver_ip: IP address on which the DAQ receiver receives
-            packets
-        :param receiver_ports: port on which the DAQ receiver receives
-            packets.
-        :param grpc_port: The port number to use for gRPC calls.
-        :param grpc_host: The hostname of the gRPC server to use.
 
-        :yields: a tango context.
+        :returns: the device class under test
         """
 
         class _PatchedDaqReceiver(MccsDaqReceiver):
@@ -275,21 +224,7 @@ class TestPatchedDaq:
                 params = json.loads(input_data)
                 self._received_data_callback(*params)
 
-        context_manager = ThreadedTestTangoContextManager()
-        context_manager.add_device(
-            daq_name,
-            _PatchedDaqReceiver,
-            DaqId=daq_id,
-            ReceiverInterface=receiver_interface,
-            ReceiverIp=receiver_ip,
-            ReceiverPorts=receiver_ports,
-            GrpcPort=grpc_port,
-            GrpcHost=grpc_host,
-            ConsumersToStart=["DaqModes.INTEGRATED_CHANNEL_DATA"],
-            LoggingLevelDefault=3,
-        )
-        with context_manager as context:
-            yield context
+        return _PatchedDaqReceiver
 
     @pytest.mark.xfail
     @pytest.mark.parametrize(

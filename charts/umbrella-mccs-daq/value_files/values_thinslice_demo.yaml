@@ -53,14 +53,13 @@ ska-low-mccs-daq:
       file: "data/daq-receiver.yaml"
       devices:
         - name: daqreceiver-001
-          device_name: low-mccs-daq/daqreceiver/001  # mandatory
+          device_name: low-mccs/daqreceiver/001  # mandatory
           daq_id: 1  # optional: defaults to position in this list
           #This interface should be the 40G interface at the site of deployment.
           receiver_interface: eth0  # currently this has to be adjusted per site interfaces 
           receiver_ip: ""  # This can be worked out from the receiver interface
           receiver_port: 4660  # port on the receiver interface to listen for udp spead packets
           # This is the IP:PORT for the gRPC to form its TCP connection.
-          grpc_host_type: "internal"
           grpc_ip: "10.2.2.184" 
           grpc_port: 50051
           

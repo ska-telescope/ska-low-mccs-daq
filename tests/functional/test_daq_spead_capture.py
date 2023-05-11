@@ -14,14 +14,15 @@ import struct
 import threading
 import time
 from time import sleep
-from typing import Any
+from typing import Any, Iterator
 
 import numpy as np
-import pytest
 import tango
 from pytest_bdd import given, parsers, scenarios, then, when
 from ska_control_model import ResultCode
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
+
+from tests.harness import DaqTangoTestHarnessContext
 
 
 def send_data_thread(
@@ -222,16 +223,6 @@ class IntegratedChannelDataSimulator(object):
 scenarios("./features/daq_spead_capture.feature")
 
 
-@pytest.fixture(name="daq_short_name", scope="module")
-def daq_short_name_fixture() -> str:
-    """
-    Return the short name of the DAQ device.
-
-    :return: the short name of the DAQ device
-    """
-    return "daq"
-
-
 @given(parsers.cfparse("interface {interface}"), target_fixture="interface")
 def daq_interface(
     interface: str,
@@ -265,20 +256,18 @@ def daq_port(
 
 @given("an MccsDaqReceiver", target_fixture="daq_receiver")
 def daq_receiver_fixture(
-    daq_short_name: str,
-    get_device: tango.DeviceProxy,
-) -> tango.DeviceProxy:
+    test_context: DaqTangoTestHarnessContext,
+    daq_id: int,
+) -> Iterator[tango.DeviceProxy]:
     """
-    Return the daq_receiver device.
+    Yield the daq_receiver device.
 
-    :param daq_short_name: Short name of the DAQ receiver Tango device
-    :param get_device: returns device proxy with all change event subscription.
+    :param test_context: the context in which the test is running.
+    :param daq_id: the ID of the daq receiver
 
-    :return: the daq_receiver device
+    :yields: the daq_receiver device
     """
-    daq = get_device(daq_short_name)
-    daq.adminMode = 0
-    return daq
+    yield test_context.get_daq_device(daq_id)
 
 
 @given("the daq receiver is stopped")

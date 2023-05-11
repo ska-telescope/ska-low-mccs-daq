@@ -1,7 +1,4 @@
-# Default values for mccs (ska-low-mccs-daq)
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
+# Default values for ska-low-mccs-daq
 display: ":0"
 xauthority: "~/.Xauthority"
 
@@ -82,6 +79,7 @@ low_mccs_daq:
     image: ska-low-mccs-daq
     tag: 0.2.0 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
     pullPolicy: IfNotPresent
+
 securityContext:
   capabilities:
     add: ["NET_RAW", "IPC_LOCK", "SYS_NICE", "SYS_ADMIN", "KILL", "SYS_TIME"]
@@ -91,23 +89,15 @@ securityContext:
 deviceServers:
   daqreceiver:
     file: "data/daq-receiver.yaml"
-    devices:
-      - name: daqreceiver-001
-        device_name: low-mccs-daq/daqreceiver/001  # mandatory
-        daq_id: 1  # optional: defaults to position in this list
-        receiver_interface: eth0  # optional: defaults to "eth0"
-        receiver_ip: ""  # Determined automatically using interface name
-        receiver_port: 4660  # optional: defaults to 4660
-        grpc_ip: "10.0.10.151" 
-        grpc_port: 50051
-      - name: daqreceiver-002
-        device_name: low-mccs-daq/daqreceiver/002  # mandatory
-        daq_id: 2  # optional: defaults to position in this list
-        receiver_interface: eth0  # optional: defaults to "eth0"
-        receiver_ip: ""  # Determined automatically using interface name
-        receiver_port: 4661  # optional: defaults to 4660
-        grpc_ip: "10.0.10.151" 
-        grpc_port: 50052
+    devices: []
+      # - name: daqreceiver-001
+      #   device_name: low-mccs/daqreceiver/001  # mandatory
+      #   daq_id: 1  # optional: defaults to position in this list
+      #   receiver_interface: eth0  # optional: defaults to "eth0"
+      #   receiver_ip: ""  # Determined automatically using interface name
+      #   receiver_port: 4660  # optional: defaults to 4660
+      #   grpc_ip: "10.0.10.151"  # optional: gRPC IP address for a pre-existing DAQ
+      #   grpc_port: 50051  # optional: gRPC port for a pre-existing DAQ
 
 nodeSelector: {}
 
