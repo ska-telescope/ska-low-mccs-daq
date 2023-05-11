@@ -112,14 +112,14 @@ uvloop = ["uvloop (>=0.15.2)"]
 
 [[package]]
 name = "certifi"
-version = "2022.12.7"
+version = "2023.5.7"
 description = "Python package for providing Mozilla's CA Bundle."
 category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "certifi-2022.12.7-py3-none-any.whl", hash = "sha256:4ad3232f5e926d6718ec31cfc1fcadfde020920e278684144551c91769c7bc18"},
-    {file = "certifi-2022.12.7.tar.gz", hash = "sha256:35824b4c3a97115964b408844d64aa14db1cc518f6562e8d7261699d1350a9e3"},
+    {file = "certifi-2023.5.7-py3-none-any.whl", hash = "sha256:c6c2e98f5c7869efca1f8916fed228dd91539f9f1b444c314c06eef02980c716"},
+    {file = "certifi-2023.5.7.tar.gz", hash = "sha256:0f0d56dc5a6ad56fd4ba36484d6cc34451e1c6548c61daad8c320169f91eddc7"},
 ]
 
 [[package]]
@@ -393,14 +393,14 @@ files = [
 
 [[package]]
 name = "docutils"
-version = "0.19"
+version = "0.20"
 description = "Docutils -- Python Documentation Utilities"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "docutils-0.19-py3-none-any.whl", hash = "sha256:5e1de4d849fee02c63b040a4a3fd567f4ab104defd8a5511fbbc24a8a017efbc"},
-    {file = "docutils-0.19.tar.gz", hash = "sha256:33995a6753c30b7f577febfc2c50411fec6aac7f7ffeb7c4cfe5991072dcf9e6"},
+    {file = "docutils-0.20-py3-none-any.whl", hash = "sha256:a428f10de4de4774389734c986a01b4af2d802d26717108b0f1b9356862937c5"},
+    {file = "docutils-0.20.tar.gz", hash = "sha256:f75a5a52fbcacd81b47e42888ad2b380748aaccfb3f13af0fe69deb759f01eb6"},
 ]
 
 [[package]]
@@ -552,14 +552,14 @@ test = ["coverage (>=4.0.0,<5.0.0)", "flake8-builtins", "flake8-commas", "flake8
 
 [[package]]
 name = "fonttools"
-version = "4.39.3"
+version = "4.39.4"
 description = "Tools to manipulate font files"
 category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "fonttools-4.39.3-py3-none-any.whl", hash = "sha256:64c0c05c337f826183637570ac5ab49ee220eec66cf50248e8df527edfa95aeb"},
-    {file = "fonttools-4.39.3.zip", hash = "sha256:9234b9f57b74e31b192c3fc32ef1a40750a8fbc1cd9837a7b7bfc4ca4a5c51d7"},
+    {file = "fonttools-4.39.4-py3-none-any.whl", hash = "sha256:106caf6167c4597556b31a8d9175a3fdc0356fdcd70ab19973c3b0d4c893c461"},
+    {file = "fonttools-4.39.4.zip", hash = "sha256:dba8d7cdb8e2bac1b3da28c5ed5960de09e59a2fe7e63bb73f5a59e57b0430d2"},
 ]
 
 [package.extras]
@@ -740,14 +740,14 @@ numpy = ">=1.14.5"
 
 [[package]]
 name = "identify"
-version = "2.5.23"
+version = "2.5.24"
 description = "File identification library for Python"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "identify-2.5.23-py2.py3-none-any.whl", hash = "sha256:17d9351c028a781456965e781ed2a435755cac655df1ebd930f7186b54399312"},
-    {file = "identify-2.5.23.tar.gz", hash = "sha256:50b01b9d5f73c6b53e5fa2caf9f543d3e657a9d0bbdeb203ebb8d45960ba7433"},
+    {file = "identify-2.5.24-py2.py3-none-any.whl", hash = "sha256:986dbfb38b1140e763e413e6feb44cd731faf72d1909543178aa79b0e258265d"},
+    {file = "identify-2.5.24.tar.gz", hash = "sha256:0aac67d5b4812498056d28a9a512a483f5085cc28640b02b258a59dac34301d4"},
 ]
 
 [package.extras]
@@ -1433,25 +1433,25 @@ virtualenv = ">=20.10.0"
 
 [[package]]
 name = "protobuf"
-version = "4.22.3"
+version = "4.23.0"
 description = ""
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "protobuf-4.22.3-cp310-abi3-win32.whl", hash = "sha256:8b54f56d13ae4a3ec140076c9d937221f887c8f64954673d46f63751209e839a"},
-    {file = "protobuf-4.22.3-cp310-abi3-win_amd64.whl", hash = "sha256:7760730063329d42a9d4c4573b804289b738d4931e363ffbe684716b796bde51"},
-    {file = "protobuf-4.22.3-cp37-abi3-macosx_10_9_universal2.whl", hash = "sha256:d14fc1a41d1a1909998e8aff7e80d2a7ae14772c4a70e4bf7db8a36690b54425"},
-    {file = "protobuf-4.22.3-cp37-abi3-manylinux2014_aarch64.whl", hash = "sha256:70659847ee57a5262a65954538088a1d72dfc3e9882695cab9f0c54ffe71663b"},
-    {file = "protobuf-4.22.3-cp37-abi3-manylinux2014_x86_64.whl", hash = "sha256:13233ee2b9d3bd9a5f216c1fa2c321cd564b93d8f2e4f521a85b585447747997"},
-    {file = "protobuf-4.22.3-cp37-cp37m-win32.whl", hash = "sha256:ecae944c6c2ce50dda6bf76ef5496196aeb1b85acb95df5843cd812615ec4b61"},
-    {file = "protobuf-4.22.3-cp37-cp37m-win_amd64.whl", hash = "sha256:d4b66266965598ff4c291416be429cef7989d8fae88b55b62095a2331511b3fa"},
-    {file = "protobuf-4.22.3-cp38-cp38-win32.whl", hash = "sha256:f08aa300b67f1c012100d8eb62d47129e53d1150f4469fd78a29fa3cb68c66f2"},
-    {file = "protobuf-4.22.3-cp38-cp38-win_amd64.whl", hash = "sha256:f2f4710543abec186aee332d6852ef5ae7ce2e9e807a3da570f36de5a732d88e"},
-    {file = "protobuf-4.22.3-cp39-cp39-win32.whl", hash = "sha256:7cf56e31907c532e460bb62010a513408e6cdf5b03fb2611e4b67ed398ad046d"},
-    {file = "protobuf-4.22.3-cp39-cp39-win_amd64.whl", hash = "sha256:e0e630d8e6a79f48c557cd1835865b593d0547dce221c66ed1b827de59c66c97"},
-    {file = "protobuf-4.22.3-py3-none-any.whl", hash = "sha256:52f0a78141078077cfe15fe333ac3e3a077420b9a3f5d1bf9b5fe9d286b4d881"},
-    {file = "protobuf-4.22.3.tar.gz", hash = "sha256:23452f2fdea754a8251d0fc88c0317735ae47217e0d27bf330a30eec2848811a"},
+    {file = "protobuf-4.23.0-cp310-abi3-win32.whl", hash = "sha256:6c16657d6717a0c62d5d740cb354fbad1b0d8cb811669e06fc1caa0ff4799ddd"},
+    {file = "protobuf-4.23.0-cp310-abi3-win_amd64.whl", hash = "sha256:baca40d067dddd62141a129f244703160d278648b569e90bb0e3753067644711"},
+    {file = "protobuf-4.23.0-cp37-abi3-macosx_10_9_universal2.whl", hash = "sha256:2b94bd6df92d71bd1234a2ffe7ce96ddf6d10cf637a18d6b55ad0a89fbb7fc21"},
+    {file = "protobuf-4.23.0-cp37-abi3-manylinux2014_aarch64.whl", hash = "sha256:9f5a0fbfcdcc364f3986f9ed9f8bb1328fb84114fd790423ff3d7fdb0f85c2d1"},
+    {file = "protobuf-4.23.0-cp37-abi3-manylinux2014_x86_64.whl", hash = "sha256:ebde3a023b8e11bfa6c890ef34cd6a8b47d586f26135e86c21344fe433daf2e2"},
+    {file = "protobuf-4.23.0-cp37-cp37m-win32.whl", hash = "sha256:7cb5b9a05ce52c6a782bb97de52679bd3438ff2b7460eff5da348db65650f227"},
+    {file = "protobuf-4.23.0-cp37-cp37m-win_amd64.whl", hash = "sha256:6fe180b56e1169d72ecc4acbd39186339aed20af5384531b8e8979b02bbee159"},
+    {file = "protobuf-4.23.0-cp38-cp38-win32.whl", hash = "sha256:d5a35ff54e3f62e8fc7be02bb0d2fbc212bba1a5a9cc2748090690093996f07b"},
+    {file = "protobuf-4.23.0-cp38-cp38-win_amd64.whl", hash = "sha256:e62fb869762b4ba18666370e2f8a18f17f8ab92dd4467295c6d38be6f8fef60b"},
+    {file = "protobuf-4.23.0-cp39-cp39-win32.whl", hash = "sha256:03eee35b60317112a72d19c54d0bff7bc58ff12fea4cd7b018232bd99758ffdf"},
+    {file = "protobuf-4.23.0-cp39-cp39-win_amd64.whl", hash = "sha256:36f5370a930cb77c8ad2f4135590c672d0d2c72d4a707c7d0058dce4b4b4a598"},
+    {file = "protobuf-4.23.0-py3-none-any.whl", hash = "sha256:9744e934ea5855d12191040ea198eaf704ac78665d365a89d9572e3b627c2688"},
+    {file = "protobuf-4.23.0.tar.gz", hash = "sha256:5f1eba1da2a2f3f7df469fccddef3cc060b8a16cfe3cc65961ad36b4dbcf59c5"},
 ]
 
 [[package]]
@@ -1525,14 +1525,14 @@ plugins = ["importlib-metadata"]
 
 [[package]]
 name = "pylint"
-version = "2.17.3"
+version = "2.17.4"
 description = "python code static checker"
 category = "dev"
 optional = false
 python-versions = ">=3.7.2"
 files = [
-    {file = "pylint-2.17.3-py3-none-any.whl", hash = "sha256:a6cbb4c6e96eab4a3c7de7c6383c512478f58f88d95764507d84c899d656a89a"},
-    {file = "pylint-2.17.3.tar.gz", hash = "sha256:761907349e699f8afdcd56c4fe02f3021ab5b3a0fc26d19a9bfdc66c7d0d5cd5"},
+    {file = "pylint-2.17.4-py3-none-any.whl", hash = "sha256:7a1145fb08c251bdb5cca11739722ce64a63db479283d10ce718b2460e54123c"},
+    {file = "pylint-2.17.4.tar.gz", hash = "sha256:5dcf1d9e19f41f38e4e85d10f511e5b9c35e1aa74251bf95cdd8cb23584e2db1"},
 ]
 
 [package.dependencies]
@@ -1886,21 +1886,21 @@ files = [
 
 [[package]]
 name = "requests"
-version = "2.29.0"
+version = "2.30.0"
 description = "Python HTTP for Humans."
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "requests-2.29.0-py3-none-any.whl", hash = "sha256:e8f3c9be120d3333921d213eef078af392fba3933ab7ed2d1cba3b56f2568c3b"},
-    {file = "requests-2.29.0.tar.gz", hash = "sha256:f2e34a75f4749019bb0e3effb66683630e4ffeaf75819fb51bebef1bf5aef059"},
+    {file = "requests-2.30.0-py3-none-any.whl", hash = "sha256:10e94cc4f3121ee6da529d358cdaeaff2f1c409cd377dbc72b825852f2f7e294"},
+    {file = "requests-2.30.0.tar.gz", hash = "sha256:239d7d4458afcb28a692cdd298d87542235f4ca8d36d03a15bfc128a6559a2f4"},
 ]
 
 [package.dependencies]
 certifi = ">=2017.4.17"
 charset-normalizer = ">=2,<4"
 idna = ">=2.5,<4"
-urllib3 = ">=1.21.1,<1.27"
+urllib3 = ">=1.21.1,<3"
 
 [package.extras]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
@@ -1983,34 +1983,32 @@ reference = 'ska-nexus'
 
 [[package]]
 name = "ska-low-mccs-common"
-version = "0.6.1"
+version = "0.7.2"
 description = "The Monitoring, Control and Calibration Subsystem (MCCS) of the SKA Low telescope"
 category = "main"
 optional = false
-python-versions = ">=3.10,<3.11"
-files = [
-    {file = "ska_low_mccs_common-0.6.1-py3-none-any.whl", hash = "sha256:c94f80aa0fa48e08110f8928ae620b708a2d35d33e30a56b876f54ac08d9667b"},
-    {file = "ska_low_mccs_common-0.6.1.tar.gz", hash = "sha256:3255a6f1eee0a1ae00844d57566f9e5f23a772252e74a7a7e3c622891c088369"},
-]
+python-versions = "~3.10"
+files = []
+develop = false
 
 [package.dependencies]
 backoff = "^2.2.1"
 jsonschema = "^4.17.3"
 numpy = "1.23.0"
 pytango = "9.3.6"
-PyYAML = ">=6.0,<7.0"
-requests = ">=2.28.2,<3.0.0"
-ska-control-model = ">=0.3.1,<0.4.0"
-ska-ser-logging = ">=0.4.1,<0.5.0"
-ska-tango-base = ">=0.18.0,<0.19.0"
-ska-tango-testing = ">=0,<1"
-transitions = ">=0.9.0,<0.10.0"
+PyYAML = "^6.0"
+requests = "^2.28.2"
+ska-control-model = "^0.3.1"
+ska-ser-logging = "^0.4.1"
+ska-tango-base = "^0.18.0"
+ska-tango-testing = "^0"
+transitions = "^0.9.0"
 
 [package.source]
 type = "git"
 url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-common.git"
 reference = "mccs-1354"
-resolved_reference = "dcbd38ab65e5d9b2f128bb5ccf3331e15461f24e"
+resolved_reference = "12d48c367d2482839556b6ef17f0104d48d95f15"
 
 [[package]]
 name = "ska-ser-logging"
@@ -2034,14 +2032,14 @@ reference = 'ska-nexus'
 
 [[package]]
 name = "ska-tango-base"
-version = "0.18.0"
+version = "0.18.1"
 description = "SKA Tango base classes"
 category = "main"
 optional = false
-python-versions = ">=3.7.2,<4.0.0"
+python-versions = ">=3.10,<3.11"
 files = [
-    {file = "ska_tango_base-0.18.0-py3-none-any.whl", hash = "sha256:a6052c697c0a0932f37224b60495f02010462e57eb18eb043c9b479fe6c9121a"},
-    {file = "ska_tango_base-0.18.0.tar.gz", hash = "sha256:7478ad181a3d6cbcee87a6ae30aaeff0c7632006c98e2d58261100f6da7fd073"},
+    {file = "ska_tango_base-0.18.1-py3-none-any.whl", hash = "sha256:f7e3e0c334df7b20cb3dd4a3cd728a1c8cf75f6a236e23f1c47789cb3ecdc227"},
+    {file = "ska_tango_base-0.18.1.tar.gz", hash = "sha256:60a05dbdbb5dde0ad725f2bd58ce34e02faae62a2fa14ed73a4c27bd072fa5b2"},
 ]
 
 [package.dependencies]
@@ -2198,20 +2196,21 @@ files = [
 
 [[package]]
 name = "urllib3"
-version = "1.26.15"
+version = "2.0.2"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 category = "main"
 optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+python-versions = ">=3.7"
 files = [
-    {file = "urllib3-1.26.15-py2.py3-none-any.whl", hash = "sha256:aa751d169e23c7479ce47a0cb0da579e3ede798f994f5816a74e4f4500dcea42"},
-    {file = "urllib3-1.26.15.tar.gz", hash = "sha256:8a388717b9476f934a21484e8c8e61875ab60644d29b9b39e11e4b9dc1c6b305"},
+    {file = "urllib3-2.0.2-py3-none-any.whl", hash = "sha256:d055c2f9d38dc53c808f6fdc8eab7360b6fdbbde02340ed25cfbcd817c62469e"},
+    {file = "urllib3-2.0.2.tar.gz", hash = "sha256:61717a1095d7e155cdb737ac7bb2f4324a858a1e2e6466f6d03ff630ca68d3cc"},
 ]
 
 [package.extras]
-brotli = ["brotli (>=1.0.9)", "brotlicffi (>=0.8.0)", "brotlipy (>=0.6.0)"]
-secure = ["certifi", "cryptography (>=1.3.4)", "idna (>=2.0.0)", "ipaddress", "pyOpenSSL (>=0.14)", "urllib3-secure-extra"]
-socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
+brotli = ["brotli (>=1.0.9)", "brotlicffi (>=0.8.0)"]
+secure = ["certifi", "cryptography (>=1.9)", "idna (>=2.0.0)", "pyopenssl (>=17.1.0)", "urllib3-secure-extra"]
+socks = ["pysocks (>=1.5.6,!=1.5.7,<2.0)"]
+zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
 name = "virtualenv"
@@ -2322,4 +2321,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.10"
-content-hash = "7d6eaabbc2729039a9746bb37174d17e54cf39a1a86165f5b3c18e548c8773f4"
+content-hash = "c469090b0165bad335e8b3279a86f11c7f00d50f6a1ef56d88f8c30c448114b1"
