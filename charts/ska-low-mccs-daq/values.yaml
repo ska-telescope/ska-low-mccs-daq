@@ -8,7 +8,7 @@ labels:
   app: ska-low-mccs-daq
 
 global:
-  minikube: true
+  minikube: false
   tango_host: databaseds-tango-base-test:10000
 
 dsconfig:

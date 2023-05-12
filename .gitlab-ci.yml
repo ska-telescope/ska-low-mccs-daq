@@ -115,6 +115,10 @@ python-test:
         - tests/requirements.txt
         - tests/pytest.ini
 
+k8s-test:
+  variables:
+    K8S_FACILITY: gitlab-ci
+
 psi-low-k8s-test:
   stage: test-psi-low
   when: manual

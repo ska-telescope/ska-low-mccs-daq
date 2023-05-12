@@ -38,15 +38,15 @@ python-post-lint:
 	mypy --config-file mypy.ini src/ tests
 
 
-K8S_FACILITY ?= k8s-test
+K8S_FACILITY ?= minikube
 K8S_CHART_PARAMS += --values charts/ska-low-mccs-daq/values-$(K8S_FACILITY).yaml
 
 
 # THIS IS SPECIFIC TO THIS REPO
 ifdef CI_REGISTRY_IMAGE
 K8S_CHART_PARAMS += \
-	--set low_mccs_daq.image.registry=$(CI_REGISTRY_IMAGE) \
-	--set low_mccs_daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
+	--set image.registry=$(CI_REGISTRY_IMAGE) \
+	--set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
 endif
 
 JUNITXML_REPORT_PATH ?= build/reports/functional-tests.xml

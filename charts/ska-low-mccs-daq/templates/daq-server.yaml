@@ -1,4 +1,3 @@
-
 {{- /*
 Launch a managed DAQ receiver.
 
@@ -36,7 +35,7 @@ spec:
   selector:
     matchLabels:
       component: {{$slug}}-server
-  serviceName: {{$slug}}-data-svc
+  serviceName: {{$slug}}-grpc-svc
   replicas: 1
   template:
     metadata:
@@ -56,15 +55,6 @@ spec:
           - --max=60
           - --
           - MccsDaqServer
-        env:
-          - name: DAQ_DATA_PORT
-            value: "{{$receiver_port}}"
-          - name: DAQ_DATA_SVC_NAME
-            value: "{{$slug}}-data-svc"
-          - name: DAQ_GRPC_PORT
-            value: "{{$grpc_port}}"
-          - name: DAQ_GRPC_SVC_NAME
-            value: "{{$slug}}-data-svc"
         ports:
           - containerPort: {{$grpc_port}}
             protocol: TCP
@@ -77,6 +67,7 @@ spec:
             - SYS_ADMIN
             - KILL
             - SYS_TIME
+{{- with $spec.server_node_selector }}
         volumeMounts:
         - name: {{$spec.storage}}
           mountPath: /daq-data
@@ -86,6 +77,7 @@ spec:
           claimName: {{$spec.storage}}
       securityContext:
         fsGroup: 1000
+{{- end }}
 {{- with $spec.server_node_selector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}

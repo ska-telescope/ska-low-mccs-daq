@@ -1,3 +1,6 @@
+global:
+  minikube: true
+
 storage: # List of specs of PVCs to create
   - name: daq-data
     size: "250Mi"
