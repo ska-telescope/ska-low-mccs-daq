@@ -9,6 +9,15 @@ ENV AAVS_SYSTEM_SHA=498662646fcbb50c4995a1246f207852e2430006
 ENV AAVS_DAQ_SHA=65c8339543ff94818ccc9335583168c9b7f877f4
 ENV PYFABIL_SHA=1aa0dc954fb701fd2a7fed03df21639fc4c50560
 
+# CUDA variables
+# ENV CUDA_VERSION=11.5.119
+# ENV CUDA_PKG_VERSION=11-5=11.5.119-1
+ENV CUDA_VERSION=10.2.89
+ENV CUDA_PKG_VERSION=10-2=10.2.89-1
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+ENV NVIDIA_REQUIRE_CUDA=cuda>=10.2 brand=tesla,driver>=396,driver<397 brand=tesla,driver>=410,driver<411 brand=tesla,driver>=418,driver<419 brand=tesla,driver>=440,driver<441
+
 # Setup NVIDIA Container Toolkit package repo + GPG key.
 RUN apt-get update && apt-get install -y gpg
 RUN distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
