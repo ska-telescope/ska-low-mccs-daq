@@ -1,10 +1,102 @@
-{{ $localchart := . }}
-{{- range $key, $device := .Values.deviceServers.daqreceiver.devices }}
+
+{{- /*
+Launch a managed DAQ receiver.
+
+For each receiver spec, check if it has a "grpc_ip" key.
+If not, then we need to launch a receiver instance.
+*/}}
+{{- $image := .Values.image}}
+{{- range $id, $spec := .Values.receivers}}
+{{- if not (hasKey $spec "grpc_ip")}}
+{{- $slug := (printf "daq-receiver-%03d" (int $id))}}
+{{- $receiver_port := default 4660 $spec.receiver_port}}
+{{- $grpc_port := default 50051 $spec.grpc_port}}
 ---
-{{- $context := dict "name" $device.name "device" $device "local" $localchart}}
-{{- if hasKey $device "grpc_ip" }}
-{{ template "ska-low-mccs-daq.daq-server-external.tpl" $context }}
-{{- else }}
-{{ template "ska-low-mccs-daq.daq-server-internal.tpl" $context }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$slug}}-grpc-svc
+  labels:
+    component: {{$slug}}-grpc-svc
+spec:
+  ports:
+  - name: {{$slug}}-grpc-port
+    port: {{$grpc_port}}
+    protocol: TCP
+  selector:
+    component: {{$slug}}-server
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{$slug}}-server
+  labels:
+    component: {{$slug}}-server
+spec:
+  selector:
+    matchLabels:
+      component: {{$slug}}-server
+  serviceName: {{$slug}}-data-svc
+  replicas: 1
+  template:
+    metadata:
+{{- with $spec.server_annotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+      labels:
+        component: {{$slug}}-server
+    spec:
+      containers:
+      - name: {{$slug}}-server
+        image: {{$image.registry}}/{{$image.name}}:{{$image.tag}}
+        imagePullPolicy: IfNotPresent
+        command:
+          - retry
+          - --max=60
+          - --
+          - MccsDaqServer
+        env:
+          - name: DAQ_DATA_PORT
+            value: "{{$receiver_port}}"
+          - name: DAQ_DATA_SVC_NAME
+            value: "{{$slug}}-data-svc"
+          - name: DAQ_GRPC_PORT
+            value: "{{$grpc_port}}"
+          - name: DAQ_GRPC_SVC_NAME
+            value: "{{$slug}}-data-svc"
+        ports:
+          - containerPort: {{$grpc_port}}
+            protocol: TCP
+        securityContext:
+          capabilities:
+            add:
+            - NET_RAW
+            - IPC_LOCK
+            - SYS_NICE
+            - SYS_ADMIN
+            - KILL
+            - SYS_TIME
+        volumeMounts:
+        - name: {{$spec.storage}}
+          mountPath: /daq-data
+      volumes:
+      - name: {{$spec.storage}}
+        persistentVolumeClaim:
+          claimName: {{$spec.storage}}
+      securityContext:
+        fsGroup: 1000
+{{- with $spec.server_node_selector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with $spec.server_affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with $spec.server_tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+{{- end }}
 {{- end }}
 {{- end }}
