@@ -153,6 +153,7 @@ class Tile(TileHealthMonitor):
                                   31: {'preadu_id': 0, 'channel': 15}}
                                   
         self.init_health_monitoring()
+        self.daq_modes_with_timestamp_flag = ["raw_adc_mode", "channelized_mode", "beamformed_mode"]
 
     # ---------------------------- Main functions ------------------------------------
     def tpm_version(self):
@@ -2043,17 +2044,16 @@ class Tile(TileHealthMonitor):
         :param daq_mode: string used to select which Flag register of the LMC to read
         :param fpga_id: FPGA_ID, 0 or 1. Default None will select both FPGAs
         """ 
-        supported_modes = ["raw_adc_mode", "channelized_mode", "beamformed_mode"]
-        daq_modes_list = supported_modes if daq_mode is None else [daq_mode];
-        fpgas = range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
+        daq_modes_list = self.daq_modes_with_timestamp_flag if daq_mode is None else [daq_mode];
+        fpga_list = range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
 
-        if daq_mode is not None and daq_mode not in supported_modes:
+        if daq_mode is not None and daq_mode not in self.daq_modes_with_timestamp_flag:
             raise LibraryError(f"Invalid daq_mode specified: {daq_mode} not supported")
 
-        for daq_mode in daq_modes_list:
-            for fpga_id in fpgas:
-                self[f"fpga{fpga_id + 1}.lmc_gen.timestamp_req_invalid.{daq_mode}"] = 0
-                self.logger.info(f"Register fpga{fpga_id + 1}.lmc_gen.timestamp_req_invalid.{daq_mode} has been cleared!")
+        for selected_daq in daq_modes_list:
+            for fpga in fpga_list:
+                self[f"fpga{fpga + 1}.lmc_gen.timestamp_req_invalid.{selected_daq}"] = 0
+                self.logger.info(f"Register fpga{fpga + 1}.lmc_gen.timestamp_req_invalid.{selected_daq} has been cleared!")
 
     @connected
     def check_valid_timestamp_request(
@@ -2070,19 +2070,17 @@ class Tile(TileHealthMonitor):
         :rtype: boolean
         """
         C_VALID_TIMESTAMP_REQ = 0
-        daq_modes_list = ["raw_adc_mode", "channelized_mode", "beamformed_mode"]
         list_of_valid_timestamps = []
-        fpgas = range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
+        fpga_list = range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
 
-        if daq_mode not in daq_modes_list:
+        if daq_mode not in self.daq_modes_with_timestamp_flag:
             raise LibraryError(f"Invalid daq_mode specified: {daq_mode} not supported")
 
-        for fpga_id in fpgas:
-            valid_request = self[f"fpga{fpga_id + 1}.lmc_gen.timestamp_req_invalid.{daq_mode}"] == C_VALID_TIMESTAMP_REQ
+        for fpga in fpga_list:
+            valid_request = self[f"fpga{fpga + 1}.lmc_gen.timestamp_req_invalid.{daq_mode}"] == C_VALID_TIMESTAMP_REQ
             list_of_valid_timestamps.append(valid_request)
-            flag_string = "VALID" if valid_request else "INVALID"
-            self.logger.info(f"fpga{fpga_id + 1} {daq_mode} timestamp request is: {flag_string}")
-        if False in list_of_valid_timestamps:
+            self.logger.info(f"fpga{fpga + 1} {daq_mode} timestamp request is: {'VALID' if valid_request else 'INVALID'}")
+        if not all(list_of_valid_timestamps):
             self.logger.error("INVALID LMC Data request")
             return False
         else:
