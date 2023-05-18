@@ -1,61 +1,27 @@
 display: ":0"
 xauthority: "~/.Xauthority"
 
-enabled: true
-
 system: SW-infrastructure
 subsystem: low-mccs-daq
 telescope: SKA-low
 
 labels:
   app: ska-low-mccs-daq
-annotations:
-  app.gitlab.com/app: CI_PROJECT_PATH_SLUG
-  app.gitlab.com/env: CI_ENVIRONMENT_SLUG
 
 global:
   sub-system:
     ska-tango-base:
       enabled: false
-      enabled: false
     taranta:
       enabled: false
     archiver:
       enabled: false
-  annotations:
-    app.gitlab.com/app: taranta
-    app.gitlab.com/env: taranta
   minikube: true
   tango_host: databaseds-tango-base-test:10000
 
-livenessProbe:
-  initialDelaySeconds: 0
-  periodSeconds: 10
-  timeoutSeconds: 3
-  successThreshold: 1
-  failureThreshold: 3
-readinessProbe:
-  initialDelaySeconds: 0
-  periodSeconds: 10
-  timeoutSeconds: 3
-  successThreshold: 1
-  failureThreshold: 3
-
-ska-taranta:
-  enabled: true
-  ingress:
-    enabled: true
-    nginx: true
-    hostname: k8s.stfc.skao.int
-  tangogql:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 600m # 600m = 0.6 CPU
-        memory: 512Mi # 512Mi = 0.5 GB mem
-      limits:
-        cpu: 1000m # 1000m = 1 CPU
-        memory: 1024Mi # 1024Mi = 1 GB mem
+ska-low-mccs-spshw:
+  ska-tango-base:
+    enabled: false
 
 jupyterhub:
   hub:
@@ -74,28 +40,6 @@ jupyterhub:
   proxy:
     service:
       type: ClusterIP
-      
-ska-taranta-dashboard:
-  ingress:
-    enabled: true
-    nginx: true
-    hostname: test-taranta.k8s.stfc.skao.int
-
-ska-taranta-auth:
-  ingress:
-    enabled: true
-    nginx: true
-    hostname: test-taranta.k8s.stfc.skao.int
-
-# #example overrides
-# ska-low-mccs:
-#   deviceServers:
-#     # no tiles
-#     tiles:
-#       instances: []
-#     # change controller command
-#     controller:
-#       instances: []
 
 ska-taranta:
   enabled: true
