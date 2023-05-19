@@ -1,0 +1,24 @@
+{{- /* Set up storage for the DAQ receivers. */}}
+{{- $is_minikube := (pluck "minikube" .Values.global .Values | first)}}
+{{- range .Values.storage}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{.name}}
+{{- with .labels}}
+  labels:
+{{toYaml . | indent 4}}
+{{- end}}
+{{- with .annotations}}
+  annotations:
+{{toYaml . | indent 4}}
+{{- end}}
+spec:
+  storageClassName: {{ternary "standard" "nfss1" $is_minikube}}
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{.size}}
+{{- end}}

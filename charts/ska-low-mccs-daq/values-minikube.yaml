@@ -1,0 +1,12 @@
+global:
+  minikube: true
+
+storage: # List of specs of PVCs to create
+  - name: daq-data
+    size: "250Mi"
+
+receivers: # Map of specs of receivers to create
+  1:
+    receiver_ip: ""
+    storage: daq-data
+    logging_level_default: 5

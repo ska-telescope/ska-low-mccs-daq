@@ -1,32 +1,50 @@
-# Default values for ska-low-mccs-daq
-display: ":0"
-xauthority: "~/.Xauthority"
-
-enabled: true
-
 system: SW-infrastructure
 subsystem: low-mccs-daq
 telescope: SKA-low
 
 labels:
   app: ska-low-mccs-daq
-annotations:
-  app.gitlab.com/app: CI_PROJECT_PATH_SLUG
-  app.gitlab.com/env: CI_ENVIRONMENT_SLUG
 
 global:
-  sub-system:
-    ska-tango-base:
-      enabled: false
-    taranta:
-      enabled: false
-    archiver:
-      enabled: false
-  annotations:
-    app.gitlab.com/app: taranta
-    app.gitlab.com/env: taranta
-  minikube: true
+  minikube: false
   tango_host: databaseds-tango-base-test:10000
+
+dsconfig:
+  image:
+    registry: artefact.skao.int
+    image: ska-tango-images-tango-dsconfig
+    tag: 1.5.7
+    pullPolicy: IfNotPresent
+
+receivers: {}  # Map of specs of receivers to create
+  # 1:
+  #   receiver_interface: net1  # optional: defaults to "eth0"
+  #   receiver_ip: ""  # empty = Determine from interface name
+  #   receiver_port: 5660  # optional: defaults to 4660
+  #   storage: daq-data  # must refer to a PVC: pre-existing or created above
+  #   logging_level_default: 5
+  #   grpc_ip: "10.0.10.151"  # optional: gRPC IP for a pre-existing DAQ
+  #   grpc_port: 50051  # optional: gRPC port for a pre-existing DAQ
+  #   server_node_selector: {}  # optional
+  #   server_annotations: {}  # optional
+  #   server_affinity: {}  # optional
+
+storage: []  # List of specs of PVCs to create
+  # - name: daq-data
+  #   size: "250Mi"
+  #   labels: {}  # optional
+  #   annotations: {}  # optional
+
+image:
+  registry: artefact.skao.int
+  name: ska-low-mccs-daq
+  tag: 0.2.0
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 50Mi
 
 livenessProbe:
   initialDelaySeconds: 0
@@ -40,65 +58,3 @@ readinessProbe:
   timeoutSeconds: 3
   successThreshold: 1
   failureThreshold: 3
-
-
-dsconfig:
-  image:
-    registry: artefact.skao.int
-    image: ska-tango-images-tango-dsconfig
-    tag: 1.5.1
-    pullPolicy: IfNotPresent
-  itango:
-    image:
-      registry: artefact.skao.int
-      image: ska-tango-images-tango-itango
-      tag: 9.3.6
-      pullPolicy: IfNotPresent
-
-ska-tango-base:
-  enabled: true
-  vnc:
-    enabled: true
-  tangorest:
-    enabled: true
-
-resources:
-  limits:
-    cpu: 60m
-    memory: 150Mi
-  requests:
-    cpu: 20m
-    memory: 50Mi
-
-
-# Default docker image - used by all of MCCS
-low_mccs_daq:
-  enabled: true
-  image:
-    registry: artefact.skao.int
-    image: ska-low-mccs-daq
-    tag: 0.2.0 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
-    pullPolicy: IfNotPresent
-
-securityContext:
-  capabilities:
-    add: ["NET_RAW", "IPC_LOCK", "SYS_NICE", "SYS_ADMIN", "KILL", "SYS_TIME"]
-
-
-# Default ska-low-mccs-daq device server instances
-deviceServers:
-  daqreceiver:
-    file: "data/daq-receiver.yaml"
-    devices: []
-      # - name: daqreceiver-001
-      #   device_name: low-mccs/daqreceiver/001  # mandatory
-      #   daq_id: 1  # optional: defaults to position in this list
-      #   receiver_interface: eth0  # optional: defaults to "eth0"
-      #   receiver_ip: ""  # Determined automatically using interface name
-      #   receiver_port: 4660  # optional: defaults to 4660
-      #   grpc_ip: "10.0.10.151"  # optional: gRPC IP address for a pre-existing DAQ
-      #   grpc_port: 50051  # optional: gRPC port for a pre-existing DAQ
-
-nodeSelector: {}
-
-affinity: {}

@@ -6,40 +6,45 @@ version: 0.2.0
 appVersion: 0.2.0
 icon: https://www.skatelescope.org/wp-content/uploads/2016/07/09545_NEW_LOGO_2014.png
 dependencies:
-- name: ska-tango-base
-  version: 0.3.10
-  repository: https://artefact.skao.int/repository/helm-internal
-  condition: ska-tango-base.enabled,global.sub-system.ska-tango-base.enable
-- name: ska-low-mccs-daq
-  version: 0.2.0 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
-  repository: file://../ska-low-mccs-daq
-- name: ska-tango-util
-  version: 0.3.23
-  repository: https://artefact.skao.int/repository/helm-internal
-- name: jupyterhub
-  version: 2.0.0
-  repository: https://jupyterhub.github.io/helm-chart/
-- name: ska-low-mccs-spshw
-  version: 0.2.1 
-  repository: https://artefact.skao.int/repository/helm-internal
-- name: ska-tango-taranta-dashboard
-  version: 1.3.0
-  repository: https://artefact.skao.int/repository/helm-internal
-  condition: ska-taranta-dashboard.enabled
-- name: ska-tango-taranta-dashboard-pvc
-  version: 1.3.0
-  #repository: https://artefact.skao.int/repository/helm-internal
-  repository: file://../ska-tango-taranta-dashboard-pvc
-  condition: ska-taranta-dashboard.enabled
-- name: ska-tango-tangogql
-  version: 1.3.6
-  #repository: https://artefact.skao.int/repository/helm-internal
-  repository: file://../ska-tango-tangogql
-- name: ska-tango-taranta
-  version: 1.3.6
-  repository: https://artefact.skao.int/repository/helm-internal
-  condition: ska-taranta.enabled
-- name: ska-taranta-auth
-  version: 0.1.5
-  repository: https://artefact.skao.int/repository/helm-internal
-  condition: ska-taranta-auth.enabled
+  - name: ska-low-mccs-daq
+    version: 0.2.0
+    repository: file://../ska-low-mccs-daq
+  - name: ska-low-mccs-spshw
+    version: 0.5.0
+    repository: https://artefact.skao.int/repository/helm-internal
+
+  # Jupyterhub
+  - name: jupyterhub
+    version: 2.0.0
+    repository: https://jupyterhub.github.io/helm-chart/
+
+  # Taranta
+  - name: ska-tango-taranta
+    version: 2.2.0
+    repository: https://artefact.skao.int/repository/helm-internal
+    condition: ska-taranta.enabled
+  - name: ska-tango-tangogql
+    version: 1.3.6
+    # repository: https://artefact.skao.int/repository/helm-internal
+    repository: file://../ska-tango-tangogql
+    condition: ska-taranta.enabled
+  - name: ska-tango-taranta-auth
+    version: 0.1.6
+    repository: https://artefact.skao.int/repository/helm-internal
+    condition: ska-taranta.enabled
+  - name: ska-tango-taranta-dashboard
+    version: 1.4.0
+    repository: https://artefact.skao.int/repository/helm-internal
+    condition: ska-taranta.dashboard.enabled,ska-taranta.enabled
+  - name: ska-tango-taranta-dashboard-pvc
+    version: 1.4.0
+    repository: https://artefact.skao.int/repository/helm-internal
+    condition: ska-taranta.dashboard.enabled,ska-taranta.enabled
+
+  # base
+  - name: ska-tango-util
+    version: 0.3.23
+    repository: https://artefact.skao.int/repository/helm-internal  
+  - name: ska-tango-base
+    version: 0.3.10
+    repository: https://artefact.skao.int/repository/helm-internal
