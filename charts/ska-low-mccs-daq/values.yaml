@@ -38,7 +38,7 @@ storage: []  # List of specs of PVCs to create
 image:
   registry: artefact.skao.int
   name: ska-low-mccs-daq
-  tag: 0.2.0
+  tag: 0.3.0
   pullPolicy: IfNotPresent
 
 resources:
