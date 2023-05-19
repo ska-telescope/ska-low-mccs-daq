@@ -39,7 +39,8 @@ python-post-lint:
 
 
 K8S_FACILITY ?= minikube
-K8S_CHART_PARAMS += --values charts/ska-low-mccs-daq/values-$(K8S_FACILITY).yaml
+VALUES_FILE ?= charts/$(K8S_CHART)/values-$(K8S_FACILITY).yaml
+K8S_CHART_PARAMS += --values $(VALUES_FILE)
 
 
 # THIS IS SPECIFIC TO THIS REPO
