@@ -67,6 +67,7 @@ class SpeadRxBeamPowerRealtime(Process):
 
         self.data_buff = [0] * 8192
         self.center_frequency = 0
+        self.scan_id = 0
         self.payload_length = 0
         self.sync_time = 0
         self.timestamp = 0
@@ -143,6 +144,9 @@ class SpeadRxBeamPowerRealtime(Process):
                         print("Received logical channel_id: " + str(self.logical_channel_id))
                         input("Press a key...")
                         # break
+            elif id == 0xb010 and idx == 5:
+                self.scan_id = val & 0xFFFFFFFF
+                self.center_frequency = 0
             elif id == 0xb000 and idx == 6:
                 is_csp_packet = True
                 if first_channel >= 0:

@@ -1559,7 +1559,7 @@ class Tile(TileHealthMonitor):
         return self.tpm.station_beamf[0].is_running()
 
     @connected
-    def start_beamformer(self, start_time=0, duration=-1):
+    def start_beamformer(self, start_time=0, duration=-1, scan_id=0, mask=0xffffffffff):
         """
         Start the beamformer.
         Duration: if > 0 is a duration in frames * 256 (276.48 us)
@@ -1569,10 +1569,14 @@ class Tile(TileHealthMonitor):
         :type start_time: int
         :param duration: duration in ADC frames/256. Multiple of 8
         :type duration: int
+        :param scan_id: ID of the scan, to be specified in the CSP SPEAD header
+        :type scan_id: int
+        :param mask: Bitmask of the channels to be started. Unsupported by FW
+        :type mask: int
         :return: False for error (e.g. beamformer already running)
         :rtype bool:
         """
-        mask = 0xFFFFFFF8  # Impose a time multiple of 8 frames
+        timestamp_mask = 0xFFFFFFF8  # Impose a time multiple of 8 frames
         if self.beamformer_is_running():
             return False
 
@@ -1582,10 +1586,20 @@ class Tile(TileHealthMonitor):
         start_time &= mask  # Impose a start time multiple of 8 frames
 
         if duration != -1:
-            duration = duration & mask
+            duration = duration & timestamp_mask
 
-        ret1 = self.tpm.station_beamf[0].start(start_time, duration)
-        ret2 = self.tpm.station_beamf[1].start(start_time, duration)
+        ret1 = self.tpm.station_beamf[0].start(
+            start_time, 
+            duration,
+            scan_id = scan_id,
+            mask = mask
+        )
+        ret2 = self.tpm.station_beamf[1].start(
+            start_time, 
+            duration,
+            scan_id = scan_id,
+            mask = mask
+        )
 
         # check if synchronised operation is successful,
         # time now must be smaller than start_time

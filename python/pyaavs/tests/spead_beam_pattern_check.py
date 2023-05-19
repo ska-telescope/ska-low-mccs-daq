@@ -124,6 +124,7 @@ class CspSpeadHeaderDecoder(Process):
         self.spead_header.sync_time             = 0
         self.spead_header.timestamp             = 0
         self.spead_header.center_frequency      = 0
+        self.spead_header.scan_id               = 0
         self.spead_header.csp_channel_info      = 0
         self.spead_header.physical_channel_id   = 0
         self.spead_header.csp_antenna_info      = 0
@@ -153,6 +154,9 @@ class CspSpeadHeaderDecoder(Process):
                 self.spead_header.timestamp = val
             elif id == 0x9011 and idx == 5:
                 self.spead_header.center_frequency = val & 0xFFFFFFFF
+            elif id == 0xb010 and idx == 5:
+                self.spead_header.scan_id = val & 0xFFFFFFFF
+                self.spead_header.center_frequency = 0
             elif id == 0xb000 and idx == 6:
                 self.spead_header.is_csp_packet = True
                 self.spead_header.csp_channel_info = val
