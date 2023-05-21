@@ -2079,7 +2079,7 @@ class Tile(TileHealthMonitor):
         for fpga in fpga_list:
             valid_request = self[f"fpga{fpga + 1}.lmc_gen.timestamp_req_invalid.{daq_mode}"] == C_VALID_TIMESTAMP_REQ
             list_of_valid_timestamps.append(valid_request)
-            self.logger.info(f"fpga{fpga + 1} {daq_mode} timestamp request is: {'VALID' if valid_request else 'INVALID'}")
+            self.logger.debug(f"fpga{fpga + 1} {daq_mode} timestamp request is: {'VALID' if valid_request else 'INVALID'}")
         if not all(list_of_valid_timestamps):
             self.logger.error("INVALID LMC Data request")
             return False
@@ -2098,18 +2098,21 @@ class Tile(TileHealthMonitor):
         :param t_request: requested timestamp. Must be more than current timestamp to be synchronised successfuly
         :param fpga_id: FPGA_ID, 0 or 1. Default None
         """
-        supports_timestamp_invalid_flag = self.tpm.has_register(f"fpga1.lmc_gen.timestamp_req_invalid.{daq_mode}")
-        if supports_timestamp_invalid_flag:
+        timestamp_invalid_flag_supported = self.tpm.has_register(f"fpga1.lmc_gen.timestamp_req_invalid.{daq_mode}")
+        if timestamp_invalid_flag_supported:
             valid_request = self.check_valid_timestamp_request(daq_mode, fpga_id)
         else:
-            self.logger.warning("FPGA firmware does not have the flag registers will use software to check for valid timesatmp request")
+            self.logger.warning(
+                "FPGA firmware doesn't support invalid data request flag, request will be validated by software"
+            )
             valid_request = self.check_synchronised_data_operation(t_request)
         if valid_request:
             self.logger.info(f"Valid {daq_mode} Timestamp request")
             return
         self.clear_lmc_data_request()
-        self.clear_timestamp_invalid_flag_register(daq_mode, fpga_id) if supports_timestamp_invalid_flag else None
-        self.logger.info("LMC Data request has been cleared, Please request a valid timestamp next time")
+        if timestamp_invalid_flag_supported:
+            self.clear_timestamp_invalid_flag_register(daq_mode, fpga_id)
+        self.logger.info("LMC Data request has been cleared")
         return
 
     # ------------------------------------

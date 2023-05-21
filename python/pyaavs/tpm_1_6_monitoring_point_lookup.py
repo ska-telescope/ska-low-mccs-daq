@@ -202,6 +202,10 @@ def load_tpm_1_6_lookup(obj):
                     'FPGA0': {"method": partial(obj.check_udp_bip_error_counter, fpga_id=0), "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}},
                     'FPGA1': {"method": partial(obj.check_udp_bip_error_counter, fpga_id=1), "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}}
                 },
+                'decode_error_count': {
+                    'FPGA0': {"method": partial(obj.check_udp_decode_error_counter, fpga_id=0), "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}},
+                    'FPGA1': {"method": partial(obj.check_udp_decode_error_counter, fpga_id=1), "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}}
+                },
                 'linkup_loss_count': {
                     'FPGA0': {"method": partial(obj.check_udp_linkup_loss_counter, fpga_id=0, show_result=False), "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": 0},
                     'FPGA1': {"method": partial(obj.check_udp_linkup_loss_counter, fpga_id=1, show_result=False), "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": 0}

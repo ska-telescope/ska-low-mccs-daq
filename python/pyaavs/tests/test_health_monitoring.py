@@ -147,6 +147,11 @@ class TestHealthMonitoring():
                 self._logger.warning("CPLD Firmware does not have updated PLL status registers. PLL checks will be skipped.")
                 MON_POINT_SKIP.append('timing.pll')
 
+            if not tile.tpm.has_register('fpga1.xg_udp.phy_rx_decode_error_counter_0'):
+                self._logger.warning("FPGA Firmware does not support UDP Decode Error Counter. These checks will be skipped.")
+                MON_POINT_SKIP.append('io.udp_interface.decode_error_count.FPGA0')
+                MON_POINT_SKIP.append('io.udp_interface.decode_error_count.FPGA1')
+
             if not tile.tpm.adas_enabled:
                 self._logger.info("ADAs disabled. Skipping checks for ADA voltages.")
 

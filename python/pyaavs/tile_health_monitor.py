@@ -293,6 +293,8 @@ class TileHealthMonitor():
         io.udp_interface.crc_error_count.FPGA1
         io.udp_interface.bip_error_count.FPGA0
         io.udp_interface.bip_error_count.FPGA1
+        io.udp_interface.decode_error_count.FPGA0
+        io.udp_interface.decode_error_count.FPGA1
         io.udp_interface.linkup_loss_count.FPGA0
         io.udp_interface.linkup_loss_count.FPGA1
 
@@ -1046,7 +1048,7 @@ class TileHealthMonitor():
 
     def check_udp_status(self, fpga_id=None):
         """
-        Check for UDP C2C and BIP errors.
+        Check for 40G errors.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -1063,7 +1065,7 @@ class TileHealthMonitor():
     
     def clear_udp_status(self, fpga_id=None):
         """
-        Reset UDP C2C and BIP error counters.
+        Reset 40G error counters.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -1122,6 +1124,21 @@ class TileHealthMonitor():
         counts = {}
         for fpga in self.fpga_gen(fpga_id):
             counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_bip_error_count()
+        return counts # Return dict of counter values
+
+    def check_udp_decode_error_counter(self, fpga_id=None):
+        """
+        Check UDP interface for 66b64b decoding errors.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: counter values
+        :rtype: dict
+        """
+        counts = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_decode_error_count()
         return counts # Return dict of counter values
     
     def check_tile_beamformer_status(self, fpga_id=None):

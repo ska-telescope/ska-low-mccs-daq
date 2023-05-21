@@ -236,6 +236,7 @@ class TestFullStation():
         self._test_station.test_generator_set_noise(ampl=0.35, delay=1024)
         self._csp_scale = int(np.ceil(np.log2(len(self._test_station.tiles)))) + 1
         self._channeliser_scale = 2
+        self._expected_power_difference = (self._csp_scale - 1) * 6 + 12
         for tile in self._test_station.tiles:
             tile['fpga1.beamf_ring.csp_scaling'] = self._csp_scale
             tile['fpga2.beamf_ring.csp_scaling'] = self._csp_scale
@@ -394,6 +395,7 @@ class TestFullStation():
             
             offline_power = []
             realtime_power = []
+            applied_realtime_scale = []
             while max_delay > 0:
 
                 self._logger.info("Setting time domain delays, maximum %d" % max_delay)
@@ -429,6 +431,19 @@ class TestFullStation():
                         self._logger.info("Not possible to get not saturated samples.")
                         self._logger.error("TEST FAILED!")
                         return 1
+
+                if offline_beam_power[0] - self._expected_power_difference < 18:
+                    scale -= 1
+
+                    for tile in self._test_station.tiles:
+                        tile.set_channeliser_truncation(scale)
+
+                    spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles),
+                                                                    self._daq_eth_if)
+                    offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
+                    self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0],
+                                                                                       offline_beam_power[1],
+                                                                                       offline_beam_power[2]))
 
                 # target_power = 0
                 # scale = 3
@@ -478,12 +493,31 @@ class TestFullStation():
                         tile.start_beamformer()
                 time.sleep(1)
 
-                self._logger.info("Acquiring realtime beamformed data")
-                spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
-                realtime_beam_power = np.asarray(spead_rx_realtime_inst.get_power(beamformed_channel))
-                self._logger.info("Realtime beamformed channel power: %f %f %d" % (realtime_beam_power[0],
-                                                                                   realtime_beam_power[1],
-                                                                                   realtime_beam_power[2]))
+                stop = False
+                scale = self._csp_scale
+                while not stop:
+
+                    for tile in self._test_station.tiles:
+                        tile['fpga1.beamf_ring.csp_scaling'] = scale
+                        tile['fpga2.beamf_ring.csp_scaling'] = scale
+
+                    time.sleep(0.1)
+                    self._logger.info("Acquiring realtime beamformed data")
+                    spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
+                    realtime_beam_power = np.asarray(spead_rx_realtime_inst.get_power(beamformed_channel))
+                    self._logger.info("Realtime beamformed channel power: %f %f %d" % (realtime_beam_power[0],
+                                                                                       realtime_beam_power[1],
+                                                                                       realtime_beam_power[2]))
+                    if realtime_beam_power[0] < 18:
+                        if scale == 0:
+                            stop = True
+                        else:
+                            scale -= 1
+                    else:
+                        stop = True
+                applied_realtime_scale.append(self._csp_scale - scale)
+
+
                 delete_files(data_directory)
                 realtime_power.append(realtime_beam_power)
                 del spead_rx_realtime_inst
@@ -493,11 +527,13 @@ class TestFullStation():
             rescale = offline_power[0][0] - realtime_power[0][0]
 
             self._logger.info("Test result:")
-            self._logger.info("Step, Realtime, Offline, Difference [dB]")
+            self._logger.info("Step, Realtime, Offline, Difference [dB], Realtime scale adjust [dB]")
             max_diff = 0.0
             for n in range(len(realtime_power)):
-                diff = realtime_power[n][0] - offline_power[n][0] + rescale
-                self._logger.info("%d %f %f %f" % (n, realtime_power[n][0], offline_power[n][0], diff))
+                diff = realtime_power[n][0] - 6 * applied_realtime_scale[n] - offline_power[n][0] + rescale
+                self._logger.info(
+                    "%d %f %f %f %d" % (n, realtime_power[n][0], offline_power[n][0], diff, 6 * applied_realtime_scale[n])
+                )
                 if abs(diff) > max_diff:
                     max_diff = abs(diff)
 
