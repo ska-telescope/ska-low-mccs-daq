@@ -11,6 +11,8 @@ HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq
 PYTHON_SWITCHES_FOR_BLACK = --line-length 88
 PYTHON_TEST_FILE = tests
 PYTHON_VARS_AFTER_PYTEST = --forked
+#OCI_BUILD_ADDITIONAL_ARGS += &> log.txt
+OCI_IMAGE_BUILD_CONTEXT = $(PWD)
 
 ## Paths containing python to be formatted and linted
 PYTHON_LINT_TARGET = src/ska_low_mccs_daq tests/
@@ -31,11 +33,12 @@ include .make/helm.mk
 -include PrivateRules.mak
 
 # VERSION is set in the above include
-PROJECT_NAME = low_mccs_daq
+# PROJECT_NAME = low_mccs_daq
 
 _remote_tracking_branch = $(shell git status -sb | head -1 | sed 's/\.\.\./\n/' | tail -1)
 _gitlab_tag = $(VERSION)-dev.c$(shell git rev-parse --short=8 $(_remote_tracking_branch))
- 
+
+# This might be broken now... Will have to test PSI deployment.
 K8S_CHART_PARAMS = \
   --set global.minikube=false \
   --set $(PROJECT_NAME).image.registry=registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq \
@@ -51,8 +54,10 @@ docs-pre-build:
 # THIS IS SPECIFIC TO THIS REPO
 ifdef CI_REGISTRY_IMAGE
 K8S_CHART_PARAMS = \
-	--set low_mccs_daq.image.registry=$(CI_REGISTRY_IMAGE) \
-	--set low_mccs_daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
+	--set low_mccs_daq.tango_image.registry=$(CI_REGISTRY_IMAGE) \
+	--set low_mccs_daq.tango_image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
+	--set low_mccs_daq.server_image.registry=$(CI_REGISTRY_IMAGE) \
+	--set low_mccs_daq.server_image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
 endif
 
 K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --testbed local --junitxml=build/reports/functional-tests.xml
