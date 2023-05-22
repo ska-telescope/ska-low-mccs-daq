@@ -94,8 +94,8 @@ class TileHealthMonitor():
 
         The monitoring points returned are strings produced from '.' delimited 
         keys. For example:
-        voltages.5V0
-        io.udp_interface.crc_error_count.FPGA0
+        'voltages.5V0'
+        'io.udp_interface.crc_error_count.FPGA0'
 
         More info at https://confluence.skatelescope.org/x/nDhED
 
@@ -133,12 +133,12 @@ class TileHealthMonitor():
         io.udp_interface.crc_error_count.FPGA0
 
         would have these associated categories:
-        voltages
-        voltages.5V0
-        io
-        io.udp_interface
-        io.udp_interface.crc_error_count
-        io.udp_interface.crc_error_count.FPGA0
+        'voltages'
+        'voltages.5V0'
+        'io'
+        'io.udp_interface'
+        'io.udp_interface.crc_error_count'
+        'io.udp_interface.crc_error_count.FPGA0'
 
         More info at https://confluence.skatelescope.org/x/nDhED
 
@@ -281,7 +281,7 @@ class TileHealthMonitor():
 
         For example:
         If configured with:
-        tile.set_monitoring_point_attr(io.udp_interface, my_category='yes', my_other_category=87)
+        tile.set_monitoring_point_attr('io.udp_interface', my_category='yes', my_other_category=87)
 
         Subsequent calls to:
         tile.get_health_status(my_category='yes', my_other_category=87)
@@ -297,6 +297,12 @@ class TileHealthMonitor():
         io.udp_interface.decode_error_count.FPGA1
         io.udp_interface.linkup_loss_count.FPGA0
         io.udp_interface.linkup_loss_count.FPGA1
+
+        A group attribute is provided by default, see tpm_1_X_monitoring_point_lookup.
+        This can be used like the below example:
+        tile.get_health_status(group='temperatures')
+        tile.get_health_status(group='udp_interface')
+        tile.get_health_status(group='io')
 
         Full documentation on usage available at https://confluence.skatelescope.org/x/nDhED
         """
