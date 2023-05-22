@@ -101,10 +101,11 @@ bool StationRawData::packetFilter(unsigned char *udp_packet)
 
     // Check whether this is a Station Beam packet
     for (unsigned short i = 0; i < SPEAD_GET_NITEMS(hdr); i++)
-        if (SPEAD_ITEM_ID(SPEAD_ITEM(udp_packet, i)) == 0x1011)
+        if ((SPEAD_ITEM_ID(SPEAD_ITEM(udp_packet, i)) == 0x1011) ||
+            (SPEAD_ITEM_ID(SPEAD_ITEM(udp_packet, i)) == 0x3010))
             return true;
 
-    // Did not find item 0x1011, not a station beam packet
+    // Did not find item 0x1011 or 0x3010, not a station beam packet
     return false;
 }
 
@@ -135,6 +136,8 @@ bool StationRawData::processPacket()
     uint16_t station_id = 0;
     uint16_t nof_contributing_antennas = 0;
     uint32_t payload_offset = 0;
+    uint32_t scan_id = 0;
+    double timestamp_scale = 1.0e-9;
 
     // Get the number of items and get a pointer to the packet payload
     auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
@@ -187,6 +190,12 @@ bool StationRawData::processPacket()
                 nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
                 break;
             }
+            case 0x3010: // Scan ID
+            {
+		scan_id = (uint32_t) SPEAD_ITEM_ADDR(item);
+		timestamp_scale = 1.0e-8;
+                break;
+            }
             case 0x3300: // Payload offset
             {
                 payload_offset = (uint32_t) SPEAD_ITEM_ADDR(item);
@@ -211,7 +220,7 @@ bool StationRawData::processPacket()
         timestamp += timestamp_rollover << 48;
 
     // Calculate packet time
-    double packet_time = sync_time + timestamp * 1.0e-9; // timestamp_scale;
+    double packet_time = sync_time + timestamp * timestamp_scale;
 
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
