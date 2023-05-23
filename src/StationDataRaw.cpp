@@ -190,7 +190,7 @@ bool StationRawData::processPacket()
                 nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
                 break;
             }
-            case 0x3010: // Scan ID
+            case 0x3010: // Scan ID. If present, timestamp scale is different
             {
 		scan_id = (uint32_t) SPEAD_ITEM_ADDR(item);
 		timestamp_scale = 1.0e-8;
@@ -221,6 +221,11 @@ bool StationRawData::processPacket()
 
     // Calculate packet time
     double packet_time = sync_time + timestamp * timestamp_scale;
+
+    // Calculate frequency if not present
+    if (frequency == 0) {
+	frequency = 781250 * frequency_id
+    }
 
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
