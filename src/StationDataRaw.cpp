@@ -224,7 +224,7 @@ bool StationRawData::processPacket()
 
     // Calculate frequency if not present
     if (frequency == 0) {
-	frequency = 781250 * frequency_id
+	frequency = 781250 * frequency_id;
     }
 
     // Calculate number of samples in packet

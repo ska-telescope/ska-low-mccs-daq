@@ -202,7 +202,7 @@ bool StationData::processPacket()
 
     // Calculate frequency if not present
     if (frequency == 0) {
-       frequency = 781250 * frequency_id
+       frequency = 781250 * frequency_id;
     }
 
     // Divide packet counter by 8 (reason unknown)
