@@ -64,8 +64,17 @@ bool ChannelisedData::packetFilter(unsigned char *udp_packet)
         return false;
 
     // Check whether the SPEAD packet contains burst channel data
-    uint64_t mode = SPEAD_ITEM_ADDR(SPEAD_ITEM(udp_packet, 5));
-    return mode == 0x4;
+    // Header must contain capture mode ID and its value 
+    // must be 4
+    //
+    for (unsigned short i = 0; i < SPEAD_GET_NITEMS(hdr); i++) {
+        uint64_t item = SPEAD_ITEM(udp_packet, i);
+        if (SPEAD_ITEM_ID(item) == 0x2004) {
+            uint64_t mode = SPEAD_ITEM_ADDR(item);
+            return mode == 0x4;
+	}
+    }
+    return false;
 }
 
 // Function called when a burst stream capture has finished
