@@ -11,7 +11,6 @@ HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq
 PYTHON_SWITCHES_FOR_BLACK = --line-length 88
 PYTHON_TEST_FILE = tests
 PYTHON_VARS_AFTER_PYTEST = --forked
-#OCI_BUILD_ADDITIONAL_ARGS += &> log.txt
 OCI_IMAGE_BUILD_CONTEXT = .
 
 ## Paths containing python to be formatted and linted

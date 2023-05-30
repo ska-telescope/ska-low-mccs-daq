@@ -17,7 +17,7 @@ from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
 
-from ska_low_mccs_daq.daq_receiver import DaqComponentManager
+#from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 from ska_low_mccs_daq.gRPC_server.daq_grpc_server import convert_daq_modes
 
 
