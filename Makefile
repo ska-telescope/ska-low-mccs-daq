@@ -12,7 +12,7 @@ PYTHON_SWITCHES_FOR_BLACK = --line-length 88
 PYTHON_TEST_FILE = tests
 PYTHON_VARS_AFTER_PYTEST = --forked
 #OCI_BUILD_ADDITIONAL_ARGS += &> log.txt
-OCI_IMAGE_BUILD_CONTEXT = $(PWD)
+OCI_IMAGE_BUILD_CONTEXT = .
 
 ## Paths containing python to be formatted and linted
 PYTHON_LINT_TARGET = src/ska_low_mccs_daq tests/
@@ -54,10 +54,8 @@ docs-pre-build:
 # THIS IS SPECIFIC TO THIS REPO
 ifdef CI_REGISTRY_IMAGE
 K8S_CHART_PARAMS = \
-	--set low_mccs_daq.tango_image.registry=$(CI_REGISTRY_IMAGE) \
-	--set low_mccs_daq.tango_image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
-	--set low_mccs_daq.server_image.registry=$(CI_REGISTRY_IMAGE) \
-	--set low_mccs_daq.server_image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
+	--set low_mccs_daq.image.registry=$(CI_REGISTRY_IMAGE) \
+	--set low_mccs_daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
 endif
 
 K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --testbed local --junitxml=build/reports/functional-tests.xml

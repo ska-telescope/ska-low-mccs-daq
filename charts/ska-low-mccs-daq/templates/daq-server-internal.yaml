@@ -57,7 +57,7 @@ spec:
     spec:
       containers:
       - name: {{ $device_name }}-data-server
-        image: {{$.local.Values.low_mccs_daq.image.registry}}/{{$.local.Values.low_mccs_daq.image.server_image}}:{{$.local.Values.low_mccs_daq.image.tag}}
+        image: {{$.local.Values.low_mccs_daq.image.registry}}/{{$.local.Values.low_mccs_daq.image.image}}:{{$.local.Values.low_mccs_daq.image.tag}}
         imagePullPolicy: IfNotPresent
         command:
           - retry

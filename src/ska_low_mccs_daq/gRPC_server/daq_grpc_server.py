@@ -17,13 +17,43 @@ from typing import Any, Callable, List, Optional, TypeVar, cast
 
 import grpc
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
-from ska_control_model import ResultCode
 
 from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
+
+# from ska_control_model import ResultCode
+
 
 __all__ = ["MccsDaqServer", "main"]
 
 Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
+
+
+class ResultCode(IntEnum):
+    """Python enumerated type for command result codes."""
+
+    OK = 0
+    """The command was executed successfully."""
+
+    STARTED = 1
+    """The command has been accepted and will start immediately."""
+
+    QUEUED = 2
+    """The command has been accepted and will be executed at a future time."""
+
+    FAILED = 3
+    """The command could not be executed."""
+
+    UNKNOWN = 4
+    """The status of the command is not known."""
+
+    REJECTED = 5
+    """The command execution has been rejected."""
+
+    NOT_ALLOWED = 6
+    """The command is not allowed to be executed."""
+
+    ABORTED = 7
+    """The command in progress has been aborted."""
 
 
 class DaqStatus(IntEnum):

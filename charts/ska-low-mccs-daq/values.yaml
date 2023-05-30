@@ -79,8 +79,7 @@ low_mccs_daq:
   enabled: true
   image:
     registry: artefact.skao.int
-    tango_image: ska-low-mccs-daq-tango
-    server_image: ska-low-mccs-daq-server
+    image: ska-low-mccs-daq
     tag: 0.2.0 #VERSION: Used to update tags on release - DO NOT REMOVE COMMENT
     pullPolicy: IfNotPresent
 securityContext:
