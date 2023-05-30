@@ -10,6 +10,8 @@ ENV PYFABIL_SHA=1aa0dc954fb701fd2a7fed03df21639fc4c50560
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Setup NVIDIA Container Toolkit package repo + GPG key.
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 RUN apt-get update && apt-get install -y software-properties-common
 RUN add-apt-repository ppa:deadsnakes/ppa
 RUN apt-get update && apt-get install -y python3.10 python3.10-distutils curl gosu sudo pkg-config
@@ -70,5 +72,6 @@ RUN pip install -U virtualenv
 RUN poetry config virtualenvs.create false && poetry install -vvv --only main
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 
-#RUN useradd -ms /bin/bash tango
+RUN useradd -ms /bin/bash --groups sudo tango
+RUN passwd -d tango
 USER tango
