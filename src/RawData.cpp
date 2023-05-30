@@ -86,10 +86,9 @@ bool RawData::packetFilter(unsigned char *udp_packet)
         if (SPEAD_ITEM_ID(item) == 0x2004) {
 	    uint64_t mode = SPEAD_ITEM_ADDR(item);
             return mode == 0x0 || mode == 0x1;
-	}
+	    }
     }
     return false;
-
 }
 
 // Receive packet
