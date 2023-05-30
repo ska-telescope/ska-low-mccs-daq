@@ -6,6 +6,7 @@ FROM nvidia/cuda:11.6.1-base-ubuntu20.04 AS base
 USER root
 # nuclear option...
 COPY --from=pytango_runtime / /
+
 # Copy retry/wait-for-it from SKAO image.
 # COPY --from=tango_deps /usr/local /usr/local
 COPY . /app
@@ -28,17 +29,17 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Setup NVIDIA Container Toolkit package repo + GPG key.
 RUN apt-get update && apt-get install -y software-properties-common
 RUN add-apt-repository ppa:deadsnakes/ppa
-RUN apt-get update && apt-get install -y python3.10 python3.10-distutils curl sudo pkg-config
-RUN apt-get install -y nvidia-utils-510
+RUN apt-get update && apt-get install -y python3.10 python3.10-distutils curl gosu sudo pkg-config
+RUN apt-get install -y nvidia-utils-510 nvidia-cuda-toolkit
 
 #RUN update-alternatives --install /usr/bin/python3 python /usr/bin/python3.8 1
 RUN update-alternatives --install /usr/bin/python3 python /usr/bin/python3.10 2
 #RUN apt-get install -y python3-pip
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | sudo python3.10
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | gosu root python3.10
 #RUN apt-get update && apt-get install -y 
 #  curl sudo 
 # Create symlink to python3.
-RUN export PATH="/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:$PATH"
+RUN export PATH="/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:$PATH"
 #RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python3"]
 #RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 
@@ -61,7 +62,11 @@ RUN apt-get update && \
 #RUN apt-get update && apt-get install -y pciutils ubuntu-drivers-common lshw
 
 #RUN nvidia-ctk
-
+WORKDIR /app/
+# RUN git clone https://github.com/GPU-correlators/xGPU.git
+# RUN cp /app/xgpu_info.h /app/xGPU/src/
+# WORKDIR /app/xGPU/src/
+# RUN make install
 # Install AAVS DAQ
 RUN git clone https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
 WORKDIR /app/aavs-system
@@ -70,10 +75,7 @@ RUN git reset --hard ${AAVS_SYSTEM_SHA}
 COPY deploy.sh /app/aavs-system/
 RUN ["/bin/bash", "-cC", "source /app/aavs-system/deploy.sh"]
 # Install xGPU and replace a header file with one that has custom values.
-# RUN git clone https://github.com/GPU-correlators/xGPU.git
-# RUN cp /app/xgpu_info.h /app/xGPU/src/
-# WORKDIR /app/xGPU/src/
-# RUN make install
+
 # Expose the DAQ port to UDP traffic.
 EXPOSE 4660/udp
 WORKDIR /app/
