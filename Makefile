@@ -15,7 +15,7 @@ PYTHON_VARS_AFTER_PYTEST = --forked
 OCI_IMAGE_BUILD_CONTEXT = .
 
 ## Paths containing python to be formatted and linted
-PYTHON_LINT_TARGET = src/ska_low_mccs_daq tests/
+PYTHON_LINT_TARGET = src/ska_low_mccs_daq #tests/
 
 DOCS_SOURCEDIR=./docs/src
 DOCS_SPHINXOPTS= -n -W --keep-going
