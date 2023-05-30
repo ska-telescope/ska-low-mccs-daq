@@ -7,7 +7,8 @@
 # See LICENSE for more info.
 """This module contains the tests of the daq configuration."""
 # from __future__ import annotations
-
+# pylint: skip-file
+# flake8: noqa
 # import json
 # import socket
 

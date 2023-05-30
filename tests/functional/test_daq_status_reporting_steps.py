@@ -7,7 +7,8 @@
 # See LICENSE for more info.
 """This module contains the bdd test steps of the daq status reporting."""
 # from __future__ import annotations
-
+# pylint: skip-file
+# flake8: noqa
 # import pytest
 # import tango
 # from pytest_bdd import given, parsers, scenarios, then, when

@@ -7,7 +7,8 @@
 # See LICENSE for more info.
 """This module contains the tests of the daq receiver device."""
 # from __future__ import annotations
-
+# pylint: skip-file
+# flake8: noqa
 # import gc
 # import json
 # from typing import Any
