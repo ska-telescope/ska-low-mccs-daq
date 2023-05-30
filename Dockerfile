@@ -1,6 +1,9 @@
+FROM artefact.skao.int/ska-tango-images-tango-dependencies:9.4.1 AS tango_deps
 FROM nvidia/cuda:11.6.1-base-ubuntu20.04
 
 USER root
+COPY --from=tango_deps /usr/local /usr/local
+COPY . /app
 
 # Commit SHAs to use.
 # When updating AAVS_SYSTEM_SHA, also update aavs_system in pyproject.toml
