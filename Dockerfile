@@ -1,5 +1,6 @@
 #FROM artefact.skao.int/ska-tango-images-tango-dependencies:9.4.1 AS tango_deps
-FROM nvidia/cuda:11.6.1-base-ubuntu20.04 AS cuda_base
+#FROM nvidia/cuda:11.6.1-base-ubuntu20.04 AS cuda_base
+FROM nvidia/cuda:11.3.1-base-ubuntu20.04 AS cuda_base
 
 USER root
 #COPY --from=tango_deps /usr/local /usr/local
@@ -27,7 +28,7 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | gosu root python3.10
 #RUN apt-get update && apt-get install -y 
 #  curl sudo 
 # Create symlink to python3.
-RUN export PATH="/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:$PATH"
+RUN export PATH="/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:${PATH}"
 #RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python3"]
 RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 
@@ -36,11 +37,11 @@ RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 RUN python3.10 -m pip install poetry
 # Fix distro-info being non pep compliant
 RUN apt -y autoremove python3-debian python3-distro-info
-RUN distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
-      && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
-      && curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
-            sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-            tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+# RUN distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
+#       && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+#       && curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+#             sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+#             tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 
 
 RUN apt-get update && \
@@ -48,7 +49,7 @@ RUN apt-get update && \
     build-essential ca-certificates cmake libcap2-bin git make tzdata 
 # RUN apt-get update && apt-get install -y nvidia-cuda-toolkit nvidia-container-toolkit nvidia-container-runtime
 
-#RUN nvidia-ctk
+# Install xGPU and replace a header file with one that has custom values.
 WORKDIR /app/
 # RUN git clone https://github.com/GPU-correlators/xGPU.git
 # RUN cp /app/xgpu_info.h /app/xGPU/src/
@@ -61,7 +62,6 @@ RUN git reset --hard ${AAVS_SYSTEM_SHA}
 # Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
 COPY deploy.sh /app/aavs-system/
 RUN ["/bin/bash", "-cC", "source /app/aavs-system/deploy.sh"]
-# Install xGPU and replace a header file with one that has custom values.
 
 # Expose the DAQ port to UDP traffic.
 EXPOSE 4660/udp
