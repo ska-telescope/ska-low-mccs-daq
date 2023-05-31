@@ -27,7 +27,7 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | gosu root python3.10
 #RUN apt-get update && apt-get install -y 
 #  curl sudo 
 # Create symlink to python3.
-RUN export PATH="/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:$PATH"
+RUN export PATH="/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:$PATH"
 #RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python3"]
 RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 
