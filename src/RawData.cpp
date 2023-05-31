@@ -78,8 +78,17 @@ bool RawData::packetFilter(unsigned char *udp_packet)
         return false;
 
     // Check whether the SPEAD packet contains antenna data
-    uint64_t mode = SPEAD_ITEM_ADDR(SPEAD_ITEM(udp_packet, 5));
-    return mode == 0x0 || mode == 0x1;
+    // Header must contain capture mode ID and its value 
+    // must be 0 or 1
+    //
+    for (unsigned short i = 0; i < SPEAD_GET_NITEMS(hdr); i++) {
+        uint64_t item = SPEAD_ITEM(udp_packet, i);
+        if (SPEAD_ITEM_ID(item) == 0x2004) {
+	    uint64_t mode = SPEAD_ITEM_ADDR(item);
+            return mode == 0x0 || mode == 0x1;
+	    }
+    }
+    return false;
 }
 
 // Receive packet

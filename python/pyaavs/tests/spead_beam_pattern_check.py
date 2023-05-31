@@ -38,7 +38,7 @@ def extract_sample(sample):
     return channel_id, counter
 
 
-def check_pattern2(pkt_buffer_idx, channel_id, timestamp):
+def check_pattern2(pkt_buffer_idx, channel_id, timestamp, timestamp_scale):
     global realtime_pattern
     global realtime_pkt_buff
 
@@ -46,7 +46,7 @@ def check_pattern2(pkt_buffer_idx, channel_id, timestamp):
 
     pkt_reassembled = unpack('b' * 8192, realtime_pkt_buff[pkt_buffer_idx: pkt_buffer_idx + 8192])
 
-    exp_counter = int((timestamp / 1080)) % (2**19)
+    exp_counter = int((timestamp / timestamp_scale)) % (2**19)
     exp_channel_id = channel_id
 
     for k in range(0, 8192, 4):
@@ -86,9 +86,13 @@ def check_buffer(id):
         if spead_header.is_csp_packet:
             pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72
             if realtime_pattern_type == 0:
-                errors += check_pattern(pkt_buffer_idx_offset, spead_header.logical_channel_id)
+                errors += check_pattern(pkt_buffer_idx_offset,
+                                        spead_header.logical_channel_id)
             else:
-                errors += check_pattern2(pkt_buffer_idx_offset, spead_header.logical_channel_id, spead_header.timestamp)
+                errors += check_pattern2(pkt_buffer_idx_offset,
+                                         spead_header.logical_channel_id,
+                                         spead_header.timestamp,
+                                         spead_header.timestamp_scale)
 
         pkt_buffer_idx += 16384 * realtime_nof_processes
 
@@ -108,6 +112,7 @@ class CspSpeadHeaderDecoded:
     physical_channel_id : int
     csp_antenna_info    : int
     offset              : int
+    timestamp_scale     : int
 
 
 class CspSpeadHeaderDecoder(Process):
@@ -124,10 +129,12 @@ class CspSpeadHeaderDecoder(Process):
         self.spead_header.sync_time             = 0
         self.spead_header.timestamp             = 0
         self.spead_header.center_frequency      = 0
+        self.spead_header.scan_id               = 0
         self.spead_header.csp_channel_info      = 0
         self.spead_header.physical_channel_id   = 0
         self.spead_header.csp_antenna_info      = 0
         self.spead_header.offset                = 0
+        self.spead_header.timestamp_scale       = 0
 
     def decode_header(self, pkt):
         items = unpack('>' + 'Q' * 9, pkt[0:8 * 9])
@@ -153,6 +160,11 @@ class CspSpeadHeaderDecoder(Process):
                 self.spead_header.timestamp = val
             elif id == 0x9011 and idx == 5:
                 self.spead_header.center_frequency = val & 0xFFFFFFFF
+                self.spead_header.timestamp_scale = 1080
+            elif id == 0xb010 and idx == 5:
+                self.spead_header.scan_id = val & 0xFFFFFFFF
+                self.spead_header.center_frequency = 0
+                self.spead_header.timestamp_scale = 108
             elif id == 0xb000 and idx == 6:
                 self.spead_header.is_csp_packet = True
                 self.spead_header.csp_channel_info = val

@@ -44,6 +44,7 @@ class spead_rx(Process):
         self.reassembled = [[0] * int(8192 / 4)] * 392
         self.data_buff = [0] * int(8192 / 4)
         self.center_frequency = 0
+        self.scan_id = 0
         self.payload_length = 0
         self.sync_time = 0
         self.timestamp = 0
@@ -138,6 +139,9 @@ class spead_rx(Process):
                     print("Received logical channel_id: " + str(self.logical_channel_id))
                     input("Press a key...")
                     # break
+            elif id == 0xb010 and idx == 5:
+                self.scan_id = val & 0xffffffff
+                self.center_frequency = 0
             elif id == 0xb000 and idx == 6:
                 self.csp_channel_info = val
                 physical_channel_id = val & 0x3FF
