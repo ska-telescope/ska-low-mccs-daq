@@ -1,8 +1,8 @@
-FROM artefact.skao.int/ska-tango-images-tango-dependencies:9.4.1 AS tango_deps
-FROM nvidia/cuda:11.6.1-base-ubuntu20.04
+#FROM artefact.skao.int/ska-tango-images-tango-dependencies:9.4.1 AS tango_deps
+FROM nvidia/cuda:11.6.1-base-ubuntu20.04 AS cuda_base
 
 USER root
-COPY --from=tango_deps /usr/local /usr/local
+#COPY --from=tango_deps /usr/local /usr/local
 COPY . /app
 
 # Commit SHAs to use.
@@ -36,18 +36,17 @@ RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 RUN python3.10 -m pip install poetry
 # Fix distro-info being non pep compliant
 RUN apt -y autoremove python3-debian python3-distro-info
-# RUN distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
-#       && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
-#       && curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
-#             sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-#             tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+RUN distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
+      && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+      && curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+            sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+            tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 
 
 RUN apt-get update && \
     TZ="United_Kingdom/London" apt-get install -y \
     build-essential ca-certificates cmake libcap2-bin git make tzdata 
 # RUN apt-get update && apt-get install -y nvidia-cuda-toolkit nvidia-container-toolkit nvidia-container-runtime
-#RUN apt-get update && apt-get install -y pciutils ubuntu-drivers-common lshw
 
 #RUN nvidia-ctk
 WORKDIR /app/
