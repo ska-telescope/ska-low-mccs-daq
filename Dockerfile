@@ -1,9 +1,9 @@
-#FROM artefact.skao.int/ska-tango-images-tango-dependencies:9.4.1 AS tango_deps
+FROM artefact.skao.int/ska-tango-images-tango-dependencies:9.4.1 AS tango_deps
 #FROM nvidia/cuda:11.6.1-base-ubuntu20.04 AS cuda_base
-FROM nvidia/cuda:11.3.1-base-ubuntu20.04 AS cuda_base
+FROM nvidia/cuda:11.4.0-devel-ubuntu20.04 AS cuda_base
 
 USER root
-#COPY --from=tango_deps /usr/local /usr/local
+COPY --from=tango_deps /usr/local /usr/local
 COPY . /app
 
 # Commit SHAs to use.
@@ -19,7 +19,8 @@ ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 RUN apt-get update && apt-get install -y software-properties-common
 RUN add-apt-repository ppa:deadsnakes/ppa
 RUN apt-get update && apt-get install -y python3.10 python3.10-distutils curl gosu sudo pkg-config
-RUN apt-get install -y nvidia-utils-510 nvidia-cuda-toolkit
+#RUN apt-get install -y nvidia-utils-510 nvidia-cuda-toolkit
+RUN apt-get install -y nvidia-utils-470 nvidia-cuda-toolkit
 
 #RUN update-alternatives --install /usr/bin/python3 python /usr/bin/python3.8 1
 RUN update-alternatives --install /usr/bin/python3 python /usr/bin/python3.10 2
