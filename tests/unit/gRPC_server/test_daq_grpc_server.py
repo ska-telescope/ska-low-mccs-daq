@@ -17,7 +17,7 @@ import pytest
 from google.protobuf.json_format import MessageToDict
 from ska_control_model import ResultCode
 
-from ska_low_mccs_daq.gRPC_server import daq_pb2, daq_pb2_grpc
+from ska_low_mccs_daq.interface.generated_code import daq_pb2, daq_pb2_grpc
 
 # TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
 gc.disable()

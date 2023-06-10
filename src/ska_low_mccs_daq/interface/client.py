@@ -14,8 +14,7 @@ import grpc
 from google.protobuf.json_format import MessageToDict
 from ska_control_model import ResultCode, TaskStatus
 
-from ..gRPC_server import daq_pb2, daq_pb2_grpc
-
+from .generated_code import daq_pb2, daq_pb2_grpc
 
 __all__ = ["DaqClient"]
 

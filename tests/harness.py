@@ -40,7 +40,7 @@ def daq_grpc_server(
     # from within a pod that does not have ska_low_mccs_daq installed.
     import grpc
 
-    from ska_low_mccs_daq.gRPC_server import daq_pb2_grpc
+    from ska_low_mccs_daq.interface.generated_code import daq_pb2_grpc
 
     grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     daq_pb2_grpc.add_DaqServicer_to_server(daq_instance, grpc_server)

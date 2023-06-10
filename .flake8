@@ -2,7 +2,7 @@
 max-line-length = 88
 
 exclude =
-    src/ska_low_mccs_daq/gRPC_server/generated_code
+    src/ska_low_mccs_daq/interface/generated_code
 
 extend-ignore = BLK,T
 enable = DAR104
