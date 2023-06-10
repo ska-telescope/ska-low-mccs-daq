@@ -13,15 +13,13 @@ import logging
 import threading
 from typing import Any, Callable, Optional
 
-import grpc
-from google.protobuf.json_format import MessageToDict
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_low_mccs_common.component import (
     MccsComponentManager,
     check_communicating,
 )
 
-from ..gRPC_server import daq_pb2, daq_pb2_grpc
+from ..interface import DaqClient
 
 __all__ = ["DaqComponentManager"]
 
@@ -82,33 +80,17 @@ class DaqComponentManager(MccsComponentManager):
         self._receiver_ports = receiver_ports
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
-        self._grpc_host = grpc_host
-        self._grpc_port = grpc_port
-        self._grpc_channel = f"{self._grpc_host}:{self._grpc_port}"
+        self._daq_client = DaqClient(f"{grpc_host}:{grpc_port}")
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
         super().start_communicating()
-        # Do things that might need to be done.
         try:
-            with grpc.insecure_channel(self._grpc_channel) as channel:
-                stub = daq_pb2_grpc.DaqStub(channel)
-                configuration = json.dumps(self._get_default_config())
-                response = stub.InitDaq(daq_pb2.configDaqRequest(config=configuration))
+            configuration = json.dumps(self._get_default_config())
 
-                # Anticipated "normal" operation.
-                if response.result_code in [ResultCode.OK, ResultCode.REJECTED]:
-                    if self._faulty:
-                        self.component_state_changed_callback({"fault": False})
-                    self.logger.info(response.message)
-                else:
-                    self.logger.error(
-                        "InitDaq failed with response: %i: %s",
-                        response.result_code,
-                        response.message,
-                    )
-        # pylint: disable=broad-except
-        except Exception as e:
+            response = self._daq_client.initialise(configuration)
+            self.logger.info(response["message"])
+        except Exception as e:  # pylint: disable=broad-except
             self.component_state_changed_callback({"fault": True})
             self.logger.error("Caught exception in start_communicating: %s", e)
 
@@ -169,12 +151,7 @@ class DaqComponentManager(MccsComponentManager):
 
         :return: The configuration in use by the DaqReceiver instance.
         """
-        # Make gRPC call to configure.
-        with grpc.insecure_channel(self._grpc_channel) as channel:
-            stub = daq_pb2_grpc.DaqStub(channel)
-            response = stub.GetConfiguration(daq_pb2.getConfigRequest())
-
-        return MessageToDict(message=response, preserving_proto_field_name=True)
+        return self._daq_client.get_configuration()
 
     def _set_consumers_to_start(
         self: DaqComponentManager, consumers_to_start: str
@@ -210,16 +187,12 @@ class DaqComponentManager(MccsComponentManager):
             information purpose only.
         """
         self.logger.info("Configuring DAQ receiver.")
-        # Make gRPC call to configure.
-        with grpc.insecure_channel(self._grpc_channel) as channel:
-            stub = daq_pb2_grpc.DaqStub(channel)
-            response = stub.ConfigureDaq(daq_pb2.configDaqRequest(config=daq_config))
-            if response.result_code != ResultCode.OK:
-                self.logger.error(
-                    "Configure failed with response: %i", response.result_code
-                )
-        self.logger.info("DAQ receiver configuration complete.")
-        return (response.result_code, response.message)
+        result_code, message = self._daq_client.configure_daq(daq_config)
+        if result_code == ResultCode.OK:
+            self.logger.info("DAQ receiver configuration complete.")
+        else:
+            self.logger.error(f"Configure failed with response: {result_code}")
+        return result_code, message
 
     @check_communicating
     def start_daq(
@@ -267,64 +240,24 @@ class DaqComponentManager(MccsComponentManager):
         if task_callback:
             task_callback(status=TaskStatus.QUEUED)
         try:
-            if modes_to_start == "":
-                modes_to_start = self._consumers_to_start
-            with grpc.insecure_channel(self._grpc_channel) as channel:
-                stub = daq_pb2_grpc.DaqStub(channel)
-                responses = stub.StartDaq(
-                    daq_pb2.startDaqRequest(
-                        modes_to_start=modes_to_start,
+            modes_to_start = modes_to_start or self._consumers_to_start
+            for response in self._daq_client.start_daq(modes_to_start):
+                if task_callback:
+                    task_callback(
+                        status=response["status"],
+                        result=response["message"],
                     )
-                )
-                task_callback(
-                    status=TaskStatus.IN_PROGRESS,
-                    result="Start Command issued to gRPC stub",
-                )
-                # TODO: this can probably be made more generic, but not
-                # needed for now as only one instance of a streamed response.
-                self._evaluate_start_daq_responses(responses, task_callback)
-
-        # pylint: disable-next=broad-except
-        except Exception as e:
+                if "files" in response:
+                    files_written = response["files"]
+                    data_types_received = response["types"]
+                    self.logger.info(
+                        f"File: {files_written}, Type: {data_types_received}"
+                    )
+                    self._received_data_callback(data_types_received, files_written)
+        except Exception as e:  # pylint: disable=broad-exception-caught  # XXX
             if task_callback:
                 task_callback(status=TaskStatus.FAILED, result=f"Exception: {e}")
             return
-
-    def _evaluate_start_daq_responses(
-        self: DaqComponentManager, responses: Any, task_callback: Callable
-    ) -> None:
-        """
-        Evaluate the responses from gRPC server.
-
-        :param responses: The streamed gRPC responses
-        :param task_callback: Update task state, defaults to None
-        """
-        for response in responses:
-            if response.HasField("call_state"):
-                daq_state = response.call_state.state
-                self.logger.info(
-                    f"gRPC callState: {daq_pb2.CallState.State.Name(daq_state)}"
-                )
-                # When we start the daq it will respond with a streaming update
-                # When it streams listening we notify the task_callback.
-                if daq_state == daq_pb2.CallState.State.LISTENING:
-                    task_callback(
-                        status=TaskStatus.COMPLETED,
-                        result="Daq has been started and is listening",
-                    )
-                # When stopped we need to ensure we clean up the thread.
-                # This is done with responses.cancel()
-                if daq_state == daq_pb2.CallState.State.STOPPED:
-                    # First the gRPC server hangs up the call.
-                    # then the Client hangs up the call.
-                    responses.cancel()
-
-            if response.HasField("call_info"):
-                data_types_received = response.call_info.data_types_received
-                files_written = response.call_info.files_written
-                self.logger.info(f"File: {files_written}, Type: {data_types_received}")
-                # send all this information to the callback
-                self._received_data_callback(data_types_received, files_written)
 
     @check_communicating
     def stop_daq(
@@ -343,16 +276,13 @@ class DaqComponentManager(MccsComponentManager):
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
 
-        with grpc.insecure_channel(self._grpc_channel) as channel:
-            stub = daq_pb2_grpc.DaqStub(channel)
-            response = stub.StopDaq(daq_pb2.stopDaqRequest())
-
+        result_code, message = self._daq_client.stop_daq()
         if task_callback:
-            if response.result_code == ResultCode.OK.value:
+            if result_code == ResultCode.OK:
                 task_callback(status=TaskStatus.COMPLETED)
             else:
                 task_callback(status=TaskStatus.FAILED)
-        return (response.result_code, response.message)
+        return (result_code, message)
 
     @check_communicating
     def daq_status(
@@ -369,10 +299,7 @@ class DaqComponentManager(MccsComponentManager):
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
 
-        with grpc.insecure_channel(self._grpc_channel) as channel:
-            stub = daq_pb2_grpc.DaqStub(channel)
-            response = stub.DaqStatus(daq_pb2.daqStatusRequest())
-
+        status = self._daq_client.get_status()
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
-        return response.status
+        return status
