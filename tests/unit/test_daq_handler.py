@@ -23,8 +23,8 @@ from ska_low_mccs_daq.interface.generated_code import daq_pb2, daq_pb2_grpc
 gc.disable()
 
 
-class TestMccsDaqServer:
-    """Test class for MccsDaqServer tests."""
+class TestDaqHandler:
+    """Test class for DaqHandler tests."""
 
     @pytest.mark.parametrize(
         ("args", "expected_rc", "expected_msg"),
@@ -35,7 +35,7 @@ class TestMccsDaqServer:
     )
     @pytest.mark.xfail
     def test_daq_server_start_stop_daq(
-        self: TestMccsDaqServer,
+        self: TestDaqHandler,
         grpc_channel: str,
         args: str,
         expected_rc: ResultCode,
@@ -81,7 +81,7 @@ class TestMccsDaqServer:
         ),
     )
     def test_daq_server_configuration(
-        self: TestMccsDaqServer,
+        self: TestDaqHandler,
         grpc_channel: str,
         daq_config: dict[str, Any],
         expected_rc: ResultCode,

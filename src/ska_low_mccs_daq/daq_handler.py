@@ -18,7 +18,7 @@ from ska_control_model import ResultCode
 
 from ska_low_mccs_daq.interface.server import run_server_forever
 
-__all__ = ["MccsDaqServer", "main"]
+__all__ = ["DaqHandler", "main"]
 
 Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 
@@ -133,7 +133,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
 
     @functools.wraps(func)
     def _wrapper(
-        self: MccsDaqServer,
+        self: DaqHandler,
         *args: Any,
         **kwargs: Any,
     ) -> Any:
@@ -143,7 +143,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
         This is a wrapper function that implements the functionality of
         the decorator.
 
-        :param self: This instance of an MccsDaqServer.
+        :param self: This instance of an DaqHandler.
         :param args: positional arguments to the wrapped function
         :param kwargs: keyword arguments to the wrapped function
 
@@ -162,10 +162,10 @@ def check_initialisation(func: Wrapped) -> Wrapped:
     return cast(Wrapped, _wrapper)
 
 
-class MccsDaqServer:
-    """An implementation of a MccsDaqServer device."""
+class DaqHandler:
+    """An implementation of a DaqHandler device."""
 
-    def __init__(self: MccsDaqServer):
+    def __init__(self: DaqHandler):
         """Initialise this device."""
         self.daq_instance: DaqReceiver = None
         self._receiver_started: bool = False
@@ -176,7 +176,7 @@ class MccsDaqServer:
         self.buffer = DaqCallbackBuffer(self.logger)
 
     def file_dump_callback(
-        self: MccsDaqServer,
+        self: DaqHandler,
         data_mode: str,
         file_name: str,
         additional_info: Optional[str] = None,
@@ -193,7 +193,7 @@ class MccsDaqServer:
         else:
             self.buffer.add(data_mode, file_name)
 
-    def update_status(self: MccsDaqServer) -> None:
+    def update_status(self: DaqHandler) -> None:
         """Update the status of DAQ."""
         if self.state == DaqStatus.STOPPED:
             return
@@ -204,7 +204,7 @@ class MccsDaqServer:
 
     @check_initialisation
     def start(
-        self: MccsDaqServer,
+        self: DaqHandler,
         modes_to_start: str,
     ) -> Iterator[str | tuple[str, str]]:
         """
@@ -253,7 +253,7 @@ class MccsDaqServer:
         yield "STOPPED"
 
     @check_initialisation
-    def stop(self: MccsDaqServer) -> tuple[ResultCode, str]:
+    def stop(self: DaqHandler) -> tuple[ResultCode, str]:
         """
         Stop data acquisition.
 
@@ -265,9 +265,7 @@ class MccsDaqServer:
         self.request_stop = True
         return ResultCode.OK, "Daq stopped"
 
-    def initialise(
-        self: MccsDaqServer, config: dict[str, Any]
-    ) -> tuple[ResultCode, str]:
+    def initialise(self: DaqHandler, config: dict[str, Any]) -> tuple[ResultCode, str]:
         """
         Initialise a new DaqReceiver instance.
 
@@ -287,9 +285,7 @@ class MccsDaqServer:
                 self._initialised = True
             # pylint: disable=broad-except
             except Exception as e:
-                self.logger.error(
-                    "Caught exception in `daq_grpc_server.InitDaq`: %s", e
-                )
+                self.logger.error("Caught exception in `DaqHandler.initialise`: %s", e)
                 return ResultCode.FAILED, f"Caught exception: {e}"
             self.logger.info("Daq initialised.")
             return ResultCode.OK, "Daq successfully initialised"
@@ -299,9 +295,7 @@ class MccsDaqServer:
         return ResultCode.REJECTED, "Daq already initialised"
 
     @check_initialisation
-    def configure(
-        self: MccsDaqServer, config: dict[str, Any]
-    ) -> tuple[ResultCode, str]:
+    def configure(self: DaqHandler, config: dict[str, Any]) -> tuple[ResultCode, str]:
         """
         Apply a configuration to the DaqReceiver.
 
@@ -321,12 +315,12 @@ class MccsDaqServer:
 
         # pylint: disable=broad-except
         except Exception as e:
-            self.logger.error(f"Caught exception in MccsDaqServer.configure: {e}")
+            self.logger.error(f"Caught exception in DaqHandler.configure: {e}")
             return ResultCode.FAILED, f"Caught exception: {e}"
 
     @check_initialisation
     def get_configuration(
-        self: MccsDaqServer,
+        self: DaqHandler,
     ) -> dict[str, Any]:
         """
         Retrieve the current DAQ configuration.
@@ -336,7 +330,7 @@ class MccsDaqServer:
         return self.daq_instance.get_configuration()
 
     @check_initialisation
-    def get_status(self: MccsDaqServer) -> dict[str, Any]:
+    def get_status(self: DaqHandler) -> dict[str, Any]:
         """
         Provide status information for this MccsDaqReceiver.
 
@@ -377,7 +371,7 @@ def main() -> None:
     Create and start a gRPC server.
     """
     port = os.getenv("DAQ_GRPC_PORT", default="50051")
-    run_server_forever(MccsDaqServer(), int(port))
+    run_server_forever(DaqHandler(), int(port))
 
 
 if __name__ == "__main__":

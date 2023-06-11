@@ -13,7 +13,7 @@ from tango import DeviceProxy
 from tango.server import Device
 
 if TYPE_CHECKING:
-    from ska_low_mccs_daq.gRPC_server import MccsDaqServer
+    from ska_low_mccs_daq.daq_handler import DaqHandler
 
 
 def get_device_name_from_id(daq_id: int) -> str:
@@ -95,7 +95,7 @@ class DaqTangoTestHarness:
     def add_daq_instance(
         self: DaqTangoTestHarness,
         daq_id: int,
-        daq_instance: MccsDaqServer,
+        daq_instance: DaqHandler,
     ) -> None:
         """
         And a DAQ instance to the test harness.
