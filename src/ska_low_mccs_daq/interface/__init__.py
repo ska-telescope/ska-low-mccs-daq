@@ -15,9 +15,16 @@ with the DAQ itself.
 
 __all__ = [
     "DaqClient",
-    # "DaqServer",
+    "DaqServer",
+    "DaqServerBackendProtocol",
+    "run_server_forever",
+    "server_context",
 ]
 
 from .client import DaqClient
-
-# from .server import DaqServer
+from .server import (
+    DaqServer,
+    DaqServerBackendProtocol,
+    run_server_forever,
+    server_context,
+)
