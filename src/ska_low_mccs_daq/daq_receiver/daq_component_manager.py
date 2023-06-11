@@ -35,8 +35,7 @@ class DaqComponentManager(MccsComponentManager):
         receiver_interface: str,
         receiver_ip: str,
         receiver_ports: str,
-        grpc_host: str,
-        grpc_port: int,
+        daq_address: str,
         consumers_to_start: str,
         logger: logging.Logger,
         max_workers: int,
@@ -51,9 +50,9 @@ class DaqComponentManager(MccsComponentManager):
         :param receiver_interface: The interface this DaqReceiver is to watch.
         :param receiver_ip: The IP address of this DaqReceiver.
         :param receiver_ports: The port this DaqReceiver is to watch.
-        :param grpc_host: An optional override to force gRPC to
-            use a particular host. Used in testing.
-        :param grpc_port: The gRPC port this DaqReceiver will communicate on.
+        :param daq_address: the address of the DAQ receiver.
+            This is dependent on the communication mechanism used.
+            For gRPC, this is the channel.
         :param consumers_to_start: The default consumers to be started.
         :param logger: the logger to be used by this object.
         :param max_workers: the maximum worker threads for the slow commands
@@ -80,7 +79,7 @@ class DaqComponentManager(MccsComponentManager):
         self._receiver_ports = receiver_ports
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
-        self._daq_client = DaqClient(f"{grpc_host}:{grpc_port}")
+        self._daq_client = DaqClient(daq_address)
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""

@@ -188,18 +188,17 @@ def test_context_fixture(
         yield test_context
 
 
-@pytest.fixture(name="grpc_channel")
-def grpc_channel_fixture(
+@pytest.fixture(name="daq_address")
+def daq_address_fixture(
     test_context: DaqTangoTestHarnessContext,
     daq_id: int,
 ) -> Iterator[str]:
     """
-    Yield the channel on which the gRPC server is available.
+    Yield the address of the DAQ server.
 
     :param test_context: the context in which the tests are running.
     :param daq_id: the ID of the daq receiver
 
-    :yield: the gRPC channel.
+    :yield: the DAQ server address.
     """
-    grpc_host, grpc_port = test_context.get_grpc_address(daq_id)
-    yield f"{grpc_host}:{grpc_port}"
+    yield test_context.get_daq_server_address(daq_id)

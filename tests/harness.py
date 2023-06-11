@@ -74,15 +74,16 @@ class DaqTangoTestHarnessContext:
                 )
         raise RuntimeError(f"Device {device_name} failed readiness.")
 
-    def get_grpc_address(self, daq_id: int) -> tuple[str, int]:
+    def get_daq_server_address(self, daq_id: int) -> str:
         """
-        Get the address of the gRPC server for a DAQ instance.
+        Get the address of the DAQ server.
 
         :param daq_id: the ID number of this DAQ instance.
 
-        :returns: the address (hostname and port) of the gRPC server.
+        :returns: the address (hostname and port) of the DAQ server.
         """
-        return "localhost", self._tango_context.get_context(f"daq_{daq_id}")
+        port = self._tango_context.get_context(f"daq_{daq_id}")
+        return f"localhost:{port}"
 
 
 class DaqTangoTestHarness:
@@ -144,18 +145,18 @@ class DaqTangoTestHarness:
             This may be used to override the usual device class,
             for example with a patched subclass.
         """
-        grpc_port: Callable[[dict[str, Any]], int] | int  # for the type checker
+        port: Callable[[dict[str, Any]], int] | int  # for the type checker
 
         if address is None:
             server_id = f"daq_{daq_id}"
 
-            grpc_host = "localhost"
+            host = "localhost"
 
-            def grpc_port(context: dict[str, Any]) -> int:
+            def port(context: dict[str, Any]) -> int:
                 return context[server_id]
 
         else:
-            (grpc_host, grpc_port) = address
+            (host, port) = address
 
         self._tango_test_harness.add_device(
             get_device_name_from_id(daq_id),
@@ -164,8 +165,8 @@ class DaqTangoTestHarness:
             ReceiverInterface=receiver_interface,
             ReceiverIp=receiver_ip,
             ReceiverPorts=receiver_ports,
-            GrpcHost=grpc_host,
-            GrpcPort=grpc_port,
+            Host=host,
+            Port=port,
             ConsumersToStart=consumers_to_start,
             LoggingLevelDefault=logging_level,
         )

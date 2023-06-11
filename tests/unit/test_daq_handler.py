@@ -38,20 +38,20 @@ class TestDaqHandler:
     )
     def test_daq_server_start_stop_daq(
         self: TestDaqHandler,
-        grpc_channel: str,
+        daq_address: str,
         args: str,
         expected_status: ResultCode,
         expected_msg: str,
     ) -> None:
         """
-        Test for Daq gRPC server start and stop.
+        Test for DAQ server start and stop.
 
-        :param grpc_channel: The gRPC channel to communicate on.
+        :param daq_address: The address of the DAQ server.
         :param args: The argument with which to call `StartDaq`.
         :param expected_status: The expected task status expected from `StartDaq`.
         :param expected_msg: The message expected from `StartDaq`.
         """
-        daq_client = DaqClient(grpc_channel)
+        daq_client = DaqClient(daq_address)
         assert daq_client.initialise("{}") == {
             "message": "Daq successfully initialised"
         }
@@ -96,20 +96,20 @@ class TestDaqHandler:
     )
     def test_daq_server_configuration(
         self: TestDaqHandler,
-        grpc_channel: str,
+        daq_address: str,
         daq_config: dict[str, Any],
         expected_rc: ResultCode,
         expected_msg: str,
     ) -> None:
         """
-        Test for Daq gRPC server configuration.
+        Test for DAQ server configuration.
 
-        :param grpc_channel: The gRPC channel to communicate on.
+        :param daq_address: The address of the DAQ server.
         :param daq_config: The configuration to apply.
         :param expected_rc: The result code expected from `Configure`.
         :param expected_msg: The message expected from `Configure`.
         """
-        daq_client = DaqClient(grpc_channel)
+        daq_client = DaqClient(daq_address)
         assert daq_client.initialise("{}") == {
             "message": "Daq successfully initialised"
         }

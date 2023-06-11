@@ -32,7 +32,7 @@ class DaqStatus(IntEnum):
 
 
 class DaqCallbackBuffer:
-    """A DAQ callback buffer to flush to gRPC Client every poll."""
+    """A DAQ callback buffer to flush to the client every poll."""
 
     def __init__(self: DaqCallbackBuffer, logger: logging.Logger):
         self.logger: logging.Logger = logger
@@ -211,12 +211,12 @@ class DaqHandler:
         Start data acquisition with the current configuration.
 
         A infinite streaming loop will be started until told to stop.
-        This will notify the gRPC client of state changes and metadata
+        This will notify the client of state changes and metadata
         of files written to disk, e.g. `data_type`.`file_name`.
 
         :param modes_to_start: string listing the modes to start.
 
-        :yields: A streamed gRPC response.
+        :yield: a status update.
         """
         if not self._receiver_started:
             self.daq_instance.initialise_daq()
@@ -368,7 +368,7 @@ def main() -> None:
     """
     Entrypoint for the module.
 
-    Create and start a gRPC server.
+    Create and start a server.
     """
     port = os.getenv("DAQ_GRPC_PORT", default="50051")
     run_server_forever(DaqHandler(), int(port))

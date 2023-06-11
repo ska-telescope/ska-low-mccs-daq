@@ -37,10 +37,10 @@ server:
           - name: "ReceiverPort"
             values:
             - {{$defaulted.receiver_port | toString | quote}}
-          - name: "GrpcHost"
+          - name: "Host"
             values:
             - {{coalesce $spec.grpc_ip (printf "%s-grpc-svc" $slug) | quote }}
-          - name: "GrpcPort"
+          - name: "Port"
             values:
             - {{$defaulted.grpc_port | toString | quote}}
           - name: "ConsumersToStart"
