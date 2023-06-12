@@ -22,6 +22,7 @@ from tests.harness import DaqTangoTestHarnessContext
 def daq_component_manager_fixture(
     test_context: DaqTangoTestHarnessContext,
     daq_id: int,
+    daq_address: str,
     receiver_interface: str,
     receiver_ip: str,
     receiver_ports: str,
@@ -35,6 +36,7 @@ def daq_component_manager_fixture(
 
     :param test_context: the context in which the tests are running.
     :param daq_id: the ID of the daq receiver
+    :param daq_address: the address of the DAQ server
     :param receiver_interface: The interface this DaqReceiver is to watch.
     :param receiver_ip: The IP address of this DaqReceiver.
     :param receiver_ports: The ports this DaqReceiver is to watch.
@@ -46,14 +48,12 @@ def daq_component_manager_fixture(
 
     :return: a daq component manager
     """
-    (grpc_host, grpc_port) = test_context.get_grpc_address(daq_id)
     return DaqComponentManager(
         daq_id,
         receiver_interface,
         receiver_ip,
         receiver_ports,
-        grpc_host,
-        grpc_port,
+        daq_address,
         empty_consumer_list_to_start,
         logger,
         max_workers,

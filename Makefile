@@ -126,10 +126,10 @@ k8s-do-test:
 
 
 # Compiles gRPC code and fixes the incorrect import syntax.
-GRPC_PROTOS_FOLDER = ./src/ska_low_mccs_daq/gRPC_server/protos
-GRPC_OUTPUT_FOLDER = ./src/ska_low_mccs_daq/gRPC_server/generated_code
+GRPC_PROTOS_FOLDER = ./src/ska_low_mccs_daq/interface/protos
+GRPC_OUTPUT_FOLDER = ./src/ska_low_mccs_daq/interface/generated_code
 grpc-code:
 	python -m grpc_tools.protoc -I $(GRPC_PROTOS_FOLDER) --python_out=$(GRPC_OUTPUT_FOLDER) --pyi_out=$(GRPC_OUTPUT_FOLDER) --grpc_python_out=$(GRPC_OUTPUT_FOLDER) daq.proto
-	sed -i -e 's/import daq_pb2/from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2/g' $(GRPC_OUTPUT_FOLDER)/daq_pb2_grpc.py
+	sed -i -e 's/import daq_pb2/from ska_low_mccs_daq.interface.generated_code import daq_pb2/g' $(GRPC_OUTPUT_FOLDER)/daq_pb2_grpc.py
 
 .PHONY: k8s-test python-post-lint docs-pre-build

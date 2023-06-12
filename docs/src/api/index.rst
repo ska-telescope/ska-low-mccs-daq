@@ -3,8 +3,9 @@ API
 ===
 
 .. toctree::
-  :caption: Device subpackages
+  :caption: API
   :maxdepth: 2
 
-  DAQ Receiver<daq_receiver/index>
-  DAQ Server<gRPC_server/index>
+  DAQ receiver Tango device<daq_receiver/index>
+  DAQ handler<daq_handler>
+  Interface<interface/index>

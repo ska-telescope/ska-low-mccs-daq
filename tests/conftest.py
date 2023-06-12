@@ -79,4 +79,6 @@ def logger_fixture() -> logging.Logger:
 
     :return: a logger
     """
-    return logging.getLogger()
+    debug_logger = logging.getLogger()
+    debug_logger.setLevel(logging.DEBUG)
+    return debug_logger

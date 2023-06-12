@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of the SKA SAT.LMC project
+# This file is part of the SKA Low MCCS project
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE.txt for more info.
@@ -8,20 +8,17 @@
 from __future__ import annotations
 
 import functools
-import json
 import logging
 import os
-from concurrent import futures
 from enum import IntEnum
-from typing import Any, Callable, List, Optional, TypeVar, cast
+from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
 
-import grpc
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode
 
-from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2, daq_pb2_grpc
+from ska_low_mccs_daq.interface.server import run_server_forever
 
-__all__ = ["MccsDaqServer", "main"]
+__all__ = ["DaqHandler", "main"]
 
 Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 
@@ -35,7 +32,7 @@ class DaqStatus(IntEnum):
 
 
 class DaqCallbackBuffer:
-    """A DAQ callback buffer to flush to gRPC Client every poll."""
+    """A DAQ callback buffer to flush to the client every poll."""
 
     def __init__(self: DaqCallbackBuffer, logger: logging.Logger):
         self.logger: logging.Logger = logger
@@ -82,15 +79,7 @@ class DaqCallbackBuffer:
         :yields response: the call_info response.
         """
         for i, _ in enumerate(self.written_files):
-            call_info = daq_pb2.CallInfo()
-            call_info.data_types_received = self.data_types_received[i]
-            call_info.files_written = self.written_files[i]
-
-            response = daq_pb2.startDaqResponse()
-            response.call_info.data_types_received = call_info.data_types_received
-            response.call_info.files_written = call_info.files_written
-
-            yield response
+            yield (self.data_types_received[i], self.written_files[i])
 
         # after yield clear buffer
         self.clear_buffer()
@@ -144,7 +133,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
 
     @functools.wraps(func)
     def _wrapper(
-        self: MccsDaqServer,
+        self: DaqHandler,
         *args: Any,
         **kwargs: Any,
     ) -> Any:
@@ -154,7 +143,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
         This is a wrapper function that implements the functionality of
         the decorator.
 
-        :param self: This instance of an MccsDaqServer.
+        :param self: This instance of an DaqHandler.
         :param args: positional arguments to the wrapped function
         :param kwargs: keyword arguments to the wrapped function
 
@@ -173,10 +162,10 @@ def check_initialisation(func: Wrapped) -> Wrapped:
     return cast(Wrapped, _wrapper)
 
 
-class MccsDaqServer(daq_pb2_grpc.DaqServicer):
-    """An implementation of a MccsDaqServer device."""
+class DaqHandler:
+    """An implementation of a DaqHandler device."""
 
-    def __init__(self: MccsDaqServer):
+    def __init__(self: DaqHandler):
         """Initialise this device."""
         self.daq_instance: DaqReceiver = None
         self._receiver_started: bool = False
@@ -187,7 +176,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         self.buffer = DaqCallbackBuffer(self.logger)
 
     def file_dump_callback(
-        self: MccsDaqServer,
+        self: DaqHandler,
         data_mode: str,
         file_name: str,
         additional_info: Optional[str] = None,
@@ -204,7 +193,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         else:
             self.buffer.add(data_mode, file_name)
 
-    def update_status(self: MccsDaqServer) -> None:
+    def update_status(self: DaqHandler) -> None:
         """Update the status of DAQ."""
         if self.state == DaqStatus.STOPPED:
             return
@@ -214,27 +203,21 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             self.state = DaqStatus.LISTENING
 
     @check_initialisation
-    def StartDaq(
-        self: MccsDaqServer,
-        request: daq_pb2.startDaqRequest,
-        context: grpc.ServicerContext,
-    ) -> daq_pb2.commandResponse:
+    def start(
+        self: DaqHandler,
+        modes_to_start: str,
+    ) -> Iterator[str | tuple[str, str]]:
         """
         Start data acquisition with the current configuration.
 
         A infinite streaming loop will be started until told to stop.
-        This will notify the gRPC client of state changes and metadata
+        This will notify the client of state changes and metadata
         of files written to disk, e.g. `data_type`.`file_name`.
 
-        :param request: arguments object containing `modes_to_start`
-            `modes_to_start`: The list of consumers to start.
+        :param modes_to_start: string listing the modes to start.
 
-        :param context: command metadata
-
-        :yields: A streamed gRPC response.
+        :yield: a status update.
         """
-        modes_to_start: str = request.modes_to_start
-
         if not self._receiver_started:
             self.daq_instance.initialise_daq()
             self._receiver_started = True
@@ -250,10 +233,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         self.daq_instance.start_daq(converted_modes_to_start, callbacks)
         self.request_stop = False
 
-        # yield listening only once to notify client that daq is listening.
-        response = daq_pb2.startDaqResponse()
-        response.call_state.state = daq_pb2.CallState.LISTENING
-        yield response
+        yield "LISTENING"
 
         self.state = DaqStatus.LISTENING
         self.logger.info("Daq listening......")
@@ -270,145 +250,87 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             self.update_status()
 
         # if we have got here we have stopped
-        response = daq_pb2.startDaqResponse()
-        response.call_state.state = daq_pb2.CallState.STOPPED
-        yield response
+        yield "STOPPED"
 
     @check_initialisation
-    def StopDaq(
-        self: MccsDaqServer,
-        request: daq_pb2.stopDaqRequest,
-        context: grpc.ServicerContext,
-    ) -> daq_pb2.commandResponse:
+    def stop(self: DaqHandler) -> tuple[ResultCode, str]:
         """
         Stop data acquisition.
 
-        :param request: unused
-        :param context: command metadata
-
-        :return: a commandResponse object containing `result_code` and `message`
+        :return: a resultcode, message tuple
         """
         self.logger.info("Stopping daq.....")
         self.daq_instance.stop_daq()
         self._receiver_started = False
         self.request_stop = True
-        return daq_pb2.commandResponse(result_code=ResultCode.OK, message="Daq stopped")
+        return ResultCode.OK, "Daq stopped"
 
-    def InitDaq(
-        self: MccsDaqServer,
-        request: daq_pb2.configDaqRequest,
-        context: grpc.ServicerContext,
-    ) -> daq_pb2.commandResponse:
+    def initialise(self: DaqHandler, config: dict[str, Any]) -> tuple[ResultCode, str]:
         """
         Initialise a new DaqReceiver instance.
 
-        :param request: arguments object containing `config`
-            `config`: The initial daq configuration to apply.
-        :param context: command metadata
+        :param config: the configuration to apply
 
-        :return: a commandResponse object containing `result_code` and `message`
+        :return: a resultcode, message tuple
         """
         if self._initialised is False:
             self.logger.info("Initialising daq.")
             self.daq_instance = DaqReceiver()
             try:
-                if request.config != "":
-                    self.daq_instance.populate_configuration(json.loads(request.config))
+                if config:
+                    self.daq_instance.populate_configuration(config)
 
                 self.daq_instance.initialise_daq()
                 self._receiver_started = True
                 self._initialised = True
             # pylint: disable=broad-except
             except Exception as e:
-                self.logger.error(
-                    "Caught exception in `daq_grpc_server.InitDaq`: %s", e
-                )
-                return daq_pb2.commandResponse(
-                    result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
-                )
+                self.logger.error("Caught exception in `DaqHandler.initialise`: %s", e)
+                return ResultCode.FAILED, f"Caught exception: {e}"
             self.logger.info("Daq initialised.")
-            return daq_pb2.commandResponse(
-                result_code=ResultCode.OK, message="Daq successfully initialised"
-            )
+            return ResultCode.OK, "Daq successfully initialised"
+
         # else
         self.logger.info("Daq already initialised")
-        return daq_pb2.commandResponse(
-            result_code=ResultCode.REJECTED, message="Daq already initialised"
-        )
+        return ResultCode.REJECTED, "Daq already initialised"
 
     @check_initialisation
-    def ConfigureDaq(
-        self: MccsDaqServer,
-        request: daq_pb2.configDaqRequest,
-        context: grpc.ServicerContext,
-    ) -> daq_pb2.commandResponse:
+    def configure(self: DaqHandler, config: dict[str, Any]) -> tuple[ResultCode, str]:
         """
         Apply a configuration to the DaqReceiver.
 
-        :param request: arguments object containing `config`
-            `config`: The initial daq configuration to apply.
-        :param context: command metadata
+        :param config: the configuration to apply
 
-        :return: a commandResponse object containing `result_code` and `message`
+        :return: a resultcode, message tuple
         """
-        empty_config = ["", {}]
-        daq_config = json.loads(request.config)
-        self.logger.info("Configuring daq with: %s", daq_config)
+        self.logger.info("Configuring daq with: %s", config)
         try:
-            if daq_config in empty_config:
+            if not config:
                 self.logger.error("Daq was not reconfigured, no config data supplied.")
-                return daq_pb2.commandResponse(
-                    result_code=ResultCode.REJECTED,
-                    message="No configuration data supplied.",
-                )
-            # else
-            self.daq_instance.populate_configuration(daq_config)
+                return ResultCode.REJECTED, "No configuration data supplied."
+
+            self.daq_instance.populate_configuration(config)
             self.logger.info("Daq successfully reconfigured.")
-            return daq_pb2.commandResponse(
-                result_code=ResultCode.OK, message="Daq reconfigured"
-            )
+            return ResultCode.OK, "Daq reconfigured"
 
         # pylint: disable=broad-except
         except Exception as e:
-            self.logger.error(
-                "Caught exception in `daq_grpc_server.ConfigureDaq`: %s", e
-            )
-            return daq_pb2.commandResponse(
-                result_code=ResultCode.FAILED, message=f"Caught exception: {e}"
-            )
+            self.logger.error(f"Caught exception in DaqHandler.configure: {e}")
+            return ResultCode.FAILED, f"Caught exception: {e}"
 
     @check_initialisation
-    def GetConfiguration(
-        self: MccsDaqServer,
-        request: daq_pb2.getConfigRequest,
-        context: grpc.ServicerContext,
-    ) -> daq_pb2.ConfigurationResponse:
+    def get_configuration(
+        self: DaqHandler,
+    ) -> dict[str, Any]:
         """
         Retrieve the current DAQ configuration.
 
-        :param request: Empty argument object.
-        :param context: command metadata
-
-        :return: a commandResponse object containing the current `config`.
+        :return: a configuration dictionary.
         """
-        configuration = self.daq_instance.get_configuration()
-        # we make a copy as we want to modify type for gRPC communications.
-        configuration_copy = configuration.copy()
-
-        # Here we are casting to (str) type to match proto grpc configurations.
-        attributes_to_cast = ["observation_metadata", "receiver_ports"]
-
-        for attribute in attributes_to_cast:
-            configuration_copy[attribute] = str(configuration_copy[attribute])
-
-        return daq_pb2.ConfigurationResponse(**configuration_copy)
+        return self.daq_instance.get_configuration()
 
     @check_initialisation
-    def DaqStatus(
-        self: MccsDaqServer,
-        request: daq_pb2.daqStatusRequest,
-        context: grpc.ServicerContext,
-    ) -> daq_pb2.daqStatusResponse:
+    def get_status(self: DaqHandler) -> dict[str, Any]:
         """
         Provide status information for this MccsDaqReceiver.
 
@@ -417,9 +339,6 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
             - Receiver Interface: "Interface Name": str
             - Receiver Ports: [Port_List]: list[int]
             - Receiver IP: "IP_Address": str
-
-        :param request: Empty argument object.
-        :param context: command metadata
 
         :return: A json string containing the status of this DaqReceiver.
         """
@@ -435,7 +354,7 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
         receiver_ports = self.daq_instance._config["receiver_ports"]
         receiver_ip = self.daq_instance._config["receiver_ip"]
         # 4. Compose into some format and return.
-        status = {
+        return {
             "Running Consumers": running_consumer_list,
             "Receiver Interface": receiver_interface,
             "Receiver Ports": receiver_ports,
@@ -443,26 +362,16 @@ class MccsDaqServer(daq_pb2_grpc.DaqServicer):
                 receiver_ip.decode() if isinstance(receiver_ip, bytes) else receiver_ip
             ],
         }
-        return daq_pb2.daqStatusResponse(
-            status=json.dumps(status),
-        )
 
 
 def main() -> None:
     """
     Entrypoint for the module.
 
-    Create and start a gRPC server.
+    Create and start a server.
     """
-    print("Starting daq server...", flush=True)
     port = os.getenv("DAQ_GRPC_PORT", default="50051")
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    daq_pb2_grpc.add_DaqServicer_to_server(MccsDaqServer(), server)
-    server.add_insecure_port("[::]:" + port)
-    server.start()
-    print("Server started, listening on " + port, flush=True)
-    server.wait_for_termination()
-    print("Stopping daq server.")
+    run_server_forever(DaqHandler(), int(port))
 
 
 if __name__ == "__main__":

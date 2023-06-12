@@ -36,10 +36,8 @@ class _StartDaqCommand(SubmittedSlowCommand):
     """
     Class for handling the Start command.
 
-    This command starts the DAQ device to
-    listen for UDP traffic on a specific interface
-    A streamed gRPC response is returned with updates on the
-    state of DAQ.
+    This command starts the DAQ device
+    to listen for UDP traffic on a specific interface.
     """
 
     def __init__(
@@ -114,13 +112,13 @@ class MccsDaqReceiver(SKABaseDevice):
         doc="The port/s this DaqReceiver is monitoring.",
         default_value="4660",
     )
-    GrpcPort = device_property(
-        dtype=str,
-        doc="The gRPC port this DaqReceiver is using.",
-        default_value=50051,
+    Host = device_property(
+        dtype=str, doc="The host for communication with the DAQ receiver."
     )
-    GrpcHost = device_property(
-        dtype=str, doc="The gRPC host this DaqReceiver is using."
+    Port = device_property(
+        dtype=str,
+        doc="The port for communication with the DAQ receiver.",
+        default_value=50051,
     )
     DaqId = device_property(
         dtype=int, doc="The ID of this DaqReceiver device.", default_value=0
@@ -183,8 +181,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self.ReceiverInterface,
             self.ReceiverIp,
             self.ReceiverPorts,
-            self.GrpcHost,
-            self.GrpcPort,
+            f"{self.Host}:{self.Port}",
             self.ConsumersToStart,
             self.logger,
             self._max_workers,
