@@ -1,9 +1,6 @@
 [flake8]
 max-line-length = 88
 
-exclude =
-    src/ska_low_mccs_daq/interface/generated_code
-
 extend-ignore = BLK,T
 enable = DAR104
 # E203 and W503 conflict with black
@@ -16,6 +13,5 @@ rst-directives = uml
 per-file-ignores =
     # N802 = PEP8 lowercase function name -- conflicts with Tango conventions
     src/ska_low_mccs_daq/daq_receiver/daq_receiver_device.py: N802
-    src/ska_low_mccs_daq/interface/server.py: N802
     tests/unit/daq_receiver/test_daq_receiver_device.py: N802
     tests/functional/conftest.py: N802

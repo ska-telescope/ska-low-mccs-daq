@@ -111,7 +111,7 @@ class DaqTangoTestHarness:
         # to run tests against a real cluster,
         # from within a pod that does not have ska_low_mccs_daq installed.
         # pylint: disable-next=import-outside-toplevel
-        from ska_low_mccs_daq.interface.server import server_context
+        from ska_low_mccs_daq_interface.server import server_context
 
         self._tango_test_harness.add_context_manager(
             f"daq_{daq_id}",

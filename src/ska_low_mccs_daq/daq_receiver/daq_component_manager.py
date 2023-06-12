@@ -18,8 +18,7 @@ from ska_low_mccs_common.component import (
     MccsComponentManager,
     check_communicating,
 )
-
-from ..interface import DaqClient
+from ska_low_mccs_daq_interface import DaqClient
 
 __all__ = ["DaqComponentManager"]
 
@@ -219,7 +218,7 @@ class DaqComponentManager(MccsComponentManager):
     def _start_daq(
         self: DaqComponentManager,
         modes_to_start: str,
-        task_callback: Callable,
+        task_callback: Optional[Callable],
         task_abort_event: Optional[threading.Event] = None,
     ) -> None:
         """
