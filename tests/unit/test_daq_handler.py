@@ -14,8 +14,7 @@ from typing import Any
 
 import pytest
 from ska_control_model import ResultCode, TaskStatus
-
-from ska_low_mccs_daq.interface.client import DaqClient
+from ska_low_mccs_daq_interface.client import DaqClient
 
 # TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
 gc.disable()

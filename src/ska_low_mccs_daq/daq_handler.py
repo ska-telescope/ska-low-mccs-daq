@@ -15,8 +15,7 @@ from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
 
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode
-
-from ska_low_mccs_daq.interface.server import run_server_forever
+from ska_low_mccs_daq_interface.server import run_server_forever
 
 __all__ = ["DaqHandler", "main"]
 

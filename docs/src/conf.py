@@ -11,6 +11,7 @@ import typing
 
 # WORKAROUND: https://github.com/sphinx-doc/sphinx/issues/9243
 import sphinx.builders.html
+import sphinx.builders.linkcheck
 import sphinx.builders.latex
 import sphinx.builders.texinfo
 import sphinx.builders.text
