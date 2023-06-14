@@ -150,7 +150,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
             not been completed.
         :return: whatever the wrapped function returns
         """
-        if self._initialised is False:
+        if not self.initialised:
             raise ValueError(
                 f"Cannot execute '{type(self).__name__}.{func.__name__}'. "
                 "DaqReceiver has not been initialised. "
@@ -174,7 +174,7 @@ class DaqHandler:
         self.request_stop = False
         self.buffer = DaqCallbackBuffer(self.logger)
 
-    def file_dump_callback(
+    def _file_dump_callback(
         self: DaqHandler,
         data_mode: str,
         file_name: str,
@@ -192,7 +192,7 @@ class DaqHandler:
         else:
             self.buffer.add(data_mode, file_name)
 
-    def update_status(self: DaqHandler) -> None:
+    def _update_status(self: DaqHandler) -> None:
         """Update the status of DAQ."""
         if self.state == DaqStatus.STOPPED:
             return
@@ -200,69 +200,6 @@ class DaqHandler:
             self.state = DaqStatus.RECEIVING
         else:
             self.state = DaqStatus.LISTENING
-
-    @check_initialisation
-    def start(
-        self: DaqHandler,
-        modes_to_start: str,
-    ) -> Iterator[str | tuple[str, str]]:
-        """
-        Start data acquisition with the current configuration.
-
-        A infinite streaming loop will be started until told to stop.
-        This will notify the client of state changes and metadata
-        of files written to disk, e.g. `data_type`.`file_name`.
-
-        :param modes_to_start: string listing the modes to start.
-
-        :yield: a status update.
-        """
-        if not self._receiver_started:
-            self.daq_instance.initialise_daq()
-            self._receiver_started = True
-        try:
-            # Convert string representation to DaqModes
-            converted_modes_to_start: list[DaqModes] = convert_daq_modes(modes_to_start)
-        except ValueError as e:
-            self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
-
-        # yuck
-        callbacks = [self.file_dump_callback] * len(converted_modes_to_start)
-
-        self.daq_instance.start_daq(converted_modes_to_start, callbacks)
-        self.request_stop = False
-
-        yield "LISTENING"
-
-        self.state = DaqStatus.LISTENING
-        self.logger.info("Daq listening......")
-
-        # infinite loop (until told to stop)
-        # TODO: should this be in a thread?
-        while self.request_stop is False:
-            if self.state == DaqStatus.RECEIVING:
-                self.logger.info("Sending buffer to client ......")
-                # send buffer to client
-                yield from self.buffer.send_buffer_to_client()
-
-            # check callbacks
-            self.update_status()
-
-        # if we have got here we have stopped
-        yield "STOPPED"
-
-    @check_initialisation
-    def stop(self: DaqHandler) -> tuple[ResultCode, str]:
-        """
-        Stop data acquisition.
-
-        :return: a resultcode, message tuple
-        """
-        self.logger.info("Stopping daq.....")
-        self.daq_instance.stop_daq()
-        self._receiver_started = False
-        self.request_stop = True
-        return ResultCode.OK, "Daq stopped"
 
     def initialise(self: DaqHandler, config: dict[str, Any]) -> tuple[ResultCode, str]:
         """
@@ -292,6 +229,78 @@ class DaqHandler:
         # else
         self.logger.info("Daq already initialised")
         return ResultCode.REJECTED, "Daq already initialised"
+
+    @property
+    def initialised(self) -> bool:
+        """
+        Return whether the DAQ is initialised.
+
+        :return: whether the DAQ is initialised.
+        """
+        return self._initialised
+
+    @check_initialisation
+    def start(
+        self: DaqHandler,
+        modes_to_start: str,
+    ) -> Iterator[str | tuple[str, str]]:
+        """
+        Start data acquisition with the current configuration.
+
+        A infinite streaming loop will be started until told to stop.
+        This will notify the client of state changes and metadata
+        of files written to disk, e.g. `data_type`.`file_name`.
+
+        :param modes_to_start: string listing the modes to start.
+
+        :yield: a status update.
+        """
+        if not self._receiver_started:
+            self.daq_instance.initialise_daq()
+            self._receiver_started = True
+        try:
+            # Convert string representation to DaqModes
+            converted_modes_to_start: list[DaqModes] = convert_daq_modes(modes_to_start)
+        except ValueError as e:
+            self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
+
+        # yuck
+        callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
+
+        self.daq_instance.start_daq(converted_modes_to_start, callbacks)
+        self.request_stop = False
+
+        yield "LISTENING"
+
+        self.state = DaqStatus.LISTENING
+        self.logger.info("Daq listening......")
+
+        # infinite loop (until told to stop)
+        # TODO: should this be in a thread?
+        while self.request_stop is False:
+            if self.state == DaqStatus.RECEIVING:
+                self.logger.info("Sending buffer to client ......")
+                # send buffer to client
+                yield from self.buffer.send_buffer_to_client()
+
+            # check callbacks
+            self._update_status()
+
+        # if we have got here we have stopped
+        yield "STOPPED"
+
+    @check_initialisation
+    def stop(self: DaqHandler) -> tuple[ResultCode, str]:
+        """
+        Stop data acquisition.
+
+        :return: a resultcode, message tuple
+        """
+        self.logger.info("Stopping daq.....")
+        self.daq_instance.stop_daq()
+        self._receiver_started = False
+        self.request_stop = True
+        return ResultCode.OK, "Daq stopped"
 
     @check_initialisation
     def configure(self: DaqHandler, config: dict[str, Any]) -> tuple[ResultCode, str]:

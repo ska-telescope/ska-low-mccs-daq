@@ -11,9 +11,11 @@
 __all__ = [
     "DaqComponentManager",
     "DaqHealthModel",
+    "DaqSimulator",
     "MccsDaqReceiver",
 ]
 
 from .daq_component_manager import DaqComponentManager
 from .daq_health_model import DaqHealthModel
 from .daq_receiver_device import MccsDaqReceiver
+from .daq_simulator import DaqSimulator
