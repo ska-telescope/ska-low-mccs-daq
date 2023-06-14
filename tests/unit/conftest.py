@@ -13,7 +13,7 @@ from ska_tango_testing.mock import MockCallableGroup
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tango.server import Device
 
-from ska_low_mccs_daq.daq_handler import DaqHandler
+from ska_low_mccs_daq.daq_receiver import DaqSimulator
 from tests.harness import DaqTangoTestHarness, DaqTangoTestHarnessContext
 
 
@@ -173,7 +173,7 @@ def test_context_fixture(
     :yields: a test harness context.
     """
     test_harness = DaqTangoTestHarness()
-    test_harness.add_daq_instance(1, DaqHandler())
+    test_harness.add_daq_instance(1, DaqSimulator())
     test_harness.add_daq_device(
         1,
         address=None,  # dynamically get address of DAQ instance

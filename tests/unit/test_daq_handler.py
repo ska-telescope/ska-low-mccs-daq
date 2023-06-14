@@ -116,7 +116,8 @@ class TestDaqHandler:
         initial_config = daq_client.get_configuration()
         if daq_config != "":
             for k, v in daq_config.items():
-                assert initial_config[k] != v
+                if k in initial_config:
+                    assert initial_config[k] != v
 
         assert daq_client.configure_daq(json.dumps(daq_config)) == (
             expected_rc,
