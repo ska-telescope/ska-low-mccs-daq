@@ -461,7 +461,7 @@ static void parse_arguments(int argc, char *argv[])
                 // Convert UTC datetime string to Unix timestamp
                 std::tm tm_utc = {};
                 std::stringstream ss(utc_date);
-                ss >> std::get_time(&tm_utc, "%Y/%m/%d_%H:%M");
+                ss >> std::get_time(&tm_utc, "%Y/%m/%d_%H:%M:%S");
                 capture_start_time = static_cast<double>(timegm(&tm_utc));
 
                 // Set number of skips to 0

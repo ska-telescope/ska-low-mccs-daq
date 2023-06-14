@@ -35,9 +35,9 @@ struct StationRawBuffer
 
 // Callback data structure
 typedef struct raw_station_metadata {
-    unsigned frequency;          // Start channel frequency
-    unsigned nof_packets;        // Number of packets in buffer
-    unsigned buffer_counter;     // Buffer number
+    unsigned frequency;        // Start channel frequency
+    unsigned nof_packets;      // Number of packets in buffer
+    unsigned buffer_counter;   // Buffer number
     unsigned start_sample_index; // Start sample from beginning of buffer
 } RawStationMetadata;
 
@@ -54,7 +54,7 @@ public:
     // Write data to buffer
     void write_data(uint32_t samples, uint32_t channel, uint64_t packet_counter,
                     uint16_t *data_ptr, double timestamp, uint32_t frequency,
-		    unsigned start_sample_offset);
+		            unsigned start_sample_offset);
 
     // Read buffer
     StationRawBuffer* read_buffer();
