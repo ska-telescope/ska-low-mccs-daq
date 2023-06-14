@@ -13,7 +13,7 @@ from ska_tango_testing.mock import MockCallableGroup
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tango.server import Device
 
-from ska_low_mccs_daq.gRPC_server.daq_grpc_server import MccsDaqServer
+from ska_low_mccs_daq.daq_receiver import DaqSimulator
 from tests.harness import DaqTangoTestHarness, DaqTangoTestHarnessContext
 
 
@@ -173,7 +173,7 @@ def test_context_fixture(
     :yields: a test harness context.
     """
     test_harness = DaqTangoTestHarness()
-    test_harness.add_daq_instance(1, MccsDaqServer())
+    test_harness.add_daq_instance(1, DaqSimulator())
     test_harness.add_daq_device(
         1,
         address=None,  # dynamically get address of DAQ instance
@@ -188,18 +188,17 @@ def test_context_fixture(
         yield test_context
 
 
-@pytest.fixture(name="grpc_channel")
-def grpc_channel_fixture(
+@pytest.fixture(name="daq_address")
+def daq_address_fixture(
     test_context: DaqTangoTestHarnessContext,
     daq_id: int,
 ) -> Iterator[str]:
     """
-    Yield the channel on which the gRPC server is available.
+    Yield the address of the DAQ server.
 
     :param test_context: the context in which the tests are running.
     :param daq_id: the ID of the daq receiver
 
-    :yield: the gRPC channel.
+    :yield: the DAQ server address.
     """
-    grpc_host, grpc_port = test_context.get_grpc_address(daq_id)
-    yield f"{grpc_host}:{grpc_port}"
+    yield test_context.get_daq_server_address(daq_id)

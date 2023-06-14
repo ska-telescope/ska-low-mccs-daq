@@ -1,9 +1,0 @@
-# Default values for taranta.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
-display: ":0"
-xauthority: "~/.Xauthority"
-
-global:
-  minikube: true

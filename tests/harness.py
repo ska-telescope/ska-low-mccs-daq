@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import time
-from concurrent import futures
-from contextlib import contextmanager
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Iterator
+from typing import TYPE_CHECKING, Any, Callable
 
 import tango
 from ska_control_model import LoggingLevel
@@ -15,41 +13,7 @@ from tango import DeviceProxy
 from tango.server import Device
 
 if TYPE_CHECKING:
-    from ska_low_mccs_daq.gRPC_server import MccsDaqServer
-
-
-@contextmanager
-def daq_grpc_server(
-    daq_instance: MccsDaqServer,
-) -> Iterator[tuple[str, int]]:
-    # pylint: disable=import-outside-toplevel
-    """
-    Stand up a local gRPC server and yield its address.
-
-    Include this fixture in tests that require a gRPC DaqServer.
-
-    :param daq_instance:
-        The DAQ instance to be wrapped by this GRPC server.
-
-    :yield: The address of a running gRPC server.
-    """
-    # Defer importing from ska_low_mccs_daq and grpc
-    # until we know we need to launch a DAQ instance to test again.
-    # This ensures that we can use this harness
-    # to run tests against a real cluster,
-    # from within a pod that does not have ska_low_mccs_daq installed.
-    import grpc
-
-    from ska_low_mccs_daq.gRPC_server import daq_pb2_grpc
-
-    grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    daq_pb2_grpc.add_DaqServicer_to_server(daq_instance, grpc_server)
-    grpc_port = grpc_server.add_insecure_port("[::]:0")
-    print("Starting gRPC server...")
-    grpc_server.start()
-    time.sleep(0.1)
-    yield ("localhost", grpc_port)
-    grpc_server.stop(grace=3)
+    from ska_low_mccs_daq_interface import DaqServerBackendProtocol
 
 
 def get_device_name_from_id(daq_id: int) -> str:
@@ -110,15 +74,16 @@ class DaqTangoTestHarnessContext:
                 )
         raise RuntimeError(f"Device {device_name} failed readiness.")
 
-    def get_grpc_address(self, daq_id: int) -> tuple[str, int]:
+    def get_daq_server_address(self, daq_id: int) -> str:
         """
-        Get the address of the gRPC server for a DAQ instance.
+        Get the address of the DAQ server.
 
         :param daq_id: the ID number of this DAQ instance.
 
-        :returns: the address (hostname and port) of the gRPC server.
+        :returns: the address (hostname and port) of the DAQ server.
         """
-        return self._tango_context.get_context(f"daq_{daq_id}")
+        port = self._tango_context.get_context(f"daq_{daq_id}")
+        return f"localhost:{port}"
 
 
 class DaqTangoTestHarness:
@@ -131,7 +96,7 @@ class DaqTangoTestHarness:
     def add_daq_instance(
         self: DaqTangoTestHarness,
         daq_id: int,
-        daq_instance: MccsDaqServer,
+        daq_instance: DaqServerBackendProtocol,
     ) -> None:
         """
         And a DAQ instance to the test harness.
@@ -140,9 +105,17 @@ class DaqTangoTestHarness:
         :param daq_instance:
             the DAQ instance to be added to the test harness.
         """
+        # Defer importing from ska_low_mccs_daq
+        # until we know we need to launch a DAQ instance to test against.
+        # This ensures that we can use this harness
+        # to run tests against a real cluster,
+        # from within a pod that does not have ska_low_mccs_daq installed.
+        # pylint: disable-next=import-outside-toplevel
+        from ska_low_mccs_daq_interface.server import server_context
+
         self._tango_test_harness.add_context_manager(
             f"daq_{daq_id}",
-            daq_grpc_server(daq_instance),
+            server_context(daq_instance, 0),
         )
 
     def add_daq_device(  # pylint: disable=too-many-arguments
@@ -172,20 +145,18 @@ class DaqTangoTestHarness:
             This may be used to override the usual device class,
             for example with a patched subclass.
         """
-        grpc_host: Callable[[dict[str, Any]], str] | str  # for the type checker
-        grpc_port: Callable[[dict[str, Any]], int] | int  # for the type checker
+        port: Callable[[dict[str, Any]], int] | int  # for the type checker
 
         if address is None:
             server_id = f"daq_{daq_id}"
 
-            def grpc_host(context: dict[str, Any]) -> str:
-                return context[server_id][0]
+            host = "localhost"
 
-            def grpc_port(context: dict[str, Any]) -> int:
-                return context[server_id][1]
+            def port(context: dict[str, Any]) -> int:
+                return context[server_id]
 
         else:
-            (grpc_host, grpc_port) = address
+            (host, port) = address
 
         self._tango_test_harness.add_device(
             get_device_name_from_id(daq_id),
@@ -194,8 +165,8 @@ class DaqTangoTestHarness:
             ReceiverInterface=receiver_interface,
             ReceiverIp=receiver_ip,
             ReceiverPorts=receiver_ports,
-            GrpcHost=grpc_host,
-            GrpcPort=grpc_port,
+            Host=host,
+            Port=port,
             ConsumersToStart=consumers_to_start,
             LoggingLevelDefault=logging_level,
         )

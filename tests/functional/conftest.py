@@ -141,9 +141,9 @@ def test_context_fixture(
     """
     test_harness = DaqTangoTestHarness()
     if not true_context:
-        from ska_low_mccs_daq.gRPC_server.daq_grpc_server import MccsDaqServer
+        from ska_low_mccs_daq.daq_handler import DaqHandler
 
-        test_harness.add_daq_instance(daq_id, MccsDaqServer())
+        test_harness.add_daq_instance(daq_id, DaqHandler())
         test_harness.add_daq_device(
             daq_id,
             address=None,  # dynamically get address of DAQ instance

@@ -3,6 +3,7 @@ disable=
     duplicate-code,
     fixme,
     invalid-name,  # conflicts with Tango naming conventions
+    logging-fstring-interpolation,
 
 enable=
     useless-suppression,
@@ -14,12 +15,11 @@ ignore-imports=yes
 # pylint reports E1101 (no-member) for socket.SocketKind
 ignored-classes = socket
 
-generated-members = daq_pb2.*, daq_pb2_gprc.*
-
 # TODO: remove these when possible
 # W0212 protected-access
 # W0613 unused-argument
 disable = W0212, W0613
 
 # Ignore gRPC generated code.
-ignore=daq_pb2_gprc.*, daq_pb2.*
+generated-members = daq_pb2.*, daq_pb2_gprc.*
+ignore=**/generated_code/**/*.py

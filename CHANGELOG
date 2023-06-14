@@ -1,6 +1,17 @@
 # Version History
 
-## unrelease
+## unreleased
+
+## 0.3.0
+
+* [MCCS-1510] chart rewrite with PVC support
+* [MCCS-1502] Chart template fix
+* [MCCS-1487] test harness
+* [MCCS-1432] Add xray integration to mccs-daq repo
+* [MCCS-1203] Proposed changes resulting from thin_slice_demo.
+* [MCCS-1423] Update pyfabil and aavs-system version
+* [MCCS-1347] Fix when DAQ connects to its DaqReceiver
+* [MCCS-1310] dependency update
 
 ## 0.2.0
 

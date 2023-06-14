@@ -38,15 +38,16 @@ python-post-lint:
 	mypy --config-file mypy.ini src/ tests
 
 
-K8S_FACILITY ?= k8s-test
-K8S_CHART_PARAMS += --values charts/ska-low-mccs-daq/values-$(K8S_FACILITY).yaml
+K8S_FACILITY ?= minikube
+VALUES_FILE ?= charts/$(K8S_CHART)/values-$(K8S_FACILITY).yaml
+K8S_CHART_PARAMS += --values $(VALUES_FILE)
 
 
 # THIS IS SPECIFIC TO THIS REPO
 ifdef CI_REGISTRY_IMAGE
 K8S_CHART_PARAMS += \
-	--set low_mccs_daq.image.registry=$(CI_REGISTRY_IMAGE) \
-	--set low_mccs_daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
+	--set image.registry=$(CI_REGISTRY_IMAGE) \
+	--set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
 endif
 
 JUNITXML_REPORT_PATH ?= build/reports/functional-tests.xml
@@ -122,13 +123,3 @@ k8s-do-test:
 	kubectl -n $(KUBE_NAMESPACE) cp ska-low-mccs-k8s-test-runner:$(K8S_TEST_RUNNER_WORKING_DIRECTORY)/build/ ./build/ ; \
 	helm  -n $(KUBE_NAMESPACE) uninstall $(K8S_TEST_RUNNER_CHART_RELEASE) ; \
 	exit $$EXIT_CODE
-
-
-# Compiles gRPC code and fixes the incorrect import syntax.
-GRPC_PROTOS_FOLDER = ./src/ska_low_mccs_daq/gRPC_server/protos
-GRPC_OUTPUT_FOLDER = ./src/ska_low_mccs_daq/gRPC_server/generated_code
-grpc-code:
-	python -m grpc_tools.protoc -I $(GRPC_PROTOS_FOLDER) --python_out=$(GRPC_OUTPUT_FOLDER) --pyi_out=$(GRPC_OUTPUT_FOLDER) --grpc_python_out=$(GRPC_OUTPUT_FOLDER) daq.proto
-	sed -i -e 's/import daq_pb2/from ska_low_mccs_daq.gRPC_server.generated_code import daq_pb2/g' $(GRPC_OUTPUT_FOLDER)/daq_pb2_grpc.py
-
-.PHONY: k8s-test python-post-lint docs-pre-build

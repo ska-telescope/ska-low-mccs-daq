@@ -9,16 +9,11 @@
 from __future__ import annotations
 
 from time import sleep
-from typing import TYPE_CHECKING
 
 import pytest
 import tango
 from pytest_bdd import given, scenarios, then, when
 from ska_tango_testing.context import TangoContextProtocol
-
-if TYPE_CHECKING:
-    import grpc
-
 
 scenarios("./features/daq_basic_functionality.feature")
 
@@ -107,13 +102,11 @@ def daq_device_is_unknown_health(
 @given("the DAQ is in adminMode OFFLINE")
 def daq_device_is_in_admin_mode_offline(
     daq_receiver: tango.DeviceProxy,
-    daq_grpc_server: grpc.Server,
 ) -> None:
     """
     Assert that daq receiver is in admin mode OFFLINE.
 
     :param daq_receiver: The daq_receiver fixture to use.
-    :param daq_grpc_server: The daq_grpc_server fixture to use.
     """
     pytest.xfail(reason="Not implemented yet")
     # if daq_receiver.adminMode != AdminMode.OFFLINE:
@@ -124,13 +117,11 @@ def daq_device_is_in_admin_mode_offline(
 @when("I send set admin mode to ONLINE")
 def daq_sent_on_command(
     daq_receiver: tango.DeviceProxy,
-    daq_grpc_server: grpc.Server,
 ) -> None:
     """
     Send to on command to the daq receiver.
 
     :param daq_receiver: The daq_receiver fixture to use.
-    :param daq_grpc_server: The daq_grpc_server fixture to use.
     """
     pytest.xfail(reason="Not implemented yet")
     # daq_receiver.adminMode = AdminMode.ONLINE
@@ -166,13 +157,11 @@ def check_daq_is_healthy(
 @given("the DAQ is in the ON state")
 def daq_device_is_on(
     daq_receiver: tango.DeviceProxy,
-    daq_grpc_server: grpc.Server,
 ) -> None:
     """
     Assert that daq receiver is ON.
 
     :param daq_receiver: The daq_receiver fixture to use.
-    :param daq_grpc_server: The daq_grpc_server fixture to use.
     """
     pytest.xfail(reason="Not implemented yet")
     # if daq_receiver.state() != tango.DevState.ON:

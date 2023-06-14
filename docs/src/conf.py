@@ -11,6 +11,7 @@ import typing
 
 # WORKAROUND: https://github.com/sphinx-doc/sphinx/issues/9243
 import sphinx.builders.html
+import sphinx.builders.linkcheck
 import sphinx.builders.latex
 import sphinx.builders.texinfo
 import sphinx.builders.text
@@ -280,15 +281,14 @@ intersphinx_mapping = {
     "pytango": ("https://pytango.readthedocs.io/en/stable/", None),
     "ska-control-model": (
         "https://developer.skao.int/projects/ska-control-model/en/latest/",
-        None,
+        None
     ),
     "ska-tango-base": (
         "https://developer.skatelescope.org/projects/ska-tango-base/en/latest/",
-        None,
+        None
     ),
     "ska-low-mccs-common": (
         "https://developer.skao.int/projects/ska-low-mccs-common/en/latest/",
-        None,
+        None
     ),
-    "grpc": ("https://grpc.readthedocs.io/en/stable/", None,),
 }
