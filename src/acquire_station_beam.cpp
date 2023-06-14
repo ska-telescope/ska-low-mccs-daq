@@ -14,6 +14,7 @@ using namespace std;
 // Telescope and observation parameters
 float channel_bandwidth = (400e6 / 512.0) * (32 / 27.0);
 float channel_bandwidth_no_oversampling = (400e6 / 512.0);
+float sampling_time = 1.0 / channel_bandwidth;
 
 auto dada_header_size = 4096;
 string source = "UNKNOWN";
@@ -48,6 +49,7 @@ typedef struct raw_station_metadata {
     unsigned frequency;
     unsigned nof_packets;
     unsigned buffer_counter;
+    unsigned start_sample_index;
 } RawStationMetadata;
 
 // Forward declaration of functions
@@ -56,7 +58,7 @@ static int generate_output_file(double timestamp, unsigned int frequency,
 static std::string generate_dada_header(double timestamp, unsigned int frequency, unsigned int channels_in_file);
 void seek_to_location(off_t offset, int whence);
 void allocate_space(off_t offset, size_t len);
-void write_to_file(void* data);
+void write_to_file(void* data, unsigned start_sample_index);
 
 timespec t1, t2;
 
@@ -96,15 +98,19 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
     unsigned frequency = ((RawStationMetadata *) metadata)->frequency;
     unsigned nof_packets = ((RawStationMetadata *) metadata)->nof_packets;
     unsigned buffer_counter = ((RawStationMetadata *) metadata)->buffer_counter;
+    unsigned start_sample_index = ((RawStationMetadata *) metadata)->start_sample_index;
 
     if (counter < skip) {
         counter += 1;
 	    return;
     }
 
-    unsigned long buffer_size = nof_samples * nof_channels * nof_pols * sizeof(uint16_t);
+    unsigned long buffer_size = (nof_samples - start_sample_index) * nof_channels * nof_pols * sizeof(uint16_t);
     if (individual_channel_files)
-        buffer_size =  nof_samples * nof_pols * sizeof(uint16_t);
+        buffer_size =  (nof_samples - start_sample_index)* nof_pols * sizeof(uint16_t);
+
+    // Update timestamp with sample offset
+    timestamp += start_sample_index * sampling_time;
 
     // Check whether we need to generate new files
     // Note: Assumption that first buffer in the file is not an overwritten buffer
@@ -134,9 +140,9 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
 
     // Received expected buffer
     else if (counter == buffer_counter)
-        write_to_file(data);
+        write_to_file(data, start_sample_index);
 
-        // Buffer is further ahead than the current offset
+    // Buffer is further ahead than the current offset
     else if (buffer_counter > counter) {
 
         // Buffer should go in the next file. Not implemented
@@ -154,7 +160,7 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
             seek_to_location((buffer_counter - counter) * buffer_size, SEEK_CUR);
 
             // Write buffer
-            write_to_file(data);
+            write_to_file(data, start_sample_index);
 
             // Seek back to previous position + buffer length for next buffer
             seek_to_location(current_offset + buffer_size, SEEK_SET);
@@ -174,7 +180,7 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
         seek_to_location(current_offset - (counter - buffer_counter) * buffer_size, SEEK_SET);
 
         // Write data
-        write_to_file(data);
+        write_to_file(data, start_sample_index);
 
         // Seek back to previous offset + 1 extra buffer size
         seek_to_location(current_offset + buffer_size, SEEK_SET);
@@ -210,20 +216,24 @@ void seek_to_location(off_t offset, int whence) {
             exit_with_error("WARNING: Cannot seek file after gap allocation. Exiting\n");
 }
 
-void write_to_file(void* data) {
+void write_to_file(void* data, unsigned start_sample_index) {
+
+    auto samples_to_write = nof_samples - start_sample_index;
 
     // If separating channel, split buffer and write each channel into its respective file
     if (individual_channel_files) {
         for (unsigned i = 0; i < nof_channels; i++) {
-            auto src = (uint16_t *) data + i * nof_samples * nof_pols;
-            if (write(files[i], src, nof_samples * nof_pols * sizeof(uint16_t)) < 0)
+            auto src = (uint16_t *) data + i * nof_samples * nof_pols + start_sample_index * nof_pols;
+            if (write(files[i], src, samples_to_write * nof_pols * sizeof(uint16_t)) < 0)
                 exit_with_error("Failed to write buffer to disk! Exiting!");
         }
     }
-    else
+    else {
         // Write entire buffer to file
-        if (write(files[0], data, nof_samples * nof_channels * nof_pols * sizeof(uint16_t)) < 0)
+	uint16_t *src = ((uint16_t *) data) + start_sample_index * nof_pols * sizeof(uint16_t);
+        if (write(files[0], src, samples_to_write * nof_channels * nof_pols * sizeof(uint16_t)) < 0)
             exit_with_error(("Failed to write buffer to disk! Exiting!"));
+    }
 }
 
 // Generate output files
@@ -442,8 +452,11 @@ static void parse_arguments(int argc, char *argv[])
                 // Convert UTC datetime string to Unix timestamp
                 std::tm tm_utc = {};
                 std::stringstream ss(utc_date);
-                ss >> std::get_time(&tm_utc, "%Y/%m/%d_%H:%M");
+                ss >> std::get_time(&tm_utc, "%Y/%m/%d_%H:%M:%S");
                 capture_start_time = static_cast<double>(timegm(&tm_utc));
+
+		// Set number of skips to 0
+		skip = 0;
 
                 break;
             }
@@ -460,7 +473,8 @@ static void parse_arguments(int argc, char *argv[])
         auto unix_time = (std::time_t) capture_start_time;
         std::tm *tm_utc = std::gmtime(&unix_time);
         std::strftime(datetime_str, 20, "%Y/%m/%d_%H:%M", tm_utc);
-        std::cout << "Capture will start at " << datetime_str << " UTC" << std::endl;
+        std::cout << "Capture will start at " << datetime_str << " UTC (epoch time: " << (int) capture_start_time << ") in " 
+		  << (int) (capture_start_time - std::time(0)) << "s"  << std::endl;
     }
     if (simulate_write)
 	    printf("Simulating disk write, nothing will be physically written to disk\n");
@@ -543,12 +557,13 @@ int main(int argc, char *argv[])
             {"nof_samples", nof_samples},
             {"transpose_samples", (individual_channel_files) ? 0 : 1},
             {"max_packet_size", 9000},
-            {"start_capture_time", capture_start_time}
+            {"capture_start_time", capture_start_time}
     };
 
     // Workaround to avoid shared object not found, specify default location
-    // if (loadConsumer("libaavsdaq.so", "stationdataraw") != SUCCESS) {
-    if (loadConsumer("/opt/aavs/lib/libaavsdaq.so", "stationdataraw") != SUCCESS) {
+//    auto res = loadConsumer("/opt/aavs/lib/libaavsdaq.so", "stationdataraw");
+    auto res = loadConsumer("/home/amagro/station_beam_start_acq_time/aavs-system/src/build/libaavsdaq.so", "stationdataraw");
+    if (res != SUCCESS) {
         LOG(ERROR, "Failed to load station data consumser");
         return 0;
     }
@@ -563,7 +578,11 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    auto time_diff = capture_start_time - std::time(0);
+    if (time_diff > 0)
+        duration += time_diff;
     sleep(duration);
+
 
     if (stopConsumer("stationdataraw") != SUCCESS) {
         LOG(ERROR, "Failed to stop station data consumser");
