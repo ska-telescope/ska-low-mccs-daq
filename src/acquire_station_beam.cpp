@@ -100,11 +100,17 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
     unsigned buffer_counter = ((RawStationMetadata *) metadata)->buffer_counter;
     unsigned start_sample_index = ((RawStationMetadata *) metadata)->start_sample_index;
 
+    // start_sample_index is used when a specific start capture time is provided and acquisition starts mid-packet.
+    // This will only be applicable to the first buffer in an acquisition, so all buffer skipping logic below does
+    // not take a non-zero start_sample_index into consideration (first written buffer cannot be a skipped buffer).
+
+    // Do not write the first skip buffers to disk
     if (counter < skip) {
         counter += 1;
 	    return;
     }
 
+    // Compute buffer size that will be written to disk
     unsigned long buffer_size = (nof_samples - start_sample_index) * nof_channels * nof_pols * sizeof(uint16_t);
     if (individual_channel_files)
         buffer_size =  (nof_samples - start_sample_index)* nof_pols * sizeof(uint16_t);
@@ -123,10 +129,12 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
         // Clear array
         files.clear();
 
+        // Create a file for each frequency channel
         if (individual_channel_files) {
             for (unsigned i = 0; i < nof_channels; i++)
                 files.push_back(generate_output_file(timestamp, frequency, start_channel + i, 1));
         }
+        // Create a single file containing spectra
         else
             files.push_back(generate_output_file(timestamp, frequency, start_channel, nof_channels));
     }
@@ -217,20 +225,21 @@ void seek_to_location(off_t offset, int whence) {
 }
 
 void write_to_file(void* data, unsigned start_sample_index) {
+    // Write the provided data to file
 
     auto samples_to_write = nof_samples - start_sample_index;
 
     // If separating channel, split buffer and write each channel into its respective file
     if (individual_channel_files) {
         for (unsigned i = 0; i < nof_channels; i++) {
-            auto src = (uint16_t *) data + i * nof_samples * nof_pols + start_sample_index * nof_pols;
+            auto src = (uint16_t *) data + (i * nof_samples + start_sample_index) * nof_pols;
             if (write(files[i], src, samples_to_write * nof_pols * sizeof(uint16_t)) < 0)
                 exit_with_error("Failed to write buffer to disk! Exiting!");
         }
     }
     else {
         // Write entire buffer to file
-	uint16_t *src = ((uint16_t *) data) + start_sample_index * nof_pols * sizeof(uint16_t);
+	    uint16_t *src = ((uint16_t *) data) + start_sample_index * nof_channels * nof_pols * sizeof(uint16_t);
         if (write(files[0], src, samples_to_write * nof_channels * nof_pols * sizeof(uint16_t)) < 0)
             exit_with_error(("Failed to write buffer to disk! Exiting!"));
     }
@@ -268,19 +277,19 @@ static int generate_output_file(double timestamp, unsigned int frequency,
         allocate_aligned((void **) &full_header, (size_t) PAGE_ALIGNMENT, dada_header_size);
 
         // Copy generated header
-        auto generated_header = generate_dada_header(timestamp,
-                                                     frequency + channel_bandwidth_no_oversampling * first_channel,
-                                                     channels_in_file);
-        strcpy(full_header, generated_header.c_str());
+        auto header = generate_dada_header(timestamp,
+                                                 frequency + channel_bandwidth_no_oversampling * first_channel,
+                                                 channels_in_file);
+        strcpy(full_header, header.c_str());
 
         // Fill in empty space with nulls to match required dada header size
-        auto generated_header_size = generated_header.size();
+        auto generated_header_size = header.size();
         for (unsigned i = generated_header_size; i < dada_header_size; i++)
             full_header[i] = '\0';
 
         if (write(fd, full_header, dada_header_size) < 0)
         {
-            perror("Failed to generate DADA header to disk");
+            perror("Failed to write DADA header to disk");
             close(fd);
             exit(-1);
         }
@@ -320,7 +329,7 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "TSAMP " << fixed << setprecision(4) << (1.0 / channel_bandwidth) * 1e6 << endl;
     header << "UTC_START " << time_string << endl;
 
-    // Additional entries to match post-processing requiremenents
+    // Additional entries to match post-processing requirements
     header << "POPULATED 1" << endl;
     header << "OBS_ID 0" << endl;
     header << "SUBOBS_ID 0" << endl;
@@ -466,16 +475,19 @@ static void parse_arguments(int argc, char *argv[])
         }
     }
 
+    // Display acquisition information
     printf("Running acquire_station_beam with %ld samples starting from logical channel %d and saving %d channels.\n",
 		    nof_samples, start_channel, nof_channels);
+
     if (capture_start_time > 0) {
         char datetime_str[20];
         auto unix_time = (std::time_t) capture_start_time;
         std::tm *tm_utc = std::gmtime(&unix_time);
         std::strftime(datetime_str, 20, "%Y/%m/%d_%H:%M", tm_utc);
         std::cout << "Capture will start at " << datetime_str << " UTC (epoch time: " << (int) capture_start_time << ") in " 
-		  << (int) (capture_start_time - std::time(0)) << "s"  << std::endl;
+		  << (int) (capture_start_time - std::time(nullptr)) << "s"  << std::endl;
     }
+
     if (simulate_write)
 	    printf("Simulating disk write, nothing will be physically written to disk\n");
     else
@@ -483,7 +495,11 @@ static void parse_arguments(int argc, char *argv[])
         printf("Observing source %s for %d seconds\n", source.c_str(), duration);
 }
 
-void call_station_beam_callback(uint16_t *buffer, unsigned test_counter) {
+// -----------------------------------------------------------------------------------------------------------
+// -------------------------------------------------- TESTS --------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------
+
+void test_call_station_beam_callback(uint16_t *buffer, unsigned test_counter) {
     RawStationMetadata metadata = {0,0,test_counter};
 
     if (individual_channel_files) {
@@ -510,17 +526,21 @@ void test_acquire_station_beam() {
     uint16_t *buffer;
     allocate_aligned((void **) &buffer, PAGE_ALIGNMENT, nof_samples * nof_channels * nof_pols * sizeof(uint16_t));
 
-    call_station_beam_callback(buffer, 0);
-    call_station_beam_callback(buffer, 1);
-    call_station_beam_callback(buffer, 2);
-    call_station_beam_callback(buffer, 3);
-    call_station_beam_callback(buffer, 4);
-    call_station_beam_callback(buffer, 5);
-    call_station_beam_callback(buffer, 6);
-    call_station_beam_callback(buffer, 8);
-    call_station_beam_callback(buffer, 7);
-    call_station_beam_callback(buffer, 20);
+    test_call_station_beam_callback(buffer, 0);
+    test_call_station_beam_callback(buffer, 1);
+    test_call_station_beam_callback(buffer, 2);
+    test_call_station_beam_callback(buffer, 3);
+    test_call_station_beam_callback(buffer, 4);
+    test_call_station_beam_callback(buffer, 5);
+    test_call_station_beam_callback(buffer, 6);
+    test_call_station_beam_callback(buffer, 8);
+    test_call_station_beam_callback(buffer, 7);
+    test_call_station_beam_callback(buffer, 20);
 }
+
+// -----------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------
 
 int main(int argc, char *argv[])
 {
@@ -546,11 +566,11 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    // Telescope information
+    // Configure receiver
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
     addReceiverPort(4660);
 
-    // Set parameters
+    // Set station raw consumer parameters
     json j = {
             {"start_channel", start_channel},
             {"nof_channels", nof_channels},
@@ -560,9 +580,14 @@ int main(int argc, char *argv[])
             {"capture_start_time", capture_start_time}
     };
 
+    // Check whether a LIBAAVSDAQ environment variable is defined
+    string libaavsdaq_location = "/opt/aavs/lib/libaavsdaq.so";
+    if (std::getenv("AAVS_DAQ_LIBRARY") != nullptr)
+        libaavsdaq_location = std::getenv("AAVS_DAQ_LIBRARY");
+
     // Workaround to avoid shared object not found, specify default location
-//    auto res = loadConsumer("/opt/aavs/lib/libaavsdaq.so", "stationdataraw");
-    auto res = loadConsumer("/home/amagro/station_beam_start_acq_time/aavs-system/src/build/libaavsdaq.so", "stationdataraw");
+    std::cout << "Using AAVS DAQ library " << libaavsdaq_location << std::endl;
+    auto res = loadConsumer(libaavsdaq_location.c_str(), "stationdataraw");
     if (res != SUCCESS) {
         LOG(ERROR, "Failed to load station data consumser");
         return 0;
@@ -582,7 +607,6 @@ int main(int argc, char *argv[])
     if (time_diff > 0)
         duration += time_diff;
     sleep(duration);
-
 
     if (stopConsumer("stationdataraw") != SUCCESS) {
         LOG(ERROR, "Failed to stop station data consumser");
