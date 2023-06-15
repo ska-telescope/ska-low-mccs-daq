@@ -13,12 +13,15 @@ import logging
 import threading
 from typing import Any, Callable, Optional
 
-from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
-from ska_low_mccs_common.component import (
-    MccsComponentManager,
-    check_communicating,
+from ska_control_model import (
+    CommunicationStatus,
+    PowerState,
+    ResultCode,
+    TaskStatus,
 )
 from ska_low_mccs_daq_interface import DaqClient
+from ska_tango_base.base import check_communicating
+from ska_tango_base.executor import TaskExecutorComponentManager
 
 __all__ = ["DaqComponentManager"]
 
@@ -88,14 +91,19 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
-        #super().start_communicating()
+        if self.communication_state == CommunicationStatus.ESTABLISHED:
+            return
+        if self.communication_state == CommunicationStatus.DISABLED:
+            self._update_communication_state(CommunicationStatus.NOT_ESTABLISHED)
+
         try:
             configuration = json.dumps(self._get_default_config())
 
             response = self._daq_client.initialise(configuration)
             self.logger.info(response["message"])
         except Exception as e:  # pylint: disable=broad-except
-            self._component_state_callback(fault=True)
+            if self._component_state_callback is not None:
+                self._component_state_callback(fault=True)
             self.logger.error("Caught exception in start_communicating: %s", e)
 
         self._update_communication_state(CommunicationStatus.ESTABLISHED)
