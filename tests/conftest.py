@@ -223,14 +223,14 @@ def station_name_fixture() -> str:
     return "low-mccs/station/001"
 
 
-@pytest.fixture(name="subrack_name", scope="session")
-def subrack_name_fixture() -> str:
+@pytest.fixture(name="subrack_id", scope="session")
+def subrack_id_fixture() -> int:
     """
-    Return the name of the subrack Tango device.
+    Return the subrack id of the subrack under test.
 
-    :return: the name of the subrack Tango device.
+    :return: the subrack id of the subrack under test.
     """
-    return "low-mccs/subrack/0001"
+    return 1
 
 
 @pytest.fixture(name="tile_name", scope="session")
