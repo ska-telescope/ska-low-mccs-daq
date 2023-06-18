@@ -2,10 +2,11 @@
 """This module provides a flexible test harness for testing Tango devices."""
 from __future__ import annotations
 
+import unittest.mock
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable
 
-from ska_control_model import LoggingLevel
+from ska_control_model import LoggingLevel, SimulationMode, TestMode
 from ska_tango_testing.harness import TangoTestHarness, TangoTestHarnessContext
 from tango import DeviceProxy
 from tango.server import Device
@@ -18,7 +19,7 @@ def _slug(device_type: str, device_id: int) -> str:
     return f"{device_type}_{device_id}"
 
 
-def _subrack_name(subrack_id: int) -> str:
+def get_subrack_name(subrack_id: int) -> str:
     """
     Construct the subrack Tango device name from its ID number.
 
@@ -27,6 +28,17 @@ def _subrack_name(subrack_id: int) -> str:
     :return: the subrack Tango device name
     """
     return f"low-mccs/subrack/{subrack_id:04}"
+
+
+def get_tile_name(tile_id: int) -> str:
+    """
+    Construct the tile Tango device name from its ID number.
+
+    :param tile_id: the ID number of the tile.
+
+    :return: the tile Tango device name
+    """
+    return f"low-mccs/tile/{tile_id:04}"
 
 
 class SpsTangoTestHarnessContext:
@@ -49,7 +61,7 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the subrack Tango device.
         """
-        return self._tango_context.get_device(_subrack_name(subrack_id))
+        return self._tango_context.get_device(get_subrack_name(subrack_id))
 
     def get_subrack_address(self, subrack_id: int) -> tuple[str, int]:
         """
@@ -60,6 +72,16 @@ class SpsTangoTestHarnessContext:
         :returns: the address (hostname and port) of the DAQ server.
         """
         return self._tango_context.get_context(_slug("subrack", subrack_id))
+
+    def get_tile_device(self, tile_id: int) -> DeviceProxy:
+        """
+        Get a tile Tango device by its ID number.
+
+        :param tile_id: the ID number of the tile.
+
+        :returns: a proxy to the tile Tango device.
+        """
+        return self._tango_context.get_device(get_tile_name(tile_id))
 
 
 class SpsTangoTestHarness:
@@ -130,12 +152,59 @@ class SpsTangoTestHarness:
             (host, port) = address
 
         self._tango_test_harness.add_device(
-            _subrack_name(subrack_id),
+            get_subrack_name(subrack_id),
             device_class,
             SubrackIp=host,
             SubrackPort=port,
             UpdateRate=update_rate,
             LoggingLevelDefault=logging_level,
+        )
+
+    def add_mock_subrack_device(
+        self: SpsTangoTestHarness,
+        subrack_id: int,
+        mock: unittest.mock.Mock,
+    ) -> None:
+        """
+        Add a mock subrack Tango device to this test harness.
+
+        :param subrack_id: An ID number for the mock subrack.
+        :param mock: the mock to be used as a mock subrack device.
+        """
+        self._tango_test_harness.add_mock_device(get_subrack_name(subrack_id), mock)
+
+    def add_tile_device(  # pylint: disable=too-many-arguments
+        self: SpsTangoTestHarness,
+        tile_id: int,
+        subrack_id: int = 1,
+        subrack_bay: int = 1,
+        logging_level: int = int(LoggingLevel.DEBUG),
+        device_class: type[Device] | str = "ska_low_mccs_spshw.MccsTile",
+    ) -> None:
+        """
+        Add a tile Tango device to the test harness.
+
+        :param tile_id: ID number of the tile.
+        :param subrack_id: ID number of this tile's subrack.
+        :param subrack_bay: the bay position of this tile in the subrack.
+        :param logging_level: the Tango device's default logging level.
+        :param device_class: The device class to use.
+            This may be used to override the usual device class,
+            for example with a patched subclass.
+        """
+        self._tango_test_harness.add_device(
+            get_tile_name(subrack_id),
+            device_class,
+            TileId=tile_id,
+            SimulationConfig=int(SimulationMode.TRUE),
+            TestConfig=int(TestMode.TEST),
+            SubrackFQDN=get_subrack_name(subrack_id),
+            SubrackBay=subrack_bay,
+            AntennasPerTile=8,
+            LoggingLevelDefault=logging_level,
+            TpmIp="10.0.10.201",
+            TpmCpldPort=10000,
+            TpmVersion="tpm_v1_6",
         )
 
     def __enter__(
