@@ -213,31 +213,21 @@ def subrack_device_attribute_values_fixture(
     }
 
 
-@pytest.fixture(name="station_name", scope="session")
-def station_name_fixture() -> str:
-    """
-    Return the name of the station Tango device.
-
-    :return: the name of the station Tango device.
-    """
-    return "low-mccs/station/001"
-
-
 @pytest.fixture(name="subrack_id", scope="session")
 def subrack_id_fixture() -> int:
     """
-    Return the subrack id of the subrack under test.
+    Return the id of the subrack under test.
 
-    :return: the subrack id of the subrack under test.
+    :return: the id of the subrack under test.
     """
     return 1
 
 
-@pytest.fixture(name="tile_name", scope="session")
-def tile_name_fixture() -> str:
+@pytest.fixture(name="tile_id", scope="session")
+def tile_id_fixture() -> int:
     """
-    Return the name of the tile Tango device.
+    Return the id of the tile under test.
 
-    :return: the name of the tile Tango device.
+    :return: the id of the tile under test.
     """
-    return "low-mccs/tile/0001"
+    return 1
