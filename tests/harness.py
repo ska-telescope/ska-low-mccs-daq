@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest.mock
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Iterable
 
 from ska_control_model import LoggingLevel, SimulationMode, TestMode
 from ska_tango_testing.harness import TangoTestHarness, TangoTestHarnessContext
@@ -17,6 +17,15 @@ if TYPE_CHECKING:
 
 def _slug(device_type: str, device_id: int) -> str:
     return f"{device_type}_{device_id}"
+
+
+def get_sps_station_name() -> str:
+    """
+    Return the SPS station Tango device name.
+
+    :return: the SPS station Tango device name
+    """
+    return "low-mccs/sps_station/001"
 
 
 def get_subrack_name(subrack_id: int) -> str:
@@ -52,6 +61,14 @@ class SpsTangoTestHarnessContext:
             context.
         """
         self._tango_context = tango_context
+
+    def get_sps_station_device(self) -> DeviceProxy:
+        """
+        Get a proxy to the SPS station Tango device.
+
+        :returns: a proxy to the subrack Tango device.
+        """
+        return self._tango_context.get_device(get_sps_station_name())
 
     def get_subrack_device(self, subrack_id: int) -> DeviceProxy:
         """
@@ -90,6 +107,37 @@ class SpsTangoTestHarness:
     def __init__(self: SpsTangoTestHarness) -> None:
         """Initialise a new test harness instance."""
         self._tango_test_harness = TangoTestHarness()
+
+    def set_sps_station_device(  # pylint: disable=too-many-arguments
+        self: SpsTangoTestHarness,
+        cabinet_address: str = "10.0.0.0",
+        subrack_ids: Iterable[int] = range(1, 3),
+        tile_ids: Iterable[int] = range(1, 17),
+        logging_level: int = int(LoggingLevel.DEBUG),
+        device_class: type[Device] | str = "ska_low_mccs_spshw.SpsStation",
+    ) -> None:
+        """
+        Set the SPS station Tango device in the test harness.
+
+        This test harness currently only permits one SPS station device.
+
+        :param cabinet_address: the network address of the SPS cabinet
+        :param subrack_ids: IDs of the subracks in this station.
+        :param tile_ids: IDS of the tiles in this station.
+        :param logging_level: the Tango device's default logging level.
+        :param device_class: The device class to use.
+            This may be used to override the usual device class,
+            for example with a patched subclass.
+        """
+        self._tango_test_harness.add_device(
+            get_sps_station_name(),
+            device_class,
+            StationId=1,
+            TileFQDNs=[get_tile_name(tile_id) for tile_id in tile_ids],
+            SubrackFQDNs=[get_subrack_name(subrack_id) for subrack_id in subrack_ids],
+            CabinetNetworkAddress=cabinet_address,
+            LoggingLevelDefault=logging_level,
+        )
 
     def add_subrack_simulator(
         self: SpsTangoTestHarness,
@@ -206,6 +254,19 @@ class SpsTangoTestHarness:
             TpmCpldPort=10000,
             TpmVersion="tpm_v1_6",
         )
+
+    def add_mock_tile_device(
+        self: SpsTangoTestHarness,
+        tile_id: int,
+        mock: unittest.mock.Mock,
+    ) -> None:
+        """
+        Add a mock tile Tango device to this test harness.
+
+        :param tile_id: An ID number for the mock tile.
+        :param mock: the mock to be used as a mock tile device.
+        """
+        self._tango_test_harness.add_mock_device(get_tile_name(tile_id), mock)
 
     def __enter__(
         self: SpsTangoTestHarness,
