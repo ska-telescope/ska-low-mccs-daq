@@ -23,7 +23,7 @@ from tango.server import Device, command
 
 from ska_low_mccs_spshw import MccsDaqReceiver
 from ska_low_mccs_spshw.daq_receiver.daq_simulator import DaqModes, DaqSimulator
-from tests.daq_harness import DaqTangoTestHarness, DaqTangoTestHarnessContext
+from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
 # TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
 gc.disable()
@@ -31,7 +31,7 @@ gc.disable()
 
 @pytest.fixture(name="device_under_test")
 def device_under_test_fixture(
-    test_context: DaqTangoTestHarnessContext,
+    test_context: SpsTangoTestHarnessContext,
     daq_id: int,
 ) -> tango.DeviceProxy:
     """
@@ -231,7 +231,7 @@ class TestPatchedDaq:
         self: TestPatchedDaq,
         device_class_under_test: Type[MccsDaqReceiver] | str,
         daq_id: int,
-    ) -> Iterator[DaqTangoTestHarnessContext]:
+    ) -> Iterator[SpsTangoTestHarnessContext]:
         """
         Yield a tango harness against which to run tests of the deployment.
 
@@ -241,7 +241,7 @@ class TestPatchedDaq:
 
         :yields: a test harness context.
         """
-        test_harness = DaqTangoTestHarness()
+        test_harness = SpsTangoTestHarness()
         test_harness.add_daq_instance(daq_id, DaqSimulator())
         test_harness.add_daq_device(
             daq_id, address=None, device_class=device_class_under_test

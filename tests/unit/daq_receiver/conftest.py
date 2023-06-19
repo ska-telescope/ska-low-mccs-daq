@@ -17,7 +17,7 @@ from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from ska_low_mccs_spshw.daq_receiver import DaqComponentManager
 from ska_low_mccs_spshw.daq_receiver.daq_simulator import DaqSimulator
-from tests.daq_harness import DaqTangoTestHarness, DaqTangoTestHarnessContext
+from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
 
 @pytest.fixture(name="callbacks")
@@ -54,7 +54,7 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
 
 
 @pytest.fixture(name="test_context")
-def test_context_fixture(daq_id: int) -> Iterator[DaqTangoTestHarnessContext]:
+def test_context_fixture(daq_id: int) -> Iterator[SpsTangoTestHarnessContext]:
     """
     Yield a tango harness against which to run tests of the deployment.
 
@@ -62,7 +62,7 @@ def test_context_fixture(daq_id: int) -> Iterator[DaqTangoTestHarnessContext]:
 
     :yields: a test harness context.
     """
-    test_harness = DaqTangoTestHarness()
+    test_harness = SpsTangoTestHarness()
     test_harness.add_daq_instance(daq_id, DaqSimulator())
     test_harness.add_daq_device(daq_id, address=None)  # dynamically get DAQ address
     with test_harness as test_context:
@@ -71,7 +71,7 @@ def test_context_fixture(daq_id: int) -> Iterator[DaqTangoTestHarnessContext]:
 
 @pytest.fixture(name="daq_component_manager")
 def daq_component_manager_fixture(
-    test_context: DaqTangoTestHarnessContext,
+    test_context: SpsTangoTestHarnessContext,
     daq_id: int,
     logger: logging.Logger,
     callbacks: MockCallableGroup,
