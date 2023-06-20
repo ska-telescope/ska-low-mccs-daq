@@ -35,7 +35,9 @@ def daq_receiver_fixture(
     yield test_context.get_daq_device(daq_id)
 
 
-@given(parsers.cfparse("MccsDaqReceiver AdminMode is set to '{admin_mode_value}'"))
+@given(
+    parsers.cfparse("MccsDaqReceiver AdminMode is set to '{admin_mode_value}'")
+)  # noqa: E501
 def admin_mode_set_to_value(
     daq_receiver: tango.DeviceProxy, admin_mode_value: str
 ) -> None:
@@ -43,7 +45,8 @@ def admin_mode_set_to_value(
     Ensure device AdminMode is in the correct state.
 
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
-    :param admin_mode_value: The value the device's AdminMode attribute should have.
+    :param admin_mode_value: The value the device's AdminMode attribute
+        should have.
     """
     pytest.xfail(reason="Not implemented yet")
     # daq_receiver.adminMode = admin_mode_value
@@ -60,9 +63,11 @@ def comms_are_in_state(
     A communication_state of `established` or `disabled` is supplied and
     this method checks that the daq receiver comms is in that state.
 
-    :param communication_state: The communication state the device is expected to be in.
+    :param communication_state: The communication state the device is
+        expected to be in.
     """
-    # :param daq_component_manager: The component manager for the device under test.
+    # :param daq_component_manager: The component manager for the
+    #   device under test.
     pytest.xfail(reason="Not implemented yet")
     # comms_map = {
     #     "established": CommunicationStatus.ESTABLISHED,
@@ -72,8 +77,8 @@ def comms_are_in_state(
     # assert communication_state in comms_map.keys()
     # target_comms_state = comms_map[communication_state]
 
-    # # Check if we're in the wrong comms state. If so call start/stop comms to get to
-    # # the right state.
+    # # Check if we're in the wrong comms state.
+    # If so call start/stop comms to get to the right state.
     # if not (daq_component_manager.communication_state == target_comms_state):
     #     if communication_state == "disabled":
     #         daq_component_manager.stop_communicating()
@@ -93,7 +98,9 @@ def comms_are_in_state(
 
 
 @given(parsers.cfparse("the fault bit is '{fault_state}'"))
-def fault_is_set_unset(daq_receiver: tango.DeviceProxy, fault_state: str) -> None:
+def fault_is_set_unset(
+    daq_receiver: tango.DeviceProxy, fault_state: str
+) -> None:  # noqa: E501
     """
     Ensure fault bit is in the state specified.
 
@@ -109,7 +116,8 @@ def fault_is_set_unset(daq_receiver: tango.DeviceProxy, fault_state: str) -> Non
     # assert fault_state in fault_map.keys()
     # target_fault_state = fault_map[fault_state]
 
-    # # Check if we're in the wrong fault state. If so call callback to set fault.
+    # # Check if we're in the wrong fault state.
+    #   If so call callback to set fault.
     # if not (daq_receiver.GetDaqFault() == target_fault_state):
     #     argin = {"fault": target_fault_state}
     #     daq_receiver.StateChangedCallback(json.dumps(argin))
@@ -123,7 +131,7 @@ def ensure_health_is_in_state(
     # daq_component_manager: DaqComponentManager,
 ) -> None:
     """
-    Ensure health is in the state specified by checking and changing it if needed.
+    Ensure health is in the state specified by checking and changing if needed.
 
     A health state of `UNKNOWN`, `FAILED` or `OK` is supplied and this
     method     checks that the daq receiver's health is in that state.
@@ -131,7 +139,8 @@ def ensure_health_is_in_state(
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param health_state: The health state the device should be coerced into.
     """
-    # :param daq_component_manager: The component manager for the device under test.
+    # :param daq_component_manager: The component manager for the
+    #   device under test.
     pytest.xfail(reason="Not implemented yet")
     # health_map = {
     #     "OK": HealthState.OK,
@@ -144,8 +153,8 @@ def ensure_health_is_in_state(
     # # Check HealthState and massage it into the proper state if necessary.
     # current_health_state = daq_receiver.GetDaqHealth()
     # if not (current_health_state == target_health_state):
-    #     # If we're here then we're in the wrong state. If that state is FAILED then
-    #     # clear the fault first.
+    #     # If we're here then we're in the wrong state.
+    #       If that state is FAILED then clear the fault first.
     #     if current_health_state == HealthState.FAILED:
     #         daq_receiver.StateChangedCallback(json.dumps({"fault": False}))
 
@@ -156,7 +165,8 @@ def ensure_health_is_in_state(
     #     # Similarly to get to UNKNOWN we stop comms.
     #     elif target_health_state == HealthState.UNKNOWN:
     #         daq_component_manager.stop_communicating()
-    #     # To get to OK we clear fault and start comms. We've cleared the fault already
+    #     # To get to OK we clear fault and start comms.
+    #       We've cleared the fault already
     #     # so check if comms were established.
     #     elif (
     #         target_health_state == HealthState.OK
@@ -203,7 +213,8 @@ def method_is_called(
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param method: The name of the method to be called.
     """
-    # :param daq_component_manager: The component manager for the device under test.
+    # :param daq_component_manager: The component manager for the
+    #   device under test.
     # :raises AssertionError: if an invalid method is supplied.
     pytest.xfail(reason="Not implemented yet")
     # # method_map = {bdd_method: [method_object, args]}
@@ -266,13 +277,17 @@ def start_consumer(daq_receiver: tango.DeviceProxy, consumer: str) -> None:
     # daq_mode = DaqModes[consumer]
     # daq_receiver.Start(json.dumps({"modes_to_start": [daq_mode]}))
     # # Race condition here waiting for consumers to start.
-    # # TODO: Check the task_callback for Start and wait here until it finishes rather
-    # # than sleep.
+    # # TODO: Check the task_callback for Start and wait here
+    #       until it finishes rather than sleep.
     # # time.sleep(3)
 
 
-@then(parsers.cfparse("consumer_status attribute shows '{consumer}' as running"))
-def check_consumer_is_running(daq_receiver: tango.DeviceProxy, consumer: str) -> None:
+@then(
+    parsers.cfparse("consumer_status attribute shows '{consumer}' as running")
+)  # noqa: E501
+def check_consumer_is_running(
+    daq_receiver: tango.DeviceProxy, consumer: str
+) -> None:  # noqa: E501
     """
     Check that `consumer` is running.
 
@@ -319,7 +334,9 @@ def start_all_consumers(
     """
     # :param all_available_consumers: A list of all DaqModes/consumers.
     pytest.xfail(reason="Not implemented yet")
-    # daq_receiver.Start(json.dumps({"modes_to_start": all_available_consumers}))
+    # daq_receiver.Start(json.dumps(
+    # {"modes_to_start": all_available_consumers}
+    # ))
     # # TODO: Have a better solution to the race condition than sleeping.
     # time.sleep(3)
 
@@ -349,14 +366,17 @@ def check_no_consumers_running(daq_receiver: tango.DeviceProxy) -> None:
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     """
     pytest.xfail(reason="Not implemented yet")
-    # # TODO: Stopping consumers can take a while. Replace this sleep with a test.
+    # # TODO: Stopping consumers can take a while.
+    #         Replace this sleep with a test.
     # # time.sleep(5)
     # running_consumer_list = json.loads(daq_receiver.GetRunningConsumers())
     # for running in running_consumer_list.values():
     #     assert not running
 
 
-@given(parsers.cfparse("the MccsDaqReceiver has a particular '{configuration}'"))
+@given(
+    parsers.cfparse("the MccsDaqReceiver has a particular '{configuration}'")
+)  # noqa: E501
 def daq_has_specific_config(
     daq_receiver: tango.DeviceProxy, configuration: str
 ) -> None:
@@ -393,6 +413,8 @@ def daq_has_specific_status(
     # # - Consumer list + running state.
     # # - List of ports being monitored
     # # - Interface being monitored.
-    # # - Receiver uptime. (Will require keeping track in MccsDaqReceiver somewhere)
-    # # - Other misc data stuff eventually (packets rec/tx, time since last pkt, rough
+    # # - Receiver uptime.
+    #       (Will require keeping track in MccsDaqReceiver somewhere)
+    # # - Other misc data stuff eventually
+    #       (packets rec/tx, time since last pkt, rough
     # # data rates, disk space etcetc)

@@ -36,7 +36,10 @@ class TestDaqComponentManager:
         :param callbacks: a dictionary from which callbacks with
             asynchrony support can be accessed.
         """
-        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        assert (
+            daq_component_manager.communication_state
+            == CommunicationStatus.DISABLED  # noqa: E501
+        )
 
         daq_component_manager.start_communicating()
 
@@ -46,14 +49,22 @@ class TestDaqComponentManager:
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
-        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.ESTABLISHED
+        )  # noqa: E501
         assert (
-            daq_component_manager.communication_state == CommunicationStatus.ESTABLISHED
+            daq_component_manager.communication_state
+            == CommunicationStatus.ESTABLISHED  # noqa: E501
         )
 
         daq_component_manager.stop_communicating()
-        callbacks["communication_state"].assert_call(CommunicationStatus.DISABLED)
-        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.DISABLED
+        )  # noqa: E501
+        assert (
+            daq_component_manager.communication_state
+            == CommunicationStatus.DISABLED  # noqa: E501
+        )
 
     def test_admin_mode_behaviour(
         self: TestDaqComponentManager,
@@ -74,16 +85,22 @@ class TestDaqComponentManager:
             asynchrony support can be accessed.
         """
         # 1. Establish comms with DaqReceiver.
-        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        assert (
+            daq_component_manager.communication_state
+            == CommunicationStatus.DISABLED  # noqa: E501
+        )  # noqa: E501
         daq_component_manager.start_communicating()
         time.sleep(0.1)
 
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
-        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.ESTABLISHED
+        )  # noqa: E501
         assert (
-            daq_component_manager.communication_state == CommunicationStatus.ESTABLISHED
+            daq_component_manager.communication_state
+            == CommunicationStatus.ESTABLISHED  # noqa: E501
         )
 
         # 2. Configure DAQ to a non-standard config.
@@ -102,17 +119,25 @@ class TestDaqComponentManager:
 
         # 4. Imitate adminMode cycling by calling stop/start comms.
         daq_component_manager.stop_communicating()
-        callbacks["communication_state"].assert_call(CommunicationStatus.DISABLED)
-        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.DISABLED
+        )  # noqa: E501
+        assert (
+            daq_component_manager.communication_state
+            == CommunicationStatus.DISABLED  # noqa: E501
+        )  # noqa: E501
         daq_component_manager.start_communicating()
         time.sleep(0.1)
 
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
-        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.ESTABLISHED
+        )  # noqa: E501
         assert (
-            daq_component_manager.communication_state == CommunicationStatus.ESTABLISHED
+            daq_component_manager.communication_state
+            == CommunicationStatus.ESTABLISHED  # noqa: E501
         )
 
         # 5. Assert that our previously set config remains valid.
@@ -128,9 +153,15 @@ class TestDaqComponentManager:
             ("DaqModes.RAW_DATA", [DaqModes.RAW_DATA]),
             ("DaqModes.CHANNEL_DATA", [DaqModes.CHANNEL_DATA]),
             ("DaqModes.BEAM_DATA", [DaqModes.BEAM_DATA]),
-            ("DaqModes.CONTINUOUS_CHANNEL_DATA", [DaqModes.CONTINUOUS_CHANNEL_DATA]),
+            (
+                "DaqModes.CONTINUOUS_CHANNEL_DATA",
+                [DaqModes.CONTINUOUS_CHANNEL_DATA],
+            ),  # noqa: E501
             ("DaqModes.INTEGRATED_BEAM_DATA", [DaqModes.INTEGRATED_BEAM_DATA]),
-            ("DaqModes.INTEGRATED_CHANNEL_DATA", [DaqModes.INTEGRATED_CHANNEL_DATA]),
+            (
+                "DaqModes.INTEGRATED_CHANNEL_DATA",
+                [DaqModes.INTEGRATED_CHANNEL_DATA],
+            ),  # noqa: E501
             ("DaqModes.STATION_BEAM_DATA", [DaqModes.STATION_BEAM_DATA]),
             # ("DaqModes.CORRELATOR_DATA", [DaqModes.CORRELATOR_DATA]),
             ("DaqModes.ANTENNA_BUFFER", [DaqModes.ANTENNA_BUFFER]),
@@ -138,7 +169,10 @@ class TestDaqComponentManager:
                 "DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA",
                 [DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA],
             ),
-            ("1, 2, 0", [DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA]),
+            (
+                "1, 2, 0",
+                [DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA],
+            ),  # noqa: E501
             (
                 "DaqModes.CONTINUOUS_CHANNEL_DATA, DaqModes.ANTENNA_BUFFER, 6",
                 [
@@ -175,8 +209,8 @@ class TestDaqComponentManager:
         """
         Test DaqModes can be properly converted.
 
-        This tests that DaqModes can be converted properly from a comma separated list
-            of ints and/or DaqModes to a list of DaqModes.
+        This tests that DaqModes can be converted properly from a comma
+            separated list of ints and/or DaqModes to a list of DaqModes.
 
         :param daq_modes_str: A comma separated list of DaqModes and/or ints.
         :param daq_modes_list: The expected output of the conversion function.
@@ -198,7 +232,7 @@ class TestDaqComponentManager:
             "DaqModes.INTEGRATED_BEAM_DATA",
             "DaqModes.INTEGRATED_CHANNEL_DATA",
             "DaqModes.STATION_BEAM_DATA",
-            # "DaqModes.CORRELATOR_DATA",  # Not compiled with correlator currently.
+            # "DaqModes.CORRELATOR_DATA",  # Not yet compiled with correlator.
             "DaqModes.ANTENNA_BUFFER",
             "DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA",
             "1, 2, 0",
@@ -218,7 +252,8 @@ class TestDaqComponentManager:
 
         This test merely instantiates DAQ, starts a consumer,
             waits for a time and then stops the consumer.
-            This also doubles as a check that we can start and stop every consumer.
+            This also doubles as a check that we can start
+            and stop every consumer.
 
         :param daq_component_manager: the daq receiver component manager
             under test.
@@ -231,7 +266,9 @@ class TestDaqComponentManager:
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
-        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.ESTABLISHED
+        )  # noqa: E501
 
         daq_config = {
             "acquisition_duration": acquisition_duration,
@@ -254,10 +291,12 @@ class TestDaqComponentManager:
         callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task_start_daq"].assert_call(
-            status=TaskStatus.IN_PROGRESS, result="Start Command issued to gRPC stub"
+            status=TaskStatus.IN_PROGRESS,
+            result="Start Command issued to gRPC stub",
         )
         callbacks["task_start_daq"].assert_call(
-            status=TaskStatus.COMPLETED, result="Daq has been started and is listening"
+            status=TaskStatus.COMPLETED,
+            result="Daq has been started and is listening",
         )
 
         converted_daq_modes: list[DaqModes] = convert_daq_modes(daq_modes)
@@ -265,7 +304,8 @@ class TestDaqComponentManager:
         # If we're using ints instead of DaqModes make the conversion so we
         # can check the consumer.
         # mode_to_check = DaqModes(mode)
-        # status will not have health info when cpt mgr method is directly called.
+        # status will not have health info when cpt mgr
+        # method is directly called.
         status = json.loads(daq_component_manager.daq_status())
 
         running_consumers = status["Running Consumers"]
@@ -277,7 +317,9 @@ class TestDaqComponentManager:
         time.sleep(acquisition_duration)
 
         # Stop DAQ and check our consumer is not running.
-        rc, message = daq_component_manager.stop_daq(task_callback=callbacks["task"])
+        rc, message = daq_component_manager.stop_daq(
+            task_callback=callbacks["task"]
+        )  # noqa: E501
         assert rc == ResultCode.OK.value
         assert message == "Daq stopped"
 
@@ -292,7 +334,7 @@ class TestDaqComponentManager:
         # If we're using ints instead of DaqModes make the conversion so we
         # can check the consumer.
         # mode_to_check = DaqModes(mode)
-        # TODO: Cannot check status of consumers until DaqStatus cmd is updated.
+        # TODO: Cannot check status of consumers until DaqStatus cmd is updated
         # assert not daq_component_manager.daq_instance._running_consumers[
         #     mode_to_check
         # ]
@@ -322,8 +364,9 @@ class TestDaqComponentManager:
         """
         Test `_consumers_to_start` can be set and fetched correctly.
 
-        Test that when we set consumers via the `_set_consumers_to_start` method that
-        the `_consumers_to_start` attribute is set to the proper value.
+        Test that when we set consumers via the `_set_consumers_to_start`
+            method that the `_consumers_to_start` attribute is set to the
+            proper value.
 
         :param daq_component_manager: the daq receiver component manager
             under test.

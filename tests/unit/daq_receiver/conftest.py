@@ -5,7 +5,7 @@
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
-"""This module defined a pytest harness for testing the MCCS daq_receiver module."""
+"""This module defined a pytest harness for the MCCS daq_receiver module."""
 from __future__ import annotations
 
 import logging

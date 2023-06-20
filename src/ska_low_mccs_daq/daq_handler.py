@@ -53,7 +53,9 @@ class DaqCallbackBuffer:
         :param file_name: The filename written
         :param additional_info: Any additional information.
         """
-        self.logger.info(f"File: {file_name}, with data: {data_type} added to buffer")
+        self.logger.info(
+            f"File: {file_name}, with data: {data_type} added to buffer"
+        )  # noqa: E501
 
         self.data_types_received.append(data_type)
         self.written_files.append(file_name)
@@ -96,7 +98,8 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     :param consumers_to_start: A string containing a comma separated
         list of DaqModes.
 
-    :return: a converted list of DaqModes or an empty list if no consumers supplied.
+    :return: a converted list of DaqModes or an empty list
+        if no consumers supplied.
     """
     if consumers_to_start != "":
         consumer_list = consumers_to_start.split(",")
@@ -201,7 +204,9 @@ class DaqHandler:
         else:
             self.state = DaqStatus.LISTENING
 
-    def initialise(self: DaqHandler, config: dict[str, Any]) -> tuple[ResultCode, str]:
+    def initialise(
+        self: DaqHandler, config: dict[str, Any]
+    ) -> tuple[ResultCode, str]:  # noqa: E501
         """
         Initialise a new DaqReceiver instance.
 
@@ -221,7 +226,9 @@ class DaqHandler:
                 self._initialised = True
             # pylint: disable=broad-except
             except Exception as e:
-                self.logger.error("Caught exception in `DaqHandler.initialise`: %s", e)
+                self.logger.error(
+                    "Caught exception in `DaqHandler.initialise`: %s", e
+                )  # noqa: E501
                 return ResultCode.FAILED, f"Caught exception: {e}"
             self.logger.info("Daq initialised.")
             return ResultCode.OK, "Daq successfully initialised"
@@ -260,7 +267,9 @@ class DaqHandler:
             self._receiver_started = True
         try:
             # Convert string representation to DaqModes
-            converted_modes_to_start: list[DaqModes] = convert_daq_modes(modes_to_start)
+            converted_modes_to_start: list[DaqModes] = convert_daq_modes(
+                modes_to_start
+            )  # noqa: E501
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
 
@@ -303,7 +312,9 @@ class DaqHandler:
         return ResultCode.OK, "Daq stopped"
 
     @check_initialisation
-    def configure(self: DaqHandler, config: dict[str, Any]) -> tuple[ResultCode, str]:
+    def configure(
+        self: DaqHandler, config: dict[str, Any]
+    ) -> tuple[ResultCode, str]:  # noqa: E501
         """
         Apply a configuration to the DaqReceiver.
 
@@ -314,7 +325,9 @@ class DaqHandler:
         self.logger.info("Configuring daq with: %s", config)
         try:
             if not config:
-                self.logger.error("Daq was not reconfigured, no config data supplied.")
+                self.logger.error(
+                    "Daq was not reconfigured, no config data supplied."
+                )  # noqa: E501
                 return ResultCode.REJECTED, "No configuration data supplied."
 
             self.daq_instance.populate_configuration(config)
@@ -367,7 +380,9 @@ class DaqHandler:
             "Receiver Interface": receiver_interface,
             "Receiver Ports": receiver_ports,
             "Receiver IP": [
-                receiver_ip.decode() if isinstance(receiver_ip, bytes) else receiver_ip
+                receiver_ip.decode()
+                if isinstance(receiver_ip, bytes)
+                else receiver_ip  # noqa: E501
             ],
         }
 

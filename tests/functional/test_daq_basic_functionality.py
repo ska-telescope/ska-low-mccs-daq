@@ -228,7 +228,9 @@ def daq_sent_configure_channelised(
     :param daq_receiver: The daq_receiver fixture to use.
     """
     pytest.xfail(reason="Not implemented yet")
-    # daq_receiver.Start(json.dumps({"modes_to_start": "DaqModes.CHANNEL_DATA"}))
+    # daq_receiver.Start(
+    # json.dumps({"modes_to_start": "DaqModes.CHANNEL_DATA"})
+    # )
     # sleep(1)
 
 

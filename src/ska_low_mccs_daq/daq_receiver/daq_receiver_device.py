@@ -98,7 +98,8 @@ class MccsDaqReceiver(SKABaseDevice):
     ReceiverInterface = device_property(
         dtype=str,
         mandatory=False,
-        doc="The interface on which the DAQ receiver is listening for traffic.",
+        # pylint: disable=line-too-long
+        doc="The interface on which the DAQ receiver is listening for traffic.",  # noqa: E501
         default_value="",
     )
     ReceiverIp = device_property(
@@ -159,14 +160,14 @@ class MccsDaqReceiver(SKABaseDevice):
         util = tango.Util.instance()
         util.set_serial_model(tango.SerialModel.NO_SYNC)
         self._max_workers = 1
-        print("before super init".upper())
         super().init_device()
-        print("after super init".upper())
 
     def _init_state_model(self: MccsDaqReceiver) -> None:
         """Initialise the state model."""
         super()._init_state_model()
-        self._health_state = HealthState.UNKNOWN  # InitCommand.do() does this too late.
+        self._health_state = (
+            HealthState.UNKNOWN
+        )  # InitCommand.do() does this too late.# noqa: E501
         self._health_model = DaqHealthModel(self._component_state_callback)
         self._received_data_mode = ""
         self._received_data_result = ""
@@ -193,7 +194,8 @@ class MccsDaqReceiver(SKABaseDevice):
         )
 
     def init_command_objects(self: MccsDaqReceiver) -> None:
-        """Initialise the command handlers for commands supported by this device."""
+        # pylint: disable=line-too-long
+        """Initialise the command handlers for commands supported by this device."""  # noqa: E501
         super().init_command_objects()
 
         for (command_name, command_object) in [
@@ -214,7 +216,9 @@ class MccsDaqReceiver(SKABaseDevice):
             self.register_command_object(
                 command_name,
                 command_class(
-                    self._command_tracker, self.component_manager, logger=self.logger
+                    self._command_tracker,
+                    self.component_manager,
+                    logger=self.logger,
                 ),
             )
 
@@ -248,7 +252,7 @@ class MccsDaqReceiver(SKABaseDevice):
         communication_state: CommunicationStatus,
     ) -> None:
         """
-        Handle change in communications status between component manager and component.
+        Handle change in communication between component manager and component.
 
         This is a callback hook, called by the component manager when
         the communications status changes. It is implemented here to
@@ -287,12 +291,11 @@ class MccsDaqReceiver(SKABaseDevice):
         :param health: New health state of device.
         :param kwargs: Other state changes of device.
         """
-        if fault is not None:
-            if fault:
-                self.op_state_model.perform_action("component_fault")
-                self._health_model.component_fault(True)
-            else:
-                self._health_model.component_fault(False)
+        if fault:
+            self.op_state_model.perform_action("component_fault")
+            self._health_model.component_fault(True)
+        elif fault is False:
+            self._health_model.component_fault(False)
 
         if health is not None:
             if self._health_state != health:
@@ -312,8 +315,8 @@ class MccsDaqReceiver(SKABaseDevice):
 
         :param data_mode: the DaqMode in which data was received.
         :param file_name: the name of the file that the data was saved to
-        :param additional_info: the tile number that the data was received from, or the
-            amount of data received if the data_mode is station
+        :param additional_info: the tile number that the data was received
+            from, or the amount of data received if the data_mode is station
         """
         self.logger.info(
             "Data of type %s has been written to file %s", data_mode, file_name
@@ -344,7 +347,8 @@ class MccsDaqReceiver(SKABaseDevice):
     #     self: MccsDaqReceiver, attr_req_type: tango.AttReqType
     # ) -> bool:
     #     """
-    #     Protect attribute access before being updated otherwise it reports alarm.
+    # pylint: disable=line-too-long
+    #     Protect attribute access before being updated otherwise it reports alarm.# noqa: E501
 
     #     :param attr_req_type: tango attribute type READ/WRITE
 
@@ -432,7 +436,9 @@ class MccsDaqReceiver(SKABaseDevice):
         return json.dumps(status)
 
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
-    def Start(self: MccsDaqReceiver, argin: str = "") -> DevVarLongStringArrayType:
+    def Start(
+        self: MccsDaqReceiver, argin: str = ""
+    ) -> DevVarLongStringArrayType:  # noqa: E501
         """
         Start the DaqConsumers.
 
@@ -547,7 +553,9 @@ class MccsDaqReceiver(SKABaseDevice):
     # Args in might want to be changed depending on how we choose to
     # configure the DAQ system.
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
-    def Configure(self: MccsDaqReceiver, argin: str) -> DevVarLongStringArrayType:
+    def Configure(
+        self: MccsDaqReceiver, argin: str
+    ) -> DevVarLongStringArrayType:  # noqa: E501
         """
         Configure the DaqReceiver.
 
@@ -637,7 +645,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self: MccsDaqReceiver.SetConsumersCommand, argin: str
         ) -> tuple[ResultCode, str]:
             """
-            Implement MccsDaqReceiver.SetConsumersCommand command functionality.
+            Implement MccsDaqReceiver.SetConsumersCommand functionality.
 
             :param argin: A string containing a comma separated
                 list of DaqModes.
@@ -648,7 +656,9 @@ class MccsDaqReceiver(SKABaseDevice):
             return self._component_manager._set_consumers_to_start(argin)
 
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
-    def SetConsumers(self: MccsDaqReceiver, argin: str) -> DevVarLongStringArrayType:
+    def SetConsumers(
+        self: MccsDaqReceiver, argin: str
+    ) -> DevVarLongStringArrayType:  # noqa: E501
         """
         Set the default list of consumers to start.
 
@@ -663,7 +673,8 @@ class MccsDaqReceiver(SKABaseDevice):
 
         :example:
             >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
-            >>> consumers = "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,"
+            # pylint: disable=line-too-long
+            >>> consumers = "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA," # noqa: E501
             >>> daq.SetConsumers(consumers)
         """
         handler = self.get_command_object("SetConsumers")

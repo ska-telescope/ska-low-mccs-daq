@@ -4,7 +4,8 @@
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE.txt for more info.
-"""This module implements the DAQ simulator for the MccsDaqReceiver to test against."""
+# pylint: disable=line-too-long
+"""This module implements the DAQ simulator for the MccsDaqReceiver to test against."""  # noqa: E501
 from __future__ import annotations
 
 import functools
@@ -93,7 +94,8 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     :param consumers_to_start: A string containing a comma separated
         list of DaqModes.
 
-    :return: a converted list of DaqModes or an empty list if no consumers supplied.
+    :return: a converted list of DaqModes or an empty
+        list if no consumers supplied.
     """
     if consumers_to_start != "":
         consumer_list = consumers_to_start.split(",")
@@ -182,7 +184,9 @@ class DaqSimulator:
         return ResultCode.OK, "Daq stopped"
 
     @check_initialisation
-    def configure(self: DaqSimulator, config: dict[str, Any]) -> tuple[ResultCode, str]:
+    def configure(
+        self: DaqSimulator, config: dict[str, Any]
+    ) -> tuple[ResultCode, str]:  # noqa: E501
         """
         Apply a configuration to the DaqReceiver.
 

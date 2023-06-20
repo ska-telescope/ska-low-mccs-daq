@@ -94,7 +94,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if self.communication_state == CommunicationStatus.ESTABLISHED:
             return
         if self.communication_state == CommunicationStatus.DISABLED:
-            self._update_communication_state(CommunicationStatus.NOT_ESTABLISHED)
+            self._update_communication_state(
+                CommunicationStatus.NOT_ESTABLISHED
+            )  # noqa: E501
 
         try:
             configuration = json.dumps(self._get_default_config())
@@ -268,10 +270,16 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     self.logger.info(
                         f"File: {files_written}, Type: {data_types_received}"
                     )
-                    self._received_data_callback(data_types_received, files_written)
+                    self._received_data_callback(
+                        data_types_received,
+                        files_written,
+                    )
         except Exception as e:  # pylint: disable=broad-exception-caught  # XXX
             if task_callback:
-                task_callback(status=TaskStatus.FAILED, result=f"Exception: {e}")
+                task_callback(
+                    status=TaskStatus.FAILED,
+                    result=f"Exception: {e}",
+                )
             return
 
     @check_communicating

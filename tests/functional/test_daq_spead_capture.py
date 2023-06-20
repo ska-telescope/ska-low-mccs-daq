@@ -70,8 +70,12 @@ class IntegratedChannelDataSimulator(object):
         self._nof_ants_per_packet = 1
         self._nof_channels = 512
         self._nof_channels_per_packet = 256
-        self._nof_channel_packets = self._nof_channels // self._nof_channels_per_packet
-        self._nof_antenna_packets = self._nof_ants_per_fpga // self._nof_ants_per_packet
+        self._nof_channel_packets = (
+            self._nof_channels // self._nof_channels_per_packet
+        )  # noqa: E501
+        self._nof_antenna_packets = (
+            self._nof_ants_per_fpga // self._nof_ants_per_packet
+        )  # noqa: E501
 
         self._timestamp = 0
 
@@ -156,7 +160,9 @@ class IntegratedChannelDataSimulator(object):
             | start_antenna << 8
             | self._nof_ants_per_packet & 0xFF
         )
-        lmc_tpm_info = 1 << 63 | 0x2001 << 48 | tpm_id << 32 | self._station_id << 16
+        lmc_tpm_info = (
+            1 << 63 | 0x2001 << 48 | tpm_id << 32 | self._station_id << 16
+        )  # noqa: E501
         sample_offset = 0 << 63 | 0x3300 << 48
 
         packet = (
@@ -201,7 +207,10 @@ class IntegratedChannelDataSimulator(object):
             + fpga_id * self._nof_ants_per_fpga
             + start_antenna
         )
-        packet_data = np.zeros(self._packet_payload_length // 2, dtype=np.uint16)
+        packet_data = np.zeros(
+            self._packet_payload_length // 2,
+            dtype=np.uint16,
+        )
 
         counter = 0
         for c in range(self._nof_channels_per_packet):
@@ -282,8 +291,12 @@ def stop_daq(
     assert [[ResultCode.OK], ["Daq stopped"]] == daq_receiver.Stop()
 
 
-@given(parsers.cfparse("Daq is configured to listen on specified interface:port"))
-def configure_daq(daq_receiver: tango.DeviceProxy, interface: str, port: int) -> None:
+@given(
+    parsers.cfparse("Daq is configured to listen on specified interface:port")
+)  # noqa: E501
+def configure_daq(
+    daq_receiver: tango.DeviceProxy, interface: str, port: int
+) -> None:  # noqa: E501
     """
     Configure the Daq device.
 
@@ -296,7 +309,10 @@ def configure_daq(daq_receiver: tango.DeviceProxy, interface: str, port: int) ->
         "receiver_interface": interface,
     }
     daq_receiver.Configure(json.dumps(daq_config))
-    assert daq_config.items() <= json.loads(daq_receiver.GetConfiguration()).items()
+    assert (
+        daq_config.items()
+        <= json.loads(daq_receiver.GetConfiguration()).items()  # noqa: E501
+    )  # noqa: E501
 
 
 @given(parsers.cfparse("The daq is started with '{daq_modes_of_interest}'"))
@@ -329,7 +345,7 @@ def start_daq(
 
 @when(
     parsers.cfparse(
-        "Simulated data from {no_of_tiles} of type '{daq_modes_of_interest}' is sent"
+        "Simulated data from {no_of_tiles} of type '{daq_modes_of_interest}' is sent"  # noqa: E501
     ),
     target_fixture="stop_data_event",
 )
@@ -350,13 +366,18 @@ def send_simulated_data(
     # us to send data to the correct location.
     data = IntegratedChannelDataSimulator("daqreceiver-001-data-svc", port, 1)
     stop_data_event = threading.Event()
-    thread = threading.Thread(target=send_data_thread, args=[data, stop_data_event])
+    thread = threading.Thread(
+        target=send_data_thread,
+        args=[data, stop_data_event],
+    )
     thread.start()
     return stop_data_event
 
 
 @then(
-    parsers.cfparse("Daq reports that is has captured data '{daq_modes_of_interest}'")
+    parsers.cfparse(
+        "Daq reports that is has captured data '{daq_modes_of_interest}'"
+    )  # noqa: E501
 )
 def check_capture(
     daq_receiver: tango.DeviceProxy,
