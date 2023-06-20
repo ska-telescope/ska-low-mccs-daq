@@ -19,6 +19,33 @@ def _slug(device_type: str, device_id: int) -> str:
     return f"{device_type}_{device_id}"
 
 
+def get_field_station_name() -> str:
+    """
+    Return the Field Station Tango device name.
+
+    :return: the Field Station Tango device name
+    """
+    return "low-mccs/fieldstation/001"
+
+
+def get_calibration_store_name() -> str:
+    """
+    Return the Calibration Store Tango device name.
+
+    :return: the Calibration Store Tango device name
+    """
+    return "low-mccs/calibrationstore/001"
+
+
+def get_station_calibrator_name() -> str:
+    """
+    Return the Station Calibrator Tango device name.
+
+    :return: the Station Calibrator Tango device name
+    """
+    return "low-mccs/stationcalibrator/001"
+
+
 def get_sps_station_name() -> str:
     """
     Return the SPS station Tango device name.
@@ -66,9 +93,17 @@ class SpsTangoTestHarnessContext:
         """
         Get a proxy to the SPS station Tango device.
 
-        :returns: a proxy to the subrack Tango device.
+        :returns: a proxy to the SPS station Tango device.
         """
         return self._tango_context.get_device(get_sps_station_name())
+
+    def get_station_calibrator_device(self) -> DeviceProxy:
+        """
+        Get a proxy to the Station Calibrator Tango device.
+
+        :returns: a proxy to the Station Calibrator Tango device.
+        """
+        return self._tango_context.get_device(get_station_calibrator_name())
 
     def get_subrack_device(self, subrack_id: int) -> DeviceProxy:
         """
@@ -107,6 +142,34 @@ class SpsTangoTestHarness:
     def __init__(self: SpsTangoTestHarness) -> None:
         """Initialise a new test harness instance."""
         self._tango_test_harness = TangoTestHarness()
+
+    def set_station_calibrator_device(
+        self: SpsTangoTestHarness,
+        field_station_name: str = "low-mccs/fieldstation/001",
+        calibration_store_name: str = "low-mccs/calibrationstore/001",
+        logging_level: int = int(LoggingLevel.DEBUG),
+        device_class: type[Device] | str = "ska_low_mccs_spshw.MccsStationCalibrator",
+    ) -> None:
+        """
+        Set the Station Calibrator Tango device in the test harness.
+
+        This test harness currently only permits one SPS station device so should also
+        only permit one Station Calibrator
+
+        :param field_station_name: the name of the calibrator's field station
+        :param calibration_store_name: the name of the calibrator's calibration store
+        :param logging_level: the Tango device's default logging level.
+        :param device_class: The device class to use.
+            This may be used to override the usual device class,
+            for example with a patched subclass.
+        """
+        self._tango_test_harness.add_device(
+            get_station_calibrator_name(),
+            device_class,
+            FieldStationName=field_station_name,
+            CalibrationStoreName=calibration_store_name,
+            LoggingLevelDefault=logging_level,
+        )
 
     def set_sps_station_device(  # pylint: disable=too-many-arguments
         self: SpsTangoTestHarness,
@@ -207,6 +270,28 @@ class SpsTangoTestHarness:
             UpdateRate=update_rate,
             LoggingLevelDefault=logging_level,
         )
+
+    def add_mock_field_station_device(
+        self: SpsTangoTestHarness,
+        mock: unittest.mock.Mock,
+    ) -> None:
+        """
+        Add a mock Field Station Tango device to this test harness.
+
+        :param mock: the mock to be used as a mock Field Station device.
+        """
+        self._tango_test_harness.add_mock_device(get_field_station_name(), mock)
+
+    def add_mock_calibration_store_device(
+        self: SpsTangoTestHarness,
+        mock: unittest.mock.Mock,
+    ) -> None:
+        """
+        Add a mock Calibration Store Tango device to this test harness.
+
+        :param mock: the mock to be used as a mock Calibration Store device.
+        """
+        self._tango_test_harness.add_mock_device(get_calibration_store_name(), mock)
 
     def add_mock_subrack_device(
         self: SpsTangoTestHarness,
