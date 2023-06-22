@@ -153,6 +153,7 @@ class Tile(TileHealthMonitor):
                                   31: {'preadu_id': 0, 'channel': 15}}
                                   
         self.init_health_monitoring()
+        self.daq_modes_with_timestamp_flag = ["raw_adc_mode", "channelized_mode", "beamformed_mode"]
 
     # ---------------------------- Main functions ------------------------------------
     def tpm_version(self):
@@ -1558,7 +1559,7 @@ class Tile(TileHealthMonitor):
         return self.tpm.station_beamf[0].is_running()
 
     @connected
-    def start_beamformer(self, start_time=0, duration=-1):
+    def start_beamformer(self, start_time=0, duration=-1, scan_id=0, mask=0xffffffffff):
         """
         Start the beamformer.
         Duration: if > 0 is a duration in frames * 256 (276.48 us)
@@ -1568,10 +1569,14 @@ class Tile(TileHealthMonitor):
         :type start_time: int
         :param duration: duration in ADC frames/256. Multiple of 8
         :type duration: int
+        :param scan_id: ID of the scan, to be specified in the CSP SPEAD header
+        :type scan_id: int
+        :param mask: Bitmask of the channels to be started. Unsupported by FW
+        :type mask: int
         :return: False for error (e.g. beamformer already running)
         :rtype bool:
         """
-        mask = 0xFFFFFFF8  # Impose a time multiple of 8 frames
+        timestamp_mask = 0xFFFFFFF8  # Impose a time multiple of 8 frames
         if self.beamformer_is_running():
             return False
 
@@ -1581,10 +1586,20 @@ class Tile(TileHealthMonitor):
         start_time &= mask  # Impose a start time multiple of 8 frames
 
         if duration != -1:
-            duration = duration & mask
+            duration = duration & timestamp_mask
 
-        ret1 = self.tpm.station_beamf[0].start(start_time, duration)
-        ret2 = self.tpm.station_beamf[1].start(start_time, duration)
+        ret1 = self.tpm.station_beamf[0].start(
+            start_time, 
+            duration,
+            scan_id = scan_id,
+            mask = mask
+        )
+        ret2 = self.tpm.station_beamf[1].start(
+            start_time, 
+            duration,
+            scan_id = scan_id,
+            mask = mask
+        )
 
         # check if synchronised operation is successful,
         # time now must be smaller than start_time
@@ -2029,6 +2044,91 @@ class Tile(TileHealthMonitor):
         for i in range(len(self.tpm.tpm_integrator)):
             self.tpm.tpm_integrator[i].stop_integrated_data()
 
+    # ------------------------------------------------------
+    # Wrapper for valid timestamp request data acquisition
+    # ------------------------------------------------------
+    @connected
+    def clear_timestamp_invalid_flag_register(
+            self, daq_mode=None, fpga_id=None
+    ):
+        """
+        Clear invalid timestamp request register for selected fpga and for
+        selected LMC request mode . Default clears all registers for all modes
+
+        :param daq_mode: string used to select which Flag register of the LMC to read
+        :param fpga_id: FPGA_ID, 0 or 1. Default None will select both FPGAs
+        """ 
+        daq_modes_list = self.daq_modes_with_timestamp_flag if daq_mode is None else [daq_mode];
+        fpga_list = range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
+
+        if daq_mode is not None and daq_mode not in self.daq_modes_with_timestamp_flag:
+            raise LibraryError(f"Invalid daq_mode specified: {daq_mode} not supported")
+
+        for selected_daq in daq_modes_list:
+            for fpga in fpga_list:
+                self[f"fpga{fpga + 1}.lmc_gen.timestamp_req_invalid.{selected_daq}"] = 0
+                self.logger.info(f"Register fpga{fpga + 1}.lmc_gen.timestamp_req_invalid.{selected_daq} has been cleared!")
+
+    @connected
+    def check_valid_timestamp_request(
+        self, daq_mode, fpga_id=None
+    ):
+        """
+        Check valid timestamp request for various modes
+        modes supported: raw_adc, channelizer and beamformer
+
+        :param daq_mode: string used to select which Flag register of the LMC to read
+        :param fpga_id: FPGA_ID, 0 or 1. Default None will select both FPGAs
+
+        :return: boolean to indicate if the timestamp request is valid or not
+        :rtype: boolean
+        """
+        C_VALID_TIMESTAMP_REQ = 0
+        list_of_valid_timestamps = []
+        fpga_list = range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
+
+        if daq_mode not in self.daq_modes_with_timestamp_flag:
+            raise LibraryError(f"Invalid daq_mode specified: {daq_mode} not supported")
+
+        for fpga in fpga_list:
+            valid_request = self[f"fpga{fpga + 1}.lmc_gen.timestamp_req_invalid.{daq_mode}"] == C_VALID_TIMESTAMP_REQ
+            list_of_valid_timestamps.append(valid_request)
+            self.logger.debug(f"fpga{fpga + 1} {daq_mode} timestamp request is: {'VALID' if valid_request else 'INVALID'}")
+        if not all(list_of_valid_timestamps):
+            self.logger.error("INVALID LMC Data request")
+            return False
+        else:
+            return True
+
+    def select_method_to_check_valid_synchronised_data_request(
+            self, daq_mode, t_request, fpga_id=None
+    ):
+        """
+        Checks if Firmware contains the invalid flag register that raises a flag during synchronisation error.
+        If the Firmware has the register then it will read it to check that the timestamp request was valid.
+        If the register is not present, the software method will be used to calculate if the timestamp request was valid
+
+        :param daq_mode: string used to select which Flag register of the LMC to read
+        :param t_request: requested timestamp. Must be more than current timestamp to be synchronised successfuly
+        :param fpga_id: FPGA_ID, 0 or 1. Default None
+        """
+        timestamp_invalid_flag_supported = self.tpm.has_register(f"fpga1.lmc_gen.timestamp_req_invalid.{daq_mode}")
+        if timestamp_invalid_flag_supported:
+            valid_request = self.check_valid_timestamp_request(daq_mode, fpga_id)
+        else:
+            self.logger.warning(
+                "FPGA firmware doesn't support invalid data request flag, request will be validated by software"
+            )
+            valid_request = self.check_synchronised_data_operation(t_request)
+        if valid_request:
+            self.logger.info(f"Valid {daq_mode} Timestamp request")
+            return
+        self.clear_lmc_data_request()
+        if timestamp_invalid_flag_supported:
+            self.clear_timestamp_invalid_flag_register(daq_mode, fpga_id)
+        self.logger.info("LMC Data request has been cleared")
+        return
+
     # ------------------------------------
     # Wrapper for data acquisition: RAW
     # ------------------------------------
@@ -2058,7 +2158,7 @@ class Tile(TileHealthMonitor):
                 self.tpm.tpm_test_firmware[i].send_raw_data()
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation(t_request)
+        self.select_method_to_check_valid_synchronised_data_request("raw_adc_mode", t_request, fpga_id)
 
     @connected
     def send_raw_data_synchronised(
@@ -2109,7 +2209,7 @@ class Tile(TileHealthMonitor):
             )
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation(t_request)
+        self.select_method_to_check_valid_synchronised_data_request("channelized_mode", t_request)
 
     # ---------------------------- Wrapper for data acquisition: BEAM ------------------------------------
     @connected
@@ -2128,7 +2228,7 @@ class Tile(TileHealthMonitor):
             self.tpm.tpm_test_firmware[i].send_beam_data()
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation(t_request)
+        self.select_method_to_check_valid_synchronised_data_request("beamformed_mode", t_request)
 
     # ---------------------------- Wrapper for data acquisition: CONT CHANNEL ----------------------------
     @connected
@@ -2159,7 +2259,7 @@ class Tile(TileHealthMonitor):
             )
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation(t_request)
+        self.select_method_to_check_valid_synchronised_data_request("channelized_mode", t_request)
 
     # ---------------------------- Wrapper for data acquisition: NARROWBAND CHANNEL ----------------------------
     @connected

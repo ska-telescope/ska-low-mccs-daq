@@ -107,10 +107,11 @@ bool StationRawData::packetFilter(unsigned char *udp_packet)
 
     // Check whether this is a Station Beam packet
     for (unsigned short i = 0; i < SPEAD_GET_NITEMS(hdr); i++)
-        if (SPEAD_ITEM_ID(SPEAD_ITEM(udp_packet, i)) == 0x1011)
+        if ((SPEAD_ITEM_ID(SPEAD_ITEM(udp_packet, i)) == 0x1011) ||
+            (SPEAD_ITEM_ID(SPEAD_ITEM(udp_packet, i)) == 0x3010))
             return true;
 
-    // Did not find item 0x1011, not a station beam packet
+    // Did not find item 0x1011 or 0x3010, not a station beam packet
     return false;
 }
 
@@ -143,6 +144,7 @@ bool StationRawData::processPacket()
     uint32_t payload_offset = 0;
     double timestamp_scale = 1.0e-9;
     double sampling_time = 1.08e-6;
+    uint32_t scan_id = 0;
 
     // Get the number of items and get a pointer to the packet payload
     auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
@@ -195,6 +197,12 @@ bool StationRawData::processPacket()
                 nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
                 break;
             }
+            case 0x3010: // Scan ID. If present, timestamp scale is different
+            {
+		scan_id = (uint32_t) SPEAD_ITEM_ADDR(item);
+		timestamp_scale = 1.0e-8;
+                break;
+            }
             case 0x3300: // Payload offset
             {
                 payload_offset = (uint32_t) SPEAD_ITEM_ADDR(item);
@@ -218,6 +226,17 @@ bool StationRawData::processPacket()
         // Multiply packet_counter by rollover counts
         timestamp += timestamp_rollover << 48;
 
+<<<<<<< src/StationDataRaw.cpp
+=======
+    // Calculate packet time
+    double packet_time = sync_time + timestamp * timestamp_scale;
+
+    // Calculate frequency if not present
+    if (frequency == 0) {
+	frequency = 781250 * frequency_id;
+    }
+
+>>>>>>> src/StationDataRaw.cpp
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
 

@@ -94,8 +94,8 @@ class TileHealthMonitor():
 
         The monitoring points returned are strings produced from '.' delimited 
         keys. For example:
-        voltages.5V0
-        io.udp_interface.crc_error_count.FPGA0
+        'voltages.5V0'
+        'io.udp_interface.crc_error_count.FPGA0'
 
         More info at https://confluence.skatelescope.org/x/nDhED
 
@@ -133,12 +133,12 @@ class TileHealthMonitor():
         io.udp_interface.crc_error_count.FPGA0
 
         would have these associated categories:
-        voltages
-        voltages.5V0
-        io
-        io.udp_interface
-        io.udp_interface.crc_error_count
-        io.udp_interface.crc_error_count.FPGA0
+        'voltages'
+        'voltages.5V0'
+        'io'
+        'io.udp_interface'
+        'io.udp_interface.crc_error_count'
+        'io.udp_interface.crc_error_count.FPGA0'
 
         More info at https://confluence.skatelescope.org/x/nDhED
 
@@ -281,7 +281,7 @@ class TileHealthMonitor():
 
         For example:
         If configured with:
-        tile.set_monitoring_point_attr(io.udp_interface, my_category='yes', my_other_category=87)
+        tile.set_monitoring_point_attr('io.udp_interface', my_category='yes', my_other_category=87)
 
         Subsequent calls to:
         tile.get_health_status(my_category='yes', my_other_category=87)
@@ -293,8 +293,16 @@ class TileHealthMonitor():
         io.udp_interface.crc_error_count.FPGA1
         io.udp_interface.bip_error_count.FPGA0
         io.udp_interface.bip_error_count.FPGA1
+        io.udp_interface.decode_error_count.FPGA0
+        io.udp_interface.decode_error_count.FPGA1
         io.udp_interface.linkup_loss_count.FPGA0
         io.udp_interface.linkup_loss_count.FPGA1
+
+        A group attribute is provided by default, see tpm_1_X_monitoring_point_lookup.
+        This can be used like the below example:
+        tile.get_health_status(group='temperatures')
+        tile.get_health_status(group='udp_interface')
+        tile.get_health_status(group='io')
 
         Full documentation on usage available at https://confluence.skatelescope.org/x/nDhED
         """
@@ -1046,7 +1054,7 @@ class TileHealthMonitor():
 
     def check_udp_status(self, fpga_id=None):
         """
-        Check for UDP C2C and BIP errors.
+        Check for 40G errors.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -1063,7 +1071,7 @@ class TileHealthMonitor():
     
     def clear_udp_status(self, fpga_id=None):
         """
-        Reset UDP C2C and BIP error counters.
+        Reset 40G error counters.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -1122,6 +1130,21 @@ class TileHealthMonitor():
         counts = {}
         for fpga in self.fpga_gen(fpga_id):
             counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_bip_error_count()
+        return counts # Return dict of counter values
+
+    def check_udp_decode_error_counter(self, fpga_id=None):
+        """
+        Check UDP interface for 66b64b decoding errors.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: counter values
+        :rtype: dict
+        """
+        counts = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_decode_error_count()
         return counts # Return dict of counter values
     
     def check_tile_beamformer_status(self, fpga_id=None):
