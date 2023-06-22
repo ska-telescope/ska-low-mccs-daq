@@ -9,11 +9,8 @@ dependencies:
   - name: ska-low-mccs-daq
     version: 0.3.0
     repository: file://../ska-low-mccs-daq
-  - name: ska-low-mccs-daq-lmc
-    version: 0.3.0
-    repository: file://../ska-low-mccs-daq-lmc
   - name: ska-low-mccs-spshw
-    version: 0.5.0
+    version: 0.6.0
     repository: https://artefact.skao.int/repository/helm-internal
 
   # Jupyterhub

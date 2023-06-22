@@ -1,6 +1,6 @@
-====================================
-MCCS LMC DAQ Prototype documentation
-====================================
+======================
+MCCS DAQ documentation
+======================
 
 This project is developing the Local Monitoring and Control (LMC)
 prototype for the `Square Kilometre Array`_.
@@ -9,9 +9,10 @@ prototype for the `Square Kilometre Array`_.
 
 .. toctree::
    :maxdepth: 1
-   :caption: API
+   :caption: Contents
 
    api/index
+   guide/index
 
 
 Indices and tables

@@ -17,25 +17,6 @@ import sphinx.builders.texinfo
 import sphinx.builders.text
 import sphinx.ext.autodoc
 
-# This is an elaborate hack to insert write property into _all_
-# mock decorators. It is needed for getting @attribute to build
-# in mocked out tango.server
-# see https://github.com/sphinx-doc/sphinx/issues/6709
-from sphinx.ext.autodoc.mock import _MockObject
-
-
-def call_mock(self, *args, **kw):
-    from types import FunctionType, MethodType
-
-    if args and type(args[0]) in [type, FunctionType, MethodType]:
-        # Appears to be a decorator, pass through unchanged
-        args[0].write = lambda x: x
-        return args[0]
-    return self
-
-
-_MockObject.__call__ = call_mock
-# hack end
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -47,12 +28,8 @@ sys.path.insert(0, os.path.abspath("../../src"))
 # pylint: disable=invalid-name
 autodoc_mock_imports = [
     "numpy",
-    "ska_tango_base",
-    "tango",
-    "ska_low_mccs_common",
     "pydaq",
-    "grpc",
-    "google",
+    "ska_low_mccs_daq_interface",
 ]
 
 
@@ -71,27 +48,12 @@ def setup(app):
 
 # -- Project information -----------------------------------------------------
 release_filename = os.path.join("..", "..", "src", "ska_low_mccs.py")
-#version = None
+project = "MCCS DAQ M&C"
 author = "MCCS team"
-#for line in open(release_filename).readlines():
-#    line = line.strip()
-#    if line.startswith(("author", "version")):
-#        exec(line)
-
-project = "MCCS LMC Prototype"
-#release = version
 copyright = "2020, SKA MCCS Team"
 
 # -- General configuration ------------------------------------------------
 nitpick_ignore = [
-    # TODO: these all have to be ignored because we are exposing through
-    # our public interface, objects from external packages that we are
-    # mocking out when we build our docs. We should look at refactoring
-    # so that these external dependencies don't leak out through our
-    # public interface.
-    ("py:class", "Angle"),
-    ("py:class", "numpy.complex"),
-    ("py:exc", "yaml.YAMLError"),
     ("py:class", "pydaq.daq_receiver_interface.DaqReceiver"),
     ("py:class", "pydaq.daq_receiver_interface.DaqModes"),
 ]
@@ -168,8 +130,8 @@ html_theme_options = {
 
 html_context = {
     "display_gitlab": True,  # Integrate GitHub
-    "favicon": "img/favicon.ico",
-    "logo": "img/logo.png",
+    "favicon_url": "img/favicon.ico",
+    "logo_url": "img/logo.png",
     "theme_logo_only": True,
 }
 
@@ -278,17 +240,8 @@ typing.TYPE_CHECKING = True
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3.10/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
-    "pytango": ("https://pytango.readthedocs.io/en/stable/", None),
     "ska-control-model": (
         "https://developer.skao.int/projects/ska-control-model/en/latest/",
-        None
-    ),
-    "ska-tango-base": (
-        "https://developer.skatelescope.org/projects/ska-tango-base/en/latest/",
-        None
-    ),
-    "ska-low-mccs-common": (
-        "https://developer.skao.int/projects/ska-low-mccs-common/en/latest/",
         None
     ),
 }

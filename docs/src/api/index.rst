@@ -2,9 +2,8 @@
 API
 ===
 
-.. toctree::
-  :caption: API
-  :maxdepth: 2
+Daq handler
+~~~~~~~~~~~
 
-  DAQ receiver Tango device<daq_receiver/index>
-  DAQ handler<daq_handler>
+.. automodule:: ska_low_mccs_daq.daq_handler
+   :members:

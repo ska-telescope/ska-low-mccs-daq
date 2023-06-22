@@ -36,8 +36,5 @@
         }
     },
     "postCreateCommand": "sudo poetry config virtualenvs.create false && sudo poetry install",
-    "remoteUser": "tango",
-    "remoteEnv": {
-        "PATH": "/home/tango/.local/bin:${containerEnv:PATH}",
-    }
+    "remoteUser": "daqqer"
 }

@@ -44,14 +44,15 @@ ska-low-mccs-spshw:
       resources:
         requests:
           memory: 512Mi
+  receivers:
+    1:
+      host: "daq-receiver-001"
+      port: 50051
+      receiver_interface: ens4
+      receiver_ip: ""
 
-# From DAQ we want a single DAQ instance
-# For this demo we are building a daq image meaning we do not 
-# need a new release
 ska-low-mccs-daq:
   receivers:
     1:
-      receiver_interface: ens4
-      receiver_ip: ""
-      grpc_ip: "172.17.6.145"
-      grpc_port: 50051
+      external_ip: "172.17.6.145"
+      port: 50051

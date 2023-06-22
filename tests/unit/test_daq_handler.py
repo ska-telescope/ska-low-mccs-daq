@@ -8,16 +8,12 @@
 """This module contains the tests of the daq receiver device."""
 from __future__ import annotations
 
-import gc
 import json
 from typing import Any
 
 import pytest
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.client import DaqClient
-
-# TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
-gc.disable()
 
 
 class TestDaqHandler:

@@ -19,7 +19,3 @@ ignored-classes = socket
 # W0212 protected-access
 # W0613 unused-argument
 disable = W0212, W0613
-
-# Ignore gRPC generated code.
-generated-members = daq_pb2.*, daq_pb2_gprc.*
-ignore=**/generated_code/**/*.py

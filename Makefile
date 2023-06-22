@@ -6,124 +6,56 @@
 
 PROJECT = ska-low-mccs-daq
 
-HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq
+include .make/base.mk
 
-PYTHON_SWITCHES_FOR_BLACK = --line-length 88
-PYTHON_TEST_FILE = tests
-PYTHON_VARS_AFTER_PYTEST = --forked
-
-## Paths containing python to be formatted and linted
-PYTHON_LINT_TARGET = src/ska_low_mccs_daq tests/
+###############################################
+# DOCS
+###############################################
+include .make/docs.mk
 
 DOCS_SOURCEDIR=./docs/src
 DOCS_SPHINXOPTS= -n -W --keep-going
 
-# include makefile to pick up the standard Make targets, e.g., 'make build'
-include .make/oci.mk
-include .make/k8s.mk
-include .make/python.mk
-include .make/raw.mk
-include .make/base.mk
-include .make/docs.mk
-include .make/helm.mk
-include .make/xray.mk
-
-# include your own private variables for custom deployment configuration
--include PrivateRules.mak
-
 docs-pre-build:
 	python3 -m pip install -r docs/requirements.txt
+
+.PHONY: docs-pre-build
+
+
+###############################################
+# PYTHON
+###############################################
+
+include .make/python.mk
+
+PYTHON_LINE_LENGTH = 88
+PYTHON_TEST_FILE = tests
+PYTHON_VARS_AFTER_PYTEST = --forked
 
 python-post-lint:
 	mypy --config-file mypy.ini src/ tests
 
-K8S_CHART = umbrella-mccs-daq
-K8S_CHARTS = ska-low-mccs-daq ska-low-mccs-daq-lmc umbrella-mccs-daq
-
-K8S_FACILITY ?= minikube
-VALUES_FILE ?= charts/$(K8S_CHART)/values-$(K8S_FACILITY).yaml
-K8S_CHART_PARAMS += --values $(VALUES_FILE)
+.PHONY: python-post-lint
 
 
-# THIS IS SPECIFIC TO THIS REPO
-ifdef CI_REGISTRY_IMAGE
-K8S_CHART_PARAMS += \
-	--set ska-low-mccs-daq.image.registry=$(CI_REGISTRY_IMAGE) \
-	--set ska-low-mccs-daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
-	--set ska-low-mccs-daq-lmc.image.registry=$(CI_REGISTRY_IMAGE) \
-	--set ska-low-mccs-daq-lmc.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
-endif
+###############################################
+# OCI
+###############################################
 
-JUNITXML_REPORT_PATH ?= build/reports/functional-tests.xml
-CUCUMBER_JSON_PATH ?= build/reports/cucumber.json
-JSON_REPORT_PATH ?= build/reports/report.json
+include .make/oci.mk
 
-K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --true-context \
-    --junitxml=$(JUNITXML_REPORT_PATH) \
-    --cucumberjson=$(CUCUMBER_JSON_PATH) \
-	--json-report --json-report-file=$(JSON_REPORT_PATH)
 
-K8S_TEST_RUNNER_PYTEST_TARGET = tests/functional
-K8S_TEST_RUNNER_PIP_INSTALL_ARGS = -r tests/functional/requirements.txt
+###############################################
+# HELM
+###############################################
 
-# ALL THIS SHOULD BE UPSTREAMED
-K8S_TEST_RUNNER_CHART_REGISTRY ?= https://artefact.skao.int/repository/helm-internal
-K8S_TEST_RUNNER_CHART_NAME ?= ska-low-mccs-k8s-test-runner
-K8S_TEST_RUNNER_CHART_TAG ?= 0.6.1
+include .make/helm.mk
 
-K8S_TEST_RUNNER_CHART_OVERRIDES =
+HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq
 
-ifdef PASS_PROXY_CONFIG
-FACILITY_HTTP_PROXY ?= $(http_proxy)
-FACILITY_HTTPS_PROXY ?= $(https_proxy)
-endif
 
-ifdef FACILITY_HTTP_PROXY
-K8S_TEST_RUNNER_CHART_OVERRIDES += --set global.http_proxy=$(FACILITY_HTTP_PROXY)
-endif
+###############################################
+# PRIVATE
+###############################################
 
-ifdef FACILITY_HTTPS_PROXY
-K8S_TEST_RUNNER_CHART_OVERRIDES += --set global.https_proxy=$(FACILITY_HTTPS_PROXY)
-endif
-
-ifdef K8S_TEST_RUNNER_IMAGE_REGISTRY
-K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.registry=$(K8S_TEST_RUNNER_IMAGE_REGISTRY)
-endif
-
-ifdef K8S_TEST_RUNNER_IMAGE_NAME
-K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.image=$(K8S_TEST_RUNNER_IMAGE_NAME)
-endif
-
-ifdef K8S_TEST_RUNNER_IMAGE_TAG
-K8S_TEST_RUNNER_CHART_OVERRIDES += --set image.tag=$(K8S_TEST_RUNNER_IMAGE_TAG)
-endif
-
-ifdef CI_COMMIT_SHORT_SHA
-K8S_TEST_RUNNER_CHART_RELEASE = k8s-test-runner-$(CI_COMMIT_SHORT_SHA)
-else
-K8S_TEST_RUNNER_CHART_RELEASE = k8s-test-runner
-endif
-
-K8S_TEST_RUNNER_PIP_INSTALL_COMMAND =
-ifdef K8S_TEST_RUNNER_PIP_INSTALL_ARGS
-K8S_TEST_RUNNER_PIP_INSTALL_COMMAND = pip install ${K8S_TEST_RUNNER_PIP_INSTALL_ARGS}
-endif
-
-K8S_TEST_RUNNER_WORKING_DIRECTORY ?= /home/tango
-
-k8s-do-test:
-	helm -n $(KUBE_NAMESPACE) install --repo $(K8S_TEST_RUNNER_CHART_REGISTRY) \
-		$(K8S_TEST_RUNNER_CHART_RELEASE) $(K8S_TEST_RUNNER_CHART_NAME) \
-		--version $(K8S_TEST_RUNNER_CHART_TAG) $(K8S_TEST_RUNNER_CHART_OVERRIDES)
-	kubectl -n $(KUBE_NAMESPACE) wait pod ska-low-mccs-k8s-test-runner \
-		--for=condition=ready --timeout=$(K8S_TIMEOUT)
-	kubectl -n $(KUBE_NAMESPACE) cp tests/ ska-low-mccs-k8s-test-runner:$(K8S_TEST_RUNNER_WORKING_DIRECTORY)/tests
-	@kubectl -n $(KUBE_NAMESPACE) exec ska-low-mccs-k8s-test-runner -- bash -c \
-		"cd $(K8S_TEST_RUNNER_WORKING_DIRECTORY) && \
-		mkdir -p build/reports && \
-		$(K8S_TEST_RUNNER_PIP_INSTALL_COMMAND) && \
-		pytest $(K8S_TEST_RUNNER_PYTEST_OPTIONS) $(K8S_TEST_RUNNER_PYTEST_TARGET)" ; \
-	EXIT_CODE=$$? ; \
-	kubectl -n $(KUBE_NAMESPACE) cp ska-low-mccs-k8s-test-runner:$(K8S_TEST_RUNNER_WORKING_DIRECTORY)/build/ ./build/ ; \
-	helm  -n $(KUBE_NAMESPACE) uninstall $(K8S_TEST_RUNNER_CHART_RELEASE) ; \
-	exit $$EXIT_CODE
+-include PrivateRules.mak
