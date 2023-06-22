@@ -26,12 +26,18 @@ class TestDaqHandler:
     @pytest.mark.parametrize(
         ("args", "expected_status", "expected_msg"),
         (
-            ("", TaskStatus.COMPLETED, "Daq has been started and is listening"),
+            (
+                "",
+                TaskStatus.COMPLETED,
+                "Daq has been started and is listening",
+            ),  # noqa: E501
             pytest.param(
                 "invalidInput",
                 TaskStatus.FAILED,
                 "Invalid DaqMode supplied",
-                marks=pytest.mark.xfail(reason="Error propagation is not implemented."),
+                marks=pytest.mark.xfail(
+                    reason="Error propagation is not implemented."
+                ),  # noqa: E501
             ),
         ),
     )
@@ -47,7 +53,8 @@ class TestDaqHandler:
 
         :param daq_address: The address of the DAQ server.
         :param args: The argument with which to call `StartDaq`.
-        :param expected_status: The expected task status expected from `StartDaq`.
+        :param expected_status: The expected task status expected
+            from `StartDaq`.
         :param expected_msg: The message expected from `StartDaq`.
         """
         daq_client = DaqClient(daq_address)

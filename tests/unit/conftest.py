@@ -129,8 +129,8 @@ def max_workers_fixture() -> int:
     """
     Max worker threads available to run a LRC.
 
-    Return an integer specifying the maximum number of worker threads available to
-        execute long-running-commands.
+    Return an integer specifying the maximum number of worker threads
+        available to execute long-running-commands.
 
     :return: the max number of worker threads.
     """

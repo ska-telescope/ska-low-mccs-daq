@@ -64,10 +64,14 @@ def given_a_daq_receiver(
 
     admin_mode = daq_receiver.adminMode
     if admin_mode == AdminMode.OFFLINE:
-        change_event_callbacks.assert_change_event("state", tango.DevState.DISABLE)
+        change_event_callbacks.assert_change_event(
+            "state", tango.DevState.DISABLE
+        )  # noqa: E501
 
         daq_receiver.adminMode = AdminMode.ONLINE
-        change_event_callbacks.assert_change_event("state", tango.DevState.UNKNOWN)
+        change_event_callbacks.assert_change_event(
+            "state", tango.DevState.UNKNOWN
+        )  # noqa: E501
         change_event_callbacks.assert_change_event("state", tango.DevState.ON)
 
     yield test_context.get_daq_device(daq_id)
@@ -81,8 +85,8 @@ def feed_daq_configuration_file(daq_receiver: tango.DeviceProxy) -> None:
     :param daq_receiver: The daq_receiver fixture to use.
     """
     pytest.xfail(reason="Not ready")
-    # MccsDaqReceiver expects a string as input, this will be a string representation
-    # of a dictionary.
+    # MccsDaqReceiver expects a string as input,
+    # this will be a string representation of a dictionary.
     # daq_receiver.Configure(configuration)
 
 
@@ -91,7 +95,7 @@ def assert_daq_instance_is_configured_correctly(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Assert daq_instance has the same configuration that we sent to the daq_receiver.
+    Assert daq has the same configuration that we sent to the daq_receiver.
 
     :param daq_receiver: The daq_receiver fixture to use.
 
@@ -152,8 +156,10 @@ def check_response_as_expected(
     :param daq_receiver: The daq_receiver fixture to use.
     :param receiver_ip: The parameter of interest
 
-    If the ip is not assigned it is assigned the IP address of a specified interface
-    'receiver_interface'. This tests that the value has changed.
+    If the ip is not assigned it is assigned the IP address of
+        a specified interface 'receiver_interface'.
+        This tests that the value has changed.
+
     TODO: determine what other values are allowed
     """
     pytest.xfail(reason="Not ready")

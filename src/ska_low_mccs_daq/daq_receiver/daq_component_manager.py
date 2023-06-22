@@ -13,18 +13,21 @@ import logging
 import threading
 from typing import Any, Callable, Optional
 
-from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
-from ska_low_mccs_common.component import (
-    MccsComponentManager,
-    check_communicating,
+from ska_control_model import (
+    CommunicationStatus,
+    PowerState,
+    ResultCode,
+    TaskStatus,
 )
 from ska_low_mccs_daq_interface import DaqClient
+from ska_tango_base.base import check_communicating
+from ska_tango_base.executor import TaskExecutorComponentManager
 
 __all__ = ["DaqComponentManager"]
 
 
 # pylint: disable=abstract-method,too-many-instance-attributes
-class DaqComponentManager(MccsComponentManager):
+class DaqComponentManager(TaskExecutorComponentManager):
     """A component manager for a DaqReceiver."""
 
     # pylint: disable=too-many-arguments
@@ -38,8 +41,8 @@ class DaqComponentManager(MccsComponentManager):
         consumers_to_start: str,
         logger: logging.Logger,
         max_workers: int,
-        communication_state_changed_callback: Callable[[CommunicationStatus], None],
-        component_state_changed_callback: Callable[[dict[str, Any]], None],
+        communication_state_callback: Callable[[CommunicationStatus], None],
+        component_state_callback: Callable[..., None],
         received_data_callback: Callable[[str, str], None],
     ) -> None:
         """
@@ -56,20 +59,17 @@ class DaqComponentManager(MccsComponentManager):
         :param logger: the logger to be used by this object.
         :param max_workers: the maximum worker threads for the slow commands
             associated with this component manager.
-        :param communication_state_changed_callback: callback to be
+        :param communication_state_callback: callback to be
             called when the status of the communications channel between
             the component manager and its component changes
-        :param component_state_changed_callback: callback to be
+        :param component_state_callback: callback to be
             called when the component state changes
         :param received_data_callback: callback to be called when data is
             received from a tile
         """
-        super().__init__(
-            logger,
-            max_workers,
-            communication_state_changed_callback,
-            component_state_changed_callback,
-        )
+        self._power_state_lock = threading.RLock()
+        self._power_state: Optional[PowerState] = None
+        self._faulty: Optional[bool] = None
         self._consumers_to_start: str = "Daqmodes.INTEGRATED_CHANNEL_CONSUMER"
         self._receiver_started: bool = False
         self._daq_id = str(daq_id).zfill(3)
@@ -80,23 +80,42 @@ class DaqComponentManager(MccsComponentManager):
         self._set_consumers_to_start(consumers_to_start)
         self._daq_client = DaqClient(daq_address)
 
+        super().__init__(
+            logger,
+            communication_state_callback,
+            component_state_callback,
+            max_workers=max_workers,
+            power=None,
+            fault=None,
+        )
+
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
-        super().start_communicating()
+        if self.communication_state == CommunicationStatus.ESTABLISHED:
+            return
+        if self.communication_state == CommunicationStatus.DISABLED:
+            self._update_communication_state(
+                CommunicationStatus.NOT_ESTABLISHED
+            )  # noqa: E501
+
         try:
             configuration = json.dumps(self._get_default_config())
 
             response = self._daq_client.initialise(configuration)
             self.logger.info(response["message"])
         except Exception as e:  # pylint: disable=broad-except
-            self.component_state_changed_callback({"fault": True})
+            if self._component_state_callback is not None:
+                self._component_state_callback(fault=True)
             self.logger.error("Caught exception in start_communicating: %s", e)
 
-        self.update_communication_state(CommunicationStatus.ESTABLISHED)
+        self._update_communication_state(CommunicationStatus.ESTABLISHED)
 
     def stop_communicating(self: DaqComponentManager) -> None:
         """Break off communication with the DaqReceiver components."""
-        super().stop_communicating()
+        if self.communication_state == CommunicationStatus.DISABLED:
+            return
+        self._update_communication_state(CommunicationStatus.DISABLED)
+        self._update_component_state(power=None, fault=None)
 
     def _get_default_config(self: DaqComponentManager) -> dict[str, Any]:
         """
@@ -251,10 +270,16 @@ class DaqComponentManager(MccsComponentManager):
                     self.logger.info(
                         f"File: {files_written}, Type: {data_types_received}"
                     )
-                    self._received_data_callback(data_types_received, files_written)
+                    self._received_data_callback(
+                        data_types_received,
+                        files_written,
+                    )
         except Exception as e:  # pylint: disable=broad-exception-caught  # XXX
             if task_callback:
-                task_callback(status=TaskStatus.FAILED, result=f"Exception: {e}")
+                task_callback(
+                    status=TaskStatus.FAILED,
+                    result=f"Exception: {e}",
+                )
             return
 
     @check_communicating

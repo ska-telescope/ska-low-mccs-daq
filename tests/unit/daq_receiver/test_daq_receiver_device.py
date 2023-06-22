@@ -67,7 +67,9 @@ class TestMccsDaqReceiver:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks.assert_change_event("healthState", HealthState.UNKNOWN)
+        change_event_callbacks.assert_change_event(
+            "healthState", HealthState.UNKNOWN
+        )  # noqa: E501
         assert device_under_test.healthState == HealthState.UNKNOWN
 
     @pytest.mark.parametrize(
@@ -105,7 +107,8 @@ class TestMccsDaqReceiver:
         Here we configure DAQ with some non-default settings and then
             call DaqStatus to check that it reports the correct info.
 
-        :param modes_to_start: A comma separated list of consumers/DaqModes to start.
+        :param modes_to_start: A comma separated list of consumers/DaqModes
+            to start.
         :param expected_consumers: A list of DaqModes
             representing the consumers to start.
         :param daq_interface: The interface for daq to listen on.
@@ -137,7 +140,10 @@ class TestMccsDaqReceiver:
         # Check status.
         status = json.loads(device_under_test.DaqStatus())
         # Check health is OK (as it must be to do this test)
-        assert status["Daq Health"] == [HealthState.OK.name, HealthState.OK.value]
+        assert status["Daq Health"] == [
+            HealthState.OK.name,
+            HealthState.OK.value,
+        ]  # noqa: E501
         # Check the consumers we specified to run are in this list.
         assert status["Running Consumers"] == [
             [consumer.name, consumer.value] for consumer in expected_consumers
@@ -199,7 +205,7 @@ class TestPatchedDaq:
 
         class _PatchedDaqReceiver(MccsDaqReceiver):
             """
-            A daq class that has had its component manager mocked out for testing.
+            A daq class that has its component manager mocked out for testing.
 
             Also creates a command to expose the received data callback
             """
@@ -229,7 +235,10 @@ class TestPatchedDaq:
     @pytest.mark.xfail
     @pytest.mark.parametrize(
         "daq_modes",
-        ("DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA", "1, 2, 0"),
+        (
+            "DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA",
+            "1, 2, 0",
+        ),  # noqa: E501
     )
     def test_start_stop_daq_device(
         self: TestPatchedDaq,
@@ -269,21 +278,39 @@ class TestPatchedDaq:
     @pytest.mark.parametrize(
         "input_data, result",
         [
-            (("burst_raw", "file_name", 0), {"filename": "file_name", "tile": 0}),
-            (("cont_channel", "file_name", 1), {"filename": "file_name", "tile": 1}),
+            (
+                ("burst_raw", "file_name", 0),
+                {"filename": "file_name", "tile": 0},
+            ),  # noqa: E501
+            (
+                ("cont_channel", "file_name", 1),
+                {"filename": "file_name", "tile": 1},
+            ),  # noqa: E501
             (
                 ("integrated_channel", "file_name", 2),
                 {"filename": "file_name", "tile": 2},
             ),
-            (("burst_channel", "file_name", 3), {"filename": "file_name", "tile": 3}),
-            (("burst_beam", "file_name", 4), {"filename": "file_name", "tile": 4}),
-            (("integrated_beam", "file_name", 5), {"filename": "file_name", "tile": 5}),
+            (
+                ("burst_channel", "file_name", 3),
+                {"filename": "file_name", "tile": 3},
+            ),  # noqa: E501
+            (
+                ("burst_beam", "file_name", 4),
+                {"filename": "file_name", "tile": 4},
+            ),  # noqa: E501
+            (
+                ("integrated_beam", "file_name", 5),
+                {"filename": "file_name", "tile": 5},
+            ),  # noqa: E501
             (
                 ("station", "file_name", 512),
                 {"filename": "file_name", "amount_of_data": 512},
             ),
             (("correlator", "file_name"), {"filename": "file_name"}),
-            (("antenna_buffer", "file_name", 8), {"filename": "file_name", "tile": 8}),
+            (
+                ("antenna_buffer", "file_name", 8),
+                {"filename": "file_name", "tile": 8},
+            ),  # noqa: E501
         ],
     )
     def test_received_data_callback(
@@ -310,7 +337,9 @@ class TestPatchedDaq:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["dataReceivedResult"],
         )
-        change_event_callbacks.assert_change_event("dataReceivedResult", ("", ""))
+        change_event_callbacks.assert_change_event(
+            "dataReceivedResult", ("", "")
+        )  # noqa: E501
         assert device_under_test.dataReceivedResult == ("", "")
 
         device_under_test.CallReceivedDataCallback(json.dumps(input_data))
@@ -353,7 +382,9 @@ class TestPatchedDaq:
             been patched into the device under test
         :param consumer_list: A comma separated list of consumers to start.
         """
-        [result_code], [response] = device_under_test.SetConsumers(consumer_list)
+        [result_code], [response] = device_under_test.SetConsumers(
+            consumer_list
+        )  # noqa: E501
         assert result_code == ResultCode.OK
         assert response == "SetConsumers command completed OK"
 
