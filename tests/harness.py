@@ -105,6 +105,14 @@ class SpsTangoTestHarnessContext:
         """
         return self._tango_context.get_device(get_station_calibrator_name())
 
+    def get_field_station_device(self) -> DeviceProxy:
+        """
+        Get a Field station Tango device.
+
+        :returns: a proxy to the Field station Tango device.
+        """
+        return self._tango_context.get_device(get_field_station_name())
+
     def get_subrack_device(self, subrack_id: int) -> DeviceProxy:
         """
         Get a subrack Tango device by its ID number.
@@ -222,6 +230,25 @@ class SpsTangoTestHarness:
         self._tango_test_harness.add_context_manager(
             _slug("subrack", subrack_id),
             SubrackServerContextManager(subrack_simulator),
+        )
+
+    def add_field_station_device(
+        self: SpsTangoTestHarness,
+        logging_level: int = int(LoggingLevel.DEBUG),
+        device_class: type[Device] | str = "ska_low_mccs_spshw.mocks.MockFieldStation",
+    ) -> None:
+        """
+        Set the Field station Tango device in the test harness.
+
+        :param logging_level: the Tango device's default logging level.
+        :param device_class: The device class to use.
+            This may be used to override the usual device class,
+            for example with a patched subclass.
+        """
+        self._tango_test_harness.add_device(
+            get_field_station_name(),
+            device_class,
+            LoggingLevelDefault=logging_level,
         )
 
     def add_subrack_device(  # pylint: disable=too-many-arguments
