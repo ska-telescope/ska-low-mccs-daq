@@ -55,15 +55,6 @@ def get_sps_station_name() -> str:
     return "low-mccs/sps_station/001"
 
 
-def get_field_station_name() -> str:
-    """
-    Return the Field station Tango device name.
-
-    :return: the Field station Tango device name
-    """
-    return "low-mccs/fieldstation/001"
-
-
 def get_subrack_name(subrack_id: int) -> str:
     """
     Construct the subrack Tango device name from its ID number.
