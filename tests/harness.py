@@ -145,8 +145,6 @@ class SpsTangoTestHarness:
 
     def set_station_calibrator_device(
         self: SpsTangoTestHarness,
-        field_station_name: str = "low-mccs/fieldstation/001",
-        calibration_store_name: str = "low-mccs/calibrationstore/001",
         logging_level: int = int(LoggingLevel.DEBUG),
         device_class: type[Device] | str = "ska_low_mccs_spshw.MccsStationCalibrator",
     ) -> None:
@@ -156,8 +154,6 @@ class SpsTangoTestHarness:
         This test harness currently only permits one SPS station device so should also
         only permit one Station Calibrator
 
-        :param field_station_name: the name of the calibrator's field station
-        :param calibration_store_name: the name of the calibrator's calibration store
         :param logging_level: the Tango device's default logging level.
         :param device_class: The device class to use.
             This may be used to override the usual device class,
@@ -166,8 +162,8 @@ class SpsTangoTestHarness:
         self._tango_test_harness.add_device(
             get_station_calibrator_name(),
             device_class,
-            FieldStationName=field_station_name,
-            CalibrationStoreName=calibration_store_name,
+            FieldStationName=get_field_station_name(),
+            CalibrationStoreName=get_calibration_store_name(),
             LoggingLevelDefault=logging_level,
         )
 
