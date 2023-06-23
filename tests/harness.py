@@ -25,7 +25,7 @@ def get_field_station_name() -> str:
 
     :return: the Field Station Tango device name
     """
-    return "low-mccs/fieldstation/001"
+    return "low-mccs/mockfieldstation/001"
 
 
 def get_calibration_store_name() -> str:
