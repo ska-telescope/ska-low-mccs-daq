@@ -11,6 +11,7 @@ from __future__ import annotations  # allow forward references in type hints
 
 import json
 import logging
+import sys
 from typing import Any, Optional, Union, cast
 
 import tango
@@ -150,6 +151,24 @@ class MccsDaqReceiver(SKABaseDevice):
         self._health_model: DaqHealthModel
         self._received_data_mode: str
         self._received_data_result: str
+
+        self._build_state = sys.modules["ska_low_mccs_daq"].__version_info__
+        self._version_id = sys.modules["ska_low_mccs_daq"].__version__
+        device_name = f'{str(self.__class__).rsplit(".",maxsplit=1)[-1][0:-2]}'
+        version = f"{device_name} Software Version: {self._version_id}"
+        properties = (
+            f"Initialised {device_name} device with properties:\n"
+            f"\tReceiverInterface: {self.ReceiverInterface}\n"
+            f"\tReceiverIp: {self.ReceiverIp}\n"
+            f"\tReceiverPorts: {self.ReceiverPorts}\n"
+            f"\tHost: {self.Host}\n"
+            f"\tPort: {self.Port}\n"
+            f"\tDaqId: {self.DaqId}\n"
+            f"\tConsumersToStart: {self.ConsumersToStart}\n"
+        )
+        self.logger.info(
+            "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
+        )
 
     def init_device(self: MccsDaqReceiver) -> None:
         """
