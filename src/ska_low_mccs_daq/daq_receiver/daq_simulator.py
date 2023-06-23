@@ -9,10 +9,12 @@
 from __future__ import annotations
 
 import functools
+import os
 from enum import IntEnum
 from typing import Any, Callable, Iterator, TypeVar, cast
 
 from ska_control_model import ResultCode
+from ska_low_mccs_daq_interface import run_server_forever
 
 __all__ = ["DaqSimulator"]
 
@@ -241,3 +243,15 @@ class DaqSimulator:
             "Receiver Ports": self._config.get("receiver_ports", ""),
             "Receiver IP": [self._config.get("receiver_ip", "")],
         }
+
+
+def main() -> None:
+    """Entry point for a gRPC server that fronts a DAQ simulator."""
+    daq_simulator = DaqSimulator()
+
+    port = int(os.getenv("DAQ_SIMULATOR_PORT", "50051"))
+    run_server_forever(daq_simulator, port)
+
+
+if __name__ == "__main__":
+    main()

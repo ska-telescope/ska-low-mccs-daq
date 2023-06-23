@@ -60,6 +60,7 @@ ska-tango-testing = "^0.6.0"
 [tool.poetry.scripts]
 MccsDaqReceiver = "ska_low_mccs_daq.daq_receiver.daq_receiver_device:main"
 MccsDaqServer = "ska_low_mccs_daq.daq_handler:main"
+DaqSimulator = "ska_low_mccs_daq.daq_receiver.daq_simulator:main"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"

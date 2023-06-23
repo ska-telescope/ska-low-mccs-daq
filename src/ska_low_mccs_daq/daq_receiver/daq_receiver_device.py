@@ -99,7 +99,7 @@ class MccsDaqReceiver(SKABaseDevice):
     ReceiverInterface = device_property(
         dtype=str,
         mandatory=False,
-        # pylint: disable=line-too-long
+        # pylint: disable-next=line-too-long
         doc="The interface on which the DAQ receiver is listening for traffic.",  # noqa: E501
         default_value="",
     )
@@ -213,7 +213,7 @@ class MccsDaqReceiver(SKABaseDevice):
         )
 
     def init_command_objects(self: MccsDaqReceiver) -> None:
-        # pylint: disable=line-too-long
+        # pylint: disable-next=line-too-long
         """Initialise the command handlers for commands supported by this device."""  # noqa: E501
         super().init_command_objects()
 
@@ -366,8 +366,8 @@ class MccsDaqReceiver(SKABaseDevice):
     #     self: MccsDaqReceiver, attr_req_type: tango.AttReqType
     # ) -> bool:
     #     """
-    # pylint: disable=line-too-long
-    #     Protect attribute access before being updated otherwise it reports alarm.# noqa: E501
+    # pylint: disable-next=line-too-long
+    #     Protect attribute access before being updated otherwise it reports alarm.  # noqa: E501
 
     #     :param attr_req_type: tango attribute type READ/WRITE
 

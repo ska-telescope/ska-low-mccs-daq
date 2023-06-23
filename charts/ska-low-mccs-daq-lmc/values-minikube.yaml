@@ -1,0 +1,11 @@
+global:
+  minikube: true
+
+receiver:
+  station_id: 1  # required
+#   host: "10.0.10.151"  # optional: gRPC host/IP for a pre-existing DAQ
+#   port: 50051  # optional: defaults to 50051
+#   receiver_interface: net1  # optional: defaults to "eth0"
+#   receiver_ip: ""  # empty = Determine from interface name
+#   receiver_port: 5660  # optional: defaults to 4660
+#   logging_level_default: 5
