@@ -1,7 +1,7 @@
 {{- $release := .Release}}
 {{- $values := .Values}}
-{{- with .Values.receiver}}
-{{- $station_id := (int .station_id)}}
+{{- range $id, $spec := .Values.receivers }}
+{{- $station_id := (int $id)}}
 {{- $defaults := dict
   "host" (printf "daq-simulator-%03d" $station_id)
   "port" 50051
@@ -10,7 +10,7 @@
   "receiver_port" 4660
   "logging_level_default" 3
 }}
-{{- $defaulted := (mergeOverwrite $defaults .)}}
+{{- $defaulted := (mergeOverwrite $defaults $spec)}}
 name: daq-receiver-{{$release.Name}}
 function: ska-low-mccs-daq-daqreceiver
 domain: ska-low-mccs-daq

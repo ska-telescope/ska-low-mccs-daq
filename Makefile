@@ -37,6 +37,8 @@ docs-pre-build:
 python-post-lint:
 	mypy --config-file mypy.ini src/ tests
 
+K8S_CHART = umbrella-mccs-daq
+K8S_CHARTS = ska-low-mccs-daq ska-low-mccs-daq-lmc umbrella-mccs-daq
 
 K8S_FACILITY ?= minikube
 VALUES_FILE ?= charts/$(K8S_CHART)/values-$(K8S_FACILITY).yaml
@@ -46,8 +48,10 @@ K8S_CHART_PARAMS += --values $(VALUES_FILE)
 # THIS IS SPECIFIC TO THIS REPO
 ifdef CI_REGISTRY_IMAGE
 K8S_CHART_PARAMS += \
-	--set image.registry=$(CI_REGISTRY_IMAGE) \
-	--set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
+	--set ska-low-mccs-daq.image.registry=$(CI_REGISTRY_IMAGE) \
+	--set ska-low-mccs-daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
+	--set ska-low-mccs-daq-lmc.image.registry=$(CI_REGISTRY_IMAGE) \
+	--set ska-low-mccs-daq-lmc.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA)
 endif
 
 JUNITXML_REPORT_PATH ?= build/reports/functional-tests.xml

@@ -21,9 +21,17 @@ ska-low-mccs-daq:
   storage:
     - name: daq-data
       size: "250Mi"
-
   receivers:
     1:
-      receiver_ip: ""
       storage: daq-data
-      logging_level_default: 5
+
+ska-low-mccs-daq-lmc:
+  receivers:
+    1:
+      host: "daq-receiver-001"
+
+# ska-taranta:
+#   enabled: false
+
+# jupyterhub:
+#   enabled: false

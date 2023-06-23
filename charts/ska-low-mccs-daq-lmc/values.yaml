@@ -16,14 +16,14 @@ dsconfig:
     tag: 1.5.7
     pullPolicy: IfNotPresent
 
-# receiver:
-#   station_id: 1  # required
-#   host: "daq-receiver-001"  # optional: hostname of a pre-existing DAQ
-#   port: 50051  # optional: defaults to 50051
-#   receiver_interface: net1  # optional: defaults to "eth0"
-#   receiver_ip: ""  # empty = Determine from interface name
-#   receiver_port: 5660  # optional: defaults to 4660
-#   logging_level_default: 5
+# receivers:
+#   1:
+#     host: "daq-receiver-001"  # optional: hostname of a pre-existing DAQ
+#     port: 50051  # optional: defaults to 50051
+#     receiver_interface: net1  # optional: defaults to "eth0"
+#     receiver_ip: ""  # empty = Determine from interface name
+#     receiver_port: 5660  # optional: defaults to 4660
+#     logging_level_default: 5
 
 image:
   registry: artefact.skao.int

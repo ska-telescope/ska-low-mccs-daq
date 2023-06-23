@@ -5,8 +5,8 @@ storage: # List of specs of PVCs to create
   - name: daq-data
     size: "250Mi"
 
-receiver:
-    station_id: 1  # required
+receivers:
+  1:
     # external_ip: "10.0.10.151"  # optional: if provided, this is the IP address of an external DAQ receiver
     # port:  # optional: defaults to 50051
     storage: daq-data

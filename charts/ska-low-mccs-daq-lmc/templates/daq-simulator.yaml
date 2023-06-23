@@ -9,9 +9,9 @@ It that "host" key is missing, then no existing DAQ receiver is specified,
 so we here launch a DAQ simulator for the Tango device to monitor and control.
 */}}
 {{- $image := .Values.image}}
-{{- with .Values.receiver}}
-{{- if not (hasKey . "host")}}
-{{- $slug := (printf "daq-simulator-%03d" (int .station_id))}}
+{{- range $station_id, $spec := .Values.receivers }}
+{{- if not (hasKey $spec "host")}}
+{{- $slug := (printf "daq-simulator-%03d" (int $station_id))}}
 {{- $port := default 50051 .port}}
 ---
 apiVersion: v1

@@ -56,3 +56,23 @@ ska-taranta-auth:
     enabled: true
     nginx: true
     hostname: "*"
+
+# ska-low-mccs-daq:
+#   receivers:
+#     1:
+#       external_ip: # optional: if provided, this is the IP address of an external DAQ receiver
+#       port:  # optional: defaults to 50051
+#       storage: daq-data  # must refer to a PVC: pre-existing or created above
+#       server_node_selector: {}  # optional
+#       server_annotations: {}  # optional
+#       server_affinity: {}  # optional
+
+# ska-low-mccs-daq-lmc:
+#   receivers:
+#     1:
+#       host: "daq-receiver-001"  # optional: hostname of a pre-existing DAQ
+#       port: 50051  # optional: defaults to 50051
+#       receiver_interface: net1  # optional: defaults to "eth0"
+#       receiver_ip: ""  # empty = Determine from interface name
+#       receiver_port: 5660  # optional: defaults to 4660
+#       logging_level_default: 5

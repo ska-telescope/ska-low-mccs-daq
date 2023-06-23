@@ -14,8 +14,8 @@ storage: []  # List of specs of PVCs to create
   #   labels: {}  # optional
   #   annotations: {}  # optional
 
-# receiver:
-#     station_id: 1  # required
+# receivers:
+#   1:
 #     external_ip: # optional: if provided, this is the IP address of an external DAQ receiver
 #     port:  # optional: defaults to 50051
 #     storage: daq-data  # must refer to a PVC: pre-existing or created above

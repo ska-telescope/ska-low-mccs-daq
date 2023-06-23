@@ -6,19 +6,19 @@ Check if the receiver spec has an "external_ip" key.
 If so, then there there is an unmanaged external DAQ receiver instance
 at that IP address. Lets set up egress to that instance.
 */}}
-{{- with .Values.receiver}}
-{{- if hasKey . "external_ip" }}
-{{$station_id := (int .station_id)}}
+{{- range $id, $spec := .Values.receivers}}
+{{- if hasKey $spec "external_ip"}}
+{{$station_id := (int $id)}}
 ---
 {{- $service_name := (printf "daq-receiver-%03d" $station_id)}}
-{{- $port := default 50051 .port}}
+{{- $port := default 50051 $spec.port}}
 kind: Endpoints
 apiVersion: v1
 metadata:
  name: {{$service_name}}
 subsets:
  - addresses:
-     - ip: {{.external_ip}}
+     - ip: {{$spec.external_ip}}
    ports:
      - port: {{$port}}
 ---

@@ -5,10 +5,10 @@ For each receiver spec, check if it has a "grpc_ip" key.
 If not, then we need to launch a receiver instance.
 */}}
 {{- $image := .Values.image}}
-{{- with .Values.receiver}}
-{{- if not (hasKey . "external_ip") }}
-{{- $slug := (printf "daq-receiver-%03d" (int .station_id))}}
-{{- $grpc_port := default 50051 $.port}}
+{{- range $id, $spec := .Values.receivers}}
+{{- if not (hasKey $spec "external_ip") }}
+{{- $slug := (printf "daq-receiver-%03d" (int $id))}}
+{{- $grpc_port := default 50051 $spec.port}}
 ---
 apiVersion: v1
 kind: Service
@@ -38,7 +38,7 @@ spec:
   replicas: 1
   template:
     metadata:
-{{- with .server_annotations }}
+{{- with $spec.server_annotations }}
       annotations:
 {{ toYaml . | indent 8 }}
 {{- end }}
@@ -68,7 +68,7 @@ spec:
             - SYS_ADMIN
             - KILL
             - SYS_TIME
-{{- with .storage }}
+{{- with $spec.storage}}
         volumeMounts:
         - name: {{.}}
           mountPath: /daq-data
@@ -79,15 +79,15 @@ spec:
       securityContext:
         fsGroup: 1000
 {{- end }}
-{{- with .server_node_selector }}
+{{- with $spec.server_node_selector}}
       nodeSelector:
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- with .server_affinity }}
+{{- with $spec.server_affinity}}
       affinity:
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- with .server_tolerations }}
+{{- with $spec.server_tolerations}}
       tolerations:
 {{ toYaml . | indent 8 }}
 {{- end }}
