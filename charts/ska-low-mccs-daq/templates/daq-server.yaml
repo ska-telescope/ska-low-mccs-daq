@@ -5,18 +5,17 @@ For each receiver spec, check if it has a "grpc_ip" key.
 If not, then we need to launch a receiver instance.
 */}}
 {{- $image := .Values.image}}
-{{- range $id, $spec := .Values.receivers}}
-{{- if not (hasKey $spec "grpc_ip")}}
-{{- $slug := (printf "daq-receiver-%03d" (int $id))}}
-{{- $receiver_port := default 4660 $spec.receiver_port}}
-{{- $grpc_port := default 50051 $spec.grpc_port}}
+{{- with .Values.receiver}}
+{{- if not (hasKey . "external_ip") }}
+{{- $slug := (printf "daq-receiver-%03d" (int .station_id))}}
+{{- $grpc_port := default 50051 $.port}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{$slug}}-grpc-svc
+  name: {{$slug}}
   labels:
-    component: {{$slug}}-grpc-svc
+    component: {{$slug}}
 spec:
   ports:
   - name: {{$slug}}-grpc-port
@@ -35,11 +34,11 @@ spec:
   selector:
     matchLabels:
       component: {{$slug}}-server
-  serviceName: {{$slug}}-grpc-svc
+  serviceName: {{$slug}}
   replicas: 1
   template:
     metadata:
-{{- with $spec.server_annotations }}
+{{- with .server_annotations }}
       annotations:
 {{ toYaml . | indent 8 }}
 {{- end }}
@@ -48,7 +47,9 @@ spec:
     spec:
       containers:
       - name: {{$slug}}-server
-        image: {{$image.registry}}/{{$image.name}}:{{$image.tag}}
+{{- with $image}}
+        image: {{.registry}}/{{.name}}:{{.tag}}
+{{- end }}
         imagePullPolicy: IfNotPresent
         command:
           - retry
@@ -67,26 +68,26 @@ spec:
             - SYS_ADMIN
             - KILL
             - SYS_TIME
-{{- with $spec.server_node_selector }}
+{{- with .storage }}
         volumeMounts:
-        - name: {{$spec.storage}}
+        - name: {{.}}
           mountPath: /daq-data
       volumes:
-      - name: {{$spec.storage}}
+      - name: {{.}}
         persistentVolumeClaim:
-          claimName: {{$spec.storage}}
+          claimName: {{.}}
       securityContext:
         fsGroup: 1000
 {{- end }}
-{{- with $spec.server_node_selector }}
+{{- with .server_node_selector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- with $spec.server_affinity }}
+{{- with .server_affinity }}
       affinity:
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- with $spec.server_tolerations }}
+{{- with .server_tolerations }}
       tolerations:
 {{ toYaml . | indent 8 }}
 {{- end }}
