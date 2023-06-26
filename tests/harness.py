@@ -451,7 +451,7 @@ class SpsTangoTestHarness:
     def add_daq_instance(
         self: SpsTangoTestHarness,
         daq_id: int,
-        daq_instance: DaqServerBackendProtocol,
+        daq_instance: DaqServerBackendProtocol | None = None,
     ) -> None:
         """
         And a DAQ instance to the test harness.
@@ -460,13 +460,19 @@ class SpsTangoTestHarness:
         :param daq_instance:
             the DAQ instance to be added to the test harness.
         """
-        # Defer importing from ska_low_mccs_daq
+        # Defer importing from any MCCS packages
         # until we know we need to launch a DAQ instance to test against.
         # This ensures that we can use this harness
         # to run tests against a real cluster,
-        # from within a pod that does not have ska_low_mccs_daq installed.
+        # from within a pod that does not have MCCS packages installed.
         # pylint: disable-next=import-outside-toplevel
         from ska_low_mccs_daq_interface.server import server_context
+
+        # pylint: disable-next=import-outside-toplevel
+        from ska_low_mccs_spshw.daq_receiver.daq_simulator import DaqSimulator
+
+        if daq_instance is None:
+            daq_instance = DaqSimulator()
 
         self._tango_test_harness.add_context_manager(
             f"daq_{daq_id}",
