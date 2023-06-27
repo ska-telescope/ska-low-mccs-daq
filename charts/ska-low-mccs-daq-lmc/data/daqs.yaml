@@ -1,33 +1,34 @@
+{{- $release := .Release}}
+{{- $values := .Values}}
+{{- range $id, $spec := .Values.receivers }}
+{{- $station_id := (int $id)}}
 {{- $defaults := dict
+  "host" (printf "daq-simulator-%03d" $station_id)
+  "port" 50051
   "receiver_interface" "eth0"
   "receiver_ip" ""
   "receiver_port" 4660
-  "grpc_port" 50051
   "logging_level_default" 3
 }}
-name: daq-receiver-{{.Release.Name}}
+{{- $defaulted := (mergeOverwrite $defaults $spec)}}
+name: daq-receiver-{{$release.Name}}
 function: ska-low-mccs-daq-daqreceiver
 domain: ska-low-mccs-daq
 instances:
-{{- range $id, $spec := .Values.receivers }}
-  - {{printf "daq-receiver-%03d-tango" (int $id)}}
-{{- end }}
+  - {{(printf "daq-tango-%03d" $station_id) | quote}}
 command: "MccsDaqReceiver"
 server:
   name: "MccsDaqReceiver"
   instances:
-{{- range $id, $spec := .Values.receivers }}
-{{- $defaulted := merge $spec $defaults}}
-{{- $slug := (printf "daq-receiver-%03d" (int $id))}}
-    - name: {{$slug}}-tango
+    - name: {{(printf "daq-tango-%03d" $station_id) | quote}}
       classes:
       - name: "MccsDaqReceiver"
         devices:
-        - name: {{printf "low-mccs/daqreceiver/%03d" (int $id)}}
+        - name: {{(printf "low-mccs/daqreceiver/%03d" $station_id) | quote}}
           properties:
           - name: "DaqId"
             values:
-            - {{$id | toString | quote}}
+            - {{$station_id | toString | quote}}
           - name: "ReceiverInterface"
             values:
             - {{$defaulted.receiver_interface | quote}}
@@ -39,30 +40,30 @@ server:
             - {{$defaulted.receiver_port | toString | quote}}
           - name: "Host"
             values:
-            - {{coalesce $spec.grpc_ip (printf "%s-grpc-svc" $slug) | quote }}
+            - {{$defaulted.host | quote}}
           - name: "Port"
             values:
-            - {{$defaulted.grpc_port | toString | quote}}
+            - {{$defaulted.port | toString | quote}}
           - name: "ConsumersToStart"
             values:
             - "DaqModes.INTEGRATED_CHANNEL_DATA"
           - name: "LoggingLevelDefault"
             values: 
             - {{$defaulted.logging_level_default | toString | quote}}
-    {{- end }} # devices
 depends_on:
   - device: sys/database/2
 image:
-{{- with .Values.image}}
+{{- with $values.image}}
   registry: "{{.registry}}"
   image: "{{.name}}"
   tag: "{{.tag}}"
   pullPolicy: "{{.pullPolicy}}"
 {{- end}}
 livenessProbe:
-{{ toYaml .Values.livenessProbe | indent 2 }}
+{{toYaml $values.livenessProbe | indent 2 }}
 readinessProbe:
-{{ toYaml .Values.readinessProbe | indent 2 }}
+{{toYaml $values.readinessProbe | indent 2 }}
 securityContext:
   capabilities:
     add: ["NET_RAW", "IPC_LOCK", "SYS_NICE", "SYS_ADMIN", "KILL", "SYS_TIME"]
+{{- end }}

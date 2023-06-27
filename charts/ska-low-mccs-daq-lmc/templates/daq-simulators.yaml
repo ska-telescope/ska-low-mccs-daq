@@ -1,0 +1,65 @@
+{{- /*
+Launch a DAQ simulator for each device instance spec lacking a "host" key.
+
+That is, if a Tango device instance spec provides a "host" key,
+the host is assumed to refer to an existing DAQ receiver
+to be monitored and controlled by the Tango device.
+
+It that "host" key is missing, then no existing DAQ receiver is specified,
+so we here launch a DAQ simulator for the Tango device to monitor and control.
+*/}}
+{{- $image := .Values.image}}
+{{- range $station_id, $spec := .Values.receivers }}
+{{- if not (hasKey $spec "host")}}
+{{- $slug := (printf "daq-simulator-%03d" (int $station_id))}}
+{{- $port := default 50051 .port}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$slug}}
+  namespace: {{$.Release.Namespace}}
+  labels:
+    component: {{$slug}}
+spec:
+  ports:
+  - name: http
+    port: {{$port}}
+  type: ClusterIP
+  selector:
+    component: {{$slug}}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{$slug}}
+  namespace: {{$.Release.Namespace}}
+  labels:
+    component: {{$slug}}
+spec:
+  selector:
+    matchLabels:
+      component: {{$slug}}
+  serviceName: {{$slug}}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        component: {{$slug}}
+    spec:
+      containers:
+      - name: {{$slug}}
+{{- with $image}}
+        image: {{.registry}}/{{.name}}:{{.tag}}
+{{- end}}
+        imagePullPolicy: IfNotPresent
+        command:
+          - "DaqSimulator"
+        env:
+          - name: DAQ_SIMULATOR_PORT
+            value: {{$port | quote}}
+        securityContext:
+          capabilities:
+            add: ["NET_RAW", "IPC_LOCK", "SYS_NICE", "SYS_ADMIN", "KILL", "SYS_TIME"]
+{{- end}}
+{{- end}}

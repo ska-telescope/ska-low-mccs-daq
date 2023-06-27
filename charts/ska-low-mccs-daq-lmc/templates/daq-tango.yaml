@@ -1,14 +1,15 @@
 {{- /*
 Launch a DAQ tango device.
 
-For each receiver spec, generate a ska-tango-util multidevice spec
-by pushing the current context through the DAQ spec template.
+If there is a receiver spec, then generate a ska-tango-util multidevice
+spec by pushing the current context through the DAQ spec template.
 Then convert that spec into k8s manifests by pushing it through
 the ska-tango-util library functions.
 */}}
-{{- $filedeviceserver := tpl ($.Files.Get "data/daq.yaml") $ | fromYaml }}
+{{- if hasKey .Values "receivers" }}
+{{- $filedeviceserver := tpl ($.Files.Get "data/daqs.yaml") $ | fromYaml }}
 {{- $context := dict
-  "name" "daq"
+  "name" "daq-tango"
   "deviceserver" $filedeviceserver
   "image" .Values.image
   "local" .
@@ -17,3 +18,4 @@ the ska-tango-util library functions.
 {{ template "ska-tango-util.multidevice-sacc-role.tpl" $context }}
 {{ template "ska-tango-util.multidevice-job.tpl" $context }}
 {{ template "ska-tango-util.multidevice-svc.tpl" $context }}
+{{- end}}

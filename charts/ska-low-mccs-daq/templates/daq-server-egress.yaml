@@ -1,25 +1,26 @@
 
 {{- /*
-Create egress to pre-existing external DAQ receivers.
+Create egress to a pre-existing external DAQ receiver.
 
-For each receiver spec, check if it has a "grpc_ip" key.
-If so, then there there is an unmanaged external DAQ receiver instance at that IP address.
-Lets set up egress to that instance.
+Check if the receiver spec has an "external_ip" key.
+If so, then there there is an unmanaged external DAQ receiver instance
+at that IP address. Lets set up egress to that instance.
 */}}
-{{- range $id, $spec := .Values.receivers }}
-{{- if hasKey $spec "grpc_ip" }}
+{{- range $id, $spec := .Values.receivers}}
+{{- if hasKey $spec "external_ip"}}
+{{$station_id := (int $id)}}
 ---
-{{- $service_name := (printf "daq-receiver-%03d-grpc-svc" (int $id))}}
-{{- $grpc_port := default 50051 $spec.grpc_port}}
+{{- $service_name := (printf "daq-receiver-%03d" $station_id)}}
+{{- $port := default 50051 $spec.port}}
 kind: Endpoints
 apiVersion: v1
 metadata:
  name: {{$service_name}}
 subsets:
  - addresses:
-     - ip: {{$spec.grpc_ip}}
+     - ip: {{$spec.external_ip}}
    ports:
-     - port: {{$grpc_port}}
+     - port: {{$port}}
 ---
 kind: Service
 apiVersion: v1
@@ -28,7 +29,7 @@ metadata:
 spec:
  type: ClusterIP
  ports:
- - port: {{$grpc_port}}
-   targetPort: {{$grpc_port}}
+ - port: {{$port}}
+   targetPort: {{$port}}
 {{- end }}
 {{- end }}
