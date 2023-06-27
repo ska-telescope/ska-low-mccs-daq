@@ -56,6 +56,9 @@ spec:
           - --max=60
           - --
           - MccsDaqServer
+        env:
+          - name: DAQ_GRPC_PORT
+            value: {{$grpc_port | quote}}
         ports:
           - containerPort: {{$grpc_port}}
             protocol: TCP
