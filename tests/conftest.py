@@ -231,3 +231,13 @@ def tile_id_fixture() -> int:
     :return: the id of the tile under test.
     """
     return 1
+
+
+@pytest.fixture(name="daq_id", scope="session")
+def daq_id_fixture() -> int:
+    """
+    Return the daq id of this daq receiver.
+
+    :return: the daq id of this daq receiver.
+    """
+    return 1
