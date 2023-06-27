@@ -7,7 +7,7 @@ Then convert that spec into k8s manifests by pushing it through
 the ska-tango-util library functions.
 */}}
 {{- if hasKey .Values "receivers" }}
-{{- $filedeviceserver := tpl ($.Files.Get "data/daq.yaml") $ | fromYaml }}
+{{- $filedeviceserver := tpl ($.Files.Get "data/daqs.yaml") $ | fromYaml }}
 {{- $context := dict
   "name" "daq-tango"
   "deviceserver" $filedeviceserver
