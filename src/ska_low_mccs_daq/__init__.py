@@ -19,13 +19,6 @@ __version_info__ = (
     "This package implements SKA Low's MCCS's DAQ Receiver subsystem.",
 )
 
-__all__ = [
-    # devices
-    "MccsDaqReceiver",
-    "DaqHandler",
-    # device subpackages
-    "daq_receiver",
-]
+__all__ = ["DaqHandler"]
 
 from .daq_handler import DaqHandler
-from .daq_receiver import MccsDaqReceiver

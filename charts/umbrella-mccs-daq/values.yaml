@@ -67,7 +67,7 @@ ska-taranta-auth:
 #       server_annotations: {}  # optional
 #       server_affinity: {}  # optional
 
-# ska-low-mccs-daq-lmc:
+# ska-low-mccs-spshw:
 #   receivers:
 #     1:
 #       host: "daq-receiver-001"  # optional: hostname of a pre-existing DAQ

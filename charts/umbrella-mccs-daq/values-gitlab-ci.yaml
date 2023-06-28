@@ -2,7 +2,7 @@ ska-low-mccs-daq:
   receivers:
     1: {}
 
-ska-low-mccs-daq-lmc:
+ska-low-mccs-spshw:
   receivers:
     1:
       host: "daq-receiver-001"

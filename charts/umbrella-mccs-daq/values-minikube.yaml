@@ -16,6 +16,9 @@ ska-low-mccs-spshw:
           subrack: "1"
           subrack_bay: 1
           logging_level_default: 5
+  receivers:
+    1:
+      host: "daq-receiver-001"
 
 ska-low-mccs-daq:
   storage:
@@ -24,11 +27,6 @@ ska-low-mccs-daq:
   receivers:
     1:
       storage: daq-data
-
-ska-low-mccs-daq-lmc:
-  receivers:
-    1:
-      host: "daq-receiver-001"
 
 # ska-taranta:
 #   enabled: false

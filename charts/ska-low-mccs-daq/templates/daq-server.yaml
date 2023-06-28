@@ -52,9 +52,6 @@ spec:
 {{- end }}
         imagePullPolicy: IfNotPresent
         command:
-          - retry
-          - --max=60
-          - --
           - MccsDaqServer
         env:
           - name: DAQ_GRPC_PORT
