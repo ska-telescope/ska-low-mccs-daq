@@ -35,6 +35,9 @@ class TestWrapper:
                        'eth40g': "Check 40G UDP using FPGA embedded test.",
                        'c2c': "Check communication bus between CPLD and FPGAs.\nWARNING: this test will overwrite the "
                               "XML memory map in the FPGAs,\nInitialise station needed after execution.",
+                       'preadu': "Check operation of the preADU. This test will only run if preADU is detected. "
+                                 "\nWARNING: this test will overwrite the gains in the preADU, "
+                                 "and the non eep non volatile memory",
                        }
 
         self.test_todo = []
