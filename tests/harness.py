@@ -105,6 +105,14 @@ class SpsTangoTestHarnessContext:
         """
         return self._tango_context.get_device(get_station_calibrator_name())
 
+    def get_calibration_store_device(self) -> DeviceProxy:
+        """
+        Get a proxy to the Calibration Store Tango device.
+
+        :returns: a proxy to the Calibration Store Tango device.
+        """
+        return self._tango_context.get_device(get_calibration_store_name())
+
     def get_field_station_device(self) -> DeviceProxy:
         """
         Get a Field station Tango device.
@@ -172,6 +180,43 @@ class SpsTangoTestHarness:
             device_class,
             FieldStationName=get_field_station_name(),
             CalibrationStoreName=get_calibration_store_name(),
+            LoggingLevelDefault=logging_level,
+        )
+
+    def set_calibration_store_device(
+        self: SpsTangoTestHarness,
+        logging_level: int = int(LoggingLevel.DEBUG),
+        device_class: type[Device] | str = "ska_low_mccs_spshw.MccsCalibrationStore",
+        database_host: str = "test-postgresql",
+        database_port: int = 5432,
+        database_name: str = "postgres",
+        database_admin_user: str = "postgres",
+        database_admin_password: str = "",
+    ) -> None:
+        """
+        Set the Calibration Store Tango device in the test harness.
+
+        This test harness currently only permits one SPS station device so should also
+        only permit one Calibration Store
+
+        :param logging_level: the Tango device's default logging level.
+        :param device_class: The device class to use.
+            This may be used to override the usual device class,
+            for example with a patched subclass.
+        :param database_host: the database host
+        :param database_port: the database port
+        :param database_name: the database name
+        :param database_admin_user: the database admin user
+        :param database_admin_password: the database admin password
+        """
+        self._tango_test_harness.add_device(
+            get_calibration_store_name(),
+            device_class,
+            DatabaseHost=database_host,
+            DatabasePort=database_port,
+            DatabaseName=database_name,
+            DatabaseAdminUser=database_admin_user,
+            DatabaseAdminPassword=database_admin_password,
             LoggingLevelDefault=logging_level,
         )
 

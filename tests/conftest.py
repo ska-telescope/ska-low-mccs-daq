@@ -231,3 +231,71 @@ def tile_id_fixture() -> int:
     :return: the id of the tile under test.
     """
     return 1
+
+
+@pytest.fixture(name="calibration_solutions")
+def calibration_solutions_fixture() -> dict[tuple[int, float], list[float]]:
+    """
+    Fixture that provides sample calibration solutions.
+
+    :return: a sample calibration solution. The keys are tuples of the channel
+        and the outside temperature, and the values are lists of calibration values
+    """
+    return {
+        (23, 25.0): [1] + [0.5 * i for i in range(8)],
+        (45, 25.0): [3] + [1.2 * (i % 2) for i in range(8)],
+        (23, 30.0): [5] + [0.6 * i for i in range(8)],
+        (45, 30.0): [4] + [1.4 * (i % 2) for i in range(8)],
+        (23, 35.0): [6] + [0.7 * i for i in range(8)],
+        (45, 35.0): [2] + [1.6 * (i % 2) for i in range(8)],
+    }
+
+
+@pytest.fixture(name="database_host")
+def database_host_fixture() -> str:
+    """
+    Fixture that provides the database host
+
+    :return: the database host
+    """
+    return "test-postgresql"
+
+
+@pytest.fixture(name="database_port")
+def database_port_fixture() -> int:
+    """
+    Fixture that provides the database port
+
+    :return: the database port
+    """
+    return 5432
+
+
+@pytest.fixture(name="database_name")
+def database_name_fixture() -> str:
+    """
+    Fixture that provides the database name
+
+    :return: the database name
+    """
+    return "postgres"
+
+
+@pytest.fixture(name="database_admin_user")
+def database_admin_user_fixture() -> str:
+    """
+    Fixture that provides the database admin user
+
+    :return: the database admin user
+    """
+    return "postgres"
+
+
+@pytest.fixture(name="database_admin_password")
+def database_admin_password_fixture() -> str:
+    """
+    Fixture that provides the database admin password
+
+    :return: the database admin password
+    """
+    return "secretpassword"
