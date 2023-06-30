@@ -233,6 +233,16 @@ def tile_id_fixture() -> int:
     return 1
 
 
+@pytest.fixture(name="daq_id", scope="session")
+def daq_id_fixture() -> int:
+    """
+    Return the daq id of this daq receiver.
+
+    :return: the daq id of this daq receiver.
+    """
+    return 1
+
+
 @pytest.fixture(name="calibration_solutions")
 def calibration_solutions_fixture() -> dict[tuple[int, float], list[float]]:
     """
@@ -254,7 +264,7 @@ def calibration_solutions_fixture() -> dict[tuple[int, float], list[float]]:
 @pytest.fixture(name="database_host")
 def database_host_fixture() -> str:
     """
-    Fixture that provides the database host
+    Fixture that provides the database host.
 
     :return: the database host
     """
@@ -264,7 +274,7 @@ def database_host_fixture() -> str:
 @pytest.fixture(name="database_port")
 def database_port_fixture() -> int:
     """
-    Fixture that provides the database port
+    Fixture that provides the database port.
 
     :return: the database port
     """
@@ -274,7 +284,7 @@ def database_port_fixture() -> int:
 @pytest.fixture(name="database_name")
 def database_name_fixture() -> str:
     """
-    Fixture that provides the database name
+    Fixture that provides the database name.
 
     :return: the database name
     """
@@ -284,7 +294,7 @@ def database_name_fixture() -> str:
 @pytest.fixture(name="database_admin_user")
 def database_admin_user_fixture() -> str:
     """
-    Fixture that provides the database admin user
+    Fixture that provides the database admin user.
 
     :return: the database admin user
     """
@@ -294,16 +304,8 @@ def database_admin_user_fixture() -> str:
 @pytest.fixture(name="database_admin_password")
 def database_admin_password_fixture() -> str:
     """
-    Fixture that provides the database admin password
+    Fixture that provides the database admin password.
 
     :return: the database admin password
     """
     return "secretpassword"
-@pytest.fixture(name="daq_id", scope="session")
-def daq_id_fixture() -> int:
-    """
-    Return the daq id of this daq receiver.
-
-    :return: the daq id of this daq receiver.
-    """
-    return 1

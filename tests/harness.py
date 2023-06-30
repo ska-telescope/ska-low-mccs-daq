@@ -123,7 +123,7 @@ class SpsTangoTestHarnessContext:
         """
         return self._tango_context.get_device(get_station_calibrator_name())
 
-    def get_calibration_store_device(self) -> DeviceProxy:
+    def get_calibration_store_device(self) -> tango.DeviceProxy:
         """
         Get a proxy to the Calibration Store Tango device.
 
@@ -255,6 +255,7 @@ class SpsTangoTestHarness:
             LoggingLevelDefault=logging_level,
         )
 
+    # pylint: disable=too-many-arguments
     def set_calibration_store_device(
         self: SpsTangoTestHarness,
         logging_level: int = int(LoggingLevel.DEBUG),
