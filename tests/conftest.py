@@ -299,3 +299,11 @@ def database_admin_password_fixture() -> str:
     :return: the database admin password
     """
     return "secretpassword"
+@pytest.fixture(name="daq_id", scope="session")
+def daq_id_fixture() -> int:
+    """
+    Return the daq id of this daq receiver.
+
+    :return: the daq id of this daq receiver.
+    """
+    return 1
