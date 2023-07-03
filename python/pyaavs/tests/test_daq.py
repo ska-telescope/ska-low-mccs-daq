@@ -240,7 +240,7 @@ class TestDaq:
                             self._logger.error("Sample index: " + str(i))
                             self._logger.error("Expected data: " + str(exp))
                             self._logger.error("Expected data re: " + str(tf.signed(exp_re)))
-                            self._logger.error("Received data im: " + str(tf.signed(exp_im)))
+                            self._logger.error("Expected data im: " + str(tf.signed(exp_im)))
                             self._logger.error("Received data: " + str(data[c, a, p, i]))
                             return 1
         return 0
@@ -478,11 +478,13 @@ class TestDaq:
         if test_type in ["all", "integrated"]:
             self._logger.info("Checking integrated data format now...")
 
+            daq_config = {}
             daq_config = {
                 'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
                 'directory': temp_dir,  # CHANGE THIS if required
                 'nof_beam_channels': 384,
                 'nof_beam_samples': 1,
+                'receiver_frame_size': 9000,
                 'nof_tiles': len(tiles)
             }
 
