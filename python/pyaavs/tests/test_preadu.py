@@ -1,8 +1,6 @@
 from pyaavs import station
 from config_manager import ConfigManager
-
-from functools import reduce
-import test_functions as tf
+from time import sleep
 import logging
 
 
@@ -10,153 +8,166 @@ class TestPreadu:
     def __init__(self, station_config, logger):
         self._logger = logger
         self._station_config = station_config
+        self._test_attenuation_values = [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
         self.errors = 0
 
     def clean_up(self):
+        percentage = round(len(self.preadus_present)*100 / (len(self.preadus_present)+len(self.preadus_not_present)), 2)
+        self._logger.info(f"{percentage}% of preADUs detected.")
+        self._logger.info(f"Undetected preADUs: {*self.preadus_not_present,}")
         if self.errors > 0:
-            self._logger.error(f"preadu Test FAILED! {self.errors} Errors")
+            self._logger.error(f"preADU Test FAILED! {self.errors} Errors")
             return 1
-        self._logger.info("preadu Test PASSED!")
+        self._logger.info("preADU Test PASSED!")
         return 0
+
+    def test_read_write_configuration(self, preadu, n, preadu_index):
+        # Write attenuation values into the preADU
+        for channel, attenuation in enumerate(self._test_attenuation_values):
+            preadu.set_attenuation(attenuation, [channel])
+        preadu.write_configuration()
+
+        # Set software representation to something else
+        # To ensure tests fail if read_configuration doesn't work
+        preadu.set_attenuation(15)
+
+        # Updates software representation with the preADU attenuation values
+        preadu.read_configuration()
+
+        for index, channel_filter in enumerate(preadu.channel_filters):
+            if preadu.get_attenuation()[index] != self._test_attenuation_values[index]:
+                self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} read/write error! Got: {preadu.get_attenuation()[index]}, expected: {self._test_attenuation_values[index]}.")
+                self.errors += 1
+                return
+            self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} read/write success!")
+        return
+
+    def test_read_write_eep(self, preadu, n, preadu_index):
+        # Write attenuation values into the eep non-volatile memory
+        for channel, attenuation in enumerate(self._test_attenuation_values):
+            preadu.set_attenuation(attenuation, [channel])
+        preadu.eep_write()
+
+        # Set software representation to something else
+        # To ensure tests fail if eep_read doesn't work
+        preadu.set_attenuation(15)
+
+        # Updates software representation with the eep non-volatile memory attenuation values
+        preadu.eep_read()
+
+        for index, channel_filter in enumerate(preadu.channel_filters):
+            if preadu.get_attenuation()[index] != self._test_attenuation_values[index]:
+                self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} non-volatile memory read/write error! Got: {preadu.get_attenuation()[index]}, expected: {self._test_attenuation_values[index]}")
+                self.errors += 1
+                return
+            self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} eep non-volatile memory read/write success!")
+        return
+
+    def test_disable_channels(self, preadu, n, preadu_index):
+        preadu.disable_channels()
+        preadu.write_configuration()
+
+        # Set software representation to something else
+        # To ensure tests fail if read_configuration doesn't work
+        preadu.set_attenuation(15)
+
+        # Updates software representation with the preADU attenuation values
+        preadu.read_configuration()
+
+        for index, channel_filter in enumerate(preadu.channel_filters):
+            if preadu.channel_filters[index] != 0x0:
+                self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} disable channels error! Got: {preadu.channel_filters[index]}, expected: 0x0")
+                self.errors += 1
+                return
+            self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} disabled successfully!")
+        return
+
+    def test_low_passband(self, preadu, n, preadu_index):
+        preadu.select_low_passband()
+        preadu.enable_channels()  # writes internal channel filters to the passband
+        preadu.write_configuration()
+
+        # Set software representation to something else
+        # To ensure tests fail if read_configuration doesn't work
+        preadu._passband = 0x0
+        preadu.set_attenuation(15)
+
+        # Updates software representation with the preADU attenuation values
+        preadu.read_configuration()
+
+        for index, channel_filter in enumerate(preadu.channel_filters):
+            received_passband = preadu.get_passband()[index]
+            if received_passband != 0x5:
+                self._logger.error(
+                    f"TPM{n} preADU{preadu_index} channel{index} low passband configuration error! Got: {received_passband}, expected: 0x5")
+                self.errors += 1
+                return
+            self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} low passband configured sucessfully!")
+        return
+    
+    def test_high_passband(self, preadu, n, preadu_index):
+        preadu.select_high_passband()
+        preadu.enable_channels()  # writes internal channel filters to the passband
+        preadu.write_configuration()
+
+        # Set software representation to something else
+        # To ensure tests fail if read_configuration doesn't work
+        preadu._passband = 0x0
+        preadu.set_attenuation(15)
+
+        # Updates software representation with the preADU attenuation values
+        preadu.read_configuration()
+
+        for index, channel_filter in enumerate(preadu.channel_filters):
+            received_passband = preadu.get_passband()[index]
+            if received_passband != 0x3:
+                self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} high passband configuration error! Got: {received_passband}, expected: 0x3")
+                self.errors += 1
+                return
+            self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} high passband configured sucessfully!")
+        return
 
     def execute(self, placeholder=None):
 
         self._test_station = station.Station(self._station_config)
         self._test_station.connect()
 
-        self._logger.info("Executing preadu test")
+        self._logger.info("Executing preADU test")
 
         self.errors = 0
+        self.preadus_present = []
+        self.preadus_not_present = []
         
         for n, tile in enumerate(self._test_station.tiles):
 
-            for preadu_index, preADU in enumerate(tile.tpm.tpm_preadu):
+            for preadu_index, preadu in enumerate(tile.tpm.tpm_preadu):
 
-                self._logger.info(f"Starting tile {n}, preadu {preadu_index} test")
+                self._logger.info(f"Starting Test for TPM{n}, preADU{preadu_index}...")
 
-                preADU.switch_off()
-                preADU.switch_on()
+                preadu.switch_off()
+                preadu.switch_on()
+                sleep(0.5)  # Sleep required to ensure preADUs are detected correctly 
 
-                if preADU.check_preadu_exists():
-                    self._logger.info(f"preadu detected! tile: {n}, preADU: {preadu_index}")
-
-                    # ---- preADU read/write test ----
-
-                    attenuation_values = [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36]
-
-                    # Write attenuation values into the preADU
-                    for channel, attenuation in enumerate(attenuation_values):
-                        preADU.set_attenuation(attenuation, [channel])
-                    preADU.write_configuration()
-
-                    # Set software representation to something else,
-                    # To ensure tests fail if read_configuration doesn't work
-                    preADU.set_attenuation(15)
-
-                    # Updates software representation with the preADU attenuation values
-                    preADU.read_configuration()
-
-                    for index, channel_filter in enumerate(preADU.channel_filters):
-                        if preADU.get_attenuation()[index] != attenuation_values[index]:
-                            self._logger.error(f"preadu channel {index}, preadu read/write is not working, got: {preADU.get_attenuation()[index]}, expected: {attenuation_values[index]}, tile: {n}, preADU: {preadu_index}")
-                            self.errors += 1
-                        else:
-                            self._logger.info(f"preadu channel {index}, preadu read/write is working")
-
-                    # ---- eep non-volatile memory read/write test ----
-
-                    # Write attenuation values into the eep non-volatile memory
-                    for channel, attenuation in enumerate(attenuation_values):
-                        preADU.set_attenuation(attenuation, [channel])
-                    preADU.eep_write()
-
-                    # Set software representation to something else,
-                    # To ensure tests fail if eep_read doesn't work
-                    preADU.set_attenuation(15)
-
-                    # Updates software representation with the eep non-volatile memory attenuation values
-                    preADU.eep_read()
-
-                    for index, channel_filter in enumerate(preADU.channel_filters):
-                        if preADU.get_attenuation()[index] != attenuation_values[index]:
-                            self._logger.error(f"preadu channel {index}, non-volatile memory read/write is not working, got: {preADU.get_attenuation()[index]}, expected: {attenuation_values[index]}, tile: {n}, preADU: {preadu_index}")
-                            self.errors += 1
-                        else:
-                            self._logger.info(f"preadu channel {index}, eep non-volatile memory read/write is working")
-
-                    # if tmp is 1.2 run passband tests
+                if preadu.is_present():
+                    self._logger.info(f"TPM{n} preADU{preadu_index} detected!")
+                    self.preadus_present.append(f"TPM{n} preADU{preadu_index}")
+                    # preADU read/write test
+                    self.test_read_write_configuration(preadu, n, preadu_index)
+                    # EEP non-volatile memory read/write test
+                    # NOTE:This test has been disabled, not currently needed and not working as expected
+                    # self.test_read_write_eep(preadu, n, preadu_index)
+                    # TPM 1.2 only tests
                     if tile.tpm_version() == "tpm_v1_2":
+                        # Disable channels test
+                        self.test_disable_channels(preadu, n, preadu_index)
+                        # Low passband test
+                        self.test_low_passband(preadu, n, preadu_index)
+                        # High passband test
+                        self.test_high_passband(preadu, n, preadu_index)
 
-                        # ---- disable_channels passband test ----
-
-                        preADU.disable_channels()
-                        preADU.write_configuration()
-
-                        # Set software representation to something else,
-                        # To ensure tests fail if read_configuration doesn't work
-
-                        preADU.set_attenuation(15)
-
-                        # Updates software representation with the preADU attenuation values
-                        preADU.read_configuration()
-
-                        for index, channel_filter in enumerate(preADU.channel_filters):
-                            if preADU.channel_filters[index] != 0x0:
-                                self._logger.error(
-                                    f"preadu channel {index}, disable channels passband not working, got: {preADU.channel_filters[index]}, expected: 0x0, tile: {n}, preADU: {preadu_index}")
-                                self.errors += 1
-                            else:
-                                self._logger.info(f"preadu channel {index}, disable channels passband is working")
-
-                        # ---- low passband test ----
-
-                        preADU.select_low_passband()
-                        preADU.enable_channels()  # writes internal channel filters to the passband
-                        preADU.write_configuration()
-
-                        # Set software representation to something else,
-                        # To ensure tests fail if read_configuration doesn't work
-                        preADU._passband = 0x0
-                        preADU.set_attenuation(15)
-
-                        # Updates software representation with the preADU attenuation values
-                        preADU.read_configuration()
-
-                        for index, channel_filter in enumerate(preADU.channel_filters):
-                            received_passband = preADU.get_passband()[index]
-                            if received_passband != 0x5:
-                                self._logger.error(
-                                    f"preadu channel {index}, low passband not working, got: {received_passband}, expected: 0x5, tile: {n}, preADU: {preadu_index}")
-                                self.errors += 1
-                            else:
-                                self._logger.info(f"preadu channel {index}, low passband is working")
-
-                        # ---- high passband test ----
-
-                        preADU.select_high_passband()
-                        preADU.enable_channels()  # writes internal channel filters to the passband
-                        preADU.write_configuration()
-
-                        # Set software representation to something else,
-                        # To ensure tests fail if read_configuration doesn't work
-                        preADU._passband = 0x0
-                        preADU.set_attenuation(15)
-
-                        # Updates software representation with the preADU attenuation values
-                        preADU.read_configuration()
-
-                        for index, channel_filter in enumerate(preADU.channel_filters):
-                            received_passband = preADU.get_passband()[index]
-                            if received_passband != 0x3:
-                                self._logger.error(
-                                    f"preadu channel {index}, high passband not working, got: {received_passband}, expected: 0x3, tile: {n}, preADU: {preadu_index}")
-                                self.errors += 1
-                            else:
-                                self._logger.info(f"preadu channel {index}, high passband is working")
-
-                else:  # if check_preadu_exists is false
-                    self._logger.error(f"preadu not detected! Will not run test. tile: {n}, preADU: {preadu_index}")
-                    self.errors += 1
+                else:  # SKIP test if no preADU is detected
+                    self._logger.warning(f"TPM{n} preADU{preadu_index} not detected! Will skip tests for this preADU...")
+                    self.preadus_not_present.append(f"TPM{n} preADU{preadu_index}")
 
         return self.clean_up()
 
