@@ -43,13 +43,19 @@ bool StationRawData::initialiseConsumer(json configuration)
         return false;
     }
 
+    if (!(key_in_json(configuration, "capture_start_time"))) {
+        LOG(FATAL, "Missing configuration item capture_start_time");
+        return false;
+    }
+
 
     // Set local values
     start_channel = configuration["start_channel"];
     nof_channels = configuration["nof_channels"];
     nof_samples  = configuration["nof_samples"];
-    transpose = (configuration["transpose_samples"] == 1) ? true : false;
+    transpose = (configuration["transpose_samples"] == 1);
     packet_size = configuration["max_packet_size"];
+    capture_start_time = round((double) configuration["capture_start_time"]);
     nof_pols = 2;
 
     // Create ring buffer
@@ -136,8 +142,9 @@ bool StationRawData::processPacket()
     uint16_t station_id = 0;
     uint16_t nof_contributing_antennas = 0;
     uint32_t payload_offset = 0;
-    uint32_t scan_id = 0;
     double timestamp_scale = 1.0e-9;
+    double sampling_time = 1.08e-6;
+    uint32_t scan_id = 0;
 
     // Get the number of items and get a pointer to the packet payload
     auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
@@ -219,16 +226,35 @@ bool StationRawData::processPacket()
         // Multiply packet_counter by rollover counts
         timestamp += timestamp_rollover << 48;
 
-    // Calculate packet time
-    double packet_time = sync_time + timestamp * timestamp_scale;
-
-    // Calculate frequency if not present
-    if (frequency == 0) {
-	frequency = 781250 * frequency_id;
-    }
-
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
+
+    // Calculate packet start and end times
+    double packet_time = sync_time + timestamp * timestamp_scale;
+    double packet_end_time = packet_time + samples_in_packet * sampling_time;
+
+    // Check whether a capture start time was provided
+    unsigned start_sample_offset = 0;
+    if (capture_start_time > 0) {
+        // Check whether the packet end time is before provided start time
+        // LOG(INFO, "%d %d s:%.12lf e:%.12lf", logical_channel_id, packet_counter, packet_time, packet_end_time);
+        if (packet_end_time < capture_start_time) {
+            ring_buffer -> pull_ready();
+            return true;
+        }
+
+        // If packet start time is smaller than the provided capture start time, then the first sample to be acquired
+        // must be within this packet
+	    if (packet_time < capture_start_time) {
+            // Required start sample is within this packet. Determine where
+            start_sample_offset = (unsigned int) round((capture_start_time - packet_time) / sampling_time);
+	        LOG(INFO, "First processed packet. Packet start_time: s:%.9lf, offset in packet: %d, sample timestamp: %.9f",
+		      packet_time, start_sample_offset, packet_time + start_sample_offset * sampling_time);
+        }
+
+        // Packet capture has begun. Set capture_start_time to -1 to skip these checks for future packets
+        capture_start_time = -1;
+    }
 
     // Check whether packet counter has rolled over
     if (packet_counter == 0 && logical_channel_id == 0) {
@@ -241,6 +267,10 @@ bool StationRawData::processPacket()
         // Multiply packet_counter by rollover counts
         packet_counter += rollover_counter << 32;
 
+    // Calculate frequency if not present
+    if (frequency == 0)
+        frequency = 781250 * frequency_id;
+
     // If this is channel of interest, save, otherwise ignore
     if (logical_channel_id >= start_channel && logical_channel_id < start_channel + nof_channels)
 
@@ -250,7 +280,8 @@ bool StationRawData::processPacket()
                                     packet_counter,
                                     reinterpret_cast<uint16_t *>(payload + payload_offset),
                                     packet_time, 
-				    frequency & 0xFFFFFFFF);
+				                    frequency & 0xFFFFFFFF,
+				                    start_sample_offset);
 
     // Ready from packet
     ring_buffer -> pull_ready();
@@ -309,12 +340,14 @@ StationRawDoubleBuffer::~StationRawDoubleBuffer()
 
 // Write data to buffer
 void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uint64_t packet_counter,
-                                        uint16_t *data_ptr, double timestamp, uint32_t frequency)
+                                        uint16_t *data_ptr, double timestamp, uint32_t frequency,
+					                    unsigned start_sample_offset)
 {
     // Check whether the current consumer buffer is empty, and if so set index of the buffer
     if (double_buffer[producer].sample_index == 0) {
         double_buffer[producer].sample_index = packet_counter;
         double_buffer[producer].seq_number = buffer_counter++;
+	    double_buffer[producer].sample_offset = start_sample_offset;
     }
 
     // Check if we are receiving a packet from a previous buffer, if so place in previous buffer
@@ -330,7 +363,8 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
             return;
 
         // Copy data into selected buffer
-        this->process_data(local_producer, packet_counter, samples, channel, data_ptr, timestamp, frequency);
+        process_data(local_producer, packet_counter, samples, start_sample_offset,
+		     	     channel, data_ptr, timestamp, frequency);
 
         // Ready from packet
         return;
@@ -375,21 +409,24 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
             if (elapsed_time >= 1e4) {
                 LOG(WARN, "WARNING: Overwriting buffer %d with %d samples by buffer %d!",
                     double_buffer[producer].seq_number, double_buffer[producer].nof_packets, buffer_counter);
+
                 clear(producer);
-		break;
+		        break;
             }
         }
 
     	// Clear buffer and start using
         double_buffer[producer].sample_index = current_index + nof_samples / samples;
         double_buffer[producer].seq_number = buffer_counter++;
+	    double_buffer[producer].sample_offset = start_sample_offset;
 
         // Unlock double buffer
         double_buffer[consumer].mutex -> unlock();
     }
 
     // Copy data to buffer
-    process_data(producer, packet_counter, samples, channel, data_ptr, timestamp, frequency);
+    process_data(producer, packet_counter, samples, start_sample_offset, channel,
+                 data_ptr, timestamp, frequency);
 
     // Update buffer index if required
     if (double_buffer[producer].sample_index > packet_counter)
@@ -397,15 +434,16 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
 }
 
 inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t packet_counter, uint32_t samples,
-                                                 uint32_t channel, uint16_t *data_ptr, double timestamp, uint32_t frequency)
+						                         unsigned start_sample_offset, uint32_t channel,
+                                                 uint16_t *data_ptr, double timestamp, uint32_t frequency)
 {
     // Copy data from packet to buffer
     // If number of channels is 1, or if data is not being transposed, then simply copy the entire buffer to its destination
     if (nof_channels == 1 || !transpose) {
         auto dst = this->double_buffer[producer_index].data + channel * nof_samples * nof_pols +
                                 (packet_counter - this->double_buffer[producer_index].sample_index) * samples * nof_pols;
-        memcpy(dst,
-               data_ptr,
+        memcpy(dst + start_sample_offset * nof_pols,
+               data_ptr + start_sample_offset * nof_pols,
                nof_pols * samples * sizeof(uint16_t));
     }
     else {
@@ -413,15 +451,13 @@ inline void StationRawDoubleBuffer::process_data(int producer_index, uint64_t pa
         // dst is in sample/channel/pol order, so we need to skip nof_channels * nof_pols for every src sample
         // src is in sample/pol order (for one channel), we only need to skip nof_pols every time
         auto dst = double_buffer[producer_index].data +
-                       (packet_counter - double_buffer[producer_index].sample_index) * samples * nof_pols * nof_channels +
-                       channel * nof_pols;
+                            (packet_counter - double_buffer[producer_index].sample_index) *
+                            samples * nof_pols * nof_channels + channel * nof_pols;
         auto src = data_ptr;
 
-        // For every sample (spectrum)
-        for(unsigned i = 0; i < samples; i++) {
-            // For every pol
+        // For every sample (spectrum) and polarisation , copy samples
+        for(unsigned i = start_sample_offset; i < samples; i++) {
             for(unsigned j = 0; j < nof_pols; j++)
-                // Copy the value for the current sample/pol, for one channel, to dst
                 dst[j] = src[j];
 
             // Advance dst and src pointers
@@ -452,7 +488,7 @@ StationRawBuffer* StationRawDoubleBuffer::read_buffer()
 {
     // Wait for buffer to become available
     if (!(double_buffer[consumer].ready)) {
-        nanosleep(&tim, &tim2); // Wait using nanosleep
+        nanosleep(&tim, &tim2);
         return nullptr;
     }
 
@@ -493,6 +529,7 @@ void StationRawDoubleBuffer::clear(int index)
         double_buffer[i].nof_samples = 0;
         double_buffer[i].nof_packets = 0;
         double_buffer[i].seq_number = 0;
+        double_buffer[i].sample_offset = 0;
         double_buffer[i].frequency = UINT_MAX;
         memset(double_buffer[i].data, 0, nof_samples * nof_pols * nof_channels * sizeof(uint16_t));
     }
@@ -516,7 +553,8 @@ void StationRawPersister::threadEntry()
         if (callback != nullptr) {
             RawStationMetadata metadata = {buffer->frequency,
                                            buffer->nof_packets,
-                                           buffer->seq_number};
+                                           buffer->seq_number,
+	    				                   buffer->sample_offset};
             callback(buffer->data, buffer->ref_time, &metadata);
         }
         else
