@@ -119,6 +119,8 @@ class SpsTangoTestHarnessContext:
         """
         Get a proxy to the Station Calibrator Tango device.
 
+        :raises RuntimeError: if the device fails to become ready.
+
         :returns: a proxy to the Station Calibrator Tango device.
         """
         device_name = get_station_calibrator_name()
@@ -150,6 +152,8 @@ class SpsTangoTestHarnessContext:
         """
         Get a proxy to the Calibration Store Tango device.
 
+        :raises RuntimeError: if the device fails to become ready.
+
         :returns: a proxy to the Calibration Store Tango device.
         """
         device_name = get_calibration_store_name()
@@ -180,6 +184,8 @@ class SpsTangoTestHarnessContext:
     def get_field_station_device(self: SpsTangoTestHarnessContext) -> tango.DeviceProxy:
         """
         Get a Field station Tango device.
+
+        :raises RuntimeError: if the device fails to become ready.
 
         :returns: a proxy to the Field station Tango device.
         """
