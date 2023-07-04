@@ -1,1 +1,2 @@
-FROM nvidia/cuda:11.6.1-base-ubuntu20.04
+FROM nvidia/cuda:11.3.1-devel-ubuntu20.04
+RUN echo hello
