@@ -19,6 +19,7 @@ ska-low-mccs-spshw:
   receivers:
     1:
       host: "daq-receiver-001"
+      
 
 ska-low-mccs-daq:
   storage:
