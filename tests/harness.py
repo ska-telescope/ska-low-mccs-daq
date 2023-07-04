@@ -121,7 +121,30 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the Station Calibrator Tango device.
         """
-        return self._tango_context.get_device(get_station_calibrator_name())
+        device_name = get_station_calibrator_name()
+        device_proxy = self._tango_context.get_device(device_name)
+
+        # TODO: This should simply be
+        #     return device_proxy
+        # but sadly, when we test against a fresh k8s deployment,
+        # the device is not actually ready to be tested
+        # until many seconds after the readiness probe reports it to be ready.
+        # This should be fixed in the k8s readiness probe,
+        # but for now we have to check for readiness here.
+        for sleep_time in [0, 1, 2, 4, 8, 15, 30, 60]:
+            if sleep_time:
+                print(f"Sleeping {sleep_time} second(s)...")
+                time.sleep(sleep_time)
+            try:
+                if device_proxy.state() != tango.DevState.INIT:
+                    return device_proxy
+                print(f"Device {device_name} still initialising.")
+            except tango.DevFailed as dev_failed:
+                print(
+                    f"Device {device_name} raised DevFailed on state() call:\n"
+                    f"{repr(dev_failed)}."
+                )
+        raise RuntimeError(f"Device {device_name} failed readiness.")
 
     def get_calibration_store_device(self) -> tango.DeviceProxy:
         """
@@ -129,7 +152,30 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the Calibration Store Tango device.
         """
-        return self._tango_context.get_device(get_calibration_store_name())
+        device_name = get_calibration_store_name()
+        device_proxy = self._tango_context.get_device(device_name)
+
+        # TODO: This should simply be
+        #     return device_proxy
+        # but sadly, when we test against a fresh k8s deployment,
+        # the device is not actually ready to be tested
+        # until many seconds after the readiness probe reports it to be ready.
+        # This should be fixed in the k8s readiness probe,
+        # but for now we have to check for readiness here.
+        for sleep_time in [0, 1, 2, 4, 8, 15, 30, 60]:
+            if sleep_time:
+                print(f"Sleeping {sleep_time} second(s)...")
+                time.sleep(sleep_time)
+            try:
+                if device_proxy.state() != tango.DevState.INIT:
+                    return device_proxy
+                print(f"Device {device_name} still initialising.")
+            except tango.DevFailed as dev_failed:
+                print(
+                    f"Device {device_name} raised DevFailed on state() call:\n"
+                    f"{repr(dev_failed)}."
+                )
+        raise RuntimeError(f"Device {device_name} failed readiness.")
 
     def get_field_station_device(self: SpsTangoTestHarnessContext) -> tango.DeviceProxy:
         """
@@ -137,7 +183,30 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the Field station Tango device.
         """
-        return self._tango_context.get_device(get_field_station_name())
+        device_name = get_field_station_name()
+        device_proxy = self._tango_context.get_device(device_name)
+
+        # TODO: This should simply be
+        #     return device_proxy
+        # but sadly, when we test against a fresh k8s deployment,
+        # the device is not actually ready to be tested
+        # until many seconds after the readiness probe reports it to be ready.
+        # This should be fixed in the k8s readiness probe,
+        # but for now we have to check for readiness here.
+        for sleep_time in [0, 1, 2, 4, 8, 15, 30, 60]:
+            if sleep_time:
+                print(f"Sleeping {sleep_time} second(s)...")
+                time.sleep(sleep_time)
+            try:
+                if device_proxy.state() != tango.DevState.INIT:
+                    return device_proxy
+                print(f"Device {device_name} still initialising.")
+            except tango.DevFailed as dev_failed:
+                print(
+                    f"Device {device_name} raised DevFailed on state() call:\n"
+                    f"{repr(dev_failed)}."
+                )
+        raise RuntimeError(f"Device {device_name} failed readiness.")
 
     def get_subrack_device(
         self: SpsTangoTestHarnessContext, subrack_id: int
