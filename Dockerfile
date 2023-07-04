@@ -64,22 +64,25 @@ RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
 # Install AAVS DAQ
 # Temp using local copy
-#RUN git clone https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
-COPY ./src/aavs-system/ /app/aavs-system/
+RUN git clone https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
+#COPY ./src/aavs-system/ /app/aavs-system/
 WORKDIR /app/aavs-system
-#RUN git reset --hard ${AAVS_SYSTEM_SHA}
-
+RUN git reset --hard ${AAVS_SYSTEM_SHA}
+COPY test_aavs.cpp /app/aavs-system/src/
 # Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
 COPY deploy.sh /app/aavs-system/
-#COPY CMakeLists.txt /app/aavs-system/src/
+COPY CMakeLists.txt /app/aavs-system/src/
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 
 # Expose the DAQ port to UDP traffic.
 EXPOSE 4660/udp
 
+# WORKDIR /app/aavs_system/src/
+# RUN sudo make test_aavs
+
 WORKDIR /app/
 COPY pyproject.toml poetry.lock* ./
-ENV PATH="/opt/aavs/include/:/opt/aavs/lib/:/opt/aavs/lib/:/home/daqqer/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
+ENV PATH="/opt/aavs/include/:/opt/aavs/lib/:/home/daqqer/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
 RUN poetry config virtualenvs.create false && poetry install -vvv --only main
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 USER daqqer
