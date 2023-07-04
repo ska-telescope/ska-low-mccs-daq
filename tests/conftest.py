@@ -252,12 +252,12 @@ def calibration_solutions_fixture() -> dict[tuple[int, float], list[float]]:
         and the outside temperature, and the values are lists of calibration values
     """
     return {
-        (23, 25.0): [1] + [0.5 * i for i in range(8)],
-        (45, 25.0): [3] + [1.2 * (i % 2) for i in range(8)],
-        (23, 30.0): [5] + [0.6 * i for i in range(8)],
-        (45, 30.0): [4] + [1.4 * (i % 2) for i in range(8)],
-        (23, 35.0): [6] + [0.7 * i for i in range(8)],
-        (45, 35.0): [2] + [1.6 * (i % 2) for i in range(8)],
+        (23, 25.0): [float(1)] + [0.5 * i for i in range(8)],
+        (45, 25.0): [float(3)] + [1.2 * (i % 2) for i in range(8)],
+        (23, 30.0): [float(5)] + [0.6 * i for i in range(8)],
+        (45, 30.0): [float(4)] + [1.4 * (i % 2) for i in range(8)],
+        (23, 35.0): [float(6)] + [0.7 * i for i in range(8)],
+        (45, 35.0): [float(2)] + [1.6 * (i % 2) for i in range(8)],
     }
 
 
