@@ -56,7 +56,7 @@ export VENV_INSTALL=/opt/aavs
 
 # Installation options
 CLEAN=false
-COMPILE_CORRELATOR=OFF
+COMPILE_CORRELATOR=ON
 ACTIVATE_VENV=false
 PRINT_HELP=false
 PYFABIL_BRANCH="master"
