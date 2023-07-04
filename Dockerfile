@@ -1,2 +1,1 @@
-FROM nvidia/cuda:11.4.0-devel-ubuntu20.04
-CMD nvidia-smi
+FROM nvidia/cuda:11.6.1-base-ubuntu20.04
