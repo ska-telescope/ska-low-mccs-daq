@@ -22,18 +22,14 @@ ska-low-mccs-spshw:
       
 
 ska-low-mccs-daq:
-  image:
-    registry: registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq
-    name: ska-low-mccs-daq
-    tag: 0.3.0-dev.c63ac29e6
   storage:
     - name: daq-data
       size: "250Mi"
   receivers:
     1:
       storage: daq-data
-      #runtimeclassname: nvidia
-      #gpu_limit: "1"
+      # runtimeclassname: nvidia
+      # gpu_limit: "1"
 
 # ska-taranta:
 #   enabled: false
