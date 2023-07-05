@@ -19,6 +19,7 @@ ska-low-mccs-spshw:
   receivers:
     1:
       host: "daq-receiver-001"
+      
 
 ska-low-mccs-daq:
   storage:
@@ -27,6 +28,8 @@ ska-low-mccs-daq:
   receivers:
     1:
       storage: daq-data
+      # runtimeclassname: nvidia
+      # gpu_limit: "1"
 
 # ska-taranta:
 #   enabled: false
