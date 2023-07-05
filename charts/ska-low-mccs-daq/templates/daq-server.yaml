@@ -14,7 +14,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{$slug}}
-  namespace: dp-mccs-alistair-p
   labels:
     component: {{$slug}}
 spec:
@@ -29,7 +28,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{$slug}}-server
-  namespace: dp-mccs-alistair-p
   labels:
     component: {{$slug}}-server
 spec:
@@ -47,40 +45,28 @@ spec:
       labels:
         component: {{$slug}}-server
     spec:
-      runtimeClassName: nvidia
-      tolerations:
-      - effect: NoExecute
-        key: node.kubernetes.io/not-ready
-        operator: Exists
-        tolerationSeconds: 300
-      - effect: NoExecute
-        key: node.kubernetes.io/unreachable
-        operator: Exists
-        tolerationSeconds: 300
+{{- if (hasKey $spec "runtimeclassname") }}
+      runtimeClassName: {{$spec.runtimeclassname | quote}}
+{{- end }}
       containers:
-      - args:
-        - trap exit TERM INT; sleep infinity & wait
-        command:
-        #- MccsDaqServer
-        - /bin/bash
-        - -c
-        - --
+      - command:
+        - MccsDaqServer
         name: {{$slug}}-server
 {{- with $image}}
         image: {{.registry}}/{{.name}}:{{.tag}}
 {{- end }}
         imagePullPolicy: IfNotPresent
-        # command:
-        #   - MccsDaqServer
         env:
           - name: DAQ_GRPC_PORT
             value: {{$grpc_port | quote}}
         ports:
           - containerPort: {{$grpc_port}}
             protocol: TCP
+{{- if (hasKey $spec "gpu_limit") }}
         resources:
           limits:
-            nvidia.com/gpu: "1"
+            nvidia.com/gpu: {{ $spec.gpu_limit | quote}}
+{{- end }}
         securityContext:
           capabilities:
             add:
@@ -109,9 +95,9 @@ spec:
       affinity:
 {{ toYaml . | indent 8 }}
 {{- end }}
-# {{- with $spec.server_tolerations}}
-#       tolerations:
-# {{ toYaml . | indent 8 }}
-#{{- end }}
+{{- with $spec.server_tolerations}}
+      tolerations:
+{{ toYaml . | indent 8 }}
+{{- end }}
 {{- end }}
 {{- end }}
