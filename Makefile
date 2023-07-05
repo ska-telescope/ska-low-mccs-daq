@@ -59,3 +59,4 @@ HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq
 ###############################################
 
 -include PrivateRules.mak
+include .make/k8s.mk

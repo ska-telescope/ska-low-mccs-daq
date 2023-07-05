@@ -45,20 +45,28 @@ spec:
       labels:
         component: {{$slug}}-server
     spec:
+{{- if (hasKey $spec "runtimeclassname") }}
+      runtimeClassName: {{$spec.runtimeclassname | quote}}
+{{- end }}
       containers:
-      - name: {{$slug}}-server
+      - command:
+        - MccsDaqServer
+        name: {{$slug}}-server
 {{- with $image}}
         image: {{.registry}}/{{.name}}:{{.tag}}
 {{- end }}
         imagePullPolicy: IfNotPresent
-        command:
-          - MccsDaqServer
         env:
           - name: DAQ_GRPC_PORT
             value: {{$grpc_port | quote}}
         ports:
           - containerPort: {{$grpc_port}}
             protocol: TCP
+{{- if (hasKey $spec "gpu_limit") }}
+        resources:
+          limits:
+            nvidia.com/gpu: {{ $spec.gpu_limit | quote}}
+{{- end }}
         securityContext:
           capabilities:
             add:
