@@ -13,33 +13,33 @@ dependencies:
     version: 0.6.0
     repository: https://artefact.skao.int/repository/helm-internal
 
-  # # Jupyterhub
-  # - name: jupyterhub
-  #   version: 2.0.0
-  #   repository: https://jupyterhub.github.io/helm-chart/
-  #   condition: jupyterhub.enabled
+  # Jupyterhub
+  - name: jupyterhub
+    version: 2.0.0
+    repository: https://jupyterhub.github.io/helm-chart/
+    condition: jupyterhub.enabled
 
-  # # Taranta
-  # - name: ska-tango-taranta
-  #   version: 2.2.0
-  #   repository: https://artefact.skao.int/repository/helm-internal
-  #   condition: ska-taranta.enabled
-  # - name: ska-tango-tangogql
-  #   version: 1.3.7
-  #   repository: https://artefact.skao.int/repository/helm-internal
-  #   condition: ska-taranta.enabled
-  # - name: ska-tango-taranta-auth
-  #   version: 0.1.6
-  #   repository: https://artefact.skao.int/repository/helm-internal
-  #   condition: ska-taranta.enabled
-  # - name: ska-tango-taranta-dashboard
-  #   version: 1.4.0
-  #   repository: https://artefact.skao.int/repository/helm-internal
-  #   condition: ska-taranta.dashboard.enabled,ska-taranta.enabled
-  # - name: ska-tango-taranta-dashboard-pvc
-  #   version: 1.4.0
-  #   repository: https://artefact.skao.int/repository/helm-internal
-  #   condition: ska-taranta.dashboard.enabled,ska-taranta.enabled
+  # Taranta
+  - name: ska-tango-taranta
+    version: 2.2.0
+    repository: https://artefact.skao.int/repository/helm-internal
+    condition: ska-taranta.enabled
+  - name: ska-tango-tangogql
+    version: 1.3.7
+    repository: https://artefact.skao.int/repository/helm-internal
+    condition: ska-taranta.enabled
+  - name: ska-tango-taranta-auth
+    version: 0.1.6
+    repository: https://artefact.skao.int/repository/helm-internal
+    condition: ska-taranta.enabled
+  - name: ska-tango-taranta-dashboard
+    version: 1.4.0
+    repository: https://artefact.skao.int/repository/helm-internal
+    condition: ska-taranta.dashboard.enabled,ska-taranta.enabled
+  - name: ska-tango-taranta-dashboard-pvc
+    version: 1.4.0
+    repository: https://artefact.skao.int/repository/helm-internal
+    condition: ska-taranta.dashboard.enabled,ska-taranta.enabled
 
   # base
   - name: ska-tango-util
