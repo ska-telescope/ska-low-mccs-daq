@@ -25,7 +25,7 @@ ska-low-mccs-daq:
   image:
     registry: registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq
     name: ska-low-mccs-daq
-    tag: 0.3.0-dev.c93fd5f1a
+    tag: 0.3.0-dev.c5e9abc3f
   storage:
     - name: daq-data
       size: "250Mi"

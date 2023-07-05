@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.3.1-devel-ubuntu20.04
+FROM nvidia/cuda:11.4.3-devel-ubuntu20.04
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
 RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
     chmod 0440 /etc/sudoers.d/daqqer
@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     make \
     nvidia-cuda-toolkit \
     nvidia-utils-470 \
+    nvidia-driver-470 \
     pkg-config \
     python3.10 \
     python3-distutils \

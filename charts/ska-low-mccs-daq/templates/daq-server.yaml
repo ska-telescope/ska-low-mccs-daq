@@ -61,6 +61,7 @@ spec:
       - args:
         - trap exit TERM INT; sleep infinity & wait
         command:
+        #- MccsDaqServer
         - /bin/bash
         - -c
         - --
