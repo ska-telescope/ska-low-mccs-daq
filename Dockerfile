@@ -58,16 +58,15 @@ RUN apt -y autoremove python3-debian python3-distro-info
 # Clone and install xGPU
 # TODO: Pin the version of xGPU.
 WORKDIR /app/
-RUN git clone https://github.com/GPU-correlators/xGPU.git
+RUN git clone https://github.com/GPU-correlators/xGPU.git /app/xGPU/
 WORKDIR /app/xGPU/src/
 RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
 # Install AAVS DAQ
-# Temp using local copy
 RUN git clone https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
-#COPY ./src/aavs-system/ /app/aavs-system/
 WORKDIR /app/aavs-system
 RUN git reset --hard ${AAVS_SYSTEM_SHA}
+
 COPY test_aavs.cpp /app/aavs-system/src/
 # Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
 COPY deploy.sh /app/aavs-system/
@@ -76,9 +75,6 @@ RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 
 # Expose the DAQ port to UDP traffic.
 EXPOSE 4660/udp
-
-# WORKDIR /app/aavs_system/src/
-# RUN sudo make test_aavs
 
 WORKDIR /app/
 COPY pyproject.toml poetry.lock* ./
