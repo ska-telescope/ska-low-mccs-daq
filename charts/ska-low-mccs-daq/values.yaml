@@ -22,6 +22,8 @@ storage: []  # List of specs of PVCs to create
 #     server_node_selector: {}  # optional
 #     server_annotations: {}  # optional
 #     server_affinity: {}  # optional
+#     runtimeclassname: nvidia # optional: must refer to a RunTimeClass existing in the cluster.
+#     gpu_limit: "1" # optional
 
 image:
   registry: artefact.skao.int
