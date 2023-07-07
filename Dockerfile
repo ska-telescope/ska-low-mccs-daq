@@ -47,8 +47,8 @@ RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 # Install pip and poetry.
 ENV POETRY_HOME=/opt/poetry
 ENV POETRY_VERSION=1.3.2
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | gosu root python3
-RUN curl -sSL https://install.python-poetry.org | gosu root python3 - --yes
+RUN curl -sSL https://bootstrap.pypa.io/get-pip.py | gosu root python3
+RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | gosu root python3 - --yes
 RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
     ln -sfn /opt/poetry/bin/poetry /usr/local/bin/poetry
 
