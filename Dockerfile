@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.3.1-devel-ubuntu20.04 AS cuda_base
+FROM nvidia/cuda:11.4.3-devel-ubuntu20.04 AS cuda_base
 
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
 RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
@@ -31,8 +31,8 @@ RUN apt-get update && apt-get install -y \
     gosu \
     libcap2-bin \
     make \
-    nvidia-cuda-toolkit \
-    nvidia-utils-470 \
+    #nvidia-cuda-toolkit \
+    #nvidia-utils-470 \
     pkg-config \
     python3.10 \
     python3-distutils \
