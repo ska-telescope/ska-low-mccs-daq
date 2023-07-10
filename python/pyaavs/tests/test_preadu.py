@@ -8,7 +8,9 @@ class TestPreadu:
     def __init__(self, station_config, logger):
         self._logger = logger
         self._station_config = station_config
-        self._test_attenuation_values = [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+        # Test first preADU 16 channels with values 15 -> 30
+        # Test second preADU 16 channels with values 16 -> 31
+        self._test_attenuation_values = (list(range(15, 31)), list(range(16, 32)))
         self.errors = 0
 
     def clean_up(self):
@@ -23,7 +25,7 @@ class TestPreadu:
 
     def test_read_write_configuration(self, preadu, n, preadu_index):
         # Write attenuation values into the preADU
-        for channel, attenuation in enumerate(self._test_attenuation_values):
+        for channel, attenuation in enumerate(self._test_attenuation_values[preadu_index]):
             preadu.set_attenuation(attenuation, [channel])
         preadu.write_configuration()
 
@@ -35,8 +37,8 @@ class TestPreadu:
         preadu.read_configuration()
 
         for index, channel_filter in enumerate(preadu.channel_filters):
-            if preadu.get_attenuation()[index] != self._test_attenuation_values[index]:
-                self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} read/write error! Got: {preadu.get_attenuation()[index]}, expected: {self._test_attenuation_values[index]}.")
+            if preadu.get_attenuation()[index] != self._test_attenuation_values[preadu_index][index]:
+                self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} read/write error! Got: {preadu.get_attenuation()[index]}, expected: {self._test_attenuation_values[preadu_index][index]}.")
                 self.errors += 1
                 return
             self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} read/write success!")
@@ -44,7 +46,7 @@ class TestPreadu:
 
     def test_read_write_eep(self, preadu, n, preadu_index):
         # Write attenuation values into the eep non-volatile memory
-        for channel, attenuation in enumerate(self._test_attenuation_values):
+        for channel, attenuation in enumerate(self._test_attenuation_values[preadu_index]):
             preadu.set_attenuation(attenuation, [channel])
         preadu.eep_write()
 
@@ -56,8 +58,8 @@ class TestPreadu:
         preadu.eep_read()
 
         for index, channel_filter in enumerate(preadu.channel_filters):
-            if preadu.get_attenuation()[index] != self._test_attenuation_values[index]:
-                self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} non-volatile memory read/write error! Got: {preadu.get_attenuation()[index]}, expected: {self._test_attenuation_values[index]}")
+            if preadu.get_attenuation()[index] != self._test_attenuation_values[preadu_index][index]:
+                self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} non-volatile memory read/write error! Got: {preadu.get_attenuation()[index]}, expected: {self._test_attenuation_values[preadu_index][index]}")
                 self.errors += 1
                 return
             self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} eep non-volatile memory read/write success!")
