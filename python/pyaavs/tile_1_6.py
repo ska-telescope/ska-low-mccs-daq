@@ -298,7 +298,6 @@ class Tile_1_6(Tile):
             preadu.switch_on()
             time.sleep(1)
             preadu.read_configuration()
-        self.preadus_enabled = True
 
         # Synchronise FPGAs
         self.sync_fpga_time(use_internal_pps=False)

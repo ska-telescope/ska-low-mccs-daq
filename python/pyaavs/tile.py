@@ -110,7 +110,6 @@ class Tile(TileHealthMonitor):
         self._port = port
         self._ip = socket.gethostbyname(ip)
         self.tpm = None
-        self.preadus_enabled = False
 
         self._channeliser_truncation = 4
         self.subarray_id = 0
@@ -353,7 +352,6 @@ class Tile(TileHealthMonitor):
         # Switch off both PREADUs
         for preadu in self.tpm.tpm_preadu:
             preadu.switch_off()
-        self.preadus_enabled = False
 
         # Switch on preadu
         for preadu in self.tpm.tpm_preadu:
@@ -361,7 +359,7 @@ class Tile(TileHealthMonitor):
             time.sleep(1)
             preadu.select_low_passband()
             preadu.read_configuration()
-        self.preadus_enabled = True
+
         # Synchronise FPGAs
         self.sync_fpga_time(use_internal_pps=use_internal_pps)
 
