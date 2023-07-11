@@ -31,9 +31,7 @@ RUN apt-get update && apt-get install -y \
     gosu \
     libcap2-bin \
     make \
-    cuda-compat-11-4 \
-    #nvidia-cuda-toolkit \
-    #nvidia-utils-470 \
+    #cuda-compat-11-4 \
     pkg-config \
     python3.10 \
     python3-distutils \
