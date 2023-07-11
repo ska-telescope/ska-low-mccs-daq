@@ -31,7 +31,6 @@ RUN apt-get update && apt-get install -y \
     gosu \
     libcap2-bin \
     make \
-    #cuda-compat-11-4 \
     pkg-config \
     python3.10 \
     python3-distutils \
@@ -55,7 +54,6 @@ RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
 RUN apt -y autoremove python3-debian python3-distro-info
 
 # Clone and install xGPU
-# TODO: Pin the version of xGPU.
 WORKDIR /app/
 RUN git clone https://github.com/GPU-correlators/xGPU.git /app/xGPU/
 WORKDIR /app/xGPU/src/
@@ -66,9 +64,9 @@ RUN git clone https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
 WORKDIR /app/aavs-system
 RUN git reset --hard ${AAVS_SYSTEM_SHA}
 
-COPY test_aavs.cpp /app/aavs-system/src/
 # Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
 COPY deploy.sh /app/aavs-system/
+# Copy CMakeLists.txt with corrected library name.
 COPY CMakeLists.txt /app/aavs-system/src/
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 
@@ -78,6 +76,6 @@ EXPOSE 4660/udp
 WORKDIR /app/
 COPY pyproject.toml poetry.lock* ./
 ENV PATH="/opt/aavs/include/:/opt/aavs/lib/:/home/daqqer/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
-RUN poetry config virtualenvs.create false && poetry install -vvv --only main
+RUN poetry config virtualenvs.create false && poetry install --only main
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 USER daqqer
