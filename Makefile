@@ -5,7 +5,6 @@
 # See LICENSE.txt for more info.
 
 PROJECT = ska-low-mccs-daq
-KUBE_NAMESPACE=ska-low-mccs-spshw
 include .make/base.mk
 
 ###############################################
