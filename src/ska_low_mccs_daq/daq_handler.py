@@ -214,7 +214,6 @@ class DaqHandler:
 
         :return: a resultcode, message tuple
         """
-        print("IN DAQ HANDLER INITIALISE")
         if self._initialised is False:
             self.logger.info("Initialising daq.")
             self.daq_instance = DaqReceiver()
@@ -263,7 +262,6 @@ class DaqHandler:
 
         :yield: a status update.
         """
-        print("IN DAQ HANDLER START", flush=True)
         if not self._receiver_started:
             self.daq_instance.initialise_daq()
             self._receiver_started = True
@@ -274,18 +272,9 @@ class DaqHandler:
             )  # noqa: E501
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
-        print("START DAQ MID", flush=True)
         # yuck
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
-        print("BEFORE PYDAQ.START", flush=True)
-        print(
-            f"conv modes: {converted_modes_to_start} --- Callbacks: {callbacks}",
-            flush=True,
-        )
-        print(locals(), flush=True)
-        print("--------------", flush=True)
         self.daq_instance.start_daq(converted_modes_to_start, callbacks)
-        print("AFTER PYDAQ.START", flush=True)
         self.request_stop = False
 
         yield "LISTENING"
@@ -403,7 +392,6 @@ def main() -> None:
     Create and start a server.
     """
     port = os.getenv("DAQ_GRPC_PORT", default="50051")
-    print("RUNNING DAQ")
     run_server_forever(DaqHandler(), int(port))
 
 
