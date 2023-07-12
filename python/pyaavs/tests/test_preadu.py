@@ -43,6 +43,37 @@ class TestPreadu:
                 return
             self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} read/write success!")
         return
+    
+    def test_read_write_float(self, preadu, n, preadu_index):
+        # First testcase writes values 3.75 -> 7.50 in steps of 0.25
+        # Second testcase writes values 1.50 -> 3.10 in steps of 0.10
+        # to test rounding down to nearest 0.25
+        for testcase in range(2):
+            if testcase == 0:
+                test_values = [round(x * 0.25, 2) for x in range(15, 31)]
+                test_exp_values = test_values
+            else:
+                test_values = [round(x * 0.1, 2) for x in range(15, 31)]
+                test_exp_values = [x // 0.25 / 4 for x in test_values]
+            # Write attenuation values into the preADU
+            for channel, attenuation in enumerate(test_values):
+                preadu.set_attenuation(attenuation, [channel])
+            preadu.write_configuration()
+
+            # Set software representation to something else
+            # To ensure tests fail if read_configuration doesn't work
+            preadu.set_attenuation(15)
+
+            # Updates software representation with the preADU attenuation values
+            preadu.read_configuration()
+
+            for index, channel_filter in enumerate(preadu.channel_filters):
+                if preadu.get_attenuation()[index] != test_exp_values[index]:
+                    self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} read/write float error! Got: {preadu.get_attenuation()[index]}, expected: {test_exp_values[index]}.")                
+                    self.errors += 1
+                    return
+                self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} read/write float success!")
+        return
 
     def test_read_write_eep(self, preadu, n, preadu_index):
         # Write attenuation values into the eep non-volatile memory
@@ -166,6 +197,10 @@ class TestPreadu:
                         self.test_low_passband(preadu, n, preadu_index)
                         # High passband test
                         self.test_high_passband(preadu, n, preadu_index)
+                    # TPM >= 1.6 tests
+                    else:
+                        # Read and write non-integer attenuations test
+                        self.test_read_write_float(preadu, n, preadu_index)
 
                 else:  # SKIP test if no preADU is detected
                     self._logger.warning(f"TPM{n} preADU{preadu_index} not detected! Will skip tests for this preADU...")
