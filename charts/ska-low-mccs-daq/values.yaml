@@ -34,7 +34,7 @@ image:
 resources:
   requests:
     cpu: 20m
-    memory: 50Mi
+    memory: 12G
 
 livenessProbe:
   initialDelaySeconds: 0
@@ -48,3 +48,6 @@ readinessProbe:
   timeoutSeconds: 3
   successThreshold: 1
   failureThreshold: 3
+
+receivers:
+  1: {}

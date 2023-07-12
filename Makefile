@@ -5,7 +5,6 @@
 # See LICENSE.txt for more info.
 
 PROJECT = ska-low-mccs-daq
-
 include .make/base.mk
 
 ###############################################
