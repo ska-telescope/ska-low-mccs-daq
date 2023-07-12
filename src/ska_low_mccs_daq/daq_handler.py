@@ -272,10 +272,8 @@ class DaqHandler:
             )  # noqa: E501
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
-
         # yuck
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
-
         self.daq_instance.start_daq(converted_modes_to_start, callbacks)
         self.request_stop = False
 
