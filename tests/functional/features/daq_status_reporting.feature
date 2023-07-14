@@ -12,31 +12,26 @@ Feature: Daq Status Reporting
     I want the MccsDaqReceiver to report its status,
     So that we know what state it is in.
 
-@forked 
-Scenario Outline: HealthState Transitions
-    Given an MccsDaqReceiver
-    And MccsDaqReceiver AdminMode is set to 'ONLINE'
-    And communications are <initial_communication_state>
-    And the fault bit is <initial_fault_state>
-    And the MccsDaqReceiver HealthState is <initial_health_state>
-    When <method> is called
-    Then the MccsDaqReceiver HealthState is <final_health_state>
+# TODO: These healthstate tests don't make sense as functional tests since we can't set the fault bit on demand.
+# # Maybe port them to be integration tests or something if it has value.
+# @forked 
+# Scenario Outline: HealthState Transitions
+#     Given an MccsDaqReceiver
+#     And MccsDaqReceiver AdminMode is set to 'ONLINE'
+#     And the MccsDaqReceiver HealthState is <initial_health_state>
+#     When <method> is called
+#     Then the MccsDaqReceiver HealthState is <final_health_state>
 
-    Examples: tbl_healthstate
-        |   initial_communication_state |   initial_fault_state |   initial_health_state    |   method                  |   final_health_state  |
-        |   'disabled'                  |   'not_set'           |   'UNKNOWN'               |   'set_fault_bit'         |   'FAILED'            | 
-        |   'disabled'                  |   'not_set'           |   'UNKNOWN'               |   'establish_comms'       |   'OK'                | 
-        |   'established'               |   'not_set'           |   'OK'                    |   'unestablish_comms'     |   'UNKNOWN'           | 
-        |   'established'               |   'not_set'           |   'OK'                    |   'set_fault_bit'         |   'FAILED'            | 
-        |   'established'               |   'set'               |   'FAILED'                |   'unset_fault_bit'       |   'OK'                | 
-        |   'disabled'                  |   'set'               |   'FAILED'                |   'unset_fault_bit'       |   'UNKNOWN'           | 
-#       -----------------------------------------------------------------------------------------------------------------------------------------
+#     Examples: tbl_healthstate
+#         |   initial_fault_state |   initial_health_state    |   method                  |   final_health_state  |
+#         |   'not_set'           |   'OK'                    |   'set_fault_bit'         |   'FAILED'            | 
+#         |   'set'               |   'FAILED'                |   'unset_fault_bit'       |   'OK'                | 
+# #       -----------------------------------------------------------------------------------------------------------------------------------------
 
 @forked 
 Scenario Outline: Consumers Starting Up
     Given an MccsDaqReceiver
     And MccsDaqReceiver AdminMode is set to 'ONLINE'
-    And communications are 'established'
     And no consumers are running
     When <consumer> is started
     Then consumer_status attribute shows <consumer> as running
@@ -57,7 +52,6 @@ Scenario Outline: Consumers Starting Up
 Scenario: Consumers Stopping
     Given an MccsDaqReceiver
     And MccsDaqReceiver AdminMode is set to 'ONLINE'
-    And communications are 'established'
     And all consumers are running
     And consumer_status attribute shows all consumers are running
     When 'stop_daq' is called

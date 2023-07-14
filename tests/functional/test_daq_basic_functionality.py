@@ -8,12 +8,16 @@
 """This module contains the tests of the daq basic functionality."""
 from __future__ import annotations
 
+import json
 from time import sleep
+from typing import Iterator
 
 import pytest
 import tango
 from pytest_bdd import given, scenarios, then, when
-from ska_tango_testing.context import TangoContextProtocol
+from ska_control_model import AdminMode, HealthState
+
+from tests.harness import SpsTangoTestHarnessContext
 
 scenarios("./features/daq_basic_functionality.feature")
 
@@ -36,24 +40,25 @@ def poll_until_state_change(
             return
 
     pytest.fail(
-        f"device not in valid precondition state, \
+        f"device not in desired state, \
         wanted: {wanted_state}, actual: {daq.state()}"
     )
 
 
 @pytest.fixture(name="daq_receiver_device", scope="module")
 def daq_receiver_fixture(
-    tango_harness: TangoContextProtocol,
-    daq_name: str,
-) -> tango.DeviceProxy:
+    functional_test_context: SpsTangoTestHarnessContext,
+    daq_id: int,
+) -> Iterator[tango.DeviceProxy]:
     """
-    Return the daq_receiver device.
+    Yield the DAQ receiver device under test.
 
-    :param tango_harness: a test harness for tango devices
-    :param daq_name: name of the daq device
+    :param functional_test_context: the context in which the test is running.
+    :param daq_id: the ID of the daq receiver
+
+    :yield: the DAQ receiver device
     """
-    pytest.xfail(reason="Not implemented yet")
-    # return tango_harness.get_device(daq_name)
+    yield functional_test_context.get_daq_device(daq_id)
 
 
 @given("the DAQ is available", target_fixture="daq_receiver")
@@ -64,13 +69,14 @@ def daq_receiver_is_available(
     Return the daq_receiver device.
 
     :param daq_receiver_device: a test harness for tango devices
+
+    :return: A proxy to the daq_receiver device.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # return daq_receiver_device
+    return daq_receiver_device
 
 
 @given("the DAQ is in the DISABLE state")
-def daq_device_is_unknown_state(
+def assert_daq_is_disable(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
@@ -78,15 +84,26 @@ def daq_device_is_unknown_state(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # if daq_receiver.adminMode != AdminMode.OFFLINE:
-    #     daq_receiver.adminMode = AdminMode.OFFLINE
-    # if daq_receiver.state() != tango.DevState.DISABLE:
-    #     pytest.fail("Initial conditions not met, health state not unknown")
+    if daq_receiver.adminMode != AdminMode.OFFLINE:
+        daq_receiver.adminMode = AdminMode.OFFLINE
+    poll_until_state_change(daq_receiver, tango.DevState.DISABLE)
+
+
+@then("the DAQ is in the DISABLE state")
+def check_daq_is_disable(
+    daq_receiver: tango.DeviceProxy,
+) -> None:
+    """
+    Check that daq receiver is in disable state.
+
+    :param daq_receiver: The daq_receiver fixture to use.
+    """
+    poll_until_state_change(daq_receiver, tango.DevState.DISABLE)
+    assert daq_receiver.state() == tango.DevState.DISABLE
 
 
 @given("the DAQ is in health state UNKNOWN")
-def daq_device_is_unknown_health(
+def assert_daq_is_unknown_health(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
@@ -94,9 +111,20 @@ def daq_device_is_unknown_health(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # if daq_receiver.healthState != HealthState.UNKNOWN:
-    #     pytest.fail("Initial conditions not met, health state not unknown")
+    if daq_receiver.healthState != HealthState.UNKNOWN:
+        pytest.fail("Initial conditions not met, health state not unknown")
+
+
+@then("the DAQ is in health state UNKNOWN")
+def check_daq_is_unknown_health(
+    daq_receiver: tango.DeviceProxy,
+) -> None:
+    """
+    Check that daq receiver is in health mode unknown.
+
+    :param daq_receiver: The daq_receiver fixture to use.
+    """
+    assert daq_receiver.healthState == HealthState.UNKNOWN
 
 
 @given("the DAQ is in adminMode OFFLINE")
@@ -108,23 +136,47 @@ def daq_device_is_in_admin_mode_offline(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # if daq_receiver.adminMode != AdminMode.OFFLINE:
-    #     daq_receiver.adminMode = AdminMode.OFFLINE
-    # assert daq_receiver.adminMode == AdminMode.OFFLINE
+    if daq_receiver.adminMode != AdminMode.OFFLINE:
+        daq_receiver.adminMode = AdminMode.OFFLINE
+    assert daq_receiver.adminMode == AdminMode.OFFLINE
 
 
-@when("I send set admin mode to ONLINE")
-def daq_sent_on_command(
+@given("the DAQ is in adminMode ONLINE")
+def daq_device_is_in_admin_mode_online(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Send to on command to the daq receiver.
+    Assert that daq receiver is in admin mode ONLINE.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # daq_receiver.adminMode = AdminMode.ONLINE
+    if daq_receiver.adminMode != AdminMode.ONLINE:
+        daq_receiver.adminMode = AdminMode.ONLINE
+    assert daq_receiver.adminMode == AdminMode.ONLINE
+
+
+@when("I set adminMode to ONLINE")
+def set_admin_mode_online(
+    daq_receiver: tango.DeviceProxy,
+) -> None:
+    """
+    Set this daq_receiver's adminMode to ONLINE.
+
+    :param daq_receiver: The daq_receiver fixture to use.
+    """
+    daq_receiver.adminMode = AdminMode.ONLINE
+
+
+@when("I set adminMode to OFFLINE")
+def set_admin_mode_offline(
+    daq_receiver: tango.DeviceProxy,
+) -> None:
+    """
+    Set this daq_receiver's adminMode to OFFLINE.
+
+    :param daq_receiver: The daq_receiver fixture to use.
+    """
+    daq_receiver.adminMode = AdminMode.OFFLINE
 
 
 @then("the DAQ is in the ON state")
@@ -132,12 +184,12 @@ def check_daq_is_on(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Check that the daq receiver is on.
+    Check that the daq receiver is ON.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # assert daq_receiver.state() == tango.DevState.ON
+    poll_until_state_change(daq_receiver, tango.DevState.ON)
+    assert daq_receiver.state() == tango.DevState.ON
 
 
 @then("the DAQ is in health state OK")
@@ -149,9 +201,7 @@ def check_daq_is_healthy(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # assert daq_receiver.healthState == AdminMode.ONLINE
-    # print("daq health mode is ONLINE")
+    assert daq_receiver.healthState == HealthState.OK
 
 
 @given("the DAQ is in the ON state")
@@ -163,11 +213,10 @@ def daq_device_is_on(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # if daq_receiver.state() != tango.DevState.ON:
-    #     daq_receiver.adminMode = AdminMode.ONLINE
-    #     poll_until_state_change(daq_receiver, tango.DevState.ON)
-    # assert daq_receiver.state() == tango.DevState.ON
+    if daq_receiver.state() != tango.DevState.ON:
+        daq_receiver.adminMode = AdminMode.ONLINE
+        poll_until_state_change(daq_receiver, tango.DevState.ON)
+    assert daq_receiver.state() == tango.DevState.ON
 
 
 @given("the DAQ is in health state OK")
@@ -179,9 +228,8 @@ def daq_device_is_online_health(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # if daq_receiver.healthState != HealthState.OK:
-    #     pytest.fail("Initial conditions not met, health state not OK")
+    if daq_receiver.healthState != HealthState.OK:
+        pytest.fail("Initial conditions not met, health state not OK")
 
 
 @when("I send the Configure command with raw data")
@@ -193,9 +241,8 @@ def daq_sent_configure_raw(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # daq_receiver.Start(json.dumps({"modes_to_start": "DaqModes.RAW_DATA"}))
-    # sleep(1)
+    daq_receiver.Start('{"modes_to_start": "DaqModes.RAW_DATA"}')
+    sleep(0.1)
 
 
 @then("the DAQ is in raw data mode")
@@ -207,15 +254,12 @@ def check_daq_config_is_raw(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # daq_status = json.loads(daq_receiver.daqstatus())
-    # running_commands = daq_status.get("Running Consumers")
-
-    # for command in running_commands:
-    #     if "RAW_DATA" in command:
-    #         print("daq has raw data stream")
-    #         return
-    # pytest.fail(f"Raw data failed to start, actual {running_commands}")
+    daq_status = json.loads(daq_receiver.daqstatus())
+    running_consumers = daq_status.get("Running Consumers")
+    for consumer in running_consumers:
+        if "RAW_DATA" in consumer:
+            return
+    pytest.fail(f"Raw data failed to start, actual {running_consumers}")
 
 
 @when("I send the Configure command with channelised data")
@@ -227,9 +271,8 @@ def daq_sent_configure_channelised(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # daq_receiver.Start(json.dumps({"modes_to_start": "DaqModes.CHANNEL_DATA"}))
-    # sleep(1)
+    daq_receiver.Start('{"modes_to_start": "DaqModes.CHANNEL_DATA"}')
+    sleep(0.1)
 
 
 @then("the DAQ is in channelised data mode")
@@ -241,11 +284,9 @@ def check_daq_config_is_channelised(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # daq_status = json.loads(daq_receiver.daqstatus())
-    # running_commands = daq_status.get("Running Consumers")
-    # for command in running_commands:
-    #     if "CHANNEL_DATA" in command:
-    #         print("daq has channelised data stream")
-    #         return
-    # pytest.fail("Raw data failed to start")
+    daq_status = json.loads(daq_receiver.daqstatus())
+    running_consumers = daq_status.get("Running Consumers")
+    for consumer in running_consumers:
+        if "CHANNEL_DATA" in consumer:
+            return
+    pytest.fail("Raw data failed to start")
