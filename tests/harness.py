@@ -119,17 +119,100 @@ class SpsTangoTestHarnessContext:
         """
         Get a proxy to the Station Calibrator Tango device.
 
+        :raises RuntimeError: if the device fails to become ready.
+
         :returns: a proxy to the Station Calibrator Tango device.
         """
-        return self._tango_context.get_device(get_station_calibrator_name())
+        device_name = get_station_calibrator_name()
+        device_proxy = self._tango_context.get_device(device_name)
+
+        # TODO: This should simply be
+        #     return device_proxy
+        # but sadly, when we test against a fresh k8s deployment,
+        # the device is not actually ready to be tested
+        # until many seconds after the readiness probe reports it to be ready.
+        # This should be fixed in the k8s readiness probe,
+        # but for now we have to check for readiness here.
+        for sleep_time in [0, 1, 2, 4, 8, 15, 30, 60]:
+            if sleep_time:
+                print(f"Sleeping {sleep_time} second(s)...")
+                time.sleep(sleep_time)
+            try:
+                if device_proxy.state() != tango.DevState.INIT:
+                    return device_proxy
+                print(f"Device {device_name} still initialising.")
+            except tango.DevFailed as dev_failed:
+                print(
+                    f"Device {device_name} raised DevFailed on state() call:\n"
+                    f"{repr(dev_failed)}."
+                )
+        raise RuntimeError(f"Device {device_name} failed readiness.")
+
+    def get_calibration_store_device(self) -> tango.DeviceProxy:
+        """
+        Get a proxy to the Calibration Store Tango device.
+
+        :raises RuntimeError: if the device fails to become ready.
+
+        :returns: a proxy to the Calibration Store Tango device.
+        """
+        device_name = get_calibration_store_name()
+        device_proxy = self._tango_context.get_device(device_name)
+
+        # TODO: This should simply be
+        #     return device_proxy
+        # but sadly, when we test against a fresh k8s deployment,
+        # the device is not actually ready to be tested
+        # until many seconds after the readiness probe reports it to be ready.
+        # This should be fixed in the k8s readiness probe,
+        # but for now we have to check for readiness here.
+        for sleep_time in [0, 1, 2, 4, 8, 15, 30, 60]:
+            if sleep_time:
+                print(f"Sleeping {sleep_time} second(s)...")
+                time.sleep(sleep_time)
+            try:
+                if device_proxy.state() != tango.DevState.INIT:
+                    return device_proxy
+                print(f"Device {device_name} still initialising.")
+            except tango.DevFailed as dev_failed:
+                print(
+                    f"Device {device_name} raised DevFailed on state() call:\n"
+                    f"{repr(dev_failed)}."
+                )
+        raise RuntimeError(f"Device {device_name} failed readiness.")
 
     def get_field_station_device(self: SpsTangoTestHarnessContext) -> tango.DeviceProxy:
         """
         Get a Field station Tango device.
 
+        :raises RuntimeError: if the device fails to become ready.
+
         :returns: a proxy to the Field station Tango device.
         """
-        return self._tango_context.get_device(get_field_station_name())
+        device_name = get_field_station_name()
+        device_proxy = self._tango_context.get_device(device_name)
+
+        # TODO: This should simply be
+        #     return device_proxy
+        # but sadly, when we test against a fresh k8s deployment,
+        # the device is not actually ready to be tested
+        # until many seconds after the readiness probe reports it to be ready.
+        # This should be fixed in the k8s readiness probe,
+        # but for now we have to check for readiness here.
+        for sleep_time in [0, 1, 2, 4, 8, 15, 30, 60]:
+            if sleep_time:
+                print(f"Sleeping {sleep_time} second(s)...")
+                time.sleep(sleep_time)
+            try:
+                if device_proxy.state() != tango.DevState.INIT:
+                    return device_proxy
+                print(f"Device {device_name} still initialising.")
+            except tango.DevFailed as dev_failed:
+                print(
+                    f"Device {device_name} raised DevFailed on state() call:\n"
+                    f"{repr(dev_failed)}."
+                )
+        raise RuntimeError(f"Device {device_name} failed readiness.")
 
     def get_subrack_device(
         self: SpsTangoTestHarnessContext, subrack_id: int
@@ -244,6 +327,44 @@ class SpsTangoTestHarness:
             device_class,
             FieldStationName=get_field_station_name(),
             CalibrationStoreName=get_calibration_store_name(),
+            LoggingLevelDefault=logging_level,
+        )
+
+    # pylint: disable=too-many-arguments
+    def set_calibration_store_device(
+        self: SpsTangoTestHarness,
+        logging_level: int = int(LoggingLevel.DEBUG),
+        device_class: type[Device] | str = "ska_low_mccs_spshw.MccsCalibrationStore",
+        database_host: str = "test-postgresql",
+        database_port: int = 5432,
+        database_name: str = "postgres",
+        database_admin_user: str = "postgres",
+        database_admin_password: str = "",
+    ) -> None:
+        """
+        Set the Calibration Store Tango device in the test harness.
+
+        This test harness currently only permits one SPS station device so should also
+        only permit one Calibration Store
+
+        :param logging_level: the Tango device's default logging level.
+        :param device_class: The device class to use.
+            This may be used to override the usual device class,
+            for example with a patched subclass.
+        :param database_host: the database host
+        :param database_port: the database port
+        :param database_name: the database name
+        :param database_admin_user: the database admin user
+        :param database_admin_password: the database admin password
+        """
+        self._tango_test_harness.add_device(
+            get_calibration_store_name(),
+            device_class,
+            DatabaseHost=database_host,
+            DatabasePort=database_port,
+            DatabaseName=database_name,
+            DatabaseAdminUser=database_admin_user,
+            DatabaseAdminPassword=database_admin_password,
             LoggingLevelDefault=logging_level,
         )
 
