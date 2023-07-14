@@ -65,7 +65,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._power_state_lock = threading.RLock()
         self._power_state: Optional[PowerState] = None
         self._faulty: Optional[bool] = None
-        self._consumers_to_start: str = "Daqmodes.INTEGRATED_CHANNEL_CONSUMER"
+        self._consumers_to_start: str = "Daqmodes.INTEGRATED_CHANNEL_DATA"
         self._receiver_started: bool = False
         self._daq_id = str(daq_id).zfill(3)
         self._receiver_interface = receiver_interface
@@ -99,9 +99,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
             response = self._daq_client.initialise(configuration)
             self.logger.info(response["message"])
         except Exception as e:  # pylint: disable=broad-except
+            self.logger.error("Caught exception in start_communicating: %s", e)
             if self._component_state_callback is not None:
                 self._component_state_callback(fault=True)
-            self.logger.error("Caught exception in start_communicating: %s", e)
 
         self._update_communication_state(CommunicationStatus.ESTABLISHED)
 
@@ -250,7 +250,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :return: none
         """
         if task_callback:
-            task_callback(status=TaskStatus.QUEUED)
+            task_callback(status=TaskStatus.IN_PROGRESS)
         try:
             modes_to_start = modes_to_start or self._consumers_to_start
             for response in self._daq_client.start_daq(modes_to_start):
@@ -320,4 +320,5 @@ class DaqComponentManager(TaskExecutorComponentManager):
         status = self._daq_client.get_status()
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
+        self.logger.debug(f"Exiting daq_status with: {status}")
         return status
