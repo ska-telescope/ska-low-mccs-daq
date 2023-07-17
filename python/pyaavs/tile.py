@@ -2403,7 +2403,7 @@ class Tile(TileHealthMonitor):
             pid = self.preadu_signal_map[channel]['preadu_id']
             channel = self.preadu_signal_map[channel]['channel']
 
-            attenuation = self.tpm_tpm_preadu[pid].get_attenuation()[channel] + attenuation
+            attenuation = self.tpm.tpm_preadu[pid].get_attenuation()[channel] + attenuation
             self.tpm.tpm_preadu[pid].set_attenuation(int(round(attenuation)), [channel])
 
         for preadu in self.tpm.tpm_preadu:
