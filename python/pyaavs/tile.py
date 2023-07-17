@@ -2379,6 +2379,25 @@ class Tile(TileHealthMonitor):
     # ----------------------------
     # Wrapper for preadu methods
     # ----------------------------
+
+    def has_preadu(self):
+        """
+        Check if tile has preADUs fitted.
+
+        Gets preadu attribute "is_present" for each preADU.
+        Returns True if both are present, else False.
+        """
+        fpgas = range(len(self.tpm.tpm_test_firmware))
+        detected = []
+        for fpga in fpgas:
+            preadu_is_present = self.tpm.tpm_preadu[fpga].is_present
+            detected.append(preadu_is_present)
+            if preadu_is_present:
+                self.logger.info(f"preADU {fpga} Detected")
+            else:
+                self.logger.info(f"preADU {fpga} Not Detected")
+        return all(detected)
+
     def equalize_preadu_gain(self, required_rms=20):
         """ Equalize the preadu gain to get target RMS"""
 

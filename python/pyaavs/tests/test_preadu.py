@@ -180,8 +180,9 @@ class TestPreadu:
                 preadu.switch_off()
                 preadu.switch_on()
                 sleep(0.5)  # Sleep required to ensure preADUs are detected correctly 
+                preadu.check_present()  # Method will update preadu.is_present attribute
 
-                if preadu.is_present():
+                if preadu.is_present:
                     self._logger.info(f"TPM{n} preADU{preadu_index} detected!")
                     self.preadus_present.append(f"TPM{n} preADU{preadu_index}")
                     # preADU read/write test
