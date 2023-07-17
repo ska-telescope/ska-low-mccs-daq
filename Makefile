@@ -13,10 +13,11 @@ include .make/base.mk
 include .make/docs.mk
 
 DOCS_SOURCEDIR=./docs/src
-DOCS_SPHINXOPTS= -n -W --keep-going
+DOCS_SPHINXOPTS= -W --keep-going
 
 docs-pre-build:
-	python3 -m pip install -r docs/requirements.txt
+	poetry config virtualenvs.create false
+	poetry install --no-root --only docs
 
 .PHONY: docs-pre-build
 
