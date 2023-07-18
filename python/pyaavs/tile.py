@@ -2423,7 +2423,7 @@ class Tile(TileHealthMonitor):
             channel = self.preadu_signal_map[channel]['channel']
 
             attenuation = self.tpm.tpm_preadu[pid].get_attenuation()[channel] + attenuation
-            self.tpm.tpm_preadu[pid].set_attenuation(int(round(attenuation)), [channel])
+            self.tpm.tpm_preadu[pid].set_attenuation(attenuation, [channel])
 
         for preadu in self.tpm.tpm_preadu:
             preadu.write_configuration()
@@ -2437,7 +2437,7 @@ class Tile(TileHealthMonitor):
             if self.tpm_version == "tpm_v1_2":
                 preadu.select_low_passband()
             preadu.read_configuration()
-            preadu.set_attenuation(int(round(attenuation)), list(range(16)))
+            preadu.set_attenuation(attenuation, list(range(16)))
             preadu.write_configuration()
 
     # ----------------------------
