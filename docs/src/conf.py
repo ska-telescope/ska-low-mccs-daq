@@ -7,7 +7,6 @@ Standard sphinx config file.
 
 import sys
 import os
-import typing
 
 # WORKAROUND: https://github.com/sphinx-doc/sphinx/issues/9243
 import sphinx.builders.html
@@ -39,13 +38,6 @@ autodoc_default_options = {
 }
 
 
-def setup(app):
-    """
-    Initialise app.
-    """
-    app.add_css_file("css/custom.css")
-
-
 # -- Project information -----------------------------------------------------
 release_filename = os.path.join("..", "..", "src", "ska_low_mccs.py")
 project = "MCCS DAQ M&C"
@@ -53,6 +45,8 @@ author = "MCCS team"
 copyright = "2020, SKA MCCS Team"
 
 # -- General configuration ------------------------------------------------
+nitpicky = True
+
 nitpick_ignore = [
     ("py:class", "pydaq.daq_receiver_interface.DaqReceiver"),
     ("py:class", "pydaq.daq_receiver_interface.DaqModes"),
@@ -82,7 +76,7 @@ plantuml_syntax_error_image = True
 
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ["_templates"]
+# templates_path = []
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
@@ -119,7 +113,7 @@ add_module_names = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "ska_ser_sphinx_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -129,16 +123,12 @@ html_theme_options = {
 }
 
 html_context = {
-    "display_gitlab": True,  # Integrate GitHub
-    "favicon": "img/favicon.ico",
-    "logo": "img/logo.png",
-    "theme_logo_only": True,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+# html_static_path = []
 
 # -- Options for HTMLHelp output ------------------------------------------
 
@@ -231,11 +221,6 @@ epub_exclude_files = ["search.html"]
 
 
 # -- Extension configuration -------------------------------------------------
-
-set_type_checking_flag = True
-typehints_fully_qualified = True
-typing.TYPE_CHECKING = True
-
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3.10/", None),
