@@ -25,7 +25,7 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         Given the DAQ is available
         And the DAQ is in the ON state
         And the DAQ is in health state OK
-        When I send the Configure command with raw data
+        When I send the Start command with raw data
         Then the DAQ is in the ON state
         And the DAQ is in health state OK
         And the DAQ is in raw data mode
@@ -35,7 +35,7 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         Given the DAQ is available
         And the DAQ is in the ON state
         And the DAQ is in health state OK
-        When I send the Configure command with channelised data
+        When I send the Start command with channelised data
         Then the DAQ is in the ON state
         And the DAQ is in health state OK
         And the DAQ is in channelised data mode

@@ -8,8 +8,6 @@
 """This module contains the tests of the daq basic functionality."""
 from __future__ import annotations
 
-import json
-from time import sleep
 from typing import Iterator
 
 import pytest
@@ -17,32 +15,13 @@ import tango
 from pytest_bdd import given, scenarios, then, when
 from ska_control_model import AdminMode, HealthState
 
+from tests.functional.conftest import (
+    poll_until_consumer_running,
+    poll_until_state_change,
+)
 from tests.harness import SpsTangoTestHarnessContext
 
 scenarios("./features/daq_basic_functionality.feature")
-
-
-def poll_until_state_change(
-    daq: tango.DeviceProxy, wanted_state: tango.DevState, no_of_iters: int = 5
-) -> None:
-    """
-    Poll until device is in wanted state.
-
-    :param daq: the DAQ receiver Tango device
-    :param wanted_state: the state we're waiting for
-    :param no_of_iters: number of times to iterate
-    """
-    if daq.state() == wanted_state:
-        return
-    for _ in range(no_of_iters):
-        sleep(1)
-        if daq.state() == wanted_state:
-            return
-
-    pytest.fail(
-        f"device not in desired state, \
-        wanted: {wanted_state}, actual: {daq.state()}"
-    )
 
 
 @pytest.fixture(name="daq_receiver_device", scope="module")
@@ -232,17 +211,16 @@ def daq_device_is_online_health(
         pytest.fail("Initial conditions not met, health state not OK")
 
 
-@when("I send the Configure command with raw data")
-def daq_sent_configure_raw(
+@when("I send the Start command with raw data")
+def daq_sent_start_raw(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Send configure raw command to the daq receiver.
+    Send start raw command to the daq receiver.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
     daq_receiver.Start('{"modes_to_start": "DaqModes.RAW_DATA"}')
-    sleep(0.1)
 
 
 @then("the DAQ is in raw data mode")
@@ -254,25 +232,19 @@ def check_daq_config_is_raw(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    daq_status = json.loads(daq_receiver.daqstatus())
-    running_consumers = daq_status.get("Running Consumers")
-    for consumer in running_consumers:
-        if "RAW_DATA" in consumer:
-            return
-    pytest.fail(f"Raw data failed to start, actual {running_consumers}")
+    poll_until_consumer_running(daq_receiver, "RAW_DATA")
 
 
-@when("I send the Configure command with channelised data")
-def daq_sent_configure_channelised(
+@when("I send the Start command with channelised data")
+def daq_sent_start_channelised(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Send configure channelised command to the daq receiver.
+    Send start channelised command to the daq receiver.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
     daq_receiver.Start('{"modes_to_start": "DaqModes.CHANNEL_DATA"}')
-    sleep(0.1)
 
 
 @then("the DAQ is in channelised data mode")
@@ -284,9 +256,4 @@ def check_daq_config_is_channelised(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    daq_status = json.loads(daq_receiver.daqstatus())
-    running_consumers = daq_status.get("Running Consumers")
-    for consumer in running_consumers:
-        if "CHANNEL_DATA" in consumer:
-            return
-    pytest.fail("Raw data failed to start")
+    poll_until_consumer_running(daq_receiver, "CHANNEL_DATA")

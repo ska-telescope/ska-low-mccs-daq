@@ -53,7 +53,6 @@ Scenario: Consumers Stopping
     Given an MccsDaqReceiver
     And MccsDaqReceiver AdminMode is set to 'ONLINE'
     And all consumers are running
-    And consumer_status attribute shows all consumers are running
     When 'stop_daq' is called
     Then consumer_status attribute shows no consumers are running
 

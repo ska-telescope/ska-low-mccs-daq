@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import json
-from time import sleep
 from typing import Iterator
 
 import pytest
@@ -17,50 +16,13 @@ import tango
 from pytest_bdd import given, parsers, scenarios, then, when
 from ska_control_model import AdminMode
 
+from tests.functional.conftest import (
+    poll_until_consumer_running,
+    poll_until_consumers_stopped,
+)
 from tests.harness import SpsTangoTestHarnessContext
 
 scenarios("./features/daq_status_reporting.feature")
-
-
-def poll_until_consumer_running(
-    daq: tango.DeviceProxy, wanted_consumer: str, no_of_iters: int = 5
-) -> None:
-    """
-    Poll until device is in wanted state.
-
-    :param daq: the DAQ receiver Tango device
-    :param wanted_consumer: the consumer we're waiting for
-    :param no_of_iters: number of times to iterate
-    """
-    status = json.loads(daq.DaqStatus())
-    for consumer in status["Running Consumers"]:
-        if wanted_consumer in consumer:
-            return
-    for _ in range(no_of_iters):
-        sleep(1)
-        status = json.loads(daq.DaqStatus())
-        for consumer in status["Running Consumers"]:
-            if wanted_consumer in consumer:
-                return
-    pytest.fail(f"Wanted consumer: {wanted_consumer} not started.")
-
-
-def poll_until_consumers_stopped(daq: tango.DeviceProxy, no_of_iters: int = 5) -> None:
-    """
-    Poll until device is in wanted state.
-
-    :param daq: the DAQ receiver Tango device
-    :param no_of_iters: number of times to iterate
-    """
-    status = json.loads(daq.DaqStatus())
-    if status["Running Consumers"] == []:
-        return
-    for _ in range(no_of_iters):
-        sleep(1)
-        status = json.loads(daq.DaqStatus())
-        if status["Running Consumers"] == []:
-            return
-    pytest.fail("Consumers not stopped.")
 
 
 @given("an MccsDaqReceiver", target_fixture="daq_receiver")
@@ -213,6 +175,7 @@ def ensure_no_consumers_running(daq_receiver: tango.DeviceProxy) -> None:
     status = json.loads(daq_receiver.DaqStatus())
     if status["Running Consumers"] != []:
         daq_receiver.Stop()  # Stops *all* consumers.
+        poll_until_consumers_stopped(daq_receiver)
 
 
 @when(parsers.cfparse("'{consumer}' is started"))
@@ -235,11 +198,6 @@ def check_consumer_is_running(daq_receiver: tango.DeviceProxy, consumer: str) ->
     :param consumer: The consumer whose running status we are to confirm.
     """
     poll_until_consumer_running(daq_receiver, consumer)
-    status = json.loads(daq_receiver.DaqStatus())
-    for running_consumer in status["Running Consumers"]:
-        if consumer in running_consumer:
-            return
-    pytest.fail(f"Wanted consumer: {consumer} not running.")
 
 
 @pytest.fixture(name="all_available_consumers")
@@ -277,18 +235,6 @@ def start_all_consumers(
     daq_receiver.Start(
         json.dumps({"modes_to_start": ",".join(all_available_consumers)})
     )
-
-
-@given("consumer_status attribute shows all consumers are running")
-def check_all_consumers_running(
-    daq_receiver: tango.DeviceProxy, all_available_consumers: list[str]
-) -> None:
-    """
-    Check that all available consumers are running.
-
-    :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
-    :param all_available_consumers: A list of all DaqModes/consumers.
-    """
     for consumer in all_available_consumers:
         poll_until_consumer_running(daq_receiver, consumer)
 
