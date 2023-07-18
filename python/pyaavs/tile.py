@@ -110,7 +110,6 @@ class Tile(TileHealthMonitor):
         self._port = port
         self._ip = socket.gethostbyname(ip)
         self.tpm = None
-        self.preadus_enabled = False
 
         self._channeliser_truncation = 4
         self.subarray_id = 0
@@ -353,7 +352,6 @@ class Tile(TileHealthMonitor):
         # Switch off both PREADUs
         for preadu in self.tpm.tpm_preadu:
             preadu.switch_off()
-        self.preadus_enabled = False
 
         # Switch on preadu
         for preadu in self.tpm.tpm_preadu:
@@ -361,7 +359,7 @@ class Tile(TileHealthMonitor):
             time.sleep(1)
             preadu.select_low_passband()
             preadu.read_configuration()
-        self.preadus_enabled = True
+
         # Synchronise FPGAs
         self.sync_fpga_time(use_internal_pps=use_internal_pps)
 
@@ -2381,12 +2379,32 @@ class Tile(TileHealthMonitor):
     # ----------------------------
     # Wrapper for preadu methods
     # ----------------------------
+
+    def has_preadu(self):
+        """
+        Check if tile has preADUs fitted.
+
+        Gets preadu attribute "is_present" for each preADU.
+        Returns True if both are present, else False.
+        """
+        fpgas = range(len(self.tpm.tpm_test_firmware))
+        detected = []
+        for fpga in fpgas:
+            preadu_is_present = self.tpm.tpm_preadu[fpga].is_present
+            detected.append(preadu_is_present)
+            if preadu_is_present:
+                self.logger.info(f"preADU {fpga} Detected")
+            else:
+                self.logger.info(f"preADU {fpga} Not Detected")
+        return all(detected)
+
     def equalize_preadu_gain(self, required_rms=20):
         """ Equalize the preadu gain to get target RMS"""
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            preadu.select_low_passband()
+            if self.tpm_version == "tpm_v1_2":
+                preadu.select_low_passband()
             preadu.read_configuration()
 
         # Get current RMS
@@ -2404,8 +2422,8 @@ class Tile(TileHealthMonitor):
             pid = self.preadu_signal_map[channel]['preadu_id']
             channel = self.preadu_signal_map[channel]['channel']
 
-            attenuation = (self.tpm.tpm_preadu[pid].channel_filters[channel] >> 3) + attenuation
-            self.tpm.tpm_preadu[pid].set_attenuation(int(round(attenuation)), [channel])
+            attenuation = self.tpm.tpm_preadu[pid].get_attenuation()[channel] + attenuation
+            self.tpm.tpm_preadu[pid].set_attenuation(attenuation, [channel])
 
         for preadu in self.tpm.tpm_preadu:
             preadu.write_configuration()
@@ -2416,9 +2434,10 @@ class Tile(TileHealthMonitor):
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            preadu.select_low_passband()
+            if self.tpm_version == "tpm_v1_2":
+                preadu.select_low_passband()
             preadu.read_configuration()
-            preadu.set_attenuation(int(round(attenuation)), list(range(16)))
+            preadu.set_attenuation(attenuation, list(range(16)))
             preadu.write_configuration()
 
     # ----------------------------
