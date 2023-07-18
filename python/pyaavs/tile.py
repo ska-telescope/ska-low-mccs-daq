@@ -626,7 +626,7 @@ class Tile(TileHealthMonitor):
     @connected
     def configure_40g_core(
         self,
-        core_id,
+        core_id=0,
         arp_table_entry=0,
         src_mac=None,
         src_ip=None,
@@ -634,6 +634,8 @@ class Tile(TileHealthMonitor):
         dst_ip=None,
         dst_port=None,
         rx_port_filter=None,
+        netmask=None,
+        gateway_ip=None
     ):
         """
         Configure a 40G core.
@@ -646,6 +648,8 @@ class Tile(TileHealthMonitor):
         :param src_port: Source port
         :param dst_port: Destination port
         :param rx_port_filter: Filter for incoming packets
+        :param netmask: Netmask
+        :param gateway_ip: Gateway IP
         """
         # Configure core
         if src_mac is not None:
@@ -662,6 +666,11 @@ class Tile(TileHealthMonitor):
             self.tpm.tpm_10g_core[core_id].set_rx_port_filter(
                 rx_port_filter, arp_table_entry
             )
+        if netmask is not None:
+            self.tpm.tpm_10g_core[core_id].set_netmask(netmask)
+        if gateway_ip is not None:
+            self.tpm.tpm_10g_core[core_id].set_gateway_ip(gateway_ip)
+
 
     @connected
     def get_40g_core_configuration(self, core_id, arp_table_entry=0):
@@ -691,6 +700,8 @@ class Tile(TileHealthMonitor):
                 "dst_port": int(
                     self.tpm.tpm_10g_core[core_id].get_dst_port(arp_table_entry)
                 ),
+                "netmask": int(self.tpm.tpm_10g_core[core_id].get_netmask()),
+                "gateway_ip": int(self.tpm.tpm_10g_core[core_id].get_gateway_ip()),
             }
         except IndexError:
             self._40g_configuration = None
@@ -698,9 +709,15 @@ class Tile(TileHealthMonitor):
         return self._40g_configuration
 
     @connected
-    def set_default_eth_configuration(self, src_ip_fpga1=None, src_ip_fpga2=None,
-                                      dst_ip_fpga1=None, dst_ip_fpga2=None,
-                                      src_port=4661, dst_port=4660, qsfp_detection="auto"):
+    def set_default_eth_configuration(
+            self,
+            src_ip_fpga1=None,
+            src_ip_fpga2=None,
+            dst_ip_fpga1=None,
+            dst_ip_fpga2=None,
+            src_port=4661,
+            dst_port=4660,
+            qsfp_detection="auto"):
         """
         Set destination and source IP/MAC/ports for 40G cores.
 
@@ -757,14 +774,14 @@ class Tile(TileHealthMonitor):
                     self.tpm.tpm_10g_core[n].reset_core()
 
                     self.configure_40g_core(
-                        n,
-                        0,
+                        core_id=n,
+                        arp_table_entry=0,
                         src_mac=0x620000000000 + ip2long(src_ip),
                         src_ip=src_ip,
                         dst_ip=dst_ip,
-                        src_port=0xF0D0,
-                        dst_port=4660,
-                        rx_port_filter=4660,
+                        src_port=src_port,
+                        dst_port=dst_port,
+                        rx_port_filter=dst_port,
                     )
                 else:
                     self.tpm.tpm_10g_core[n].tx_disable()
@@ -802,12 +819,14 @@ class Tile(TileHealthMonitor):
             if dst_ip is None:
                 dst_ip = self._lmc_ip
 
-            self.configure_40g_core(
-                0, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-            )
-            self.configure_40g_core(
-                1, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-            )
+            for core_id in range(len(self.tpm.tpm_10g_core)):
+                self.configure_40g_core(
+                    core_id=core_id,
+                    arp_table_entry=1,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
+                    dst_port=dst_port
+                )
 
             self["fpga1.lmc_gen.tx_demux"] = 2
             self["fpga2.lmc_gen.tx_demux"] = 2
@@ -861,13 +880,14 @@ class Tile(TileHealthMonitor):
             if dst_ip is None:
                 dst_ip = self._lmc_ip
 
-            self.configure_40g_core(
-                0, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-            )
-
-            self.configure_40g_core(
-                1, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-            )
+            for core_id in range(len(self.tpm.tpm_10g_core)):
+                self.configure_40g_core(
+                    core_id=core_id,
+                    arp_table_entry=1,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
+                    dst_port=dst_port
+                )
 
         # Using dedicated 1G link
         elif mode.upper() == "1G":
