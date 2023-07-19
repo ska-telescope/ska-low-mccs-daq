@@ -10,12 +10,23 @@ from __future__ import annotations
 import functools
 import logging
 import os
+import json
+import shutil
+import tempfile
+import threading
 from enum import IntEnum
+from multiprocessing import Process
+from time import sleep
 from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
 
+import pexpect
+from aavs_calibration.common import get_antenna_positions
+from pyaavs import station
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode
 from ska_low_mccs_daq_interface.server import run_server_forever
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 __all__ = ["DaqHandler", "main"]
 
@@ -28,6 +39,17 @@ class DaqStatus(IntEnum):
     STOPPED = 0
     RECEIVING = 1
     LISTENING = 2
+
+
+# Global parameters
+nof_antennas_per_tile = 16
+nof_channels = 512
+bandwidth = 400.0
+nof_pols = 2
+
+# Global store containing files to be processed
+antenna_locations = {}
+files_to_plot = {}
 
 
 class DaqCallbackBuffer:
@@ -172,6 +194,7 @@ class DaqHandler:
         self.daq_instance: DaqReceiver = None
         self._receiver_started: bool = False
         self._initialised: bool = False
+        self._stop_bandpass: bool = False
         self.logger = logging.getLogger("daq-server")
         self.state = DaqStatus.STOPPED
         self.request_stop = False
@@ -383,6 +406,257 @@ class DaqHandler:
                 else receiver_ip  # noqa: E501
             ],
         }
+
+    @check_initialisation
+    def start_bandpass_monitor(
+        self: DaqHandler,
+        argin: str,
+    ) -> tuple[ResultCode, str]:
+        """
+        Begin monitoring antenna bandpasses.
+
+        :param argin: A dict of arguments to pass to `start_bandpass_monitor` command.
+            KEYS:
+            * station_config_path: Path to station configuration file. Mandatory.
+            * plot_directory: Plotting directory. Mandatory.
+            * monitor_rms: Flag to enable or disable RMS monitoring. Optional. Default False.
+            * auto_handle_daq: Flag to indicate whether the DaqReceiver should be automatically
+                reconfigured, started and stopped during this process if necessary. Optional. Default False.
+
+        :return: a resultcode, message tuple
+        """
+        global antenna_locations
+        self._stop_bandpass = False
+        params = json.loads(argin)
+        try:
+            station_config_path: str = params["station_config_path"]
+            plot_directory: str = params["plot_directory"]
+        except KeyError:
+            self.logger.error("PANIC!")
+            return (
+                ResultCode.REJECTED,
+                "Invalid configuration detected. Please check.",
+            )  # TODO: A more useful message.
+        monitor_rms: bool = params["monitor_rms"] or False
+        auto_handle_daq: bool = params["auto_handle_daq"] or False
+
+        # Check DAQ is in the correct state for monitoring bandpasses.
+        # If not, throw an error if we chose not to auto_handle_daq otherwise configure appropriately.
+        current_config = self.get_configuration()
+        if current_config["append_integrated"]:
+            if not auto_handle_daq:
+                self.logger.error(
+                    "Current DAQ config is invalid."
+                    "The `append_integrated` option must be set to false for bandpass monitoring."
+                )
+                return (
+                    ResultCode.REJECTED,
+                    "Current DAQ config is invalid."
+                    "The `append_integrated` option must be set to false for bandpass monitoring.",
+                )
+            self.configure({"append_integrated": False})
+
+        running_consumers = self.get_status().get("Running Consumers")
+        if "INTEGRATED_CHANNEL_DATA" not in running_consumers:
+            if not auto_handle_daq:
+                self.logger.error(
+                    "INTEGRATED_CHANNEL_DATA consumer must be running before bandpasses can be monitored."
+                    "Running consumers: %s",
+                    running_consumers,
+                )
+                return (
+                    ResultCode.REJECTED,
+                    "INTEGRATED_CHANNEL_DATA consumer must be running before bandpasses can be monitored.",
+                )
+            self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
+            # TODO: poll_until_consumer_running
+
+        # Load configuration file
+        station.load_configuration_file(station_config_path)
+        station_conf = station.configuration
+
+        # Extract station name
+        station_name = station_conf["station"]["name"]
+        if station_name.upper() == "UNNAMED":
+            self.logger.error(
+                "Please set station name in configuration file %s, currently unnamed",
+                station_config_path,
+            )
+            return (
+                ResultCode.REJECTED,
+                f"Please set station name in configuration file {station_config_path}, currently unnamed",
+            )
+
+        # Check that the station is configured to transmit data over 1G
+        if station_conf["network"]["lmc"]["use_teng_integrated"]:
+            self.logger.error(
+                "Station %s must be configured to send integrated data over the 1G network, "
+                "and each station should define a different destination port. Please check",
+                station_config_path,
+            )
+            return (
+                ResultCode.REJECTED,
+                f"Station {station_config_path} must be configured to send integrated data "
+                "over the 1G network, and each station should define a different destination port. Please check",
+            )
+
+        # Get and store antenna positions
+        antenna_locations[station_name] = get_antenna_positions(station_name)
+
+        # Create plotting directory structure
+        if not self.create_plotting_directory(plot_directory, station_name):
+            self.logger.error(
+                "Unable to create plotting director at %s", plot_directory
+            )
+            return (
+                ResultCode.FAILED,
+                f"Unable to create plotting directory at: {plot_directory}",
+            )
+
+        # Create data directory
+        data_directory = tempfile.mkdtemp()
+        self.logger.info("Using temp dir %s", data_directory)
+
+        # Start rms thread
+        if monitor_rms:
+            rms = Process(
+                target=self.generate_rms_plots,
+                args=(station_conf, os.path.join(plot_directory, station_name)),
+            )
+            rms.start()
+
+        # Start directory monitor
+        observer = Observer()
+        data_handler = IntegratedDataHandler(station_name)
+        observer.schedule(data_handler, data_directory)
+        observer.start()
+
+        # Start plotting thread
+        bandpass_plotting_thread = threading.Thread(
+            target=self.generate_bandpass_plots,
+            args=(os.path.join(plot_directory, station_name), station_name),
+        )
+        bandpass_plotting_thread.start()
+
+        yield (ResultCode.STARTED, "Bandpass monitoring active.")
+        # Wait for stop, monitoring disk space in the meantime
+        max_dir_size = 200 * 1024 * 1024
+        while not self._stop_bandpass:
+            dir_size = sum(
+                os.path.getsize(f)
+                for f in os.listdir(data_directory)
+                if os.path.isfile(f)
+            )
+            if dir_size > max_dir_size:
+                self.logger.error(
+                    "Consuming too much disk space! Stopping bandpass monitor!"
+                )
+                self._stop_bandpass = True
+                break
+            sleep(5)
+
+        # Stop and clean up
+        self.logger.info("Waiting for threads and processes to terminate.")
+        if auto_handle_daq:
+            self.stop()
+        observer.stop()
+        shutil.rmtree(data_directory, ignore_errors=True)
+        observer.join()
+        bandpass_plotting_thread.join()
+
+    @check_initialisation
+    def stop_bandpass_monitor(self: DaqHandler) -> tuple[ResultCode, str]:
+        self._stop_bandpass = True
+        # TODO: Check this has stopped.
+        return (ResultCode.OK, "Bandpass monitor stopping.")
+
+    def generate_rms_plots(self, config, plotting_directory) -> None:
+        """
+        Generate RMS plots.
+
+        :param config: Station configuration file.
+        :param directory: Directory to store plots in.
+        """
+        global files_to_plot
+        for _ in range(10):
+            logging.debug("I want to be an RMS plot when I grow up...")
+
+    def generate_bandpass_plots(self, station_name, plotting_directory) -> None:
+        """
+        Generate antenna bandpass plots.
+
+        :param station_name: The name of the station.
+        :param plotting_directory: Directory to store plots in.
+        """
+        global files_to_plot
+        for _ in range(10):
+            logging.debug("I want to be a bandpass plot when I grow up...")
+
+    # pylint: disable=broad-except
+    def create_plotting_directory(self, parent, station_name):
+        """
+        Create plotting directory structure for this station.
+
+        :param parent: Parent plotting directory
+        :param station_name: Station name
+        """
+        # Check if plot directory exists and if not create it
+        if not os.path.exists(parent):
+            try:
+                os.mkdir(parent)
+            except Exception:
+                logging.error(
+                    "Could not create plotting directory %s. "
+                    "Check that the path is valid and permission",
+                    parent,
+                )
+                return False
+        elif os.path.isdir(parent):
+            if not os.path.exists(os.path.join(parent, station_name)):
+                try:
+                    os.mkdir(os.path.join(parent, station_name))
+                except Exception:
+                    logging.error(
+                        "Could not plotting subdirectory for %s in %s. " "Please check",
+                        parent,
+                        station_name,
+                    )
+                    return False
+        else:
+            logging.error(
+                "Specified plotting directory (%s) is a file. Please check", parent
+            )
+            return False
+
+        return True
+
+
+class IntegratedDataHandler(FileSystemEventHandler):
+    """Detects file created in the data directory and generates plots"""
+
+    def __init__(self, station_name):
+        """Constructor
+        :param station_name: Station name"""
+        self._station_name = station_name
+        files_to_plot[station_name] = []
+
+    def on_any_event(self, event):
+        """
+        Check every event for newly created files to process.
+        """
+        # We are only interested in newly created files
+        global files_to_plot
+
+        if event.event_type == "created":
+
+            # Ignore lock files and other temporary files
+            if not ("channel" in event.src_path and not "lock" in event.src_path):
+                return
+
+            # Add to list
+            sleep(0.1)
+            logging.info("Detected %s", event.src_path)
+            files_to_plot[self._station_name].append(event.src_path)
 
 
 def main() -> None:
