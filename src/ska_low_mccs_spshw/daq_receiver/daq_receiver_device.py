@@ -102,6 +102,7 @@ class MccsDaqReceiver(SKABaseDevice):
         doc="The interface on which the DAQ receiver is listening for traffic.",  # noqa: E501
         default_value="",
     )
+    # TODO: Remove ReceiverIp property?
     ReceiverIp = device_property(
         dtype=str,
         mandatory=False,
