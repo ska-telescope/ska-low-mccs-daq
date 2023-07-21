@@ -18,8 +18,9 @@ Scenario: Check that DAQ can be configured
     When We pass a configuration to the MccsDaqReceiver
     Then The DAQ_receiver interface has the expected configuration
 
+# TODO: Considering removal of `ReceiverIp` property.
 @forked
-Scenario: Check that when we configure with no value for the receiver_ip it is dealt with appropriatly
+Scenario: Check that when we configure with no value for the receiver_ip it is dealt with appropriately
     Given A MccsDaqReceiver is available
-    When We pass parameter "receiver_ip" of value "None" to the MccsDaqReceiver
+    When We pass parameter "receiver_ip" of value "''" to the MccsDaqReceiver
     Then The DAQ receiver interface has a valid "receiver_ip"

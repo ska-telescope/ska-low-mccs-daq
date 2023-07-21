@@ -8,12 +8,18 @@
 """This module contains the bdd test steps of the daq status reporting."""
 from __future__ import annotations
 
+import json
 from typing import Iterator
 
 import pytest
 import tango
 from pytest_bdd import given, parsers, scenarios, then, when
+from ska_control_model import AdminMode
 
+from tests.functional.conftest import (
+    poll_until_consumer_running,
+    poll_until_consumers_stopped,
+)
 from tests.harness import SpsTangoTestHarnessContext
 
 scenarios("./features/daq_status_reporting.feature")
@@ -45,75 +51,9 @@ def admin_mode_set_to_value(
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param admin_mode_value: The value the device's AdminMode attribute should have.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # daq_receiver.adminMode = admin_mode_value
-    # assert daq_receiver.adminMode == AdminMode[admin_mode_value]
-
-
-@given(parsers.cfparse("communications are '{communication_state}'"))
-def comms_are_in_state(
-    communication_state: str,
-) -> None:
-    """
-    Ensure communications are in the state specified.
-
-    A communication_state of `established` or `disabled` is supplied and
-    this method checks that the daq receiver comms is in that state.
-
-    :param communication_state: The communication state the device is expected to be in.
-    """
-    # :param daq_component_manager: The component manager for the device under test.
-    pytest.xfail(reason="Not implemented yet")
-    # comms_map = {
-    #     "established": CommunicationStatus.ESTABLISHED,
-    #     "disabled": CommunicationStatus.DISABLED,
-    # }
-    # # Check comms state of receiver. If wrong state call start/stop comms.
-    # assert communication_state in comms_map.keys()
-    # target_comms_state = comms_map[communication_state]
-
-    # # Check if we're in the wrong comms state. If so call start/stop comms to get to
-    # # the right state.
-    # if not (daq_component_manager.communication_state == target_comms_state):
-    #     if communication_state == "disabled":
-    #         daq_component_manager.stop_communicating()
-    #         communication_state_changed_callback.assert_last_call(
-    #             CommunicationStatus.DISABLED
-    #         )
-    #     else:
-    #         daq_component_manager.start_communicating()
-    #         communication_state_changed_callback.assert_next_call(
-    #             CommunicationStatus.NOT_ESTABLISHED
-    #         )
-    #         communication_state_changed_callback.assert_next_call(
-    #             CommunicationStatus.ESTABLISHED
-    #         )
-
-    # assert daq_component_manager.communication_state == target_comms_state
-
-
-@given(parsers.cfparse("the fault bit is '{fault_state}'"))
-def fault_is_set_unset(daq_receiver: tango.DeviceProxy, fault_state: str) -> None:
-    """
-    Ensure fault bit is in the state specified.
-
-    A fault bit state of `set` or `unset` is supplied and this method
-    checks that the daq receiver fault is in that state.
-
-    :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
-    :param fault_state: The fault state the device should be in.
-    """
-    pytest.xfail(reason="Not implemented yet")
-    # fault_map = {"set": True, "not_set": False}
-    # # Check fault bit and set/unset as/if required.
-    # assert fault_state in fault_map.keys()
-    # target_fault_state = fault_map[fault_state]
-
-    # # Check if we're in the wrong fault state. If so call callback to set fault.
-    # if not (daq_receiver.GetDaqFault() == target_fault_state):
-    #     argin = {"fault": target_fault_state}
-    #     daq_receiver.StateChangedCallback(json.dumps(argin))
-    # assert daq_receiver.GetDaqFault() == target_fault_state
+    if daq_receiver.adminMode != AdminMode[admin_mode_value]:
+        daq_receiver.adminMode = admin_mode_value
+    assert daq_receiver.adminMode == AdminMode[admin_mode_value]
 
 
 @given(parsers.cfparse("the MccsDaqReceiver HealthState is '{health_state}'"))
@@ -181,14 +121,9 @@ def check_health_is_in_state(
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param health_state: The health state the device is expected to be in.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # health_map = {
-    #     "OK": HealthState.OK,
-    #     "UNKNOWN": HealthState.UNKNOWN,
-    #     "FAILED": HealthState.FAILED,
-    # }
-    # assert health_state in health_map.keys()
-    # assert daq_receiver.GetDaqHealth() == health_map[health_state]
+    daq_status = json.loads(daq_receiver.DaqStatus())
+    daq_health = daq_status["Daq Health"]
+    assert health_state in daq_health
 
 
 @when(parsers.cfparse("'{method}' is called"))
@@ -202,10 +137,9 @@ def method_is_called(
 
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param method: The name of the method to be called.
+
+    :raises AssertionError: if an invalid method is supplied.
     """
-    # :param daq_component_manager: The component manager for the device under test.
-    # :raises AssertionError: if an invalid method is supplied.
-    pytest.xfail(reason="Not implemented yet")
     # # method_map = {bdd_method: [method_object, args]}
     # # These methods are called with arguments.
     # method_map_args = {
@@ -218,23 +152,17 @@ def method_is_called(
     #         json.dumps({"fault": False}),
     #     ],
     # }
-    # # These methods are not called with arguments.
-    # # TODO: remove the following line
-    # if method == "daq_status":
-    #     return
-    # method_map_nargs = {
-    #     "establish_comms": [daq_component_manager.start_communicating],
-    #     "unestablish_comms": [daq_component_manager.stop_communicating],
-    #     "stop_daq": [daq_receiver.Stop],
-    #     # "daq_status": [daq_receiver.DaqStatus]
-    #     # TODO: DaqStatus command needs implementing.
-    # }
-    # if method in method_map_args.keys():
+    # These methods are not called with arguments.
+    method_map_nargs = {
+        "stop_daq": [daq_receiver.Stop],
+        "daq_status": [daq_receiver.DaqStatus],
+    }
+    # if method in method_map_args:
     #     method_map_args[method][0](method_map_args[method][1])
-    # elif method in method_map_nargs.keys():
-    #     method_map_nargs[method][0]()
-    # else:
-    #     raise AssertionError(f"{method} not found in method map!")
+    if method in method_map_nargs:
+        method_map_nargs[method][0]()
+    else:
+        raise AssertionError(f"{method} not found in method map!")
 
 
 @given("no consumers are running")
@@ -244,14 +172,10 @@ def ensure_no_consumers_running(daq_receiver: tango.DeviceProxy) -> None:
 
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # running_consumer_list = json.loads(daq_receiver.GetRunningConsumers())
-    # for (
-    #     daq_mode,
-    #     running,
-    # ) in running_consumer_list:
-    #     if running:
-    #         daq_receiver.Stop()  # Stops *all* consumers.
+    status = json.loads(daq_receiver.DaqStatus())
+    if status["Running Consumers"] != []:
+        daq_receiver.Stop()  # Stops *all* consumers.
+        poll_until_consumers_stopped(daq_receiver)
 
 
 @when(parsers.cfparse("'{consumer}' is started"))
@@ -262,13 +186,7 @@ def start_consumer(daq_receiver: tango.DeviceProxy, consumer: str) -> None:
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param consumer: The consumer to start.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # daq_mode = DaqModes[consumer]
-    # daq_receiver.Start(json.dumps({"modes_to_start": [daq_mode]}))
-    # # Race condition here waiting for consumers to start.
-    # # TODO: Check the task_callback for Start and wait here until it finishes rather
-    # # than sleep.
-    # # time.sleep(3)
+    daq_receiver.Start(json.dumps({"modes_to_start": consumer}))
 
 
 @then(parsers.cfparse("consumer_status attribute shows '{consumer}' as running"))
@@ -279,35 +197,31 @@ def check_consumer_is_running(daq_receiver: tango.DeviceProxy, consumer: str) ->
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param consumer: The consumer whose running status we are to confirm.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # daq_mode = str(DaqModes[consumer].value)  # This is a bit of a fiddle.
-    # running_consumer_list = json.loads(daq_receiver.GetRunningConsumers())
-    # assert running_consumer_list[daq_mode]
+    poll_until_consumer_running(daq_receiver, consumer)
 
 
-# @pytest.fixture(name="all_available_consumers")
-# def all_available_consumers_fixture() -> list[DaqModes]:
-#     """
-#     All consumers list.
+@pytest.fixture(name="all_available_consumers")
+def all_available_consumers_fixture() -> list[str]:
+    """
+    All consumers list.
 
-#     :return: a list of all available consumers.
-#     """
-#     return [
-#         DaqModes.ANTENNA_BUFFER,
-#         DaqModes.BEAM_DATA,
-#         DaqModes.CHANNEL_DATA,
-#         DaqModes.CONTINUOUS_CHANNEL_DATA,
-#         DaqModes.INTEGRATED_BEAM_DATA,
-#         DaqModes.INTEGRATED_CHANNEL_DATA,
-#         DaqModes.RAW_DATA,
-#         DaqModes.STATION_BEAM_DATA,
-#     ]
+    :return: a list of all available consumers.
+    """
+    return [
+        "ANTENNA_BUFFER",
+        "BEAM_DATA",
+        "CHANNEL_DATA",
+        "CONTINUOUS_CHANNEL_DATA",
+        "INTEGRATED_BEAM_DATA",
+        "INTEGRATED_CHANNEL_DATA",
+        "RAW_DATA",
+        "STATION_BEAM_DATA",
+    ]
 
 
 @given("all consumers are running")
 def start_all_consumers(
-    daq_receiver: tango.DeviceProxy,
-    # all_available_consumers: list[DaqModes]
+    daq_receiver: tango.DeviceProxy, all_available_consumers: list[str]
 ) -> None:
     """
     Start all available consumers.
@@ -316,29 +230,13 @@ def start_all_consumers(
     unavailable.
 
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
+    :param all_available_consumers: A list of all DaqModes/consumers.
     """
-    # :param all_available_consumers: A list of all DaqModes/consumers.
-    pytest.xfail(reason="Not implemented yet")
-    # daq_receiver.Start(json.dumps({"modes_to_start": all_available_consumers}))
-    # # TODO: Have a better solution to the race condition than sleeping.
-    # time.sleep(3)
-
-
-@given("consumer_status attribute shows all consumers are running")
-def check_all_consumers_running(
-    daq_receiver: tango.DeviceProxy,
-    # all_available_consumers: list[DaqModes]
-) -> None:
-    """
-    Check that all available consumers are running.
-
-    :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
-    """
-    # :param all_available_consumers: A list of all DaqModes/consumers.
-    pytest.xfail(reason="Not implemented yet")
-    # running_consumer_list = json.loads(daq_receiver.GetRunningConsumers())
-    # for consumer in all_available_consumers:
-    #     assert running_consumer_list[str(consumer.value)]
+    daq_receiver.Start(
+        json.dumps({"modes_to_start": ",".join(all_available_consumers)})
+    )
+    for consumer in all_available_consumers:
+        poll_until_consumer_running(daq_receiver, consumer)
 
 
 @then("consumer_status attribute shows no consumers are running")
@@ -348,12 +246,7 @@ def check_no_consumers_running(daq_receiver: tango.DeviceProxy) -> None:
 
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     """
-    pytest.xfail(reason="Not implemented yet")
-    # # TODO: Stopping consumers can take a while. Replace this sleep with a test.
-    # # time.sleep(5)
-    # running_consumer_list = json.loads(daq_receiver.GetRunningConsumers())
-    # for running in running_consumer_list.values():
-    #     assert not running
+    poll_until_consumers_stopped(daq_receiver)
 
 
 @given(parsers.cfparse("the MccsDaqReceiver has a particular '{configuration}'"))

@@ -8,15 +8,19 @@
 """This module contains the tests of the daq configuration."""
 from __future__ import annotations
 
+import gc
+import json
 from typing import Iterator
 
 import pytest
 import tango
 from pytest_bdd import given, parsers, scenario, then, when
-from ska_control_model import AdminMode
+from ska_control_model import AdminMode, ResultCode
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.harness import SpsTangoTestHarnessContext
+
+gc.disable()
 
 EXTRA_TYPES = {
     "Dict": str,
@@ -37,6 +41,17 @@ def test_daq_configuration() -> None:
     Any code in this scenario method is run at the *end* of the
     scenario.
     """
+
+
+@pytest.fixture(name="configuration")
+def daq_configuration_fixture() -> str:
+    """
+    Provide a DAQ configuration.
+
+    :return: A DAQ configuration
+    """
+    config = '{"nof_tiles": 16, "nof_antennas": 256, "description": "This is a test."}'
+    return config
 
 
 @given("A MccsDaqReceiver is available", target_fixture="daq_receiver")
@@ -74,36 +89,40 @@ def given_a_daq_receiver(
 
 
 @when("We pass a configuration to the MccsDaqReceiver")
-def feed_daq_configuration_file(daq_receiver: tango.DeviceProxy) -> None:
+def feed_daq_configuration_file(
+    daq_receiver: tango.DeviceProxy, configuration: str
+) -> None:
     """
     Feed the configuration into the daq_receiver.
 
     :param daq_receiver: The daq_receiver fixture to use.
+    :param configuration: The DAQ configuration to apply.
     """
-    pytest.xfail(reason="Not ready")
     # MccsDaqReceiver expects a string as input, this will be a string representation
     # of a dictionary.
-    # daq_receiver.Configure(configuration)
+    assert [
+        [ResultCode.OK.value],
+        ["Configure command completed OK"],
+    ] == daq_receiver.Configure(configuration)
 
 
 @then("The DAQ_receiver interface has the expected configuration")
 def assert_daq_instance_is_configured_correctly(
     daq_receiver: tango.DeviceProxy,
+    configuration: str,
 ) -> None:
     """
     Assert daq_instance has the same configuration that we sent to the daq_receiver.
 
     :param daq_receiver: The daq_receiver fixture to use.
+    :param configuration: The expected DAQ configuration.
 
     Notes: we may only send a subset of the configuration to the DaqInstance.
     """
-    pytest.xfail(reason="Not ready")
-    # configuration_dict = json.loads(configuration_expected)
-
-    # config_jstr = daq_receiver.GetConfiguration()
-    # retrieved_daq_config = json.loads(config_jstr)
-
-    # assert configuration_dict.items() <= retrieved_daq_config.items()
+    expected_config: dict = json.loads(configuration)
+    retrieved_daq_config: dict = json.loads(daq_receiver.GetConfiguration())
+    for k in expected_config.keys():
+        assert retrieved_daq_config[k] == expected_config[k]
 
 
 @when(
@@ -130,36 +149,33 @@ def pass_key_value_to_daq(
     # so i have passed "None" and converted it here.
     # if value == "None":
     #     value = ""
-
-    # configuration = f'{{"{configuration_param}":{value}}}'
-
-    # # configure DAQ using the string representation of a dictionary
+    # configuration = json.dumps({configuration_param: value})
+    # configure DAQ using the string representation of a dictionary
     # daq_receiver.Configure(configuration)
 
 
 @then(
     parsers.cfparse(
-        "The DAQ receiver interface has a valid {receiver_ip:w}",
+        "The DAQ receiver interface has a valid {configuration_param:w}",
         extra_types=EXTRA_TYPES,
     )
 )
 def check_response_as_expected(
-    daq_receiver: tango.DeviceProxy, receiver_ip: str
+    daq_receiver: tango.DeviceProxy, configuration_param: str
 ) -> None:
     """
     Specific parameters passed to the daq_receiver_interface are overridden.
 
     :param daq_receiver: The daq_receiver fixture to use.
-    :param receiver_ip: The parameter of interest
+    :param configuration_param: The parameter of interest
 
     If the ip is not assigned it is assigned the IP address of a specified interface
     'receiver_interface'. This tests that the value has changed.
     TODO: determine what other values are allowed
     """
     pytest.xfail(reason="Not ready")
-    # daq_config_jstr = daq_receiver.GetConfiguration()
-    # retrieved_daq_config = json.loads(daq_config_jstr)
-    # receiver_port = retrieved_daq_config[receiver_ip]
+    # retrieved_daq_config = json.loads(daq_receiver.GetConfiguration())
+    # receiver_port = retrieved_daq_config[configuration_param]
 
     # try:
     #     socket.inet_aton(receiver_port)

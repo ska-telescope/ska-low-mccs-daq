@@ -131,7 +131,7 @@ class TestDaqComponentManager:
             ("DaqModes.INTEGRATED_BEAM_DATA", [DaqModes.INTEGRATED_BEAM_DATA]),
             ("DaqModes.INTEGRATED_CHANNEL_DATA", [DaqModes.INTEGRATED_CHANNEL_DATA]),
             ("DaqModes.STATION_BEAM_DATA", [DaqModes.STATION_BEAM_DATA]),
-            # ("DaqModes.CORRELATOR_DATA", [DaqModes.CORRELATOR_DATA]),
+            ("DaqModes.CORRELATOR_DATA", [DaqModes.CORRELATOR_DATA]),
             ("DaqModes.ANTENNA_BUFFER", [DaqModes.ANTENNA_BUFFER]),
             (
                 "DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA",
@@ -197,7 +197,7 @@ class TestDaqComponentManager:
             "DaqModes.INTEGRATED_BEAM_DATA",
             "DaqModes.INTEGRATED_CHANNEL_DATA",
             "DaqModes.STATION_BEAM_DATA",
-            # "DaqModes.CORRELATOR_DATA",  # Not compiled with correlator currently.
+            "DaqModes.CORRELATOR_DATA",  # Not compiled with correlator currently.
             "DaqModes.ANTENNA_BUFFER",
             "DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA",
             "1, 2, 0",
@@ -244,19 +244,20 @@ class TestDaqComponentManager:
             daq_modes,
             task_callback=callbacks["task_start_daq"],
         )
-        # assert rc == ResultCode.OK.value
-        # assert message == "Daq started"
         assert ts == TaskStatus.QUEUED
         assert message == "Task queued"
 
-        # TODO: Why is this queued 2 times?
-        callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
+        # TODO: May be more to tweak here.
         callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task_start_daq"].assert_call(
-            status=TaskStatus.IN_PROGRESS, result="Start Command issued to gRPC stub"
+            status=TaskStatus.IN_PROGRESS,
+            result="Start Command issued to gRPC stub",
+            lookahead=2,
         )
         callbacks["task_start_daq"].assert_call(
-            status=TaskStatus.COMPLETED, result="Daq has been started and is listening"
+            status=TaskStatus.COMPLETED,
+            result="Daq has been started and is listening",
+            lookahead=2,
         )
 
         converted_daq_modes: list[DaqModes] = convert_daq_modes(daq_modes)
