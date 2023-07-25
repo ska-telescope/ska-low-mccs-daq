@@ -668,7 +668,7 @@ bool IntegratedChannelisedData::processPacket()
     double packet_time = sync_time + timestamp * 1.08e-6;
 
     // Check if we processed all the sample
-    if (num_packets == this -> nof_antennas * this -> nof_pols * this -> nof_tiles / nof_included_antennas)
+    if (num_packets == this -> nof_channels * this -> nof_antennas * this -> nof_tiles / (nof_included_antennas * nof_included_channels))
     {
         container -> persist_container();
         num_packets = 0;
