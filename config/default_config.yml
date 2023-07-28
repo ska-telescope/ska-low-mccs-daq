@@ -1,0 +1,129 @@
+#######################################################################################################################
+#                                                                                                                     #
+# default_config.yml                                                                                                  #
+#                                                                                                                     #
+# This is a sample station configuration file to be used with the aavs-system Python software.                        #
+# DO NOT CHANGE THIS FILE, create a copy and modify the local copy to suit your system setup.                         #
+#                                                                                                                     #
+#######################################################################################################################
+
+# NOTE: when executing station.py from CLI the following configuration parameters are overridden by CLI parameters
+# if CLI parameters are not equal to None. To list default values of CLI parameters execute station.py -h
+
+# Observation-related configuration, specifying the channel region
+# for the station beamformer. Each frequency channel is 400e6 / 512 Hz = 0.78125 MHz wide.
+observation:
+    # bandwidth should be a multiple of 6.25e6 Hz corresponding to 8 frequency channels
+    bandwidth: 6.25e6
+    # start_frequency_channel should be a multiple of 1.5625e6 Hz (2 frequency channels)
+    start_frequency_channel: 156.25e6
+
+# Station configuration parameters
+station:
+    # Identifier for the station, it should be an unique station id for each station if multiple stations are
+    # deployed on the sa Ethernet network.
+    id: 1
+    # Station name.
+    name: "Default_Name"
+    # Channelizer scaling, number of bits rounded off at the channelizer output.
+    channel_truncation: 2
+    # Beamformer integration time in seconds for the spectra generator, a negative value will not start the generator.
+    beam_integration_time: -1
+    # Channelizer integration time in seconds for the spectra generator, a negative value will not start the generator.
+    # Channelizer spectra are generated one antenna per FPGA at a time with the spectra generator
+    # cycling over the antennas. Two dual polarisation antennas are integrated at each time, one for each FPGAs.
+    channel_integration_time: 2
+    # Station beamformer scaling, number of bits rounded off at the station beamformer output, before data are
+    # transmitted to CSP.
+    beamformer_scaling: 4
+    # Path to FPGA bitfile. Select the correct bitfile for the TPM version in use, the supported TPM version by a
+    # specific bitfile is part of the bitfile name:
+    # itpm_v1_1 -> TPM 1.2
+    # itpm_v1_5 -> TPM 1.6
+    bitfile: "/opt/aavs/bitfiles/itpm_v1_1_tpm_test_wrap_sbf401_01021788.bit"
+    # PreADU equalisation. If equalize_preadu = 0, the preADU equalisation is skipped; otherwise the configured value
+    # represents the target ADC unit RMS count for the equalisation.
+    equalize_preadu: 16
+    # When equalisation is performed, the default attenuation is configured in the preADU before reading the ADC RMS
+    # count. Based on the RMS value obtained with default attenuation, the required attenuation in dB is calculated
+    # comparing the target RMS value from equalize_preadu above and the current RMS read from the TPM.
+    # The equalisation is performed for each antenna and polarisation independently.
+    default_preadu_attenuation: 10
+
+# Network configuration parameters
+network:
+    # LMC data include calibration and diagnostic data type: ADC raw data, ADC raw data synchronised, channelised data
+    # burst (a predefined number of samples for 512 frequency channels), channelised data continuous (one frequency
+    # channel continuously streamed), tile beam data (42 continuous sample from tile beamformer, 384 frequency channels,
+    # dual polarisation).
+    # LMC integrated data include channel integrated data and tile beamformer integrated data. LMC data can be
+    # transmitted by the TPM over 1GbE or 40GbE, however note that 1GbE only allows for continuous transmission of
+    # channelised data from a single TPM as the required data rate is 60 MByte/s.
+    lmc:
+        # MAC address of the LMC NIC, this is required only for old FPGA firmwares; starting from sbf401, the TPMs
+        # support ARP for both 1GbE and 40GbE.
+        lmc_mac: 0x248A078F9D38
+        # The TPM will transmit LMC SPEAD data packets to the specified IP address. ARP response MUST be received from
+        # the specified address before the TPM can start the transmission.
+        lmc_ip: "10.0.10.204"
+        # Destination UDP port in the SPEAD packet for LMC data.
+        lmc_port: 4660
+        # This is the port the TPM listen to for UCP control packets.
+        tpm_cpld_port: 10000
+        # This option specifies if LMC data packet should be sent over 1GbE, when use_teng is False, or 40GbE,
+        # when use_teng is True.
+        use_teng: True
+        
+        # Integrated data configuration: integrated data can be transmitted to different destination IP, this should
+        # be set to same values as LMC data when a single receiver is deployed.
+        # Destination UDP port in the SPEAD packet for LMC integrated data.
+        integrated_data_port: 5020
+        # The TPM will transmit LMC SPEAD integrated data packets to the specified IP address. ARP response MUST be
+        # received from the specified address before the TPM can start the transmission.
+        integrated_data_ip: "10.0.10.200"
+        # This option specifies if LMC integrated data packet should be sent over 1GbE, when use_teng is False,
+        # or 40GbE, when use_teng is True.
+        use_teng_integrated: False
+
+    # CSP data generated by the station beamformer are transmitted to the csp_ingest host according to the
+    # following parameters.
+    # The station object configures the TPM 40G IP addresses as 10.0.X.Y, where
+    # X is in [1,2] depending on the 40G interface (FPGA) of the board,
+    # Y represents the last octet of the 1GbE IP address.
+    # The default netmask configured in the TPM 40GbE interface is 255.0.0.0.
+    # In order for ARP to work correctly, the CSP host MUST be able to communicate with the TPMs 40GbE interfaces
+    # on the defined subnet.
+    csp_ingest:
+        # MAC address of the CSP NIC, this is required only for old FPGA firmwares; starting from sbf401, the TPMs
+        # support ARP for both 1GbE and 40GbE.
+        dst_mac: 0x248A078F9D38
+        # The last TPM in the station will transmit CSP SPEAD data packets to the specified IP address. ARP response
+        # MUST be received from the specified address before the TPM can start the transmission.
+        dst_ip: "10.0.10.200"
+        # Destination UDP port in the SPEAD packets for CSP data.
+        dst_port: 4660
+        # Do NOT change this
+        src_mac: Null
+        # Do NOT change this, if an IP is given here it will assigned to both 40G interface of the last TPM
+        src_ip: Null
+        # Do NOT change this
+        src_port: Null
+
+# Time delay to apply to each antenna, one entry per TPM, optional. When given, The length of the list must match
+# the number of TPMs in the station. The specified value for each entry can be a list of 32 elements
+# (one delay for each antenna and polarisation) or an integer. When an integer is given the value will be applied to
+# all antennas and polarisations of the relevant TPM.
+time_delays:
+    - [5, 5, 3, 3, 0, 0, 4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 5, 5, 10, 10, 0, 0, 2, 2, 6, 6, 7, 7, 3, 3, 2, 2]
+    - [5, 5, 3, 3, 0, 0, 4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 5, 5, 10, 10, 0, 0, 2, 2, 6, 6, 7, 7, 3, 3, 2, 2]
+    - 0
+    - 1
+
+# List of TPM IPs (or names) which will form station, if names are give a working DNS
+# should be available configured to provide host names translation. The list order defines the
+# beamformer daisy-chain, the last TPM in the list will transmit CSP packets to the CSP host.
+tiles:
+    - 10.0.10.1
+    - 10.0.10.2
+    - 10.0.10.3
+    - tpm-4

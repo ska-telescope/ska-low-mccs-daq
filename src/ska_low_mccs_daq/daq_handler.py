@@ -8,9 +8,11 @@
 from __future__ import annotations
 
 import functools
+import json
 import logging
 import os
-import json
+import re
+import datetime
 import shutil
 import tempfile
 import threading
@@ -20,6 +22,9 @@ from time import sleep
 from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
 
 import pexpect
+import h5py
+import numpy as np
+from past.utils import old_div
 from aavs_calibration.common import get_antenna_positions
 from pyaavs import station
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
@@ -27,6 +32,8 @@ from ska_control_model import ResultCode
 from ska_low_mccs_daq_interface.server import run_server_forever
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
+
+print = functools.partial(print, flush=True)
 
 __all__ = ["DaqHandler", "main"]
 
@@ -46,9 +53,6 @@ nof_antennas_per_tile = 16
 nof_channels = 512
 bandwidth = 400.0
 nof_pols = 2
-
-# Global store containing files to be processed
-antenna_locations = {}
 files_to_plot = {}
 
 
@@ -195,10 +199,12 @@ class DaqHandler:
         self._receiver_started: bool = False
         self._initialised: bool = False
         self._stop_bandpass: bool = False
+        self._monitoring_bandpass: bool = False
         self.logger = logging.getLogger("daq-server")
         self.state = DaqStatus.STOPPED
         self.request_stop = False
         self.buffer = DaqCallbackBuffer(self.logger)
+        self._antenna_locations = {}
 
     def _file_dump_callback(
         self: DaqHandler,
@@ -405,6 +411,7 @@ class DaqHandler:
                 if isinstance(receiver_ip, bytes)
                 else receiver_ip  # noqa: E501
             ],
+            "Bandpass Monitor": self._monitoring_bandpass,
         }
 
     @check_initialisation
@@ -425,38 +432,43 @@ class DaqHandler:
 
         :return: a resultcode, message tuple
         """
-        global antenna_locations
+        if self._monitoring_bandpass:
+            return (ResultCode.REJECTED, "Bandpass monitor is already active.")
+        print("IN DAQ HANDLER START BANDPASS")
         self._stop_bandpass = False
-        params = json.loads(argin)
+        params: dict[str, Any] = json.loads(argin)
         try:
             station_config_path: str = params["station_config_path"]
             plot_directory: str = params["plot_directory"]
         except KeyError:
-            self.logger.error("PANIC!")
+            self.logger.error("Param `argin` must have keys for `station_config_path` and `plot_directory`")
             return (
                 ResultCode.REJECTED,
-                "Invalid configuration detected. Please check.",
-            )  # TODO: A more useful message.
-        monitor_rms: bool = params["monitor_rms"] or False
-        auto_handle_daq: bool = params["auto_handle_daq"] or False
-
+                "Param `argin` must have keys for `station_config_path` and `plot_directory`",
+            )
+        monitor_rms: bool = cast(bool, params.get("monitor_rms", False))
+        auto_handle_daq: bool = cast(bool, params.get("auto_handle_daq", False))
+        print("CHECKING CONFIG")
         # Check DAQ is in the correct state for monitoring bandpasses.
         # If not, throw an error if we chose not to auto_handle_daq otherwise configure appropriately.
         current_config = self.get_configuration()
         if current_config["append_integrated"]:
             if not auto_handle_daq:
                 self.logger.error(
-                    "Current DAQ config is invalid."
+                    "Current DAQ config is invalid. "
                     "The `append_integrated` option must be set to false for bandpass monitoring."
                 )
                 return (
                     ResultCode.REJECTED,
-                    "Current DAQ config is invalid."
+                    "Current DAQ config is invalid. "
                     "The `append_integrated` option must be set to false for bandpass monitoring.",
                 )
             self.configure({"append_integrated": False})
 
+        # Check correct consumer is running.
         running_consumers = self.get_status().get("Running Consumers")
+        print(running_consumers)
+        print("INTEGRATED_CHANNEL_DATA" in running_consumers)
         if "INTEGRATED_CHANNEL_DATA" not in running_consumers:
             if not auto_handle_daq:
                 self.logger.error(
@@ -469,9 +481,22 @@ class DaqHandler:
                     "INTEGRATED_CHANNEL_DATA consumer must be running before bandpasses can be monitored.",
                 )
             self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
-            # TODO: poll_until_consumer_running
+            # while "INTEGRATED_CHANNEL_DATA" not in running_consumers:
+            #     sleep(1)
+            #     print(running_consumers)
+            #     running_consumers = self.get_status().get("Running Consumers")
 
         # Load configuration file
+        if not os.path.exists(station_config_path) or not os.path.isfile(
+            station_config_path
+        ):
+            self.logger.error(
+                "Specified configuration file (%s) does not exist.", station_config_path
+            )
+            return (
+                ResultCode.REJECTED,
+                f"Specified configuration file ({station_config_path}) does not exist.",
+            )
         station.load_configuration_file(station_config_path)
         station_conf = station.configuration
 
@@ -484,7 +509,7 @@ class DaqHandler:
             )
             return (
                 ResultCode.REJECTED,
-                f"Please set station name in configuration file {station_config_path}, currently unnamed",
+                f"Please set station name in configuration file {station_config_path}, currently unnamed.",
             )
 
         # Check that the station is configured to transmit data over 1G
@@ -501,12 +526,16 @@ class DaqHandler:
             )
 
         # Get and store antenna positions
-        antenna_locations[station_name] = get_antenna_positions(station_name)
+        # TODO: PyMongo errors here atm. Due to no DB? Look into this.
+        # try:
+        #     self._antenna_locations[station_name] = get_antenna_positions(station_name)
+        # except Exception as e:
+        #     self.logger.error("Caught exception while trying to get antenna positions: %s", e)
 
         # Create plotting directory structure
         if not self.create_plotting_directory(plot_directory, station_name):
             self.logger.error(
-                "Unable to create plotting director at %s", plot_directory
+                "Unable to create plotting directory at %s", plot_directory
             )
             return (
                 ResultCode.FAILED,
@@ -517,6 +546,7 @@ class DaqHandler:
         data_directory = tempfile.mkdtemp()
         self.logger.info("Using temp dir %s", data_directory)
 
+        print("STARTING PROCESSES")
         # Start rms thread
         if monitor_rms:
             rms = Process(
@@ -537,10 +567,10 @@ class DaqHandler:
             args=(os.path.join(plot_directory, station_name), station_name),
         )
         bandpass_plotting_thread.start()
-
-        yield (ResultCode.STARTED, "Bandpass monitoring active.")
         # Wait for stop, monitoring disk space in the meantime
         max_dir_size = 200 * 1024 * 1024
+        print("Setting _monitoring_bandpass")
+        self._monitoring_bandpass = True
         while not self._stop_bandpass:
             dir_size = sum(
                 os.path.getsize(f)
@@ -553,8 +583,8 @@ class DaqHandler:
                 )
                 self._stop_bandpass = True
                 break
-            sleep(5)
-
+            sleep(1)
+        print("STOPPING BANDPASS")
         # Stop and clean up
         self.logger.info("Waiting for threads and processes to terminate.")
         if auto_handle_daq:
@@ -563,10 +593,19 @@ class DaqHandler:
         shutil.rmtree(data_directory, ignore_errors=True)
         observer.join()
         bandpass_plotting_thread.join()
+        self._monitoring_bandpass = False
+
+        return (ResultCode.OK, "Bandpass monitoring complete.")
 
     @check_initialisation
     def stop_bandpass_monitor(self: DaqHandler) -> tuple[ResultCode, str]:
+        """
+        Stop monitoring antenna bandpasses.
+
+        :return: a resultcode, message tuple
+        """
         self._stop_bandpass = True
+        print(f"IN STOP BANDBASS. STATUS: {self._stop_bandpass}")
         # TODO: Check this has stopped.
         return (ResultCode.OK, "Bandpass monitor stopping.")
 
@@ -578,10 +617,94 @@ class DaqHandler:
         :param directory: Directory to store plots in.
         """
         global files_to_plot
-        for _ in range(10):
-            logging.debug("I want to be an RMS plot when I grow up...")
+        # Import and setup matplotlib
+        from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
+        from matplotlib.figure import Figure
 
-    def generate_bandpass_plots(self, station_name, plotting_directory) -> None:
+        def _connect_station():
+            """ Return a connected station """
+            # Connect to station and see if properly formed
+            while True:
+                try:
+                    aavs_station.check_station_status()
+                    if not aavs_station.properly_formed_station:
+                        raise Exception
+                    break
+                except:
+                    sleep(10) 
+                    try:
+                        aavs_station.connect()
+                    except:
+                        continue
+
+        # Create and connect to station
+        aavs_station = station.Station(config)
+        station_name = aavs_station.configuration['station']['name']
+        print("BEFORE CONNECT STATION")
+        _connect_station()
+        print("AFTER CONNECT STATION")
+
+        # Extract antenna locations
+        antenna_base, antenna_x, antenna_y = self._antenna_locations[station_name]
+
+        # Generate dummy RMS data
+        colors = np.random.random(len(antenna_x)) * 30
+
+        # Generate figure and canvas
+        fig = Figure(figsize=(18, 8))
+        canvas = FigureCanvas(fig)
+
+        # Generate plot for X
+        ax = fig.subplots(nrows=1, ncols=2, sharex='all', sharey='all')
+        fig.suptitle("{} Antenna RMS".format(station_name), fontsize=14)
+
+        x_scatter = ax[0].scatter(antenna_x, antenna_y, s=50, marker='o', c=colors, cmap='jet', vmin=0, vmax=38, edgecolors='k', linewidths=0.8)
+        for i in range(len(antenna_x)):
+            ax[0].text(antenna_x[i] + 0.3, antenna_y[i] + 0.3, antenna_base[i], fontsize=7)
+        ax[0].set_title("{} Antenna RMS Map - X pol".format(station_name))
+        ax[0].set_xlabel("X")
+        ax[0].set_ylabel("Y")
+
+        # Generate plot for Y
+        y_scatter = ax[1].scatter(antenna_x, antenna_y, s=50, marker='o', c=colors, cmap='jet', vmin=0, vmax=38, edgecolors='k', linewidths=0.8)
+        for i in range(len(antenna_x)):
+            ax[1].text(antenna_x[i] + 0.3, antenna_y[i] + 0.3, antenna_base[i], fontsize=7)
+        ax[1].set_title("{} Antenna RMS Map - Y Pol".format(station_name))
+        ax[1].set_xlabel("X")
+        ax[1].set_ylabel("Y")
+
+        # Add colorbar
+        fig.subplots_adjust(bottom=0.1, top=0.9, left=0.1, right=0.88,
+                            wspace=0.05, hspace=0.17)
+        cb_ax = fig.add_axes([0.9, 0.1, 0.02, 0.8])
+        fig.colorbar(y_scatter, label="RMS", cax=cb_ax)
+
+        # Continue until asked to stop
+        while not self._stop_bandpass:
+
+            # Check station status
+            _connect_station()
+
+            # Grab RMS values
+            antenna_rms_x = []
+            antenna_rms_y = []
+            for tile in aavs_station.tiles:
+                rms = tile.get_adc_rms()
+                antenna_rms_x.extend(rms[0::2])
+                antenna_rms_y.extend(rms[1::2])
+
+            # Update colors
+            x_scatter.set_array(np.array(antenna_rms_x))
+            y_scatter.set_array(np.array(antenna_rms_y))
+
+            # Save plot
+            fig.suptitle("{} Antenna RMS ({})".format(station_name, datetime.utcnow().strftime("%m/%d/%Y %H:%M:%S")), fontsize=14)
+            canvas.print_figure(os.path.join(plotting_directory, "antenna_rms.svg"), pad_inches=0, dpi=200, figsize=(18, 8))
+
+            # Done, sleep for a bit
+            sleep(5)
+
+    def generate_bandpass_plots(self, plotting_directory, station_name) -> None:
         """
         Generate antenna bandpass plots.
 
@@ -589,8 +712,110 @@ class DaqHandler:
         :param plotting_directory: Directory to store plots in.
         """
         global files_to_plot
-        for _ in range(10):
-            logging.debug("I want to be a bandpass plot when I grow up...")
+        # Import and setup matplotlib
+        from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
+        from matplotlib.figure import Figure
+
+        _directory = plotting_directory
+        _freq_range = np.arange(1, nof_channels) * (old_div(bandwidth, nof_channels))
+        _filename_expression = re.compile(r"channel_integ_(?P<tile>\d+)_(?P<timestamp>\d+_\d+)_0.hdf5")
+
+        # Define fibre - antenna mapping
+        _fibre_preadu_mapping = {0: 1, 1: 2, 2: 3, 3: 4,
+                                7: 13, 6: 14, 5: 15, 4: 16,
+                                8: 5, 9: 6, 10: 7, 11: 8,
+                                15: 9, 14: 10, 13: 11, 12: 12}
+
+        # Define plotting parameters
+        _ribbon_color = {1: 'gray', 2: 'g', 3: 'r', 4: 'k',
+                        5: 'y', 6: 'm', 7: 'deeppink', 8: 'c',
+                        9: 'gray', 10: 'g', 11: 'r', 12: 'k',
+                        13: 'y', 14: 'm', 15: 'deeppink', 16: 'c'}
+        _pol_map = ['X', 'Y']
+
+        # Set up figure and initialise with dummy data
+        plot_lines = []
+        fig = Figure(figsize=(8, 4))
+        canvas = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+
+        for antenna in range(nof_antennas_per_tile):
+            tpm_input = _fibre_preadu_mapping[antenna]
+            plot_lines.append(ax.plot(_freq_range,
+                            list(range(511)),
+                            label="Antenna {} (RX {})".format(antenna, tpm_input),
+                            color=_ribbon_color[tpm_input],
+                            linewidth=0.6)[0])
+
+        # Extract antenna locations
+        # antenna_base, _, _ = self._antenna_locations[station_name]
+
+        # Make nice
+        ax.set_xlim((0, bandwidth))
+        ax.set_ylim((0, 40))
+        ax.set_title("Tile {} - Pol {}".format(0, _pol_map[0]), fontdict={'fontweight':'bold'})
+        ax.set_xlabel("Frequency (MHz)")
+        ax.set_ylabel("Power (dB)")
+        date_text = ax.text(300, 38, "Dummy date", weight='bold', size='10')
+        legend = ax.legend(loc="lower center", ncol=4, prop={'size': 4})
+        ax.minorticks_on()
+        ax.grid(b=True, which='major', color='0.3', linestyle='-', linewidth=0.5)
+        ax.grid(b=True, which='minor', color='0.8', linestyle='--', linewidth=0.1)
+
+        # Loop until asked to stop
+        while not self._stop_bandpass:
+            # Wait for files to be queued
+            while len(files_to_plot[station_name]) == 0 and not self._stop_bandpass:
+                sleep(0.1)
+            
+            if self._stop_bandpass:
+                return
+
+            # Get the first item in the list
+            filepath = files_to_plot[station_name].pop(0)
+            self.logger.info("Processing %s", filepath)
+
+            # Extract Tile number
+            filename = os.path.basename(os.path.abspath(filepath))
+            parts = _filename_expression.match(filename)
+            tile_number = int(parts.groupdict()['tile'])
+
+            # Open newly create HDF5 file
+            with h5py.File(filepath, 'r') as f:
+                # Data is in channels/antennas/pols order
+                data = f['chan_']['data'][:]
+                timestamp = f['sample_timestamps']['data'][0]
+                data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
+
+                # Convert to power in dB
+                np.seterr(divide='ignore')
+                data = 10 * np.log10(data)
+                data[np.isneginf(data)] = 0
+                np.seterr(divide='warn')
+
+            # Format datetime
+            date_time = datetime.utcfromtimestamp(timestamp).strftime("%y-%m-%d %H:%M:%S")
+
+            # Loop over polarisations (separate plots)
+            for pol in range(nof_pols):
+
+                # Loop over antennas, change plot data and label text
+                for i, antenna in enumerate(range(nof_antennas_per_tile)):
+                    plot_lines[i].set_ydata(data[1:, antenna, pol])
+                    # legend.get_texts()[i].set_text("{:0>2d} - RX {:0>2d} - Base {:0>3d}".format(i, _fibre_preadu_mapping[antenna],
+                    #                                                                             antenna_base[tile_number * 16 + i]))
+                    
+                # Update title and time
+                ax.set_title("Tile {} - Pol {}".format(tile_number + 1, _pol_map[pol]))
+                date_text.set_text(date_time)
+
+                # Save updated figure
+                canvas.print_figure(os.path.join(_directory, 
+                            "tile_{}_pol_{}.svg".format(tile_number + 1, _pol_map[pol].lower())), 
+                            pad_inches=0, dpi=200, figsize=(8, 4))
+                
+            # Ready from file, delete it
+            os.unlink(filepath)
 
     # pylint: disable=broad-except
     def create_plotting_directory(self, parent, station_name):
@@ -605,7 +830,7 @@ class DaqHandler:
             try:
                 os.mkdir(parent)
             except Exception:
-                logging.error(
+                self.logger.error(
                     "Could not create plotting directory %s. "
                     "Check that the path is valid and permission",
                     parent,
@@ -615,15 +840,16 @@ class DaqHandler:
             if not os.path.exists(os.path.join(parent, station_name)):
                 try:
                     os.mkdir(os.path.join(parent, station_name))
-                except Exception:
-                    logging.error(
-                        "Could not plotting subdirectory for %s in %s. " "Please check",
+                except Exception as e:
+                    self.logger.error(
+                        "Exception: %s. Could not create plotting subdirectory for %s in %s. ",
+                        e,
                         parent,
                         station_name,
                     )
                     return False
         else:
-            logging.error(
+            self.logger.error(
                 "Specified plotting directory (%s) is a file. Please check", parent
             )
             return False
@@ -639,6 +865,7 @@ class IntegratedDataHandler(FileSystemEventHandler):
         :param station_name: Station name"""
         self._station_name = station_name
         files_to_plot[station_name] = []
+        self.logger = logging.getLogger("daq-server")
 
     def on_any_event(self, event):
         """
@@ -655,7 +882,7 @@ class IntegratedDataHandler(FileSystemEventHandler):
 
             # Add to list
             sleep(0.1)
-            logging.info("Detected %s", event.src_path)
+            self.logger.info("Detected %s", event.src_path)
             files_to_plot[self._station_name].append(event.src_path)
 
 

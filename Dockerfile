@@ -78,4 +78,5 @@ COPY pyproject.toml poetry.lock* ./
 ENV PATH="/opt/aavs/include/:/opt/aavs/lib/:/home/daqqer/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
 RUN poetry config virtualenvs.create false && poetry install --only main
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
+RUN chmod a+w /app/
 USER daqqer
