@@ -268,7 +268,7 @@ def database_host_fixture() -> str:
 
     :return: the database host
     """
-    return "test-postgresql"
+    return "station-calibration-postgresql"
 
 
 @pytest.fixture(name="database_port")

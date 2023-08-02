@@ -335,7 +335,7 @@ class SpsTangoTestHarness:
         self: SpsTangoTestHarness,
         logging_level: int = int(LoggingLevel.DEBUG),
         device_class: type[Device] | str = "ska_low_mccs_spshw.MccsCalibrationStore",
-        database_host: str = "test-postgresql",
+        database_host: str = "station-calibration-postgresql",
         database_port: int = 5432,
         database_name: str = "postgres",
         database_admin_user: str = "postgres",
