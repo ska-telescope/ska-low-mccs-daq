@@ -196,7 +196,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         self: DaqHandler,
         data_mode: str,
         file_name: str,
-        additional_info: Optional[int] = 0,
+        additional_info: Optional[int] = None,
     ) -> None:
         """
         Add metadata to buffer.
