@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import functools
+import json
 import logging
 import os
 from enum import IntEnum
@@ -44,14 +45,14 @@ class DaqCallbackBuffer:
         self: DaqCallbackBuffer,
         data_type: str,
         file_name: str,
-        additional_info: Optional[str] = None,
+        additional_info: str,
     ) -> None:
         """
         Add a item to the buffer and set pending evaluation to true.
 
         :param data_type: The DAQ data type written
         :param file_name: The filename written
-        :param additional_info: Any additional information.
+        :param additional_info: Any additional information and metadata.
         """
         self.logger.info(
             f"File: {file_name}, with data: {data_type} added to buffer"
@@ -59,8 +60,7 @@ class DaqCallbackBuffer:
 
         self.data_types_received.append(data_type)
         self.written_files.append(file_name)
-        if additional_info is not None:
-            self.extra_info.append(additional_info)
+        self.extra_info.append(additional_info)
 
         self.pending_evaluation = True
 
@@ -80,7 +80,11 @@ class DaqCallbackBuffer:
         :yields response: the call_info response.
         """
         for i, _ in enumerate(self.written_files):
-            yield (self.data_types_received[i], self.written_files[i])
+            yield (
+                self.data_types_received[i],
+                self.written_files[i],
+                self.extra_info[i],
+            )
 
         # after yield clear buffer
         self.clear_buffer()
@@ -164,7 +168,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
     return cast(Wrapped, _wrapper)
 
 
-class DaqHandler:
+class DaqHandler:  # pylint: disable=too-many-instance-attributes
     """An implementation of a DaqHandler device."""
 
     def __init__(self: DaqHandler):
@@ -176,12 +180,23 @@ class DaqHandler:
         self.state = DaqStatus.STOPPED
         self.request_stop = False
         self.buffer = DaqCallbackBuffer(self.logger)
+        self._data_mode_mapping: dict[str, DaqModes] = {
+            "burst_raw": DaqModes.RAW_DATA,
+            "cont_channel": DaqModes.CONTINUOUS_CHANNEL_DATA,
+            "integrated_channel": DaqModes.INTEGRATED_CHANNEL_DATA,
+            "burst_channel": DaqModes.CHANNEL_DATA,
+            "burst_beam": DaqModes.BEAM_DATA,
+            "integrated_beam": DaqModes.INTEGRATED_BEAM_DATA,
+            "correlator": DaqModes.CORRELATOR_DATA,
+            "station": DaqModes.STATION_BEAM_DATA,
+            "antenna_buffer": DaqModes.ANTENNA_BUFFER,
+        }
 
     def _file_dump_callback(
         self: DaqHandler,
         data_mode: str,
         file_name: str,
-        additional_info: Optional[str] = None,
+        additional_info: Optional[int] = None,
     ) -> None:
         """
         Add metadata to buffer.
@@ -190,10 +205,18 @@ class DaqHandler:
         :param file_name: The filename written
         :param additional_info: Any additional information.
         """
-        if additional_info is not None:
-            self.buffer.add(data_mode, file_name, additional_info)
+        # We don't have access to the timestamp here so this will retrieve the most
+        # recent match
+        daq_mode = self._data_mode_mapping[data_mode]
+        if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
+            metadata = self.daq_instance._persisters[daq_mode].get_metadata(
+                tile_id=additional_info
+            )
         else:
-            self.buffer.add(data_mode, file_name)
+            metadata = self.daq_instance._persisters[daq_mode].get_metadata()
+        if additional_info is not None:
+            metadata["additional_info"] = additional_info
+        self.buffer.add(data_mode, file_name, json.dumps(metadata))
 
     def _update_status(self: DaqHandler) -> None:
         """Update the status of DAQ."""
@@ -250,7 +273,7 @@ class DaqHandler:
     def start(
         self: DaqHandler,
         modes_to_start: str,
-    ) -> Iterator[str | tuple[str, str]]:
+    ) -> Iterator[str | tuple[str, str, str]]:
         """
         Start data acquisition with the current configuration.
 
