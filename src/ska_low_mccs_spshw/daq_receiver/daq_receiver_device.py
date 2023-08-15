@@ -330,7 +330,7 @@ class MccsDaqReceiver(SKABaseDevice):
         self: MccsDaqReceiver,
         data_mode: str,
         file_name: str,
-        additional_info: Optional[int] = None,
+        metadata: str,
     ) -> None:
         """
         Handle the receiving of data from a tile.
@@ -339,18 +339,22 @@ class MccsDaqReceiver(SKABaseDevice):
 
         :param data_mode: the DaqMode in which data was received.
         :param file_name: the name of the file that the data was saved to
-        :param additional_info: the tile number that the data was received
-            from, or the amount of data received if the data_mode is station
+        :param metadata: the metadata for the data received
         """
         self.logger.info(
             "Data of type %s has been written to file %s", data_mode, file_name
         )
-
-        event_value: dict[str, Union[str, int]] = {"filename": file_name}
-        if data_mode == "station" and additional_info is not None:
-            event_value["amount_of_data"] = additional_info
-        elif data_mode != "correlator" and additional_info is not None:
-            event_value["tile"] = additional_info
+        metadata_dict = json.loads(metadata)
+        event_value: dict[str, Union[str, int]] = {
+            "data_mode": data_mode,
+            "file_name": file_name,
+            "metadata": metadata_dict,
+        }
+        if "additional_info" in metadata_dict:
+            if data_mode == "station":
+                event_value["amount_of_data"] = metadata_dict["additional_info"]
+            elif data_mode != "correlator":
+                event_value["tile"] = metadata_dict["additional_info"]
 
         result = json.dumps(event_value)
         if (

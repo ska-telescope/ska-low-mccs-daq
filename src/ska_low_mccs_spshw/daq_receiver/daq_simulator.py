@@ -160,7 +160,7 @@ class DaqSimulator:
     def start(
         self: DaqSimulator,
         modes_to_start: str,
-    ) -> Iterator[str | tuple[str, str]]:
+    ) -> Iterator[str | tuple[str, str, str]]:
         """
         Start data acquisition with the current configuration.
 

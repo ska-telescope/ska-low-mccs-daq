@@ -38,7 +38,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         max_workers: int,
         communication_state_callback: Callable[[CommunicationStatus], None],
         component_state_callback: Callable[..., None],
-        received_data_callback: Callable[[str, str], None],
+        received_data_callback: Callable[[str, str, str], None],
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -262,12 +262,14 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 if "files" in response:
                     files_written = response["files"]
                     data_types_received = response["types"]
+                    metadata = response["extras"]
                     self.logger.info(
                         f"File: {files_written}, Type: {data_types_received}"
                     )
                     self._received_data_callback(
                         data_types_received,
                         files_written,
+                        metadata,
                     )
         except Exception as e:  # pylint: disable=broad-exception-caught  # XXX
             if task_callback:
