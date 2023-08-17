@@ -1,23 +1,24 @@
 {{- /*
-Create egress to a pre-existing external DAQ receiver.
+Create egress to pre-existing DAQ receivers provided by the platform.
+For example,
 
-Check if the receiver spec has an "external_ip" key.
-If so, then there there is an unmanaged external DAQ receiver instance
-at that IP address. Lets set up egress to that instance.
+receiver_egresses:
+  1:
+    ip: 10.80.81.82
+    port: 50052  # optional; defaults to 50051
+
 */}}
-{{- range $id, $spec := .Values.receivers}}
-{{- if hasKey $spec "external_ip"}}
-{{$station_id := (int $id)}}
----
-{{- $service_name := (printf "daq-receiver-%03d" $station_id)}}
+{{- range $id, $spec := .Values.receiver_egresses}}
+{{- $service_name := (printf "daq-receiver-%03d" (int $id))}}
 {{- $port := default 50051 $spec.port}}
+---
 kind: Endpoints
 apiVersion: v1
 metadata:
  name: {{$service_name}}
 subsets:
  - addresses:
-     - ip: {{$spec.external_ip}}
+     - ip: {{$spec.ip}}
    ports:
      - port: {{$port}}
 ---
@@ -30,5 +31,4 @@ spec:
  ports:
  - port: {{$port}}
    targetPort: {{$port}}
-{{- end }}
 {{- end }}

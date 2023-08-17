@@ -1,4 +1,0 @@
-receivers:
-  1:
-    receiver_ip: ""
-    logging_level_default: 5

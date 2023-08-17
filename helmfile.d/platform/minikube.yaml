@@ -1,0 +1,23 @@
+platform:
+  cluster:
+    minikube: true
+    domain: cluster.local
+    services:
+      jupyterhub: false  # Not a platform service
+      taranta-platform: false  # Not a platform service
+    daq:
+      storage_class: standard
+      runtime_class: ~  # We're assuming no GPUs accessible from minikube
+      gpu_limit: ~  # We're assuming no GPUs accessible from minikube
+      node_selector: ~
+      affinity: ~
+      tolerations: ~
+
+# TODO: https://github.com/roboll/helmfile/issues/1242#issuecomment-655423707
+# We have to add these services at the root here,
+# because helmfile currently only supports release conditions of the form "foo.enabled".
+jupyterhub:
+  enabled: true # Since this is not a platform service, we'll deploy it ourselves
+
+taranta-platform:
+  enabled: true # Since this is not a platform service, we'll deploy it ourselves
