@@ -1,0 +1,31 @@
+platform:
+  metadata:
+    version: 0.0.3
+    description: A platform configuration specification for Arcetri
+
+  # cluster:  specified by minikube.yaml
+
+  array:
+    name: arcetri
+    stations:
+      "1":
+        name: arcetri
+        cabinet_network_address: 10.0.0.0
+        sps:
+          subracks:
+            "1":
+              srmb_host: 10.0.10.64
+              srmb_port: 8081
+          tpms:
+            "1":
+              host: 10.0.10.225
+              port: 10000
+              version: tpm_v1_6
+              subrack: 1
+              subrack_slot: 1
+            "4":
+              host: 10.0.10.222
+              port: 10000
+              version: tpm_v1_6
+              subrack: 1
+              subrack_slot: 4

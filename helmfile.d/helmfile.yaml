@@ -1,0 +1,60 @@
+environments:
+  default:
+    values:
+      - platform/minikube.yaml
+  aavs2:
+    values:
+      - platform/aavs2.yaml
+      - platform/minikube.yaml
+  aavs3:
+    values:
+      # - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/helmfile.d/values/aavs3.yaml
+      - platform/aavs3.yaml
+  aavs3-minikube:
+    values:
+      # - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/helmfile.d/values/aavs3.yaml
+      - platform/aavs3.yaml
+      - platform/minikube.yaml
+  aavs3-in-low-itf:
+    values:
+      # - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/helmfile.d/values/aavs3-in-low-itf.yaml
+      - platform/aavs3-in-low-itf.yaml
+  aavs3-in-low-itf-minikube:
+    values:
+      # - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/helmfile.d/values/aavs3-in-low-itf.yaml
+      - platform/aavs3-in-low-itf.yaml
+      - platform/minikube.yaml
+  arcetri:
+    values:
+      - platform/arcetri.yaml
+      - platform/minikube.yaml
+  gmrt:
+    values:
+      - platform/gmrt.yaml
+      - platform/minikube.yaml
+  oxford:
+    values:
+      - platform/oxford.yaml
+      - platform/minikube.yaml
+  psi-low:
+    values:
+      # - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=c0120fa49d0e8dba79a035a225f65be15eb23dc6
+      - platform/psi-low.yaml
+  psi-low-minikube:
+    values:
+      # - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=c0120fa49d0e8dba79a035a225f65be15eb23dc6
+      - platform/psi-low.yaml
+      - platform/minikube.yaml
+---
+
+repositories: []
+  # - name: skao
+  #   url: https://artefact.skao.int/repository/helm-internal
+
+releases:
+  - name: ska-low-mccs-daq
+    namespace: ska-low-mccs-daq
+    chart: ../charts/ska-low-mccs-daq
+    version: 0.3.0
+    values:
+      - templates/daq.yaml.gotmpl

@@ -1,0 +1,65 @@
+{{- /* Configure daq.
+
+This template assumes that all daq receivers share a single common storage location.
+*/}}
+{{- $overrides := dict}}
+{{- if hasKey .Values "overrides"}}
+{{- $overrides = .Values.overrides}}
+{{- end}}
+{{- $merged := mergeOverwrite .Values.platform $overrides}}
+
+{{- $daqs_to_launch := list}}
+{{- $daqs_to_egress := dict}}
+
+{{- range $station_id, $station_spec := $merged.array.stations}}
+
+{{- $daq_spec := dig "sps" "daq" dict $station_spec}}
+{{- $daq_enabled := pluck "enabled" $daq_spec $station_spec (dict "enabled" true) | first}}
+{{- $daq_simulated := pluck "simulated" $daq_spec $station_spec (dict "simulated" false) | first}}
+{{- if (and $daq_enabled (not $daq_simulated))}}
+
+{{- $daq_ip := dig "ip" "" $daq_spec}}
+{{- if $daq_ip}}
+{{- $_ := set $daqs_to_egress $station_id $station_spec.daq}}
+{{- else}}
+{{- $daqs_to_launch = append $daqs_to_launch (int $station_id)}}
+{{- end}}
+{{- end}}
+
+{{- if $daqs_to_launch}}
+storage:
+  daq-data:
+{{- with $merged.cluster.daq.storage_class}}
+    storage_class: {{.}}
+{{- end}}
+    size: "250Mi"
+
+{{- range $daq_id := $daqs_to_launch}}
+{{- $cluster_daq_spec := dig "cluster" "daq" dict $merged}}
+receivers:
+  {{$daq_id}}:
+    storage: daq-data
+{{- range $extra := list "annotations" "node_selector" "affinity" "tolerations"}}
+{{- with (dig $extra dict $cluster_daq_spec)}}
+    {{$extra}}:
+{{toYaml . | indent 6}}
+{{- end}}
+{{- end}}
+{{- with (dig "runtime_class" dict $cluster_daq_spec)}}
+    runtime_class: {{.}}
+{{- end}}
+{{- with (dig "gpu_limit" "" $cluster_daq_spec)}}
+    gpu_limit: {{quote .}}
+{{- end}}
+{{- end}}
+{{- end}}
+
+{{- if $daqs_to_egress}}
+receiver_egresses:
+{{- range $station_id, $daq_spec := $daqs_to_egress}}
+  {{int $station_id}}:
+{{toYaml $daq_spec | indent 4}}
+{{- end}}
+{{- end}}
+
+{{- end}}
