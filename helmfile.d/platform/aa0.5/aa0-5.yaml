@@ -1,0 +1,40 @@
+platform:
+  metadata:
+    version: 0.0.3
+    description: >
+      A platform configuration specification for AA 0.5.
+
+      This specification addresses the MCCS view of the AA 0.5.
+      For example, when we refer to the IP address of a TPM,
+      we are referring to the IP address on which the MCCS monitors and controls it.
+
+      For file structure details, see
+      https://confluence.skatelescope.org/display/SE/MCCS-1628%3A+platform+configuration+specification+file+for+MCCS+deployment
+      Note in particular that this structure requires string keys for stations, subracks, tpms, etc,
+      but the *convention* currently in use simply numbers them off.
+      Hence these keys are strings such as "1", rather than the integer 1.
+
+      This file implements this structure,
+      but the data is nearly all unknown,
+      and has been faked here:
+
+      * Cluster names, and station ids and names are correct.
+      * Station reference location latitudes and longitudes are correct.
+        The heights are correct according to some datum,
+        but it's probably the geoid not the ellipsoid.
+      * Properties of subracks, TPMs, FNDHs, smartboxes and antennas
+        are all completely faked (actually they are a copy-paste of AAVS3).
+
+  cluster:
+    domain: au-aavs3.skao.int  # target-platform-for-now
+    services:
+      jupyterhub: true
+      taranta-platform: true
+    daq:
+      storage_class: nfss1
+      runtime_class: nvidia
+      gpu_limit: 1
+
+  array:
+    name: aa0.5
+    # station_clusters:  # defined in separate files

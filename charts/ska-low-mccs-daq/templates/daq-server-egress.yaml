@@ -8,8 +8,8 @@ receiver_egresses:
     port: 50052  # optional; defaults to 50051
 
 */}}
-{{- range $id, $spec := .Values.receiver_egresses}}
-{{- $service_name := (printf "daq-receiver-%03d" (int $id))}}
+{{- range $name, $spec := .Values.receiver_egresses}}
+{{- $service_name := (printf "daq-receiver-%s" $name)}}
 {{- $port := default 50051 $spec.port}}
 ---
 kind: Endpoints

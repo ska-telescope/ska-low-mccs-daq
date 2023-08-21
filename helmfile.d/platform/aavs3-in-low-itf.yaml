@@ -23,24 +23,27 @@ platform:
 
   array:
     name: aavs3
-    stations:
-      "1":
-        name: aavs3
-        sps:
-          subracks:
-            "1":
-              srmb_host: 10.0.10.32
-              srmb_port: 8081
-          tpms:
-            "1":
-              host: 10.0.10.162
-              port: 10000
-              version: tpm_v1_6
-              subrack: 1
-              subrack_slot: 3
-            "2":
-              host: 10.0.10.164
-              port: 10000
-              version: tpm_v1_6
-              subrack: 1
-              subrack_slot: 7
+    station_clusters:
+      "a1":
+        stations:
+          "1":
+            id: 1
+            name: aavs3
+            sps:
+              subracks:
+                "1":
+                  srmb_host: 10.0.10.32
+                  srmb_port: 8081
+              tpms:
+                "1":
+                  host: 10.0.10.162
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 3
+                "2":
+                  host: 10.0.10.164
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 7

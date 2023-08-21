@@ -7,35 +7,41 @@ platform:
 
   array:
     name: oxford
-    stations:
-      "1":
-        name: oxford
-        cabinet_network_address: 10.0.0.0
-        sps:
-          daq:
-            ip: 172.17.6.145
-          tpms:
-            "1":
-              host: 10.0.10.3
-              port: 10000
-              version: tpm_v1_2
-              subrack: 1
-              subrack_slot: 1
-            "2":
-              host: 10.0.10.4
-              port: 10000
-              version: tpm_v1_2
-              subrack: 1
-              subrack_slot: 2
-            "3":
-              host: 10.0.10.5
-              port: 10000
-              version: tpm_v1_2
-              subrack: 1
-              subrack_slot: 3
-            "4":
-              host: 10.0.10.6
-              port: 10000
-              version: tpm_v1_2
-              subrack: 1
-              subrack_slot: 4
+    station_clusters:
+      "o1":
+        cabinets:
+          "1":
+            network_address: 10.0.0.0
+        stations:
+          "1":
+            id: 1
+            name: oxford
+            sps:
+              cabinet: "1"
+              daq:
+                ip: 172.17.6.145
+              tpms:
+                "1":
+                  host: 10.0.10.3
+                  port: 10000
+                  version: tpm_v1_2
+                  subrack: 1
+                  subrack_slot: 1
+                "2":
+                  host: 10.0.10.4
+                  port: 10000
+                  version: tpm_v1_2
+                  subrack: 1
+                  subrack_slot: 2
+                "3":
+                  host: 10.0.10.5
+                  port: 10000
+                  version: tpm_v1_2
+                  subrack: 1
+                  subrack_slot: 3
+                "4":
+                  host: 10.0.10.6
+                  port: 10000
+                  version: tpm_v1_2
+                  subrack: 1
+                  subrack_slot: 4

@@ -8,10 +8,12 @@ This template assumes that all daq receivers share a single common storage locat
 {{- end}}
 {{- $merged := mergeOverwrite .Values.platform $overrides}}
 
-{{- $daqs_to_launch := list}}
+{{- $daqs_to_launch := dict}}
 {{- $daqs_to_egress := dict}}
 
-{{- range $station_id, $station_spec := $merged.array.stations}}
+{{- range $station_cluster_id, $station_cluster_spec := $merged.array.station_clusters}}
+{{- range $station_id, $station_spec := $station_cluster_spec.stations}}
+{{- $station_name := dig "name" (printf "%s-%s" $station_cluster_id $station_id) $station_spec}}
 
 {{- $daq_spec := dig "sps" "daq" dict $station_spec}}
 {{- $daq_enabled := pluck "enabled" $daq_spec $station_spec (dict "enabled" true) | first}}
@@ -20,9 +22,11 @@ This template assumes that all daq receivers share a single common storage locat
 
 {{- $daq_ip := dig "ip" "" $daq_spec}}
 {{- if $daq_ip}}
-{{- $_ := set $daqs_to_egress $station_id $station_spec.daq}}
+{{- $_ := set $daqs_to_egress $station_name $daq_spec}}
 {{- else}}
-{{- $daqs_to_launch = append $daqs_to_launch (int $station_id)}}
+{{ $host := printf "daq-receiver-%s" $station_name}}
+{{- $_ := set $daqs_to_launch $station_name (dict "host" $host "id" (int $station_id))}}
+{{- end}}
 {{- end}}
 {{- end}}
 
@@ -34,10 +38,12 @@ storage:
 {{- end}}
     size: "250Mi"
 
-{{- range $daq_id := $daqs_to_launch}}
+{{- range $station_name, $daq_spec := $daqs_to_launch}}
 {{- $cluster_daq_spec := dig "cluster" "daq" dict $merged}}
 receivers:
-  {{$daq_id}}:
+  {{$station_name}}:
+    host: {{$daq_spec.host}}
+    id: {{$daq_spec.id}}
     storage: daq-data
 {{- range $extra := list "annotations" "node_selector" "affinity" "tolerations"}}
 {{- with (dig $extra dict $cluster_daq_spec)}}
@@ -56,8 +62,8 @@ receivers:
 
 {{- if $daqs_to_egress}}
 receiver_egresses:
-{{- range $station_id, $daq_spec := $daqs_to_egress}}
-  {{int $station_id}}:
+{{- range $station_name, $daq_spec := $daqs_to_egress}}
+  {{$station_name}}:
 {{toYaml $daq_spec | indent 4}}
 {{- end}}
 {{- end}}
