@@ -57,19 +57,17 @@ def daq_configuration_fixture() -> str:
 @given("A MccsDaqReceiver is available", target_fixture="daq_receiver")
 def given_a_daq_receiver(
     functional_test_context: SpsTangoTestHarnessContext,
-    daq_id: int,
     change_event_callbacks: MockTangoEventCallbackGroup,
 ) -> Iterator[tango.DeviceProxy]:
     """
     Yield the DAQ receiver device under test.
 
     :param functional_test_context: the context in which the test is running.
-    :param daq_id: the ID of the daq receiver
     :param change_event_callbacks: A change event callback group.
 
     :yield: the DAQ receiver device
     """
-    daq_receiver = functional_test_context.get_daq_device(daq_id)
+    daq_receiver = functional_test_context.get_daq_device()
 
     daq_receiver.subscribe_event(
         "state",

@@ -255,17 +255,15 @@ def daq_port(
 @given("an MccsDaqReceiver", target_fixture="daq_receiver")
 def daq_receiver_fixture(
     functional_test_context: SpsTangoTestHarnessContext,
-    daq_id: int,
 ) -> Iterator[tango.DeviceProxy]:
     """
     Yield the daq_receiver device.
 
     :param functional_test_context: the context in which the test is running.
-    :param daq_id: the ID of the daq receiver
 
     :yields: the daq_receiver device
     """
-    yield functional_test_context.get_daq_device(daq_id)
+    yield functional_test_context.get_daq_device()
 
 
 @given("the daq receiver is stopped")

@@ -27,17 +27,15 @@ scenarios("./features/daq_basic_functionality.feature")
 @pytest.fixture(name="daq_receiver_device", scope="module")
 def daq_receiver_fixture(
     functional_test_context: SpsTangoTestHarnessContext,
-    daq_id: int,
 ) -> Iterator[tango.DeviceProxy]:
     """
     Yield the DAQ receiver device under test.
 
     :param functional_test_context: the context in which the test is running.
-    :param daq_id: the ID of the daq receiver
 
     :yield: the DAQ receiver device
     """
-    yield functional_test_context.get_daq_device(daq_id)
+    yield functional_test_context.get_daq_device()
 
 
 @given("the DAQ is available", target_fixture="daq_receiver")
