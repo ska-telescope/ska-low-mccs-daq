@@ -63,8 +63,8 @@ def test_context_fixture(daq_id: int) -> Iterator[SpsTangoTestHarnessContext]:
     :yields: a test harness context.
     """
     test_harness = SpsTangoTestHarness()
-    test_harness.add_daq_instance(daq_id, DaqSimulator())
-    test_harness.add_daq_device(daq_id, address=None)  # dynamically get DAQ address
+    test_harness.set_daq_instance(DaqSimulator())
+    test_harness.set_daq_device(daq_id, address=None)  # dynamically get DAQ address
     with test_harness as test_context:
         yield test_context
 

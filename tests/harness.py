@@ -17,92 +17,111 @@ if TYPE_CHECKING:
 
     from ska_low_mccs_spshw.subrack.subrack_simulator import SubrackSimulator
 
-
-def _slug(device_type: str, device_id: int) -> str:
-    return f"{device_type}_{device_id}"
+DEFAULT_STATION_LABEL = "ci-1"  # station 1 of cluster "ci"
 
 
-def get_field_station_name() -> str:
+def get_field_station_name(station_label: str | None = None) -> str:
     """
     Return the Field Station Tango device name.
 
+    :param station_label: name of the station under test.
+        Defaults to None, in which case the module default is used.
+
     :return: the Field Station Tango device name
     """
-    return "low-mccs/mockfieldstation/001"
+    return f"low-mccs/mockfieldstation/{station_label or DEFAULT_STATION_LABEL}"
 
 
-def get_calibration_store_name() -> str:
+def get_calibration_store_name(station_label: str | None = None) -> str:
     """
     Return the Calibration Store Tango device name.
 
+    :param station_label: name of the station under test.
+        Defaults to None, in which case the module default is used.
+
     :return: the Calibration Store Tango device name
     """
-    return "low-mccs/calibrationstore/001"
+    return f"low-mccs/calibrationstore/{station_label or DEFAULT_STATION_LABEL}"
 
 
-def get_station_calibrator_name() -> str:
+def get_station_calibrator_name(station_label: str | None = None) -> str:
     """
     Return the Station Calibrator Tango device name.
 
+    :param station_label: name of the station under test.
+        Defaults to None, in which case the module default is used.
+
     :return: the Station Calibrator Tango device name
     """
-    return "low-mccs/stationcalibrator/001"
+    return f"low-mccs/stationcalibrator/{station_label or DEFAULT_STATION_LABEL}"
 
 
-def get_sps_station_name() -> str:
+def get_sps_station_name(station_label: str | None = None) -> str:
     """
     Return the SPS station Tango device name.
 
+    :param station_label: name of the station under test.
+        Defaults to None, in which case the module default is used.
+
     :return: the SPS station Tango device name
     """
-    return "low-mccs/sps_station/001"
+    return f"low-mccs/sps_station/{station_label or DEFAULT_STATION_LABEL}"
 
 
-def get_subrack_name(subrack_id: int) -> str:
+def get_subrack_name(subrack_id: int, station_label: str | None = None) -> str:
     """
     Construct the subrack Tango device name from its ID number.
 
-    :param subrack_id: the ID number of the subrack.
+    :param subrack_id: the ID number of the subrack in the station.
+    :param station_label: name of the station under test.
+        Defaults to None, in which case the module default is used.
 
     :return: the subrack Tango device name
     """
-    return f"low-mccs/subrack/{subrack_id:04}"
+    return f"low-mccs/subrack/{station_label or DEFAULT_STATION_LABEL}-{subrack_id}"
 
 
-def get_tile_name(tile_id: int) -> str:
+def get_tile_name(tile_id: int, station_label: str | None = None) -> str:
     """
     Construct the tile Tango device name from its ID number.
 
-    :param tile_id: the ID number of the tile.
+    :param tile_id: the ID number of the tile in the station.
+    :param station_label: name of the station under test.
+        Defaults to None, in which case the module default is used.
 
     :return: the tile Tango device name
     """
-    return f"low-mccs/tile/{tile_id:04}"
+    return f"low-mccs/tile/{station_label or DEFAULT_STATION_LABEL}-{tile_id:02}"
 
 
-def get_daq_name(daq_id: int) -> str:
+def get_daq_name(station_label: str | None = None) -> str:
     """
     Construct the DAQ Tango device name from its ID number.
 
-    :param daq_id: the ID number of the DAQ instance.
+    :param station_label: name of the station under test.
+        Defaults to None, in which case the module default is used.
 
     :return: the DAQ Tango device name
     """
-    return f"low-mccs/daqreceiver/{daq_id:03}"
+    return f"low-mccs/daqreceiver/{station_label or DEFAULT_STATION_LABEL}"
 
 
 class SpsTangoTestHarnessContext:
     """Handle for the SPSHW test harness context."""
 
     def __init__(
-        self: SpsTangoTestHarnessContext, tango_context: TangoTestHarnessContext
-    ):
+        self: SpsTangoTestHarnessContext,
+        tango_context: TangoTestHarnessContext,
+        station_label: str,
+    ) -> None:
         """
         Initialise a new instance.
 
         :param tango_context: handle for the underlying test harness
             context.
+        :param station_label: name of the station under test.
         """
+        self._station_label = station_label
         self._tango_context = tango_context
 
     def get_sps_station_device(self: SpsTangoTestHarnessContext) -> tango.DeviceProxy:
@@ -111,7 +130,7 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the SPS station Tango device.
         """
-        return self._tango_context.get_device(get_sps_station_name())
+        return self._tango_context.get_device(get_sps_station_name(self._station_label))
 
     def get_station_calibrator_device(
         self: SpsTangoTestHarnessContext,
@@ -123,7 +142,7 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the Station Calibrator Tango device.
         """
-        device_name = get_station_calibrator_name()
+        device_name = get_station_calibrator_name(self._station_label)
         device_proxy = self._tango_context.get_device(device_name)
 
         # TODO: This should simply be
@@ -156,7 +175,7 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the Calibration Store Tango device.
         """
-        device_name = get_calibration_store_name()
+        device_name = get_calibration_store_name(self._station_label)
         device_proxy = self._tango_context.get_device(device_name)
 
         # TODO: This should simply be
@@ -189,7 +208,7 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the Field station Tango device.
         """
-        device_name = get_field_station_name()
+        device_name = get_field_station_name(self._station_label)
         device_proxy = self._tango_context.get_device(device_name)
 
         # TODO: This should simply be
@@ -224,7 +243,9 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the subrack Tango device.
         """
-        return self._tango_context.get_device(get_subrack_name(subrack_id))
+        return self._tango_context.get_device(
+            get_subrack_name(subrack_id, station_label=self._station_label)
+        )
 
     def get_subrack_address(
         self: SpsTangoTestHarnessContext, subrack_id: int
@@ -236,7 +257,7 @@ class SpsTangoTestHarnessContext:
 
         :returns: the address (hostname and port) of the DAQ server.
         """
-        return self._tango_context.get_context(_slug("subrack", subrack_id))
+        return self._tango_context.get_context(f"subrack_{subrack_id}")
 
     def get_tile_device(
         self: SpsTangoTestHarnessContext, tile_id: int
@@ -248,21 +269,19 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the tile Tango device.
         """
-        return self._tango_context.get_device(get_tile_name(tile_id))
+        return self._tango_context.get_device(
+            get_tile_name(tile_id, station_label=self._station_label)
+        )
 
-    def get_daq_device(
-        self: SpsTangoTestHarnessContext, daq_id: int
-    ) -> tango.DeviceProxy:
+    def get_daq_device(self: SpsTangoTestHarnessContext) -> tango.DeviceProxy:
         """
-        Get a DAQ receiver Tango device by its ID number.
-
-        :param daq_id: the ID number of the DAQ receiver.
+        Get the DAQ receiver Tango device.
 
         :raises RuntimeError: if the device fails to become ready.
 
         :returns: a proxy to the DAQ receiver Tango device.
         """
-        device_name = get_daq_name(daq_id)
+        device_name = get_daq_name(self._station_label)
         device_proxy = self._tango_context.get_device(device_name)
 
         # TODO: This should simply be
@@ -295,15 +314,21 @@ class SpsTangoTestHarnessContext:
 
         :returns: the address (hostname and port) of the DAQ server.
         """
-        port = self._tango_context.get_context(f"daq_{daq_id}")
+        port = self._tango_context.get_context("daq")
         return f"localhost:{port}"
 
 
 class SpsTangoTestHarness:
     """A test harness for testing monitoring and control of SPS hardware."""
 
-    def __init__(self: SpsTangoTestHarness) -> None:
-        """Initialise a new test harness instance."""
+    def __init__(self: SpsTangoTestHarness, station_label: str | None = None) -> None:
+        """
+        Initialise a new test harness instance.
+
+        :param station_label: name of the station under test.
+            Defaults to None, in which case "ci-1" is used.
+        """
+        self._station_label = station_label or DEFAULT_STATION_LABEL
         self._tango_test_harness = TangoTestHarness()
 
     def set_station_calibrator_device(
@@ -323,10 +348,10 @@ class SpsTangoTestHarness:
             for example with a patched subclass.
         """
         self._tango_test_harness.add_device(
-            get_station_calibrator_name(),
+            get_station_calibrator_name(self._station_label),
             device_class,
-            FieldStationName=get_field_station_name(),
-            CalibrationStoreName=get_calibration_store_name(),
+            FieldStationName=get_field_station_name(self._station_label),
+            CalibrationStoreName=get_calibration_store_name(self._station_label),
             LoggingLevelDefault=logging_level,
         )
 
@@ -358,7 +383,7 @@ class SpsTangoTestHarness:
         :param database_admin_password: the database admin password
         """
         self._tango_test_harness.add_device(
-            get_calibration_store_name(),
+            get_calibration_store_name(self._station_label),
             device_class,
             DatabaseHost=database_host,
             DatabasePort=database_port,
@@ -390,11 +415,17 @@ class SpsTangoTestHarness:
             for example with a patched subclass.
         """
         self._tango_test_harness.add_device(
-            get_sps_station_name(),
+            get_sps_station_name(self._station_label),
             device_class,
             StationId=1,
-            TileFQDNs=[get_tile_name(tile_id) for tile_id in tile_ids],
-            SubrackFQDNs=[get_subrack_name(subrack_id) for subrack_id in subrack_ids],
+            TileFQDNs=[
+                get_tile_name(tile_id, station_label=self._station_label)
+                for tile_id in tile_ids
+            ],
+            SubrackFQDNs=[
+                get_subrack_name(subrack_id, station_label=self._station_label)
+                for subrack_id in subrack_ids
+            ],
             CabinetNetworkAddress=cabinet_address,
             LoggingLevelDefault=logging_level,
         )
@@ -421,7 +452,7 @@ class SpsTangoTestHarness:
         )
 
         self._tango_test_harness.add_context_manager(
-            _slug("subrack", subrack_id),
+            f"subrack_{subrack_id}",
             SubrackServerContextManager(subrack_simulator),
         )
 
@@ -439,7 +470,7 @@ class SpsTangoTestHarness:
             for example with a patched subclass.
         """
         self._tango_test_harness.add_device(
-            get_field_station_name(),
+            get_field_station_name(self._station_label),
             device_class,
             LoggingLevelDefault=logging_level,
         )
@@ -468,7 +499,7 @@ class SpsTangoTestHarness:
         port: Callable[[dict[str, Any]], int] | int  # for the type checker
 
         if address is None:
-            server_id = _slug("subrack", subrack_id)
+            server_id = f"subrack_{subrack_id}"
 
             host = "localhost"
 
@@ -479,7 +510,7 @@ class SpsTangoTestHarness:
             (host, port) = address
 
         self._tango_test_harness.add_device(
-            get_subrack_name(subrack_id),
+            get_subrack_name(subrack_id, station_label=self._station_label),
             device_class,
             SubrackIp=host,
             SubrackPort=port,
@@ -496,7 +527,9 @@ class SpsTangoTestHarness:
 
         :param mock: the mock to be used as a mock Field Station device.
         """
-        self._tango_test_harness.add_mock_device(get_field_station_name(), mock)
+        self._tango_test_harness.add_mock_device(
+            get_field_station_name(self._station_label), mock
+        )
 
     def add_mock_calibration_store_device(
         self: SpsTangoTestHarness,
@@ -507,7 +540,9 @@ class SpsTangoTestHarness:
 
         :param mock: the mock to be used as a mock Calibration Store device.
         """
-        self._tango_test_harness.add_mock_device(get_calibration_store_name(), mock)
+        self._tango_test_harness.add_mock_device(
+            get_calibration_store_name(self._station_label), mock
+        )
 
     def add_mock_subrack_device(
         self: SpsTangoTestHarness,
@@ -520,7 +555,9 @@ class SpsTangoTestHarness:
         :param subrack_id: An ID number for the mock subrack.
         :param mock: the mock to be used as a mock subrack device.
         """
-        self._tango_test_harness.add_mock_device(get_subrack_name(subrack_id), mock)
+        self._tango_test_harness.add_mock_device(
+            get_subrack_name(subrack_id, station_label=self._station_label), mock
+        )
 
     def add_tile_device(  # pylint: disable=too-many-arguments
         self: SpsTangoTestHarness,
@@ -542,12 +579,12 @@ class SpsTangoTestHarness:
             for example with a patched subclass.
         """
         self._tango_test_harness.add_device(
-            get_tile_name(subrack_id),
+            get_tile_name(subrack_id, station_label=self._station_label),
             device_class,
             TileId=tile_id,
             SimulationConfig=int(SimulationMode.TRUE),
             TestConfig=int(TestMode.TEST),
-            SubrackFQDN=get_subrack_name(subrack_id),
+            SubrackFQDN=get_subrack_name(subrack_id, station_label=self._station_label),
             SubrackBay=subrack_bay,
             AntennasPerTile=8,
             LoggingLevelDefault=logging_level,
@@ -567,17 +604,17 @@ class SpsTangoTestHarness:
         :param tile_id: An ID number for the mock tile.
         :param mock: the mock to be used as a mock tile device.
         """
-        self._tango_test_harness.add_mock_device(get_tile_name(tile_id), mock)
+        self._tango_test_harness.add_mock_device(
+            get_tile_name(tile_id, station_label=self._station_label), mock
+        )
 
-    def add_daq_instance(
+    def set_daq_instance(
         self: SpsTangoTestHarness,
-        daq_id: int,
         daq_instance: DaqServerBackendProtocol | None = None,
     ) -> None:
         """
         And a DAQ instance to the test harness.
 
-        :param daq_id: an ID number for the DAQ instance.
         :param daq_instance:
             the DAQ instance to be added to the test harness.
         """
@@ -596,11 +633,11 @@ class SpsTangoTestHarness:
             daq_instance = DaqSimulator()
 
         self._tango_test_harness.add_context_manager(
-            f"daq_{daq_id}",
+            "daq",
             server_context(daq_instance, 0),
         )
 
-    def add_daq_device(  # pylint: disable=too-many-arguments
+    def set_daq_device(  # pylint: disable=too-many-arguments
         self: SpsTangoTestHarness,
         daq_id: int,
         address: tuple[str, int] | None,
@@ -635,8 +672,7 @@ class SpsTangoTestHarness:
             consumers_to_start = ["DaqModes.INTEGRATED_CHANNEL_DATA"]
 
         if address is None:
-            server_id = f"daq_{daq_id}"
-
+            server_id = "daq"
             host = "localhost"
 
             def port(context: dict[str, Any]) -> int:
@@ -646,7 +682,7 @@ class SpsTangoTestHarness:
             (host, port) = address
 
         self._tango_test_harness.add_device(
-            get_daq_name(daq_id),
+            get_daq_name(self._station_label),
             device_class,
             DaqId=daq_id,
             ReceiverInterface=receiver_interface,
@@ -666,7 +702,9 @@ class SpsTangoTestHarness:
 
         :return: the entered context.
         """
-        return SpsTangoTestHarnessContext(self._tango_test_harness.__enter__())
+        return SpsTangoTestHarnessContext(
+            self._tango_test_harness.__enter__(), self._station_label
+        )
 
     def __exit__(
         self: SpsTangoTestHarness,

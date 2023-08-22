@@ -32,17 +32,15 @@ gc.disable()
 @pytest.fixture(name="device_under_test")
 def device_under_test_fixture(
     test_context: SpsTangoTestHarnessContext,
-    daq_id: int,
 ) -> tango.DeviceProxy:
     """
     Fixture that returns the device under test.
 
     :param test_context: the context in which the tests are running.
-    :param daq_id: the ID of the DAQ instance under test.
 
     :return: the device under test
     """
-    return test_context.get_daq_device(daq_id)
+    return test_context.get_daq_device()
 
 
 class TestMccsDaqReceiver:
@@ -241,8 +239,8 @@ class TestPatchedDaq:
         :yields: a test harness context.
         """
         test_harness = SpsTangoTestHarness()
-        test_harness.add_daq_instance(daq_id, DaqSimulator())
-        test_harness.add_daq_device(
+        test_harness.set_daq_instance(DaqSimulator())
+        test_harness.set_daq_device(
             daq_id, address=None, device_class=device_class_under_test
         )  # dynamically get DAQ address
         with test_harness as test_context:
