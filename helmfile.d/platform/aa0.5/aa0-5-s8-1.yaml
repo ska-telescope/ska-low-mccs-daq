@@ -1,52 +1,18 @@
+# Specification of the s8-1 station for aa0.5.
+# See parent file aa0-5.yaml for details
+
 platform:
-  metadata:
-    version: 0.0.3
-    description: >
-      A platform configuration specification for AAVS3.
-
-      This specification addresses the MCCS view of the AAVS3.
-      For example, when we refer to the IP address of a TPM,
-      we are referring to the IP address on which the MCCS monitors and controls it.
-
-      For file structure details, see
-      https://confluence.skatelescope.org/display/SE/MCCS-1628%3A+platform+configuration+specification+file+for+MCCS+deployment
-      Note in particular that this structure requires string keys for stations, subracks, tpms, etc,
-      but the *convention* currently in use simply numbers them off.
-      Hence these keys are strings such as "1", rather than the integer 1.
-
-      This file implements this structure, but some of the data is unknown:
-
-      * Assignment of antennas to smartbox ports is as-planned,
-        but this cannot be confirmed until built.
-
-      * Assignment of antennas to TPM inputs follows the general principle
-        that we get the same antenna ordering
-        whether we order by smartbox port assignment or by TPM input.
-        Again, this cannot be confirmed until built.
-
-  cluster:
-    domain: au-aavs3.skao.int
-    services:
-      jupyterhub: true
-      taranta-platform: true
-    daq:
-      storage_class: nfss1
-      runtime_class: nvidia
-      gpu_limit: 1
-
   array:
-    name: aavs3
     station_clusters:
-      "a1":
+      "s8":
         stations:
           "1":
-            id: 1
-            name: aavs3
+            id: 345
             reference:
               datum: GDA2020
-              latitude: -26.704
-              longitude: 116.670
-              ellipsoidal_height: 376.096
+              latitude: -26.856153
+              longitude: 116.729639
+              ellipsoidal_height: 353.0
             sps:
               subracks:
                 "1":

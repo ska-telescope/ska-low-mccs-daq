@@ -22,30 +22,33 @@ platform:
 
   array:
     name: psi-low
-    stations:
-      "1":
-        name: psi-low
-        sps:
-          subracks:
-            "1":
-              srmb_host: 10.0.10.80
-              srmb_port: 8081
-              nodeSelector:
-                kubernetes.io/hostname: psi-node3
-          tpms:
-            "10":
-              host: 10.0.10.218
-              port: 10000
-              version: tpm_v1_6
-              subrack: 1
-              subrack_slot: 2
-              nodeSelector:
-                kubernetes.io/hostname: psi-node3
-            "13":
-              host: 10.0.10.215
-              port: 10000
-              version: tpm_v1_6
-              subrack: 1
-              subrack_slot: 5
-              nodeSelector:
-                kubernetes.io/hostname: psi-node3
+    station_clusters:
+      "p1":
+        stations:
+          "1":
+            id: 1
+            name: psi-low
+            sps:
+              subracks:
+                "1":
+                  srmb_host: 10.0.10.80
+                  srmb_port: 8081
+                  nodeSelector:
+                    kubernetes.io/hostname: psi-node3
+              tpms:
+                "10":
+                  host: 10.0.10.218
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 2
+                  nodeSelector:
+                    kubernetes.io/hostname: psi-node3
+                "13":
+                  host: 10.0.10.215
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 5
+                  nodeSelector:
+                    kubernetes.io/hostname: psi-node3

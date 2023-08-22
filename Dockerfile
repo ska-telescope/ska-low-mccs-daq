@@ -18,7 +18,7 @@ ENV TZ="United_Kingdom/London"
 ENV CUDA_ARCH="sm_80"
 
 # Add required packages and python repo.
-RUN apt-get update && apt-get install -y \
+RUN rm /etc/apt/sources.list.d/cuda.list && apt-get update && apt-get install -y \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa
 # Install necessary packages for compiling and installing DAQ and prerequisites.

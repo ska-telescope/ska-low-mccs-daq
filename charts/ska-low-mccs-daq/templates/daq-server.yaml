@@ -11,8 +11,8 @@ receivers:
 
 */}}
 {{- $image := .Values.image}}
-{{- range $id, $spec := .Values.receivers}}
-{{- $slug := (printf "daq-receiver-%03d" (int $id))}}
+{{- range $name, $spec := .Values.receivers}}
+{{- $slug := (printf "daq-receiver-%s" $name)}}
 {{- $grpc_port := default 50051 $spec.port}}
 ---
 apiVersion: v1

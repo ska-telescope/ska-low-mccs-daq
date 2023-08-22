@@ -2,6 +2,10 @@ environments:
   default:
     values:
       - platform/minikube.yaml
+  stfc-ci:
+    values:
+      - platform/minikube.yaml
+      - values/values-stfc-ci.yaml
   aavs2:
     values:
       - platform/aavs2.yaml
@@ -53,7 +57,7 @@ repositories: []
 
 releases:
   - name: ska-low-mccs-daq
-    namespace: ska-low-mccs-daq
+    namespace: ska-low-mccs
     chart: ../charts/ska-low-mccs-daq
     version: 0.3.0
     values:
