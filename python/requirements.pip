@@ -1,3 +1,4 @@
+--extra-index-url https://artefact.skao.int/repository/pypi-internal/simple
 ipython
 h5py
 pyyaml
@@ -17,4 +18,5 @@ slacker
 singleton_decorator
 tabulate
 psutil
-
+ska-ser-sphinx-theme
+recommonmark
