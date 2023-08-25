@@ -8,12 +8,15 @@ receivers:
       kubernetes.io/hostname: psi-node3
     runtime_class: nvidia
     gpu_limit: "1"
+    grpc_port: 50052  # optional; defaults to 50051
+    data_port: 4661  # optional; defaults to 4660
 
 */}}
 {{- $image := .Values.image}}
 {{- range $name, $spec := .Values.receivers}}
 {{- $slug := (printf "daq-receiver-%s" $name)}}
 {{- $grpc_port := default 50051 $spec.port}}
+{{- $data_port := default 4660 $spec.data_port}}
 ---
 apiVersion: v1
 kind: Service
@@ -26,6 +29,20 @@ spec:
   - name: {{$slug}}-grpc-port
     port: {{$grpc_port}}
     protocol: TCP
+  selector:
+    component: {{$slug}}-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$slug}}-data
+  labels:
+    component: {{$slug}}
+spec:
+  ports:
+  - name: {{$slug}}-data-port
+    port: {{$data_port}}
+    protocol: UDP
   selector:
     component: {{$slug}}-server
 ---
