@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import time
-from multiprocessing.pool import ThreadPool
 from typing import Any
 
 import pytest
@@ -135,67 +134,88 @@ class TestDaqHandler:
                 assert config[k] == v
 
     @pytest.mark.parametrize(
-        ("bandpass_config", "expected_result"),
+        (
+            "bandpass_config",
+            "expected_result",
+            "expected_msg",
+            "expected_x_bandpass_plot",
+            "expected_y_bandpass_plot",
+            "expected_rms_plot",
+        ),
         (
             (
                 '{"station_config_path": "station_config.yml", '
                 '"plot_directory": "/plot"}',
-                (
-                    ResultCode.REJECTED,
-                    "Current DAQ config is invalid. The `append_integrated` "
-                    "option must be set to false for bandpass monitoring.",
-                ),
+                TaskStatus.REJECTED,
+                "Current DAQ config is invalid. The `append_integrated` "
+                "option must be set to false for bandpass monitoring.",
+                [None],
+                [None],
+                [None],
             ),
             (
                 '{"station_config_path": "station_config.yml", '
                 '"plot_directory": "/plot", "auto_handle_daq": "True"}',
-                (
-                    ResultCode.REJECTED,
-                    "Specified configuration file (station_config.yml) does not exist.",
-                ),
+                TaskStatus.REJECTED,
+                "Specified configuration file (station_config.yml) does not exist.",
+                [None],
+                [None],
+                [None],
             ),
             (
                 '{"station_config_path": "/app/config/default_config.yml", '
                 '"plot_directory": "/plot", "auto_handle_daq": "True"}',
-                (ResultCode.FAILED, "Unable to create plotting directory at: /plot"),
+                TaskStatus.FAILED,
+                "Unable to create plotting directory at: /plot",
+                [None],
+                [None],
+                [None],
             ),
             (
                 "{}",
-                (
-                    ResultCode.REJECTED,
-                    "Param `argin` must have keys for `station_config_path`"
-                    " and `plot_directory`",
-                ),
+                TaskStatus.REJECTED,
+                "Param `argin` must have keys for `station_config_path`"
+                " and `plot_directory`",
+                [None],
+                [None],
+                [None],
             ),
             (
                 '{"station_config_path": "blah"}',
-                (
-                    ResultCode.REJECTED,
-                    "Param `argin` must have keys for `station_config_path` "
-                    "and `plot_directory`",
-                ),
+                TaskStatus.REJECTED,
+                "Param `argin` must have keys for `station_config_path` "
+                "and `plot_directory`",
+                [None],
+                [None],
+                [None],
             ),
             (
                 '{"plot_directory": "blahblah"}',
-                (
-                    ResultCode.REJECTED,
-                    "Param `argin` must have keys for `station_config_path` and "
-                    "`plot_directory`",
-                ),
+                TaskStatus.REJECTED,
+                "Param `argin` must have keys for `station_config_path` and "
+                "`plot_directory`",
+                [None],
+                [None],
+                [None],
             ),
             (
                 '{"station_config_path": "nonexistent_station_config.yml", '
                 '"plot_directory": "/plot", "auto_handle_daq": "True"}',
-                (
-                    ResultCode.REJECTED,
-                    "Specified configuration file (nonexistent_station_config.yml) "
-                    "does not exist.",
-                ),
+                TaskStatus.REJECTED,
+                "Specified configuration file (nonexistent_station_config.yml) "
+                "does not exist.",
+                [None],
+                [None],
+                [None],
             ),
             (
                 '{"station_config_path": "/app/config/default_config.yml", '
-                '"plot_directory": "/app/plot", "auto_handle_daq": "True"}',
-                (ResultCode.OK, "Bandpass monitoring complete."),
+                '"plot_directory": "/app/plot/", "auto_handle_daq": "True"}',
+                TaskStatus.IN_PROGRESS,
+                "Bandpass monitor active",
+                [None],
+                [None],
+                [None],
             ),
             # ('{"bandpass_config": None}', (ResultCode, "Message")),
         ),
@@ -204,28 +224,57 @@ class TestDaqHandler:
         self: TestDaqHandler,
         daq_address: str,
         bandpass_config: str,
-        expected_result: tuple[ResultCode, str],
+        expected_result: TaskStatus,
+        expected_msg: str,
+        expected_x_bandpass_plot: str | None,
+        expected_y_bandpass_plot: str | None,
+        expected_rms_plot: str | None,
     ) -> None:
         """
         Test for starting and stopping the bandpass monitor.
 
         :param daq_address: The address of the DAQ server.
-        :param bandpass_config: The configuration to apply.
-        :param expected_result: a resultcode, message tuple
+        :param bandpass_config: The configuration string to apply.
+        :param expected_result: The expected first TaskStatus
+        :param expected_msg: The expected first response.
+        :param expected_x_bandpass_plot: The expected first x_bandpass_plot
+        :param expected_y_bandpass_plot: The expected first y_bandpass_plot
+        :param expected_rms_plot: The expected first rms_plot
         """
+        expected_dict = {
+            "result_code": expected_result,
+            "message": expected_msg,
+            "x_bandpass_plot": expected_x_bandpass_plot,
+            "y_bandpass_plot": expected_y_bandpass_plot,
+            "rms_plot": expected_rms_plot,
+        }
         daq_client = DaqClient(daq_address)
         assert daq_client.initialise("{}") == {
             "message": "Daq successfully initialised"
         }
-        pool = ThreadPool(processes=1)
-        actual_result = pool.apply_async(
-            daq_client.start_bandpass_monitor, args=[bandpass_config]
-        )
-        # Wait for bandpass monitor
-        time.sleep(3)
-        if expected_result[0] == ResultCode.OK:
-            assert (
-                ResultCode.OK,
-                "Bandpass monitor stopping.",
-            ) == daq_client.stop_bandpass_monitor()
-        assert actual_result.get() == expected_result
+
+        actual_result = daq_client.start_bandpass_monitor(bandpass_config)
+
+        assert next(actual_result) == {
+            "result_code": TaskStatus.IN_PROGRESS,
+            "message": "StartBandpassMonitor command issued to gRPC stub",
+        }
+        # This sleep is legitimately here so we can detect
+        # incorrect/out of order responses.
+        time.sleep(2)
+        assert next(actual_result) == expected_dict
+        assert (
+            ResultCode.OK,
+            "Bandpass monitor stopping.",
+        ) == daq_client.stop_bandpass_monitor()
+
+        # Happy path has an extra response when we stop.
+        # Unhappy paths will have a different expected_result_code above.
+        if expected_result == TaskStatus.IN_PROGRESS:
+            assert next(actual_result) == {
+                "result_code": TaskStatus.COMPLETED,
+                "message": "Bandpass monitoring complete.",
+                "x_bandpass_plot": [None],
+                "y_bandpass_plot": [None],
+                "rms_plot": [None],
+            }

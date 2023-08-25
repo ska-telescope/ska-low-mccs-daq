@@ -64,6 +64,7 @@ sphinxcontrib-plantuml = "^0.25"
 ska-control-model = "^0.3.1"
 # ska-low-mccs-daq-interface = "^0.1.0"
 ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", branch="mccs-1631" }
+h5py = "3.7.0"
 
 [tool.poetry.scripts]
 MccsDaqServer = "ska_low_mccs_daq.daq_handler:main"
