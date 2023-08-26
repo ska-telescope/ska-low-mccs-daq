@@ -4,6 +4,16 @@
 
 * [MCCS-1636] Use ska-ser-sphinx-theme for documentation
 
+## 0.4.0
+
+* [MCCS-1665, MCCS-1668] platform-dependent chart configurationrefactor
+* [MCCS-1586] Allow the DaqHandler to expose received metadata
+* [MCCS-1633, MCCS-1636] Docs theme updates
+* [MCCS-1541, MCCS-1542] Correlator support
+* [MCCS-1613] Add version logging to device init
+* [MCCS-1355] Refactor to align with ska-tango-base ComponentManager
+* [MCCS-1599, MCCS-1537, MCCS-1534, MCCS-1538, MCCS-1540] Refactor to move Tango device to ska-low-mccs-spshw, and use ska-low-mccs-daq-interface
+
 ## 0.3.0
 
 * [MCCS-1510] chart rewrite with PVC support

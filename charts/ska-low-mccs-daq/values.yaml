@@ -29,13 +29,10 @@ receiver_egresses: {}
 #     ip:  # required: this is the IP address of an external DAQ receiver
 #     port:  # optional: defaults to 50051
 
-# TODO: Update to 0.4.0 once released
 image:
-  # registry: artefact.skao.int
-  registry: registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq
+  registry: artefact.skao.int
   name: ska-low-mccs-daq
-  # tag: 0.3.0
-  tag: 0.3.0-dev.c4a358b7b
+  tag: 0.4.0
   pullPolicy: IfNotPresent
 
 resources:
