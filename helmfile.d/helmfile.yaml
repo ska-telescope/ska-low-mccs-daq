@@ -41,6 +41,15 @@ environments:
     values:
       - platform/gmrt.yaml
       - platform/minikube.yaml
+  low-itf:
+    kubeContext: low-itf
+    values:
+      - git::https://gitlab.com/ska-telescope/aiv/ska-low-itf.git@/helmfile.d/values/platform.yaml?ref=53c6326fb8d5bf65ee3575722e1cb2e14e79726a
+  low-itf-minikube:
+    kubeContext: minikube
+    values:
+      - git::https://gitlab.com/ska-telescope/aiv/ska-low-itf.git@/helmfile.d/values/platform.yaml?ref=53c6326fb8d5bf65ee3575722e1cb2e14e79726a
+      - platform/minikube.yaml
   oxford:
     kubeContext: minikube
     values:
