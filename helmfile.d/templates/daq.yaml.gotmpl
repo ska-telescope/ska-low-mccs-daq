@@ -2,16 +2,13 @@
 
 This template assumes that all daq receivers share a single common storage location.
 */}}
-{{- $overrides := dict}}
-{{- if hasKey .Values "overrides"}}
-{{- $overrides = .Values.overrides}}
-{{- end}}
-{{- $merged := mergeOverwrite .Values.platform $overrides}}
+{{- $overrides := .Values | get "overrides" dict}}
+{{- $platform := mergeOverwrite .Values.platform $overrides}}
 
 {{- $daqs_to_launch := dict}}
 {{- $daqs_to_egress := dict}}
 
-{{- range $station_cluster_id, $station_cluster_spec := $merged.array.station_clusters}}
+{{- range $station_cluster_id, $station_cluster_spec := $platform.array.station_clusters}}
 {{- range $station_id, $station_spec := $station_cluster_spec.stations}}
 {{- $station_name := dig "name" (printf "%s-%s" $station_cluster_id $station_id) $station_spec}}
 
@@ -33,13 +30,13 @@ This template assumes that all daq receivers share a single common storage locat
 {{- if $daqs_to_launch}}
 storage:
   daq-data:
-{{- with $merged.cluster.daq.storage_class}}
+{{- with $platform.cluster.daq.storage_class}}
     storage_class: {{.}}
 {{- end}}
     size: "250Mi"
 
 {{- range $station_name, $daq_spec := $daqs_to_launch}}
-{{- $cluster_daq_spec := dig "cluster" "daq" dict $merged}}
+{{- $cluster_daq_spec := dig "cluster" "daq" dict $platform}}
 receivers:
   {{$station_name}}:
     host: {{$daq_spec.host}}

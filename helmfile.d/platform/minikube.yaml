@@ -12,12 +12,3 @@ platform:
       node_selector: ~
       affinity: ~
       tolerations: ~
-
-# TODO: https://github.com/roboll/helmfile/issues/1242#issuecomment-655423707
-# We have to add these services at the root here,
-# because helmfile currently only supports release conditions of the form "foo.enabled".
-jupyterhub:
-  enabled: true # Since this is not a platform service, we'll deploy it ourselves
-
-taranta-platform:
-  enabled: true # Since this is not a platform service, we'll deploy it ourselves
