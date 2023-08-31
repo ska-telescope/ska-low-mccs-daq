@@ -64,11 +64,10 @@ environments:
     values:
       - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=20895318908c03c21def95a4b0b44caa79c58b38
       - platform/minikube.yaml
+
 ---
 
 repositories: []
-  # - name: skao
-  #   url: https://artefact.skao.int/repository/helm-internal
 
 releases:
   - name: ska-low-mccs-daq

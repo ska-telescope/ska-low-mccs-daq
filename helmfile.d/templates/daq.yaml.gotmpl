@@ -2,7 +2,8 @@
 
 This template assumes that all daq receivers share a single common storage location.
 */}}
-{{- $platform := .Values.platform}}
+{{- $overrides := .Values | get "overrides" dict}}
+{{- $platform := mergeOverwrite .Values.platform $overrides}}
 
 {{- $daqs_to_launch := dict}}
 {{- $daqs_to_egress := dict}}
