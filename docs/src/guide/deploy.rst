@@ -188,3 +188,46 @@ For example:
        gpu_limit: "1"
        runtime_class: nvidia
        storage: daq_data
+
+-----------------------------------
+Adding a network attachment for DAQ
+-----------------------------------
+It is possible to allow the DAQ pod 
+have access to low level network interfaces
+This is achieved using Multus CNI.
+
+An example can be seen below:
+
+First we create the NetworkAttachmentDefinition:
+
+.. code-block:: yaml
+  
+  network_attachments:
+    sps: 
+      config: |-
+        {
+          "cniVersion": "0.3.1",
+          "type": "macvlan",
+          "master": "eno1",
+          "ipam": {
+            "type": "static",
+            "capabilities": {"ips": true}
+          }
+        }
+
+Next we ensure this is used by the DAQ pod:
+
+.. code-block:: yaml
+
+  ska-low-mccs-daq:
+    receivers:
+      1: 
+        receiver_interface: net1
+        annotations: 
+          k8s.v1.cni.cncf.io/networks: |-
+            [
+              {
+                "name": "sps",
+                "ips": ["10.0.10.3/24"]
+              }
+            ]

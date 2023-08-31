@@ -1,0 +1,15 @@
+{{ if not .Values.global.minikube }}
+{{- $network_attachments := .Values.network_attachments}}
+{{- range $network_attachment_name, $network_config := $network_attachments}}
+
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: {{$network_attachment_name}}
+spec:
+{{- with $network_config }}
+{{ toYaml . | indent 2 }}
+{{ end }}
+
+{{ end }}
+{{ end }}

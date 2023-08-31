@@ -22,7 +22,8 @@ This template assumes that all daq receivers share a single common storage locat
 {{- $_ := set $daqs_to_egress $station_name $daq_spec}}
 {{- else}}
 {{ $host := printf "daq-receiver-%s" $station_name}}
-{{- $_ := set $daqs_to_launch $station_name (dict "host" $host "id" (int $station_id))}}
+{{- $network_attachment := dig "network_attachment" dict $daq_spec}}
+{{- $_ := set $daqs_to_launch $station_name (dict "host" $host "id" (int $station_id) "network_attachment" $network_attachment)}}
 {{- end}}
 {{- end}}
 {{- end}}
@@ -34,6 +35,11 @@ storage:
     storage_class: {{.}}
 {{- end}}
     size: "250Mi"
+
+network_attachments:
+{{- with $platform.cluster.daq.network_attachments}}
+{{ toYaml . | indent 2}}
+{{- end}}
 
 {{- range $station_name, $daq_spec := $daqs_to_launch}}
 {{- $cluster_daq_spec := dig "cluster" "daq" dict $platform}}
@@ -47,6 +53,12 @@ receivers:
     {{$extra}}:
 {{toYaml . | indent 6}}
 {{- end}}
+
+{{- with (dig "network_attachment" dict $daq_spec)}}
+    annotations: 
+{{toYaml .|indent 6}}
+{{- end}}
+
 {{- end}}
 {{- with (dig "runtime_class" dict $cluster_daq_spec)}}
     runtime_class: {{.}}
