@@ -98,6 +98,40 @@ class Tile_1_6(Tile):
         super(Tile_1_6, self).__init__(
             ip, port, lmc_ip, lmc_port, sampling_rate, logger
         )
+        # Override inherited preadu signal map attribute for TPM 1.6 preadu
+        self.preadu_signal_map = {0: {'preadu_id': 1, 'channel': 0},
+                                  1: {'preadu_id': 1, 'channel': 1},
+                                  2: {'preadu_id': 1, 'channel': 2},
+                                  3: {'preadu_id': 1, 'channel': 3},
+                                  4: {'preadu_id': 1, 'channel': 4},
+                                  5: {'preadu_id': 1, 'channel': 5},
+                                  6: {'preadu_id': 1, 'channel': 6},
+                                  7: {'preadu_id': 1, 'channel': 7},
+                                  8: {'preadu_id': 0, 'channel': 15},
+                                  9: {'preadu_id': 0, 'channel': 14},
+                                  10: {'preadu_id': 0, 'channel': 13},
+                                  11: {'preadu_id': 0, 'channel': 12},
+                                  12: {'preadu_id': 0, 'channel': 11},
+                                  13: {'preadu_id': 0, 'channel': 10},
+                                  14: {'preadu_id': 0, 'channel': 9},
+                                  15: {'preadu_id': 0, 'channel': 8},
+                                  16: {'preadu_id': 1, 'channel': 8},
+                                  17: {'preadu_id': 1, 'channel': 9},
+                                  18: {'preadu_id': 1, 'channel': 10},
+                                  19: {'preadu_id': 1, 'channel': 11},
+                                  20: {'preadu_id': 1, 'channel': 12},
+                                  21: {'preadu_id': 1, 'channel': 13},
+                                  22: {'preadu_id': 1, 'channel': 14},
+                                  23: {'preadu_id': 1, 'channel': 15},
+                                  24: {'preadu_id': 0, 'channel': 7},
+                                  25: {'preadu_id': 0, 'channel': 6},
+                                  26: {'preadu_id': 0, 'channel': 5},
+                                  27: {'preadu_id': 0, 'channel': 4},
+                                  28: {'preadu_id': 0, 'channel': 3},
+                                  29: {'preadu_id': 0, 'channel': 2},
+                                  30: {'preadu_id': 0, 'channel': 1},
+                                  31: {'preadu_id': 0, 'channel': 0}}
+
 
     # Main functions ------------------------------------
     def tpm_version(self):
@@ -260,13 +294,10 @@ class Tile_1_6(Tile):
         self.tpm.tpm_preadu[1].switch_off()
 
         # Switch on preadu
-        # Commented out as there is an i2c conflict with MCU
-        # for preadu in self.tpm.tpm_preadu:
-        #     preadu.switch_on()
-        #     time.sleep(1)
-        #     preadu.select_low_passband()
-        #     preadu.read_configuration()
-        # self.preadus_enabled = True
+        for preadu in self.tpm.tpm_preadu:
+            preadu.switch_on()
+            time.sleep(1)
+            preadu.read_configuration()
 
         # Synchronise FPGAs
         self.sync_fpga_time(use_internal_pps=False)
@@ -349,7 +380,7 @@ class Tile_1_6(Tile):
         for f2f in self.tpm.tpm_f2f:
             f2f.stop_test()
 
-    def is_qsfp_cable_plugged(self, qsfp_id=0):
+    def is_qsfp_module_plugged(self, qsfp_id=0):
         """
         Initialise firmware components.
 

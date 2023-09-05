@@ -7,9 +7,7 @@ import logging
 import operator
 
 # Add to this list any monitoring points that are expected to fail
-MON_POINT_SKIP = [
-    'timing.pps.status'                   # Can be removed once MCCS-1282 is complete
-]
+MON_POINT_SKIP = []
 
 class TestHealthMonitoring():
     def __init__(self, station_config, logger):
@@ -32,40 +30,43 @@ class TestHealthMonitoring():
         # Check Measurements
         for name, value in measurement.items():
             comparison_value = value if value is not None else -20000.0 #Arbitrary negative value to represent None
-            if comparison_value > expected[name]['max'] or comparison_value < expected[name]['min']:
-                if expected[name].get('skip', False):
-                    self._logger.warning(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}. Expected Failure")
+            if comparison_value > expected[name]['exp_value']['max'] or comparison_value < expected[name]['exp_value']['min']:
+                if expected[name]['exp_value'].get('skip', False):
+                    self._logger.warning(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['exp_value']['min']}{unit} - {expected[name]['exp_value']['max']}{unit}. Expected Failure")
                 else:
-                    self._logger.error(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}. Test FAILED")
+                    self._logger.error(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['exp_value']['min']}{unit} - {expected[name]['exp_value']['max']}{unit}. Test FAILED")
                     self.errors += 1
             else:
-                self._logger.info(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, within acceptable range {expected[name]['min']}{unit} - {expected[name]['max']}{unit}.")
+                self._logger.info(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, within acceptable range {expected[name]['exp_value']['min']}{unit} - {expected[name]['exp_value']['max']}{unit}.")
         return
         
     def get_health_by_path(self, health, path_list):
         return reduce(operator.getitem, path_list, health)
 
-    def recursive_check_health_dict(self, expected_health, current_health, key_list, tpm_id):
-        for name, value in expected_health.items():
-            key_list.append(name)
-            if key_list == ['temperature']:
-                self.check_analog_measurements('temperature', '\N{DEGREE SIGN}C', expected_health['temperature'], current_health['temperature'], tpm_id)
+    def recursive_check_health_dict(self, reference_health, current_health, key_list, tpm_id):
+        for key, val in reference_health.items():
+            key_list.append(key)
+            if key_list == ['temperatures']:
+                self.check_analog_measurements('temperatures', '\N{DEGREE SIGN}C', reference_health['temperatures'], current_health['temperatures'], tpm_id)
                 key_list.pop()
                 continue
-            if key_list == ['voltage']:
-                self.check_analog_measurements('voltage', 'V', expected_health['voltage'], current_health['voltage'], tpm_id)
+            if key_list == ['voltages']:
+                self.check_analog_measurements('voltages', 'V', reference_health['voltages'], current_health['voltages'], tpm_id)
                 key_list.pop()
                 continue
-            if key_list == ['current']:
-                self.check_analog_measurements('current', 'A', expected_health['current'], current_health['current'], tpm_id)
+            if key_list == ['currents']:
+                self.check_analog_measurements('currents', 'A', reference_health['currents'], current_health['currents'], tpm_id)
                 key_list.pop()
                 continue
-            if not isinstance(value, dict):
+            if not isinstance(val, dict):
+               key_list.pop()
+               continue
+            if 'exp_value' in val:
                 if '.'.join(key_list) in MON_POINT_SKIP:
                     print(f"Skipping checks for {'->'.join(key_list)}.")
                     key_list.pop()
                 else:
-                    expected_value = value
+                    expected_value = val['exp_value']
                     try: 
                         current_value = self.get_health_by_path(current_health, key_list)
                     except KeyError:
@@ -80,7 +81,7 @@ class TestHealthMonitoring():
                         print(f"{'->'.join(key_list)} is {expected_value} as expected.")
                     key_list.pop()
             else:
-                self.recursive_check_health_dict(value, current_health, key_list, tpm_id)
+                self.recursive_check_health_dict(val, current_health, key_list, tpm_id)
         if key_list:
             key_list.pop()
         return
@@ -125,16 +126,32 @@ class TestHealthMonitoring():
         self._logger.info("Executing Health Monitoring test")
 
         self.errors = 0
-
-        try:
-            self._test_station['fpga1.pps_manager.pps_errors']
-        except:
-            self._logger.error("Health Monitoring Test not supported by FPGA firmware!")
-            self._logger.error("Health Monitoring Test FAILED!")
-            return 1
         
         for n, tile in enumerate(self._test_station.tiles):
-            expected_health = tile.get_exp_health()
+            
+            # Bitfiles sbf410 and older do not support health monitoring
+            # Check for existance of moved pps register
+            if not tile.tpm.has_register('fpga1.pps_manager.pps_errors'):
+                self._logger.error("Health Monitoring Test not supported by FPGA firmware!")
+                self._logger.error("Health Monitoring Test FAILED!")
+                return 1
+            
+            # Bitfiles sbf415 and older do not pass PPS monitoring checks
+            # check for existance of additional pps_exp_tc register
+            if not tile.tpm.has_register('fpga1.pps_manager.pps_exp_tc'):
+                self._logger.warning("FPGA Firmware does not support updated PPS validation. PPS checks will be skipped.")
+                MON_POINT_SKIP.append('timing.pps.status')
+
+            # Some TPM 1.2 CPLD firmware may not have support for PLL lock loss counter
+            if not tile.tpm.has_register('board.regfile.pll_lol'):
+                self._logger.warning("CPLD Firmware does not have updated PLL status registers. PLL checks will be skipped.")
+                MON_POINT_SKIP.append('timing.pll')
+
+            if not tile.tpm.has_register('fpga1.xg_udp.phy_rx_decode_error_counter_0'):
+                self._logger.warning("FPGA Firmware does not support UDP Decode Error Counter. These checks will be skipped.")
+                MON_POINT_SKIP.append('io.udp_interface.decode_error_count.FPGA0')
+                MON_POINT_SKIP.append('io.udp_interface.decode_error_count.FPGA1')
+
             if not tile.tpm.adas_enabled:
                 self._logger.info("ADAs disabled. Skipping checks for ADA voltages.")
 
@@ -144,8 +161,8 @@ class TestHealthMonitoring():
             health_dict = tile.get_health_status()
 
             # If an expected monitoring point is missing from health_dict an error is produced. 
-            # Any extra monitoring points in health_dict, not known to expected_health are ignored.
-            self.recursive_check_health_dict(expected_health, health_dict, [], n)
+            # Any extra monitoring points in health_dict, not known to the monitoring point lookup are ignored.
+            self.recursive_check_health_dict(tile.monitoring_point_lookup_dict, health_dict, [], n)
 
             # Test Station Beamformer DDR Parity Error Injection & Dectection
             self.test_ddr_parity_error_injection_and_detection(tile)

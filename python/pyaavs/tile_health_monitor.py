@@ -15,6 +15,12 @@ pyfabil low level software and specific hardware module plugins.
 
 import time
 from pyfabil.base.definitions import LibraryError, BoardError
+from copy import copy
+from functools import reduce
+import operator
+
+from pyaavs.tpm_1_6_monitoring_point_lookup import load_tpm_1_6_lookup
+from pyaavs.tpm_1_2_monitoring_point_lookup import load_tpm_1_2_lookup
 
 
 def health_monitoring_compatible(func):
@@ -23,12 +29,12 @@ def health_monitoring_compatible(func):
     Achieved by attempting to access a register which was added for TPM health monitoring.
     Bitstreams generated prior to ~03/2023 will not support TPM health monitoring.
     """
-    def inner_func(self):
+    def inner_func(self, *args, **kwargs):
         try:
             self['fpga1.pps_manager.pps_errors']
         except Exception as e:  # noqa: F841
             raise LibraryError(f"TPM Health Monitoring not supported by FPGA firmware!")
-        return func(self)
+        return func(self, *args, **kwargs)
     return inner_func
 
 
@@ -37,7 +43,7 @@ def communication_check(func):
     Decorator method to check if communication is established between FPGA and CPLD.
     Non-destructive version of tile tpm_communication_check.
     """
-    def inner_func(self):
+    def inner_func(self, *args, **kwargs):
         try:
             magic0 = self[0x4]
         except Exception as e:  # noqa: F841
@@ -47,7 +53,7 @@ def communication_check(func):
         except Exception as e:  # noqa: F841
             raise BoardError(f"Not possible to communicate with the FPGA1: " + str(e))
         if magic0 == magic1 == 0xA1CE55AD:
-            return func(self)
+            return func(self, *args, **kwargs)
         else:
             if magic0 != 0xA1CE55AD:
                 self.logger.error(f"FPGA0 magic number is not correct {hex(magic0)}, expected: 0xA1CE55AD")
@@ -57,10 +63,21 @@ def communication_check(func):
     return inner_func
 
 
-class TileHealthMonitor:
+class TileHealthMonitor():
     """
     Tile Health Monitor Mixin Class, must be inherited by Tile Class
     """
+
+    def init_health_monitoring(self):
+        """
+        Method to load monitoring point lookup dict into attribute.
+
+        TPM monitoring point format and lookup loaded from:
+        tpm_1_2_monitoring_point_lookup.py
+        tpm_1_6_monitoring_point_lookup.py
+        """
+        self.monitoring_point_lookup_dict = load_tpm_1_2_lookup(self) if  self.tpm_version() == "tpm_v1_2" else load_tpm_1_6_lookup(self)
+        return
 
     @communication_check
     @health_monitoring_compatible
@@ -70,66 +87,244 @@ class TileHealthMonitor:
         self.enable_clock_monitoring()
         return
 
+    def all_monitoring_points(self):
+        """
+        Returns a list of all monitoring points by finding all leaf nodes
+        in the lookup dict that have a corresponding method field.
+
+        The monitoring points returned are strings produced from '.' delimited 
+        keys. For example:
+        'voltages.5V0'
+        'io.udp_interface.crc_error_count.FPGA0'
+
+        More info at https://confluence.skatelescope.org/x/nDhED
+
+        :return: list of monitoring points
+        :rtype: list of strings
+        """
+        def find_leaf_dict_recursive(health_dict, key_list=[], output_list=[]):
+            for name, value in health_dict.items():
+                key_list.append(name)
+                if not isinstance(value, dict):
+                    output_list.append('.'.join(key_list))
+                    key_list.pop()
+                else:
+                    find_leaf_dict_recursive(value, key_list, output_list)
+            if key_list:
+                key_list.pop()
+            return output_list
+            
+        # Find leaves of nested dict
+        dict_leaf_list = find_leaf_dict_recursive(self.monitoring_point_lookup_dict)
+        # Keep only points ending in .method, then remove the .method
+        monitoring_point_list = []
+        for point in dict_leaf_list:
+            if point.endswith('.method'):
+                monitoring_point_list.append(point[:-7])
+        return monitoring_point_list
+
+    def all_monitoring_categories(self):
+        """
+        Returns a list of all monitoring point 'categories'.
+        Here categories is a super-set of monitoring points and is 
+        the full list of accepted strings to set_monitoring_point_attr. 
+        For example, these monitoring points:
+        voltages.5V0
+        io.udp_interface.crc_error_count.FPGA0
+
+        would have these associated categories:
+        'voltages'
+        'voltages.5V0'
+        'io'
+        'io.udp_interface'
+        'io.udp_interface.crc_error_count'
+        'io.udp_interface.crc_error_count.FPGA0'
+
+        More info at https://confluence.skatelescope.org/x/nDhED
+
+        :return: list of categories
+        :rtype: list of strings
+        """
+        all_monitoring_points = self.all_monitoring_points()
+        categories = set()
+        for monitroing_point in all_monitoring_points:
+            parts = monitroing_point.split('.')
+            for i in range(len(parts)):
+                categories.add('.'.join(parts[:i+1]))
+        categories_list = list(categories)
+        categories_list.sort()
+        return categories_list
+
+    def set_monitoring_point_attr(self, path, override=True, **kwargs):
+        """
+        Specify attributes for a monitoring point or subset of monitoring points. 
+        Specified by path, a string name produced from '.' delimited keys of the lookup dict.
+        All available options returned from all_monitoring_categories().
+
+        See https://confluence.skatelescope.org/x/nDhED for example usage.
+
+        :param path: Monitoring point path (i.e any of:'io.udp_interface.crc_error_count', 'io.udp_interface', 'timing', 'io')
+        :type path: str
+
+        :param override: Overrides the specified attribute if true, if False appends
+        :type override: bool
+
+        :param **kwargs: key word args (i.e rate='fast' or rate=8, group='my_group' or group=['my_group1', 'my_group2'])
+        :type kwargs: values can be int,str,bool,float etc. or list of these. Tuples not supported
+        """
+        if path not in self.all_monitoring_categories():
+            raise LibraryError(f"No monitoring point paths matching: {path}\nUse:\nall_monitoring_points()\nall_monitoring_categories()\nto see available options.")
+        for monitoring_point in self.all_monitoring_points():
+              if monitoring_point.startswith(path):
+                lookup = monitoring_point.split('.')
+                lookup_entry = self._parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
+                for key, value in kwargs.items():
+                    if not isinstance(value, list):
+                        value = [value]
+                    if override or key not in lookup_entry:
+                        self.logger.info(f"Setting {key} for {monitoring_point} to {', '.join(value)}.")
+                        lookup_entry[key] = copy(value)
+                    else:
+                        self.logger.info(f"Appending {key} for {monitoring_point} with {', '.join(value)}.")
+                        lookup_entry[key].extend(value)
+                        lookup_entry[key] = copy(list(set(lookup_entry[key])))  # remove duplicates from list by converting to set and back
+                        self.logger.info(f"{key} for {monitoring_point} now {lookup_entry[key]}.")
+        return
+
+    def _parse_dict_by_path(self, dictionary, path_list):
+        """
+        General purpose method to parse a nested dictory by a list of keys.
+
+        Example:
+        test_dict = {'parent': {'child1': 10, 'child2':12}, 'parent2': {'child3': 14}}
+        self._parse_dict_by_path(test_dict, ['parent', 'child2']) would return 12
+        self._parse_dict_by_path(test_dict, ['parent2', 'child3']) would return 14
+        self._parse_dict_by_path(test_dict, ['parent']) would return {'child1': 10, 'child2':12}
+
+        :param dictionary: Input nested dictionary
+        :type dictionary: dict
+
+        :param path_list: List of dictionary keys, from top to bottom
+        :type path_list: list
+
+        :return: value
+        """
+        return reduce(operator.getitem, path_list, dictionary)
+
+    def _create_nested_dict(self, key_list, value, nested_dict={}):
+        """
+        General purpose method to append to a nested dictionary based on a provided
+        list of keys and a value.
+        If nested_dict is not specified a new dictionary is created. Subsequent calls
+        with the same nested_dict provided will append.
+        Used to recreate a nested dictionary hierarchy from scratch.
+
+        NOTE: nested_dict is not copied so due to Python dictionaries being mutable,
+        the returned nested_dict is optional, required for creation of new dictionaries.
+
+        :param key_list: List of dictionary keys, from top to bottom
+        :type key_list: list
+
+        :param value: Value to be stored at path specified by key_list
+        :type value: anything
+
+        :param nested_dict: Input nested dictionary
+        :type nested_dict: dict
+
+        :return: nested_dict
+        :rtype: dict
+        """
+        current_dict = nested_dict
+        for key in key_list[:-1]:
+            if key not in current_dict:
+                current_dict[key] = {}
+            current_dict = current_dict[key]
+        current_dict[key_list[-1]] = value
+        return nested_dict
+
+    def _kwargs_handler(self, kwargs):
+        """
+        For use with get_health_status method.
+        Filter all monitoring points to a subset based on monitoring 
+        point attr match to kwargs in monitoring point lookup dict.
+
+        NOTE: when multiple args specified, all must match
+
+        :param kwargs: dictionary of kwargs
+        :type kwargs: dict
+
+        :return: monitoring point list
+        :rtype: list
+        """
+        if not kwargs:
+            return self.all_monitoring_points()
+        # get list of monitoring points to be polled based on kwargs
+        mon_point_list = []
+        for monitoring_point in self.all_monitoring_points():
+            lookup = monitoring_point.split('.')
+            lookup_entry = self._parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
+            keep = 0
+            for key, val in kwargs.items():
+                if val in lookup_entry.get(key, []):
+                    keep +=1
+            if keep == len(kwargs):
+                mon_point_list.append(monitoring_point)
+        return mon_point_list
+
     @communication_check
     @health_monitoring_compatible
-    def get_health_status(self):
+    def get_health_status(self, **kwargs):
         """
-        Returns the current value of all TPM monitoring points.
-        https://confluence.skatelescope.org/x/nDhED
+        Returns the current value of TPM monitoring points with the 
+        specified attributes as set in the method set_monitoring_point_attr.
+        If no arguments given, current value of all monitoring points is returned.
+
+        For example:
+        If configured with:
+        tile.set_monitoring_point_attr('io.udp_interface', my_category='yes', my_other_category=87)
+
+        Subsequent calls to:
+        tile.get_health_status(my_category='yes', my_other_category=87)
+
+        would return only the health status for:
+        io.udp_interface.arp
+        io.udp_interface.status
+        io.udp_interface.crc_error_count.FPGA0
+        io.udp_interface.crc_error_count.FPGA1
+        io.udp_interface.bip_error_count.FPGA0
+        io.udp_interface.bip_error_count.FPGA1
+        io.udp_interface.decode_error_count.FPGA0
+        io.udp_interface.decode_error_count.FPGA1
+        io.udp_interface.linkup_loss_count.FPGA0
+        io.udp_interface.linkup_loss_count.FPGA1
+
+        A group attribute is provided by default, see tpm_1_X_monitoring_point_lookup.
+        This can be used like the below example:
+        tile.get_health_status(group='temperatures')
+        tile.get_health_status(group='udp_interface')
+        tile.get_health_status(group='io')
+
+        Full documentation on usage available at https://confluence.skatelescope.org/x/nDhED
         """
-        health_dict = {
-            'temperature': self.get_fpga_temperature(fpga_id=None), 
-            'voltage': self.get_voltage(fpga_id=None, voltage_name=None),
-            'current': self.get_current(fpga_id=None, current_name=None),
-            'alarms' : None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms(),
-            'adcs': {
-                'pll_status': self.check_adc_pll_status(adc_id=None),
-                'sysref_timing_requirements': self.check_adc_sysref_setup_and_hold(adc_id=None, show_info=False),
-                'sysref_counter': self.check_adc_sysref_counter(adc_id=None, show_info=False)
-            },
-            'timing': {
-                'clocks': self.check_clock_status(fpga_id=None, clock_name=None),
-                'clock_managers': self.check_clock_manager_status(fpga_id=None, name=None),
-                'pps': {
-                    'status': self.check_pps_status(fpga_id=None)
-                },
-                'pll': self.check_ad9528_pll_status()
-            },
-            'io': {
-                'jesd_if': {
-                    'link_status' : self.check_jesd_link_status(fpga_id=None, core_id=None),
-                    'lane_error_count': self.check_jesd_lane_error_counter(fpga_id=None, core_id=None),
-                    'lane_status': self.check_jesd_lane_status(fpga_id=None, core_id=None),
-                    'resync_count': self.check_jesd_resync_counter(fpga_id=None, show_result=False),
-                    'qpll_status': self.check_jesd_qpll_status(fpga_id=None, show_result=False)
-                },
-                'ddr_if': {
-                    'initialisation': self.check_ddr_initialisation(fpga_id=None),
-                    'reset_counter': self.check_ddr_reset_counter(fpga_id=None, show_result=False)
-                },
-                'f2f_if': {
-                    'pll_status': self.check_f2f_pll_status(core_id=None, show_result=False),
-                    'soft_error': self.check_f2f_soft_errors(),
-                    'hard_error': self.check_f2f_hard_errors()
-                },
-                'udp_if': {
-                    'arp': self.check_udp_arp_table_status(fpga_id=None, show_result=False),
-                    'status': self.check_udp_status(fpga_id=None),
-                    'crc_error_count': self.check_udp_crc_error_counter(fpga_id=None),
-                    'bip_error_count': self.check_udp_bip_error_counter(fpga_id=None),
-                    'linkup_loss_count': self.check_udp_linkup_loss_counter(fpga_id=None, show_result=False)
-                }
-            }, 
-            'dsp': {
-                'tile_beamf': self.check_tile_beamformer_status(fpga_id=None),
-                'station_beamf': {
-                    'status' : self.check_station_beamformer_status(fpga_id=None),
-                    'ddr_parity_error_count': self.check_ddr_parity_error_counter(fpga_id=None)
-                }
-            }
-        }
-        health_dict['temperature']['board'] = round(self.get_temperature(), 2)
-        return health_dict
+        health_status = {}
+        mon_point_list = self._kwargs_handler(kwargs)
+        for monitoring_point in mon_point_list:
+            lookup = monitoring_point.split('.')
+            lookup_entry = self._parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
+            # call method stored in lookup entry
+            value = lookup_entry["method"]()
+            # Resolve nested values with only one value i.e
+            # get_voltage("voltage_name") returns {"voltage_name": voltage}
+            # get_clock_manager_status(fpga_id, name) returns {"FPGAid": {"name": status}}
+            while True:
+                if not isinstance(value, dict):
+                    break
+                if len(value) != 1:
+                    break
+                value = list(value.values())[0]
+            # Create dictionary of monitoring points in same format as lookup
+            health_status = self._create_nested_dict(lookup, value, health_status)
+        return health_status
     
     @communication_check
     @health_monitoring_compatible
@@ -137,6 +332,7 @@ class TileHealthMonitor:
         self.clear_clock_status(fpga_id=None, clock_name=None)
         self.clear_clock_manager_status(fpga_id=None, name=None)
         self.clear_pps_status(fpga_id=None)
+        self.clear_ad9528_pll_status()
         self.clear_jesd_error_counters(fpga_id=None)
         self.clear_ddr_reset_counter(fpga_id=None)
         self.clear_f2f_pll_lock_loss_counter(core_id=None)
@@ -144,110 +340,6 @@ class TileHealthMonitor:
         self.clear_tile_beamformer_status(fpga_id=None)
         self.clear_station_beamformer_status(fpga_id=None)
         return
-
-    def get_health_acceptance_values(self):
-        EXP_TEMP = {
-            "board": { "min": 10.00, "max": 68.00},
-            "FPGA0": { "min": 10.00, "max": 95.00},
-            "FPGA1": { "min": 10.00, "max": 95.00}
-        }
-        # TPM 1.2 min and max ranges are estimated based on 5 or 8% tolerance
-        # See https://confluence.skatelescope.org/x/nDhED
-        EXP_VOLTAGE_TPM_V1_2 = {
-            "5V0"         : { "min": 4.750, "max": 5.250},
-            "FPGA0_CORE"  : { "min": 0.900, "max": 1.000},
-            "FPGA1_CORE"  : { "min": 0.900, "max": 1.000},
-            "MGT_AV"      : { "min": 0.850, "max": 0.950}, # Exp 0.90V instead of 1.0V
-            "MGT_AVTT"    : { "min": 1.140, "max": 1.260},
-            "SW_AVDD1"    : { "min": 1.560, "max": 1.730},
-            "SW_AVDD2"    : { "min": 2.560, "max": 2.840},
-            "SW_AVDD3"    : { "min": 3.320, "max": 3.680},
-            "VCC_AUX"     : { "min": 1.710, "max": 1.890},
-            "VIN"         : { "min": 11.40, "max": 12.60, "skip": True},  # TODO: add support for this measurement
-            "VM_ADA0"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
-            "VM_ADA1"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
-            "VM_AGP0"     : { "min": 0.900, "max": 1.060},
-            "VM_AGP1"     : { "min": 0.900, "max": 1.060},
-            "VM_AGP2"     : { "min": 0.900, "max": 1.060},
-            "VM_AGP3"     : { "min": 0.900, "max": 1.060},
-            "VM_CLK0B"    : { "min": 3.030, "max": 3.560},
-            "VM_DDR0_VREF": { "min": 0.620, "max": 0.730},
-            "VM_DDR0_VTT" : { "min": 0.620, "max": 0.730},
-            "VM_FE0"      : { "min": 3.220, "max": 3.780},
-            "VM_MAN1V2"   : { "min": 1.100, "max": 1.300, "skip": True}, # Not currently turned on
-            "VM_MAN2V5"   : { "min": 2.300, "max": 2.700},
-            "VM_MAN3V3"   : { "min": 3.030, "max": 3.560},
-            "VM_MGT0_AUX" : { "min": 1.650, "max": 1.940},
-            "VM_PLL"      : { "min": 3.030, "max": 3.560},
-            "VM_ADA3"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
-            "VM_DDR1_VREF": { "min": 0.620, "max": 0.730},
-            "VM_DDR1_VTT" : { "min": 0.620, "max": 0.730},
-            "VM_AGP4"     : { "min": 0.900, "max": 1.060},
-            "VM_AGP5"     : { "min": 0.900, "max": 1.060},
-            "VM_AGP6"     : { "min": 0.900, "max": 1.060},
-            "VM_AGP7"     : { "min": 0.900, "max": 1.060},
-            "VM_FE1"      : { "min": 3.220, "max": 3.780},
-            "VM_DDR_VDD"  : { "min": 1.240, "max": 1.460},
-            "VM_SW_DVDD"  : { "min": 1.520, "max": 1.780},
-            "VM_MGT1_AUX" : { "min": 1.650, "max": 1.940},
-            "VM_ADA2"     : { "min": 3.030, "max": 3.560, "skip": not self.tpm.adas_enabled},
-            "VM_SW_AMP"   : { "min": 3.220, "max": 3.780, "skip": True}, # Not currently turned on
-            "VM_CLK1B"    : { "min": 3.030, "max": 3.560}
-        }
-        # TPM 1.6 min and max ranges are taken from factory acceptance testing
-        # See https://confluence.skatelescope.org/x/nDhED
-        EXP_VOLTAGE_TPM_V1_6 = {
-            "VREF_2V5"    : { "min": 2.370, "max": 2.630, "skip": True}, # TODO: add support for this measurement
-            "MGT_AVCC"    : { "min": 0.850, "max": 0.950},
-            "MGT_AVTT"    : { "min": 1.140, "max": 1.260},
-            "SW_AVDD1"    : { "min": 1.040, "max": 1.160},
-            "SW_AVDD2"    : { "min": 2.180, "max": 2.420},
-            "AVDD3"       : { "min": 2.370, "max": 2.600},
-            "MAN_1V2"     : { "min": 1.140, "max": 1.260},
-            "DDR0_VREF"   : { "min": 0.570, "max": 0.630},
-            "DDR1_VREF"   : { "min": 0.570, "max": 0.630},
-            "VM_DRVDD"    : { "min": 1.710, "max": 1.890},
-            "VIN"         : { "min": 11.40, "max": 12.60},
-            "MON_3V3"     : { "min": 3.130, "max": 3.460, "skip": True}, # Can be removed once MCCS-1348 is complete
-            "MON_1V8"     : { "min": 1.710, "max": 1.890, "skip": True}, # Can be removed once MCCS-1348 is complete
-            "MON_5V0"     : { "min": 4.690, "max": 5.190},
-            "VM_ADA0"     : { "min": 3.040, "max": 3.560, "skip": not self.tpm.adas_enabled},
-            "VM_ADA1"     : { "min": 3.040, "max": 3.560, "skip": not self.tpm.adas_enabled},
-            "VM_AGP0"     : { "min": 0.840, "max": 0.990},
-            "VM_AGP1"     : { "min": 0.840, "max": 0.990},
-            "VM_AGP2"     : { "min": 0.840, "max": 0.990},
-            "VM_AGP3"     : { "min": 0.840, "max": 0.990},
-            "VM_CLK0B"    : { "min": 3.040, "max": 3.560},
-            "VM_DDR0_VTT" : { "min": 0.550, "max": 0.650},
-            "VM_FE0"      : { "min": 3.220, "max": 3.780, "skip": not self.preadus_enabled},
-            "VM_MGT0_AUX" : { "min": 1.660, "max": 1.940},
-            "VM_PLL"      : { "min": 3.040, "max": 3.560},
-            "VM_AGP4"     : { "min": 0.840, "max": 0.990},
-            "VM_AGP5"     : { "min": 0.840, "max": 0.990, "skip": True}, # Can be removed once MCCS-1348 is complete
-            "VM_AGP6"     : { "min": 0.840, "max": 0.990},
-            "VM_AGP7"     : { "min": 0.840, "max": 0.990},
-            "VM_CLK1B"    : { "min": 3.040, "max": 3.560},
-            "VM_DDR1_VDD" : { "min": 1.100, "max": 1.300},
-            "VM_DDR1_VTT" : { "min": 0.550, "max": 0.650},
-            "VM_DVDD"     : { "min": 1.010, "max": 1.190},
-            "VM_FE1"      : { "min": 3.220, "max": 3.780, "skip": not self.preadus_enabled},
-            "VM_MGT1_AUX" : { "min": 1.660, "max": 1.940},
-            "VM_SW_AMP"   : { "min": 3.220, "max": 3.780},
-        }
-        # TPM 1.2 min and max ranges are provisional
-        # See https://confluence.skatelescope.org/x/nDhED
-        EXP_CURRENT_TPM_V1_2 = {
-            "ACS_5V0_VI": { "min": 0.000, "max": 25.00, "skip": True}, # TODO: add support for this measurement
-            "ACS_FE0_VI": { "min": 0.000, "max": 4.000, "skip": True}, # known defective
-            "ACS_FE1_VI": { "min": 0.000, "max": 4.000, "skip": True}  # known defective
-        }
-        # TPM 1.6 min and max ranges are taken from factory acceptance testing
-        # See https://confluence.skatelescope.org/x/nDhED
-        EXP_CURRENT_TPM_V1_6 = {
-            "FE0_mVA"     : { "min": 0.000, "max": 2.270},
-            "FE1_mVA"     : { "min": 0.000, "max": 2.380}
-        }
-        return (EXP_TEMP, EXP_VOLTAGE_TPM_V1_2, EXP_CURRENT_TPM_V1_2) if self.tpm_version() == "tpm_v1_2" else (EXP_TEMP, EXP_VOLTAGE_TPM_V1_6, EXP_CURRENT_TPM_V1_6)
 
     def fpga_gen(self, fpga_id):
         return range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
@@ -269,7 +361,17 @@ class TileHealthMonitor:
             else:
                 temperature_dict[f'FPGA{fpga}'] = 0
         return temperature_dict
-    
+
+    def check_global_status_alarms(self):
+        """
+        Wrapper for tpm get_global_status_alarms method
+        Returns none if tpm version is 1.2
+
+        :return: alarm status dict
+        :rtype: dict
+        """
+        return None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms()
+        
     def get_available_voltages(self, fpga_id=None):
         """
         Get list of available voltage measurements for TPM.
@@ -282,10 +384,10 @@ class TileHealthMonitor:
         """
         available_voltages = []
         # LASC Plugin TPM 1.2
-        if hasattr(self.tpm, 'tpm_lasc'):
+        if self.tpm_version() == "tpm_v1_2":
             available_voltages.extend(self.tpm.tpm_lasc[0].get_available_voltages())
         # MCU Plugin TPM 1.6
-        if hasattr(self.tpm, 'tpm_monitor'):
+        else:
             available_voltages.extend(self.tpm.tpm_monitor[0].get_available_voltages())
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
@@ -307,16 +409,17 @@ class TileHealthMonitor:
         """
         voltage_dict = {}
         # LASC Plugin TPM 1.2
-        if hasattr(self.tpm, 'tpm_lasc'):
+        if self.tpm_version() == "tpm_v1_2":
             voltage_dict.update(self.tpm.tpm_lasc[0].get_voltage(voltage_name))
         # MCU Plugin TPM 1.6
-        if hasattr(self.tpm, 'tpm_monitor'):
+        else:
             voltage_dict.update(self.tpm.tpm_monitor[0].get_voltage(voltage_name))
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
             voltage_dict.update(self.tpm.tpm_sysmon[fpga].get_voltage(voltage_name))
+        # if name specified and results are empty
         if voltage_name is not None and not voltage_dict:
-            raise LibraryError(f"No voltage named '{voltage_name.upper()}' \n Options are {', '.join(self.get_available_voltages(fpga_id))} (not case sensitive)")
+            raise LibraryError(f"No voltage named '{voltage_name}' \n Options are {', '.join(self.get_available_voltages(fpga_id))} (case sensitive)")
         return voltage_dict
 
     def get_available_currents(self, fpga_id=None):
@@ -331,10 +434,10 @@ class TileHealthMonitor:
         """
         available_currents = []
         # LASC Plugin TPM 1.2
-        if hasattr(self.tpm, 'tpm_lasc'):
+        if self.tpm_version() == "tpm_v1_2":
             available_currents.extend(self.tpm.tpm_lasc[0].get_available_currents())
         # MCU Plugin TPM 1.6
-        if hasattr(self.tpm, 'tpm_monitor'):
+        else:
             available_currents.extend(self.tpm.tpm_monitor[0].get_available_currents())
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
@@ -356,37 +459,42 @@ class TileHealthMonitor:
         """
         current_dict = {}
         # LASC Plugin TPM 1.2
-        if hasattr(self.tpm, 'tpm_lasc'):
+        if self.tpm_version() == "tpm_v1_2":
             current_dict.update(self.tpm.tpm_lasc[0].get_current(current_name))
         # MCU Plugin TPM 1.6
-        if hasattr(self.tpm, 'tpm_monitor'):
+        else:
             current_dict.update(self.tpm.tpm_monitor[0].get_current(current_name))
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
             current_dict.update(self.tpm.tpm_sysmon[fpga].get_current(current_name))
+        # if name specified and results are empty
         if current_name is not None and not current_dict:
-            raise LibraryError(f"No current named '{current_name.upper()}' \n Options are {', '.join(self.get_available_currents(fpga_id))} (not case sensitive)")
+            raise LibraryError(f"No current named '{current_name}' \n Options are {', '.join(self.get_available_currents(fpga_id))} (case sensitive)")
         return current_dict
 
     def check_adc_pll_status(self, adc_id=None):
         """
         Status of ADC PLL.
 
-        This method returns True if the lock of the PLL is up
-        and no loss of PLL lock has been observed.
+        This method returns a tuple, True if the lock of
+        the PLL is up and True if no loss of PLL 
+        lock has been observed respectively.
+
+        NOTE: AD9680 used in TPM 1.2 does not support loss of lock
+        bit, only current lock status. Will return None.
 
         A dictionary is returned with an entry for each ADC.
 
-        :return: True if all OK
-        :rtype dict of bool
+        :return: (True, True) if lock is up and no loss of lock
+        :rtype dict of tuple
         """
         adcs = range(16) if adc_id is None else [adc_id]
         status_dict = {}
         for adc in adcs:
             reg = self[f'adc{adc}', 0x056F]
             lock_is_up = reg & 0x80 > 0
-            loss_of_lock = reg & 0x8 > 0
-            status_dict[f'ADC{adc}'] = lock_is_up and not loss_of_lock
+            no_loss_of_lock = None if self.tpm_version() == "tpm_v1_2" else reg & 0x8 == 0
+            status_dict[f'ADC{adc}'] = (lock_is_up, no_loss_of_lock)
         return status_dict
     
     def check_adc_sysref_setup_and_hold(self, adc_id=None, show_info=True):
@@ -481,13 +589,6 @@ class TileHealthMonitor:
     def check_ad9528_pll_status(self):
         """
         Status of TPM AD9528 PLL chip
-        
-        TPM 1.2 has no CPLD registers for PLL status.
-
-        For TPM 1.2 the CPLD cannot read the status pins
-        of the PLL directly so PLL status must be obtained 
-        from registers in the PLL over SPI.
-        This is slower.
 
         This method returns lock status True if both PLLs
         in the AD9528 are locked. The lock loss counter 
@@ -496,14 +597,24 @@ class TileHealthMonitor:
         :return: current lock status and lock loss counter value
         :rtype tuple
         """
-
-        if self.tpm_version() == "tpm_v1_2":
+        locks = self.tpm.tpm_pll[0].get_pll_status()
+        loss_of_lock = self.tpm.tpm_pll[0].get_pll_loss_of_lock()
+        # The above calls will return None if CPLD firmware does 
+        # not support PLL status
+        if locks is None:
+            # if unsuccessful try alternative i2c method
+            # should only be needed for TPM 1.2 on old CPLD firmware
             lock = self['pll', 0x508] & 0x3 == 0x3
-            loss_of_lock = None # This will be added in MCCS-1247
         else:
-            lock = self['board.regfile.pll.status'] == 0x3
-            loss_of_lock = self['board.regfile.pll_lol']
+            lock = locks == 0x3
         return lock, loss_of_lock
+
+    def clear_ad9528_pll_status(self):
+        """
+        Resets the value in the AD9528 PLL lock loss counter to 0.
+        """
+        self.tpm.tpm_pll[0].reset_pll_loss_of_lock()
+        return
 
     def get_available_clocks_to_monitor(self):
         """
@@ -630,7 +741,9 @@ class TileHealthMonitor:
 
     def check_pps_status(self, fpga_id=None):
         """
-        Check PPS is detected and error free.
+        Check PPS is detected and PPS period is as expected.
+        Firmware counts number of cycles between PPS and sets an error flag
+        if the value does not match the pps_exp_tc register.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -941,7 +1054,7 @@ class TileHealthMonitor:
 
     def check_udp_status(self, fpga_id=None):
         """
-        Check for UDP C2C and BIP errors.
+        Check for 40G errors.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -958,7 +1071,7 @@ class TileHealthMonitor:
     
     def clear_udp_status(self, fpga_id=None):
         """
-        Reset UDP C2C and BIP error counters.
+        Reset 40G error counters.
 
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
@@ -1017,6 +1130,21 @@ class TileHealthMonitor:
         counts = {}
         for fpga in self.fpga_gen(fpga_id):
             counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_bip_error_count()
+        return counts # Return dict of counter values
+
+    def check_udp_decode_error_counter(self, fpga_id=None):
+        """
+        Check UDP interface for 66b64b decoding errors.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: counter values
+        :rtype: dict
+        """
+        counts = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_decode_error_count()
         return counts # Return dict of counter values
     
     def check_tile_beamformer_status(self, fpga_id=None):
@@ -1084,53 +1212,6 @@ class TileHealthMonitor:
 
     #######################################################################################
     # ------------------- Test methods
-
-    def get_exp_health(self):
-        EXP_TEMP, EXP_VOLTAGE, EXP_CURRENT = self.get_health_acceptance_values()
-        health = {
-            'temperature': EXP_TEMP, 'voltage': EXP_VOLTAGE, 'current': EXP_CURRENT,
-            'alarms': None if self.tpm_version() == "tpm_v1_2" else {'I2C_access_alm': 0, 'temperature_alm': 0, 'voltage_alm': 0, 'SEM_wd': 0, 'MCU_wd': 0},
-            'adcs': {
-                'pll_status': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True},
-                'sysref_timing_requirements': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True},
-                'sysref_counter': {'ADC0': True, 'ADC1': True, 'ADC2': True, 'ADC3': True, 'ADC4': True, 'ADC5': True, 'ADC6': True, 'ADC7': True, 'ADC8': True, 'ADC9': True, 'ADC10': True, 'ADC11': True, 'ADC12': True, 'ADC13': True, 'ADC14': True, 'ADC15': True}},
-            'timing': {
-                'clocks': {'FPGA0': {'JESD': True, 'DDR': True, 'UDP': True}, 'FPGA1': {'JESD': True, 'DDR': True, 'UDP': True}},
-                'clock_managers' : {
-                    'FPGA0': {'C2C_MMCM': (True, 0), 'JESD_MMCM': (True, 0), 'DSP_MMCM': (True, 0)},
-                    'FPGA1': {'C2C_MMCM': (True, 0), 'JESD_MMCM': (True, 0), 'DSP_MMCM': (True, 0)}},
-                'pps': {'status': True},
-                'pll': (True, None) if self.tpm_version() == "tpm_v1_2" else (True, 0)}, # This can be changed after MCCS-1247 is complete
-            'io':{ 
-                'jesd_if': {
-                    'link_status': True, 
-                    'lane_error_count': {
-                        'FPGA0': {
-                            'Core0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}, 
-                            'Core1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}}, 
-                        'FPGA1': {
-                            'Core0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}, 
-                            'Core1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0, 'lane4': 0, 'lane5': 0, 'lane6': 0, 'lane7': 0}}},
-                    'lane_status' : True, 
-                    'resync_count': {'FPGA0': 0, 'FPGA1': 0}, 
-                    'qpll_status': {'FPGA0': (True, 0), 'FPGA1': (True, 0)}},
-                'ddr_if': {'initialisation': True, 'reset_counter': {'FPGA0': 0, 'FPGA1': 0}},
-                'f2f_if': {
-                    'pll_status': {'Core0': [(True, 0), (True, 0)], 'Core1': [(True, 0), (True, 0)]} if self.tpm_version() == "tpm_v1_2" else {'Core0' : (True, 0)},
-                    'soft_error': None if self.tpm_version() == "tpm_v1_2" else 0,
-                    'hard_error': None if self.tpm_version() == "tpm_v1_2" else 0},
-                'udp_if': {
-                    'arp': True, 
-                    'status': True, 
-                    'crc_error_count': {'FPGA0': 0, 'FPGA1': 0}, 
-                    'bip_error_count': {'FPGA0': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}, 'FPGA1': {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}}, 
-                    'linkup_loss_count': {'FPGA0': 0, 'FPGA1': 0}}},
-            'dsp': {
-                'tile_beamf': True,
-                'station_beamf': { 'status': True, 'ddr_parity_error_count': {'FPGA0': 0, 'FPGA1': 0}}
-            }
-        }
-        return health
     
     def inject_ddr_parity_error(self, fpga_id=None):
         for fpga in self.fpga_gen(fpga_id):

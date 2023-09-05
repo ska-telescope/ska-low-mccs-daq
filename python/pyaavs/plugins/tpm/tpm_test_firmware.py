@@ -190,6 +190,12 @@ class TpmTestFirmware(FirmwareBlock):
             self.board[self._device_name + ".jesd204_if.regfile_status"] & 0x1F != 0x1E
             and retries < max_retries
         ):
+
+            if retries > 0:
+                logging.debug(
+                    "Retrying JESD cores configuration of " + self._device_name.upper()
+                )
+
             # Reset FPGA
             self._fpga.fpga_global_reset()
 
@@ -208,9 +214,6 @@ class TpmTestFirmware(FirmwareBlock):
 
             retries += 1
             sleep(0.2)
-            logging.debug(
-                "Retrying JESD cores configuration of " + self._device_name.upper()
-            )
 
         if retries == max_retries:
             raise BoardError("TpmTestFirmware: Could not configure JESD cores")

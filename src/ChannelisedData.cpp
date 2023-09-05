@@ -64,8 +64,17 @@ bool ChannelisedData::packetFilter(unsigned char *udp_packet)
         return false;
 
     // Check whether the SPEAD packet contains burst channel data
-    uint64_t mode = SPEAD_ITEM_ADDR(SPEAD_ITEM(udp_packet, 5));
-    return mode == 0x4;
+    // Header must contain capture mode ID and its value 
+    // must be 4
+    //
+    for (unsigned short i = 0; i < SPEAD_GET_NITEMS(hdr); i++) {
+        uint64_t item = SPEAD_ITEM(udp_packet, i);
+        if (SPEAD_ITEM_ID(item) == 0x2004) {
+            uint64_t mode = SPEAD_ITEM_ADDR(item);
+            return mode == 0x4;
+	    }
+    }
+    return false;
 }
 
 // Function called when a burst stream capture has finished
@@ -269,8 +278,14 @@ bool ContinuousChannelisedData::packetFilter(unsigned char *udp_packet)
         return false;
 
     // Check whether the SPEAD packet contains continuous channel data
-    uint64_t mode = SPEAD_ITEM_ADDR(SPEAD_ITEM(udp_packet, 5));
-    return (mode == 0x5 || mode == 0x7);
+    for (unsigned short i = 0; i < SPEAD_GET_NITEMS(hdr); i++) {
+        uint64_t item = SPEAD_ITEM(udp_packet, i);
+        if (SPEAD_ITEM_ID(item) == 0x2004) {
+            uint64_t mode = SPEAD_ITEM_ADDR(item);
+            return mode == 0x5 || mode == 0x7;
+	    }
+    }
+    return false;
 }
 
 // Get and process packet
@@ -540,8 +555,14 @@ bool IntegratedChannelisedData::packetFilter(unsigned char *udp_packet)
         return false;
 
     // Check whether the SPEAD packet contains integrated channel data
-    uint64_t mode = SPEAD_ITEM_ADDR(SPEAD_ITEM(udp_packet, 5));
-    return mode == 0x6;
+    for (unsigned short i = 0; i < SPEAD_GET_NITEMS(hdr); i++) {
+        uint64_t item = SPEAD_ITEM(udp_packet, i);
+        if (SPEAD_ITEM_ID(item) == 0x2004) {
+            uint64_t mode = SPEAD_ITEM_ADDR(item);
+            return mode == 0x6;
+	    }
+    }
+    return false;
 }
 
 // Get and process packet
@@ -647,7 +668,7 @@ bool IntegratedChannelisedData::processPacket()
     double packet_time = sync_time + timestamp * 1.08e-6;
 
     // Check if we processed all the sample
-    if (num_packets == this -> nof_antennas * this -> nof_pols * this -> nof_tiles / nof_included_antennas)
+    if (num_packets == this -> nof_channels * this -> nof_antennas * this -> nof_tiles / (nof_included_antennas * nof_included_channels))
     {
         container -> persist_container();
         num_packets = 0;

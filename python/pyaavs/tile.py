@@ -110,7 +110,6 @@ class Tile(TileHealthMonitor):
         self._port = port
         self._ip = socket.gethostbyname(ip)
         self.tpm = None
-        self.preadus_enabled = False
 
         self._channeliser_truncation = 4
         self.subarray_id = 0
@@ -151,6 +150,9 @@ class Tile(TileHealthMonitor):
                                   29: {'preadu_id': 0, 'channel': 13},
                                   30: {'preadu_id': 0, 'channel': 14},
                                   31: {'preadu_id': 0, 'channel': 15}}
+                                  
+        self.init_health_monitoring()
+        self.daq_modes_with_timestamp_flag = ["raw_adc_mode", "channelized_mode", "beamformed_mode"]
 
     # ---------------------------- Main functions ------------------------------------
     def tpm_version(self):
@@ -211,9 +213,10 @@ class Tile(TileHealthMonitor):
                 mono_channel_14_bit=adc_mono_channel_14_bit,
                 mono_channel_sel=adc_mono_channel_sel,
             )
-        except (BoardError, LibraryError):
+        except (BoardError, LibraryError) as e:
             self.tpm = None
             self.logger.error("Failed to connect to board at " + self._ip)
+            self.logger.error("Exception: " + str(e))
             return
 
         # Load tpm test firmware for both FPGAs (no need to load in simulation)
@@ -350,7 +353,6 @@ class Tile(TileHealthMonitor):
         # Switch off both PREADUs
         for preadu in self.tpm.tpm_preadu:
             preadu.switch_off()
-        self.preadus_enabled = False
 
         # Switch on preadu
         for preadu in self.tpm.tpm_preadu:
@@ -358,7 +360,7 @@ class Tile(TileHealthMonitor):
             time.sleep(1)
             preadu.select_low_passband()
             preadu.read_configuration()
-        self.preadus_enabled = True
+
         # Synchronise FPGAs
         self.sync_fpga_time(use_internal_pps=use_internal_pps)
 
@@ -566,7 +568,7 @@ class Tile(TileHealthMonitor):
             return 0
 
     @connected
-    def is_qsfp_cable_plugged(self, qsfp_id=0):
+    def is_qsfp_module_plugged(self, qsfp_id=0):
         """
         Initialise firmware components.
 
@@ -623,7 +625,7 @@ class Tile(TileHealthMonitor):
     @connected
     def configure_40g_core(
         self,
-        core_id,
+        core_id=0,
         arp_table_entry=0,
         src_mac=None,
         src_ip=None,
@@ -631,6 +633,8 @@ class Tile(TileHealthMonitor):
         dst_ip=None,
         dst_port=None,
         rx_port_filter=None,
+        netmask=None,
+        gateway_ip=None
     ):
         """
         Configure a 40G core.
@@ -643,6 +647,8 @@ class Tile(TileHealthMonitor):
         :param src_port: Source port
         :param dst_port: Destination port
         :param rx_port_filter: Filter for incoming packets
+        :param netmask: Netmask
+        :param gateway_ip: Gateway IP
         """
         # Configure core
         if src_mac is not None:
@@ -659,6 +665,11 @@ class Tile(TileHealthMonitor):
             self.tpm.tpm_10g_core[core_id].set_rx_port_filter(
                 rx_port_filter, arp_table_entry
             )
+        if netmask is not None:
+            self.tpm.tpm_10g_core[core_id].set_netmask(netmask)
+        if gateway_ip is not None:
+            self.tpm.tpm_10g_core[core_id].set_gateway_ip(gateway_ip)
+
 
     @connected
     def get_40g_core_configuration(self, core_id, arp_table_entry=0):
@@ -688,6 +699,8 @@ class Tile(TileHealthMonitor):
                 "dst_port": int(
                     self.tpm.tpm_10g_core[core_id].get_dst_port(arp_table_entry)
                 ),
+                "netmask": int(self.tpm.tpm_10g_core[core_id].get_netmask()),
+                "gateway_ip": int(self.tpm.tpm_10g_core[core_id].get_gateway_ip()),
             }
         except IndexError:
             self._40g_configuration = None
@@ -695,9 +708,15 @@ class Tile(TileHealthMonitor):
         return self._40g_configuration
 
     @connected
-    def set_default_eth_configuration(self, src_ip_fpga1=None, src_ip_fpga2=None,
-                                      dst_ip_fpga1=None, dst_ip_fpga2=None,
-                                      src_port=4661, dst_port=4660, qsfp_detection="auto"):
+    def set_default_eth_configuration(
+            self,
+            src_ip_fpga1=None,
+            src_ip_fpga2=None,
+            dst_ip_fpga1=None,
+            dst_ip_fpga2=None,
+            src_port=4661,
+            dst_port=4660,
+            qsfp_detection="auto"):
         """
         Set destination and source IP/MAC/ports for 40G cores.
 
@@ -731,7 +750,7 @@ class Tile(TileHealthMonitor):
                 elif qsfp_detection == "flyover_test":
                     cable_detected = True
                     self.tpm.tpm_test_firmware[n].configure_40g_core_flyover_test()
-                elif qsfp_detection == "auto" and self.is_qsfp_cable_plugged(n):
+                elif qsfp_detection == "auto" and self.is_qsfp_module_plugged(n):
                     cable_detected = True
                 elif n == 0 and qsfp_detection == "qsfp1":
                     cable_detected = True
@@ -757,14 +776,14 @@ class Tile(TileHealthMonitor):
                     self.tpm.tpm_10g_core[n].reset_core()
 
                     self.configure_40g_core(
-                        n,
-                        0,
+                        core_id=n,
+                        arp_table_entry=0,
                         src_mac=0x620000000000 + ip2long(src_ip),
                         src_ip=src_ip,
                         dst_ip=dst_ip,
-                        src_port=0xF0D0,
-                        dst_port=4660,
-                        rx_port_filter=4660,
+                        src_port=src_port,
+                        dst_port=dst_port,
+                        rx_port_filter=dst_port,
                     )
                 else:
                     self.tpm.tpm_10g_core[n].tx_disable()
@@ -802,12 +821,14 @@ class Tile(TileHealthMonitor):
             if dst_ip is None:
                 dst_ip = self._lmc_ip
 
-            self.configure_40g_core(
-                0, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-            )
-            self.configure_40g_core(
-                1, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-            )
+            for core_id in range(len(self.tpm.tpm_10g_core)):
+                self.configure_40g_core(
+                    core_id=core_id,
+                    arp_table_entry=1,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
+                    dst_port=dst_port
+                )
 
             self["fpga1.lmc_gen.tx_demux"] = 2
             self["fpga2.lmc_gen.tx_demux"] = 2
@@ -861,13 +882,14 @@ class Tile(TileHealthMonitor):
             if dst_ip is None:
                 dst_ip = self._lmc_ip
 
-            self.configure_40g_core(
-                0, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-            )
-
-            self.configure_40g_core(
-                1, 1, dst_ip=dst_ip, src_port=src_port, dst_port=dst_port
-            )
+            for core_id in range(len(self.tpm.tpm_10g_core)):
+                self.configure_40g_core(
+                    core_id=core_id,
+                    arp_table_entry=1,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
+                    dst_port=dst_port
+                )
 
         # Using dedicated 1G link
         elif mode.upper() == "1G":
@@ -1559,7 +1581,7 @@ class Tile(TileHealthMonitor):
         return self.tpm.station_beamf[0].is_running()
 
     @connected
-    def start_beamformer(self, start_time=0, duration=-1):
+    def start_beamformer(self, start_time=0, duration=-1, scan_id=0, mask=0xffffffffff):
         """
         Start the beamformer.
         Duration: if > 0 is a duration in frames * 256 (276.48 us)
@@ -1569,10 +1591,14 @@ class Tile(TileHealthMonitor):
         :type start_time: int
         :param duration: duration in ADC frames/256. Multiple of 8
         :type duration: int
+        :param scan_id: ID of the scan, to be specified in the CSP SPEAD header
+        :type scan_id: int
+        :param mask: Bitmask of the channels to be started. Unsupported by FW
+        :type mask: int
         :return: False for error (e.g. beamformer already running)
         :rtype bool:
         """
-        mask = 0xFFFFFFF8  # Impose a time multiple of 8 frames
+        timestamp_mask = 0xFFFFFFF8  # Impose a time multiple of 8 frames
         if self.beamformer_is_running():
             return False
 
@@ -1582,10 +1608,20 @@ class Tile(TileHealthMonitor):
         start_time &= mask  # Impose a start time multiple of 8 frames
 
         if duration != -1:
-            duration = duration & mask
+            duration = duration & timestamp_mask
 
-        ret1 = self.tpm.station_beamf[0].start(start_time, duration)
-        ret2 = self.tpm.station_beamf[1].start(start_time, duration)
+        ret1 = self.tpm.station_beamf[0].start(
+            start_time, 
+            duration,
+            scan_id = scan_id,
+            mask = mask
+        )
+        ret2 = self.tpm.station_beamf[1].start(
+            start_time, 
+            duration,
+            scan_id = scan_id,
+            mask = mask
+        )
 
         # check if synchronised operation is successful,
         # time now must be smaller than start_time
@@ -1626,6 +1662,10 @@ class Tile(TileHealthMonitor):
             self.tpm[f + ".pps_manager.pps_gen_tc"] = int(100e6) - 1  # PPS generator runs at 100 Mhz
             self.tpm[f + ".pps_manager.sync_cnt_enable"] = 0x7
             self.tpm[f + ".pps_manager.sync_cnt_enable"] = 0x0
+            if self.tpm.has_register("fpga1.pps_manager.pps_exp_tc"):
+                self.tpm[f + ".pps_manager.pps_exp_tc"] = int(200e6) - 1  # PPS validation runs at 200 Mhz
+            else:
+                self.logger.info("FPGA Firmware does not support updated PPS validation. Status of PPS error flag should be ignored.")  
 
         # Setting internal PPS generator
         if use_internal_pps:
@@ -1717,6 +1757,24 @@ class Tile(TileHealthMonitor):
             self.logger.debug("FPGA2 is locked to external PPS")
         else:
             self.logger.warning("FPGA2 is not locked to external PPS")
+        
+        # Check PPS valid
+        if self.tpm.has_register("fpga1.pps_manager.pps_exp_tc"):
+            if self.tpm[f'fpga1.pps_manager.pps_errors.pps_count_error'] == 0x0:
+                self.logger.debug("FPGA1 PPS period is as expected.")
+            else:
+                self.logger.error("FPGA1 PPS period is not as expected.")
+                result = False
+        else:
+            self.logger.info("FPGA1 Firmware does not support updated PPS validation. Ignoring status of PPS error flag.")
+        if self.tpm.has_register("fpga2.pps_manager.pps_exp_tc"):
+            if self.tpm[f'fpga2.pps_manager.pps_errors.pps_count_error'] == 0x0:
+                self.logger.debug("FPGA2 PPS period is as expected.")
+            else:
+                self.logger.error("FPGA2 PPS period is not as expected.")
+                result = False
+        else:
+            self.logger.info("FPGA2 Firmware does not support updated PPS validation. Ignoring status of PPS error flag.")  
 
         # check FPGA time
         self.wait_pps_event()
@@ -2008,6 +2066,91 @@ class Tile(TileHealthMonitor):
         for i in range(len(self.tpm.tpm_integrator)):
             self.tpm.tpm_integrator[i].stop_integrated_data()
 
+    # ------------------------------------------------------
+    # Wrapper for valid timestamp request data acquisition
+    # ------------------------------------------------------
+    @connected
+    def clear_timestamp_invalid_flag_register(
+            self, daq_mode=None, fpga_id=None
+    ):
+        """
+        Clear invalid timestamp request register for selected fpga and for
+        selected LMC request mode . Default clears all registers for all modes
+
+        :param daq_mode: string used to select which Flag register of the LMC to read
+        :param fpga_id: FPGA_ID, 0 or 1. Default None will select both FPGAs
+        """ 
+        daq_modes_list = self.daq_modes_with_timestamp_flag if daq_mode is None else [daq_mode];
+        fpga_list = range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
+
+        if daq_mode is not None and daq_mode not in self.daq_modes_with_timestamp_flag:
+            raise LibraryError(f"Invalid daq_mode specified: {daq_mode} not supported")
+
+        for selected_daq in daq_modes_list:
+            for fpga in fpga_list:
+                self[f"fpga{fpga + 1}.lmc_gen.timestamp_req_invalid.{selected_daq}"] = 0
+                self.logger.info(f"Register fpga{fpga + 1}.lmc_gen.timestamp_req_invalid.{selected_daq} has been cleared!")
+
+    @connected
+    def check_valid_timestamp_request(
+        self, daq_mode, fpga_id=None
+    ):
+        """
+        Check valid timestamp request for various modes
+        modes supported: raw_adc, channelizer and beamformer
+
+        :param daq_mode: string used to select which Flag register of the LMC to read
+        :param fpga_id: FPGA_ID, 0 or 1. Default None will select both FPGAs
+
+        :return: boolean to indicate if the timestamp request is valid or not
+        :rtype: boolean
+        """
+        C_VALID_TIMESTAMP_REQ = 0
+        list_of_valid_timestamps = []
+        fpga_list = range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
+
+        if daq_mode not in self.daq_modes_with_timestamp_flag:
+            raise LibraryError(f"Invalid daq_mode specified: {daq_mode} not supported")
+
+        for fpga in fpga_list:
+            valid_request = self[f"fpga{fpga + 1}.lmc_gen.timestamp_req_invalid.{daq_mode}"] == C_VALID_TIMESTAMP_REQ
+            list_of_valid_timestamps.append(valid_request)
+            self.logger.debug(f"fpga{fpga + 1} {daq_mode} timestamp request is: {'VALID' if valid_request else 'INVALID'}")
+        if not all(list_of_valid_timestamps):
+            self.logger.error("INVALID LMC Data request")
+            return False
+        else:
+            return True
+
+    def select_method_to_check_valid_synchronised_data_request(
+            self, daq_mode, t_request, fpga_id=None
+    ):
+        """
+        Checks if Firmware contains the invalid flag register that raises a flag during synchronisation error.
+        If the Firmware has the register then it will read it to check that the timestamp request was valid.
+        If the register is not present, the software method will be used to calculate if the timestamp request was valid
+
+        :param daq_mode: string used to select which Flag register of the LMC to read
+        :param t_request: requested timestamp. Must be more than current timestamp to be synchronised successfuly
+        :param fpga_id: FPGA_ID, 0 or 1. Default None
+        """
+        timestamp_invalid_flag_supported = self.tpm.has_register(f"fpga1.lmc_gen.timestamp_req_invalid.{daq_mode}")
+        if timestamp_invalid_flag_supported:
+            valid_request = self.check_valid_timestamp_request(daq_mode, fpga_id)
+        else:
+            self.logger.warning(
+                "FPGA firmware doesn't support invalid data request flag, request will be validated by software"
+            )
+            valid_request = self.check_synchronised_data_operation(t_request)
+        if valid_request:
+            self.logger.info(f"Valid {daq_mode} Timestamp request")
+            return
+        self.clear_lmc_data_request()
+        if timestamp_invalid_flag_supported:
+            self.clear_timestamp_invalid_flag_register(daq_mode, fpga_id)
+        self.logger.info("LMC Data request has been cleared")
+        return
+
     # ------------------------------------
     # Wrapper for data acquisition: RAW
     # ------------------------------------
@@ -2037,7 +2180,7 @@ class Tile(TileHealthMonitor):
                 self.tpm.tpm_test_firmware[i].send_raw_data()
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation(t_request)
+        self.select_method_to_check_valid_synchronised_data_request("raw_adc_mode", t_request, fpga_id)
 
     @connected
     def send_raw_data_synchronised(
@@ -2088,7 +2231,7 @@ class Tile(TileHealthMonitor):
             )
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation(t_request)
+        self.select_method_to_check_valid_synchronised_data_request("channelized_mode", t_request)
 
     # ---------------------------- Wrapper for data acquisition: BEAM ------------------------------------
     @connected
@@ -2107,7 +2250,7 @@ class Tile(TileHealthMonitor):
             self.tpm.tpm_test_firmware[i].send_beam_data()
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation(t_request)
+        self.select_method_to_check_valid_synchronised_data_request("beamformed_mode", t_request)
 
     # ---------------------------- Wrapper for data acquisition: CONT CHANNEL ----------------------------
     @connected
@@ -2138,7 +2281,7 @@ class Tile(TileHealthMonitor):
             )
 
         # Check if synchronisation is successful
-        self.check_synchronised_data_operation(t_request)
+        self.select_method_to_check_valid_synchronised_data_request("channelized_mode", t_request)
 
     # ---------------------------- Wrapper for data acquisition: NARROWBAND CHANNEL ----------------------------
     @connected
@@ -2260,12 +2403,32 @@ class Tile(TileHealthMonitor):
     # ----------------------------
     # Wrapper for preadu methods
     # ----------------------------
+
+    def has_preadu(self):
+        """
+        Check if tile has preADUs fitted.
+
+        Gets preadu attribute "is_present" for each preADU.
+        Returns True if both are present, else False.
+        """
+        fpgas = range(len(self.tpm.tpm_test_firmware))
+        detected = []
+        for fpga in fpgas:
+            preadu_is_present = self.tpm.tpm_preadu[fpga].is_present
+            detected.append(preadu_is_present)
+            if preadu_is_present:
+                self.logger.info(f"preADU {fpga} Detected")
+            else:
+                self.logger.info(f"preADU {fpga} Not Detected")
+        return all(detected)
+
     def equalize_preadu_gain(self, required_rms=20):
         """ Equalize the preadu gain to get target RMS"""
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            preadu.select_low_passband()
+            if self.tpm_version == "tpm_v1_2":
+                preadu.select_low_passband()
             preadu.read_configuration()
 
         # Get current RMS
@@ -2283,8 +2446,8 @@ class Tile(TileHealthMonitor):
             pid = self.preadu_signal_map[channel]['preadu_id']
             channel = self.preadu_signal_map[channel]['channel']
 
-            attenuation = (self.tpm.tpm_preadu[pid].channel_filters[channel] >> 3) + attenuation
-            self.tpm.tpm_preadu[pid].set_attenuation(int(round(attenuation)), [channel])
+            attenuation = self.tpm.tpm_preadu[pid].get_attenuation()[channel] + attenuation
+            self.tpm.tpm_preadu[pid].set_attenuation(attenuation, [channel])
 
         for preadu in self.tpm.tpm_preadu:
             preadu.write_configuration()
@@ -2295,9 +2458,10 @@ class Tile(TileHealthMonitor):
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            preadu.select_low_passband()
+            if self.tpm_version == "tpm_v1_2":
+                preadu.select_low_passband()
             preadu.read_configuration()
-            preadu.set_attenuation(int(round(attenuation)), list(range(16)))
+            preadu.set_attenuation(attenuation, list(range(16)))
             preadu.write_configuration()
 
     # ----------------------------
