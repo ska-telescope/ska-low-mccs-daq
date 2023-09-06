@@ -309,7 +309,8 @@ class Tile(TileHealthMonitor):
                                "qsfp1", force QSFP1 cable detected, QSFP2 cable not detected
                                "qsfp2", force QSFP1 cable not detected, QSFP2 cable detected
                                "all", force QSFP1 and QSFP2 cable detected
-                               "flyover_test", force QSFP1 and QSFP2 cable detected and adjust polarity for board-to-board cable
+                               "flyover_test", force QSFP1 and QSFP2 cable detected and adjust
+                                polarity for board-to-board cable
                                "none", force no cable not detected
         :type qsfp_detection: str
         :param adc_mono_channel_14_bit: Enable ADC mono channel 14bit mode
@@ -1559,7 +1560,7 @@ class Tile(TileHealthMonitor):
 
         :param station_id: Station ID
         :param subarray_id: Subarray ID
-        :param nof_antennas: Number of antenns in the station
+        :param nof_antennas: Number of antennas in the station
         :type nof_antennas: int
         :param ref_epoch: Unix time of epoch. -1 uses value defined in set_epoch
         :type ref_epoch: int
