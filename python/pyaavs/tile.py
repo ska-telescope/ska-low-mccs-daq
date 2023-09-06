@@ -749,7 +749,12 @@ class Tile(TileHealthMonitor):
                     cable_detected = True
                 elif qsfp_detection == "flyover_test":
                     cable_detected = True
-                    self.tpm.tpm_test_firmware[n].configure_40g_core_flyover_test()
+                    if self.tpm_version == "tpm_v1_2":
+                        self.logger.warning(
+                            "Forcing QSFP module detection as 'flyover_test' is not supported on TPM 1.2"
+                        )
+                    else:
+                        self.tpm.tpm_test_firmware[n].configure_40g_core_flyover_test()
                 elif qsfp_detection == "auto" and self.is_qsfp_module_plugged(n):
                     cable_detected = True
                 elif n == 0 and qsfp_detection == "qsfp1":
