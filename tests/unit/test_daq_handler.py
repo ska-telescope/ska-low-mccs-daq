@@ -12,6 +12,7 @@ import json
 from typing import Any
 from unittest.mock import Mock
 
+import numpy as np
 import pytest
 from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import ResultCode, TaskStatus
@@ -32,21 +33,21 @@ class TestDaqHandler:
         """
         return {
             "dataset_root": None,
-            "n_antennas": 8,
-            "n_pols": 2,
-            "n_beams": 1,
-            "tile_id": 4,
-            "n_chans": 512,
-            "n_samples": 32,
-            "n_blocks": 1,
-            "written_samples": 32,
-            "timestamp": "1691063930",
+            "n_antennas": np.uint(8),
+            "n_pols": np.uint(2),
+            "n_beams": np.uint(1),
+            "tile_id": np.uint(4),
+            "n_chans": np.uint(512),
+            "n_samples": np.uint(32),
+            "n_blocks": np.uint(1),
+            "written_samples": np.uint(32),
+            "timestamp": 1691063930.0,
             "date_time": "2023-08-03 12:58:14.442114",
             "data_type": "channel",
-            "n_baselines": 1,
-            "n_stokes": 1,
-            "channel_id": 2,
-            "station_id": 3,
+            "n_baselines": np.uint(1),
+            "n_stokes": np.uint(1),
+            "channel_id": np.uint(2),
+            "station_id": np.uint(3),
             "tsamp": 0,
         }
 
