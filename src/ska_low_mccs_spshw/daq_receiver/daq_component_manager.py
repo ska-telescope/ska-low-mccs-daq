@@ -255,10 +255,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
             modes_to_start = modes_to_start or self._consumers_to_start
             for response in self._daq_client.start_daq(modes_to_start):
                 if task_callback:
-                    task_callback(
-                        status=response["status"],
-                        result=response["message"],
-                    )
+                    if "status" in response:
+                        task_callback(
+                            status=response["status"],
+                            result=response["message"],
+                        )
                 if "files" in response:
                     files_written = response["files"]
                     data_types_received = response["types"]
