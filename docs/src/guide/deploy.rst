@@ -188,3 +188,62 @@ For example:
        gpu_limit: "1"
        runtime_class: nvidia
        storage: daq_data
+
+
+----------------------------
+Deployment of a external DAQ
+----------------------------
+Minikube has limitations that kubernetes does not.
+One of these is related to networking, to stream data 
+from the TPM to DAQ, the DAQ requires low level access to the 
+network interface. To overcome this issue the the daq server
+is deployed external to the DAQ tango device. This external 
+server is run in a container with evevated permissions to 
+access the low level network interface. We can then connect 
+to this server from minikube and have access to the low level 
+network interface.
+
+
+First we will want to run a container external to minikube on the 
+host with access to the low level network interface:
+
+.. code-block:: bash
+
+  docker run --net=host --cap-add=NET_RAW --cap-add=IPC_LOCK --cap-add=SYS_NICE --cap-add=SYS_ADMIN artefact.skao.int/ska-low-mccs-daq:0.4.0 python3 /app/src/ska_low_mccs_daq/daq_handler.py
+
+This will start the server, see logs:
+
+.. code-block:: bash
+
+  2023-03-21 05:43:33,502 - INFO - MainThread - generated new fontManager
+  Starting daq server...
+  Server started, listening on 50051
+
+We can then deploy minikube and connect our tango DAQ to this external server. 
+To do this we use the ska-low-mccs-spshw repor (hosting the DAQ tango device) and 
+configure the chart to:
+
+.. code-block:: yaml
+
+  overrides:
+    array:
+      station_clusters:
+        "xyz":
+          stations:
+            "1":
+              sps:
+                daq:
+                  ip: 10.0.255.255 # The network interface on host.
+                  port: 50051 # the port to connect to server.
+                  receiver_interface: eth0 # the interface the tpm is sending data to 
+                  receiver_port: 4660 # the port tpm is sending data to
+                  logging_level_default: 5
+
+followed by:
+
+.. code-block:: bash
+
+  helmfile -e '<platform_spec>' sync
+
+Finally when you call daq_proxy.adminMode = AdminMode.ONLINE,
+you should see the tango_device connecting to the external DAQ.
