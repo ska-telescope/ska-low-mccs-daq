@@ -249,15 +249,21 @@ class TestDaqComponentManager:
 
         # TODO: May be more to tweak here.
         callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
+
+        # TODO: why is this being called 2 times?
+        callbacks["task_start_daq"].assert_call(
+            status=TaskStatus.IN_PROGRESS,
+        )
         callbacks["task_start_daq"].assert_call(
             status=TaskStatus.IN_PROGRESS,
             result="Start Command issued to gRPC stub",
-            lookahead=2,
         )
         callbacks["task_start_daq"].assert_call(
             status=TaskStatus.COMPLETED,
             result="Daq has been started and is listening",
-            lookahead=2,
+        )
+        callbacks["received_data"].assert_call(
+            "data_type", "file_name", "json_serialised_metadata_dict"
         )
 
         converted_daq_modes: list[DaqModes] = convert_daq_modes(daq_modes)
