@@ -14,6 +14,7 @@ import os
 from enum import IntEnum
 from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
 
+import numpy as np
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode
 from ska_low_mccs_daq_interface.server import run_server_forever
@@ -21,6 +22,20 @@ from ska_low_mccs_daq_interface.server import run_server_forever
 __all__ = ["DaqHandler", "main"]
 
 Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """Converts numpy types to JSON."""
+
+    # pylint: disable=arguments-renamed
+    def default(self: NumpyEncoder, obj: Any) -> Any:
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 
 class DaqStatus(IntEnum):
@@ -216,7 +231,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             metadata = self.daq_instance._persisters[daq_mode].get_metadata()
         if additional_info is not None:
             metadata["additional_info"] = additional_info
-        self.buffer.add(data_mode, file_name, json.dumps(metadata))
+
+        self.buffer.add(data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
 
     def _update_status(self: DaqHandler) -> None:
         """Update the status of DAQ."""
