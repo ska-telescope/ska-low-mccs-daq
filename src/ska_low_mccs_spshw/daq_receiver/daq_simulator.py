@@ -175,6 +175,19 @@ class DaqSimulator:
         self._modes = convert_daq_modes(modes_to_start)
         yield "LISTENING"
 
+        def received_file_buffer() -> Any:
+            """
+            DAQ has written a file.
+
+            :yield: metadata about file.
+            """
+            yield (
+                "data_type",
+                "file_name",
+                "json_serialised_metadata_dict",
+            )
+
+        yield from received_file_buffer()
         # yield somethin' else
         yield "STOPPED"
 
