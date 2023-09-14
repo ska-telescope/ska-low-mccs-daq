@@ -1,0 +1,37 @@
+platform:
+  metadata:
+    version: 0.0.3
+    description: A platform configuration specification for GMRT
+
+  # cluster:  specified by minikube.yaml
+
+  array:
+    name: gmrt
+    station_clusters:
+      "g1":
+        cabinets:
+          "1":
+            network_address: 10.0.0.0
+        stations:
+          "1":
+            id: 1
+            name: gmrt
+            sps:
+              cabinet: "1"
+              subracks:
+                "1":
+                  srmb_host: 10.0.10.112
+                  srmb_port: 8081
+              tpms:
+                "10":
+                  host: 10.0.10.205
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 2
+                "13":
+                  host: 10.0.10.217
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 5

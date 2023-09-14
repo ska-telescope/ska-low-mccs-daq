@@ -1,0 +1,11 @@
+defaults:
+  logging_level_default: 5
+
+overrides:
+  array:
+    station_clusters:
+      "ci":
+        stations:
+          "1":
+            id: 1
+            sps: {}

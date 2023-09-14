@@ -1,14 +1,22 @@
 {{- /*
-Launch a managed DAQ receiver.
+Deploy the DAQ receivers. For example:
 
-For each receiver spec, check if it has a "grpc_ip" key.
-If not, then we need to launch a receiver instance.
+receivers:
+  1:
+    storage: daq-data
+    node_selector:
+      kubernetes.io/hostname: psi-node3
+    runtime_class: nvidia
+    gpu_limit: "1"
+    grpc_port: 50052  # optional; defaults to 50051
+    data_port: 4661  # optional; defaults to 4660
+
 */}}
 {{- $image := .Values.image}}
-{{- range $id, $spec := .Values.receivers}}
-{{- if not (hasKey $spec "external_ip") }}
-{{- $slug := (printf "daq-receiver-%03d" (int $id))}}
+{{- range $name, $spec := .Values.receivers}}
+{{- $slug := (printf "daq-receiver-%s" $name)}}
 {{- $grpc_port := default 50051 $spec.port}}
+{{- $data_port := default 4660 $spec.data_port}}
 ---
 apiVersion: v1
 kind: Service
@@ -21,6 +29,20 @@ spec:
   - name: {{$slug}}-grpc-port
     port: {{$grpc_port}}
     protocol: TCP
+  selector:
+    component: {{$slug}}-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$slug}}-data
+  labels:
+    component: {{$slug}}
+spec:
+  ports:
+  - name: {{$slug}}-data-port
+    port: {{$data_port}}
+    protocol: UDP
   selector:
     component: {{$slug}}-server
 ---
@@ -38,15 +60,15 @@ spec:
   replicas: 1
   template:
     metadata:
-{{- with $spec.server_annotations }}
+{{- with $spec.annotations }}
       annotations:
 {{ toYaml . | indent 8 }}
 {{- end }}
       labels:
         component: {{$slug}}-server
     spec:
-{{- if (hasKey $spec "runtimeclassname") }}
-      runtimeClassName: {{$spec.runtimeclassname | quote}}
+{{- with $spec.runtime_class}}
+      runtimeClassName: {{quote .}}
 {{- end }}
       containers:
       - command:
@@ -62,10 +84,10 @@ spec:
         ports:
           - containerPort: {{$grpc_port}}
             protocol: TCP
-{{- if (hasKey $spec "gpu_limit") }}
+{{- with $spec.gpu_limit}}
         resources:
           limits:
-            nvidia.com/gpu: {{ $spec.gpu_limit | quote}}
+            nvidia.com/gpu: {{quote .}}
 {{- end }}
         securityContext:
           capabilities:
@@ -87,17 +109,16 @@ spec:
       securityContext:
         fsGroup: 1000
 {{- end }}
-{{- with $spec.server_node_selector}}
+{{- with $spec.node_selector}}
       nodeSelector:
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- with $spec.server_affinity}}
+{{- with $spec.affinity}}
       affinity:
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- with $spec.server_tolerations}}
+{{- with $spec.tolerations}}
       tolerations:
 {{ toYaml . | indent 8 }}
-{{- end }}
 {{- end }}
 {{- end }}

@@ -11,14 +11,83 @@ from __future__ import annotations
 import json
 import time
 from typing import Any
+from unittest.mock import Mock
 
+import numpy as np
 import pytest
+from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.client import DaqClient
+
+from ska_low_mccs_daq.daq_handler import DaqHandler
 
 
 class TestDaqHandler:
     """Test class for DaqHandler tests."""
+
+    @pytest.fixture(name="file_metadata")
+    def file_metadata_fixture(self: TestDaqHandler) -> dict:
+        """
+        Fixture to get the file metadata.
+
+        :return: file metadata.
+        """
+        return {
+            "dataset_root": None,
+            "n_antennas": np.uint(8),
+            "n_pols": np.uint(2),
+            "n_beams": np.uint(1),
+            "tile_id": np.uint(4),
+            "n_chans": np.uint(512),
+            "n_samples": np.uint(32),
+            "n_blocks": np.uint(1),
+            "written_samples": np.uint(32),
+            "timestamp": 1691063930.0,
+            "date_time": "2023-08-03 12:58:14.442114",
+            "data_type": "channel",
+            "n_baselines": np.uint(1),
+            "n_stokes": np.uint(1),
+            "channel_id": np.uint(2),
+            "station_id": np.uint(3),
+            "tsamp": 0,
+        }
+
+    @pytest.fixture(name="mock_daq_receiver")
+    def mock_daq_receiver_fixture(self: TestDaqHandler, file_metadata: dict) -> Mock:
+        """
+        Fixture to get a mock DaqReceiver.
+
+        This is useful to be able to mock the existence of files.
+
+        :param file_metadata: sample file metadata for testing.
+
+        :return: a mock DaqReceiver.
+        """
+
+        def get_metadata(*args: Any, **kwargs: Any) -> dict:
+            return file_metadata
+
+        persister_mock = Mock()
+        persister_mock.get_metadata.side_effect = get_metadata
+        persisters = {DaqModes.INTEGRATED_CHANNEL_DATA: persister_mock}
+        daqrx = Mock()
+        daqrx._persisters = persisters
+        return daqrx
+
+    @pytest.fixture(name="daq_handler")
+    def daq_handler_fixture(
+        self: TestDaqHandler, mock_daq_receiver: Mock
+    ) -> DaqHandler:
+        """
+        Fixture to get a DaqHandler instance.
+
+        :param mock_daq_receiver: a mock DaqReceiver.
+
+        :return: a DaqHandler.
+        """
+        daq_handler = DaqHandler()
+        daq_handler.daq_instance = mock_daq_receiver
+        return daq_handler
 
     @pytest.mark.parametrize(
         ("args", "expected_status", "expected_msg"),
@@ -278,3 +347,22 @@ class TestDaqHandler:
                 "y_bandpass_plot": [None],
                 "rms_plot": [None],
             }
+    def test_access_file_metadata(
+        self: TestDaqHandler, daq_handler: DaqHandler, file_metadata: dict
+    ) -> None:
+        """
+        Test for accessing the metadata on newly created files.
+
+        :param daq_handler: the DaqHandler instance to use.
+        :param file_metadata: the expected returned file metadata.
+        """
+        daq_handler._initialised = True
+        start_result = daq_handler.start("INTEGRATED_CHANNEL_DATA")
+
+        assert next(start_result) == "LISTENING"
+        daq_handler._file_dump_callback("integrated_channel", "file_name")
+
+        file_callback_result = next(start_result)
+        assert isinstance(file_callback_result, tuple)
+        extra_info = file_callback_result[2]
+        assert json.loads(extra_info) == file_metadata

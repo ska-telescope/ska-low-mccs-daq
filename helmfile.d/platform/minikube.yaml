@@ -1,0 +1,14 @@
+platform:
+  cluster:
+    minikube: true
+    domain: cluster.local
+    services:
+      jupyterhub: false  # Not a platform service
+      taranta-platform: false  # Not a platform service
+    daq:
+      storage_class: standard
+      runtime_class: ~  # We're assuming no GPUs accessible from minikube
+      gpu_limit: ~  # We're assuming no GPUs accessible from minikube
+      node_selector: ~
+      affinity: ~
+      tolerations: ~

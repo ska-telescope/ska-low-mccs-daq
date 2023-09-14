@@ -9,10 +9,16 @@ prototype for the `Square Kilometre Array`_.
 
 .. toctree::
    :maxdepth: 1
-   :caption: Contents
+   :caption: Guide
+
+   guide/deploy
+   guide/usage
+
+.. toctree::
+   :maxdepth: 1
+   :caption: API
 
    api/index
-   guide/index
 
 
 Indices and tables

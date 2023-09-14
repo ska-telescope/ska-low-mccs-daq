@@ -31,6 +31,7 @@ from matplotlib.figure import Figure
 # from aavs_calibration.common import get_antenna_positions
 from past.utils import old_div
 from pyaavs import station
+import numpy as np
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
@@ -45,6 +46,20 @@ Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 print = functools.partial(print, flush=True)  # noqa: A001
 # pylint: disable = broad-exception-raised, bare-except
 # pylint: disable = global-variable-not-assigned, too-many-lines
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """Converts numpy types to JSON."""
+
+    # pylint: disable=arguments-renamed
+    def default(self: NumpyEncoder, obj: Any) -> Any:
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 
 class DaqStatus(IntEnum):
@@ -77,14 +92,14 @@ class DaqCallbackBuffer:
         self: DaqCallbackBuffer,
         data_type: str,
         file_name: str,
-        additional_info: Optional[str] = None,
+        additional_info: str,
     ) -> None:
         """
         Add a item to the buffer and set pending evaluation to true.
 
         :param data_type: The DAQ data type written
         :param file_name: The filename written
-        :param additional_info: Any additional information.
+        :param additional_info: Any additional information and metadata.
         """
         self.logger.info(
             f"File: {file_name}, with data: {data_type} added to buffer"
@@ -92,8 +107,7 @@ class DaqCallbackBuffer:
 
         self.data_types_received.append(data_type)
         self.written_files.append(file_name)
-        if additional_info is not None:
-            self.extra_info.append(additional_info)
+        self.extra_info.append(additional_info)
 
         self.pending_evaluation = True
 
@@ -113,7 +127,11 @@ class DaqCallbackBuffer:
         :yields response: the call_info response.
         """
         for i, _ in enumerate(self.written_files):
-            yield (self.data_types_received[i], self.written_files[i])
+            yield (
+                self.data_types_received[i],
+                self.written_files[i],
+                self.extra_info[i],
+            )
 
         # after yield clear buffer
         self.clear_buffer()
@@ -197,8 +215,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
     return cast(Wrapped, _wrapper)
 
 
-# pylint: disable = too-many-instance-attributes
-class DaqHandler:
+class DaqHandler:  # pylint: disable=too-many-instance-attributes
     """An implementation of a DaqHandler device."""
 
     def __init__(self: DaqHandler):
@@ -221,11 +238,23 @@ class DaqHandler:
         self._y_bandpass_plots: queue.Queue = queue.Queue()
         self._rms_plots: queue.Queue = queue.Queue()
 
-    def _add_to_buffer(
+        self._data_mode_mapping: dict[str, DaqModes] = {
+            "burst_raw": DaqModes.RAW_DATA,
+            "cont_channel": DaqModes.CONTINUOUS_CHANNEL_DATA,
+            "integrated_channel": DaqModes.INTEGRATED_CHANNEL_DATA,
+            "burst_channel": DaqModes.CHANNEL_DATA,
+            "burst_beam": DaqModes.BEAM_DATA,
+            "integrated_beam": DaqModes.INTEGRATED_BEAM_DATA,
+            "correlator": DaqModes.CORRELATOR_DATA,
+            "station": DaqModes.STATION_BEAM_DATA,
+            "antenna_buffer": DaqModes.ANTENNA_BUFFER,
+        }
+
+    def _file_dump_callback(
         self: DaqHandler,
         data_mode: str,
         file_name: str,
-        additional_info: Optional[str] = None,
+        additional_info: Optional[int] = None,
     ) -> None:
         """
         Add metadata to buffer.
@@ -234,10 +263,19 @@ class DaqHandler:
         :param file_name: The filename written
         :param additional_info: Any additional information.
         """
-        if additional_info is not None:
-            self.buffer.add(data_mode, file_name, additional_info)
+        # We don't have access to the timestamp here so this will retrieve the most
+        # recent match
+        daq_mode = self._data_mode_mapping[data_mode]
+        if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
+            metadata = self.daq_instance._persisters[daq_mode].get_metadata(
+                tile_id=additional_info
+            )
         else:
-            self.buffer.add(data_mode, file_name)
+            metadata = self.daq_instance._persisters[daq_mode].get_metadata()
+        if additional_info is not None:
+            metadata["additional_info"] = additional_info
+
+        self.buffer.add(data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
 
     # Callback called for every data mode.
     def _file_dump_callback(
@@ -372,7 +410,7 @@ class DaqHandler:
     def start(
         self: DaqHandler,
         modes_to_start: str,
-    ) -> Iterator[str | tuple[str, str]]:
+    ) -> Iterator[str | tuple[str, str, str]]:
         """
         Start data acquisition with the current configuration.
 

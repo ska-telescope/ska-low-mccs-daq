@@ -1,0 +1,2760 @@
+# Specification of the s8-1 station for aa0.5.
+# See parent file aa0-5.yaml for details
+
+platform:
+  array:
+    station_clusters:
+      "s8":
+        stations:
+          "1":
+            id: 345
+            reference:
+              datum: GDA2020
+              latitude: -26.856153
+              longitude: 116.729639
+              ellipsoidal_height: 353.0
+            sps:
+              subracks:
+                "1":
+                  srmb_host: 10.137.0.144
+                  srmb_port: 8081
+                "2":
+                  srmb_host: 10.137.0.160
+                  srmb_port: 8081
+              tpms:
+                "1":
+                  host: 10.137.0.151
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 1
+                "2":
+                  host: 10.137.0.152
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 2
+                "3":
+                  host: 10.137.0.153
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 3
+                "4":
+                  host: 10.137.0.154
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 4
+                "5":
+                  host: 10.137.0.155
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 5
+                "6":
+                  host: 10.137.0.156
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 6
+                "7":
+                  host: 10.137.0.157
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 7
+                "8":
+                  host: 10.137.0.158
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 1
+                  subrack_slot: 8
+                "9":
+                  host: 10.137.0.167
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 2
+                  subrack_slot: 1
+                "10":
+                  host: 10.137.0.168
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 2
+                  subrack_slot: 2
+                "11":
+                  host: 10.137.0.169
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 2
+                  subrack_slot: 3
+                "12":
+                  host: 10.137.0.170
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 2
+                  subrack_slot: 4
+                "13":
+                  host: 10.137.0.171
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 2
+                  subrack_slot: 5
+                "14":
+                  host: 10.137.0.172
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 2
+                  subrack_slot: 6
+                "15":
+                  host: 10.137.0.173
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 2
+                  subrack_slot: 7
+                "16":
+                  host: 10.137.0.174
+                  port: 10000
+                  version: tpm_v1_6
+                  subrack: 2
+                  subrack_slot: 8
+            pasd:
+              fndh:
+                host: 10.137.0.129
+                port: 502
+                timeout: 10.0
+                modbus_id: 101
+              smartboxes:
+                "1":
+                  fndh_port: 1
+                  modbus_id: 1
+                "2":
+                  fndh_port: 2
+                  modbus_id: 2
+                "3":
+                  fndh_port: 3
+                  modbus_id: 3
+                "4":
+                  fndh_port: 4
+                  modbus_id: 4
+                "5":
+                  fndh_port: 5
+                  modbus_id: 5
+                "6":
+                  fndh_port: 6
+                  modbus_id: 6
+                "7":
+                  fndh_port: 7
+                  modbus_id: 7
+                "8":
+                  fndh_port: 8
+                  modbus_id: 8
+                "9":
+                  fndh_port: 9
+                  modbus_id: 9
+                "10":
+                  fndh_port: 10
+                  modbus_id: 10
+                "11":
+                  fndh_port: 11
+                  modbus_id: 11
+                "12":
+                  fndh_port: 12
+                  modbus_id: 12
+                "13":
+                  fndh_port: 13
+                  modbus_id: 13
+                "14":
+                  fndh_port: 14
+                  modbus_id: 14
+                "15":
+                  fndh_port: 15
+                  modbus_id: 15
+                "16":
+                  fndh_port: 16
+                  modbus_id: 16
+                "17":
+                  fndh_port: 17
+                  modbus_id: 17
+                "18":
+                  fndh_port: 18
+                  modbus_id: 18
+                "19":
+                  fndh_port: 19
+                  modbus_id: 19
+                "20":
+                  fndh_port: 20
+                  modbus_id: 20
+                "21":
+                  fndh_port: 21
+                  modbus_id: 21
+                "22":
+                  fndh_port: 22
+                  modbus_id: 22
+                "23":
+                  fndh_port: 23
+                  modbus_id: 23
+                "24":
+                  fndh_port: 24
+                  modbus_id: 24
+            antennas:
+              "1":
+                location_offset:
+                  east: -1.2
+                  north: 0.21
+                  up: 0.011
+                eep: 1
+                smartbox: "18"
+                smartbox_port: 3
+                tpm: "12"
+                tpm_input: 9
+              "2":
+                location_offset:
+                  east: 1.068
+                  north: -1.242
+                  up: 0.004
+                eep: 2
+                smartbox: "18"
+                smartbox_port: 6
+                tpm: "12"
+                tpm_input: 12
+              "3":
+                location_offset:
+                  east: 0.07
+                  north: 2.11
+                  up: 0.005
+                eep: 3
+                smartbox: "18"
+                smartbox_port: 1
+                tpm: "12"
+                tpm_input: 7
+              "4":
+                location_offset:
+                  east: -1.679
+                  north: -1.659
+                  up: -0.007
+                eep: 4
+                smartbox: "18"
+                smartbox_port: 4
+                tpm: "12"
+                tpm_input: 10
+              "5":
+                location_offset:
+                  east: 2.64
+                  north: 0.173
+                  up: 0.009
+                eep: 5
+                smartbox: "18"
+                smartbox_port: 9
+                tpm: "12"
+                tpm_input: 15
+              "6":
+                location_offset:
+                  east: -2.249
+                  north: 1.909
+                  up: 0.002
+                eep: 6
+                smartbox: "18"
+                smartbox_port: 2
+                tpm: "12"
+                tpm_input: 8
+              "7":
+                location_offset:
+                  east: 0.38
+                  north: -3.077
+                  up: -0.005
+                eep: 7
+                smartbox: "18"
+                smartbox_port: 5
+                tpm: "12"
+                tpm_input: 11
+              "8":
+                location_offset:
+                  east: 1.901
+                  north: 2.785
+                  up: 0.012
+                eep: 8
+                smartbox: "18"
+                smartbox_port: 10
+                tpm: "12"
+                tpm_input: 16
+              "9":
+                location_offset:
+                  east: -3.475
+                  north: -0.726
+                  up: -0.011
+                eep: 9
+                smartbox: "7"
+                smartbox_port: 8
+                tpm: "5"
+                tpm_input: 9
+              "10":
+                location_offset:
+                  east: 3.234
+                  north: -1.836
+                  up: 0.008
+                eep: 10
+                smartbox: "18"
+                smartbox_port: 8
+                tpm: "12"
+                tpm_input: 14
+              "11":
+                location_offset:
+                  east: -1.208
+                  north: 3.816
+                  up: 0.003
+                eep: 11
+                smartbox: "5"
+                smartbox_port: 4
+                tpm: "3"
+                tpm_input: 15
+              "12":
+                location_offset:
+                  east: -1.767
+                  north: -3.703
+                  up: -0.044
+                eep: 12
+                smartbox: "9"
+                smartbox_port: 10
+                tpm: "6"
+                tpm_input: 16
+              "13":
+                location_offset:
+                  east: 3.928
+                  north: 1.689
+                  up: 0.014
+                eep: 13
+                smartbox: "19"
+                smartbox_port: 1
+                tpm: "13"
+                tpm_input: 1
+              "14":
+                location_offset:
+                  east: -4.202
+                  north: 1.567
+                  up: -0.005
+                eep: 14
+                smartbox: "7"
+                smartbox_port: 10
+                tpm: "5"
+                tpm_input: 11
+              "15":
+                location_offset:
+                  east: 2.138
+                  north: -4.034
+                  up: -0.011
+                eep: 15
+                smartbox: "18"
+                smartbox_port: 7
+                tpm: "12"
+                tpm_input: 13
+              "16":
+                location_offset:
+                  east: 1.202
+                  north: 4.619
+                  up: 0.0
+                eep: 16
+                smartbox: "5"
+                smartbox_port: 6
+                tpm: "4"
+                tpm_input: 1
+              "17":
+                location_offset:
+                  east: -4.125
+                  north: -2.585
+                  up: -0.039
+                eep: 17
+                smartbox: "9"
+                smartbox_port: 11
+                tpm: "7"
+                tpm_input: 1
+              "18":
+                location_offset:
+                  east: 4.967
+                  north: -0.814
+                  up: 0.018
+                eep: 18
+                smartbox: "19"
+                smartbox_port: 3
+                tpm: "13"
+                tpm_input: 3
+              "19":
+                location_offset:
+                  east: -3.201
+                  north: 4.175
+                  up: 0.013
+                eep: 19
+                smartbox: "4"
+                smartbox_port: 8
+                tpm: "3"
+                tpm_input: 8
+              "20":
+                location_offset:
+                  east: -0.476
+                  north: -5.26
+                  up: -0.02
+                eep: 20
+                smartbox: "15"
+                smartbox_port: 1
+                tpm: "10"
+                tpm_input: 8
+              "21":
+                location_offset:
+                  east: 4.011
+                  north: 3.75
+                  up: 0.021
+                eep: 21
+                smartbox: "21"
+                smartbox_port: 5
+                tpm: "14"
+                tpm_input: 10
+              "22":
+                location_offset:
+                  east: -5.594
+                  north: 0.014
+                  up: -0.022
+                eep: 22
+                smartbox: "7"
+                smartbox_port: 9
+                tpm: "5"
+                tpm_input: 10
+              "23":
+                location_offset:
+                  east: 4.194
+                  north: -3.794
+                  up: -0.001
+                eep: 23
+                smartbox: "16"
+                smartbox_port: 2
+                tpm: "11"
+                tpm_input: 3
+              "24":
+                location_offset:
+                  east: -0.561
+                  north: 5.84
+                  up: 0.016
+                eep: 24
+                smartbox: "5"
+                smartbox_port: 5
+                tpm: "3"
+                tpm_input: 16
+              "25":
+                location_offset:
+                  east: -3.618
+                  north: -4.691
+                  up: 0.009
+                eep: 25
+                smartbox: "9"
+                smartbox_port: 9
+                tpm: "6"
+                tpm_input: 15
+              "26":
+                location_offset:
+                  east: 5.973
+                  north: 1.098
+                  up: 0.025
+                eep: 26
+                smartbox: "19"
+                smartbox_port: 2
+                tpm: "13"
+                tpm_input: 2
+              "27":
+                location_offset:
+                  east: -5.257
+                  north: 3.315
+                  up: 0.006
+                eep: 27
+                smartbox: "4"
+                smartbox_port: 6
+                tpm: "3"
+                tpm_input: 6
+              "28":
+                location_offset:
+                  east: 1.636
+                  north: -6.05
+                  up: -0.022
+                eep: 28
+                smartbox: "15"
+                smartbox_port: 10
+                tpm: "11"
+                tpm_input: 1
+              "29":
+                location_offset:
+                  east: 2.912
+                  north: 5.74
+                  up: 0.015
+                eep: 29
+                smartbox: "5"
+                smartbox_port: 7
+                tpm: "4"
+                tpm_input: 2
+              "30":
+                location_offset:
+                  east: -6.135
+                  north: -2.224
+                  up: -0.036
+                eep: 30
+                smartbox: "7"
+                smartbox_port: 7
+                tpm: "5"
+                tpm_input: 8
+              "31":
+                location_offset:
+                  east: 6.119
+                  north: -2.492
+                  up: 0.002
+                eep: 31
+                smartbox: "19"
+                smartbox_port: 4
+                tpm: "13"
+                tpm_input: 4
+              "32":
+                location_offset:
+                  east: -2.898
+                  north: 6.097
+                  up: 0.027
+                eep: 32
+                smartbox: "5"
+                smartbox_port: 3
+                tpm: "3"
+                tpm_input: 14
+              "33":
+                location_offset:
+                  east: -2.053
+                  north: -6.478
+                  up: -0.043
+                eep: 33
+                smartbox: "15"
+                smartbox_port: 3
+                tpm: "10"
+                tpm_input: 10
+              "34":
+                location_offset:
+                  east: 5.968
+                  north: 3.545
+                  up: 0.03
+                eep: 34
+                smartbox: "21"
+                smartbox_port: 6
+                tpm: "14"
+                tpm_input: 11
+              "35":
+                location_offset:
+                  east: -6.892
+                  north: 1.519
+                  up: -0.03
+                eep: 35
+                smartbox: "7"
+                smartbox_port: 11
+                tpm: "5"
+                tpm_input: 12
+              "36":
+                location_offset:
+                  east: 4.101
+                  north: -5.788
+                  up: 0.0
+                eep: 36
+                smartbox: "16"
+                smartbox_port: 3
+                tpm: "11"
+                tpm_input: 4
+              "37":
+                location_offset:
+                  east: 0.896
+                  north: 7.236
+                  up: 0.028
+                eep: 37
+                smartbox: "5"
+                smartbox_port: 8
+                tpm: "4"
+                tpm_input: 3
+              "38":
+                location_offset:
+                  east: -5.624
+                  north: -4.722
+                  up: -0.041
+                eep: 38
+                smartbox: "9"
+                smartbox_port: 1
+                tpm: "6"
+                tpm_input: 7
+              "39":
+                location_offset:
+                  east: 7.423
+                  north: -0.245
+                  up: 0.023
+                eep: 39
+                smartbox: "19"
+                smartbox_port: 5
+                tpm: "13"
+                tpm_input: 5
+              "40":
+                location_offset:
+                  east: -5.34
+                  north: 5.297
+                  up: 0.022
+                eep: 40
+                smartbox: "4"
+                smartbox_port: 7
+                tpm: "3"
+                tpm_input: 7
+              "41":
+                location_offset:
+                  east: 0.346
+                  north: -7.585
+                  up: -0.035
+                eep: 41
+                smartbox: "15"
+                smartbox_port: 2
+                tpm: "10"
+                tpm_input: 9
+              "42":
+                location_offset:
+                  east: 4.899
+                  north: 5.964
+                  up: 0.036
+                eep: 42
+                smartbox: "21"
+                smartbox_port: 4
+                tpm: "14"
+                tpm_input: 9
+              "43":
+                location_offset:
+                  east: -7.748
+                  north: -1.027
+                  up: -0.036
+                eep: 43
+                smartbox: "7"
+                smartbox_port: 6
+                tpm: "5"
+                tpm_input: 7
+              "44":
+                location_offset:
+                  east: 6.487
+                  north: -4.454
+                  up: 0.012
+                eep: 44
+                smartbox: "16"
+                smartbox_port: 1
+                tpm: "11"
+                tpm_input: 2
+              "45":
+                location_offset:
+                  east: -1.809
+                  north: 7.831
+                  up: 0.02
+                eep: 45
+                smartbox: "5"
+                smartbox_port: 2
+                tpm: "3"
+                tpm_input: 13
+              "46":
+                location_offset:
+                  east: -4.004
+                  north: -6.986
+                  up: -0.036
+                eep: 46
+                smartbox: "9"
+                smartbox_port: 8
+                tpm: "6"
+                tpm_input: 14
+              "47":
+                location_offset:
+                  east: 7.766
+                  north: 2.545
+                  up: 0.039
+                eep: 47
+                smartbox: "21"
+                smartbox_port: 7
+                tpm: "14"
+                tpm_input: 12
+              "48":
+                location_offset:
+                  east: -7.296
+                  north: 3.362
+                  up: -0.031
+                eep: 48
+                smartbox: "4"
+                smartbox_port: 5
+                tpm: "3"
+                tpm_input: 5
+              "49":
+                location_offset:
+                  east: 3.209
+                  north: -7.648
+                  up: -0.002
+                eep: 49
+                smartbox: "16"
+                smartbox_port: 5
+                tpm: "11"
+                tpm_input: 6
+              "50":
+                location_offset:
+                  east: 2.799
+                  north: 7.943
+                  up: 0.022
+                eep: 50
+                smartbox: "21"
+                smartbox_port: 3
+                tpm: "14"
+                tpm_input: 8
+              "51":
+                location_offset:
+                  east: -7.533
+                  north: -3.93
+                  up: -0.044
+                eep: 51
+                smartbox: "9"
+                smartbox_port: 2
+                tpm: "6"
+                tpm_input: 8
+              "52":
+                location_offset:
+                  east: 8.304
+                  north: -2.119
+                  up: 0.019
+                eep: 52
+                smartbox: "19"
+                smartbox_port: 6
+                tpm: "13"
+                tpm_input: 6
+              "53":
+                location_offset:
+                  east: -4.72
+                  north: 7.314
+                  up: 0.023
+                eep: 53
+                smartbox: "4"
+                smartbox_port: 9
+                tpm: "3"
+                tpm_input: 9
+              "54":
+                location_offset:
+                  east: -1.461
+                  north: -8.565
+                  up: -0.044
+                eep: 54
+                smartbox: "15"
+                smartbox_port: 4
+                tpm: "10"
+                tpm_input: 11
+              "55":
+                location_offset:
+                  east: 6.951
+                  north: 5.462
+                  up: 0.041
+                eep: 55
+                smartbox: "21"
+                smartbox_port: 8
+                tpm: "14"
+                tpm_input: 13
+              "56":
+                location_offset:
+                  east: -8.906
+                  north: 0.739
+                  up: -0.034
+                eep: 56
+                smartbox: "7"
+                smartbox_port: 3
+                tpm: "5"
+                tpm_input: 4
+              "57":
+                location_offset:
+                  east: 6.092
+                  north: -6.523
+                  up: 0.009
+                eep: 57
+                smartbox: "16"
+                smartbox_port: 4
+                tpm: "11"
+                tpm_input: 5
+              "58":
+                location_offset:
+                  east: -0.078
+                  north: 9.092
+                  up: 0.009
+                eep: 58
+                smartbox: "5"
+                smartbox_port: 9
+                tpm: "4"
+                tpm_input: 4
+              "59":
+                location_offset:
+                  east: -6.159
+                  north: -6.743
+                  up: -0.044
+                eep: 59
+                smartbox: "9"
+                smartbox_port: 5
+                tpm: "6"
+                tpm_input: 11
+              "60":
+                location_offset:
+                  east: 9.153
+                  north: 0.91
+                  up: 0.035
+                eep: 60
+                smartbox: "19"
+                smartbox_port: 8
+                tpm: "13"
+                tpm_input: 8
+              "61":
+                location_offset:
+                  east: -7.432
+                  north: 5.617
+                  up: -0.001
+                eep: 61
+                smartbox: "4"
+                smartbox_port: 4
+                tpm: "3"
+                tpm_input: 4
+              "62":
+                location_offset:
+                  east: 1.692
+                  north: -9.182
+                  up: -0.04
+                eep: 62
+                smartbox: "15"
+                smartbox_port: 9
+                tpm: "10"
+                tpm_input: 16
+              "63":
+                location_offset:
+                  east: 4.99
+                  north: 8.052
+                  up: 0.03
+                eep: 63
+                smartbox: "21"
+                smartbox_port: 2
+                tpm: "14"
+                tpm_input: 7
+              "64":
+                location_offset:
+                  east: -9.184
+                  north: -2.526
+                  up: -0.059
+                eep: 64
+                smartbox: "7"
+                smartbox_port: 5
+                tpm: "5"
+                tpm_input: 6
+              "65":
+                location_offset:
+                  east: 8.516
+                  north: -4.312
+                  up: 0.031
+                eep: 65
+                smartbox: "16"
+                smartbox_port: 10
+                tpm: "11"
+                tpm_input: 11
+              "66":
+                location_offset:
+                  east: -3.42
+                  north: 9.074
+                  up: 0.004
+                eep: 66
+                smartbox: "4"
+                smartbox_port: 10
+                tpm: "3"
+                tpm_input: 10
+              "67":
+                location_offset:
+                  east: -3.657
+                  north: -9.009
+                  up: -0.041
+                eep: 67
+                smartbox: "9"
+                smartbox_port: 7
+                tpm: "6"
+                tpm_input: 13
+              "68":
+                location_offset:
+                  east: 8.819
+                  north: 4.277
+                  up: 0.049
+                eep: 68
+                smartbox: "21"
+                smartbox_port: 9
+                tpm: "14"
+                tpm_input: 14
+              "69":
+                location_offset:
+                  east: -9.467
+                  north: 2.895
+                  up: -0.023
+                eep: 69
+                smartbox: "7"
+                smartbox_port: 1
+                tpm: "5"
+                tpm_input: 2
+              "70":
+                location_offset:
+                  east: 5.044
+                  north: -8.531
+                  up: -0.005
+                eep: 70
+                smartbox: "16"
+                smartbox_port: 6
+                tpm: "11"
+                tpm_input: 7
+              "71":
+                location_offset:
+                  east: 2.076
+                  north: 9.836
+                  up: 0.02
+                eep: 71
+                smartbox: "5"
+                smartbox_port: 10
+                tpm: "4"
+                tpm_input: 5
+              "72":
+                location_offset:
+                  east: -7.918
+                  north: -5.849
+                  up: -0.049
+                eep: 72
+                smartbox: "9"
+                smartbox_port: 3
+                tpm: "6"
+                tpm_input: 9
+              "73":
+                location_offset:
+                  east: 10.082
+                  north: -1.202
+                  up: 0.038
+                eep: 73
+                smartbox: "19"
+                smartbox_port: 7
+                tpm: "13"
+                tpm_input: 7
+              "74":
+                location_offset:
+                  east: -6.686
+                  north: 7.818
+                  up: 0.014
+                eep: 74
+                smartbox: "4"
+                smartbox_port: 1
+                tpm: "3"
+                tpm_input: 1
+              "75":
+                location_offset:
+                  east: -0.352
+                  north: -10.277
+                  up: -0.037
+                eep: 75
+                smartbox: "15"
+                smartbox_port: 6
+                tpm: "10"
+                tpm_input: 13
+              "76":
+                location_offset:
+                  east: 7.247
+                  north: 7.458
+                  up: 0.038
+                eep: 76
+                smartbox: "21"
+                smartbox_port: 10
+                tpm: "14"
+                tpm_input: 15
+              "77":
+                location_offset:
+                  east: -10.446
+                  north: -0.556
+                  up: -0.047
+                eep: 77
+                smartbox: "7"
+                smartbox_port: 4
+                tpm: "5"
+                tpm_input: 5
+              "78":
+                location_offset:
+                  east: 8.112
+                  north: -6.62
+                  up: 0.025
+                eep: 78
+                smartbox: "16"
+                smartbox_port: 8
+                tpm: "11"
+                tpm_input: 9
+              "79":
+                location_offset:
+                  east: -1.528
+                  north: 10.526
+                  up: 0.009
+                eep: 79
+                smartbox: "5"
+                smartbox_port: 1
+                tpm: "3"
+                tpm_input: 12
+              "80":
+                location_offset:
+                  east: -6.016
+                  north: -8.737
+                  up: -0.019
+                eep: 80
+                smartbox: "9"
+                smartbox_port: 6
+                tpm: "6"
+                tpm_input: 12
+              "81":
+                location_offset:
+                  east: 10.418
+                  north: 2.472
+                  up: 0.033
+                eep: 81
+                smartbox: "19"
+                smartbox_port: 10
+                tpm: "13"
+                tpm_input: 10
+              "82":
+                location_offset:
+                  east: -9.416
+                  north: 5.326
+                  up: -0.01
+                eep: 82
+                smartbox: "4"
+                smartbox_port: 3
+                tpm: "3"
+                tpm_input: 3
+              "83":
+                location_offset:
+                  east: 3.369
+                  north: -10.246
+                  up: -0.015
+                eep: 83
+                smartbox: "15"
+                smartbox_port: 8
+                tpm: "10"
+                tpm_input: 15
+              "84":
+                location_offset:
+                  east: 4.482
+                  north: 9.957
+                  up: 0.043
+                eep: 84
+                smartbox: "21"
+                smartbox_port: 1
+                tpm: "14"
+                tpm_input: 6
+              "85":
+                location_offset:
+                  east: -10.097
+                  north: -4.269
+                  up: -0.057
+                eep: 85
+                smartbox: "8"
+                smartbox_port: 8
+                tpm: "6"
+                tpm_input: 4
+              "86":
+                location_offset:
+                  east: 10.393
+                  north: -3.617
+                  up: 0.038
+                eep: 86
+                smartbox: "16"
+                smartbox_port: 11
+                tpm: "11"
+                tpm_input: 12
+              "87":
+                location_offset:
+                  east: -5.277
+                  north: 9.829
+                  up: 0.014
+                eep: 87
+                smartbox: "4"
+                smartbox_port: 11
+                tpm: "3"
+                tpm_input: 11
+              "88":
+                location_offset:
+                  east: -2.754
+                  north: -10.787
+                  up: -0.086
+                eep: 88
+                smartbox: "15"
+                smartbox_port: 5
+                tpm: "10"
+                tpm_input: 12
+              "89":
+                location_offset:
+                  east: 9.358
+                  north: 6.183
+                  up: 0.041
+                eep: 89
+                smartbox: "22"
+                smartbox_port: 4
+                tpm: "15"
+                tpm_input: 4
+              "90":
+                location_offset:
+                  east: -11.145
+                  north: 1.872
+                  up: -0.041
+                eep: 90
+                smartbox: "7"
+                smartbox_port: 2
+                tpm: "5"
+                tpm_input: 3
+              "91":
+                location_offset:
+                  east: 7.011
+                  north: -8.864
+                  up: 0.022
+                eep: 91
+                smartbox: "16"
+                smartbox_port: 7
+                tpm: "11"
+                tpm_input: 8
+              "92":
+                location_offset:
+                  east: 0.799
+                  north: 11.433
+                  up: 0.015
+                eep: 92
+                smartbox: "5"
+                smartbox_port: 11
+                tpm: "4"
+                tpm_input: 6
+              "93":
+                location_offset:
+                  east: -8.355
+                  north: -7.862
+                  up: -0.045
+                eep: 93
+                smartbox: "9"
+                smartbox_port: 4
+                tpm: "6"
+                tpm_input: 10
+              "94":
+                location_offset:
+                  east: 11.512
+                  north: 0.175
+                  up: 0.046
+                eep: 94
+                smartbox: "19"
+                smartbox_port: 9
+                tpm: "13"
+                tpm_input: 9
+              "95":
+                location_offset:
+                  east: -8.676
+                  north: 7.754
+                  up: -0.008
+                eep: 95
+                smartbox: "4"
+                smartbox_port: 2
+                tpm: "3"
+                tpm_input: 2
+              "96":
+                location_offset:
+                  east: 1.158
+                  north: -11.584
+                  up: -0.007
+                eep: 96
+                smartbox: "12"
+                smartbox_port: 11
+                tpm: "9"
+                tpm_input: 1
+              "97":
+                location_offset:
+                  east: 6.997
+                  north: 9.423
+                  up: 0.049
+                eep: 97
+                smartbox: "21"
+                smartbox_port: 11
+                tpm: "14"
+                tpm_input: 16
+              "98":
+                location_offset:
+                  east: -11.592
+                  north: -2.17
+                  up: -0.062
+                eep: 98
+                smartbox: "8"
+                smartbox_port: 10
+                tpm: "6"
+                tpm_input: 6
+              "99":
+                location_offset:
+                  east: 10.046
+                  north: -6.195
+                  up: 0.044
+                eep: 99
+                smartbox: "16"
+                smartbox_port: 9
+                tpm: "11"
+                tpm_input: 10
+              "100":
+                location_offset:
+                  east: -3.25
+                  north: 11.478
+                  up: 0.023
+                eep: 100
+                smartbox: "1"
+                smartbox_port: 5
+                tpm: "1"
+                tpm_input: 5
+              "101":
+                location_offset:
+                  east: -5.407
+                  north: -10.648
+                  up: -0.034
+                eep: 101
+                smartbox: "11"
+                smartbox_port: 10
+                tpm: "8"
+                tpm_input: 6
+              "102":
+                location_offset:
+                  east: 11.221
+                  north: 4.324
+                  up: 0.048
+                eep: 102
+                smartbox: "19"
+                smartbox_port: 11
+                tpm: "13"
+                tpm_input: 11
+              "103":
+                location_offset:
+                  east: -11.226
+                  north: 4.52
+                  up: -0.043
+                eep: 103
+                smartbox: "3"
+                smartbox_port: 9
+                tpm: "2"
+                tpm_input: 14
+              "104":
+                location_offset:
+                  east: 5.258
+                  north: -10.896
+                  up: -0.001
+                eep: 104
+                smartbox: "13"
+                smartbox_port: 1
+                tpm: "9"
+                tpm_input: 2
+              "105":
+                location_offset:
+                  east: 3.49
+                  north: 11.709
+                  up: 0.038
+                eep: 105
+                smartbox: "24"
+                smartbox_port: 5
+                tpm: "16"
+                tpm_input: 10
+              "106":
+                location_offset:
+                  east: -10.529
+                  north: -6.256
+                  up: -0.048
+                eep: 106
+                smartbox: "10"
+                smartbox_port: 11
+                tpm: "7"
+                tpm_input: 12
+              "107":
+                location_offset:
+                  east: 12.05
+                  north: -2.438
+                  up: 0.064
+                eep: 107
+                smartbox: "17"
+                smartbox_port: 2
+                tpm: "11"
+                tpm_input: 14
+              "108":
+                location_offset:
+                  east: -7.281
+                  north: 10.057
+                  up: 0.005
+                eep: 108
+                smartbox: "2"
+                smartbox_port: 8
+                tpm: "2"
+                tpm_input: 2
+              "109":
+                location_offset:
+                  east: -1.456
+                  north: -12.279
+                  up: -0.038
+                eep: 109
+                smartbox: "12"
+                smartbox_port: 2
+                tpm: "8"
+                tpm_input: 8
+              "110":
+                location_offset:
+                  east: 9.418
+                  north: 8.187
+                  up: 0.041
+                eep: 110
+                smartbox: "22"
+                smartbox_port: 3
+                tpm: "15"
+                tpm_input: 3
+              "111":
+                location_offset:
+                  east: -12.563
+                  north: 0.399
+                  up: -0.069
+                eep: 111
+                smartbox: "6"
+                smartbox_port: 9
+                tpm: "4"
+                tpm_input: 15
+              "112":
+                location_offset:
+                  east: 9.021
+                  north: -8.71
+                  up: 0.016
+                eep: 112
+                smartbox: "14"
+                smartbox_port: 3
+                tpm: "9"
+                tpm_input: 15
+              "113":
+                location_offset:
+                  east: -0.746
+                  north: 12.648
+                  up: 0.019
+                eep: 113
+                smartbox: "1"
+                smartbox_port: 7
+                tpm: "1"
+                tpm_input: 7
+              "114":
+                location_offset:
+                  east: -8.014
+                  north: -9.849
+                  up: -0.076
+                eep: 114
+                smartbox: "10"
+                smartbox_port: 9
+                tpm: "7"
+                tpm_input: 10
+              "115":
+                location_offset:
+                  east: 12.592
+                  north: 1.918
+                  up: 0.058
+                eep: 115
+                smartbox: "20"
+                smartbox_port: 3
+                tpm: "13"
+                tpm_input: 14
+              "116":
+                location_offset:
+                  east: -10.633
+                  north: 7.248
+                  up: -0.027
+                eep: 116
+                smartbox: "3"
+                smartbox_port: 10
+                tpm: "2"
+                tpm_input: 15
+              "117":
+                location_offset:
+                  east: 2.979
+                  north: -12.494
+                  up: -0.006
+                eep: 117
+                smartbox: "15"
+                smartbox_port: 7
+                tpm: "10"
+                tpm_input: 14
+              "118":
+                location_offset:
+                  east: 6.269
+                  north: 11.344
+                  up: 0.046
+                eep: 118
+                smartbox: "23"
+                smartbox_port: 3
+                tpm: "15"
+                tpm_input: 14
+              "119":
+                location_offset:
+                  east: -12.334
+                  north: -4.081
+                  up: -0.069
+                eep: 119
+                smartbox: "8"
+                smartbox_port: 9
+                tpm: "6"
+                tpm_input: 5
+              "120":
+                location_offset:
+                  east: 11.893
+                  north: -5.281
+                  up: 0.071
+                eep: 120
+                smartbox: "17"
+                smartbox_port: 4
+                tpm: "11"
+                tpm_input: 16
+              "121":
+                location_offset:
+                  east: -5.231
+                  north: 12.066
+                  up: 0.018
+                eep: 121
+                smartbox: "1"
+                smartbox_port: 4
+                tpm: "1"
+                tpm_input: 4
+              "122":
+                location_offset:
+                  east: -4.314
+                  north: -12.366
+                  up: -0.042
+                eep: 122
+                smartbox: "11"
+                smartbox_port: 9
+                tpm: "8"
+                tpm_input: 5
+              "123":
+                location_offset:
+                  east: 11.572
+                  north: 6.335
+                  up: 0.035
+                eep: 123
+                smartbox: "22"
+                smartbox_port: 5
+                tpm: "15"
+                tpm_input: 5
+              "124":
+                location_offset:
+                  east: -12.874
+                  north: 3.284
+                  up: -0.059
+                eep: 124
+                smartbox: "3"
+                smartbox_port: 8
+                tpm: "2"
+                tpm_input: 13
+              "125":
+                location_offset:
+                  east: 7.312
+                  north: -11.067
+                  up: 0.017
+                eep: 125
+                smartbox: "13"
+                smartbox_port: 11
+                tpm: "9"
+                tpm_input: 12
+              "126":
+                location_offset:
+                  east: 2.065
+                  north: 13.244
+                  up: 0.03
+                eep: 126
+                smartbox: "24"
+                smartbox_port: 4
+                tpm: "16"
+                tpm_input: 9
+              "127":
+                location_offset:
+                  east: -10.518
+                  north: -8.321
+                  up: -0.068
+                eep: 127
+                smartbox: "10"
+                smartbox_port: 10
+                tpm: "7"
+                tpm_input: 11
+              "128":
+                location_offset:
+                  east: 13.402
+                  north: -0.911
+                  up: 0.065
+                eep: 128
+                smartbox: "20"
+                smartbox_port: 5
+                tpm: "13"
+                tpm_input: 16
+              "129":
+                location_offset:
+                  east: -9.347
+                  north: 9.855
+                  up: -0.026
+                eep: 129
+                smartbox: "2"
+                smartbox_port: 7
+                tpm: "2"
+                tpm_input: 1
+              "130":
+                location_offset:
+                  east: 0.254
+                  north: -13.543
+                  up: -0.02
+                eep: 130
+                smartbox: "12"
+                smartbox_port: 1
+                tpm: "8"
+                tpm_input: 7
+              "131":
+                location_offset:
+                  east: 9.008
+                  north: 10.229
+                  up: 0.04
+                eep: 131
+                smartbox: "23"
+                smartbox_port: 5
+                tpm: "15"
+                tpm_input: 16
+              "132":
+                location_offset:
+                  east: -13.602
+                  north: -1.404
+                  up: -0.082
+                eep: 132
+                smartbox: "6"
+                smartbox_port: 8
+                tpm: "4"
+                tpm_input: 14
+              "133":
+                location_offset:
+                  east: 11.018
+                  north: -8.104
+                  up: 0.03
+                eep: 133
+                smartbox: "14"
+                smartbox_port: 1
+                tpm: "9"
+                tpm_input: 13
+              "134":
+                location_offset:
+                  east: -2.658
+                  north: 13.574
+                  up: 0.028
+                eep: 134
+                smartbox: "1"
+                smartbox_port: 6
+                tpm: "1"
+                tpm_input: 6
+              "135":
+                location_offset:
+                  east: -7.204
+                  north: -11.755
+                  up: -0.056
+                eep: 135
+                smartbox: "11"
+                smartbox_port: 1
+                tpm: "7"
+                tpm_input: 13
+              "136":
+                location_offset:
+                  east: 13.296
+                  north: 3.887
+                  up: 0.06
+                eep: 136
+                smartbox: "20"
+                smartbox_port: 2
+                tpm: "13"
+                tpm_input: 13
+              "137":
+                location_offset:
+                  east: -12.488
+                  north: 6.202
+                  up: -0.045
+                eep: 137
+                smartbox: "3"
+                smartbox_port: 7
+                tpm: "2"
+                tpm_input: 12
+              "138":
+                location_offset:
+                  east: 5.036
+                  north: -12.991
+                  up: -0.014
+                eep: 138
+                smartbox: "13"
+                smartbox_port: 2
+                tpm: "9"
+                tpm_input: 3
+              "139":
+                location_offset:
+                  east: 5.104
+                  north: 13.082
+                  up: 0.043
+                eep: 139
+                smartbox: "24"
+                smartbox_port: 6
+                tpm: "16"
+                tpm_input: 11
+              "140":
+                location_offset:
+                  east: -12.685
+                  north: -6.158
+                  up: -0.073
+                eep: 140
+                smartbox: "8"
+                smartbox_port: 7
+                tpm: "6"
+                tpm_input: 3
+              "141":
+                location_offset:
+                  east: 13.562
+                  north: -3.959
+                  up: 0.085
+                eep: 141
+                smartbox: "17"
+                smartbox_port: 3
+                tpm: "11"
+                tpm_input: 15
+              "142":
+                location_offset:
+                  east: -7.346
+                  north: 12.181
+                  up: -0.012
+                eep: 142
+                smartbox: "2"
+                smartbox_port: 9
+                tpm: "2"
+                tpm_input: 3
+              "143":
+                location_offset:
+                  east: -2.799
+                  north: -13.921
+                  up: -0.055
+                eep: 143
+                smartbox: "12"
+                smartbox_port: 3
+                tpm: "8"
+                tpm_input: 9
+              "144":
+                location_offset:
+                  east: 11.516
+                  north: 8.481
+                  up: 0.039
+                eep: 144
+                smartbox: "22"
+                smartbox_port: 2
+                tpm: "15"
+                tpm_input: 2
+              "145":
+                location_offset:
+                  east: -14.261
+                  north: 1.598
+                  up: -0.111
+                eep: 145
+                smartbox: "6"
+                smartbox_port: 10
+                tpm: "4"
+                tpm_input: 16
+              "146":
+                location_offset:
+                  east: 9.458
+                  north: -10.77
+                  up: 0.022
+                eep: 146
+                smartbox: "14"
+                smartbox_port: 4
+                tpm: "9"
+                tpm_input: 16
+              "147":
+                location_offset:
+                  east: 0.318
+                  north: 14.456
+                  up: 0.029
+                eep: 147
+                smartbox: "24"
+                smartbox_port: 3
+                tpm: "16"
+                tpm_input: 8
+              "148":
+                location_offset:
+                  east: -10.021
+                  north: -10.425
+                  up: -0.03
+                eep: 148
+                smartbox: "10"
+                smartbox_port: 8
+                tpm: "7"
+                tpm_input: 9
+              "149":
+                location_offset:
+                  east: 14.455
+                  north: 0.988
+                  up: 0.069
+                eep: 149
+                smartbox: "20"
+                smartbox_port: 4
+                tpm: "13"
+                tpm_input: 15
+              "150":
+                location_offset:
+                  east: -11.392
+                  north: 9.148
+                  up: -0.008
+                eep: 150
+                smartbox: "3"
+                smartbox_port: 11
+                tpm: "2"
+                tpm_input: 16
+              "151":
+                location_offset:
+                  east: 2.193
+                  north: -14.437
+                  up: -0.03
+                eep: 151
+                smartbox: "13"
+                smartbox_port: 3
+                tpm: "9"
+                tpm_input: 4
+              "152":
+                location_offset:
+                  east: 8.143
+                  north: 12.221
+                  up: 0.047
+                eep: 152
+                smartbox: "23"
+                smartbox_port: 4
+                tpm: "15"
+                tpm_input: 15
+              "153":
+                location_offset:
+                  east: -14.322
+                  north: -3.465
+                  up: -0.075
+                eep: 153
+                smartbox: "8"
+                smartbox_port: 1
+                tpm: "5"
+                tpm_input: 13
+              "154":
+                location_offset:
+                  east: 12.915
+                  north: -7.085
+                  up: 0.069
+                eep: 154
+                smartbox: "17"
+                smartbox_port: 5
+                tpm: "12"
+                tpm_input: 1
+              "155":
+                location_offset:
+                  east: -4.752
+                  north: 14.09
+                  up: 0.004
+                eep: 155
+                smartbox: "1"
+                smartbox_port: 3
+                tpm: "1"
+                tpm_input: 3
+              "156":
+                location_offset:
+                  east: -6.019
+                  north: -13.565
+                  up: -0.064
+                eep: 156
+                smartbox: "11"
+                smartbox_port: 8
+                tpm: "8"
+                tpm_input: 4
+              "157":
+                location_offset:
+                  east: 13.638
+                  north: 6.055
+                  up: 0.051
+                eep: 157
+                smartbox: "22"
+                smartbox_port: 6
+                tpm: "15"
+                tpm_input: 6
+              "158":
+                location_offset:
+                  east: -14.182
+                  north: 4.87
+                  up: -0.055
+                eep: 158
+                smartbox: "3"
+                smartbox_port: 6
+                tpm: "2"
+                tpm_input: 11
+              "159":
+                location_offset:
+                  east: 7.204
+                  north: -13.118
+                  up: -0.005
+                eep: 159
+                smartbox: "13"
+                smartbox_port: 10
+                tpm: "9"
+                tpm_input: 11
+              "160":
+                location_offset:
+                  east: 3.574
+                  north: 14.664
+                  up: 0.026
+                eep: 160
+                smartbox: "24"
+                smartbox_port: 7
+                tpm: "16"
+                tpm_input: 12
+              "161":
+                location_offset:
+                  east: -12.578
+                  north: -8.373
+                  up: -0.059
+                eep: 161
+                smartbox: "10"
+                smartbox_port: 1
+                tpm: "7"
+                tpm_input: 2
+              "162":
+                location_offset:
+                  east: 14.961
+                  north: -2.247
+                  up: 0.097
+                eep: 162
+                smartbox: "17"
+                smartbox_port: 1
+                tpm: "11"
+                tpm_input: 13
+              "163":
+                location_offset:
+                  east: -9.505
+                  north: 11.87
+                  up: 0.016
+                eep: 163
+                smartbox: "2"
+                smartbox_port: 6
+                tpm: "1"
+                tpm_input: 16
+              "164":
+                location_offset:
+                  east: -0.991
+                  north: -15.159
+                  up: -0.035
+                eep: 164
+                smartbox: "12"
+                smartbox_port: 4
+                tpm: "8"
+                tpm_input: 10
+              "165":
+                location_offset:
+                  east: 11.005
+                  north: 10.632
+                  up: 0.052
+                eep: 165
+                smartbox: "23"
+                smartbox_port: 7
+                tpm: "16"
+                tpm_input: 2
+              "166":
+                location_offset:
+                  east: -15.359
+                  north: -0.313
+                  up: -0.089
+                eep: 166
+                smartbox: "6"
+                smartbox_port: 7
+                tpm: "4"
+                tpm_input: 13
+              "167":
+                location_offset:
+                  east: 11.561
+                  north: -10.092
+                  up: 0.035
+                eep: 167
+                smartbox: "14"
+                smartbox_port: 2
+                tpm: "9"
+                tpm_input: 14
+              "168":
+                location_offset:
+                  east: -1.715
+                  north: 15.36
+                  up: 0.019
+                eep: 168
+                smartbox: "1"
+                smartbox_port: 8
+                tpm: "1"
+                tpm_input: 8
+              "169":
+                location_offset:
+                  east: -9.161
+                  north: -12.466
+                  up: -0.022
+                eep: 169
+                smartbox: "11"
+                smartbox_port: 2
+                tpm: "7"
+                tpm_input: 14
+              "170":
+                location_offset:
+                  east: 15.188
+                  north: 3.072
+                  up: 0.073
+                eep: 170
+                smartbox: "20"
+                smartbox_port: 1
+                tpm: "13"
+                tpm_input: 12
+              "171":
+                location_offset:
+                  east: -13.346
+                  north: 8.048
+                  up: -0.031
+                eep: 171
+                smartbox: "3"
+                smartbox_port: 4
+                tpm: "2"
+                tpm_input: 9
+              "172":
+                location_offset:
+                  east: 4.402
+                  north: -14.952
+                  up: -0.032
+                eep: 172
+                smartbox: "13"
+                smartbox_port: 4
+                tpm: "9"
+                tpm_input: 5
+              "173":
+                location_offset:
+                  east: 6.871
+                  north: 14.108
+                  up: 0.063
+                eep: 173
+                smartbox: "23"
+                smartbox_port: 2
+                tpm: "15"
+                tpm_input: 13
+              "174":
+                location_offset:
+                  east: -14.632
+                  north: -5.685
+                  up: -0.072
+                eep: 174
+                smartbox: "8"
+                smartbox_port: 6
+                tpm: "6"
+                tpm_input: 2
+              "175":
+                location_offset:
+                  east: 14.66
+                  north: -5.655
+                  up: 0.107
+                eep: 175
+                smartbox: "17"
+                smartbox_port: 6
+                tpm: "12"
+                tpm_input: 2
+              "176":
+                location_offset:
+                  east: -7.052
+                  north: 14.166
+                  up: 0.004
+                eep: 176
+                smartbox: "2"
+                smartbox_port: 10
+                tpm: "2"
+                tpm_input: 4
+              "177":
+                location_offset:
+                  east: -4.4
+                  north: -15.163
+                  up: -0.067
+                eep: 177
+                smartbox: "12"
+                smartbox_port: 5
+                tpm: "8"
+                tpm_input: 11
+              "178":
+                location_offset:
+                  east: 13.52
+                  north: 8.316
+                  up: 0.061
+                eep: 178
+                smartbox: "22"
+                smartbox_port: 11
+                tpm: "15"
+                tpm_input: 11
+              "179":
+                location_offset:
+                  east: -15.621
+                  north: 3.081
+                  up: -0.062
+                eep: 179
+                smartbox: "6"
+                smartbox_port: 11
+                tpm: "5"
+                tpm_input: 1
+              "180":
+                location_offset:
+                  east: 9.46
+                  north: -12.817
+                  up: 0.017
+                eep: 180
+                smartbox: "14"
+                smartbox_port: 5
+                tpm: "10"
+                tpm_input: 1
+              "181":
+                location_offset:
+                  east: 1.661
+                  north: 15.937
+                  up: 0.045
+                eep: 181
+                smartbox: "24"
+                smartbox_port: 2
+                tpm: "16"
+                tpm_input: 7
+              "182":
+                location_offset:
+                  east: -12.068
+                  north: -10.608
+                  up: -0.087
+                eep: 182
+                smartbox: "10"
+                smartbox_port: 6
+                tpm: "7"
+                tpm_input: 7
+              "183":
+                location_offset:
+                  east: 16.081
+                  north: -0.246
+                  up: 0.085
+                eep: 183
+                smartbox: "20"
+                smartbox_port: 6
+                tpm: "14"
+                tpm_input: 1
+              "184":
+                location_offset:
+                  east: -11.765
+                  north: 11.16
+                  up: -0.034
+                eep: 184
+                smartbox: "2"
+                smartbox_port: 5
+                tpm: "1"
+                tpm_input: 15
+              "185":
+                location_offset:
+                  east: 1.098
+                  north: -16.112
+                  up: -0.003
+                eep: 185
+                smartbox: "12"
+                smartbox_port: 10
+                tpm: "8"
+                tpm_input: 16
+              "186":
+                location_offset:
+                  east: 10.084
+                  north: 12.737
+                  up: 0.06
+                eep: 186
+                smartbox: "23"
+                smartbox_port: 6
+                tpm: "16"
+                tpm_input: 1
+              "187":
+                location_offset:
+                  east: -16.098
+                  north: -2.511
+                  up: -0.085
+                eep: 187
+                smartbox: "8"
+                smartbox_port: 2
+                tpm: "5"
+                tpm_input: 14
+              "188":
+                location_offset:
+                  east: 13.585
+                  north: -8.977
+                  up: 0.049
+                eep: 188
+                smartbox: "14"
+                smartbox_port: 11
+                tpm: "10"
+                tpm_input: 7
+              "189":
+                location_offset:
+                  east: -3.975
+                  north: 15.948
+                  up: 0.016
+                eep: 189
+                smartbox: "1"
+                smartbox_port: 2
+                tpm: "1"
+                tpm_input: 2
+              "190":
+                location_offset:
+                  east: -7.851
+                  north: -14.359
+                  up: -0.047
+                eep: 190
+                smartbox: "11"
+                smartbox_port: 3
+                tpm: "7"
+                tpm_input: 15
+              "191":
+                location_offset:
+                  east: 15.533
+                  north: 5.379
+                  up: 0.065
+                eep: 191
+                smartbox: "22"
+                smartbox_port: 7
+                tpm: "15"
+                tpm_input: 7
+              "192":
+                location_offset:
+                  east: -15.141
+                  north: 6.619
+                  up: -0.044
+                eep: 192
+                smartbox: "3"
+                smartbox_port: 5
+                tpm: "2"
+                tpm_input: 10
+              "193":
+                location_offset:
+                  east: 6.708
+                  north: -15.068
+                  up: -0.01
+                eep: 193
+                smartbox: "13"
+                smartbox_port: 7
+                tpm: "9"
+                tpm_input: 8
+              "194":
+                location_offset:
+                  east: 5.219
+                  north: 15.771
+                  up: 0.055
+                eep: 194
+                smartbox: "24"
+                smartbox_port: 8
+                tpm: "16"
+                tpm_input: 13
+              "195":
+                location_offset:
+                  east: -14.518
+                  north: -8.023
+                  up: -0.069
+                eep: 195
+                smartbox: "10"
+                smartbox_port: 2
+                tpm: "7"
+                tpm_input: 3
+              "196":
+                location_offset:
+                  east: 16.174
+                  north: -3.845
+                  up: 0.094
+                eep: 196
+                smartbox: "17"
+                smartbox_port: 9
+                tpm: "12"
+                tpm_input: 5
+              "197":
+                location_offset:
+                  east: -9.408
+                  north: 13.884
+                  up: -0.019
+                eep: 197
+                smartbox: "2"
+                smartbox_port: 3
+                tpm: "1"
+                tpm_input: 13
+              "198":
+                location_offset:
+                  east: -2.489
+                  north: -16.524
+                  up: -0.063
+                eep: 198
+                smartbox: "12"
+                smartbox_port: 6
+                tpm: "8"
+                tpm_input: 12
+              "199":
+                location_offset:
+                  east: 13.006
+                  north: 10.596
+                  up: 0.062
+                eep: 199
+                smartbox: "22"
+                smartbox_port: 1
+                tpm: "15"
+                tpm_input: 1
+              "200":
+                location_offset:
+                  east: -16.804
+                  north: 1.028
+                  up: -0.076
+                eep: 200
+                smartbox: "6"
+                smartbox_port: 6
+                tpm: "4"
+                tpm_input: 12
+              "201":
+                location_offset:
+                  east: 11.721
+                  north: -12.065
+                  up: 0.032
+                eep: 201
+                smartbox: "14"
+                smartbox_port: 6
+                tpm: "10"
+                tpm_input: 2
+              "202":
+                location_offset:
+                  east: -0.511
+                  north: 16.966
+                  up: 0.037
+                eep: 202
+                smartbox: "1"
+                smartbox_port: 9
+                tpm: "1"
+                tpm_input: 9
+              "203":
+                location_offset:
+                  east: -11.122
+                  north: -12.77
+                  up: -0.065
+                eep: 203
+                smartbox: "10"
+                smartbox_port: 7
+                tpm: "7"
+                tpm_input: 8
+              "204":
+                location_offset:
+                  east: 16.851
+                  north: 2.003
+                  up: 0.088
+                eep: 204
+                smartbox: "20"
+                smartbox_port: 9
+                tpm: "14"
+                tpm_input: 4
+              "205":
+                location_offset:
+                  east: -13.805
+                  north: 10.036
+                  up: -0.048
+                eep: 205
+                smartbox: "3"
+                smartbox_port: 2
+                tpm: "2"
+                tpm_input: 7
+              "206":
+                location_offset:
+                  east: 3.421
+                  north: -16.705
+                  up: -0.024
+                eep: 206
+                smartbox: "13"
+                smartbox_port: 5
+                tpm: "9"
+                tpm_input: 6
+              "207":
+                location_offset:
+                  east: 8.742
+                  north: 14.732
+                  up: 0.07
+                eep: 207
+                smartbox: "23"
+                smartbox_port: 1
+                tpm: "15"
+                tpm_input: 12
+              "208":
+                location_offset:
+                  east: -16.445
+                  north: -4.89
+                  up: -0.073
+                eep: 208
+                smartbox: "8"
+                smartbox_port: 4
+                tpm: "5"
+                tpm_input: 16
+              "209":
+                location_offset:
+                  east: 15.472
+                  north: -7.476
+                  up: 0.081
+                eep: 209
+                smartbox: "17"
+                smartbox_port: 7
+                tpm: "12"
+                tpm_input: 3
+              "210":
+                location_offset:
+                  east: -6.414
+                  north: 16.033
+                  up: 0.004
+                eep: 210
+                smartbox: "2"
+                smartbox_port: 11
+                tpm: "2"
+                tpm_input: 5
+              "211":
+                location_offset:
+                  east: -6.157
+                  north: -16.115
+                  up: -0.061
+                eep: 211
+                smartbox: "11"
+                smartbox_port: 6
+                tpm: "8"
+                tpm_input: 2
+              "212":
+                location_offset:
+                  east: 15.462
+                  north: 7.823
+                  up: 0.064
+                eep: 212
+                smartbox: "22"
+                smartbox_port: 9
+                tpm: "15"
+                tpm_input: 9
+              "213":
+                location_offset:
+                  east: -16.729
+                  north: 4.748
+                  up: -0.059
+                eep: 213
+                smartbox: "6"
+                smartbox_port: 1
+                tpm: "4"
+                tpm_input: 7
+              "214":
+                location_offset:
+                  east: 9.121
+                  north: -14.781
+                  up: 0.008
+                eep: 214
+                smartbox: "13"
+                smartbox_port: 9
+                tpm: "9"
+                tpm_input: 10
+              "215":
+                location_offset:
+                  east: 3.265
+                  north: 17.171
+                  up: 0.052
+                eep: 215
+                smartbox: "24"
+                smartbox_port: 11
+                tpm: "16"
+                tpm_input: 16
+              "216":
+                location_offset:
+                  east: -14.026
+                  north: -10.416
+                  up: -0.069
+                eep: 216
+                smartbox: "10"
+                smartbox_port: 4
+                tpm: "7"
+                tpm_input: 5
+              "217":
+                location_offset:
+                  east: 17.421
+                  north: -1.749
+                  up: 0.089
+                eep: 217
+                smartbox: "20"
+                smartbox_port: 7
+                tpm: "14"
+                tpm_input: 2
+              "218":
+                location_offset:
+                  east: -11.727
+                  north: 13.137
+                  up: -0.03
+                eep: 218
+                smartbox: "2"
+                smartbox_port: 4
+                tpm: "1"
+                tpm_input: 14
+              "219":
+                location_offset:
+                  east: -0.246
+                  north: -17.572
+                  up: -0.06
+                eep: 219
+                smartbox: "12"
+                smartbox_port: 7
+                tpm: "8"
+                tpm_input: 13
+              "220":
+                location_offset:
+                  east: 12.069
+                  north: 12.899
+                  up: 0.066
+                eep: 220
+                smartbox: "23"
+                smartbox_port: 8
+                tpm: "16"
+                tpm_input: 3
+              "221":
+                location_offset:
+                  east: -17.661
+                  north: -1.288
+                  up: -0.079
+                eep: 221
+                smartbox: "6"
+                smartbox_port: 5
+                tpm: "4"
+                tpm_input: 11
+              "222":
+                location_offset:
+                  east: 13.926
+                  north: -10.924
+                  up: 0.046
+                eep: 222
+                smartbox: "14"
+                smartbox_port: 9
+                tpm: "10"
+                tpm_input: 5
+              "223":
+                location_offset:
+                  east: -2.864
+                  north: 17.596
+                  up: 0.011
+                eep: 223
+                smartbox: "1"
+                smartbox_port: 10
+                tpm: "1"
+                tpm_input: 10
+              "224":
+                location_offset:
+                  east: -9.765
+                  north: -14.834
+                  up: -0.085
+                eep: 224
+                smartbox: "11"
+                smartbox_port: 4
+                tpm: "7"
+                tpm_input: 16
+              "225":
+                location_offset:
+                  east: 17.287
+                  north: 4.452
+                  up: 0.086
+                eep: 225
+                smartbox: "20"
+                smartbox_port: 10
+                tpm: "14"
+                tpm_input: 5
+              "226":
+                location_offset:
+                  east: -15.761
+                  north: 8.485
+                  up: -0.049
+                eep: 226
+                smartbox: "3"
+                smartbox_port: 3
+                tpm: "2"
+                tpm_input: 8
+              "227":
+                location_offset:
+                  east: 5.917
+                  north: -16.89
+                  up: -0.016
+                eep: 227
+                smartbox: "13"
+                smartbox_port: 6
+                tpm: "9"
+                tpm_input: 7
+              "228":
+                location_offset:
+                  east: 7.055
+                  north: 16.577
+                  up: 0.069
+                eep: 228
+                smartbox: "24"
+                smartbox_port: 9
+                tpm: "16"
+                tpm_input: 14
+              "229":
+                location_offset:
+                  east: -16.444
+                  north: -7.391
+                  up: -0.089
+                eep: 229
+                smartbox: "8"
+                smartbox_port: 5
+                tpm: "6"
+                tpm_input: 1
+              "230":
+                location_offset:
+                  east: 17.132
+                  north: -5.604
+                  up: 0.087
+                eep: 230
+                smartbox: "17"
+                smartbox_port: 8
+                tpm: "12"
+                tpm_input: 4
+              "231":
+                location_offset:
+                  east: -8.91
+                  north: 15.798
+                  up: -0.002
+                eep: 231
+                smartbox: "2"
+                smartbox_port: 1
+                tpm: "1"
+                tpm_input: 11
+              "232":
+                location_offset:
+                  east: -4.146
+                  north: -17.615
+                  up: -0.054
+                eep: 232
+                smartbox: "11"
+                smartbox_port: 7
+                tpm: "8"
+                tpm_input: 3
+              "233":
+                location_offset:
+                  east: 14.963
+                  north: 10.288
+                  up: 0.062
+                eep: 233
+                smartbox: "22"
+                smartbox_port: 10
+                tpm: "15"
+                tpm_input: 10
+              "234":
+                location_offset:
+                  east: -18.029
+                  north: 2.62
+                  up: -0.074
+                eep: 234
+                smartbox: "6"
+                smartbox_port: 3
+                tpm: "4"
+                tpm_input: 9
+              "235":
+                location_offset:
+                  east: 11.56
+                  north: -14.046
+                  up: 0.025
+                eep: 235
+                smartbox: "14"
+                smartbox_port: 7
+                tpm: "10"
+                tpm_input: 3
+              "236":
+                location_offset:
+                  east: 0.954
+                  north: 18.279
+                  up: 0.045
+                eep: 236
+                smartbox: "24"
+                smartbox_port: 1
+                tpm: "16"
+                tpm_input: 6
+              "237":
+                location_offset:
+                  east: -13.12
+                  north: -12.77
+                  up: -0.084
+                eep: 237
+                smartbox: "10"
+                smartbox_port: 5
+                tpm: "7"
+                tpm_input: 6
+              "238":
+                location_offset:
+                  east: 18.31
+                  north: 0.65
+                  up: 0.085
+                eep: 238
+                smartbox: "20"
+                smartbox_port: 8
+                tpm: "14"
+                tpm_input: 3
+              "239":
+                location_offset:
+                  east: -13.969
+                  north: 11.994
+                  up: -0.038
+                eep: 239
+                smartbox: "3"
+                smartbox_port: 1
+                tpm: "2"
+                tpm_input: 6
+              "240":
+                location_offset:
+                  east: 2.219
+                  north: -18.256
+                  up: -0.038
+                eep: 240
+                smartbox: "12"
+                smartbox_port: 9
+                tpm: "8"
+                tpm_input: 15
+              "241":
+                location_offset:
+                  east: 10.724
+                  north: 15.052
+                  up: 0.061
+                eep: 241
+                smartbox: "23"
+                smartbox_port: 10
+                tpm: "16"
+                tpm_input: 5
+              "242":
+                location_offset:
+                  east: -18.142
+                  north: -3.786
+                  up: -0.082
+                eep: 242
+                smartbox: "8"
+                smartbox_port: 3
+                tpm: "5"
+                tpm_input: 15
+              "243":
+                location_offset:
+                  east: 15.962
+                  north: -9.385
+                  up: 0.064
+                eep: 243
+                smartbox: "14"
+                smartbox_port: 10
+                tpm: "10"
+                tpm_input: 6
+              "244":
+                location_offset:
+                  east: -5.422
+                  north: 17.79
+                  up: 0.008
+                eep: 244
+                smartbox: "1"
+                smartbox_port: 1
+                tpm: "1"
+                tpm_input: 1
+              "245":
+                location_offset:
+                  east: -8.05
+                  north: -16.763
+                  up: -0.086
+                eep: 245
+                smartbox: "11"
+                smartbox_port: 5
+                tpm: "8"
+                tpm_input: 1
+              "246":
+                location_offset:
+                  east: 17.282
+                  north: 7.014
+                  up: 0.086
+                eep: 246
+                smartbox: "22"
+                smartbox_port: 8
+                tpm: "15"
+                tpm_input: 8
+              "247":
+                location_offset:
+                  east: -17.543
+                  north: 6.596
+                  up: -0.063
+                eep: 247
+                smartbox: "6"
+                smartbox_port: 2
+                tpm: "4"
+                tpm_input: 8
+              "248":
+                location_offset:
+                  east: 8.472
+                  north: -16.675
+                  up: -0.003
+                eep: 248
+                smartbox: "13"
+                smartbox_port: 8
+                tpm: "9"
+                tpm_input: 9
+              "249":
+                location_offset:
+                  east: 5.009
+                  north: 18.119
+                  up: 0.054
+                eep: 249
+                smartbox: "24"
+                smartbox_port: 10
+                tpm: "16"
+                tpm_input: 15
+              "250":
+                location_offset:
+                  east: -15.98
+                  north: -9.918
+                  up: -0.075
+                eep: 250
+                smartbox: "10"
+                smartbox_port: 3
+                tpm: "7"
+                tpm_input: 4
+              "251":
+                location_offset:
+                  east: 18.521
+                  north: -3.392
+                  up: 0.1
+                eep: 251
+                smartbox: "17"
+                smartbox_port: 10
+                tpm: "12"
+                tpm_input: 6
+              "252":
+                location_offset:
+                  east: -11.363
+                  north: 15.119
+                  up: -0.02
+                eep: 252
+                smartbox: "2"
+                smartbox_port: 2
+                tpm: "1"
+                tpm_input: 12
+              "253":
+                location_offset:
+                  east: -1.788
+                  north: -18.775
+                  up: -0.06
+                eep: 253
+                smartbox: "12"
+                smartbox_port: 8
+                tpm: "8"
+                tpm_input: 14
+              "254":
+                location_offset:
+                  east: 14.057
+                  north: 12.724
+                  up: 0.066
+                eep: 254
+                smartbox: "23"
+                smartbox_port: 9
+                tpm: "16"
+                tpm_input: 4
+              "255":
+                location_offset:
+                  east: -19.002
+                  north: 0.178
+                  up: -0.08
+                eep: 255
+                smartbox: "6"
+                smartbox_port: 4
+                tpm: "4"
+                tpm_input: 10
+              "256":
+                location_offset:
+                  east: 13.923
+                  north: -12.941
+                  up: 0.042
+                eep: 256
+                smartbox: "14"
+                smartbox_port: 8
+                tpm: "10"
+                tpm_input: 4
