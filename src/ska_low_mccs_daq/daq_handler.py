@@ -14,8 +14,9 @@ import logging
 import os
 import queue
 import re
-import shutil
-import tempfile
+
+# import shutil
+# import tempfile
 import threading
 from enum import IntEnum
 from multiprocessing import Process
@@ -31,7 +32,6 @@ from matplotlib.figure import Figure
 # from aavs_calibration.common import get_antenna_positions
 from past.utils import old_div
 from pyaavs import station
-import numpy as np
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
@@ -277,55 +277,55 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         self.buffer.add(data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
 
-    # Callback called for every data mode.
-    def _file_dump_callback(
-        self: DaqHandler,
-        data_mode: str,
-        file_name: str,
-        additional_info: Optional[str] = None,
-    ) -> None:
-        """
-        Callback called for every data mode.
+    # # Callback called for every data mode.
+    # def _file_dump_callback(
+    #     self: DaqHandler,
+    #     data_mode: str,
+    #     file_name: str,
+    #     additional_info: Optional[str] = None,
+    # ) -> None:
+    #     """
+    #     Call a callback for specific data mode.
 
-        Callbacks for all or specific data modes should be called here.
+    #     Callbacks for all or specific data modes should be called here.
 
-        :param data_mode: The DAQ data type written
-        :param file_name: The filename written
-        :param additional_info: Any additional information.
-        """
-        # Callbacks to call for all data modes.
-        self._add_to_buffer(
-            data_mode=data_mode, file_name=file_name, additional_info=additional_info
-        )
+    #     :param data_mode: The DAQ data type written
+    #     :param file_name: The filename written
+    #     :param additional_info: Any additional information.
+    #     """
+    #     # Callbacks to call for all data modes.
+    #     self._add_to_buffer(
+    #         data_mode=data_mode, file_name=file_name, additional_info=additional_info
+    #     )
 
-        # Call additional callbacks per data mode if needed.
-        if data_mode == "read_raw_data":
-            pass
+    #     # Call additional callbacks per data mode if needed.
+    #     if data_mode == "read_raw_data":
+    #         pass
 
-        if data_mode == "read_beam_data":
-            pass
+    #     if data_mode == "read_beam_data":
+    #         pass
 
-        if data_mode == "integrated_beam":
-            pass
+    #     if data_mode == "integrated_beam":
+    #         pass
 
-        if data_mode == "station_beam":
-            pass
+    #     if data_mode == "station_beam":
+    #         pass
 
-        if data_mode == "read_channel_data":
-            pass
+    #     if data_mode == "read_channel_data":
+    #         pass
 
-        if data_mode == "continuous_channel":
-            pass
+    #     if data_mode == "continuous_channel":
+    #         pass
 
-        if data_mode == "integrated_channel":
-            self._integrated_channel_callback(
-                data_mode=data_mode,
-                file_name=file_name,
-                additional_info=additional_info,
-            )
+    #     if data_mode == "integrated_channel":
+    #         self._integrated_channel_callback(
+    #             data_mode=data_mode,
+    #             file_name=file_name,
+    #             additional_info=additional_info,
+    #         )
 
-        if data_mode == "correlator":
-            pass
+    #     if data_mode == "correlator":
+    #         pass
 
     def _integrated_channel_callback(
         self: DaqHandler,
@@ -335,6 +335,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
     ) -> None:
         """
         Call callbacks for only the integrated channel DaqMode.
+
+        :param data_mode: The DAQ data type written
+        :param file_name: The filename written
+        :param additional_info: Any additional information.
         """
 
     # def _file_dump_callback(
@@ -550,6 +554,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
     # TODO: Refactor this method to farm out some steps.
     # pylint: disable = too-many-locals, too-many-statements
     # pylint: disable = too-many-return-statements, too-many-branches
+    # pylint: disable = inconsistent-return-statements
     @check_initialisation
     def start_bandpass_monitor(  # noqa: C901
         self: DaqHandler,
@@ -574,9 +579,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 process if necessary.
                 Optional. Default False.
 
-        :return: either: a (resultcode, message) tuple
-                 or a (resultcode, message, bytes, bytes, bytes) tuple
-                 where the bytes are bandpass/rms plots or None
+        :yields: Taskstatus, Message, bandpass/rms plot(s).
+        :returns: TaskStatus, Message, None, None, None
         """
         if self._monitoring_bandpass:
             return (
@@ -653,7 +657,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     None,
                 )
                 return
-            # TODO: Need to be able to start consumers incrementally before we can do this.
+            # TODO: Need to be able to start consumers incrementally before this.
             # result = self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
             # tmp=0
             # while "INTEGRATED_CHANNEL_DATA" not in running_consumers:
@@ -794,7 +798,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             except queue.Empty:
                 # self.logger.error("Caught exception: %s", e)
                 x_bandpass_plot = None
-            except Exception as e:
+            except Exception as e:  # pylint: disable = broad-exception-caught
                 print(f"x CAUGHT EXC: {e}")
 
             try:
@@ -802,7 +806,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             except queue.Empty:
                 # self.logger.error("Caught exception: %s", e)
                 y_bandpass_plot = None
-            except Exception as e:
+            except Exception as e:  # pylint: disable = broad-exception-caught
                 print(f"y CAUGHT EXC: {e}")
 
             try:
@@ -810,7 +814,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             except queue.Empty:
                 # self.logger.error("Caught exception: %s", e)
                 rms_plot = None
-            except Exception as e:
+            except Exception as e:  # pylint: disable = broad-exception-caught
                 print(f"rms CAUGHT EXC: {e}")
 
             if all(
@@ -819,9 +823,14 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 # If we don't have any plots, don't uselessly spam [None]s.
                 pass
             else:
-                print(
-                    f"Yielding: {(TaskStatus.IN_PROGRESS, 'plot sent', x_bandpass_plot, y_bandpass_plot, rms_plot,)}"
+                msg = (
+                    TaskStatus.IN_PROGRESS,
+                    "plot sent",
+                    x_bandpass_plot,
+                    y_bandpass_plot,
+                    rms_plot,
                 )
+                print(f"Yielding: {msg}")
                 yield (
                     TaskStatus.IN_PROGRESS,
                     "plot sent",
@@ -1136,11 +1145,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 for i, antenna in enumerate(range(nof_antennas_per_tile)):
                     plot_lines[i].set_ydata(data[1:, antenna, pol])
                     legend.get_texts()[i].set_text(
-                        "{:0>2d} - RX {:0>2d} - Base {:0>3d}".format(
-                            i,
-                            _fibre_preadu_mapping[antenna],
-                            antenna_base[tile_number * 16 + i],
-                        )
+                        f"{i:0>2d} - RX {_fibre_preadu_mapping[antenna]:0>2d} - "
+                        f"Base {antenna_base[tile_number * 16 + i]:0>3d}"
                     )
 
                 # Update title and time

@@ -289,7 +289,7 @@ class TestDaqHandler:
             # ('{"bandpass_config": None}', (ResultCode, "Message")),
         ),
     )
-    def test_start_stop_bandpass_monitor(
+    def test_start_stop_bandpass_monitor(  # pylint: disable=too-many-arguments
         self: TestDaqHandler,
         daq_address: str,
         bandpass_config: str,
@@ -347,6 +347,7 @@ class TestDaqHandler:
                 "y_bandpass_plot": [None],
                 "rms_plot": [None],
             }
+
     def test_access_file_metadata(
         self: TestDaqHandler, daq_handler: DaqHandler, file_metadata: dict
     ) -> None:
