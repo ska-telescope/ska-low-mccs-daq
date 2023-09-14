@@ -27,7 +27,7 @@ import h5py
 import numpy as np
 
 # import pexpect
-from aavs_calibration.common import get_antenna_positions
+# from aavs_calibration.common import get_antenna_positions
 from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
 from matplotlib.figure import Figure
 from past.utils import old_div
@@ -714,12 +714,12 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         # Get and store antenna positions
         # TODO: PyMongo errors here atm. Due to no DB? Look into this.
-        try:
-            self._antenna_locations[station_name] = get_antenna_positions(station_name)
-        except Exception as e:  # pylint: disable = broad-exception-caught
-            self.logger.error(
-                "Caught exception while trying to get antenna positions: %s", e
-            )
+        # try:
+        #     self._antenna_locations[station_name]=get_antenna_positions(station_name)
+        # except Exception as e:  # py lint: disable = broad-exception-caught
+        #     self.logger.error(
+        #         "Caught exception while trying to get antenna positions: %s", e
+        #     )
 
         # Create plotting directory structure
         if not self.create_plotting_directory(plot_directory, station_name):
@@ -1075,7 +1075,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             )
 
         # Extract antenna locations
-        antenna_base, _, _ = self._antenna_locations[station_name]
+        # antenna_base, _, _ = self._antenna_locations[station_name]
 
         # Make nice
         ax.set_xlim((0, bandwidth))
@@ -1084,7 +1084,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         ax.set_xlabel("Frequency (MHz)")
         ax.set_ylabel("Power (dB)")
         date_text = ax.text(300, 38, "Today's Date", weight="bold", size="10")
-        legend = ax.legend(loc="lower center", ncol=4, prop={"size": 4})
+        # legend = ax.legend(loc="lower center", ncol=4, prop={"size": 4})
         ax.minorticks_on()
         ax.grid(b=True, which="major", color="0.3", linestyle="-", linewidth=0.5)
         ax.grid(b=True, which="minor", color="0.8", linestyle="--", linewidth=0.1)
@@ -1134,10 +1134,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 # Loop over antennas, change plot data and label text
                 for i, antenna in enumerate(range(nof_antennas_per_tile)):
                     plot_lines[i].set_ydata(data[1:, antenna, pol])
-                    legend.get_texts()[i].set_text(
-                        f"{i:0>2d} - RX {_fibre_preadu_mapping[antenna]:0>2d} - "
-                        f"Base {antenna_base[tile_number * 16 + i]:0>3d}"
-                    )
+                    # legend.get_texts()[i].set_text(
+                    #     f"{i:0>2d} - RX {_fibre_preadu_mapping[antenna]:0>2d} - "
+                    #     f"Base {antenna_base[tile_number * 16 + i]:0>3d}"
+                    # )
 
                 # Update title and time
                 ax.set_title(f"Tile {tile_number + 1} - Pol {_pol_map[pol]}")
