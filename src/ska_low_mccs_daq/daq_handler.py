@@ -25,11 +25,11 @@ from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
 
 import h5py
 import numpy as np
-from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
-from matplotlib.figure import Figure
 
 # import pexpect
-# from aavs_calibration.common import get_antenna_positions
+from aavs_calibration.common import get_antenna_positions
+from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
+from matplotlib.figure import Figure
 from past.utils import old_div
 from pyaavs import station
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
@@ -250,21 +250,50 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
         }
 
+    # def _file_dump_callback(
+    #     self: DaqHandler,
+    #     data_mode: str,
+    #     file_name: str,
+    #     additional_info: Optional[int] = None,
+    # ) -> None:
+    #     """
+    #     Add metadata to buffer.
+
+    #     :param data_mode: The DAQ data type written
+    #     :param file_name: The filename written
+    #     :param additional_info: Any additional information.
+    #     """
+    #     # We don't have access to the timestamp here so this will retrieve the most
+    #     # recent match
+        # daq_mode = self._data_mode_mapping[data_mode]
+        # if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
+        #     metadata = self.daq_instance._persisters[daq_mode].get_metadata(
+        #         tile_id=additional_info
+        #     )
+        # else:
+        #     metadata = self.daq_instance._persisters[daq_mode].get_metadata()
+        # if additional_info is not None:
+        #     metadata["additional_info"] = additional_info
+
+        # self.buffer.add(data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
+
+    # # Callback called for every data mode.
     def _file_dump_callback(
         self: DaqHandler,
         data_mode: str,
         file_name: str,
-        additional_info: Optional[int] = None,
+        additional_info: Optional[str] = None,
     ) -> None:
         """
-        Add metadata to buffer.
+        Call a callback for specific data mode.
+
+        Callbacks for all or specific data modes should be called here.
 
         :param data_mode: The DAQ data type written
         :param file_name: The filename written
         :param additional_info: Any additional information.
         """
-        # We don't have access to the timestamp here so this will retrieve the most
-        # recent match
+        # Callbacks to call for all data modes.
         daq_mode = self._data_mode_mapping[data_mode]
         if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
             metadata = self.daq_instance._persisters[daq_mode].get_metadata(
@@ -277,55 +306,34 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         self.buffer.add(data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
 
-    # # Callback called for every data mode.
-    # def _file_dump_callback(
-    #     self: DaqHandler,
-    #     data_mode: str,
-    #     file_name: str,
-    #     additional_info: Optional[str] = None,
-    # ) -> None:
-    #     """
-    #     Call a callback for specific data mode.
+        # Call additional callbacks per data mode if needed.
+        if data_mode == "read_raw_data":
+            pass
 
-    #     Callbacks for all or specific data modes should be called here.
+        if data_mode == "read_beam_data":
+            pass
 
-    #     :param data_mode: The DAQ data type written
-    #     :param file_name: The filename written
-    #     :param additional_info: Any additional information.
-    #     """
-    #     # Callbacks to call for all data modes.
-    #     self._add_to_buffer(
-    #         data_mode=data_mode, file_name=file_name, additional_info=additional_info
-    #     )
+        if data_mode == "integrated_beam":
+            pass
 
-    #     # Call additional callbacks per data mode if needed.
-    #     if data_mode == "read_raw_data":
-    #         pass
+        if data_mode == "station_beam":
+            pass
 
-    #     if data_mode == "read_beam_data":
-    #         pass
+        if data_mode == "read_channel_data":
+            pass
 
-    #     if data_mode == "integrated_beam":
-    #         pass
+        if data_mode == "continuous_channel":
+            pass
 
-    #     if data_mode == "station_beam":
-    #         pass
+        if data_mode == "integrated_channel":
+            self._integrated_channel_callback(
+                data_mode=data_mode,
+                file_name=file_name,
+                additional_info=additional_info,
+            )
 
-    #     if data_mode == "read_channel_data":
-    #         pass
-
-    #     if data_mode == "continuous_channel":
-    #         pass
-
-    #     if data_mode == "integrated_channel":
-    #         self._integrated_channel_callback(
-    #             data_mode=data_mode,
-    #             file_name=file_name,
-    #             additional_info=additional_info,
-    #         )
-
-    #     if data_mode == "correlator":
-    #         pass
+        if data_mode == "correlator":
+            pass
 
     def _integrated_channel_callback(
         self: DaqHandler,
@@ -340,24 +348,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         :param file_name: The filename written
         :param additional_info: Any additional information.
         """
-
-    # def _file_dump_callback(
-    #     self: DaqHandler,
-    #     data_mode: str,
-    #     file_name: str,
-    #     additional_info: Optional[str] = None,
-    # ) -> None:
-    #     """
-    #     Add metadata to buffer.
-
-    #     :param data_mode: The DAQ data type written
-    #     :param file_name: The filename written
-    #     :param additional_info: Any additional information.
-    #     """
-    #     if additional_info is not None:
-    #         self.buffer.add(data_mode, file_name, additional_info)
-    #     else:
-    #         self.buffer.add(data_mode, file_name)
+        pass
 
     def _update_status(self: DaqHandler) -> None:
         """Update the status of DAQ."""
@@ -554,7 +545,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
     # TODO: Refactor this method to farm out some steps.
     # pylint: disable = too-many-locals, too-many-statements
     # pylint: disable = too-many-return-statements, too-many-branches
-    # pylint: disable = inconsistent-return-statements
     @check_initialisation
     def start_bandpass_monitor(  # noqa: C901
         self: DaqHandler,
@@ -583,13 +573,14 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         :returns: TaskStatus, Message, None, None, None
         """
         if self._monitoring_bandpass:
-            return (
+            yield (
                 TaskStatus.REJECTED,
                 "Bandpass monitor is already active.",
                 None,
                 None,
                 None,
             )
+            return
         print("IN DAQ HANDLER START BANDPASS")
         self._stop_bandpass = False
         params: dict[str, Any] = json.loads(argin)
@@ -657,7 +648,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     None,
                 )
                 return
-            # TODO: Need to be able to start consumers incrementally before this.
+            # TODO: Need to be able to start consumers incrementally for this.
             # result = self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
             # tmp=0
             # while "INTEGRATED_CHANNEL_DATA" not in running_consumers:
@@ -724,12 +715,12 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         # Get and store antenna positions
         # TODO: PyMongo errors here atm. Due to no DB? Look into this.
-        # try:
-        #     self._antenna_locations[station_name] = get_antenna_positions(
-        # station_name)
-        # except Exception as e:
-        #     self.logger.error("Caught exception while trying to get
-        # antenna positions: %s", e)
+        try:
+            self._antenna_locations[station_name] = get_antenna_positions(station_name)
+        except Exception as e:  # pylint: disable = broad-exception-caught
+            self.logger.error(
+                "Caught exception while trying to get antenna positions: %s", e
+            )
 
         # Create plotting directory structure
         if not self.create_plotting_directory(plot_directory, station_name):
