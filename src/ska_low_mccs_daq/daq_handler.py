@@ -265,20 +265,20 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
     #     """
     #     # We don't have access to the timestamp here so this will retrieve the most
     #     # recent match
-        # daq_mode = self._data_mode_mapping[data_mode]
-        # if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
-        #     metadata = self.daq_instance._persisters[daq_mode].get_metadata(
-        #         tile_id=additional_info
-        #     )
-        # else:
-        #     metadata = self.daq_instance._persisters[daq_mode].get_metadata()
-        # if additional_info is not None:
-        #     metadata["additional_info"] = additional_info
+    # daq_mode = self._data_mode_mapping[data_mode]
+    # if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
+    #     metadata = self.daq_instance._persisters[daq_mode].get_metadata(
+    #         tile_id=additional_info
+    #     )
+    # else:
+    #     metadata = self.daq_instance._persisters[daq_mode].get_metadata()
+    # if additional_info is not None:
+    #     metadata["additional_info"] = additional_info
 
-        # self.buffer.add(data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
+    # self.buffer.add(data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
 
     # # Callback called for every data mode.
-    def _file_dump_callback(
+    def _file_dump_callback(  # noqa: C901
         self: DaqHandler,
         data_mode: str,
         file_name: str,
@@ -348,7 +348,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         :param file_name: The filename written
         :param additional_info: Any additional information.
         """
-        pass
 
     def _update_status(self: DaqHandler) -> None:
         """Update the status of DAQ."""
