@@ -1159,13 +1159,17 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     dpi=200,
                     figsize=(8, 4),
                 )
-
+                print(f"DATA FLAGS: {data.flags}")
                 if pol == 0:
                     # self._x_bandpass_plots.put(saved_plot_path)
-                    self._x_bandpass_plots.put(base64.b64encode(data[1:, :, pol]))
+                    self._x_bandpass_plots.put(
+                        base64.b64encode(data[1:, :, pol].copy(order="C"))
+                    )
                 elif pol == 1:
                     # self._y_bandpass_plots.put(saved_plot_path)
-                    self._y_bandpass_plots.put(base64.b64encode(data[1:, :, pol]))
+                    self._y_bandpass_plots.put(
+                        base64.b64encode(data[1:, :, pol].copy(order="C"))
+                    )
 
             # Ready from file, delete it
             # os.unlink(filepath)
