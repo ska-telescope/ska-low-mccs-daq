@@ -15,6 +15,7 @@ import logging
 import os
 import queue
 import re
+import sys
 
 # import shutil
 # import tempfile
@@ -250,6 +251,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             "station": DaqModes.STATION_BEAM_DATA,
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
         }
+        sys.set_int_max_str_digits(0)
 
     # def _file_dump_callback(
     #     self: DaqHandler,
