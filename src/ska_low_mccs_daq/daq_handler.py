@@ -1114,7 +1114,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             with h5py.File(filepath, "r") as f:
                 # Data is in channels/antennas/pols order
                 data = f["chan_"]["data"][:]
-                timestamp = f["sample_timestamps"]["data"][0]
+                # timestamp = f["sample_timestamps"]["data"][0]
                 data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
                 # Convert to power in dB
                 np.seterr(divide="ignore")
@@ -1123,11 +1123,13 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 np.seterr(divide="warn")
 
             # Format datetime
-            date_time = datetime.datetime.utcfromtimestamp(timestamp).strftime(
-                "%y-%m-%d %H:%M:%S"
-            )
+            # TODO: TypeError: only integer scalar arrays can be
+            # converted to a scalar index
+            # date_time = datetime.datetime.utcfromtimestamp(timestamp).strftime(
+            #     "%y-%m-%d %H:%M:%S"
+            # )
 
-            # print("Creating plot...")
+            print("Creating plot(s)...")
             # Loop over polarisations (separate plots)
             for pol in range(nof_pols):
 
@@ -1141,7 +1143,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
                 # Update title and time
                 ax.set_title(f"Tile {tile_number + 1} - Pol {_pol_map[pol]}")
-                date_text.set_text(date_time)
+                # TODO:
+                # date_text.set_text(date_time)
+                date_text.set_text("Today's Date")
                 saved_plot_path: str = os.path.join(
                     _directory,
                     f"tile_{tile_number + 1}_pol_{_pol_map[pol].lower()}.svg",
