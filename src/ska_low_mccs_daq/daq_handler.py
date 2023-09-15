@@ -1194,8 +1194,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 )
                 return False
         else:
-            # if path exists it's assumed it's a file?
-            #  Seems wrong. Adding isdir check. - AJC
             if not os.path.isdir(parent):
                 self.logger.error(
                     "Specified plotting directory (%s) is a file. Please check", parent
