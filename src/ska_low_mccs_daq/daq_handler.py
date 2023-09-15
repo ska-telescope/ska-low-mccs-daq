@@ -1165,7 +1165,14 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     print(f'unencoded xpol data: {data[1:, :, pol].copy(order="C")}')
                     x_pol_data = base64.b64encode(data[1:, :, pol].copy(order="C"))
                     print(f"encoded xpol data: {x_pol_data!r}")
-                    print(f"decoded xpol data: {base64.b64decode(x_pol_data)!r}")
+                    decoded_le = int.from_bytes(
+                        base64.b64decode(x_pol_data), byteorder="little"
+                    )
+                    decoded_be = int.from_bytes(
+                        base64.b64decode(x_pol_data), byteorder="big"
+                    )
+                    print(f"decoded xpol data (LE): {decoded_le!r}")
+                    print(f"decoded xpol data (BE): {decoded_be!r}")
                     self._x_bandpass_plots.put(x_pol_data)
                 elif pol == 1:
                     # self._y_bandpass_plots.put(saved_plot_path)
