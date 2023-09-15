@@ -7,6 +7,7 @@
 """This module implements the DaqServer part of the MccsDaqReceiver device."""
 from __future__ import annotations
 
+import base64
 import datetime
 import functools
 import json
@@ -1160,9 +1161,11 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 )
 
                 if pol == 0:
-                    self._x_bandpass_plots.put(saved_plot_path)
+                    # self._x_bandpass_plots.put(saved_plot_path)
+                    self._x_bandpass_plots.put(base64.b64encode(data[1:, :, pol]))
                 elif pol == 1:
-                    self._y_bandpass_plots.put(saved_plot_path)
+                    # self._y_bandpass_plots.put(saved_plot_path)
+                    self._y_bandpass_plots.put(base64.b64encode(data[1:, :, pol]))
 
             # Ready from file, delete it
             # os.unlink(filepath)
