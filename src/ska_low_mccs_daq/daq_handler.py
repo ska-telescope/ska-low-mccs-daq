@@ -1165,10 +1165,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     print(f"unencoded xpol data: {data[1:, :, pol]}")
                     x_pol_data = data[1:, :, pol].tobytes()
                     print(f"byte-encoded xpol data: {x_pol_data}")
-                    print(f'data type: {data.dtype}')
-                    decoded_x_pol_data = np.frombuffer(
-                        x_pol_data, dtype=data.dtype
-                    )
+                    print(f"data type: {data.dtype}")
+                    decoded_x_pol_data = np.frombuffer(x_pol_data, dtype=data.dtype)
                     reshaped_decoded_x = decoded_x_pol_data.reshape(
                         (nof_channels, nof_antennas_per_tile, nof_pols)
                     )
