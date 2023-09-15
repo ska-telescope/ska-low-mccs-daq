@@ -15,7 +15,6 @@ import logging
 import os
 import queue
 import re
-import sys
 
 # import shutil
 # import tempfile
@@ -251,7 +250,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             "station": DaqModes.STATION_BEAM_DATA,
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
         }
-        sys.set_int_max_str_digits(0)  # pylint: disable = no-member
 
     # def _file_dump_callback(
     #     self: DaqHandler,
@@ -1164,17 +1162,19 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 print(f"DATA FLAGS: {data.flags}")
                 if pol == 0:
                     # self._x_bandpass_plots.put(saved_plot_path)
-                    print(f'unencoded xpol data: {data[1:, :, pol].copy(order="C")}')
-                    x_pol_data = base64.b64encode(data[1:, :, pol].copy(order="C"))
-                    print(f"encoded xpol data: {x_pol_data!r}")
-                    decoded_le = int.from_bytes(
-                        base64.b64decode(x_pol_data), byteorder="little"
+                    print(f"unencoded xpol data: {data[1:, :, pol]}")
+                    x_pol_data = data[1:, :, pol].tobytes()
+                    print(f"byte-encoded xpol data: {x_pol_data}")
+                    decoded_x_pol_data = np.frombuffer(
+                        x_pol_data, dtype=x_pol_data.dtype
                     )
-                    decoded_be = int.from_bytes(
-                        base64.b64decode(x_pol_data), byteorder="big"
+                    reshaped_decoded_x = decoded_x_pol_data.reshape(
+                        (nof_channels, nof_antennas_per_tile, nof_pols)
                     )
-                    print(f"decoded xpol data (LE): {decoded_le}")
-                    print(f"decoded xpol data (BE): {decoded_be}")
+
+                    print(f"decoded_x_pol_data: {decoded_x_pol_data}")
+                    print(f"reshaped_decoded_x: {reshaped_decoded_x}")
+
                     self._x_bandpass_plots.put(x_pol_data)
                 elif pol == 1:
                     # self._y_bandpass_plots.put(saved_plot_path)
