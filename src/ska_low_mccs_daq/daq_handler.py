@@ -19,7 +19,8 @@ import re
 # import tempfile
 import threading
 from enum import IntEnum
-from multiprocessing import Process
+
+# from multiprocessing import Process
 from time import sleep
 from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
 
@@ -744,7 +745,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         print("STARTING PROCESSES")
         # Start rms thread
         if monitor_rms:
-            rms = Process(
+            rms = threading.Thread(
                 target=self.generate_rms_plots,
                 args=(station_conf, os.path.join(plot_directory, station_name)),
             )
