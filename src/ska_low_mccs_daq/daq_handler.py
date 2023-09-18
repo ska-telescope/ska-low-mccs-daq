@@ -1159,10 +1159,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 )
                 print(f"DATA FLAGS: {data.flags}")
                 if pol == 0:
-                    x_pol_data = json.dumps(data[1:, :, pol]).encode()  # .tobytes()
+                    x_pol_data = json.dumps(data[1:, :, pol].tolist())
                     self._x_bandpass_plots.put(x_pol_data)
                 elif pol == 1:
-                    y_pol_data = json.dumps(data[1:, :, pol]).encode()  # .tobytes()
+                    y_pol_data = json.dumps(data[1:, :, pol].tolist())
                     self._y_bandpass_plots.put(y_pol_data)
 
             # Ready from file, delete it
