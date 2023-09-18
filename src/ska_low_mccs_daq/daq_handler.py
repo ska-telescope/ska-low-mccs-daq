@@ -1113,7 +1113,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             # Open newly create HDF5 file
             with h5py.File(filepath, "r") as f:
                 # Data is in channels/antennas/pols order
-                data = f["chan_"]["data"][:]
+                data: np.ndarray = f["chan_"]["data"][:]
                 # timestamp = f["sample_timestamps"]["data"][0]
                 data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
                 # Convert to power in dB
@@ -1159,10 +1159,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 )
                 print(f"DATA FLAGS: {data.flags}")
                 if pol == 0:
-                    x_pol_data = data[1:, :, pol].tobytes()
+                    x_pol_data = json.dumps(data[1:, :, pol]).encode()  # .tobytes()
                     self._x_bandpass_plots.put(x_pol_data)
                 elif pol == 1:
-                    y_pol_data = data[1:, :, pol].tobytes()
+                    y_pol_data = json.dumps(data[1:, :, pol]).encode()  # .tobytes()
                     self._y_bandpass_plots.put(y_pol_data)
 
             # Ready from file, delete it
