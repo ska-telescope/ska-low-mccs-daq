@@ -1143,7 +1143,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
                 # Update title and time
                 ax.set_title(f"Tile {tile_number + 1} - Pol {_pol_map[pol]}")
-                # TODO:
                 # date_text.set_text(date_time)
                 date_text.set_text("Today's Date")
                 saved_plot_path: str = os.path.join(
