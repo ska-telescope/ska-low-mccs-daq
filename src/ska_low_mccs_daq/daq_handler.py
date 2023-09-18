@@ -997,7 +997,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             sleep(5)
 
     # pylint: disable = too-many-locals
-    def generate_bandpass_plots(
+    def generate_bandpass_plots(  # noqa: C901
         self: DaqHandler, plotting_directory: str, station_name: str
     ) -> None:
         """
