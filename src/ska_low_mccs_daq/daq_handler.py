@@ -1074,6 +1074,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 )[0]
             )
 
+        # TODO: This is commented out until we actually have somewhere that can tell us
+        #       about antenna locations. Any other implicated code is also commented
+        #       out further down this method. (Mostly graph labels.)
         # Extract antenna locations
         # antenna_base, _, _ = self._antenna_locations[station_name]
 
@@ -1091,14 +1094,13 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         # Loop until asked to stop
         while not self._stop_bandpass:
-            # print("IN BANDPASS PLOTTER LOOP")
             # Wait for files to be queued
             while len(files_to_plot[station_name]) == 0 and not self._stop_bandpass:
                 sleep(0.1)
 
             if self._stop_bandpass:
                 return
-            # print(f"DETECTED FILE. PROCESSING: {files_to_plot[station_name]}")
+
             # Get the first item in the list
             filepath = files_to_plot[station_name].pop(0)
             self.logger.info("Processing %s", filepath)
@@ -1116,6 +1118,14 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 data: np.ndarray = f["chan_"]["data"][:]
                 # timestamp = f["sample_timestamps"]["data"][0]
                 data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
+                # Return raw bandpass data to Tango device.
+                for pol in range(nof_pols):
+                    if pol == 0:
+                        x_pol_data = json.dumps(data[1:, :, pol].tolist())
+                        self._x_bandpass_plots.put(x_pol_data)
+                    elif pol == 1:
+                        y_pol_data = json.dumps(data[1:, :, pol].tolist())
+                        self._y_bandpass_plots.put(y_pol_data)
                 # Convert to power in dB
                 np.seterr(divide="ignore")
                 data = 10 * np.log10(data)
@@ -1157,17 +1167,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     dpi=200,
                     figsize=(8, 4),
                 )
-                print(f"DATA FLAGS: {data.flags}")
-                if pol == 0:
-                    x_pol_data = json.dumps(data[1:, :, pol].tolist())
-                    self._x_bandpass_plots.put(x_pol_data)
-                elif pol == 1:
-                    y_pol_data = json.dumps(data[1:, :, pol].tolist())
-                    self._y_bandpass_plots.put(y_pol_data)
-
-            # Ready from file, delete it
-            # os.unlink(filepath)
-            # print("FINISHED PLOT")
 
     # pylint: disable=broad-except
     def create_plotting_directory(
