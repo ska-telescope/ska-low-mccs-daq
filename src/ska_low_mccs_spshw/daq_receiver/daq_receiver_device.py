@@ -89,6 +89,7 @@ class _StartDaqCommand(SubmittedSlowCommand):
         return super().do(modes_to_start)
 
 
+# pylint: disable=too-many-instance-attributes
 class MccsDaqReceiver(SKABaseDevice):
     """An implementation of a MccsDaqReceiver Tango device."""
 
@@ -128,6 +129,11 @@ class MccsDaqReceiver(SKABaseDevice):
     ConsumersToStart = device_property(
         dtype=str, doc="The default consumer list to start.", default_value=""
     )
+    SkuidUrl = device_property(
+        dtype=str,
+        doc="The location of a running SKUID service.",
+        default_value="ska-ser-skuid-ska-ser-skuid-svc:9870",
+    )
 
     # ---------------
     # Initialisation
@@ -151,6 +157,7 @@ class MccsDaqReceiver(SKABaseDevice):
         self._health_model: DaqHealthModel
         self._received_data_mode: str
         self._received_data_result: str
+        self._skuid_url: str
 
     def init_device(self: MccsDaqReceiver) -> None:
         """
@@ -181,6 +188,7 @@ class MccsDaqReceiver(SKABaseDevice):
             f"\tPort: {self.Port}\n"
             f"\tDaqId: {self.DaqId}\n"
             f"\tConsumersToStart: {self.ConsumersToStart}\n"
+            f"\tSkuidUrl: {self.SkuidUrl}\n"
         )
         self.logger.info(
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
@@ -210,6 +218,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self.ReceiverPorts,
             f"{self.Host}:{self.Port}",
             self.ConsumersToStart,
+            self.SkuidUrl,
             self.logger,
             self._max_workers,
             self._component_communication_state_changed,
