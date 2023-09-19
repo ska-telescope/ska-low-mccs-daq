@@ -53,6 +53,16 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
     )
 
 
+@pytest.fixture(name="skuid_url")
+def skuid_url_fixture() -> str:
+    """
+    Return an url to use to access SKUID.
+
+    :return: A SKUID url.
+    """
+    return "ska-ser-skuid-ska-ser-skuid-svc:9870"
+
+
 @pytest.fixture(name="test_context")
 def test_context_fixture(daq_id: int) -> Iterator[SpsTangoTestHarnessContext]:
     """
@@ -73,6 +83,7 @@ def test_context_fixture(daq_id: int) -> Iterator[SpsTangoTestHarnessContext]:
 def daq_component_manager_fixture(
     test_context: SpsTangoTestHarnessContext,
     daq_id: int,
+    skuid_url: str,
     logger: logging.Logger,
     callbacks: MockCallableGroup,
 ) -> DaqComponentManager:
@@ -81,6 +92,7 @@ def daq_component_manager_fixture(
 
     :param test_context: the context in which the tests are running.
     :param daq_id: the ID of the daq receiver
+    :param skuid_url: An address where SKUID can be contacted.
     :param logger: the logger to be used by this object.
     :param callbacks: a dictionary from which callbacks with asynchrony
         support can be accessed.
@@ -94,6 +106,7 @@ def daq_component_manager_fixture(
         "[4660]",
         test_context.get_daq_server_address(daq_id),
         "",
+        skuid_url,
         logger,
         1,
         callbacks["communication_state"],

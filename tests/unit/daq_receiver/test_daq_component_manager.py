@@ -338,3 +338,104 @@ class TestDaqComponentManager:
         assert daq_component_manager._consumers_to_start == ""
         daq_component_manager._set_consumers_to_start(consumer_list)
         assert daq_component_manager._consumers_to_start == consumer_list
+
+    def test_get_eb_skuid(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test that we can retrieve an execution block ID from SKUID.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        unique_ids = set()
+        unique_id_count = 10
+
+        for _ in range(unique_id_count):
+            unique_ids.add(daq_component_manager._get_eb_id())
+
+        assert len(unique_ids) == unique_id_count
+
+    def test_get_scan_skuid(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test that we can retrieve a scan ID from SKUID.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        unique_ids = set()
+        unique_id_count = 10
+
+        for _ in range(unique_id_count):
+            unique_ids.add(daq_component_manager._get_scan_id())
+
+        assert len(unique_ids) == unique_id_count
+
+    @pytest.mark.parametrize(
+        ("scan_id", "eb_id"),
+        (
+            (None, None),
+            ("scan_uid", None),
+            (None, "eb_uid"),
+            ("scan_uid", "eb_uid"),
+        ),
+    )
+    def test_adr55_filepath(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+        scan_id: str,
+        eb_id: str,
+    ) -> None:
+        """
+        Test that a compliant filepath is produced as expected.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        :param scan_id: A mock scan_id to use.
+        :param eb_id: A mock eb_id to use.
+        """
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        adr55_filepath = daq_component_manager._construct_adr55_filepath(
+            eb_id=eb_id, scan_id=scan_id
+        )
+        adr55_filepath_parts = adr55_filepath.split("/")
+        if eb_id is not None:
+            assert adr55_filepath_parts[2] == eb_id
+        else:
+            assert adr55_filepath_parts[2] is not None
+
+        if scan_id is not None:
+            assert adr55_filepath_parts[4] == scan_id
+        else:
+            assert adr55_filepath_parts[4] is not None
