@@ -257,6 +257,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
+        # Check data directory is in correct format, if not then reconfigure.
+        if not self._data_directory_format_adr55_compliant():
+            config = {"directory": self._construct_adr55_filepath()}
+            self.configure_daq(json.dumps(config))
         try:
             modes_to_start = modes_to_start or self._consumers_to_start
             for response in self._daq_client.start_daq(modes_to_start):
@@ -332,6 +336,27 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.logger.debug(f"Exiting daq_status with: {status}")
         return status
 
+    def _data_directory_format_adr55_compliant(
+        self: DaqComponentManager,
+    ) -> bool:
+        """
+        Check the current data directory has ADR-55 format.
+
+        Here we just check that the static parts of the filepath are
+            present where expected.
+            The eb_id and scan_id are not validated.
+
+        :return: Whether the current directory is ADR-55 compliant.
+        """
+        existing_directory_parts = self.get_configuration()["directory"].split("/")
+        if len(existing_directory_parts) < 4:
+            return False  # Not long enough to have the required elements.
+        if existing_directory_parts[1] != "product":
+            return False
+        if existing_directory_parts[3] != "low-mccs":
+            return False
+        return True  # Possibility exists for false positives. We don't validate UIDs.
+
     def _construct_adr55_filepath(
         self: DaqComponentManager,
         eb_id: Optional[str] = None,
@@ -339,6 +364,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
     ) -> str:
         """
         Construct an ADR-55 compliant filepath.
+
+        A filepath for data logging is
 
         :param eb_id: A pre-existing eb_id if available.
         :param scan_id: A pre-existing scan_id if available.
@@ -350,7 +377,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if scan_id is None:
             scan_id = self._get_scan_id()
         existing_directory = self.get_configuration()["directory"]
-        return f"/product/{eb_id}/low-mccs/{scan_id}/{existing_directory}"
+        # Replace any double slashes with just one in case
+        # `existing_directory` begins with one.
+        return f"/product/{eb_id}/low-mccs/{scan_id}/{existing_directory}".replace(
+            "//", "/"
+        )
 
     # TODO: Would there be any mileage in combining these methods?
     def _get_scan_id(self: DaqComponentManager) -> str:
