@@ -439,3 +439,60 @@ class TestDaqComponentManager:
             assert adr55_filepath_parts[4] == scan_id
         else:
             assert adr55_filepath_parts[4] is not None
+
+    @pytest.mark.parametrize(
+        ("directory", "outcome"),
+        (
+            (".", False),
+            ("/plot", False),
+            ("product/blah", False),
+            ("/product/blah", False),
+            ("/product/eb_id/low-mccs/scan_id/", True),
+            ("product/eb_id/low-mccs/scan_id/", False),
+            ("/product/eb_id/some-other-team/scan_id/", False),
+            (
+                "/product/low-mccs/some-other-team/scan_id/",
+                False,
+            ),  # Deliberately malformed
+        ),
+    )
+    def test_check_directory_format(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+        directory: str,
+        outcome: bool,
+    ) -> None:
+        """
+        Test that we can tell a "good" filepath from a "bad" one.
+
+        Test also that we can properly reconfigure so that the path
+            is in the proper format. This is done by appending the
+            current directory onto the end of the required structure.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        :param directory: The filepath to check.
+        :param outcome: The expected response from
+            `_data_directory_format_adr55_compliant`
+        """
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        config = {"directory": directory}
+        daq_component_manager.configure_daq(json.dumps(config))
+
+        assert outcome == daq_component_manager._data_directory_format_adr55_compliant()
+
+        # If we're off the happy path then reconfigure.
+        if not outcome:
+            re_config = {"directory": daq_component_manager._construct_adr55_filepath()}
+            daq_component_manager.configure_daq(json.dumps(re_config))
+
+            assert daq_component_manager._data_directory_format_adr55_compliant()
