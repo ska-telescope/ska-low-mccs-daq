@@ -38,31 +38,6 @@ def health_monitoring_compatible(func):
     return inner_func
 
 
-def communication_check(func):
-    """
-    Decorator method to check if communication is established between FPGA and CPLD.
-    Non-destructive version of tile tpm_communication_check.
-    """
-    def inner_func(self, *args, **kwargs):
-        try:
-            magic0 = self[0x4]
-        except Exception as e:  # noqa: F841
-            raise BoardError(f"Not possible to communicate with the FPGA0: " + str(e))
-        try:
-            magic1 = self[0x10000004]
-        except Exception as e:  # noqa: F841
-            raise BoardError(f"Not possible to communicate with the FPGA1: " + str(e))
-        if magic0 == magic1 == 0xA1CE55AD:
-            return func(self, *args, **kwargs)
-        else:
-            if magic0 != 0xA1CE55AD:
-                self.logger.error(f"FPGA0 magic number is not correct {hex(magic0)}, expected: 0xA1CE55AD")
-            if magic1 != 0xA1CE55AD:
-                self.logger.error(f"FPGA1 magic number is not correct {hex(magic1)}, expected: 0xA1CE55AD")
-            return
-    return inner_func
-
-
 class TileHealthMonitor():
     """
     Tile Health Monitor Mixin Class, must be inherited by Tile Class
@@ -79,9 +54,10 @@ class TileHealthMonitor():
         self.monitoring_point_lookup_dict = load_tpm_1_2_lookup(self) if  self.tpm_version() == "tpm_v1_2" else load_tpm_1_6_lookup(self)
         return
 
-    @communication_check
-    @health_monitoring_compatible
     def enable_health_monitoring(self):
+        communication_status = self.check_communication()
+        if not all(communication_status.values()):
+            raise BoardError(f"Bard communication error, unable to enable health monitoring. Check communication status and try again.")
         # For use with get_health_status and clear_health_status
         # Enable anything that requires an enable
         self.enable_clock_monitoring()
@@ -271,8 +247,6 @@ class TileHealthMonitor():
                 mon_point_list.append(monitoring_point)
         return mon_point_list
 
-    @communication_check
-    @health_monitoring_compatible
     def get_health_status(self, **kwargs):
         """
         Returns the current value of TPM monitoring points with the 
@@ -306,76 +280,76 @@ class TileHealthMonitor():
 
         Full documentation on usage available at https://confluence.skatelescope.org/x/nDhED
         """
+        fpga_communication = True
+        communication_status = self.check_communication()
+        if not communication_status["CPLD"]:
+            raise BoardError(f"Bard communication error, unable to get health status. Check communication status and try again.")
+        if not (communication_status["FPGA0"] and communication_status["FPGA1"]):
+            fpga_communication = False
+            self.logger.warning(f"Not able to communicate with one of more FPGAs. Reduced health status will be returned.")
         health_status = {}
         mon_point_list = self._kwargs_handler(kwargs)
         for monitoring_point in mon_point_list:
             lookup = monitoring_point.split('.')
             lookup_entry = self._parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
             # call method stored in lookup entry
-            value = lookup_entry["method"]()
-            # Resolve nested values with only one value i.e
-            # get_voltage("voltage_name") returns {"voltage_name": voltage}
-            # get_clock_manager_status(fpga_id, name) returns {"FPGAid": {"name": status}}
-            while True:
-                if not isinstance(value, dict):
-                    break
-                if len(value) != 1:
-                    break
-                value = list(value.values())[0]
-            # Create dictionary of monitoring points in same format as lookup
-            health_status = self._create_nested_dict(lookup, value, health_status)
+            if fpga_communication or lookup_entry.get("CPLD-only"):
+                value = lookup_entry["method"]()
+                # Resolve nested values with only one value i.e
+                # get_voltage("voltage_name") returns {"voltage_name": voltage}
+                # get_clock_manager_status(fpga_id, name) returns {"FPGAid": {"name": status}}
+                while True:
+                    if not isinstance(value, dict):
+                        break
+                    if len(value) != 1:
+                        break
+                    value = list(value.values())[0]
+                # Create dictionary of monitoring points in same format as lookup
+                health_status = self._create_nested_dict(lookup, value, health_status)
 
-            # Clear select health_status point if defined.
-            if "clear_method" in lookup_entry:
-                try:
-                    lookup_entry["clear_method"]()
-                except Exception as e:
-                    self.logger.error(f"Unable to clear monitoring_point {monitoring_point} "
-                                      "Exception : {e}")
-
+                # Clear select health_status point if defined.
+                if "clear_method" in lookup_entry:
+                    try:
+                        lookup_entry["clear_method"]()
+                    except Exception as e:
+                        self.logger.error(f"Unable to clear monitoring_point {monitoring_point} "
+                                          "Exception : {e}")
         return health_status
     
-    @communication_check
-    @health_monitoring_compatible
-    def clear_health_status(self, group = None):
-        """
-        Clear health status by group.
-
-        :param group: Optional monitoring point group to clear.
-
-        By default group is None, meaning all health status are cleared.
-        """
-        if group is None:
-            self.clear_clock_status(fpga_id=None, clock_name=None)
-            self.clear_clock_manager_status(fpga_id=None, name=None)
-            self.clear_pps_status(fpga_id=None)
-            self.clear_ad9528_pll_status()
-            self.clear_jesd_error_counters(fpga_id=None)
-            self.clear_ddr_reset_counter(fpga_id=None)
-            self.clear_f2f_pll_lock_loss_counter(core_id=None)
-            self.clear_udp_status(fpga_id=None)
-            self.clear_tile_beamformer_status(fpga_id=None)
-            self.clear_station_beamformer_status(fpga_id=None)
-        elif group == "clocks":
-            self.clear_clock_status(fpga_id=None, clock_name=None)
-        elif group == "clock_managers":
-            self.clear_clock_manager_status(fpga_id=None, name=None)
-        elif group == "pps":
-                self.clear_pps_status(fpga_id=None)
-        elif group == "pll":
+    def clear_health_status(self):
+        communication_status = self.check_communication()
+        if communication_status['CPLD']:
+            if group is None or group  == "pll":
                 self.clear_ad9528_pll_status()
-        elif group == "jesd_interface":
-            self.clear_jesd_error_counters(fpga_id=None)
-        elif group == "ddr_interface":
-            self.clear_ddr_reset_counter(fpga_id=None)
-        elif group == "f2f_interface":
-            self.clear_f2f_pll_lock_loss_counter(core_id=None)
-        elif group == "udp_interface":
-            self.clear_udp_status(fpga_id=None)
-        elif group == "tile_beamf":
-            self.clear_tile_beamformer_status(fpga_id=None)
-        elif group == "station_beamf": 
-            self.clear_station_beamformer_status(fpga_id=None)
+        if communication_status["FPGA0"] and communication_status["FPGA1"]:
+            if group is None:
+                self.clear_clock_status(fpga_id=None, clock_name=None)
+                self.clear_clock_manager_status(fpga_id=None, name=None)
+                self.clear_pps_status(fpga_id=None)
+                self.clear_jesd_error_counters(fpga_id=None)
+                self.clear_ddr_reset_counter(fpga_id=None)
+                self.clear_f2f_pll_lock_loss_counter(core_id=None)
+                self.clear_udp_status(fpga_id=None)
+                self.clear_tile_beamformer_status(fpga_id=None)
+                self.clear_station_beamformer_status(fpga_id=None)
+            elif group == "clocks":
+                self.clear_clock_status(fpga_id=None, clock_name=None)
+            elif group == "clock_managers":
+                self.clear_clock_manager_status(fpga_id=None, name=None)
+            elif group == "pps":
+                    self.clear_pps_status(fpga_id=None)
+            elif group == "jesd_interface":
+                self.clear_jesd_error_counters(fpga_id=None)
+            elif group == "ddr_interface":
+                self.clear_ddr_reset_counter(fpga_id=None)
+            elif group == "f2f_interface":
+                self.clear_f2f_pll_lock_loss_counter(core_id=None)
+            elif group == "udp_interface":
+                self.clear_udp_status(fpga_id=None)
+            elif group == "tile_beamf":
+                self.clear_tile_beamformer_status(fpga_id=None)
+            elif group == "station_beamf": 
+                self.clear_station_beamformer_status(fpga_id=None)
 
     def fpga_gen(self, fpga_id):
         return range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
