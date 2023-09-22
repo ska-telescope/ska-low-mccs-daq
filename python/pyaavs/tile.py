@@ -2154,6 +2154,42 @@ class Tile(TileHealthMonitor):
             else:
                 self.tpm[f"{fpga}.pps_manager.sync_time_val"] = sync_time
 
+
+    def check_communication(self):
+        """
+        Checks status of connection to TPM CPLD and FPGAs.
+        Returns dictionary of connection status.
+        Examples:
+        - OK Status:
+          {'CPLD': True, 'FPGA0': True, 'FPGA1': True}
+        - TPM ON, FPGAs not programmed or TPM overtemperature self shutdown: 
+          {'CPLD': True, 'FPGA0': False, 'FPGA1': False}
+        - TPM OFF or Network Issue:
+          {'CPLD': False, 'FPGA0': False, 'FPGA1': False}
+        Non-destructive version of tile tpm_communication_check
+        """
+        status = {"CPLD": True, "FPGA0": True, "FPGA1": True}
+        try:
+            board_temp = self.get_temperature()
+        except Exception as e:
+            status["CPLD"] = False
+            self.logger.error(f"Not able to communicate with CPLD: {str(e)}")
+        try:
+            magic0 = self[0x4]
+            if magic0 != 0xA1CE55AD:
+                self.logger.error(f"FPGA0 magic number is not correct {hex(magic0)}, expected: 0xA1CE55AD")
+        except Exception as e:
+            status["FPGA0"] = False
+            self.logger.error(f"Not possible to communicate with the FPGA0: {str(e)}")
+        try:
+            magic1 = self[0x10000004]
+            if magic1 != 0xA1CE55AD:
+                self.logger.error(f"FPGA1 magic number is not correct {hex(magic1)}, expected: 0xA1CE55AD")
+        except Exception as e:
+            status["FPGA1"] = False
+            self.logger.error(f"Not possible to communicate with the FPGA1: {str(e)}")
+        return status
+        
     @staticmethod
     def calculate_delay(current_delay, current_tc, target, margin):
         """
