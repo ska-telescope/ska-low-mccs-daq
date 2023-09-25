@@ -13,6 +13,7 @@ import logging
 import random
 import threading
 from datetime import date
+from pathlib import PurePath
 from typing import Any, Callable, Optional
 
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
@@ -229,6 +230,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: a task status and response message
         """
+        print("IN START")
         return self.submit_task(
             self._start_daq,
             args=[modes_to_start],
@@ -348,14 +350,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: Whether the current directory is ADR-55 compliant.
         """
-        existing_directory_parts = self.get_configuration()["directory"].split("/")
-        if len(existing_directory_parts) < 4:
-            return False  # Not long enough to have the required elements.
-        if existing_directory_parts[1] != "product":
-            return False
-        if existing_directory_parts[3] != "low-mccs":
-            return False
-        return True  # Possibility exists for false positives. We don't validate UIDs.
+        current_directory = self.get_configuration()["directory"].split("/", maxsplit=5)
+        # Reconstruct ADR-55 relevant part of the fp to match against.
+        current_directory_root = "/".join(current_directory[0:5])
+        return PurePath(current_directory_root).match("/product/*/low-mccs/*")
 
     def _construct_adr55_filepath(
         self: DaqComponentManager,
@@ -365,7 +363,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         Construct an ADR-55 compliant filepath.
 
-        A filepath for data logging is
+        An ADR-55 compliant filepath for data logging is constructed
+            from the existing DAQ data directory, retrieving or creating
+            UIDs as necessary.
 
         :param eb_id: A pre-existing eb_id if available.
         :param scan_id: A pre-existing scan_id if available.
@@ -392,7 +392,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         try:
             skuid_client = SkuidClient(self._skuid_url)
-            uid = skuid_client.fetch_scan_id()
+            # pylint: disable = unexpected-keyword-arg
+            uid = skuid_client.fetch_scan_id(timeout=5)
             return uid
         except Exception as e:  # pylint: disable=broad-except
             # Usually when SKUID isn't available.
@@ -413,7 +414,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         try:
             skuid_client = SkuidClient(self._skuid_url)
-            uid = skuid_client.fetch_skuid("eb")
+            # pylint: disable = unexpected-keyword-arg
+            uid = skuid_client.fetch_skuid("eb", timeout=5)
             return uid
         except Exception as e:  # pylint: disable=broad-except
             # Usually when SKUID isn't available.
