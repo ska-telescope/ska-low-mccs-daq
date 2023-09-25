@@ -180,12 +180,7 @@ class TestDaqComponentManager:
         :param daq_modes_str: A comma separated list of DaqModes and/or ints.
         :param daq_modes_list: The expected output of the conversion function.
         """
-        # converted_daq_modes = convert_daq_modes(daq_modes_str)
         assert convert_daq_modes(daq_modes_str) == daq_modes_list
-        # assert len(converted_daq_modes) == len(daq_modes_list)
-        # for i, mode in enumerate(converted_daq_modes):
-        #     print(f"mode: {mode} -- expected: {daq_modes_list[i]}")
-        #     assert mode == daq_modes_list[i]
 
     @pytest.mark.parametrize(
         "daq_modes",
@@ -197,7 +192,7 @@ class TestDaqComponentManager:
             "DaqModes.INTEGRATED_BEAM_DATA",
             "DaqModes.INTEGRATED_CHANNEL_DATA",
             "DaqModes.STATION_BEAM_DATA",
-            "DaqModes.CORRELATOR_DATA",  # Not compiled with correlator currently.
+            "DaqModes.CORRELATOR_DATA",
             "DaqModes.ANTENNA_BUFFER",
             "DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA",
             "1, 2, 0",
@@ -339,106 +334,132 @@ class TestDaqComponentManager:
         daq_component_manager._set_consumers_to_start(consumer_list)
         assert daq_component_manager._consumers_to_start == consumer_list
 
-    def test_get_eb_skuid(
-        self: TestDaqComponentManager,
-        daq_component_manager: DaqComponentManager,
-        callbacks: MockCallableGroup,
-    ) -> None:
-        """
-        Test that we can retrieve an execution block ID from SKUID.
+    # @pytest.mark.skip(reason="Not implemented.")
+    # @pytest.mark.parametrize(
+    #     ("bandpass_config", "expected_status", "expected_msg"),
+    #     (
+    #         (
+    #             '{"station_config_path": "station_config.yml", '
+    #             '"plot_directory": "/plot"}',
+    #             TaskStatus.REJECTED,
+    #             "Current DAQ config is invalid. The `append_integrated` "
+    #             "option must be set to false for bandpass monitoring.",
+    #         ),
+    #         (
+    #             '{"station_config_path": "station_config.yml", '
+    #             '"plot_directory": "/plot", "auto_handle_daq": "True"}',
+    #             TaskStatus.REJECTED,
+    #             "Specified configuration file (station_config.yml) does not exist.",
+    #         ),
+    #         (
+    #             '{"station_config_path": "tests/data/default_config.yml", '
+    #             '"plot_directory": "invalid_directory", "auto_handle_daq": "True"}',
+    #             TaskStatus.FAILED,
+    #             "Unable to create plotting directory at: invalid_directory",
+    #         ),  # Note: The plot directory for this test must be "invalid_directory"
+    #         (
+    #             "{}",
+    #             TaskStatus.REJECTED,
+    #             "Param `argin` must have keys for `station_config_path`"
+    #             " and `plot_directory`",
+    #         ),
+    #         (
+    #             '{"station_config_path": "blah"}',
+    #             TaskStatus.REJECTED,
+    #             "Param `argin` must have keys for `station_config_path` "
+    #             "and `plot_directory`",
+    #         ),
+    #         (
+    #             '{"plot_directory": "blahblah"}',
+    #             TaskStatus.REJECTED,
+    #             "Param `argin` must have keys for `station_config_path` and "
+    #             "`plot_directory`",
+    #         ),
+    #         (
+    #             '{"station_config_path": "nonexistent_station_config.yml", '
+    #             '"plot_directory": "/plot", "auto_handle_daq": "True"}',
+    #             TaskStatus.REJECTED,
+    #             "Specified configuration file (nonexistent_station_config.yml) "
+    #             "does not exist.",
+    #         ),
+    #         (
+    #             '{"station_config_path": "tests/data/default_config.yml", '
+    #             '"plot_directory": "/app/plot/", "auto_handle_daq": "True"}',
+    #             TaskStatus.IN_PROGRESS,
+    #             "Bandpass monitor active",
+    #         ),
+    #     ),
+    # )
+    # def test_start_stop_bandpass_monitor(
+    #     self: TestDaqComponentManager,
+    #     daq_component_manager: DaqComponentManager,
+    #     callbacks: MockCallableGroup,
+    #     bandpass_config: str,
+    #     expected_status: TaskStatus,
+    #     expected_msg: str,
+    # ) -> None:
+    #     """
+    #     Test for start_bandpass_monitor().
 
-        :param daq_component_manager: the daq receiver component manager
-            under test.
-        :param callbacks: a dictionary from which callbacks with
-            asynchrony support can be accessed.
-        """
-        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
-        daq_component_manager.start_communicating()
-        callbacks["communication_state"].assert_call(
-            CommunicationStatus.NOT_ESTABLISHED
-        )
-        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        unique_ids = set()
-        unique_id_count = 10
+    #     This tests that all of the configuration errors are properly
+    #     handled and that the happy path also works.
 
-        for _ in range(unique_id_count):
-            unique_ids.add(daq_component_manager._get_eb_id())
+    #     :param daq_component_manager: the daq receiver component manager
+    #         under test.
+    #     :param callbacks: a dictionary from which callbacks with
+    #         asynchrony support can be accessed.
+    #     :param bandpass_config: The configuration string to use when
+    #         calling `start_mandpass_monitor`
+    #     :param expected_status: The first expected status returned from
+    #         `start_bandpass_monitor`
+    #     :param expected_msg: The first expected message returned from
+    #         `start_bandpass_monitor`
+    #     """
+    #     daq_component_manager.start_communicating()
+    #     callbacks["communication_state"].assert_call(
+    #         CommunicationStatus.NOT_ESTABLISHED
+    #     )
+    #     callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+    #     # Call start_bandpass
+    #     _ = daq_component_manager.start_bandpass_monitor(
+    #         bandpass_config, task_callback=callbacks["task"]
+    #     )
 
-        assert len(unique_ids) == unique_id_count
+    #     callbacks["task"].assert_call(status=TaskStatus.QUEUED)
+    #     callbacks["task"].assert_call(
+    #         status=expected_status, result=expected_msg, lookahead=5
+    #     )
+    #     # Any ResultCode.REJECTED cases end at the line above.
 
-    def test_get_scan_skuid(
-        self: TestDaqComponentManager,
-        daq_component_manager: DaqComponentManager,
-        callbacks: MockCallableGroup,
-    ) -> None:
-        """
-        Test that we can retrieve a scan ID from SKUID.
+    #     if expected_status == TaskStatus.IN_PROGRESS:
+    #         # Assert status shows bandpass monitor is active.
+    #         status = json.loads(daq_component_manager.daq_status())
+    #         assert status["Bandpass Monitor"]
 
-        :param daq_component_manager: the daq receiver component manager
-            under test.
-        :param callbacks: a dictionary from which callbacks with
-            asynchrony support can be accessed.
-        """
-        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
-        daq_component_manager.start_communicating()
-        callbacks["communication_state"].assert_call(
-            CommunicationStatus.NOT_ESTABLISHED
-        )
-        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        unique_ids = set()
-        unique_id_count = 10
+    #         for i in range(3):
+    #             callbacks["task"].assert_call(
+    #                 status=expected_status, result="plot sent", lookahead=5
+    #             )
+    #             callbacks["component_state"].assert_call(
+    #                 x_bandpass_plot=[f"fake_x_bandpass_plot_{i}"],
+    #                 y_bandpass_plot=[f"fake_y_bandpass_plot_{i}"],
+    #                 rms_plot=[f"fake_rms_plot_{i}"],
+    #                 lookahead=15,
+    #             )
 
-        for _ in range(unique_id_count):
-            unique_ids.add(daq_component_manager._get_scan_id())
+    #             time.sleep(3)  # Wait for simulator output.
 
-        assert len(unique_ids) == unique_id_count
-
-    @pytest.mark.parametrize(
-        ("scan_id", "eb_id"),
-        (
-            (None, None),
-            ("scan_uid", None),
-            (None, "eb_uid"),
-            ("scan_uid", "eb_uid"),
-        ),
-    )
-    def test_adr55_filepath(
-        self: TestDaqComponentManager,
-        daq_component_manager: DaqComponentManager,
-        callbacks: MockCallableGroup,
-        scan_id: str,
-        eb_id: str,
-    ) -> None:
-        """
-        Test that a compliant filepath is produced as expected.
-
-        :param daq_component_manager: the daq receiver component manager
-            under test.
-        :param callbacks: a dictionary from which callbacks with
-            asynchrony support can be accessed.
-        :param scan_id: A mock scan_id to use.
-        :param eb_id: A mock eb_id to use.
-        """
-        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
-        daq_component_manager.start_communicating()
-        callbacks["communication_state"].assert_call(
-            CommunicationStatus.NOT_ESTABLISHED
-        )
-        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-
-        adr55_filepath = daq_component_manager._construct_adr55_filepath(
-            eb_id=eb_id, scan_id=scan_id
-        )
-        adr55_filepath_parts = adr55_filepath.split("/")
-        if eb_id is not None:
-            assert adr55_filepath_parts[2] == eb_id
-        else:
-            assert adr55_filepath_parts[2] is not None
-
-        if scan_id is not None:
-            assert adr55_filepath_parts[4] == scan_id
-        else:
-            assert adr55_filepath_parts[4] is not None
+    #         assert (
+    #             ResultCode.OK,
+    #             "Bandpass monitor stopping.",
+    #         ) == daq_component_manager.stop_bandpass_monitor()
+    #         callbacks["task"].assert_call(
+    #             status=TaskStatus.COMPLETED,
+    #             result="Bandpass monitoring complete.",
+    #             lookahead=20,
+    #         )
+    #         status = json.loads(daq_component_manager.daq_status())
+    #         assert not status["Bandpass Monitor"]
 
     @pytest.mark.parametrize(
         ("directory", "outcome"),
@@ -494,5 +515,119 @@ class TestDaqComponentManager:
         if not outcome:
             re_config = {"directory": daq_component_manager._construct_adr55_filepath()}
             daq_component_manager.configure_daq(json.dumps(re_config))
-
+            time.sleep(1)
+            print(
+                f"Current dir: {daq_component_manager.get_configuration()['directory']}"
+            )
             assert daq_component_manager._data_directory_format_adr55_compliant()
+
+    @pytest.mark.parametrize(
+        ("scan_id", "eb_id"),
+        (
+            (None, None),
+            ("scan_uid", None),
+            (None, "eb_uid"),
+            ("scan_uid", "eb_uid"),
+        ),
+    )
+    def test_adr55_filepath(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+        scan_id: str,
+        eb_id: str,
+    ) -> None:
+        """
+        Test that a compliant filepath is produced as expected.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        :param scan_id: A mock scan_id to use.
+        :param eb_id: A mock eb_id to use.
+        """
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        existing_directory = "some/file/path"
+        daq_component_manager.configure_daq(
+            json.dumps({"directory": existing_directory})
+        )
+        assert (
+            daq_component_manager.get_configuration()["directory"] == existing_directory
+        )
+
+        adr55_filepath = daq_component_manager._construct_adr55_filepath(
+            eb_id=eb_id, scan_id=scan_id
+        )
+        adr55_filepath_parts = adr55_filepath.split("/", maxsplit=5)
+        if eb_id is not None:
+            assert adr55_filepath_parts[2] == eb_id
+        else:
+            assert adr55_filepath_parts[2] is not None
+
+        if scan_id is not None:
+            assert adr55_filepath_parts[4] == scan_id
+        else:
+            assert adr55_filepath_parts[4] is not None
+
+        assert adr55_filepath_parts[5] == existing_directory
+
+    def test_get_eb_skuid(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test that we can retrieve an execution block ID from SKUID.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        unique_ids = set()
+        unique_id_count = 10
+
+        for _ in range(unique_id_count):
+            unique_ids.add(daq_component_manager._get_eb_id())
+
+        assert len(unique_ids) == unique_id_count
+
+    def test_get_scan_skuid(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test that we can retrieve a scan ID from SKUID.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        unique_ids = set()
+        unique_id_count = 10
+
+        for _ in range(unique_id_count):
+            unique_ids.add(daq_component_manager._get_scan_id())
+
+        assert len(unique_ids) == unique_id_count
