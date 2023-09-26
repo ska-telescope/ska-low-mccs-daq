@@ -230,7 +230,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: a task status and response message
         """
-        print("IN START")
         return self.submit_task(
             self._start_daq,
             args=[modes_to_start],
