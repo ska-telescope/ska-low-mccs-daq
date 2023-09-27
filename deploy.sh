@@ -18,6 +18,7 @@ function display_help(){
     echo "-b <pyfabil_branch> specifies pyfabil branch to be installed"
     echo "-t <itpm_bios_branch> specifies itpm-bios branch to be installed"
     echo "-c             clean build directories and installed python virtual environment"
+    echo "-d             installs requirements for documentation, requires at least python 3.8.1"
     echo "-h             Print this message"
     echo "
 This script should not be executed with sudo, however the user executing it must have sudo privileges. Only the user
@@ -62,6 +63,7 @@ ACTIVATE_VENV=false
 PRINT_HELP=false
 PYFABIL_BRANCH="master"
 ITPM_BIOS_BRANCH="main"
+INSTALL_DOCS_REQS=false
 
 # Process command-line arguments
 while getopts "Chpcb:t:v:" flag
@@ -71,6 +73,7 @@ do
         h) PRINT_HELP=true ;;
         p) ACTIVATE_VENV=true ;;
         c) CLEAN=true ;;
+        d) INSTALL_DOCS_REQS=true ;;
         b) PYFABIL_BRANCH=${OPTARG} ;;
         t) ITPM_BIOS_BRANCH=${OPTARG} ;;
         v) export VENV_INSTALL=${OPTARG}
@@ -180,7 +183,7 @@ function create_install() {
     # Create python virtual environment
     # virtualenv -p python3 $AAVS_INSTALL/python
     $PYTHON -m venv $VENV_INSTALL/python
-
+    
     # Add AAVS virtual environment alias to .bashrc
     if [[ ! -n "`cat ~/.bashrc | grep aavs_python`" ]]; then
       echo "alias aavs_python=\"source $VENV_INSTALL/python/bin/activate\"" >> ~/.bashrc
@@ -278,6 +281,9 @@ popd
 # Install required python packages
 pushd python || exit
   pip install -r requirements.pip || exit
+  if [ $INSTALL_DOCS_REQS == true ]; then
+    pip install -r requirements_docs.pip || exit
+  fi
   python setup.py install || exit
 popd
 
