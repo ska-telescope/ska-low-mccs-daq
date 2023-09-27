@@ -66,7 +66,7 @@ ITPM_BIOS_BRANCH="main"
 INSTALL_DOCS_REQS=false
 
 # Process command-line arguments
-while getopts "Chpcb:t:v:" flag
+while getopts "Chpcdb:t:v:" flag
 do
     case "${flag}" in
         C) COMPILE_CORRELATOR=ON ;;
