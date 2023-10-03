@@ -19,8 +19,7 @@ import re
 # import tempfile
 import threading
 from enum import IntEnum
-
-# from multiprocessing import Process
+from multiprocessing import Process
 from time import sleep
 from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
 
@@ -218,6 +217,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
 
 class DaqHandler:  # pylint: disable=too-many-instance-attributes
     """An implementation of a DaqHandler device."""
+    TIME_FORMAT_STRING = "%d/%m/%y %H:%M:%S"
 
     def __init__(self: DaqHandler):
         """Initialise this device."""
@@ -251,34 +251,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
         }
 
-    # def _file_dump_callback(
-    #     self: DaqHandler,
-    #     data_mode: str,
-    #     file_name: str,
-    #     additional_info: Optional[int] = None,
-    # ) -> None:
-    #     """
-    #     Add metadata to buffer.
-
-    #     :param data_mode: The DAQ data type written
-    #     :param file_name: The filename written
-    #     :param additional_info: Any additional information.
-    #     """
-    #     # We don't have access to the timestamp here so this will retrieve the most
-    #     # recent match
-    # daq_mode = self._data_mode_mapping[data_mode]
-    # if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
-    #     metadata = self.daq_instance._persisters[daq_mode].get_metadata(
-    #         tile_id=additional_info
-    #     )
-    # else:
-    #     metadata = self.daq_instance._persisters[daq_mode].get_metadata()
-    # if additional_info is not None:
-    #     metadata["additional_info"] = additional_info
-
-    # self.buffer.add(data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
-
-    # # Callback called for every data mode.
+    # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
         self: DaqHandler,
         data_mode: str,
@@ -745,8 +718,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         print("STARTING PROCESSES")
         # Start rms thread
         if monitor_rms:
-            rms = threading.Thread(
+            rms = Process(
                 target=self.generate_rms_plots,
+                name=f"rms-plotter({self})",
                 args=(station_conf, os.path.join(plot_directory, station_name)),
             )
             rms.start()
@@ -779,7 +753,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             )
             if dir_size > max_dir_size:
                 self.logger.error(
-                    "Consuming too much disk space! Stopping bandpass monitor!"
+                    "Consuming too much disk space! Stopping bandpass monitor! %i/%i", dir_size, max_dir_size,
                 )
                 self._stop_bandpass = True
                 break
@@ -787,26 +761,23 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             try:
                 x_bandpass_plot = self._x_bandpass_plots.get(block=False)
             except queue.Empty:
-                # self.logger.error("Caught exception: %s", e)
                 x_bandpass_plot = None
             except Exception as e:  # pylint: disable = broad-exception-caught
-                print(f"x CAUGHT EXC: {e}")
+                self.logger.error("Unexpected exception retrieving x_bandpass_plot: %s", e)
 
             try:
                 y_bandpass_plot = self._y_bandpass_plots.get(block=False)
             except queue.Empty:
-                # self.logger.error("Caught exception: %s", e)
                 y_bandpass_plot = None
             except Exception as e:  # pylint: disable = broad-exception-caught
-                print(f"y CAUGHT EXC: {e}")
+                self.logger.error("Unexpected exception retrieving y_bandpass_plot: %s", e)
 
             try:
                 rms_plot = self._rms_plots.get(block=False)
             except queue.Empty:
-                # self.logger.error("Caught exception: %s", e)
                 rms_plot = None
             except Exception as e:  # pylint: disable = broad-exception-caught
-                print(f"rms CAUGHT EXC: {e}")
+                self.logger.error("Unexpected exception retrieving rms_plot: %s", e)
 
             if all(
                 plot is None for plot in [x_bandpass_plot, y_bandpass_plot, rms_plot]
@@ -814,14 +785,14 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 # If we don't have any plots, don't uselessly spam [None]s.
                 pass
             else:
-                msg = (
-                    TaskStatus.IN_PROGRESS,
-                    "plot sent",
-                    x_bandpass_plot,
-                    y_bandpass_plot,
-                    rms_plot,
-                )
-                print(f"Yielding: {msg}")
+                # msg = (
+                #     TaskStatus.IN_PROGRESS,
+                #     "plot sent",
+                #     x_bandpass_plot,
+                #     y_bandpass_plot,
+                #     rms_plot,
+                # )
+                # print(f"Yielding: {msg}")
                 yield (
                     TaskStatus.IN_PROGRESS,
                     "plot sent",
@@ -829,7 +800,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     y_bandpass_plot,
                     rms_plot,
                 )
-            sleep(1)
+            sleep(1)    # Plots will never be sent more often than once per second.
         print("STOPPING BANDPASS")
         # Stop and clean up
         self.logger.info("Waiting for threads and processes to terminate.")
@@ -841,6 +812,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         # shutil.rmtree(data_directory, ignore_errors=True)
         observer.join()
         bandpass_plotting_thread.join()
+        if monitor_rms:
+            rms.join()
         self._monitoring_bandpass = False
 
         yield (TaskStatus.COMPLETED, "Bandpass monitoring complete.", None, None, None)
@@ -867,7 +840,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         :param config: Station configuration file.
         :param plotting_directory: Directory to store plots in.
         """
-        global files_to_plot
+        # global files_to_plot
 
         def _connect_station() -> None:
             """Return a connected station."""
@@ -983,7 +956,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             # Save plot
             fig.suptitle(
                 f"{station_name} Antenna RMS "
-                f'({datetime.datetime.utcnow().strftime("%m/%d/%Y %H:%M:%S")})',
+                f'({datetime.datetime.utcnow().strftime(self.TIME_FORMAT_STRING)})',
                 fontsize=14,
             )
             saved_filepath = os.path.join(plotting_directory, "antenna_rms.svg")
@@ -998,7 +971,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             sleep(5)
 
     # pylint: disable = too-many-locals
-    def generate_bandpass_plots(  # noqa: C901
+    def generate_bandpass_plots( # noqa: C901
         self: DaqHandler, plotting_directory: str, station_name: str
     ) -> None:
         """
@@ -1009,6 +982,12 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         """
         print("ENTERING GENERATE BANDPASS PLOTS")
         global files_to_plot  # pylint: disable=global-variable-not-assigned
+
+        x_pol_data = None
+        y_pol_data = None
+        interval_start = None
+
+        cadence = 60.0  # (How often to return plots/Time over which to average plots) in seconds
 
         _directory = plotting_directory
         _freq_range = np.arange(1, nof_channels) * (old_div(bandwidth, nof_channels))
@@ -1083,7 +1062,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         # Make nice
         ax.set_xlim((0, bandwidth))
-        ax.set_ylim((0, 40))
+        ax.set_ylim((0, 50))
         ax.set_title(f"Tile {0} - Pol {_pol_map[0]}", fontdict={"fontweight": "bold"})
         ax.set_xlabel("Frequency (MHz)")
         ax.set_ylabel("Power (dB)")
@@ -1095,9 +1074,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         # Loop until asked to stop
         while not self._stop_bandpass:
-            # Wait for files to be queued
+            # Wait for files to be queued. Check every second.
             while len(files_to_plot[station_name]) == 0 and not self._stop_bandpass:
-                sleep(0.1)
+                sleep(1)
 
             if self._stop_bandpass:
                 return
@@ -1117,16 +1096,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             with h5py.File(filepath, "r") as f:
                 # Data is in channels/antennas/pols order
                 data: np.ndarray = f["chan_"]["data"][:]
-                # timestamp = f["sample_timestamps"]["data"][0]
+                timestamp = f["sample_timestamps"]["data"][0]
                 data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
-                # Return raw bandpass data to Tango device.
-                for pol in range(nof_pols):
-                    if pol == 0:
-                        x_pol_data = json.dumps(data[1:, :, pol].tolist())
-                        self._x_bandpass_plots.put(x_pol_data)
-                    elif pol == 1:
-                        y_pol_data = json.dumps(data[1:, :, pol].tolist())
-                        self._y_bandpass_plots.put(y_pol_data)
+
                 # Convert to power in dB
                 np.seterr(divide="ignore")
                 data = 10 * np.log10(data)
@@ -1134,40 +1106,70 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 np.seterr(divide="warn")
 
             # Format datetime
-            # TODO: TypeError: only integer scalar arrays can be
-            # converted to a scalar index
-            # date_time = datetime.datetime.utcfromtimestamp(timestamp).strftime(
-            #     "%y-%m-%d %H:%M:%S"
-            # )
+            present = datetime.datetime.utcfromtimestamp(timestamp[0])
+            date_time = present.strftime(self.TIME_FORMAT_STRING)
+            if interval_start is None:
+                interval_start = present
 
-            print("Creating plot(s)...")
+            print("Processing data")
             # Loop over polarisations (separate plots)
             for pol in range(nof_pols):
+                # Assign first data point or calculate average
+                if pol == 0:
+                    if x_pol_data is None:
+                        x_pol_data = data[1:, :, pol]
+                    else:
+                        x_pol_data = (x_pol_data + data[1:, :, pol])/2
+                elif pol == 1:
+                    if y_pol_data is None:
+                        y_pol_data = data[1:, :, pol]
+                    else:
+                        y_pol_data = (y_pol_data + data[1:, :, pol])/2
 
-                # Loop over antennas, change plot data and label text
-                for i, antenna in enumerate(range(nof_antennas_per_tile)):
-                    plot_lines[i].set_ydata(data[1:, antenna, pol])
-                    # legend.get_texts()[i].set_text(
-                    #     f"{i:0>2d} - RX {_fibre_preadu_mapping[antenna]:0>2d} - "
-                    #     f"Base {antenna_base[tile_number * 16 + i]:0>3d}"
-                    # )
+            # Every `cadence` seconds, plot graph and add the averages
+            # to the queue to be sent to the Tango device,
+            print(f"Elapsed time: {(present - interval_start).total_seconds()}")
+            if (present - interval_start).total_seconds() >= cadence:
+                print("Plotting graphs and queueing data for transmission")
+                # Loop over polarisations (separate plots)
+                for pol in range(nof_pols):
+                    # Loop over antennas, change plot data and label text
+                    for i, antenna in enumerate(range(nof_antennas_per_tile)):
+                        # Plot average
+                        if pol == 0:
+                            plot_lines[i].set_ydata(x_pol_data[1:, antenna])
+                        elif pol == 1:
+                            plot_lines[i].set_ydata(y_pol_data[1:, antenna])
 
-                # Update title and time
-                ax.set_title(f"Tile {tile_number + 1} - Pol {_pol_map[pol]}")
-                # date_text.set_text(date_time)
-                date_text.set_text("Today's Date")
-                saved_plot_path: str = os.path.join(
-                    _directory,
-                    f"tile_{tile_number + 1}_pol_{_pol_map[pol].lower()}.svg",
-                )
-                print(f"Saving plot to: {saved_plot_path}")
-                # Save updated figure
-                canvas.print_figure(
-                    saved_plot_path,
-                    pad_inches=0,
-                    dpi=200,
-                    figsize=(8, 4),
-                )
+                        # legend.get_texts()[i].set_text(
+                        #     f"{i:0>2d} - RX {_fibre_preadu_mapping[antenna]:0>2d} - "
+                        #     f"Base {antenna_base[tile_number * 16 + i]:0>3d}"
+                        # )
+
+                    # Update title and time
+                    ax.set_title(f"Tile {tile_number + 1} - Pol {_pol_map[pol]}")
+                    date_text.set_text(date_time)
+                    saved_plot_path: str = os.path.join(
+                        _directory,
+                        f"tile_{tile_number + 1}_pol_{_pol_map[pol].lower()}.svg",
+                    )
+                    print(f"Saving plot to: {saved_plot_path}")
+                    # Save updated figure
+                    canvas.print_figure(
+                        saved_plot_path,
+                        pad_inches=0,
+                        dpi=200,
+                        figsize=(8, 4),
+                    )
+
+
+                self._x_bandpass_plots.put(json.dumps(x_pol_data.tolist()))
+                self._y_bandpass_plots.put(json.dumps(y_pol_data.tolist()))
+
+                # Reset vars
+                x_pol_data = None
+                y_pol_data = None
+                interval_start = None
 
     # pylint: disable=broad-except
     def create_plotting_directory(
