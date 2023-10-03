@@ -367,6 +367,17 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 )  # noqa: E501
                 return ResultCode.REJECTED, "No configuration data supplied."
 
+            if "directory" in config:
+                if not os.path.exists(config["directory"]):
+                    # Note: The daq-handler does not have permission
+                    # to create a root directory
+                    # This will be set up by container infrastructure.
+                    self.logger.info(
+                        f'directory {config["directory"]} does not exist, Creating...'
+                    )
+                    os.makedirs(config["directory"])
+                    self.logger.info(f'directory {config["directory"]} created!')
+
             self.daq_instance.populate_configuration(config)
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Daq reconfigured"
