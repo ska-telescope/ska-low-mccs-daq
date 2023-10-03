@@ -45,7 +45,7 @@ Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 # pylint: disable = redefined-builtin
 print = functools.partial(print, flush=True)  # noqa: A001
 # pylint: disable = broad-exception-raised, bare-except
-# pylint: disable = global-variable-not-assigned, too-many-lines
+# pylint: disable = too-many-lines
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -217,6 +217,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
 
 class DaqHandler:  # pylint: disable=too-many-instance-attributes
     """An implementation of a DaqHandler device."""
+
     TIME_FORMAT_STRING = "%d/%m/%y %H:%M:%S"
 
     def __init__(self: DaqHandler):
@@ -753,7 +754,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             )
             if dir_size > max_dir_size:
                 self.logger.error(
-                    "Consuming too much disk space! Stopping bandpass monitor! %i/%i", dir_size, max_dir_size,
+                    "Consuming too much disk space! Stopping bandpass monitor! %i/%i",
+                    dir_size,
+                    max_dir_size,
                 )
                 self._stop_bandpass = True
                 break
@@ -763,14 +766,18 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             except queue.Empty:
                 x_bandpass_plot = None
             except Exception as e:  # pylint: disable = broad-exception-caught
-                self.logger.error("Unexpected exception retrieving x_bandpass_plot: %s", e)
+                self.logger.error(
+                    "Unexpected exception retrieving x_bandpass_plot: %s", e
+                )
 
             try:
                 y_bandpass_plot = self._y_bandpass_plots.get(block=False)
             except queue.Empty:
                 y_bandpass_plot = None
             except Exception as e:  # pylint: disable = broad-exception-caught
-                self.logger.error("Unexpected exception retrieving y_bandpass_plot: %s", e)
+                self.logger.error(
+                    "Unexpected exception retrieving y_bandpass_plot: %s", e
+                )
 
             try:
                 rms_plot = self._rms_plots.get(block=False)
@@ -800,7 +807,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     y_bandpass_plot,
                     rms_plot,
                 )
-            sleep(1)    # Plots will never be sent more often than once per second.
+            sleep(1)  # Plots will never be sent more often than once per second.
         print("STOPPING BANDPASS")
         # Stop and clean up
         self.logger.info("Waiting for threads and processes to terminate.")
@@ -956,7 +963,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             # Save plot
             fig.suptitle(
                 f"{station_name} Antenna RMS "
-                f'({datetime.datetime.utcnow().strftime(self.TIME_FORMAT_STRING)})',
+                f"({datetime.datetime.utcnow().strftime(self.TIME_FORMAT_STRING)})",
                 fontsize=14,
             )
             saved_filepath = os.path.join(plotting_directory, "antenna_rms.svg")
@@ -971,7 +978,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             sleep(5)
 
     # pylint: disable = too-many-locals
-    def generate_bandpass_plots( # noqa: C901
+    def generate_bandpass_plots(  # noqa: C901
         self: DaqHandler, plotting_directory: str, station_name: str
     ) -> None:
         """
@@ -983,11 +990,11 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         print("ENTERING GENERATE BANDPASS PLOTS")
         global files_to_plot  # pylint: disable=global-variable-not-assigned
 
-        x_pol_data = None
-        y_pol_data = None
+        x_pol_data: np.ndarray | None = None
+        y_pol_data: np.ndarray | None = None
         interval_start = None
 
-        cadence = 60.0  # (How often to return plots/Time over which to average plots) in seconds
+        cadence = 60.0  # Time over which to average plots in seconds
 
         _directory = plotting_directory
         _freq_range = np.arange(1, nof_channels) * (old_div(bandwidth, nof_channels))
@@ -1119,12 +1126,12 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     if x_pol_data is None:
                         x_pol_data = data[1:, :, pol]
                     else:
-                        x_pol_data = (x_pol_data + data[1:, :, pol])/2
+                        x_pol_data = (x_pol_data + data[1:, :, pol]) / 2
                 elif pol == 1:
                     if y_pol_data is None:
                         y_pol_data = data[1:, :, pol]
                     else:
-                        y_pol_data = (y_pol_data + data[1:, :, pol])/2
+                        y_pol_data = (y_pol_data + data[1:, :, pol]) / 2
 
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
@@ -1137,8 +1144,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     for i, antenna in enumerate(range(nof_antennas_per_tile)):
                         # Plot average
                         if pol == 0:
+                            assert x_pol_data is not None
                             plot_lines[i].set_ydata(x_pol_data[1:, antenna])
                         elif pol == 1:
+                            assert y_pol_data is not None
                             plot_lines[i].set_ydata(y_pol_data[1:, antenna])
 
                         # legend.get_texts()[i].set_text(
@@ -1161,9 +1170,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                         dpi=200,
                         figsize=(8, 4),
                     )
-
-
+                assert isinstance(x_pol_data, np.ndarray)
                 self._x_bandpass_plots.put(json.dumps(x_pol_data.tolist()))
+                assert isinstance(y_pol_data, np.ndarray)
                 self._y_bandpass_plots.put(json.dumps(y_pol_data.tolist()))
 
                 # Reset vars
