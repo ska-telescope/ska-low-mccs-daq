@@ -1126,6 +1126,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     if x_pol_data is None:
                         x_pol_data = data[1:, :, pol]
                     else:
+                        # Can we calc avgs in this way? :S
                         x_pol_data = (x_pol_data + data[1:, :, pol]) / 2
                 elif pol == 1:
                     if y_pol_data is None:
@@ -1136,6 +1137,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
             print(f"Elapsed time: {(present - interval_start).total_seconds()}")
+            print(f"PRESENT: {present}")
+            print(f"INTERVAL_START: {interval_start}")
             if (present - interval_start).total_seconds() >= cadence:
                 print("Plotting graphs and queueing data for transmission")
                 # Loop over polarisations (separate plots)
