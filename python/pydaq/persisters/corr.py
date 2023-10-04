@@ -195,7 +195,7 @@ class CorrelationFormatFileManager(AAVSFileManager):
             raise
 
         output_buffer = numpy.zeros([n_samples, len(channels), len(baselines), len(stokes)], dtype=self.data_type)
-        timestamp_buffer = numpy.zeros([n_samples, 1], dtype=numpy.float)
+        timestamp_buffer = numpy.zeros([n_samples, 1], dtype=float)
 
         data_flushed = False
         while not data_flushed:

@@ -171,7 +171,7 @@ class StationBeamFormatFileManager(AAVSFileManager):
             raise
 
         output_buffer = numpy.zeros([len(polarizations), n_samples, len(channels)], dtype=self.data_type)
-        timestamp_buffer = numpy.zeros([n_samples, 1], dtype=numpy.float)
+        timestamp_buffer = numpy.zeros([n_samples, 1], dtype=float)
         packets_buffer = numpy.zeros([n_samples, 1], dtype=numpy.uint32)
 
         data_flushed = False
