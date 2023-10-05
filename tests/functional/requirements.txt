@@ -3,7 +3,6 @@ pytest-json-report==1.5.0
 pytest-bdd==6.1.1
 pyyaml==6.0
 ska-control-model==0.3.1
-ska-low-mccs-common==0.9.0
 ska-tango-testing==0.6.1
 psycopg==3.1.9
 psycopg[pool]==3.1.9

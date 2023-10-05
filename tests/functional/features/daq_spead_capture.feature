@@ -29,12 +29,12 @@ Feature: Receiving SPEAD packets.
       And the Subrack is available
       And DAQ is ready to receive <daq_modes_of_interest> data type.
       And MccsTile is routed to daq
-      When MccsTile sends channel data type
+      When MccsTile sends <data_type> data type
       Then Daq receives data <daq_modes_of_interest>
 
       Examples: modes of interest
-      |    daq_modes_of_interest    |    no_of_tiles    |    station_name    | 
-      |   INTEGRATED_CHANNEL_DATA   |        16         |     real-daq-1     |
+      |    daq_modes_of_interest    |  data_type  |  no_of_tiles    |    station_name    | 
+      |   INTEGRATED_CHANNEL_DATA   |    channel  |      16         |     real-daq-1     |
 
 
 

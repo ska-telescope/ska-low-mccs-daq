@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import os
-import time
 from typing import Callable
 
 import pytest
@@ -58,9 +57,7 @@ def station_name_fixture(
     """
     if not true_context:
         pytest.skip(
-            "Functional testing of SPEAD data capture requires real DAQ. "
-            "Because the development environment does not import ska-low-mccs-daq"
-            "This needs to be run in a true-context against real devices."
+            "This needs to be run in a true-context against a real DAQ deployment"
         )
     return station_name
 
@@ -136,6 +133,7 @@ def daq_ready_to_receive_beam(
         tango.EventType.CHANGE_EVENT,
         change_event_callbacks["data_received_callback"],
     )
+    change_event_callbacks["data_received_callback"].assert_change_event(Anything)
 
 
 @given("MccsTile is routed to daq")
@@ -230,12 +228,10 @@ def check_capture(
     :param get_hdf5_count: A callable to return the number of hdf5 files
         in a directory.
     """
-    # TODO: release ska-low-mccs-daq:0.4.0 does not have a recent bug fix MCCS-1706
-    # Therefore callback is not functional.
-    change_event_callbacks["data_received_callback"].assert_change_event(Anything)
+    change_event_callbacks["data_received_callback"].assert_change_event(
+        ("integrated_channel", Anything)
+    )
 
-    # Add a sleep for the file to show up in volume
-    time.sleep(5)
     final_hdf5_count = get_hdf5_count()
     assert final_hdf5_count - initial_hdf5_count >= 1
 
