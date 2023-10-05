@@ -15,6 +15,10 @@ def plot_correlated_data(conf):
         logging.warning("Only one sample can be plotted for correlated data")
         conf.nof_samples = 1
 
+    # In the case of correlated data we only have one channel,
+    # and it's used in place of tile_id in several spots which expect an int.
+    conf.channels = int(conf.channels)
+
     # Create correlation data file manager
     corr_plotter = CorrelationFormatFileManager(root_path=conf.directory, daq_mode=FileDAQModes.Burst)
 
