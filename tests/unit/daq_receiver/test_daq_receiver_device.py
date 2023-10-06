@@ -18,6 +18,7 @@ import pytest
 import pytest_mock
 import tango
 from ska_control_model import AdminMode, HealthState, ResultCode
+from ska_tango_testing.mock.placeholders import Anything
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tango.server import Device, command
 
@@ -130,7 +131,9 @@ class TestMccsDaqReceiver:
         # I'd like to pass `task_callback=MockCallback()` to `Start`.
         # However it isn't json serializable so we can't do that here.
         # Instead we resort to this...
-        sleep(1)
+
+        # TODO: mock skuid_client to fail fast.
+        sleep(25)
 
         # Check status.
         status = json.loads(device_under_test.DaqStatus())
@@ -482,7 +485,7 @@ class TestPatchedDaq:
 
         device_under_test.CallReceivedDataCallback(input_data)
         change_event_callbacks.assert_change_event(
-            "dataReceivedResult", (input_data[0], "_")
+            "dataReceivedResult", (input_data[0], Anything)
         )
         assert result == json.loads(device_under_test.dataReceivedResult[1])
 

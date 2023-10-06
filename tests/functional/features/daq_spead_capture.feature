@@ -8,37 +8,33 @@
 """This module contains the features and scenarios for the daq SPEAD capture test."""
 
 Feature: Receiving SPEAD packets.
-    As a MCCS developer who want to capture SPEAD data using daq
-    when i send simulated SPEAD data
-    DAQ reports it has received it.
+    As a MCCS developer i want to ensure DAQ is capable of capturing SPEAD data.
 
     # Acceptance Criteria:
     #  - I will be able to configure the DAQ to listen on a specific port interface.
     #  - I will be able to start DAQ for capturing data.
-    #  - I will have a simulated SPEAD data sending to a specific IP:PORT 
+    #  - I can send simulated SPEAD data to a specific IP:PORT 
     #  - Daq will receive these packets. 
 
-    # Issues
-    #  - Finding it difficult to pass both deployment and development environments at the same time
-
+    # Notes:
+    # - This test is skipped if not a true context
 
   Background:
     Given interface eth0
-    Given port 4660
     
-  @xfail
   Scenario Outline: Sending SPEAD packets to be captured by DAQ
-      Given an MccsDaqReceiver
-      And the daq receiver is stopped
-      And Daq is configured to listen on specified interface:port
-      And The daq is started with <daq_modes_of_interest>
-      When Simulated data from <no_of_tiles> of type <daq_modes_of_interest> is sent
-      Then Daq reports that is has captured data <daq_modes_of_interest>
-      And Daq writes to a file.
+      Given this test is running against station <station_name>.
+      And the DAQ is available
+      And the Tile is available
+      And the Subrack is available
+      And DAQ is ready to receive <daq_modes_of_interest> data type.
+      And MccsTile is routed to daq
+      When MccsTile sends <data_type> data type
+      Then Daq receives data <daq_modes_of_interest>
 
       Examples: modes of interest
-          |   daq_modes_of_interest       |  no_of_tiles      |
-          |   'INTEGRATED_CHANNEL_DATA'   |      16           |
-          # |   'RAW_DATA'                  |      16           | # no simulator exists yet
-  #       ---------------------------------
+      |    daq_modes_of_interest    |  data_type  |  no_of_tiles    |    station_name    | 
+      |   INTEGRATED_CHANNEL_DATA   |    channel  |      16         |     real-daq-1     |
+
+
 

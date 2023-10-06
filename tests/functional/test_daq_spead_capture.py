@@ -9,214 +9,18 @@
 from __future__ import annotations
 
 import json
-import socket
-import struct
-import threading
-import time
-from time import sleep
-from typing import Any, Iterator
+import os
+from typing import Callable
 
-import numpy as np
+import pytest
 import tango
 from pytest_bdd import given, parsers, scenarios, then, when
-from ska_control_model import ResultCode
+from ska_control_model import AdminMode
+from ska_tango_testing.mock.placeholders import Anything
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
-from tests.harness import SpsTangoTestHarnessContext
-
-
-def send_data_thread(
-    data: IntegratedChannelDataSimulator, event: threading.Event
-) -> None:
-    """
-    Thread to send data until told to stop.
-
-    :param data: the data generator.
-    :param event: a event to stop thread
-    """
-    while True:
-        data.send_data(1)
-        sleep(1)
-        if event.is_set():
-            break
-
-
-# TODO: this simulation class should be moved of imported
-class IntegratedChannelDataSimulator(object):
-    """A class to send simulated integrated channel data."""
-
-    def __init__(self, ip: str, port: int, nof_tiles: int = 1) -> None:
-        """
-        Init simulator.
-
-        :param ip: IP
-        :param port: Port
-        :param nof_tiles: number of tiles
-        """
-        self._ip = ip
-        self._port = port
-
-        self._unix_epoch_time = int(time.time())
-        self._timestamp = 0
-        self._lmc_capture_mode = 0x6
-        self._station_id = 0
-        self._packet_payload_length = 1024
-        self._data_type = np.uint16
-
-        self._nof_tiles = nof_tiles
-        self._nof_fpgas = 2
-        self._nof_pols = 2
-        self._nof_ants_per_fpga = 8
-        self._nof_ants_per_packet = 1
-        self._nof_channels = 512
-        self._nof_channels_per_packet = 256
-        self._nof_channel_packets = self._nof_channels // self._nof_channels_per_packet
-        self._nof_antenna_packets = self._nof_ants_per_fpga // self._nof_ants_per_packet
-
-        self._timestamp = 0
-
-        # Generate test data
-        self._packet_data = np.zeros(
-            (
-                self._nof_tiles,
-                self._nof_fpgas,
-                self._nof_ants_per_fpga,
-                self._nof_channel_packets,
-                self._nof_channels_per_packet * 2,
-            ),
-            dtype=np.uint16,
-        )
-
-        for tpm in range(self._nof_tiles):
-            for fpga in range(self._nof_fpgas):
-                for antenna in range(self._nof_ants_per_fpga):
-                    for channel in range(self._nof_channel_packets):
-                        self._packet_data[tpm][fpga][antenna][
-                            channel
-                        ] = self._generate_data(tpm, fpga, antenna, channel)
-
-        # Create socket
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-    def send_data(
-        self: IntegratedChannelDataSimulator, sleep_between_antennas: int
-    ) -> None:
-        """
-        Generate integrated channel data.
-
-        :param sleep_between_antennas: time in seconds.
-        """
-        for tile in range(self._nof_tiles):
-            for ant in range(self._nof_ants_per_fpga):
-                for chan in range(
-                    int(self._nof_channels / self._nof_channels_per_packet)
-                ):
-                    for fpga in range(self._nof_fpgas):
-                        self._transmit_packet(
-                            tile,
-                            fpga,
-                            self._timestamp,
-                            ant + fpga * self._nof_ants_per_fpga,
-                            chan * self._nof_channels_per_packet,
-                        )
-
-                time.sleep(sleep_between_antennas)
-
-        self._timestamp += 1
-
-    def _transmit_packet(
-        self: IntegratedChannelDataSimulator,
-        tpm_id: int,
-        fpga_id: int,
-        timestamp: int,
-        start_antenna: int,
-        start_channel: int,
-    ) -> None:
-        """
-        Generate a packet.
-
-        :param tpm_id: Id of the TPM
-        :param fpga_id: Id of the FPGA
-        :param timestamp: Time
-        :param start_antenna: start antenna
-        :param start_channel: start channel
-        """
-        header = 0x53 << 56 | 0x04 << 48 | 0x02 << 40 | 0x06 << 32 | 0x08
-        heap_counter = 1 << 63 | 0x0001 << 48 | timestamp
-        pkt_len = 1 << 63 | 0x0004 << 48 | self._packet_payload_length
-        sync_time = 1 << 63 | 0x1027 << 48 | self._unix_epoch_time
-        timestamp = 1 << 63 | 0x1600 << 48 | timestamp & 0xFFFFFFFFFF
-        lmc_capture_mode = 1 << 63 | 0x2004 << 48 | self._lmc_capture_mode
-        lmc_info = (
-            1 << 63
-            | 0x2002 << 48
-            | start_channel << 24
-            | start_antenna << 8
-            | self._nof_ants_per_packet & 0xFF
-        )
-        lmc_tpm_info = 1 << 63 | 0x2001 << 48 | tpm_id << 32 | self._station_id << 16
-        sample_offset = 0 << 63 | 0x3300 << 48
-
-        packet = (
-            struct.pack(
-                ">" + "Q" * 9,
-                header,
-                heap_counter,
-                pkt_len,
-                sync_time,
-                timestamp,
-                lmc_capture_mode,
-                lmc_info,
-                lmc_tpm_info,
-                sample_offset,
-            )
-            + self._packet_data[tpm_id][fpga_id][
-                start_antenna // self._nof_ants_per_fpga
-            ][start_channel // self._nof_channels_per_packet].tobytes()
-        )
-
-        self._socket.sendto(packet, (self._ip, self._port))
-
-    def _generate_data(
-        self: IntegratedChannelDataSimulator,
-        tpm_id: int,
-        fpga_id: int,
-        start_antenna: int,
-        start_channel: int,
-    ) -> Any:
-        """
-        Generate samples data set.
-
-        :param tpm_id: Id of the TPM
-        :param fpga_id: Id of the FPGA
-        :param start_antenna: start antenna
-        :param start_channel: start channel
-
-        :return: the packet data
-        """
-        start_antenna = (
-            tpm_id * self._nof_ants_per_fpga * self._nof_fpgas
-            + fpga_id * self._nof_ants_per_fpga
-            + start_antenna
-        )
-        packet_data = np.zeros(self._packet_payload_length // 2, dtype=np.uint16)
-
-        counter = 0
-        for c in range(self._nof_channels_per_packet):
-            packet_data[counter] = (
-                start_antenna * self._nof_channels
-                + start_channel * self._nof_channels_per_packet
-                + c
-            )
-            packet_data[counter + 1] = (
-                start_antenna * self._nof_channels
-                + self._nof_channels
-                - (start_channel * self._nof_channels_per_packet + c)
-            )
-            counter += 2
-
-        return packet_data
-
+from tests.functional.conftest import expect_attribute, poll_until_state_change
+from tests.harness import get_daq_name, get_subrack_name, get_tile_name
 
 scenarios("./features/daq_spead_capture.feature")
 
@@ -236,153 +40,239 @@ def daq_interface(
 
 
 @given(
-    parsers.cfparse("port {port:Number}", extra_types={"Number": int}),
-    target_fixture="port",
+    parsers.cfparse("this test is running against station {station_name}."),
+    target_fixture="station_name",
 )
-def daq_port(
-    port: int,
-) -> int:
+def station_name_fixture(
+    station_name: str,
+    true_context: bool,
+) -> str:
     """
-    Port to send/listen on.
+    Return the name of the station under test.
 
-    :param port: The port to send/listen on.
+    :param station_name: the name of the station to test against.
+    :param true_context: whether to test against an existing Tango deployment
 
-    :return: the port to send/receive
+    :return: the name of the station under test
     """
-    return port
+    if not true_context:
+        pytest.skip(
+            "This needs to be run in a true-context against a real DAQ deployment"
+        )
+    return station_name
 
 
-@given("an MccsDaqReceiver", target_fixture="daq_receiver")
-def daq_receiver_fixture(
-    functional_test_context: SpsTangoTestHarnessContext,
-) -> Iterator[tango.DeviceProxy]:
+@given("the DAQ is available", target_fixture="daq_device")
+def daq_device_fixture(station_name: str) -> tango.DeviceProxy:
     """
-    Yield the daq_receiver device.
+    Return a ``tango.DeviceProxy`` to the DAQ device under test.
 
-    :param functional_test_context: the context in which the test is running.
+    :param station_name: the name of the station under test.
 
-    :yields: the daq_receiver device
+    :return: a ``tango.DeviceProxy`` to the DAQ device under test.
     """
-    yield functional_test_context.get_daq_device()
+    return tango.DeviceProxy(get_daq_name(station_name))
 
 
-@given("the daq receiver is stopped")
-def stop_daq(
-    daq_receiver: tango.DeviceProxy,
+@given("the Tile is available", target_fixture="tile_device")
+def tile_device_fixture(station_name: str) -> str:
+    """
+    Return a ``tango.DeviceProxy`` to the Tile device under test.
+
+    :param station_name: the name of the station under test.
+
+    :return: a ``tango.DeviceProxy`` to the Tile device under test.
+    """
+    return tango.DeviceProxy(get_tile_name(10, station_name))
+
+
+@given("the Subrack is available", target_fixture="subrack_device")
+def subrack_device_fixture(station_name: str) -> str:
+    """
+    Return a ``tango.DeviceProxy`` to the subrack device under test.
+
+    :param station_name: the name of the station under test.
+
+    :return: a ``tango.DeviceProxy`` to the subrack device under test.
+    """
+    return tango.DeviceProxy(get_subrack_name(1, station_name))
+
+
+@given(parsers.parse("DAQ is ready to receive {data_type} data type."))
+def daq_ready_to_receive_beam(
+    daq_device: tango.DeviceProxy,
+    data_type: str,
+    interface: str,
+    change_event_callbacks: MockTangoEventCallbackGroup,
 ) -> None:
     """
-    Return the daq_receiver device.
+    Configure the Daq device for select data type.
 
-    :param daq_receiver: the daq_receiver device
+    :param daq_device: A 'tango.DeviceProxy' to the Daq device.
+    :param data_type: The data type to configure DAQ with
+    :param interface: This interface to listen on
+    :param change_event_callbacks: a dictionary of callables to be used as
+        tango change event callbacks.
     """
-    assert [[ResultCode.OK], ["Daq stopped"]] == daq_receiver.Stop()
+    # Set initial state.
+    if daq_device.state() != tango.DevState.ON:
+        daq_device.adminMode = AdminMode.ONLINE
+        poll_until_state_change(daq_device, tango.DevState.ON, 5)
 
-
-@given(parsers.cfparse("Daq is configured to listen on specified interface:port"))
-def configure_daq(daq_receiver: tango.DeviceProxy, interface: str, port: int) -> None:
-    """
-    Configure the Daq device.
-
-    :param daq_receiver: the daq_receiver device
-    :param interface: The interface to send data to.
-    :param port: The port to send data to.
-    """
-    daq_config = {
-        "receiver_ports": [port],
+    # Configure DAQ
+    configuration = {
+        "directory": "/product/test_eb_id/low-mccs/test_scan_id/",
+        "nof_tiles": 1,
         "receiver_interface": interface,
     }
-    daq_receiver.Configure(json.dumps(daq_config))
-    assert daq_config.items() <= json.loads(daq_receiver.GetConfiguration()).items()
+    daq_device.Configure(json.dumps(configuration))
+    daq_device.Start(json.dumps({"modes_to_start": data_type}))
+
+    daq_device.subscribe_event(
+        "dataReceivedResult",
+        tango.EventType.CHANGE_EVENT,
+        change_event_callbacks["data_received_callback"],
+    )
+    change_event_callbacks["data_received_callback"].assert_change_event(Anything)
 
 
-@given(parsers.cfparse("The daq is started with '{daq_modes_of_interest}'"))
-def start_daq(
-    daq_receiver: tango.DeviceProxy,
-    daq_modes_of_interest: str,
+@given("MccsTile is routed to daq")
+def tile_ready_to_send_to_daq(
+    daq_device: tango.DeviceProxy,
+    tile_device: tango.DeviceProxy,
+    subrack_device: tango.DeviceProxy,
     change_event_callbacks: MockTangoEventCallbackGroup,
 ) -> None:
     """
-    Start the daq device.
+    Configure the Daq device for select data type.
 
-    :param daq_receiver: the daq_receiver device
-    :param daq_modes_of_interest: the modes to listen for.
-    :param change_event_callbacks: A change event callback dictionary.
+    :param daq_device: A 'tango.DeviceProxy' to the Daq device.
+    :param tile_device: A 'tango.DeviceProxy' to the Tile device.
+    :param subrack_device: A 'tango.DeviceProxy' to the Subrack device.
+    :param change_event_callbacks: a dictionary of callables to be used as
+        tango change event callbacks.
     """
-    print(f"modes : {daq_modes_of_interest}")
+    if subrack_device.state() != tango.DevState.ON:
+        subrack_device.adminMode = 0
+        poll_until_state_change(subrack_device, tango.DevState.ON, 5)
 
-    daq_receiver.adminMode = 0
-    daq_config = {
-        "modes_to_start": daq_modes_of_interest,
+    if tile_device.state() != tango.DevState.ON:
+        if tile_device.AdminMode != AdminMode.ONLINE:
+            tile_device.subscribe_event(
+                "adminMode",
+                tango.EventType.CHANGE_EVENT,
+                change_event_callbacks["tile_adminMode"],
+            )
+            change_event_callbacks["tile_adminMode"].assert_change_event(Anything)
+            tile_device.adminMode = 0
+            change_event_callbacks["tile_adminMode"].assert_change_event(
+                AdminMode.ONLINE
+            )
+
+        tile_device.on()
+        poll_until_state_change(tile_device, tango.DevState.ON, 100)
+
+    if tile_device.tileProgrammingState not in ["Initialised", "Synchronised"]:
+        assert expect_attribute(
+            tile_device, "tileProgrammingState", "Initialised", timeout=240.0
+        )
+
+    # Start the ADCs and SDP processing chain.
+    if tile_device.tileProgrammingState != "Synchronised":
+        tile_device.startacquisition("{}")
+        assert expect_attribute(tile_device, "tileProgrammingState", "Synchronised")
+
+    assert tile_device.tileProgrammingState == "Synchronised"
+
+    daq_status = json.loads(daq_device.DaqStatus())
+
+    tpm_lmc_config = {
+        "mode": "1G",
+        "destination_ip": daq_status["Receiver IP"][0],
+        "destination_port": daq_status["Receiver Ports"][0],
     }
-    # Start daq and assert command was a success.
-    [_], [unique_id] = daq_receiver.Start(json.dumps(daq_config))
-    change_event_callbacks[
-        f"{daq_receiver.dev_name()}/longRunningCommandResult"
-    ].assert_change_event(
-        (unique_id, '"Daq has been started and is listening"'), lookahead=2
-    )
+    tile_device.SetLmcDownload(json.dumps(tpm_lmc_config))
 
 
-@when(
-    parsers.cfparse(
-        "Simulated data from {no_of_tiles} of type '{daq_modes_of_interest}' is sent"
-    ),
-    target_fixture="stop_data_event",
-)
+@when("MccsTile sends channel data type", target_fixture="initial_hdf5_count")
 def send_simulated_data(
-    no_of_tiles: int, daq_modes_of_interest: str, interface: str, port: int
-) -> threading.Event:
+    tile_device: tango.DeviceProxy,
+    get_hdf5_count: Callable,
+) -> int:
     """
-    Start sending simulated data in a loop.
+    Start sending simulated data.
 
-    :param no_of_tiles: the number of tiles to simulate
-    :param daq_modes_of_interest: the modes to listen for.
-    :param interface: The interface to send data to.
-    :param port: The port to send data to.
+    :param tile_device: A 'tango.DeviceProxy' to the Tile device.
+    :param get_hdf5_count: A callable to return the number of hdf5 files
+        in a directory.
 
-    :return: a event to stop thread.
+    :return: the initial number of hdf5 files in directory.
     """
-    # the test runner can utilise the data services of DAQ allowing
-    # us to send data to the correct location.
-    data = IntegratedChannelDataSimulator("daqreceiver-001-data-svc", port, 1)
-    stop_data_event = threading.Event()
-    thread = threading.Thread(target=send_data_thread, args=[data, stop_data_event])
-    thread.start()
-    return stop_data_event
+    initial_count = get_hdf5_count()
+    tile_device.SendDataSamples(json.dumps({"data_type": "channel"}))
+    return initial_count
 
 
-@then(
-    parsers.cfparse("Daq reports that is has captured data '{daq_modes_of_interest}'")
-)
+@then(parsers.cfparse("Daq receives data {daq_modes_of_interest}"))
 def check_capture(
-    daq_receiver: tango.DeviceProxy,
-    daq_modes_of_interest: str,
-    stop_data_event: threading.Event,
     change_event_callbacks: MockTangoEventCallbackGroup,
+    get_hdf5_count: Callable,
+    initial_hdf5_count: int,
 ) -> None:
     """
     Confirm Daq has received the correct data.
 
-    :param daq_receiver: the daq_receiver device
-    :param daq_modes_of_interest: the modes to listen for.
-    :param stop_data_event: A event to stop the sending of data
-    :param change_event_callbacks: A change event callback dictionary.
+    :param change_event_callbacks: a dictionary of callables to be used as
+        tango change event callbacks.
+    :param initial_hdf5_count: the initial number of hdf5 files in directory.
+    :param get_hdf5_count: A callable to return the number of hdf5 files
+        in a directory.
     """
-    change_event_callbacks[
-        f"{daq_receiver.dev_name()}/dataReceivedResult"
-    ].assert_change_event(("integrated_channel", "_"))
-    stop_data_event.set()
-    stop_daq(daq_receiver)
+    change_event_callbacks["data_received_callback"].assert_change_event(
+        ("integrated_channel", Anything)
+    )
+
+    final_hdf5_count = get_hdf5_count()
+    assert final_hdf5_count - initial_hdf5_count >= 1
 
 
-@then("Daq writes to a file.")
-def check_writes(daq_receiver: tango.DeviceProxy) -> None:
+@pytest.fixture(name="get_hdf5_count", scope="session")
+def get_hdf5_count_fixture(get_hdf5_files: Callable) -> Callable:
     """
-    Check file written is correct.
+    Return a function to count number of .hdf5 files in a given directory.
 
-    :param daq_receiver: the daq_receiver device.
+    :param get_hdf5_files: the a callable to retreive hdf5 files.
+
+    :return: A function to count .hdf5 files in directory.
     """
-    # - set up persistent volume
-    # - search for the file written
-    # - validate the file content
-    assert ".hdf5" in daq_receiver.dataReceivedResult[1]
+
+    def _hdf5_count() -> int:
+        return len(get_hdf5_files())
+
+    return _hdf5_count
+
+
+@pytest.fixture(name="get_hdf5_files", scope="session")
+def get_hdf5_fixture(hdf5_directory: str) -> Callable:
+    """
+    Return a function to get .hdf5 files in a given directory.
+
+    :param hdf5_directory: the hdf5 destination file.
+
+    :return: A function return .hdf5 files in directory.
+    """
+
+    def _hdf5_files() -> list[str]:
+        return [f for f in os.listdir(hdf5_directory) if f.endswith(".hdf5")]
+
+    return _hdf5_files
+
+
+@pytest.fixture(name="hdf5_directory", scope="session")
+def hdf5_directory_fixture() -> str:
+    """
+    Return the path to the test-data directory.
+
+    :return: the name of target hdf5 directory.
+    """
+    return "/test-data/test_eb_id/low-mccs/test_scan_id"
