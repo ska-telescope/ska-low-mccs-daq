@@ -373,7 +373,8 @@ class MccsDaqReceiver(SKABaseDevice):
             self._received_data_mode = data_mode
             self._received_data_result = result
             self.push_change_event(
-                "dataReceivedResult", (self._received_data_mode, "_")
+                "dataReceivedResult",
+                (self._received_data_mode, self._received_data_result),
             )
 
     # ----------

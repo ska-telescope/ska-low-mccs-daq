@@ -391,8 +391,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         try:
             skuid_client = SkuidClient(self._skuid_url)
-            # pylint: disable = unexpected-keyword-arg
-            uid = skuid_client.fetch_scan_id(timeout=5)
+            uid = skuid_client.fetch_scan_id()
             return uid
         except Exception as e:  # pylint: disable=broad-except
             # Usually when SKUID isn't available.
@@ -413,8 +412,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         try:
             skuid_client = SkuidClient(self._skuid_url)
-            # pylint: disable = unexpected-keyword-arg
-            uid = skuid_client.fetch_skuid("eb", timeout=5)
+            uid = skuid_client.fetch_skuid("eb")
             return uid
         except Exception as e:  # pylint: disable=broad-except
             # Usually when SKUID isn't available.
