@@ -66,8 +66,8 @@ def load_tpm_1_6_lookup(obj):
             'VM_SW_AMP'  : {"method": partial(obj.get_voltage, voltage_name='VM_SW_AMP'),   "rate": ["fast"], "group": ["voltages"], "exp_value": { "min": 3.220, "max": 3.780}}
         },
         'currents': {
-            'FE0_mVA': {"method": partial(obj.get_current, current_name='FE0_mVA'), "rate": ["fast"], "group": ["currents"], "exp_value": { "min": 0.000, "max": 2.270}},
-            'FE1_mVA': {"method": partial(obj.get_current, current_name='FE1_mVA'), "rate": ["fast"], "group": ["currents"], "exp_value": { "min": 0.000, "max": 2.380}}
+            'FE0_mVA': {"method": partial(obj.get_current, current_name='FE0_mVA'), "rate": ["fast"], "group": ["currents"], "exp_value": { "min": 0.000, "max": 3.000}},
+            'FE1_mVA': {"method": partial(obj.get_current, current_name='FE1_mVA'), "rate": ["fast"], "group": ["currents"], "exp_value": { "min": 0.000, "max": 3.000}}
         },
         'alarms': {"method": obj.check_global_status_alarms, "rate": ["fast"], "group": ["alarms"], "exp_value": {'I2C_access_alm': 0, 'temperature_alm': 0, 'voltage_alm': 0, 'SEM_wd': 0, 'MCU_wd': 0}},
         'adcs'  : {
