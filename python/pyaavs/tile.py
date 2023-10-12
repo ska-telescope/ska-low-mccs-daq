@@ -1849,10 +1849,13 @@ class Tile(TileHealthMonitor):
 
         current_tc = self.get_phase_terminal_count()
         current_delay = self.get_pps_delay()
-        self.set_phase_terminal_count(self.calculate_delay(current_delay,
-                                                           current_tc,
-                                                           target,
-                                                           margin))
+        delay = self.calculate_delay(
+            current_delay,
+            current_tc,
+            target,
+            margin,
+        )
+        self.set_phase_terminal_count(delay)
 
     @connected
     def check_fpga_synchronization(self):
@@ -2125,6 +2128,13 @@ class Tile(TileHealthMonitor):
                     return new_tc
             else:
                 return current_tc
+
+        raise ValueError("Unable to calculate delay for PPS pulse "
+            f"current_delay {current_delay}" 
+            f"current_tc {current_tc} "
+            f"target {current_tc} "
+            f"margin {margin} "
+        )
 
     # -----------------------------
     # Wrapper for data acquisition:
