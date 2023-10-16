@@ -1189,9 +1189,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 y_pol_data = None
                 interval_start = None
 
-                # Ready from file, delete it
-                os.unlink(filepath)
-
     # pylint: disable=broad-except
     def create_plotting_directory(
         self: DaqHandler, parent: str, station_name: str
