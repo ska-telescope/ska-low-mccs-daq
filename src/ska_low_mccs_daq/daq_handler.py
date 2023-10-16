@@ -1138,6 +1138,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     else:
                         y_pol_data = (y_pol_data + data[1:, :, pol]) / 2
 
+            print(f"DELETING FILE: {filepath}")
+            os.unlink(filepath)
+
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
             print(f"CADENCE: {cadence}")
