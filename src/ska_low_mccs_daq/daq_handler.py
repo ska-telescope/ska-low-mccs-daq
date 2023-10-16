@@ -1114,9 +1114,13 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
             # Format datetime
             present = datetime.datetime.utcfromtimestamp(timestamp[0])
+            print(f"PRESENT ({type(present)}) SET TO: {present}")
             date_time = present.strftime(self.TIME_FORMAT_STRING)
             if interval_start is None:
                 interval_start = present
+                print(
+                    f"INTERVAL_START ({type(interval_start)}) SET TO: {interval_start}"
+                )
 
             print("Processing data")
             # Loop over polarisations (separate plots)
@@ -1136,9 +1140,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
-            print(f"Elapsed time: {(present - interval_start).total_seconds()}")
+            print(f"CADENCE: {cadence}")
             print(f"PRESENT: {present}")
             print(f"INTERVAL_START: {interval_start}")
+            print(f"Elapsed time: {(present - interval_start).total_seconds()}")
             if (present - interval_start).total_seconds() >= cadence:
                 print("Plotting graphs and queueing data for transmission")
                 # Loop over polarisations (separate plots)
@@ -1179,6 +1184,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 self._y_bandpass_plots.put(json.dumps(y_pol_data.tolist()))
 
                 # Reset vars
+                print("RESETTING INTERVAL START TO NONE")
                 x_pol_data = None
                 y_pol_data = None
                 interval_start = None
