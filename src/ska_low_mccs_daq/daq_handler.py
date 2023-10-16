@@ -1113,13 +1113,11 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 np.seterr(divide="warn")
 
             # Format datetime
-            print(f"TIMESTAMP: {timestamp}")
             print(f"TIMESTAMP[0]: {timestamp[0]}\n")
-            for i, element in enumerate(timestamp):
-                print(f"timestamp[{i}]: {element}")
-            present = datetime.datetime.utcfromtimestamp(timestamp[0])
+            temp = datetime.datetime.utcfromtimestamp(timestamp[0])
+            present = datetime.datetime.now()
             print(f"PRESENT ({type(present)}) SET TO: {present}")
-            date_time = present.strftime(self.TIME_FORMAT_STRING)
+            date_time = temp.strftime(self.TIME_FORMAT_STRING)
             if interval_start is None:
                 interval_start = present
                 print(
