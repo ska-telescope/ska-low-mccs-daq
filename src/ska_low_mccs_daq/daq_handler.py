@@ -1113,6 +1113,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 np.seterr(divide="warn")
 
             # Format datetime
+            print(f"TIMESTAMP: {timestamp}")
+            print(f"TIMESTAMP[0]: {timestamp[0]}\n")
+            for i, element in enumerate(timestamp):
+                print(f"timestamp[{i}]: {element}")
             present = datetime.datetime.utcfromtimestamp(timestamp[0])
             print(f"PRESENT ({type(present)}) SET TO: {present}")
             date_time = present.strftime(self.TIME_FORMAT_STRING)
@@ -1137,9 +1141,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                         y_pol_data = data[1:, :, pol]
                     else:
                         y_pol_data = (y_pol_data + data[1:, :, pol]) / 2
-
-            print(f"DELETING FILE: {filepath}")
-            os.unlink(filepath)
 
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
