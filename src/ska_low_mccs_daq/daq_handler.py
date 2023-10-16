@@ -1153,10 +1153,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                         # Plot average
                         if pol == 0:
                             assert x_pol_data is not None
-                            plot_lines[i].set_ydata(x_pol_data[1:, antenna])
+                            plot_lines[i].set_ydata(x_pol_data[:, antenna])
                         elif pol == 1:
                             assert y_pol_data is not None
-                            plot_lines[i].set_ydata(y_pol_data[1:, antenna])
+                            plot_lines[i].set_ydata(y_pol_data[:, antenna])
 
                         # legend.get_texts()[i].set_text(
                         #     f"{i:0>2d} - RX {_fibre_preadu_mapping[antenna]:0>2d} - "
