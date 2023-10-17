@@ -994,7 +994,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         y_pol_data: np.ndarray | None = None
         interval_start = None
 
-        cadence = 60.0  # Time over which to average plots in seconds
+        cadence = 20.0  # Time over which to average plots in seconds
 
         _directory = plotting_directory
         _freq_range = np.arange(1, nof_channels) * (old_div(bandwidth, nof_channels))
@@ -1079,6 +1079,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         ax.grid(b=True, which="major", color="0.3", linestyle="-", linewidth=0.5)
         ax.grid(b=True, which="minor", color="0.8", linestyle="--", linewidth=0.1)
 
+        temp_filepath_list: list[str] = []
+
         # Loop until asked to stop
         while not self._stop_bandpass:
             # Wait for files to be queued. Check every second.
@@ -1086,6 +1088,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 sleep(1)
 
             if self._stop_bandpass:
+                print("FILEPATH HISTORY:\n")
+                for fp in temp_filepath_list:
+                    print(fp)
                 return
 
             # Get the first item in the list
@@ -1099,6 +1104,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 tile_number = int(parts.groupdict()["tile"])
 
             print(f"Opening file: {filepath}")
+            temp_filepath_list.append(filepath)
             # Open newly create HDF5 file
             with h5py.File(filepath, "r") as f:
                 # Data is in channels/antennas/pols order
@@ -1123,6 +1129,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 print(
                     f"INTERVAL_START ({type(interval_start)}) SET TO: {interval_start}"
                 )
+
+            print(f"DELETING {filepath}")
+            os.unlink(filepath)
 
             print("Processing data")
             # Loop over polarisations (separate plots)
