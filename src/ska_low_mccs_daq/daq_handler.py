@@ -879,12 +879,11 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             print("BEFORE CONNECT STATION")
             _connect_station()
             print("AFTER CONNECT STATION")
-            # Extract antenna locations
-            antenna_base, antenna_x, antenna_y = self._antenna_locations[station_name]
         # pylint: disable = broad-exception-caught
         except Exception as e:
             self.logger.error("Caught Exception: %s", e)
-
+        # Extract antenna locations
+        antenna_base, antenna_x, antenna_y = self._antenna_locations[station_name]
         # Generate dummy RMS data
         colors = np.random.random(len(antenna_x)) * 30
 
