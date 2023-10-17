@@ -1275,7 +1275,7 @@ class IntegratedDataHandler(FileSystemEventHandler):
         """
         # We are only interested in newly created files
         global files_to_plot  # pylint: disable=global-variable-not-assigned
-        if event.event_type in ["created", "modified"]:
+        if event.event_type in ["created"]:
             # Ignore lock files and other temporary files
             if not ("channel" in event.src_path and "lock" not in event.src_path):
                 return
