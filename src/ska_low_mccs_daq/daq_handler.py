@@ -1111,8 +1111,12 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             # Open newly create HDF5 file
             with h5py.File(filepath, "r") as f:
                 # Data is in channels/antennas/pols order
-                data: np.ndarray = f["chan_"]["data"][:]
-                timestamp = f["sample_timestamps"]["data"][0]
+                try:
+                    data: np.ndarray = f["chan_"]["data"][:]
+                    timestamp = f["sample_timestamps"]["data"][0]
+                # pylint: disable=broad-exception-caught
+                except Exception as e:
+                    self.logger.error("Exception: %s", e)
                 data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
 
                 # Convert to power in dB
