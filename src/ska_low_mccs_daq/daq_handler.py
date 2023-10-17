@@ -982,7 +982,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
     # pylint: disable = too-many-locals
     def generate_bandpass_plots(  # noqa: C901
-        self: DaqHandler, plotting_directory: str, station_name: str
+        self: DaqHandler,
+        plotting_directory: str,
+        station_name: str,
     ) -> None:
         """
         Generate antenna bandpass plots.
@@ -1086,6 +1088,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         # Loop until asked to stop
         while not self._stop_bandpass:
+            print("IN PLOTTING LOOP.")
             # Wait for files to be queued. Check every second.
             while len(files_to_plot[station_name]) == 0 and not self._stop_bandpass:
                 sleep(1)
@@ -1137,9 +1140,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     f"INTERVAL_START ({type(interval_start)}) SET TO: {interval_start}"
                 )
 
-            print(f"DELETING {filepath}")
-            os.unlink(filepath)
-
             print("Processing data")
             # Loop over polarisations (separate plots)
             for pol in range(nof_pols):
@@ -1162,6 +1162,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             print(f"PRESENT: {present}")
             print(f"INTERVAL_START: {interval_start}")
             print(f"Elapsed time: {(present - interval_start).total_seconds()}")
+            print(f"DELETING {filepath}")
+            os.unlink(filepath)
             if (present - interval_start).total_seconds() >= cadence:
                 print("Plotting graphs and queueing data for transmission")
                 # Loop over polarisations (separate plots)
