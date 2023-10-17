@@ -14,6 +14,7 @@ import logging
 import os
 import queue
 import re
+import socket
 
 # import shutil
 # import tempfile
@@ -746,12 +747,15 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         yield (TaskStatus.IN_PROGRESS, "Bandpass monitor active", None, None, None)
         print("AFTER SECOND YIELD")
         while not self._stop_bandpass:
-            print(f"IN BANDPASS LOOP: {self._stop_bandpass}")
-            dir_size = sum(
-                os.path.getsize(f)
-                for f in os.listdir(data_directory)
-                if os.path.isfile(f)
-            )
+            print(f"IN BANDPASS LOOP.  STOPPING={self._stop_bandpass}")
+            try:
+                dir_size = sum(
+                    os.path.getsize(f)
+                    for f in os.listdir(data_directory)
+                    if os.path.isfile(f)
+                )
+            except FileNotFoundError as e:
+                self.logger.warning("Could not find file: %s", e)
             if dir_size > max_dir_size:
                 self.logger.error(
                     "Consuming too much disk space! Stopping bandpass monitor! %i/%i",
@@ -866,7 +870,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                         continue
 
         # Create and connect to station
-        aavs_station = station.Station(config)
+        try:
+            aavs_station = station.Station(config)
+        except socket.gaierror as e:
+            self.logger.error("Could not connect to Station: %s", e)
         station_name = aavs_station.configuration["station"]["name"]
         print("BEFORE CONNECT STATION")
         _connect_station()
