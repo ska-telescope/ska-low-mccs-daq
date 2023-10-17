@@ -872,13 +872,12 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         # Create and connect to station
         try:
             aavs_station = station.Station(config)
+            station_name = aavs_station.configuration["station"]["name"]
+            print("BEFORE CONNECT STATION")
+            _connect_station()
+            print("AFTER CONNECT STATION")
         except socket.gaierror as e:
             self.logger.error("Could not connect to Station: %s", e)
-        station_name = aavs_station.configuration["station"]["name"]
-        print("BEFORE CONNECT STATION")
-        _connect_station()
-        print("AFTER CONNECT STATION")
-
         # Extract antenna locations
         antenna_base, antenna_x, antenna_y = self._antenna_locations[station_name]
 
