@@ -985,8 +985,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         global files_to_plot  # pylint: disable=global-variable-not-assigned
         config = self.get_configuration()
         nof_channels = config["nof_channels"]
-        nof_antennas_per_tile = config["nof_antennas_per_tile"]
-        nof_pols = config["nof_pols"]
+        nof_antennas_per_tile = config["nof_antennas"]
+        nof_pols = config["nof_polarisations"]
 
         x_pol_data: np.ndarray | None = None
         y_pol_data: np.ndarray | None = None
