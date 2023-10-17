@@ -27,7 +27,7 @@ import h5py
 import numpy as np
 
 # import pexpect
-# from aavs_calibration.common import get_antenna_positions
+from aavs_calibration.common import get_antenna_positions
 from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
 from matplotlib.figure import Figure
 from past.utils import old_div
@@ -686,12 +686,12 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         # Get and store antenna positions
         # TODO: PyMongo errors here atm. Due to no DB? Look into this.
-        # try:
-        #     self._antenna_locations[station_name]=get_antenna_positions(station_name)
-        # except Exception as e:  # py lint: disable = broad-exception-caught
-        #     self.logger.error(
-        #         "Caught exception while trying to get antenna positions: %s", e
-        #     )
+        try:
+            self._antenna_locations[station_name] = get_antenna_positions(station_name)
+        except Exception as e:  # pylint: disable = broad-exception-caught
+            self.logger.error(
+                "Caught exception while trying to get antenna positions: %s", e
+            )
 
         # Create plotting directory structure
         if not self.create_plotting_directory(plot_directory, station_name):
