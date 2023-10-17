@@ -30,27 +30,37 @@ Feature: Daq Status Reporting
 
 @forked 
 Scenario Outline: Consumers Starting Up
-    Given an MccsDaqReceiver
+    Given this test is running against station_cluster <station_name>
+    And an MccsDaqReceiver
     And MccsDaqReceiver AdminMode is set to 'ONLINE'
     And no consumers are running
     When <consumer> is started
     Then consumer_status attribute shows <consumer> as running
 
     Examples: tbl_consumers_up
-        |   consumer                    |
-        |   'RAW_DATA'                  |
-        |   'CHANNEL_DATA'              |
-        |   'BEAM_DATA'                 |
-        |   'CONTINUOUS_CHANNEL_DATA'   |
-        |   'INTEGRATED_BEAM_DATA'      |
-        |   'STATION_BEAM_DATA'         |
-        |   'CORRELATOR_DATA'           |
-        |   'ANTENNA_BUFFER'            |          
+        |   consumer                    |          station_name       |
+        |   'RAW_DATA'                  |            ci-1          |
+        |   'CHANNEL_DATA'              |            ci-1          |
+        |   'BEAM_DATA'                 |            ci-1          |
+        |   'CONTINUOUS_CHANNEL_DATA'   |            ci-1          |
+        |   'INTEGRATED_BEAM_DATA'      |            ci-1          |
+        |   'STATION_BEAM_DATA'         |            ci-1          |
+        |   'CORRELATOR_DATA'           |            ci-1          |
+        |   'ANTENNA_BUFFER'            |            ci-1          |
+        |   'RAW_DATA'                  |            real-daq-1         |
+        |   'CHANNEL_DATA'              |            real-daq-1         |
+        |   'BEAM_DATA'                 |            real-daq-1         |
+        |   'CONTINUOUS_CHANNEL_DATA'   |            real-daq-1         |
+        |   'INTEGRATED_BEAM_DATA'      |            real-daq-1         |
+        |   'STATION_BEAM_DATA'         |            real-daq-1         |
+#        |   'CORRELATOR_DATA'           |            real-daq-1         | # bug MCCS-1810 and needs GPU.
+        |   'ANTENNA_BUFFER'            |            real-daq-1         |
 #       ---------------------------------
 
 @forked 
 Scenario: Consumers Stopping
-    Given an MccsDaqReceiver
+    Given this test is running against station_cluster ci-1
+    And an MccsDaqReceiver
     And MccsDaqReceiver AdminMode is set to 'ONLINE'
     And all consumers are running
     When 'stop_daq' is called
@@ -58,7 +68,8 @@ Scenario: Consumers Stopping
 
 @forked 
 Scenario Outline: Report Status
-    Given an MccsDaqReceiver
+    Given this test is running against station_cluster ci-1
+    And an MccsDaqReceiver
     And the MccsDaqReceiver has a particular <configuration>
     When 'daq_status' is called
     Then it returns the <expected_status>

@@ -19,7 +19,11 @@ from ska_control_model import AdminMode
 from ska_tango_testing.mock.placeholders import Anything
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
-from tests.functional.conftest import expect_attribute, poll_until_state_change
+from tests.functional.conftest import (
+    expect_attribute,
+    poll_until_consumers_stopped,
+    poll_until_state_change,
+)
 from tests.harness import get_daq_name, get_subrack_name, get_tile_name
 
 scenarios("./features/daq_spead_capture.feature")
@@ -192,6 +196,21 @@ def tile_ready_to_send_to_daq(
         "destination_port": daq_status["Receiver Ports"][0],
     }
     tile_device.SetLmcDownload(json.dumps(tpm_lmc_config))
+
+
+@given("the DAQ has no consumers running")
+def daq_device_has_no_running_consumers(
+    daq_device: tango.DeviceProxy,
+) -> None:
+    """
+    Assert that daq receiver has no running consumers.
+
+    :param daq_device: The daq_device fixture to use.
+    """
+    status = json.loads(daq_device.DaqStatus())
+    if status["Running Consumers"] != []:
+        daq_device.Stop()  # Stops *all* consumers.
+        poll_until_consumers_stopped(daq_device)
 
 
 @when("MccsTile sends channel data type", target_fixture="initial_hdf5_count")
