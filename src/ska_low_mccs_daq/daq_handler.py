@@ -872,14 +872,18 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         # Create and connect to station
         try:
             aavs_station = station.Station(config)
+        except socket.gaierror as e:
+            self.logger.error("Could not connect to Station: %s", e)
+        try:
             station_name = aavs_station.configuration["station"]["name"]
             print("BEFORE CONNECT STATION")
             _connect_station()
             print("AFTER CONNECT STATION")
-        except socket.gaierror as e:
-            self.logger.error("Could not connect to Station: %s", e)
-        # Extract antenna locations
-        antenna_base, antenna_x, antenna_y = self._antenna_locations[station_name]
+            # Extract antenna locations
+            antenna_base, antenna_x, antenna_y = self._antenna_locations[station_name]
+        # pylint: disable = broad-exception-caught
+        except Exception as e:
+            self.logger.error("Caught Exception: %s", e)
 
         # Generate dummy RMS data
         colors = np.random.random(len(antenna_x)) * 30
