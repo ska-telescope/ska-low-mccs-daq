@@ -71,10 +71,7 @@ class DaqStatus(IntEnum):
 
 
 # Global parameters
-nof_antennas_per_tile = 16
-nof_channels = 512
 bandwidth = 400.0
-nof_pols = 2
 files_to_plot: dict[str, list[str]] = {}
 
 
@@ -795,14 +792,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 # If we don't have any plots, don't uselessly spam [None]s.
                 pass
             else:
-                # msg = (
-                #     TaskStatus.IN_PROGRESS,
-                #     "plot sent",
-                #     x_bandpass_plot,
-                #     y_bandpass_plot,
-                #     rms_plot,
-                # )
-                # print(f"Yielding: {msg}")
                 yield (
                     TaskStatus.IN_PROGRESS,
                     "plot sent",
@@ -994,6 +983,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         """
         print("ENTERING GENERATE BANDPASS PLOTS")
         global files_to_plot  # pylint: disable=global-variable-not-assigned
+        config = self.get_configuration()
+        nof_channels = config["nof_channels"]
+        nof_antennas_per_tile = config["nof_antennas_per_tile"]
+        nof_pols = config["nof_pols"]
 
         x_pol_data: np.ndarray | None = None
         y_pol_data: np.ndarray | None = None
@@ -1106,8 +1099,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             # Extract Tile number
             filename = os.path.basename(os.path.abspath(filepath))
             parts = _filename_expression.match(filename)
+            print(f"PARTS: {parts}")
             if parts is not None:
                 tile_number = int(parts.groupdict()["tile"])
+                print(f"TILE NUMBER: {tile_number}")
 
             print(f"Opening file: {filepath}")
             temp_filepath_list.append(filepath)
