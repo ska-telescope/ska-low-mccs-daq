@@ -27,7 +27,7 @@ import h5py
 import numpy as np
 
 # import pexpect
-from aavs_calibration.common import get_antenna_positions
+# from aavs_calibration.common import get_antenna_positions
 from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
 from matplotlib.figure import Figure
 from past.utils import old_div
@@ -38,12 +38,13 @@ from ska_low_mccs_daq_interface.server import run_server_forever
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
+# import pymongo
+
+
 __all__ = ["DaqHandler", "main"]
 
 Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 
-# pylint: disable = redefined-builtin
-print = functools.partial(print, flush=True)  # noqa: A001
 # pylint: disable = broad-exception-raised, bare-except
 # pylint: disable = too-many-lines
 
@@ -388,7 +389,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         :yield: a status update.
         """
-        print("IN START")
         if not self._receiver_started:
             self.daq_instance.initialise_daq()
             self._receiver_started = True
@@ -552,7 +552,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 None,
             )
             return
-        print("IN DAQ HANDLER START BANDPASS")
         self._stop_bandpass = False
         params: dict[str, Any] = json.loads(argin)
         try:
@@ -574,7 +573,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             return
         monitor_rms: bool = cast(bool, params.get("monitor_rms", False))
         auto_handle_daq: bool = cast(bool, params.get("auto_handle_daq", False))
-        print("CHECKING CONFIG")
         # Check DAQ is in the correct state for monitoring bandpasses.
         # If not, throw an error if we chose not to auto_handle_daq
         # otherwise configure appropriately.
@@ -600,8 +598,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         # Check correct consumer is running.
         running_consumers = self.get_status().get("Running Consumers", "")
-        # print(running_consumers)
-        # print("INTEGRATED_CHANNEL_DATA" in running_consumers)
+
         if "INTEGRATED_CHANNEL_DATA" not in running_consumers:
             if not auto_handle_daq:
                 self.logger.error(
@@ -686,12 +683,15 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         # Get and store antenna positions
         # TODO: PyMongo errors here atm. Due to no DB? Look into this.
-        try:
-            self._antenna_locations[station_name] = get_antenna_positions(station_name)
-        except Exception as e:  # pylint: disable = broad-exception-caught
-            self.logger.error(
-                "Caught exception while trying to get antenna positions: %s", e
-            )
+        # print("BEFORE GETTING ANTENNA LOCATIONS")
+        # try:
+        #     self._antenna_locations[station_name] = get_antenna_positions(
+        #         station_name
+        #         )
+        # except pymongo.errors.ServerSelectionTimeoutError as e:
+        #     self.logger.error(
+        #         "Caught exception while trying to get antenna positions: %s", e
+        #     )
 
         # Create plotting directory structure
         if not self.create_plotting_directory(plot_directory, station_name):
@@ -713,9 +713,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         # data_directory = tempfile.mkdtemp()
         # self.logger.info("Using temp dir %s", data_directory)
 
-        print("STARTING PROCESSES")
         # Start rms thread
         if monitor_rms:
+            self.logger.debug("Starting RMS plotting thread.")
             rms = Process(
                 target=self.generate_rms_plots,
                 name=f"rms-plotter({self})",
@@ -730,6 +730,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         observer.start()
 
         # Start plotting thread
+        self.logger.debug("Starting bandpass plotting thread.")
         bandpass_plotting_thread = threading.Thread(
             target=self.generate_bandpass_plots,
             args=(os.path.join(plot_directory, station_name), station_name),
@@ -737,13 +738,13 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         bandpass_plotting_thread.start()
         # Wait for stop, monitoring disk space in the meantime
         max_dir_size = 200 * 1024 * 1024
-        print("Setting _monitoring_bandpass and entering wait loop")
+
+        self.logger.info("Bandpass monitor active, entering wait loop.")
         self._monitoring_bandpass = True
 
         yield (TaskStatus.IN_PROGRESS, "Bandpass monitor active", None, None, None)
-        print("AFTER SECOND YIELD")
+
         while not self._stop_bandpass:
-            print(f"IN BANDPASS LOOP.  STOPPING={self._stop_bandpass}")
             try:
                 dir_size = sum(
                     os.path.getsize(f)
@@ -800,7 +801,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     rms_plot,
                 )
             sleep(1)  # Plots will never be sent more often than once per second.
-        print("STOPPING BANDPASS")
+
         # Stop and clean up
         self.logger.info("Waiting for threads and processes to terminate.")
         # TODO: Need to be able to stop consumers incrementally for this.
@@ -815,6 +816,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             rms.join()
         self._monitoring_bandpass = False
 
+        self.logger.info("Bandpass monitoring complete.")
         yield (TaskStatus.COMPLETED, "Bandpass monitoring complete.", None, None, None)
 
     @check_initialisation
@@ -824,9 +826,14 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         :return: a resultcode, message tuple
         """
+        if not self._monitoring_bandpass:
+            self.logger.info("Cannot stop bandpass monitor before it has started.")
+            return (ResultCode.REJECTED, "Bandpass monitor not yet started.")
+        if self._stop_bandpass:
+            self.logger.info("Bandpass monitor already stopping.")
+            return (ResultCode.REJECTED, "Bandpass monitor already stopping.")
         self._stop_bandpass = True
-        print(f"IN STOP BANDPASS. STATUS: {self._stop_bandpass}")
-        # TODO: Check this has stopped.
+        self.logger.info("Bandpass monitor stopping.")
         return (ResultCode.OK, "Bandpass monitor stopping.")
 
     # pylint: disable = too-many-locals
@@ -839,7 +846,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         :param config: Station configuration file.
         :param plotting_directory: Directory to store plots in.
         """
-        # global files_to_plot
+        # Note: This method won't work until we have antenna locations etc.
 
         def _connect_station() -> None:
             """Return a connected station."""
@@ -861,9 +868,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         aavs_station = station.Station(config)
 
         station_name = aavs_station.configuration["station"]["name"]
-        print("BEFORE CONNECT STATION")
         _connect_station()
-        print("AFTER CONNECT STATION")
 
         # Extract antenna locations
         antenna_base, antenna_x, antenna_y = self._antenna_locations[station_name]
@@ -981,7 +986,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         :param station_name: The name of the station.
         :param plotting_directory: Directory to store plots in.
         """
-        print("ENTERING GENERATE BANDPASS PLOTS")
         global files_to_plot  # pylint: disable=global-variable-not-assigned
         config = self.get_configuration()
         nof_channels = config["nof_channels"]
@@ -1077,19 +1081,15 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         ax.grid(b=True, which="major", color="0.3", linestyle="-", linewidth=0.5)
         ax.grid(b=True, which="minor", color="0.8", linestyle="--", linewidth=0.1)
 
-        temp_filepath_list: list[str] = []
-
         # Loop until asked to stop
+        self.logger.info("Entering bandpass plotting loop.")
         while not self._stop_bandpass:
-            print("IN PLOTTING LOOP.")
             # Wait for files to be queued. Check every second.
             while len(files_to_plot[station_name]) == 0 and not self._stop_bandpass:
                 sleep(1)
 
             if self._stop_bandpass:
-                print("FILEPATH HISTORY:\n")
-                for fp in temp_filepath_list:
-                    print(fp)
+                self.logger.info("Exiting bandpass plotting loop.")
                 return
 
             # Get the first item in the list
@@ -1099,13 +1099,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             # Extract Tile number
             filename = os.path.basename(os.path.abspath(filepath))
             parts = _filename_expression.match(filename)
-            print(f"PARTS: {parts}")
+
             if parts is not None:
                 tile_number = int(parts.groupdict()["tile"])
-                print(f"TILE NUMBER: {tile_number}")
 
-            print(f"Opening file: {filepath}")
-            temp_filepath_list.append(filepath)
             # Open newly create HDF5 file
             with h5py.File(filepath, "r") as f:
                 # Data is in channels/antennas/pols order
@@ -1124,18 +1121,13 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 np.seterr(divide="warn")
 
             # Format datetime
-            print(f"TIMESTAMP[0]: {timestamp[0]}\n")
             temp = datetime.datetime.utcfromtimestamp(timestamp[0])
             present = datetime.datetime.now()
-            print(f"PRESENT ({type(present)}) SET TO: {present}")
+
             date_time = temp.strftime(self.TIME_FORMAT_STRING)
             if interval_start is None:
                 interval_start = present
-                print(
-                    f"INTERVAL_START ({type(interval_start)}) SET TO: {interval_start}"
-                )
 
-            print("Processing data")
             # Loop over polarisations (separate plots)
             for pol in range(nof_pols):
                 # Assign first data point or calculate average
@@ -1153,14 +1145,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
-            print(f"CADENCE: {cadence}")
-            print(f"PRESENT: {present}")
-            print(f"INTERVAL_START: {interval_start}")
-            print(f"Elapsed time: {(present - interval_start).total_seconds()}")
-            print(f"DELETING {filepath}")
+            # Delete read file.
             os.unlink(filepath)
             if (present - interval_start).total_seconds() >= cadence:
-                print("Plotting graphs and queueing data for transmission")
+                self.logger.info("Plotting graphs and queueing data for transmission")
                 # Loop over polarisations (separate plots)
                 for pol in range(nof_pols):
                     # Loop over antennas, change plot data and label text
@@ -1185,7 +1173,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                         _directory,
                         f"tile_{tile_number + 1}_pol_{_pol_map[pol].lower()}.svg",
                     )
-                    print(f"Saving plot to: {saved_plot_path}")
                     # Save updated figure
                     canvas.print_figure(
                         saved_plot_path,
@@ -1199,7 +1186,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                 self._y_bandpass_plots.put(json.dumps(y_pol_data.tolist()))
 
                 # Reset vars
-                print("RESETTING INTERVAL START TO NONE")
                 x_pol_data = None
                 y_pol_data = None
                 interval_start = None
@@ -1285,10 +1271,6 @@ class IntegratedDataHandler(FileSystemEventHandler):
             sleep(0.1)
             self.logger.info("Detected %s", event.src_path)
             files_to_plot[self._station_name].append(event.src_path)
-            print(
-                f"files_to_plot[{self._station_name}]: "
-                f"{files_to_plot[self._station_name]}"
-            )
 
 
 def main() -> None:

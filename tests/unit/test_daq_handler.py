@@ -322,6 +322,12 @@ class TestDaqHandler:
             "message": "Daq successfully initialised"
         }
 
+        # Check stopping before starting.
+        assert daq_client.stop_bandpass_monitor() == (
+            ResultCode.REJECTED,
+            "Bandpass monitor not yet started.",
+        )
+
         actual_result = daq_client.start_bandpass_monitor(bandpass_config)
 
         assert next(actual_result) == {
@@ -332,14 +338,15 @@ class TestDaqHandler:
         # incorrect/out of order responses.
         time.sleep(2)
         assert next(actual_result) == expected_dict
-        assert (
-            ResultCode.OK,
-            "Bandpass monitor stopping.",
-        ) == daq_client.stop_bandpass_monitor()
 
-        # Happy path has an extra response when we stop.
-        # Unhappy paths will have a different expected_result_code above.
+        # Happy path has to be stopped and has an extra response.
+        # Unhappy paths won't have started and skip this block.
         if expected_result == TaskStatus.IN_PROGRESS:
+            assert (
+                ResultCode.OK,
+                "Bandpass monitor stopping.",
+            ) == daq_client.stop_bandpass_monitor()
+
             assert next(actual_result) == {
                 "result_code": TaskStatus.COMPLETED,
                 "message": "Bandpass monitoring complete.",
