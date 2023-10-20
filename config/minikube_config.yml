@@ -1,12 +1,3 @@
-#######################################################################################################################
-#                                                                                                                     #
-# default_config.yml                                                                                                  #
-#                                                                                                                     #
-# This is a sample station configuration file to be used with the aavs-system Python software.                        #
-# DO NOT CHANGE THIS FILE, create a copy and modify the local copy to suit your system setup.                         #
-#                                                                                                                     #
-#######################################################################################################################
-
 # NOTE: when executing station.py from CLI the following configuration parameters are overridden by CLI parameters
 # if CLI parameters are not equal to None. To list default values of CLI parameters execute station.py -h
 
@@ -65,7 +56,7 @@ network:
         lmc_mac: 0x248A078F9D38
         # The TPM will transmit LMC SPEAD data packets to the specified IP address. ARP response MUST be received from
         # the specified address before the TPM can start the transmission.
-        lmc_ip: daq-receiver-001-data #"10.0.10.204"
+        lmc_ip: daq-receiver-ci-1-data #"10.0.10.204"
         # Destination UDP port in the SPEAD packet for LMC data.
         lmc_port: 4660
         # This is the port the TPM listen to for UCP control packets.
@@ -80,7 +71,7 @@ network:
         integrated_data_port: 4660 #5020
         # The TPM will transmit LMC SPEAD integrated data packets to the specified IP address. ARP response MUST be
         # received from the specified address before the TPM can start the transmission.
-        integrated_data_ip: daq-receiver-001-data #"10.0.10.200"
+        integrated_data_ip: daq-receiver-ci-1-data #"10.0.10.200"
         # This option specifies if LMC integrated data packet should be sent over 1GbE, when use_teng is False,
         # or 40GbE, when use_teng is True.
         use_teng_integrated: False
@@ -99,7 +90,7 @@ network:
         dst_mac: 0x248A078F9D38
         # The last TPM in the station will transmit CSP SPEAD data packets to the specified IP address. ARP response
         # MUST be received from the specified address before the TPM can start the transmission.
-        dst_ip: daq-receiver-001-data #"10.0.10.200"
+        dst_ip: daq-receiver-ci-1-data #"10.0.10.200"
         # Destination UDP port in the SPEAD packets for CSP data.
         dst_port: 4660
         # Do NOT change this
