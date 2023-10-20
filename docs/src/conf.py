@@ -26,7 +26,6 @@ sys.path.insert(0, os.path.abspath("../../src"))
 # -- Path set up --------------------------------------------------------------
 # pylint: disable=invalid-name
 autodoc_mock_imports = [
-    "numpy",
     "pydaq",
     "ska_low_mccs_daq_interface",
 ]
