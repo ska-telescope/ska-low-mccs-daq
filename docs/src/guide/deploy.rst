@@ -209,7 +209,7 @@ host with access to the low level network interface:
 
 .. code-block:: bash
 
-  docker run --net=host --cap-add=NET_RAW --cap-add=IPC_LOCK --cap-add=SYS_NICE --cap-add=SYS_ADMIN artefact.skao.int/ska-low-mccs-daq:0.4.0 python3 /app/src/ska_low_mccs_daq/daq_handler.py
+  docker run --net=host -v <host_directory>:/product --cap-add=NET_RAW --cap-add=IPC_LOCK --cap-add=SYS_NICE --cap-add=SYS_ADMIN artefact.skao.int/ska-low-mccs-daq:0.4.0 python3 /app/src/ska_low_mccs_daq/daq_handler.py
 
 This will start the server, see logs:
 
