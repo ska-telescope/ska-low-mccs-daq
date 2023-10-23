@@ -67,6 +67,7 @@ ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-
 numpy = "^1.23.0"
 matplotlib = "3.5.3"
 h5py = "3.7.0"
+watchdog = "^3.0.0"
 
 [tool.poetry.scripts]
 MccsDaqServer = "ska_low_mccs_daq.daq_handler:main"
