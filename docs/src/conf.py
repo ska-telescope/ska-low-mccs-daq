@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.abspath("../../src"))
 # pylint: disable=invalid-name
 autodoc_mock_imports = [
     "pydaq",
+    "matplotlib",
     "ska_low_mccs_daq_interface",
 ]
 
