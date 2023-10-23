@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.abspath("../../src"))
 autodoc_mock_imports = [
     "h5py",
     "pydaq",
+    "pyaavs",
     "past",
     "matplotlib",
     "ska_low_mccs_daq_interface",
