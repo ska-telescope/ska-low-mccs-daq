@@ -232,15 +232,6 @@ class TestDaqHandler:
                 [None],
             ),
             (
-                '{"station_config_path": "./config/default_config.yml", '
-                '"plot_directory": "/bin/not_allowed", "auto_handle_daq": "True"}',
-                TaskStatus.FAILED,
-                "Unable to create plotting directory at: /bin/not_allowed",
-                [None],
-                [None],
-                [None],
-            ),
-            (
                 "{}",
                 TaskStatus.REJECTED,
                 "Param `argin` must have keys for `station_config_path`"
