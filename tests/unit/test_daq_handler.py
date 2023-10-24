@@ -232,7 +232,7 @@ class TestDaqHandler:
                 [None],
             ),
             (
-                '{"station_config_path": "/app/config/default_config.yml", '
+                '{"station_config_path": "./config/default_config.yml", '
                 '"plot_directory": "/plot", "auto_handle_daq": "True"}',
                 TaskStatus.FAILED,
                 "Unable to create plotting directory at: /plot",
@@ -278,7 +278,7 @@ class TestDaqHandler:
                 [None],
             ),
             (
-                '{"station_config_path": "/app/config/default_config.yml", '
+                '{"station_config_path": "./config/default_config.yml", '
                 '"plot_directory": "/app/plot/", "auto_handle_daq": "True"}',
                 TaskStatus.IN_PROGRESS,
                 "Bandpass monitor active",
