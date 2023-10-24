@@ -233,9 +233,9 @@ class TestDaqHandler:
             ),
             (
                 '{"station_config_path": "./config/default_config.yml", '
-                '"plot_directory": "/plot", "auto_handle_daq": "True"}',
+                '"plot_directory": "/nonexistent_dir", "auto_handle_daq": "True"}',
                 TaskStatus.FAILED,
-                "Unable to create plotting directory at: /plot",
+                "Unable to create plotting directory at: /nonexistent_dir",
                 [None],
                 [None],
                 [None],
