@@ -132,7 +132,7 @@ class MccsDaqReceiver(SKABaseDevice):
     SkuidUrl = device_property(
         dtype=str,
         doc="The location of a running SKUID service.",
-        default_value="ska-ser-skuid-ska-ser-skuid-svc:9870",
+        default_value="",
     )
 
     # ---------------
