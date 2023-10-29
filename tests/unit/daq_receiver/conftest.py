@@ -60,7 +60,7 @@ def skuid_url_fixture() -> str:
 
     :return: A SKUID url.
     """
-    return "ska-ser-skuid-ska-ser-skuid-svc:9870"
+    return ""
 
 
 @pytest.fixture(name="test_context")
