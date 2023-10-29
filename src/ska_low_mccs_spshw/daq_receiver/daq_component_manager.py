@@ -389,20 +389,21 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: A unique scan ID.
         """
-        try:
-            skuid_client = SkuidClient(self._skuid_url)
-            uid = skuid_client.fetch_scan_id()
-            return uid
-        except Exception as e:  # pylint: disable=broad-except
-            # Usually when SKUID isn't available.
-            self.logger.warn(
-                "Could not retrieve scan_id from SKUID: %s. "
-                "Using a locally produced scan_id.",
-                e,
-            )
-            random_seq = str(random.randint(1, 999999999999999)).rjust(15, "0")
-            uid = f"scan-local-{random_seq}"
-            return uid
+        if self._skuid_url:
+            try:
+                skuid_client = SkuidClient(self._skuid_url)
+                uid = skuid_client.fetch_scan_id()
+                return uid
+            except Exception as e:  # pylint: disable=broad-except
+                # Usually when SKUID isn't available.
+                self.logger.warn(
+                    "Could not retrieve scan_id from SKUID: %s. "
+                    "Using a locally produced scan_id.",
+                    e,
+                )
+        random_seq = str(random.randint(1, 999999999999999)).rjust(15, "0")
+        uid = f"scan-local-{random_seq}"
+        return uid
 
     def _get_eb_id(self: DaqComponentManager) -> str:
         """
@@ -410,18 +411,19 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: A unique execution block ID.
         """
-        try:
-            skuid_client = SkuidClient(self._skuid_url)
-            uid = skuid_client.fetch_skuid("eb")
-            return uid
-        except Exception as e:  # pylint: disable=broad-except
-            # Usually when SKUID isn't available.
-            self.logger.warn(
-                "Could not retrieve eb_id from SKUID: %s. "
-                "Using a locally produced eb_id.",
-                e,
-            )
-            random_seq = str(random.randint(1, 999999999)).rjust(9, "0")
-            today = date.today().strftime("%Y%m%d")
-            uid = f"eb-local-{today}-{random_seq}"
-            return uid
+        if self._skuid_url:
+            try:
+                skuid_client = SkuidClient(self._skuid_url)
+                uid = skuid_client.fetch_skuid("eb")
+                return uid
+            except Exception as e:  # pylint: disable=broad-except
+                # Usually when SKUID isn't available.
+                self.logger.warn(
+                    "Could not retrieve eb_id from SKUID: %s. "
+                    "Using a locally produced eb_id.",
+                    e,
+                )
+        random_seq = str(random.randint(1, 999999999)).rjust(9, "0")
+        today = date.today().strftime("%Y%m%d")
+        uid = f"eb-local-{today}-{random_seq}"
+        return uid
