@@ -1214,41 +1214,38 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         :return: True if this method succeeded else False
         """
         # Check if plot directory exists and if not create it
-        if not os.path.exists(parent):
+        dir_name = os.path.join(parent, station_name)
+        if not os.path.isdir(dir_name):
             try:
-                os.mkdir(parent)
-            except Exception:
+                os.makedirs(dir_name, exist_ok=True)
+
+            except PermissionError as e:
+                self.logger.error(e)
                 self.logger.error(
                     "Could not create plotting directory %s. "
                     "Check that the path is valid and permission",
                     parent,
                 )
                 return False
-        else:
-            if not os.path.isdir(parent):
+
+            except NotADirectoryError as e:
+                self.logger.error(e)
                 self.logger.error(
                     "Specified plotting directory (%s) is a file. Please check", parent
                 )
                 return False
-        if os.path.isdir(parent):
-            if not os.path.exists(os.path.join(parent, station_name)):
-                try:
-                    os.mkdir(os.path.join(parent, station_name))
-                except Exception as e:
-                    self.logger.error(
-                        "Exception: %s. Could not create plotting subdirectory "
-                        "for %s in %s. ",
-                        e,
-                        parent,
-                        station_name,
-                    )
-                    return False
-        else:
-            self.logger.error(
-                "Specified plotting directory (%s) is a file. Please check", parent
-            )
-            return False
 
+            except FileExistsError as e:
+                self.logger.error(e)
+                self.logger.error("Specified plotting directory (%s) is a file")
+                return False
+
+            except Exception as e:
+                self.logger.error(e)
+                self.logger.error(
+                    "Unknown exception when creating plotting directory (%s)"
+                )
+                return False
         return True
 
 
