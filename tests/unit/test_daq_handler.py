@@ -213,8 +213,7 @@ class TestDaqHandler:
         ),
         (
             (
-                '{"station_config_path": "station_config.yml", '
-                '"plot_directory": "/plot"}',
+                '{"plot_directory": "/plot"}',
                 TaskStatus.REJECTED,
                 "Current DAQ config is invalid. The `append_integrated` "
                 "option must be set to false for bandpass monitoring.",
@@ -223,54 +222,15 @@ class TestDaqHandler:
                 [None],
             ),
             (
-                '{"station_config_path": "station_config.yml", '
-                '"plot_directory": "/plot", "auto_handle_daq": "True"}',
-                TaskStatus.REJECTED,
-                "Specified configuration file (station_config.yml) does not exist.",
-                [None],
-                [None],
-                [None],
-            ),
-            (
                 "{}",
                 TaskStatus.REJECTED,
-                "Param `argin` must have keys for `station_config_path`"
-                " and `plot_directory`",
+                "Param `argin` must have key for `plot_directory`",
                 [None],
                 [None],
                 [None],
             ),
             (
-                '{"station_config_path": "blah"}',
-                TaskStatus.REJECTED,
-                "Param `argin` must have keys for `station_config_path` "
-                "and `plot_directory`",
-                [None],
-                [None],
-                [None],
-            ),
-            (
-                '{"plot_directory": "blahblah"}',
-                TaskStatus.REJECTED,
-                "Param `argin` must have keys for `station_config_path` and "
-                "`plot_directory`",
-                [None],
-                [None],
-                [None],
-            ),
-            (
-                '{"station_config_path": "nonexistent_station_config.yml", '
-                '"plot_directory": "/plot", "auto_handle_daq": "True"}',
-                TaskStatus.REJECTED,
-                "Specified configuration file (nonexistent_station_config.yml) "
-                "does not exist.",
-                [None],
-                [None],
-                [None],
-            ),
-            (
-                '{"station_config_path": "./config/default_config.yml", '
-                '"plot_directory": "/app/plot/", "auto_handle_daq": "True"}',
+                '{"plot_directory": "/app/plot/", "auto_handle_daq": "True"}',
                 TaskStatus.IN_PROGRESS,
                 "Bandpass monitor active",
                 [None],

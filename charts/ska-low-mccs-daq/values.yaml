@@ -15,8 +15,8 @@ storage: {}  # List of specs of PVCs to create
   #   labels: {}  # optional
   #   annotations: {}  # optional
 
-receivers: {}
-#   1:
+receivers:
+  1: {}
 #     storage: daq-data  # must refer to a PVC
 #     runtime_class: nvidia # optional: must refer to a RunTimeClass existing in the cluster.
 #     gpu_limit: "1" # optional

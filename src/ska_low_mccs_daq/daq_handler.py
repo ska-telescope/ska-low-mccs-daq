@@ -19,7 +19,8 @@ import re
 # import tempfile
 import threading
 from enum import IntEnum
-from multiprocessing import Process
+
+# from multiprocessing import Process
 from time import sleep
 from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
 
@@ -31,7 +32,8 @@ import numpy as np
 from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
 from matplotlib.figure import Figure
 from past.utils import old_div
-from pyaavs import station
+
+# from pyaavs import station
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
@@ -537,9 +539,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         :param argin: A dict of arguments to pass to `start_bandpass_monitor` command.
 
-            * station_config_path: Path to station configuration file.
-                Mandatory.
-
             * plot_directory: Plotting directory.
                 Mandatory.
 
@@ -566,23 +565,18 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         self._stop_bandpass = False
         params: dict[str, Any] = json.loads(argin)
         try:
-            station_config_path: str = params["station_config_path"]
             plot_directory: str = params["plot_directory"]
         except KeyError:
-            self.logger.error(
-                "Param `argin` must have keys for `station_config_path` "
-                "and `plot_directory`"
-            )
+            self.logger.error("Param `argin` must have key for `plot_directory`")
             yield (
                 TaskStatus.REJECTED,
-                "Param `argin` must have keys for `station_config_path` "
-                "and `plot_directory`",
+                "Param `argin` must have key for `plot_directory`",
                 None,
                 None,
                 None,
             )
             return
-        monitor_rms: bool = cast(bool, params.get("monitor_rms", False))
+        # monitor_rms: bool = cast(bool, params.get("monitor_rms", False))
         auto_handle_daq: bool = cast(bool, params.get("auto_handle_daq", False))
         # Check DAQ is in the correct state for monitoring bandpasses.
         # If not, throw an error if we chose not to auto_handle_daq
@@ -633,75 +627,16 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             # while "INTEGRATED_CHANNEL_DATA" not in running_consumers:
             #     tmp+=1
             #     sleep(2)
-            #     print(running_consumers)
             #     running_consumers = self.get_status().get("Running Consumers")
             #     if tmp > 5:
             #         return
 
-        # Load configuration file
-        if not os.path.exists(station_config_path) or not os.path.isfile(
-            station_config_path
-        ):
-            self.logger.error(
-                "Specified configuration file (%s) does not exist.", station_config_path
-            )
-            yield (
-                TaskStatus.REJECTED,
-                f"Specified configuration file ({station_config_path}) does not exist.",
-                None,
-                None,
-                None,
-            )
-            return
-        station.load_configuration_file(station_config_path)
-        station_conf = station.configuration
-
-        # Extract station name
-        station_name = station_conf["station"]["name"]
-        if station_name.upper() == "UNNAMED":
-            self.logger.error(
-                "Please set station name in configuration file %s, currently unnamed",
-                station_config_path,
-            )
-            yield (
-                TaskStatus.REJECTED,
-                "Please set station name in configuration file "
-                f"{station_config_path}, currently unnamed.",
-                None,
-                None,
-                None,
-            )
-            return
-
-        # Check that the station is configured to transmit data over 1G
-        if station_conf["network"]["lmc"]["use_teng_integrated"]:
-            self.logger.error(
-                "Station %s must be configured to send integrated data over the "
-                "1G network, and each station should define a different "
-                "destination port. Please check",
-                station_config_path,
-            )
-            yield (
-                TaskStatus.REJECTED,
-                f"Station {station_config_path} must be configured to send "
-                "integrated data over the 1G network, and each station should "
-                "define a different destination port. Please check",
-                None,
-                None,
-                None,
-            )
-            return
+        # TODO: Retrieve station name.
+        station_name = "a_station_name"
 
         # Get and store antenna positions
-        # TODO: PyMongo errors here atm. Due to no DB? Look into this.
-        # print("BEFORE GETTING ANTENNA LOCATIONS")
-        # try:
-        #     self._antenna_locations[station_name] = get_antenna_positions(
-        #         station_name
-        #         )
-        # except pymongo.errors.ServerSelectionTimeoutError as e:
-        #     self.logger.error(
-        #         "Caught exception while trying to get antenna positions: %s", e
+        # self._antenna_locations[station_name] = get_antenna_positions(
+        #     station_name
         #     )
 
         # Create plotting directory structure
@@ -720,19 +655,16 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         data_directory = self.daq_instance._config["directory"]
         self.logger.info("Using data dir %s", data_directory)
-        # Create data directory
-        # data_directory = tempfile.mkdtemp()
-        # self.logger.info("Using temp dir %s", data_directory)
 
-        # Start rms thread
-        if monitor_rms:
-            self.logger.debug("Starting RMS plotting thread.")
-            rms = Process(
-                target=self.generate_rms_plots,
-                name=f"rms-plotter({self})",
-                args=(station_conf, os.path.join(plot_directory, station_name)),
-            )
-            rms.start()
+        # # Start rms thread
+        # if monitor_rms:
+        #     self.logger.debug("Starting RMS plotting thread.")
+        #     rms = Process(
+        #         target=self.generate_rms_plots,
+        #         name=f"rms-plotter({self})",
+        #         args=(station_conf, os.path.join(plot_directory, station_name)),
+        #     )
+        #     rms.start()
 
         # Start directory monitor
         observer = Observer()
@@ -820,11 +752,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         #     self.stop()
         observer.stop()
 
-        # shutil.rmtree(data_directory, ignore_errors=True)
         observer.join()
         bandpass_plotting_thread.join()
-        if monitor_rms:
-            rms.join()
+        # if monitor_rms:
+        #     rms.join()
         self._monitoring_bandpass = False
 
         self.logger.info("Bandpass monitoring complete.")
@@ -857,133 +788,119 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         :param config: Station configuration file.
         :param plotting_directory: Directory to store plots in.
         """
-        # Note: This method won't work until we have antenna locations etc.
+        # Note: This method is commented out until we can access Station config details.
 
-        def _connect_station() -> None:
-            """Return a connected station."""
-            # Connect to station and see if properly formed
-            while True:
-                try:
-                    aavs_station.check_station_status()
-                    if not aavs_station.properly_formed_station:
-                        raise Exception
-                    break
-                except:  # noqa: E722
-                    sleep(10)
-                    try:
-                        aavs_station.connect()
-                    except:  # noqa: E722
-                        continue
+        # Get station name (from somewhere...)
+        # station_name = aavs_station.configuration["station"]["name"]
+        # _connect_station()
 
-        # Create and connect to station
-        aavs_station = station.Station(config)
-
-        station_name = aavs_station.configuration["station"]["name"]
-        _connect_station()
-
+        # TODO: This is commented out until we actually have somewhere that can tell us
+        #       about antenna locations. Any other implicated code is also commented
+        #       out further down this method. (Mostly graph labels.)
         # Extract antenna locations
-        antenna_base, antenna_x, antenna_y = self._antenna_locations[station_name]
+        # antenna_base, antenna_x, antenna_y = self._antenna_locations[station_name]
+
         # Generate dummy RMS data
-        colors = np.random.random(len(antenna_x)) * 30
+        # colors = np.random.random(len(antenna_x)) * 30
 
         # Generate figure and canvas
-        fig = Figure(figsize=(18, 8))
-        canvas = FigureCanvas(fig)
+        # fig = Figure(figsize=(18, 8))
+        # canvas = FigureCanvas(fig)
 
-        # Generate plot for X
-        ax = fig.subplots(nrows=1, ncols=2, sharex="all", sharey="all")
-        fig.suptitle(f"{station_name} Antenna RMS", fontsize=14)
+        # # Generate plot for X
+        # ax = fig.subplots(nrows=1, ncols=2, sharex="all", sharey="all")
+        # fig.suptitle(f"{station_name} Antenna RMS", fontsize=14)
 
-        x_scatter = ax[0].scatter(
-            antenna_x,
-            antenna_y,
-            s=50,
-            marker="o",
-            c=colors,
-            cmap="jet",
-            vmin=0,
-            vmax=38,
-            edgecolors="k",
-            linewidths=0.8,
-        )
-        for i, _ in enumerate(antenna_x):
-            ax[0].text(
-                # pylint: disable = unnecessary-list-index-lookup
-                antenna_x[i] + 0.3,
-                antenna_y[i] + 0.3,
-                antenna_base[i],
-                fontsize=7,
-            )
-        ax[0].set_title(f"{station_name} Antenna RMS Map - X pol")
-        ax[0].set_xlabel("X")
-        ax[0].set_ylabel("Y")
+        # x_scatter = ax[0].scatter(
+        #     antenna_x,
+        #     antenna_y,
+        #     s=50,
+        #     marker="o",
+        #     c=colors,
+        #     cmap="jet",
+        #     vmin=0,
+        #     vmax=38,
+        #     edgecolors="k",
+        #     linewidths=0.8,
+        # )
+        # for i, _ in enumerate(antenna_x):
+        #     ax[0].text(
+        #         # pylint: disable = unnecessary-list-index-lookup
+        #         antenna_x[i] + 0.3,
+        #         antenna_y[i] + 0.3,
+        #         antenna_base[i],
+        #         fontsize=7,
+        #     )
+        # ax[0].set_title(f"{station_name} Antenna RMS Map - X pol")
+        # ax[0].set_xlabel("X")
+        # ax[0].set_ylabel("Y")
 
-        # Generate plot for Y
-        y_scatter = ax[1].scatter(
-            antenna_x,
-            antenna_y,
-            s=50,
-            marker="o",
-            c=colors,
-            cmap="jet",
-            vmin=0,
-            vmax=38,
-            edgecolors="k",
-            linewidths=0.8,
-        )
-        for i, _ in enumerate(antenna_x):
-            ax[1].text(
-                # pylint: disable = unnecessary-list-index-lookup
-                antenna_x[i] + 0.3,
-                antenna_y[i] + 0.3,
-                antenna_base[i],
-                fontsize=7,
-            )
-        ax[1].set_title(f"{station_name} Antenna RMS Map - Y Pol")
-        ax[1].set_xlabel("X")
-        ax[1].set_ylabel("Y")
+        # # Generate plot for Y
+        # y_scatter = ax[1].scatter(
+        #     antenna_x,
+        #     antenna_y,
+        #     s=50,
+        #     marker="o",
+        #     c=colors,
+        #     cmap="jet",
+        #     vmin=0,
+        #     vmax=38,
+        #     edgecolors="k",
+        #     linewidths=0.8,
+        # )
+        # for i, _ in enumerate(antenna_x):
+        #     ax[1].text(
+        #         # pylint: disable = unnecessary-list-index-lookup
+        #         antenna_x[i] + 0.3,
+        #         antenna_y[i] + 0.3,
+        #         antenna_base[i],
+        #         fontsize=7,
+        #     )
+        # ax[1].set_title(f"{station_name} Antenna RMS Map - Y Pol")
+        # ax[1].set_xlabel("X")
+        # ax[1].set_ylabel("Y")
 
-        # Add colorbar
-        fig.subplots_adjust(
-            bottom=0.1, top=0.9, left=0.1, right=0.88, wspace=0.05, hspace=0.17
-        )
-        cb_ax = fig.add_axes([0.9, 0.1, 0.02, 0.8])
-        fig.colorbar(y_scatter, label="RMS", cax=cb_ax)
+        # # Add colorbar
+        # fig.subplots_adjust(
+        #     bottom=0.1, top=0.9, left=0.1, right=0.88, wspace=0.05, hspace=0.17
+        # )
+        # cb_ax = fig.add_axes([0.9, 0.1, 0.02, 0.8])
+        # fig.colorbar(y_scatter, label="RMS", cax=cb_ax)
 
-        # Continue until asked to stop
-        while not self._stop_bandpass:
+        # # Continue until asked to stop
+        # while not self._stop_bandpass:
 
-            # Check station status
-            _connect_station()
+        #     # Check station status
+        #     # _connect_station()
 
-            # Grab RMS values
-            antenna_rms_x = []
-            antenna_rms_y = []
-            for tile in aavs_station.tiles:
-                rms = tile.get_adc_rms()
-                antenna_rms_x.extend(rms[0::2])
-                antenna_rms_y.extend(rms[1::2])
+        #     # Grab RMS values
+        #     antenna_rms_x = []
+        #     antenna_rms_y = []
+        #     for tile in aavs_station.tiles:
+        #         rms = tile.get_adc_rms()
+        #         antenna_rms_x.extend(rms[0::2])
+        #         antenna_rms_y.extend(rms[1::2])
 
-            # Update colors
-            x_scatter.set_array(np.array(antenna_rms_x))
-            y_scatter.set_array(np.array(antenna_rms_y))
+        #     # Update colors
+        #     x_scatter.set_array(np.array(antenna_rms_x))
+        #     y_scatter.set_array(np.array(antenna_rms_y))
 
-            # Save plot
-            fig.suptitle(
-                f"{station_name} Antenna RMS "
-                f"({datetime.datetime.utcnow().strftime(self.TIME_FORMAT_STRING)})",
-                fontsize=14,
-            )
-            saved_filepath = os.path.join(plotting_directory, "antenna_rms.svg")
-            canvas.print_figure(
-                saved_filepath,
-                pad_inches=0,
-                dpi=200,
-                figsize=(18, 8),
-            )
-            self._rms_plots.put(saved_filepath)
-            # Done, sleep for a bit
-            sleep(5)
+        #     # Save plot
+        #     fig.suptitle(
+        #         f"{station_name} Antenna RMS "
+        #         f"({datetime.datetime.utcnow().strftime(self.TIME_FORMAT_STRING)})",
+        #         fontsize=14,
+        #     )
+        #     saved_filepath = os.path.join(plotting_directory, "antenna_rms.svg")
+        #     canvas.print_figure(
+        #         saved_filepath,
+        #         pad_inches=0,
+        #         dpi=200,
+        #         figsize=(18, 8),
+        #     )
+        #     self._rms_plots.put(saved_filepath)
+        #     # Done, sleep for a bit
+        #     sleep(5)
 
     # pylint: disable = too-many-locals
     def generate_bandpass_plots(  # noqa: C901
