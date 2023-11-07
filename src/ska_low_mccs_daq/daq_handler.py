@@ -237,6 +237,7 @@ class DaqHandler:
 
         :raises RuntimeError: if start() is called more than once
         :raises ValueError: if an invalid DaqMode is supplied
+        :raises Exception: propagated from inner code
         """
         try:
             # Convert string representation to DaqModes
@@ -247,10 +248,12 @@ class DaqHandler:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
             raise
 
+        self.logger.debug("Acquiring lock")
         if not self._daq_lock.acquire(  # pylint: disable=consider-using-with
             blocking=False
         ):
             raise RuntimeError("start() called twice without a stop() in between")
+        self.logger.debug("Lock acquired")
         try:
             # make sure queue is empty, jank
             while not self.client_queue.empty():
@@ -267,7 +270,12 @@ class DaqHandler:
             yield "LISTENING"
             yield from iter(self.client_queue.get, None)
             yield "STOPPED"
+        except Exception:
+            self.logger.exception("Error occurred during DAQ listen")
+            raise
         finally:
+            self.stop()
+            self.logger.debug("Releasing lock")
             self._daq_lock.release()
 
     @check_initialisation
