@@ -11,8 +11,8 @@ import functools
 import json
 import logging
 import os
-from enum import IntEnum
-from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
+from queue import SimpleQueue
+from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 import numpy as np
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
@@ -36,74 +36,6 @@ class NumpyEncoder(json.JSONEncoder):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
-
-
-class DaqStatus(IntEnum):
-    """DAQ Status."""
-
-    STOPPED = 0
-    RECEIVING = 1
-    LISTENING = 2
-
-
-class DaqCallbackBuffer:
-    """A DAQ callback buffer to flush to the client every poll."""
-
-    def __init__(self: DaqCallbackBuffer, logger: logging.Logger):
-        self.logger: logging.Logger = logger
-        self.data_types_received: List[str] = []
-        self.written_files: List[str] = []
-        self.extra_info: Any = []
-        self.pending_evaluation: bool = False
-
-    def add(
-        self: DaqCallbackBuffer,
-        data_type: str,
-        file_name: str,
-        additional_info: str,
-    ) -> None:
-        """
-        Add a item to the buffer and set pending evaluation to true.
-
-        :param data_type: The DAQ data type written
-        :param file_name: The filename written
-        :param additional_info: Any additional information and metadata.
-        """
-        self.logger.info(
-            f"File: {file_name}, with data: {data_type} added to buffer"
-        )  # noqa: E501
-
-        self.data_types_received.append(data_type)
-        self.written_files.append(file_name)
-        self.extra_info.append(additional_info)
-
-        self.pending_evaluation = True
-
-    def clear_buffer(self: DaqCallbackBuffer) -> None:
-        """Clear buffer and set evaluation status to false."""
-        self.data_types_received.clear()
-        self.written_files.clear()
-        self.extra_info.clear()
-        self.pending_evaluation = False
-
-    def send_buffer_to_client(
-        self: DaqCallbackBuffer,
-    ) -> Any:
-        """
-        Send buffer then clear buffer.
-
-        :yields response: the call_info response.
-        """
-        for i, _ in enumerate(self.written_files):
-            yield (
-                self.data_types_received[i],
-                self.written_files[i],
-                self.extra_info[i],
-            )
-
-        # after yield clear buffer
-        self.clear_buffer()
-        self.logger.info("Buffer sent and cleared.")
 
 
 def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
@@ -183,7 +115,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
     return cast(Wrapped, _wrapper)
 
 
-class DaqHandler:  # pylint: disable=too-many-instance-attributes
+class DaqHandler:
     """An implementation of a DaqHandler device."""
 
     def __init__(self: DaqHandler):
@@ -192,9 +124,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         self._receiver_started: bool = False
         self._initialised: bool = False
         self.logger = logging.getLogger("daq-server")
-        self.state = DaqStatus.STOPPED
-        self.request_stop = False
-        self.buffer = DaqCallbackBuffer(self.logger)
+        self.client_queue: SimpleQueue | None = None
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
             "cont_channel": DaqModes.CONTINUOUS_CHANNEL_DATA,
@@ -232,16 +162,10 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         if additional_info is not None:
             metadata["additional_info"] = additional_info
 
-        self.buffer.add(data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
-
-    def _update_status(self: DaqHandler) -> None:
-        """Update the status of DAQ."""
-        if self.state == DaqStatus.STOPPED:
-            return
-        if self.buffer.pending_evaluation:
-            self.state = DaqStatus.RECEIVING
-        else:
-            self.state = DaqStatus.LISTENING
+        if self.client_queue:
+            self.client_queue.put(
+                (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
+            )
 
     def initialise(
         self: DaqHandler, config: dict[str, Any]
@@ -300,10 +224,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         :param modes_to_start: string listing the modes to start.
 
         :yield: a status update.
+
+        :raises ValueError: if an invalid DaqMode is supplied
         """
-        if not self._receiver_started:
-            self.daq_instance.initialise_daq()
-            self._receiver_started = True
         try:
             # Convert string representation to DaqModes
             converted_modes_to_start: list[DaqModes] = convert_daq_modes(
@@ -311,29 +234,25 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             )  # noqa: E501
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
-        # yuck
-        callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
-        self.daq_instance.start_daq(converted_modes_to_start, callbacks)
-        self.request_stop = False
+            raise
 
-        yield "LISTENING"
+        if not self._receiver_started:
+            self.daq_instance.initialise_daq()
+            self._receiver_started = True
 
-        self.state = DaqStatus.LISTENING
-        self.logger.info("Daq listening......")
+        try:
+            self.client_queue = SimpleQueue()
 
-        # infinite loop (until told to stop)
-        # TODO: should this be in a thread?
-        while self.request_stop is False:
-            if self.state == DaqStatus.RECEIVING:
-                self.logger.info("Sending buffer to client ......")
-                # send buffer to client
-                yield from self.buffer.send_buffer_to_client()
+            callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
+            self.daq_instance.start_daq(converted_modes_to_start, callbacks)
+            self.logger.info("Daq listening......")
 
-            # check callbacks
-            self._update_status()
-
-        # if we have got here we have stopped
-        yield "STOPPED"
+            yield "LISTENING"
+            yield from iter(self.client_queue.get, None)
+            yield "STOPPED"
+        finally:
+            # prevent queue from building up indefinitely
+            self.client_queue = None
 
     @check_initialisation
     def stop(self: DaqHandler) -> tuple[ResultCode, str]:
@@ -345,7 +264,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         self.logger.info("Stopping daq.....")
         self.daq_instance.stop_daq()
         self._receiver_started = False
-        self.request_stop = True
+        if self.client_queue:
+            self.client_queue.put(None)
         return ResultCode.OK, "Daq stopped"
 
     @check_initialisation
