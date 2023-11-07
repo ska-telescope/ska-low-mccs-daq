@@ -11,8 +11,6 @@ import functools
 import json
 import logging
 import os
-import threading
-from enum import IntEnum
 from queue import SimpleQueue
 from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
@@ -38,14 +36,6 @@ class NumpyEncoder(json.JSONEncoder):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
-
-
-class DaqStatus(IntEnum):
-    """DAQ Status."""
-
-    STOPPED = 0
-    RECEIVING = 1
-    LISTENING = 2
 
 
 def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
@@ -134,7 +124,7 @@ class DaqHandler:
         self._receiver_started: bool = False
         self._initialised: bool = False
         self.logger = logging.getLogger("daq-server")
-        self.client_queue: SimpleQueue = SimpleQueue()
+        self.client_queue: SimpleQueue | None = None
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
             "cont_channel": DaqModes.CONTINUOUS_CHANNEL_DATA,
@@ -146,7 +136,6 @@ class DaqHandler:
             "station": DaqModes.STATION_BEAM_DATA,
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
         }
-        self._daq_lock = threading.Lock()
 
     def _file_dump_callback(
         self: DaqHandler,
@@ -173,9 +162,10 @@ class DaqHandler:
         if additional_info is not None:
             metadata["additional_info"] = additional_info
 
-        self.client_queue.put(
-            (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
-        )
+        if self.client_queue:
+            self.client_queue.put(
+                (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
+            )
 
     def initialise(
         self: DaqHandler, config: dict[str, Any]
@@ -235,9 +225,7 @@ class DaqHandler:
 
         :yield: a status update.
 
-        :raises RuntimeError: if start() is called more than once
         :raises ValueError: if an invalid DaqMode is supplied
-        :raises Exception: propagated from inner code
         """
         try:
             # Convert string representation to DaqModes
@@ -248,20 +236,12 @@ class DaqHandler:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
             raise
 
-        self.logger.debug("Acquiring lock")
-        if not self._daq_lock.acquire(  # pylint: disable=consider-using-with
-            blocking=False
-        ):
-            raise RuntimeError("start() called twice without a stop() in between")
-        self.logger.debug("Lock acquired")
-        try:
-            # make sure queue is empty, jank
-            while not self.client_queue.empty():
-                self.client_queue.get_nowait()
+        if not self._receiver_started:
+            self.daq_instance.initialise_daq()
+            self._receiver_started = True
 
-            if not self._receiver_started:
-                self.daq_instance.initialise_daq()
-                self._receiver_started = True
+        try:
+            self.client_queue = SimpleQueue()
 
             callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
             self.daq_instance.start_daq(converted_modes_to_start, callbacks)
@@ -270,13 +250,9 @@ class DaqHandler:
             yield "LISTENING"
             yield from iter(self.client_queue.get, None)
             yield "STOPPED"
-        except Exception:
-            self.logger.exception("Error occurred during DAQ listen")
-            raise
         finally:
-            self.stop()
-            self.logger.debug("Releasing lock")
-            self._daq_lock.release()
+            # prevent queue from building up indefinitely
+            self.client_queue = None
 
     @check_initialisation
     def stop(self: DaqHandler) -> tuple[ResultCode, str]:
@@ -284,15 +260,12 @@ class DaqHandler:
         Stop data acquisition.
 
         :return: a resultcode, message tuple
-
-        :raises RuntimeError: if stop() is called before start()
         """
-        if not self._daq_lock.locked():
-            raise RuntimeError("stop() called before start()")
-
         self.logger.info("Stopping daq.....")
         self.daq_instance.stop_daq()
-        self.client_queue.put(None)
+        self._receiver_started = False
+        if self.client_queue:
+            self.client_queue.put(None)
         return ResultCode.OK, "Daq stopped"
 
     @check_initialisation
