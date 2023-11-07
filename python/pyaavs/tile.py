@@ -1294,7 +1294,7 @@ class Tile(TileHealthMonitor):
 
         elif type(delays) is list and len(delays) == 32:
             # Check that all delays are valid
-            delays = np.array(delays, dtype=np.float32)
+            delays = np.array(delays, dtype=float)
             if np.all(min_delay <= delays) and np.all(delays <= max_delay):
                 delays_hw = np.clip(
                     (np.round(delays / frame_length) + 128).astype(np.int), 4, 255
