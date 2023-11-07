@@ -551,7 +551,7 @@ if __name__ == "__main__":
                 station_beams.append(station_beam)
 
         # Save station beam and numpy files and exit
-        np.save(opts.output, np.array(station_beams, dtype=np.float))
+        np.save(opts.output, np.array(station_beams, dtype=float))
         exit()
 
     # Pointing options
@@ -584,7 +584,7 @@ if __name__ == "__main__":
     station_beam = beamformer.process()
 
     # Save station beam and numpy files and CSV files
-    np.save(opts.output, np.array(station_beam, dtype=np.float))
+    np.save(opts.output, np.array(station_beam, dtype=float))
 
     if opts.plot:
         _ = input("Processing finished. Press Enter to exit")

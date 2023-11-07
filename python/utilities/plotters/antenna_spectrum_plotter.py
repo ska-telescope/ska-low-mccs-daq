@@ -28,7 +28,7 @@ def channelise(filepath, adc_channel, nof_channels):
 
     # Read file
     with h5py.File(filepath, 'r') as f:
-        data = f['raw_']['data'][:].astype(np.float)
+        data = f['raw_']['data'][:].astype(float)
         data = data[adc_channel, :].reshape((old_div(data.shape[1], nof_channels), nof_channels))
         channelised = np.fft.fftshift(np.fft.fft(data, axis=1))[:, old_div(nof_channels,2):]
         freqs = old_div(np.arange(0, nof_channels) * 800e6, nof_channels) * 1e-6
