@@ -107,14 +107,14 @@ class Tile_1_6(Tile):
                                   5: {'preadu_id': 1, 'channel': 5},
                                   6: {'preadu_id': 1, 'channel': 6},
                                   7: {'preadu_id': 1, 'channel': 7},
-                                  8: {'preadu_id': 0, 'channel': 15},
-                                  9: {'preadu_id': 0, 'channel': 14},
-                                  10: {'preadu_id': 0, 'channel': 13},
-                                  11: {'preadu_id': 0, 'channel': 12},
-                                  12: {'preadu_id': 0, 'channel': 11},
-                                  13: {'preadu_id': 0, 'channel': 10},
-                                  14: {'preadu_id': 0, 'channel': 9},
-                                  15: {'preadu_id': 0, 'channel': 8},
+                                  8: {'preadu_id': 0, 'channel': 14},
+                                  9: {'preadu_id': 0, 'channel': 15},
+                                  10: {'preadu_id': 0, 'channel': 12},
+                                  11: {'preadu_id': 0, 'channel': 13},
+                                  12: {'preadu_id': 0, 'channel': 10},
+                                  13: {'preadu_id': 0, 'channel': 11},
+                                  14: {'preadu_id': 0, 'channel': 8},
+                                  15: {'preadu_id': 0, 'channel': 9},
                                   16: {'preadu_id': 1, 'channel': 8},
                                   17: {'preadu_id': 1, 'channel': 9},
                                   18: {'preadu_id': 1, 'channel': 10},
@@ -123,14 +123,14 @@ class Tile_1_6(Tile):
                                   21: {'preadu_id': 1, 'channel': 13},
                                   22: {'preadu_id': 1, 'channel': 14},
                                   23: {'preadu_id': 1, 'channel': 15},
-                                  24: {'preadu_id': 0, 'channel': 7},
-                                  25: {'preadu_id': 0, 'channel': 6},
-                                  26: {'preadu_id': 0, 'channel': 5},
-                                  27: {'preadu_id': 0, 'channel': 4},
-                                  28: {'preadu_id': 0, 'channel': 3},
-                                  29: {'preadu_id': 0, 'channel': 2},
-                                  30: {'preadu_id': 0, 'channel': 1},
-                                  31: {'preadu_id': 0, 'channel': 0}}
+                                  24: {'preadu_id': 0, 'channel': 6},
+                                  25: {'preadu_id': 0, 'channel': 7},
+                                  26: {'preadu_id': 0, 'channel': 4},
+                                  27: {'preadu_id': 0, 'channel': 5},
+                                  28: {'preadu_id': 0, 'channel': 2},
+                                  29: {'preadu_id': 0, 'channel': 3},
+                                  30: {'preadu_id': 0, 'channel': 0},
+                                  31: {'preadu_id': 0, 'channel': 1}}
 
 
     # Main functions ------------------------------------
@@ -309,8 +309,8 @@ class Tile_1_6(Tile):
             f2f.deassert_reset()
 
         # AAVS-only - swap polarisations due to remapping performed by preadu
-        # self.tpm["fpga1.jesd204_if.regfile_pol_switch"] = 0b00001111
-        # self.tpm["fpga2.jesd204_if.regfile_pol_switch"] = 0b00001111
+        self.tpm["fpga1.jesd204_if.regfile_pol_switch"] = 0b11110000
+        self.tpm["fpga2.jesd204_if.regfile_pol_switch"] = 0b11110000
 
         # Reset test pattern generator
         for _test_generator in self.tpm.test_generator:
