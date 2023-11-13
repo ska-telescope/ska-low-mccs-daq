@@ -17,7 +17,7 @@ def antenna_rms(filepath):
         # Get data and calculate RMS. Note that we don't care which ADC
         # signal is causing the trigger, as long as one of the channels has a
         # high RMS then we keep the file
-        data = f['raw_']['data'][:].astype(np.int)
+        data = f['raw_']['data'][:].astype(int)
         rms = np.sqrt(np.mean(np.power(data, 2), axis=1))
 
     return rms

@@ -1297,7 +1297,7 @@ class Tile(TileHealthMonitor):
             delays = np.array(delays, dtype=float)
             if np.all(min_delay <= delays) and np.all(delays <= max_delay):
                 delays_hw = np.clip(
-                    (np.round(delays / frame_length) + 128).astype(np.int), 4, 255
+                    (np.round(delays / frame_length) + 128).astype(int), 4, 255
                 ).tolist()
             else:
                 self.logger.warning(
@@ -2427,6 +2427,46 @@ class Tile(TileHealthMonitor):
             else:
                 self.logger.info(f"preADU {fpga} Not Detected")
         return all(detected)
+
+    def set_preadu_levels(self, levels):
+        """
+        Set preADU attenuation levels.
+
+        :param levels: Desired attenuation levels for each ADC channel, in dB.
+        """
+        assert set(range(len(levels))) == set(self.preadu_signal_map)
+
+        for preadu in self.tpm.tpm_preadu:
+            if self.tpm_version == "tpm_v1_2":
+                preadu.select_low_passband()
+            preadu.read_configuration()
+
+        for adc_channel, level in enumerate(levels):
+            preadu_id = self.preadu_signal_map[adc_channel]["preadu_id"]
+            preadu_ch = self.preadu_signal_map[adc_channel]["channel"]
+            self.tpm.tpm_preadu[preadu_id].set_attenuation(level, [preadu_ch])
+
+        for preadu in self.tpm.tpm_preadu:
+            preadu.write_configuration()
+
+    def get_preadu_levels(self):
+        """
+        Get preADU attenuation levels.
+
+        :return: Attenuation levels corresponding to each ADC channel, in dB.
+        """
+        for preadu in self.tpm.tpm_preadu:
+            if self.tpm_version == "tpm_v1_2":
+                preadu.select_low_passband()
+            preadu.read_configuration()
+
+        levels = []
+        for adc_channel in sorted(self.preadu_signal_map):
+            preadu_id = self.preadu_signal_map[adc_channel]["preadu_id"]
+            preadu_ch = self.preadu_signal_map[adc_channel]["channel"]
+            attenuation = self.tpm.tpm_preadu[preadu_id].get_attenuation()[preadu_ch]
+            levels.append(attenuation)
+        return levels
 
     def equalize_preadu_gain(self, required_rms=20):
         """ Equalize the preadu gain to get target RMS"""

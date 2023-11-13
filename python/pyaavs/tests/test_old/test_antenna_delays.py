@@ -194,7 +194,7 @@ def correlate_data(daq_config, test_station):
     global tiles_processed
 
     # Reset number of processed tiles
-    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=np.int)
+    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=int)
     
     # Stop any data transmission
     test_station.stop_data_transmission()
@@ -229,7 +229,7 @@ def correlate_data(daq_config, test_station):
     
     # Stop data transmission and reset
     test_station.stop_data_transmission()
-    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=np.int)
+    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=int)
     buffers_processed = 0
     receiver.WRITE_TO_DISK = True
     data_ready = False
@@ -434,11 +434,11 @@ if __name__ == "__main__":
         
         # Generate random delays
         random.seed(0)  # Static seed so that each run generates the same random numbers
-        random_delays = np.array(random.random(nof_antennas * 2) * (100 + 100) - 100, dtype=np.int)
+        random_delays = np.array(random.random(nof_antennas * 2) * (100 + 100) - 100, dtype=int)
         
         counter = 0
         for tile in test_station.tiles:
-            delays = np.zeros(antennas_per_tile * 2, dtype=np.int)
+            delays = np.zeros(antennas_per_tile * 2, dtype=int)
             for i in range(antennas_per_tile):
                 delays[i * 2] = random_delays[counter]
                 delays[i * 2 + 1] = random_delays[counter + 1]
