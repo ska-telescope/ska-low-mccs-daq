@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ska-low-mccs-daq"
-version = "0.4.0"
+version = "0.5.0"
 description = "Data acquisition for the SKA-Low Monitoring, Control and Calibration Subsystem (MCCS)"
 license = "BSD-3-Clause"
 authors = ["MCCS team"]
@@ -13,8 +13,9 @@ url = 'https://artefact.skao.int/repository/pypi-internal/simple'
 
 [tool.poetry.dependencies]
 # When updating this dependency, also update AAVS_SYSTEM_REF in the Dockerfile
-aavs_system = { git = "https://gitlab.com/ska-telescope/aavs-system.git", rev = "1c5a85706e6ae02720918b76cc2a530e07bdff69", subdirectory = "python" }
+# aavs_system = { git = "https://gitlab.com/ska-telescope/aavs-system.git", rev = "1c5a85706e6ae02720918b76cc2a530e07bdff69", subdirectory = "python" }
 pyfabil = { git = "https://bitbucket.org/lessju/pyfabil.git", rev = "a9d6d08432f6ceecf0f3ba2e51ffde1d4ae269ca" }
+aavs_system = { git = "https://gitlab.com/ska-telescope/aavs-system.git", rev = "74c03585a3ba7bdbfd259f044b0d8a7f77951c96", subdirectory = "python" }
 python = "~3.10"
 future = "^0.18.2"
 numpy = "^1.23.0"

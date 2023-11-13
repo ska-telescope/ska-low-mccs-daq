@@ -14,42 +14,30 @@ import logging
 import os
 import queue
 import re
-
-# import shutil
-# import tempfile
 import threading
-from enum import IntEnum
-
-# from multiprocessing import Process
 from time import sleep
 from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
 
 import h5py
 import numpy as np
-
-# import pexpect
-# from aavs_calibration.common import get_antenna_positions
 from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
 from matplotlib.figure import Figure
 from past.utils import old_div
-
-# from pyaavs import station
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-# import pymongo
-
-
 __all__ = ["DaqHandler", "main"]
 
 Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 
-# pylint: disable = broad-exception-raised, bare-except
 # pylint: disable = too-many-lines
 
+# Global parameters
+bandwidth = 400.0
+files_to_plot: dict[str, list[str]] = {}
 
 class NumpyEncoder(json.JSONEncoder):
     """Converts numpy types to JSON."""
@@ -63,79 +51,6 @@ class NumpyEncoder(json.JSONEncoder):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
-
-
-class DaqStatus(IntEnum):
-    """DAQ Status."""
-
-    STOPPED = 0
-    RECEIVING = 1
-    LISTENING = 2
-
-
-# Global parameters
-bandwidth = 400.0
-files_to_plot: dict[str, list[str]] = {}
-
-
-class DaqCallbackBuffer:
-    """A DAQ callback buffer to flush to the client every poll."""
-
-    def __init__(self: DaqCallbackBuffer, logger: logging.Logger):
-        self.logger: logging.Logger = logger
-        self.data_types_received: List[str] = []
-        self.written_files: List[str] = []
-        self.extra_info: Any = []
-        self.pending_evaluation: bool = False
-
-    def add(
-        self: DaqCallbackBuffer,
-        data_type: str,
-        file_name: str,
-        additional_info: str,
-    ) -> None:
-        """
-        Add a item to the buffer and set pending evaluation to true.
-
-        :param data_type: The DAQ data type written
-        :param file_name: The filename written
-        :param additional_info: Any additional information and metadata.
-        """
-        self.logger.info(
-            f"File: {file_name}, with data: {data_type} added to buffer"
-        )  # noqa: E501
-
-        self.data_types_received.append(data_type)
-        self.written_files.append(file_name)
-        self.extra_info.append(additional_info)
-
-        self.pending_evaluation = True
-
-    def clear_buffer(self: DaqCallbackBuffer) -> None:
-        """Clear buffer and set evaluation status to false."""
-        self.data_types_received.clear()
-        self.written_files.clear()
-        self.extra_info.clear()
-        self.pending_evaluation = False
-
-    def send_buffer_to_client(
-        self: DaqCallbackBuffer,
-    ) -> Any:
-        """
-        Send buffer then clear buffer.
-
-        :yields response: the call_info response.
-        """
-        for i, _ in enumerate(self.written_files):
-            yield (
-                self.data_types_received[i],
-                self.written_files[i],
-                self.extra_info[i],
-            )
-
-        # after yield clear buffer
-        self.clear_buffer()
-        self.logger.info("Buffer sent and cleared.")
 
 
 def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
@@ -215,7 +130,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
     return cast(Wrapped, _wrapper)
 
 
-class DaqHandler:  # pylint: disable=too-many-instance-attributes
+class DaqHandler:
     """An implementation of a DaqHandler device."""
 
     TIME_FORMAT_STRING = "%d/%m/%y %H:%M:%S"
@@ -228,18 +143,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         self._stop_bandpass: bool = False
         self._monitoring_bandpass: bool = False
         self.logger = logging.getLogger("daq-server")
-        self.state = DaqStatus.STOPPED
-        self.request_stop = False
-        self.buffer = DaqCallbackBuffer(self.logger)
-        # TODO: Check this typehint. Floats might be ints, not sure.
-        self._antenna_locations: dict[
-            str, tuple[list[int], list[float], list[float]]
-        ] = {}
-        self._plots_to_send: bool = False
-        self._x_bandpass_plots: queue.Queue = queue.Queue()
-        self._y_bandpass_plots: queue.Queue = queue.Queue()
-        self._rms_plots: queue.Queue = queue.Queue()
-
+        self.client_queue: queue.SimpleQueue | None = None
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
             "cont_channel": DaqModes.CONTINUOUS_CHANNEL_DATA,
@@ -251,6 +155,14 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             "station": DaqModes.STATION_BEAM_DATA,
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
         }
+        # TODO: Check this typehint. Floats might be ints, not sure.
+        self._antenna_locations: dict[
+            str, tuple[list[int], list[float], list[float]]
+        ] = {}
+        self._plots_to_send: bool = False
+        self._x_bandpass_plots: queue.Queue = queue.Queue()
+        self._y_bandpass_plots: queue.Queue = queue.Queue()
+        self._rms_plots: queue.Queue = queue.Queue()
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -266,7 +178,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         :param data_mode: The DAQ data type written
         :param file_name: The filename written
-        :param additional_info: Any additional information.
+        :param additional_info: Any additional information/metadata.
         """
         # Callbacks to call for all data modes.
         daq_mode = self._data_mode_mapping[data_mode]
@@ -279,7 +191,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         if additional_info is not None:
             metadata["additional_info"] = additional_info
 
-        self.buffer.add(data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
 
         # Call additional callbacks per data mode if needed.
         if data_mode == "read_raw_data":
@@ -304,7 +215,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             self._integrated_channel_callback(
                 data_mode=data_mode,
                 file_name=file_name,
-                additional_info=additional_info,
+                metadata=metadata,
             )
 
         if data_mode == "correlator":
@@ -314,24 +225,21 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         self: DaqHandler,
         data_mode: str,
         file_name: str,
-        additional_info: Optional[str] = None,
+        metadata: Optional[str] = None,
     ) -> None:
         """
         Call callbacks for only the integrated channel DaqMode.
 
         :param data_mode: The DAQ data type written
         :param file_name: The filename written
-        :param additional_info: Any additional information.
+        :param metadata: Any additional information.
         """
+        if self.client_queue:
+            self.client_queue.put(
+                (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
+            )
 
-    def _update_status(self: DaqHandler) -> None:
-        """Update the status of DAQ."""
-        if self.state == DaqStatus.STOPPED:
-            return
-        if self.buffer.pending_evaluation:
-            self.state = DaqStatus.RECEIVING
-        else:
-            self.state = DaqStatus.LISTENING
+        
 
     def initialise(
         self: DaqHandler, config: dict[str, Any]
@@ -390,10 +298,9 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         :param modes_to_start: string listing the modes to start.
 
         :yield: a status update.
+
+        :raises ValueError: if an invalid DaqMode is supplied
         """
-        if not self._receiver_started:
-            self.daq_instance.initialise_daq()
-            self._receiver_started = True
         try:
             # Convert string representation to DaqModes
             converted_modes_to_start: list[DaqModes] = convert_daq_modes(
@@ -401,30 +308,25 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
             )  # noqa: E501
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
-            return
-        # yuck
-        callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
-        self.daq_instance.start_daq(converted_modes_to_start, callbacks)
-        self.request_stop = False
+            raise
 
-        yield "LISTENING"
+        if not self._receiver_started:
+            self.daq_instance.initialise_daq()
+            self._receiver_started = True
 
-        self.state = DaqStatus.LISTENING
-        self.logger.info("Daq listening......")
+        try:
+            self.client_queue = queue.SimpleQueue()
 
-        # infinite loop (until told to stop)
-        # TODO: should this be in a thread?
-        while self.request_stop is False:
-            if self.state == DaqStatus.RECEIVING:
-                self.logger.info("Sending buffer to client ......")
-                # send buffer to client
-                yield from self.buffer.send_buffer_to_client()
+            callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
+            self.daq_instance.start_daq(converted_modes_to_start, callbacks)
+            self.logger.info("Daq listening......")
 
-            # check callbacks
-            self._update_status()
-
-        # if we have got here we have stopped
-        yield "STOPPED"
+            yield "LISTENING"
+            yield from iter(self.client_queue.get, None)
+            yield "STOPPED"
+        finally:
+            # prevent queue from building up indefinitely
+            self.client_queue = None
 
     @check_initialisation
     def stop(self: DaqHandler) -> tuple[ResultCode, str]:
@@ -436,7 +338,8 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         self.logger.info("Stopping daq.....")
         self.daq_instance.stop_daq()
         self._receiver_started = False
-        self.request_stop = True
+        if self.client_queue:
+            self.client_queue.put(None)
         return ResultCode.OK, "Daq stopped"
 
     @check_initialisation
@@ -528,7 +431,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
     # TODO: Refactor this method to farm out some steps.
     # pylint: disable = too-many-locals, too-many-statements
-    # pylint: disable = too-many-return-statements, too-many-branches
+    # pylint: disable = too-many-branches
     @check_initialisation
     def start_bandpass_monitor(  # noqa: C901
         self: DaqHandler,
@@ -662,7 +565,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         #     rms = Process(
         #         target=self.generate_rms_plots,
         #         name=f"rms-plotter({self})",
-        #         args=(station_conf, os.path.join(plot_directory, station_name)),
+        #         args=(station_name, os.path.join(plot_directory, station_name)),
         #     )
         #     rms.start()
 
@@ -778,14 +681,13 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         self.logger.info("Bandpass monitor stopping.")
         return (ResultCode.OK, "Bandpass monitor stopping.")
 
-    # pylint: disable = too-many-locals
     def generate_rms_plots(  # noqa: C901
-        self: DaqHandler, config: dict[str, Any], plotting_directory: str
+        self: DaqHandler, station_name: str, plotting_directory: str
     ) -> None:
         """
         Generate RMS plots.
 
-        :param config: Station configuration file.
+        :param station_name: Station name.
         :param plotting_directory: Directory to store plots in.
         """
         # Note: This method is commented out until we can access Station config details.
@@ -825,7 +727,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         # )
         # for i, _ in enumerate(antenna_x):
         #     ax[0].text(
-        #         # pylint: disable = unnecessary-list-index-lookup
         #         antenna_x[i] + 0.3,
         #         antenna_y[i] + 0.3,
         #         antenna_base[i],
@@ -850,7 +751,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         # )
         # for i, _ in enumerate(antenna_x):
         #     ax[1].text(
-        #         # pylint: disable = unnecessary-list-index-lookup
         #         antenna_x[i] + 0.3,
         #         antenna_y[i] + 0.3,
         #         antenna_base[i],
@@ -900,7 +800,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
         #     )
         #     self._rms_plots.put(saved_filepath)
         #     # Done, sleep for a bit
-        #     sleep(5)
+        #     sleep(1)
 
     # pylint: disable = too-many-locals
     def generate_bandpass_plots(  # noqa: C901
@@ -926,7 +826,6 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
 
         cadence = 20.0  # Time over which to average plots in seconds
 
-        _directory = plotting_directory
         _freq_range = np.arange(1, nof_channels) * (old_div(bandwidth, nof_channels))
         _filename_expression = re.compile(
             r"channel_integ_(?P<tile>\d+)_(?P<timestamp>\d+_\d+)_0.hdf5"
@@ -1071,11 +970,11 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     else:
                         y_pol_data = (y_pol_data + data[1:, :, pol]) / 2
 
-            # Every `cadence` seconds, plot graph and add the averages
-            # to the queue to be sent to the Tango device,
             # Delete read file.
             os.unlink(filepath)
-            if (present - interval_start).total_seconds() >= cadence:
+            # Every `cadence` seconds, plot graph and add the averages
+            # to the queue to be sent to the Tango device,
+            if (present - interval_start).total_seconds() > cadence:
                 self.logger.info("Plotting graphs and queueing data for transmission")
                 # Loop over polarisations (separate plots)
                 for pol in range(nof_pols):
@@ -1098,7 +997,7 @@ class DaqHandler:  # pylint: disable=too-many-instance-attributes
                     ax.set_title(f"Tile {tile_number + 1} - Pol {_pol_map[pol]}")
                     date_text.set_text(date_time)
                     saved_plot_path: str = os.path.join(
-                        _directory,
+                        plotting_directory,
                         f"tile_{tile_number + 1}_pol_{_pol_map[pol].lower()}.svg",
                     )
                     # Save updated figure
