@@ -480,7 +480,15 @@ class DaqHandler:
             )
             return
         # monitor_rms: bool = cast(bool, params.get("monitor_rms", False))
-        auto_handle_daq: bool = cast(bool, params.get("auto_handle_daq", False))
+        auto_handle_daq = params.get("auto_handle_daq", False)
+        # Convert to bool if we have a string.
+        if not isinstance(auto_handle_daq, bool):
+            # pylint: disable = simplifiable-if-statement
+            if auto_handle_daq == "True":
+                auto_handle_daq = True
+            else:
+                auto_handle_daq = False
+
         # Check DAQ is in the correct state for monitoring bandpasses.
         # If not, throw an error if we chose not to auto_handle_daq
         # otherwise configure appropriately.
@@ -506,8 +514,8 @@ class DaqHandler:
 
         # Check correct consumer is running.
         running_consumers = self.get_status().get("Running Consumers", "")
-
-        if "INTEGRATED_CHANNEL_DATA" not in running_consumers:
+        print(f"running_consumers: {running_consumers}")
+        if ["INTEGRATED_CHANNEL_DATA", 5] not in running_consumers:
             if not auto_handle_daq:
                 self.logger.error(
                     "INTEGRATED_CHANNEL_DATA consumer must be running "
@@ -524,9 +532,9 @@ class DaqHandler:
                     None,
                 )
                 return
+            # Auto start DAQ.
             # TODO: Need to be able to start consumers incrementally for this.
             # result = self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
-            # tmp=0
             # while "INTEGRATED_CHANNEL_DATA" not in running_consumers:
             #     tmp+=1
             #     sleep(2)
@@ -534,7 +542,7 @@ class DaqHandler:
             #     if tmp > 5:
             #         return
 
-        # TODO: Retrieve station name.
+        # TODO: Retrieve station name or ID here.
         station_name = "a_station_name"
 
         # Get and store antenna positions
@@ -690,15 +698,13 @@ class DaqHandler:
         :param station_name: Station name.
         :param plotting_directory: Directory to store plots in.
         """
-        # Note: This method is commented out until we can access Station config details.
+        # Note: This method is commented out until we can access antenna locations
+        #   and tile proxies in order to retrieve adc power and properly label graphs.
 
         # Get station name (from somewhere...)
         # station_name = aavs_station.configuration["station"]["name"]
         # _connect_station()
 
-        # TODO: This is commented out until we actually have somewhere that can tell us
-        #       about antenna locations. Any other implicated code is also commented
-        #       out further down this method. (Mostly graph labels.)
         # Extract antenna locations
         # antenna_base, antenna_x, antenna_y = self._antenna_locations[station_name]
 
@@ -824,7 +830,7 @@ class DaqHandler:
         y_pol_data: np.ndarray | None = None
         interval_start = None
 
-        cadence = 20.0  # Time over which to average plots in seconds
+        cadence = 60.0  # Time over which to average plots in seconds
 
         _freq_range = np.arange(1, nof_channels) * (old_div(bandwidth, nof_channels))
         _filename_expression = re.compile(
@@ -912,12 +918,9 @@ class DaqHandler:
         self.logger.info("Entering bandpass plotting loop.")
         while not self._stop_bandpass:
             # Wait for files to be queued. Check every second.
-            while len(files_to_plot[station_name]) == 0 and not self._stop_bandpass:
+            if len(files_to_plot[station_name]) == 0:
                 sleep(1)
-
-            if self._stop_bandpass:
-                self.logger.info("Exiting bandpass plotting loop.")
-                return
+                continue
 
             # Get the first item in the list
             filepath = files_to_plot[station_name].pop(0)
@@ -1016,6 +1019,8 @@ class DaqHandler:
                 x_pol_data = None
                 y_pol_data = None
                 interval_start = None
+
+            self.logger.info("Exiting bandpass plotting loop.")
 
     # pylint: disable=broad-except
     def create_plotting_directory(

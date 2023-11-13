@@ -230,14 +230,22 @@ class TestDaqHandler:
                 [None],
             ),
             (
-                '{"plot_directory": "/app/plot/", "auto_handle_daq": "True"}',
+                '{"plot_directory": "/app/plot/", "auto_handle_daq": "False"}',
+                TaskStatus.REJECTED,
+                "INTEGRATED_CHANNEL_DATA consumer must be running before"
+                " bandpasses can be monitored.",
+                [None],
+                [None],
+                [None],
+            ),
+            (
+                '{"plot_directory": "/app/plot/", "auto_handle_daq": "False"}',
                 TaskStatus.IN_PROGRESS,
                 "Bandpass monitor active",
                 [None],
                 [None],
                 [None],
             ),
-            # ('{"bandpass_config": None}', (ResultCode, "Message")),
         ),
     )
     def test_start_stop_bandpass_monitor(  # pylint: disable=too-many-arguments
@@ -279,6 +287,18 @@ class TestDaqHandler:
             "Bandpass monitor not yet started.",
         )
 
+        # Manually reconfigure to test consumer later.
+        if json.loads(bandpass_config).get("auto_handle_daq") == "False":
+            daq_client.configure_daq(json.dumps({"append_integrated": False}))
+
+        # # Start the consumer for the happy path test.
+        if expected_result == TaskStatus.IN_PROGRESS:
+            start_result = daq_client.start_daq("INTEGRATED_CHANNEL_DATA")
+            assert next(start_result) == {
+                "status": TaskStatus.IN_PROGRESS,
+                "message": "Start Command issued to gRPC stub",
+            }
+            time.sleep(1)  # Give the consumer a moment to start.
         actual_result = daq_client.start_bandpass_monitor(bandpass_config)
 
         assert next(actual_result) == {
@@ -287,7 +307,7 @@ class TestDaqHandler:
         }
         # This sleep is legitimately here so we can detect
         # incorrect/out of order responses.
-        time.sleep(2)
+        time.sleep(1)
         assert next(actual_result) == expected_dict
 
         # Happy path has to be stopped and has an extra response.
@@ -305,6 +325,7 @@ class TestDaqHandler:
                 "y_bandpass_plot": [None],
                 "rms_plot": [None],
             }
+            daq_client.stop_daq()
 
     def test_access_file_metadata(
         self: TestDaqHandler, daq_handler: DaqHandler, file_metadata: dict
