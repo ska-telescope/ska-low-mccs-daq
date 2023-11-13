@@ -16,7 +16,7 @@ import queue
 import re
 import threading
 from time import sleep
-from typing import Any, Callable, Iterator, List, Optional, TypeVar, cast
+from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 import h5py
 import numpy as np
@@ -38,6 +38,7 @@ Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 # Global parameters
 bandwidth = 400.0
 files_to_plot: dict[str, list[str]] = {}
+
 
 class NumpyEncoder(json.JSONEncoder):
     """Converts numpy types to JSON."""
@@ -130,6 +131,7 @@ def check_initialisation(func: Wrapped) -> Wrapped:
     return cast(Wrapped, _wrapper)
 
 
+# pylint: disable = too-many-instance-attributes
 class DaqHandler:
     """An implementation of a DaqHandler device."""
 
@@ -191,7 +193,6 @@ class DaqHandler:
         if additional_info is not None:
             metadata["additional_info"] = additional_info
 
-
         # Call additional callbacks per data mode if needed.
         if data_mode == "read_raw_data":
             pass
@@ -238,8 +239,6 @@ class DaqHandler:
             self.client_queue.put(
                 (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
             )
-
-        
 
     def initialise(
         self: DaqHandler, config: dict[str, Any]
