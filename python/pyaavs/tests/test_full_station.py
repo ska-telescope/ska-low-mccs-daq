@@ -104,7 +104,7 @@ def get_offline_beam(daq_config, test_station, channel, antennas_per_tile=16):
     global tiles_processed
 
     # Reset number of processed tiles
-    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=np.int)
+    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=int)
 
     # Stop any data transmission
     test_station.stop_data_transmission()
@@ -140,7 +140,7 @@ def get_offline_beam(daq_config, test_station, channel, antennas_per_tile=16):
 
     # Stop data transmission and reset
     test_station.stop_data_transmission()
-    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=np.int)
+    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=int)
     buffers_processed = 0
     receiver.WRITE_TO_DISK = True
     data_ready = False
@@ -247,7 +247,7 @@ class TestFullStation():
             self._ddr_bug_fixed = True
 
     def set_delay(self, random_delays, max_delay):
-        delays = np.array(random_delays * max_delay, dtype=np.int)
+        delays = np.array(random_delays * max_delay, dtype=int)
 
         # interleaving same array
         delays_per_antenna = np.empty((delays.size + delays.size,), dtype=delays.dtype)

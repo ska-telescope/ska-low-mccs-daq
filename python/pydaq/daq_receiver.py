@@ -145,7 +145,7 @@ def raw_data_callback(data, timestamp, tile, arg2):
     if conf['raw_rms_threshold'] > -1:
         # Note data is in antennas/samples/pols
         to_check = np.reshape(values.copy(), (conf['nof_antennas'], conf['nof_raw_samples'], conf['nof_polarisations']))
-        to_check = to_check.astype(np.int)
+        to_check = to_check.astype(int)
         rms = np.sqrt(np.mean(to_check ** 2, axis=1)).flatten()
         if not any(rms > conf['raw_rms_threshold']):
             logging.info("RMS checking enabled, threshold not exceeded, not saving")

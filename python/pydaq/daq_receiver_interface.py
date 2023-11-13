@@ -191,7 +191,7 @@ class DaqReceiver:
             to_check = np.reshape(values.copy(),
                                   (self._config['nof_antennas'], self._config['nof_raw_samples'],
                                    self._config['nof_polarisations']))
-            to_check = to_check.astype(np.int)
+            to_check = to_check.astype(int)
             rms = np.sqrt(np.mean(to_check ** 2, axis=1)).flatten()
             if not any(rms > self._config['raw_rms_threshold']):
                 logging.info("RMS checking enabled, threshold not exceeded, not saving")

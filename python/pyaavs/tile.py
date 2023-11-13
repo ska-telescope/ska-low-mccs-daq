@@ -1297,7 +1297,7 @@ class Tile(TileHealthMonitor):
             delays = np.array(delays, dtype=float)
             if np.all(min_delay <= delays) and np.all(delays <= max_delay):
                 delays_hw = np.clip(
-                    (np.round(delays / frame_length) + 128).astype(np.int), 4, 255
+                    (np.round(delays / frame_length) + 128).astype(int), 4, 255
                 ).tolist()
             else:
                 self.logger.warning(
