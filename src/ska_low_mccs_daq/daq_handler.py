@@ -402,6 +402,7 @@ class DaqHandler:
             - Receiver Interface: "Interface Name": str
             - Receiver Ports: [Port_List]: list[int]
             - Receiver IP: "IP_Address": str
+            - Bandpass Monitor: "Monitoring Status": bool
 
         :return: A json string containing the status of this DaqReceiver.
         """
