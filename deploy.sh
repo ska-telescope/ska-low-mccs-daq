@@ -184,6 +184,11 @@ function create_install() {
   fi
 
 
+  export AAVS_INSTALL=$AAVS_INSTALL
+  if [[ ! -n "`cat ~/.bashrc | grep AAVS_INSTALL`" ]]; then
+      echo "export AAVS_INSTALL=$AAVS_INSTALL" >> ~/.bashrc
+  fi
+
 
   # Create python3 virtual environment
   if [[ ! -d "$VENV_INSTALL/python" ]]; then

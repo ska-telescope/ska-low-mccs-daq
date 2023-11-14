@@ -127,7 +127,8 @@ class DaqReceiver:
                         }
 
         # Default AAVS DAQ C++ shared library path
-        self._daq_library_path = b"/opt/aavs/lib/libaavsdaq.so"
+        aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
+        self._daq_library_path = f"{aavs_install_path}/lib/libaavsdaq.so".encode('ASCII')
 
         # Pointer to shared library object
         self._daq_library = None
@@ -1339,7 +1340,8 @@ class DaqReceiver:
         if filepath is not None:
             aavsdaq_library = filepath
         else:
-            aavsdaq_library = find("libaavsdaq.so", "/opt/aavs/lib")
+            aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
+            aavsdaq_library = find("libaavsdaq.so", f"{aavs_install_path}/lib")
             if aavsdaq_library is None:
                 aavsdaq_library = find("libaavsdaq.so", "/usr/local/lib")
             if aavsdaq_library is None:

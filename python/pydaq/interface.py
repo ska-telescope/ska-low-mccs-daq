@@ -54,7 +54,8 @@ class LogLevel(Enum):
 
 
 # Global store for interface objects
-aavsdaq_library = b"/opt/aavs/lib/libaavsdaq.so"
+aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
+aavsdaq_library = f"{aavs_install_path}/lib/libaavsdaq.so".encode('ASCII')
 library = None
 
 # Define consumer data callback wrapper
@@ -92,7 +93,7 @@ def initialise_library(filepath=None):
     library_found = False
     if 'AAVS_INSTALL' in list(os.environ.keys()):
         # Check if library is in AAVS directory
-        if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so.so")):
+        if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so")):
             _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so")
             library_found = True
 
@@ -146,7 +147,8 @@ def initialise_library(filepath=None):
     if filepath is not None:
         aavsdaq_library = filepath
     else:
-        aavsdaq_library = find("libaavsdaq.so", "/opt/aavs/lib")
+        aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
+        aavsdaq_library = find("libaavsdaq.so", f"{aavs_install_path}/lib")
         if aavsdaq_library is None:
             aavsdaq_library = find("libaavsdaq.so", "/usr/local/lib")
         if aavsdaq_library is None:
