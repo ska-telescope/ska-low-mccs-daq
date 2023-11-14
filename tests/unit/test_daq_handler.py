@@ -306,11 +306,11 @@ class TestDaqHandler:
             stat = json.loads(daq_client.get_status())
             max_retries = 5
             tries = 0
-            
+
             while ["INTEGRATED_CHANNEL_DATA", 5] not in stat.get("Running Consumers"):
                 if tries > max_retries:
                     pytest.fail("Could not start INTEGRATED_CHANNEL_DATA consumer.")
-                tries +=1
+                tries += 1
                 time.sleep(tries)
                 stat = json.loads(daq_client.get_status())
 
