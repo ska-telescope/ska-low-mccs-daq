@@ -514,7 +514,7 @@ class DaqHandler:
 
         # Check correct consumer is running.
         running_consumers = self.get_status().get("Running Consumers", "")
-        print(f"running_consumers: {running_consumers}")
+
         if ["INTEGRATED_CHANNEL_DATA", 5] not in running_consumers:
             if not auto_handle_daq:
                 self.logger.error(
