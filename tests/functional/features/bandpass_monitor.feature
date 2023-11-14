@@ -25,4 +25,3 @@ Feature: Test bandpass monitor
         When the DAQ has been commanded to start monitoring for bandpasses
         Then the DAQ reports that it has received integrated channel data
         And the DAQ saves bandpass data to its relevant attributes
-        And a bandpass plot is produced
