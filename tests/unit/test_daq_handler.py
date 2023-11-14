@@ -298,7 +298,22 @@ class TestDaqHandler:
                 "status": TaskStatus.IN_PROGRESS,
                 "message": "Start Command issued to gRPC stub",
             }
-            time.sleep(1)  # Give the consumer a moment to start.
+            assert next(start_result) == {
+                "status": TaskStatus.COMPLETED,
+                "message": "Daq has been started and is listening",
+            }
+            # Wait for the consumer to start.
+            stat = json.loads(daq_client.get_status())
+            max_retries = 5
+            tries = 0
+            
+            while ["INTEGRATED_CHANNEL_DATA", 5] not in stat.get("Running Consumers"):
+                if tries > max_retries:
+                    pytest.fail("Could not start INTEGRATED_CHANNEL_DATA consumer.")
+                tries +=1
+                time.sleep(tries)
+                stat = json.loads(daq_client.get_status())
+
         actual_result = daq_client.start_bandpass_monitor(bandpass_config)
 
         assert next(actual_result) == {
