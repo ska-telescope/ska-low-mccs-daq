@@ -70,8 +70,6 @@ COPY deploy.sh /app/aavs-system/
 COPY CMakeLists.txt /app/aavs-system/src/
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 
-RUN cp /usr/local/lib/libxgpu.so /opt/aavs/lib/
-
 # Expose the DAQ port to UDP traffic.
 EXPOSE 4660/udp
 
