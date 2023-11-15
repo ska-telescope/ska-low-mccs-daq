@@ -67,6 +67,7 @@ oci-image-build:
   artifacts:
     paths:
       - ${CI_PROJECT_DIR}/aavs
+      - ${CI_PROJECT_DIR}/libs
 
 
 # This `python-test` job is wholesale copied from:
@@ -96,7 +97,7 @@ python-test:
       fi;
     - mkdir /opt/aavs
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
-    - cp -R ${CI_PROJECT_DIR}/libs /usr/local
+    - cp -R ${CI_PROJECT_DIR}/libs /usr/local/lib/
   script:
     - make python-test;
   artifacts:
