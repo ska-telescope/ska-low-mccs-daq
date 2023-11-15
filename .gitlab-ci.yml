@@ -96,6 +96,7 @@ python-test:
         fi;
       fi;
     - mkdir /opt/aavs
+    - mkdir /usr/local
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
     - cp -R ${CI_PROJECT_DIR}/usr/local /usr/local
   script:
