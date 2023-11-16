@@ -73,10 +73,15 @@ def plot_station_beam_data(conf):
         plt.ylabel('Power{}'.format(" (db)" if conf.log else ""))
         plt.grid(True)
         plt.legend()
+
         # Output to file if required
         if conf.output:
-            output = "{}.png".format(conf.output)
-            plt.savefig(output, figsize=(12, 8))
+            root, ext = os.path.splitext(conf.output)
+            if not ext:
+                ext = ".png"
+            output = "{}{}".format(root, ext)
+            plt.savefig(output)
+            plt.close()
 
     # Generate spectrum plots if required
     elif conf.plot_type == PlotTypes.Spectrum:
@@ -94,10 +99,13 @@ def plot_station_beam_data(conf):
                 if pol == 0:
                     col.set_ylabel('Power{}'.format(" (db)" if conf.log else ""))
 
-            # Output to file if required
             if conf.output:
-                output = "{}.png".format(conf.output)
-                plt.savefig(output, figsize=(12, 8))
+                root, ext = os.path.splitext(conf.output)
+                if not ext:
+                    ext = ".png"
+                output = "{}{}".format(root, ext)
+                plt.savefig(output)
+                plt.close()
 
         # Plot pols together
         else:
@@ -111,10 +119,13 @@ def plot_station_beam_data(conf):
             plt.grid(True)
             plt.legend()
 
-            # Output to file if required
             if conf.output:
-                output = "{}.png".format(conf.output)
-                plt.savefig(output, figsize=(12, 8))
+                root, ext = os.path.splitext(conf.output)
+                if not ext:
+                    ext = ".png"
+                output = "{}{}".format(root, ext)
+                plt.savefig(output)
+                plt.close()
 
     # Generate waterfall plots
     else:
@@ -130,10 +141,13 @@ def plot_station_beam_data(conf):
             plt.ylabel("Time (samples)")
             plt.colorbar()
 
-            # Output to file if required
             if conf.output:
-                output = os.path.join(conf.output, ".png")
-                plt.savefig(output, figsize=(12, 8))
+                root, ext = os.path.splitext(conf.output)
+                if not ext:
+                    ext = ".png"
+                output = "{}{}".format(root, ext)
+                plt.savefig(output)
+                plt.close()
 
         # Otherwise plot each pol in a separate subplot
         else:
@@ -154,10 +168,13 @@ def plot_station_beam_data(conf):
             cb_ax = fig.add_axes([0.9, 0.1, 0.02, 0.8])
             fig.colorbar(im, cax=cb_ax)
 
-            # Output to file if required
             if conf.output:
-                output = "{}.png".format(conf.output)
-                plt.savefig(output, figsize=(12, 8))
+                root, ext = os.path.splitext(conf.output)
+                if not ext:
+                    ext = ".png"
+                output = "{}{}".format(root, ext)
+                plt.savefig(output)
+                plt.close()
 
     # All done, show
     if not conf.output:
