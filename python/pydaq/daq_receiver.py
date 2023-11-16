@@ -72,6 +72,7 @@ conf = {"nof_antennas": 16,
         "acquisition_duration": -1,
         "acquisition_start_time": -1,
         "description": "",
+        "daq_library": None,
         "observation_metadata": {}  # This is populdated automatically
         }
 
@@ -1075,7 +1076,7 @@ def populate_configuration(configuration):
         aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = conf['max_filesize']
 
 
-def initialise_daq():
+def initialise_daq(filepath=None):
     """ Initialise DAQ library """
 
     # Remove any locks
@@ -1091,7 +1092,7 @@ def initialise_daq():
     if conf['nof_tiles'] == 3:
         initialise_library("/opt/aavs/lib/libaavsdaq48.so")
     else:
-        initialise_library()
+        initialise_library(filepath)
 
     # Set logging callback
     call_attach_logger(logging_function)
@@ -1338,6 +1339,8 @@ if __name__ == "__main__":
                       help="Disable logging [default: Enabled]")
 
     # Observation options
+    parser.add_option("--daq_library", action="store", dest="daq_library", default=None,
+                      help="Directly specify the AAVS DAQ library to use")
     parser.add_option("--description", action="store", dest="description", default="",
                       help="Observation description, stored in file metadata (default: "")")
     parser.add_option("--station-config", action="store", dest="station_config", default=None,
@@ -1380,7 +1383,7 @@ if __name__ == "__main__":
     slack.info("DAQ running with command:\n {}".format(' '.join(argv)))
 
     # Initialise library
-    initialise_daq()
+    initialise_daq(config.daq_library)
 
     # ------------------------------- Raw data consumer ------------------------------------------
     if config.read_raw_data:
