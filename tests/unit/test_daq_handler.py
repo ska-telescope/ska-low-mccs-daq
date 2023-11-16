@@ -298,10 +298,10 @@ class TestDaqHandler:
                 "status": TaskStatus.IN_PROGRESS,
                 "message": "Start Command issued to gRPC stub",
             }
-            # assert next(start_result) == {
-            #     "status": TaskStatus.COMPLETED,
-            #     "message": "Daq has been started and is listening",
-            # }
+            assert next(start_result) == {
+                "status": TaskStatus.COMPLETED,
+                "message": "Daq has been started and is listening",
+            }
             # Wait for the consumer to start.
             stat = json.loads(daq_client.get_status())
             max_retries = 5
