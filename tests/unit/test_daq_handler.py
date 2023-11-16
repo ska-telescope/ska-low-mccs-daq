@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 from unittest.mock import Mock
@@ -294,7 +293,6 @@ class TestDaqHandler:
 
         # # Start the consumer for the happy path test.
         if expected_result == TaskStatus.IN_PROGRESS:
-            print(os.environ)
             start_result = daq_client.start_daq("INTEGRATED_CHANNEL_DATA")
             assert next(start_result) == {
                 "status": TaskStatus.IN_PROGRESS,

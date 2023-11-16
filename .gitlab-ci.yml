@@ -62,7 +62,7 @@ oci-image-build:
     - source .release
     - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:${release}-dev.c${CI_COMMIT_SHORT_SHA}")
     - docker cp -a ${CONTAINER_ID}:/opt/aavs ${CI_PROJECT_DIR}/aavs
-    - docker cp -a ${CONTAINER_ID}:/usr/local/lib/libxgpu.so ${CI_PROJECT_DIR}/aavs
+    - docker cp -a ${CONTAINER_ID}:/usr/local/lib/libxgpu.so ${CI_PROJECT_DIR}/aavs/lib
     - env
     - docker rm ${CONTAINER_ID}
   artifacts:
@@ -97,12 +97,14 @@ python-test:
       fi;
     - mkdir /opt/aavs
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
-    - cp -R ${CI_PROJECT_DIR}/aavs/libxgpu.so /usr/local/lib/
-    - cp -R ${CI_PROJECT_DIR}/aavs/libxgpu.so /opt/aavs/lib/
+    - cp -R ${CI_PROJECT_DIR}/aavs/lib/libxgpu.so /usr/local/lib/
     - ls /usr/local/lib/
     - ls /opt/aavs/
     - ls /opt/aavs/lib
     - env
+  variables:
+    LD_LIBRARY_PATH: "/usr/local/lib:$LD_LIBRARY_PATH"
+    PATH: "/usr/local/lib:$PATH"
   script:
     - make python-test;
   artifacts:
