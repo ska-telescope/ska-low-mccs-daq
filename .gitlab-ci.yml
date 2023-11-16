@@ -103,8 +103,7 @@ python-test:
     - ls /opt/aavs/lib
     - env
   variables:
-    LD_LIBRARY_PATH: "/usr/local/lib:'$LD_LIBRARY_PATH'"
-    PATH: "/usr/local/lib:'$PATH'"
+    LD_LIBRARY_PATH: '/usr/local/lib/'
   script:
     - make python-test;
   artifacts:
