@@ -101,6 +101,7 @@ python-test:
     - ls /usr/local/lib/
     - ls /opt/aavs/
     - ls /opt/aavs/lib
+    - echo ${LD_LIBRARY_PATH}
   script:
     - make python-test;
   artifacts:
