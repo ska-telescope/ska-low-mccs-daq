@@ -47,15 +47,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -D_REENTRANT -fPIC -funroll-l
 
 # Compile library
 add_library(aavsdaq SHARED ${AAVS_FILES})
-add_library(aavsdaq_fast_corr SHARED ${AAVS_FILES})
 
 # Compile library
 if (WITH_CORRELATOR)
     # Link required libraries
     target_link_libraries(aavsdaq daq xgpu_aavs ${CMAKE_THREAD_LIBS_INIT})
-
-    # Link with xGPU with short integration time
-    target_link_libraries(aavsdaq_fast_corr daq xgpu_aavs_fast ${CMAKE_THREAD_LIBS_INIT})
 
     if (WITH_SMALL_STATION)
         # Compile a different library using xgpu for 48 antennas
