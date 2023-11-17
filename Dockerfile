@@ -40,6 +40,7 @@ RUN apt-get update && apt-get install -y \
 # Set Python3.10 to preferred version, add folders to PATH, create symlink to python3
 RUN update-alternatives --install /usr/bin/python3 python /usr/bin/python3.10 2
 ENV PATH="/usr/local/lib:/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
 RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 
 # Install pip and poetry.
