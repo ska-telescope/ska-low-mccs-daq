@@ -80,7 +80,8 @@ oci-image-build:
 python-test:
   image: $SKA_PYTHON_PYTANGO_BUILDER_IMAGE
   stage: test
-  needs: oci-image-build
+  needs:
+    - oci-image-build
   tags:
     - k8srunner
   before_script:
