@@ -63,8 +63,8 @@ oci-image-build:
     - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:${release}-dev.c${CI_COMMIT_SHORT_SHA}")
     - docker cp -a ${CONTAINER_ID}:/opt/aavs ${CI_PROJECT_DIR}/aavs
     - docker cp -a ${CONTAINER_ID}:/usr/local/lib/libxgpu.so ${CI_PROJECT_DIR}/aavs/lib
-    - 'env | grep -i lib >> build.env'
-    - 'env | grep -i path >> build.env'
+    - 'env | grep -i lib' >> build.env
+    - 'env | grep -i path' >> build.env
     - docker rm ${CONTAINER_ID}
   artifacts:
     paths:
