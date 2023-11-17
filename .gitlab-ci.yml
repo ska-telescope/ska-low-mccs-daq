@@ -63,10 +63,13 @@ oci-image-build:
     - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:${release}-dev.c${CI_COMMIT_SHORT_SHA}")
     - docker cp -a ${CONTAINER_ID}:/opt/aavs ${CI_PROJECT_DIR}/aavs
     - docker cp -a ${CONTAINER_ID}:/usr/local/lib/libxgpu.so ${CI_PROJECT_DIR}/aavs/lib
+    - env >> build.env
     - docker rm ${CONTAINER_ID}
   artifacts:
     paths:
       - ${CI_PROJECT_DIR}/aavs
+    reports:
+      dotenv: build.env
 
 
 # This `python-test` job is wholesale copied from:
@@ -97,8 +100,6 @@ python-test:
     - mkdir /opt/aavs
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
     - cp -R ${CI_PROJECT_DIR}/aavs/lib/libxgpu.so /usr/local/lib/
-  variables:
-    LD_LIBRARY_PATH: '/usr/local/lib/'
   script:
     - make python-test;
   artifacts:
