@@ -61,13 +61,13 @@ oci-image-build:
   after_script:
     - source .release
     - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:${release}-dev.c${CI_COMMIT_SHORT_SHA}")
-    - echo '${CONTAINER_ID}'
+    - echo ${CONTAINER_ID}
     - docker cp -a ${CONTAINER_ID}:/opt/aavs ${CI_PROJECT_DIR}/aavs
     - docker cp -a ${CONTAINER_ID}:/usr/local/lib/libxgpu.so ${CI_PROJECT_DIR}/aavs/lib
     - START_ID=$(docker start ${CONTAINER_ID})
-    - echo '${START_ID}'
-    - '(docker exec ${START_ID} env | grep -i lib) >> build.env'
-    - '(docker exec ${START_ID} env | grep -i path) >> build.env'
+    - echo ${START_ID}
+    - '(docker exec ${START_ID} sh -c "env | grep -i lib") >> build.env'
+    - '(docker exec ${START_ID} sh -c "env | grep -i path") >> build.env'
     - env
     - docker stop ${START_ID}
     - docker rm ${CONTAINER_ID}
