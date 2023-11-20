@@ -106,7 +106,6 @@ python-test:
     - mkdir /opt/aavs
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
     - cp -R ${CI_PROJECT_DIR}/aavs/lib/libxgpu.so /usr/local/lib/
-    - set -o allexport && source build.env && set +o allexport
   script:
     - make python-test;
   artifacts:
