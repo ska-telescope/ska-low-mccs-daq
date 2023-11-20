@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import json
-from typing import Iterator
+from typing import Callable, Iterator
 
 import pytest
 import tango
@@ -25,18 +25,41 @@ from tests.harness import SpsTangoTestHarnessContext
 scenarios("./features/daq_status_reporting.feature")
 
 
+@given(
+    parsers.cfparse("this test is running against station_cluster {station_name}"),
+    target_fixture="test_context",
+)
+def test_context_fixture(
+    functional_test_context_generator: Callable,
+    station_name: str,
+) -> Iterator[SpsTangoTestHarnessContext]:
+    """
+    Yield the a context containing devices from a specific station.
+
+    :param functional_test_context_generator: a callable to generate
+        a context.
+    :param station_name: the name of the station to test against.
+
+    :yield: the DAQ receiver device
+    """
+    skip_if_not_real_context = False
+    if station_name == "real-daq-1":
+        skip_if_not_real_context = True
+    yield from functional_test_context_generator(station_name, skip_if_not_real_context)
+
+
 @given("an MccsDaqReceiver", target_fixture="daq_receiver")
 def daq_receiver_fixture(
-    functional_test_context: SpsTangoTestHarnessContext,
+    test_context: SpsTangoTestHarnessContext,
 ) -> Iterator[tango.DeviceProxy]:
     """
     Yield the DAQ receiver device under test.
 
-    :param functional_test_context: the context in which the test is running.
+    :param test_context: the context in which the test is running.
 
     :yield: the DAQ receiver device
     """
-    yield functional_test_context.get_daq_device()
+    yield test_context.get_daq_device()
 
 
 @given(parsers.cfparse("MccsDaqReceiver AdminMode is set to '{admin_mode_value}'"))
@@ -195,7 +218,7 @@ def check_consumer_is_running(daq_receiver: tango.DeviceProxy, consumer: str) ->
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param consumer: The consumer whose running status we are to confirm.
     """
-    poll_until_consumer_running(daq_receiver, consumer)
+    poll_until_consumer_running(daq_receiver, consumer, 25)
 
 
 @pytest.fixture(name="all_available_consumers")

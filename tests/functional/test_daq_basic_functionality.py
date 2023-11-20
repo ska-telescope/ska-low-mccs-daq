@@ -8,15 +8,17 @@
 """This module contains the tests of the daq basic functionality."""
 from __future__ import annotations
 
-from typing import Iterator
+import json
+from typing import Callable, Iterator
 
 import pytest
 import tango
-from pytest_bdd import given, scenarios, then, when
+from pytest_bdd import given, parsers, scenarios, then, when
 from ska_control_model import AdminMode, HealthState
 
 from tests.functional.conftest import (
     poll_until_consumer_running,
+    poll_until_consumers_stopped,
     poll_until_state_change,
 )
 from tests.harness import SpsTangoTestHarnessContext
@@ -24,18 +26,41 @@ from tests.harness import SpsTangoTestHarnessContext
 scenarios("./features/daq_basic_functionality.feature")
 
 
-@pytest.fixture(name="daq_receiver_device", scope="module")
+@given(
+    parsers.cfparse("this test is running against station {station_name}"),
+    target_fixture="test_context",
+)
+def test_context_fixture(
+    functional_test_context_generator: Callable,
+    station_name: str,
+) -> Iterator[SpsTangoTestHarnessContext]:
+    """
+    Yield the a context containing devices from a specific station.
+
+    :param functional_test_context_generator: a callable to generate
+        a context.
+    :param station_name: the name of the station to test against.
+
+    :yield: the DAQ receiver device
+    """
+    skip_if_not_real_context = False
+    if station_name == "real-daq-1":
+        skip_if_not_real_context = True
+    yield from functional_test_context_generator(station_name, skip_if_not_real_context)
+
+
+@pytest.fixture(name="daq_receiver_device")
 def daq_receiver_fixture(
-    functional_test_context: SpsTangoTestHarnessContext,
+    test_context: SpsTangoTestHarnessContext,
 ) -> Iterator[tango.DeviceProxy]:
     """
     Yield the DAQ receiver device under test.
 
-    :param functional_test_context: the context in which the test is running.
+    :param test_context: the context in which the test is running.
 
     :yield: the DAQ receiver device
     """
-    yield functional_test_context.get_daq_device()
+    yield test_context.get_daq_device()
 
 
 @given("the DAQ is available", target_fixture="daq_receiver")
@@ -116,6 +141,21 @@ def daq_device_is_in_admin_mode_offline(
     if daq_receiver.adminMode != AdminMode.OFFLINE:
         daq_receiver.adminMode = AdminMode.OFFLINE
     assert daq_receiver.adminMode == AdminMode.OFFLINE
+
+
+@given("the DAQ has no consumers running")
+def daq_device_has_no_running_consumers(
+    daq_receiver: tango.DeviceProxy,
+) -> None:
+    """
+    Assert that daq receiver has no running consumers.
+
+    :param daq_receiver: The daq_receiver fixture to use.
+    """
+    status = json.loads(daq_receiver.DaqStatus())
+    if status["Running Consumers"] != []:
+        daq_receiver.Stop()  # Stops *all* consumers.
+        poll_until_consumers_stopped(daq_receiver)
 
 
 @given("the DAQ is in adminMode ONLINE")
@@ -230,7 +270,7 @@ def check_daq_config_is_raw(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    poll_until_consumer_running(daq_receiver, "RAW_DATA")
+    poll_until_consumer_running(daq_receiver, "RAW_DATA", no_of_iters=25)
 
 
 @when("I send the Start command with channelised data")
@@ -254,4 +294,4 @@ def check_daq_config_is_channelised(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    poll_until_consumer_running(daq_receiver, "CHANNEL_DATA")
+    poll_until_consumer_running(daq_receiver, "CHANNEL_DATA", no_of_iters=25)
