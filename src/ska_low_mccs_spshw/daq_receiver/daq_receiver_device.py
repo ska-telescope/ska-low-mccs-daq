@@ -13,6 +13,7 @@ import json
 import logging
 from typing import Any, Optional, Union, cast
 
+import numpy as np
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
 from ska_tango_base.base import BaseComponentManager, SKABaseDevice
 from ska_tango_base.commands import (
@@ -89,7 +90,96 @@ class _StartDaqCommand(SubmittedSlowCommand):
         return super().do(modes_to_start)
 
 
-# pylint: disable=too-many-instance-attributes
+class _StartBandpassMonitorCommand(SubmittedSlowCommand):
+    """
+    Start monitoring antenna bandpasses.
+
+        The MccsDaqReceiver will begin monitoring antenna bandpasses
+            and producing plots of the spectra.
+
+        :param argin: A json dictionary with keywords.
+            - plot_directory
+            Directory in which to store bandpass plots.
+            - monitor_rms
+            Whether or not to additionally produce RMS plots.
+            Default: False.
+            - auto_handle_daq
+            Whether DAQ should be automatically reconfigured,
+            started and stopped without user action if necessary.
+            This set to False means we expect DAQ to already
+            be properly configured and listening for traffic
+            and DAQ will not be stopped when `StopBandpassMonitor`
+            is called.
+            Default: False.
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+    """
+
+    def __init__(
+        self: _StartBandpassMonitorCommand,
+        command_tracker: CommandTrackerProtocol,
+        component_manager: BaseComponentManager,
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
+        """
+        Initialise a new instance.
+
+        :param command_tracker: the device's command tracker
+        :param component_manager: the component manager on which this
+            command acts.
+        :param logger: a logger for this command to use.
+        """
+        super().__init__(
+            "StartBandpassMonitor",
+            command_tracker,
+            component_manager,
+            "start_bandpass_monitor",
+            callback=None,
+            logger=logger,
+        )
+
+    # pylint: disable = arguments-differ
+    def do(  # type: ignore[override]
+        self: _StartBandpassMonitorCommand,
+        *args: Any,
+        argin: str,
+        **kwargs: Any,
+    ) -> tuple[ResultCode, str]:
+        """
+        Implement :py:meth:`.MccsDaqReceiver.StartBandpassMonitor` command.
+
+        :param args: unspecified positional arguments. This should be
+            empty and is provided for typehinting purposes only.
+        :param argin: A json dictionary with keywords.
+            - plot_directory
+            Directory in which to store bandpass plots.
+            - monitor_rms
+            Whether or not to additionally produce RMS plots.
+            Default: False.
+            - auto_handle_daq
+            Whether DAQ should be automatically reconfigured,
+            started and stopped without user action if necessary.
+            This set to False means we expect DAQ to already
+            be properly configured and listening for traffic
+            and DAQ will not be stopped when `StopBandpassMonitor`
+            is called.
+            Default: False.
+        :param kwargs: unspecified keyword arguments. This should be
+            empty and is provided for typehinting purposes only.
+
+        :return: A tuple containing a return code and a string
+                message indicating status. The message is for
+                information purpose only.
+        """
+        assert (
+            not args and not kwargs
+        ), f"do method has unexpected arguments: {args}, {kwargs}"
+
+        return super().do(argin)
+
+
+# pylint: disable = too-many-instance-attributes
 class MccsDaqReceiver(SKABaseDevice):
     """An implementation of a MccsDaqReceiver Tango device."""
 
@@ -157,6 +247,9 @@ class MccsDaqReceiver(SKABaseDevice):
         self._health_model: DaqHealthModel
         self._received_data_mode: str
         self._received_data_result: str
+        self._x_bandpass_plot: np.ndarray
+        self._y_bandpass_plot: np.ndarray
+        self._rms_plot: np.ndarray
         self._skuid_url: str
 
     def init_device(self: MccsDaqReceiver) -> None:
@@ -165,7 +258,7 @@ class MccsDaqReceiver(SKABaseDevice):
 
         This is overridden here to change the Tango serialisation model.
         """
-        self._max_workers = 1
+        self._max_workers = 5
         super().init_device()
 
         self._build_state = ",".join(
@@ -203,6 +296,9 @@ class MccsDaqReceiver(SKABaseDevice):
         self._health_model = DaqHealthModel(self._component_state_callback)
         self._received_data_mode = ""
         self._received_data_result = ""
+        self._x_bandpass_plot = np.zeros(shape=(256, 511), dtype=float)
+        self._y_bandpass_plot = np.zeros(shape=(256, 511), dtype=float)
+        self._rms_plot = np.zeros(shape=(256, 511), dtype=float)
         self.set_change_event("healthState", True, False)
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
@@ -237,6 +333,8 @@ class MccsDaqReceiver(SKABaseDevice):
             ("DaqStatus", self.DaqStatusCommand),
             ("GetConfiguration", self.GetConfigurationCommand),
             ("Stop", self.StopCommand),
+            # ("StartBandpassMonitor", self.StartBandpassMonitorCommand),
+            ("StopBandpassMonitor", self.StopBandpassMonitorCommand),
         ]:
             self.register_command_object(
                 command_name,
@@ -245,6 +343,7 @@ class MccsDaqReceiver(SKABaseDevice):
 
         for command_name, command_class in [
             ("Start", _StartDaqCommand),
+            ("StartBandpassMonitor", _StartBandpassMonitorCommand),
         ]:
             self.register_command_object(
                 command_name,
@@ -273,8 +372,16 @@ class MccsDaqReceiver(SKABaseDevice):
                 message indicating status. The message is for
                 information purpose only.
             """
-            # TODO
             self._device.set_change_event("dataReceivedResult", True, False)
+            self._device.set_change_event("xPolBandpass", True, False)
+            self._device.set_change_event("yPolBandpass", True, False)
+            self._device.set_change_event("rmsPlot", True, False)
+
+            # Archived attributes should be logged to the EDA eventually.
+            self._device.set_archive_event("xPolBandpass", True, False)
+            self._device.set_archive_event("yPolBandpass", True, False)
+            self._device.set_archive_event("rmsPlot", True, False)
+
             return (ResultCode.OK, "Init command completed OK")
 
     # ----------
@@ -308,10 +415,14 @@ class MccsDaqReceiver(SKABaseDevice):
             communication_state == CommunicationStatus.ESTABLISHED
         )
 
+    # pylint: disable = too-many-arguments
     def _component_state_callback(
         self: MccsDaqReceiver,
         fault: Optional[bool] = None,
         health: Optional[HealthState] = None,
+        x_bandpass_plot: Optional[np.ndarray] = None,
+        y_bandpass_plot: Optional[np.ndarray] = None,
+        rms_plot: Optional[np.ndarray] = None,
         **kwargs: Optional[Any],
     ) -> None:
         """
@@ -322,6 +433,9 @@ class MccsDaqReceiver(SKABaseDevice):
 
         :param fault: New fault state of device.
         :param health: New health state of device.
+        :param x_bandpass_plot: A filepath for a bandpass plot.
+        :param y_bandpass_plot: A filepath for a bandpass plot.
+        :param rms_plot: A filepath for an rms plot.
         :param kwargs: Other state changes of device.
         """
         if fault:
@@ -334,6 +448,29 @@ class MccsDaqReceiver(SKABaseDevice):
             if self._health_state != health:
                 self._health_state = cast(HealthState, health)
                 self.push_change_event("healthState", health)
+
+        if x_bandpass_plot is not None:
+            if isinstance(x_bandpass_plot, list):
+                x_bandpass_plot = x_bandpass_plot[0]
+            self._x_bandpass_plot = x_bandpass_plot
+            # TODO: Should we be pushing these
+            # events with self.x_bandpass_plot?
+            self.push_change_event("xPolBandpass", x_bandpass_plot)
+            self.push_archive_event("xPolBandpass", x_bandpass_plot)
+
+        if y_bandpass_plot is not None:
+            if isinstance(y_bandpass_plot, list):
+                y_bandpass_plot = y_bandpass_plot[0]
+            self._y_bandpass_plot = y_bandpass_plot
+            self.push_change_event("yPolBandpass", y_bandpass_plot)
+            self.push_archive_event("yPolBandpass", y_bandpass_plot)
+
+        if rms_plot is not None:
+            if isinstance(rms_plot, list):
+                rms_plot = rms_plot[0]
+            self._rms_plot = rms_plot
+            self.push_change_event("rmsPlot", rms_plot)
+            self.push_archive_event("rmsPlot", rms_plot)
 
     def _received_data_callback(
         self: MccsDaqReceiver,
@@ -376,45 +513,6 @@ class MccsDaqReceiver(SKABaseDevice):
                 "dataReceivedResult",
                 (self._received_data_mode, self._received_data_result),
             )
-
-    # ----------
-    # Attributes
-    # ----------
-
-    # def is_attribute_allowed(
-    #     self: MccsDaqReceiver, attr_req_type: tango.AttReqType
-    # ) -> bool:
-    #     """
-    # pylint: disable-next=line-too-long
-    #     Protect attribute access before being updated otherwise it reports alarm.  # noqa: E501
-
-    #     :param attr_req_type: tango attribute type READ/WRITE
-
-    #     :return: True if the attribute can be read else False
-    #     """
-    #     rc = self.get_state() in [
-    #         tango.DevState.ON,
-    #     ]
-    #     return rc
-
-    # @attribute(
-    #     dtype=int,
-    #     label="label",
-    #     unit="unit",
-    #     standard_unit="unit",
-    #     max_alarm=90,
-    #     min_alarm=1,
-    #     max_warn=80,
-    #     min_warn=5,
-    #     fisallowed=is_attribute_allowed,
-    # )
-    # def some_attribute(self: XXXXXX) -> int:
-    #     """
-    #     Return some_attribute.
-
-    #     :return: some_attribute
-    #     """
-    #     return self._component_manager._some_attribute
 
     # --------
     # Commands
@@ -719,12 +817,88 @@ class MccsDaqReceiver(SKABaseDevice):
         (result_code, message) = handler(argin)
         return ([result_code], [message])
 
-    # @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
-    # def Command(self: XXXXXX, argin: str) -> DevVarLongStringArrayType:
-    #     """"""
-    #     handler = self.get_command_object("Command")
-    #     (result_code, message) = handler(argin)
-    #     return ([result_code], [message])
+    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    def StartBandpassMonitor(
+        self: MccsDaqReceiver, argin: str
+    ) -> DevVarLongStringArrayType:
+        """
+        Start monitoring antenna bandpasses.
+
+        The MccsDaqReceiver will begin monitoring antenna bandpasses
+            and producing plots of the spectra.
+
+        :param argin: A json dictionary with keywords.
+            - plot_directory
+            Directory in which to store bandpass plots.
+            - monitor_rms
+            Whether or not to additionally produce RMS plots.
+            Default: False.
+            - auto_handle_daq
+            Whether DAQ should be automatically reconfigured,
+            started and stopped without user action if necessary.
+            This set to False means we expect DAQ to already
+            be properly configured and listening for traffic
+            and DAQ will not be stopped when `StopBandpassMonitor`
+            is called.
+            Default: False.
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+        """
+        handler = self.get_command_object("StartBandpassMonitor")
+        (result_code, message) = handler(argin=argin)
+        return ([result_code], [message])
+
+    class StopBandpassMonitorCommand(FastCommand):
+        """Class for handling the StopBandpassMonitorCommand() command."""
+
+        def __init__(  # type: ignore
+            self: MccsDaqReceiver.StopBandpassMonitorCommand,
+            component_manager,
+            logger: Optional[logging.Logger] = None,
+        ) -> None:
+            """
+            Initialise a new StopBandpassMonitorCommand instance.
+
+            :param component_manager: the device to which this command belongs.
+            :param logger: a logger for this command to use.
+            """
+            self._component_manager = component_manager
+            super().__init__(logger)
+
+        # pylint: disable=arguments-differ
+        def do(  # type: ignore[override]
+            self: MccsDaqReceiver.StopBandpassMonitorCommand,
+        ) -> tuple[ResultCode, str]:
+            """
+            Implement MccsDaqReceiver.SetConsumersCommand functionality.
+
+            Stop monitoring antenna bandpasses.
+
+            The MccsDaqReceiver will cease monitoring antenna bandpasses
+                and producing plots of the spectra.
+
+            :return: A tuple containing a return code and a string
+                message indicating status. The message is for
+                information purpose only.
+            """
+            return self._component_manager.stop_bandpass_monitor()
+
+    @command(dtype_out="DevVarLongStringArray")
+    def StopBandpassMonitor(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+        """
+        Stop monitoring antenna bandpasses.
+
+        The MccsDaqReceiver will cease monitoring antenna bandpasses
+            and producing plots of the spectra.
+
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+        """
+        handler = self.get_command_object("StopBandpassMonitor")
+        (result_code, message) = handler()
+        return ([result_code], [message])
 
     @attribute(
         dtype=("str",),
@@ -739,6 +913,45 @@ class MccsDaqReceiver(SKABaseDevice):
             name.
         """
         return self._received_data_mode, self._received_data_result
+
+    @attribute(
+        dtype=(("DevFloat",),),
+        max_dim_x=256,  # Antennas
+        max_dim_y=511,  # Channels
+    )
+    def xPolBandpass(self: MccsDaqReceiver) -> np.ndarray:
+        """
+        Read the last bandpass plot data for the x-polarisation.
+
+        :return: The last block of x-polarised bandpass data.
+        """
+        return self._x_bandpass_plot
+
+    @attribute(
+        dtype=(("DevFloat",),),
+        max_dim_x=256,
+        max_dim_y=511,
+    )
+    def yPolBandpass(self: MccsDaqReceiver) -> np.ndarray:
+        """
+        Read the last bandpass plot data for the y-polarisation.
+
+        :return: The last block of y-polarised bandpass data.
+        """
+        return self._y_bandpass_plot
+
+    @attribute(
+        dtype=(("DevFloat",),),
+        max_dim_x=256,
+        max_dim_y=511,
+    )
+    def rmsPlot(self: MccsDaqReceiver) -> np.ndarray:
+        """
+        Read the last rms plot filepath.
+
+        :return: The last block of rms data.
+        """
+        return self._rms_plot
 
 
 # ----------

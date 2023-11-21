@@ -16,6 +16,7 @@ from datetime import date
 from pathlib import PurePath
 from typing import Any, Callable, Optional
 
+import numpy as np
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
 from ska_low_mccs_daq_interface import DaqClient
 from ska_ser_skuid.client import SkuidClient  # type: ignore
@@ -259,9 +260,13 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
         # Check data directory is in correct format, if not then reconfigure.
+        # This delays the start call by a lot if SKUID isn't there.
         if not self._data_directory_format_adr55_compliant():
             config = {"directory": self._construct_adr55_filepath()}
             self.configure_daq(json.dumps(config))
+            self.logger.info(
+                "Data directory automatically reconfigured to: %s", config["directory"]
+            )
         try:
             modes_to_start = modes_to_start or self._consumers_to_start
             for response in self._daq_client.start_daq(modes_to_start):
@@ -337,6 +342,145 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.logger.debug(f"Exiting daq_status with: {status}")
         return status
 
+    @check_communicating
+    def start_bandpass_monitor(
+        self: DaqComponentManager,
+        argin: str,
+        task_callback: Optional[Callable] = None,
+    ) -> tuple[TaskStatus, str]:
+        """
+        Start monitoring antenna bandpasses.
+
+        The MccsDaqReceiver will begin monitoring antenna bandpasses
+            and producing plots of the spectra.
+
+        :param argin: A json string with keywords
+            - plot_directory
+            Directory in which to store bandpass plots.
+            - monitor_rms
+            Whether or not to additionally produce RMS plots.
+            Default: False.
+            - auto_handle_daq
+            Whether DAQ should be automatically reconfigured,
+            started and stopped without user action if necessary.
+            This set to False means we expect DAQ to already
+            be properly configured and listening for traffic
+            and DAQ will not be stopped when `StopBandpassMonitor`
+            is called.
+            Default: False.
+        :param task_callback: Update task state, defaults to None
+
+        :return: a task status and response message
+        """
+        return self.submit_task(
+            self._start_bandpass_monitor,
+            args=[argin],
+            task_callback=task_callback,
+        )
+
+    # pylint: disable = too-many-branches
+    @check_communicating
+    def _start_bandpass_monitor(
+        self: DaqComponentManager,
+        argin: str,
+        task_callback: Optional[Callable] = None,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
+        """
+        Start monitoring antenna bandpasses.
+
+        The MccsDaqReceiver will begin monitoring antenna bandpasses
+            and producing plots of the spectra.
+
+        :param argin: A json string with keywords
+            - plot_directory
+            Directory in which to store bandpass plots.
+            - monitor_rms
+            Whether or not to additionally produce RMS plots.
+            Default: False.
+            - auto_handle_daq
+            Whether DAQ should be automatically reconfigured,
+            started and stopped without user action if necessary.
+            This set to False means we expect DAQ to already
+            be properly configured and listening for traffic
+            and DAQ will not be stopped when `StopBandpassMonitor`
+            is called.
+            Default: False.
+        :param task_callback: Update task state, defaults to None
+        :param task_abort_event: Check for abort, defaults to None
+        """
+        config = self.get_configuration()
+        nof_antennas_per_tile = int(config["nof_antennas"])
+        nof_channels = int(config["nof_channels"])
+
+        if task_callback:
+            task_callback(status=TaskStatus.QUEUED)
+        try:
+            for response in self._daq_client.start_bandpass_monitor(argin):
+                x_bandpass_plot: np.ndarray | None = None
+                y_bandpass_plot: np.ndarray | None = None
+                rms_plot = None
+                call_callback: bool = (
+                    False  # Only call the callback if we have something to say.
+                )
+                if task_callback is not None:
+                    task_callback(
+                        status=TaskStatus(response["result_code"]),
+                        result=response["message"],
+                    )
+                if "x_bandpass_plot" in response:
+                    if response["x_bandpass_plot"] != [None]:
+                        # Reconstruct the numpy array.
+                        x_bandpass_plot = np.array(
+                            json.loads(response["x_bandpass_plot"][0])
+                        ).reshape((nof_channels - 1, nof_antennas_per_tile))
+                        call_callback = True
+                if "y_bandpass_plot" in response:
+                    if response["y_bandpass_plot"] != [None]:
+                        # Reconstruct the numpy array.
+                        y_bandpass_plot = np.array(
+                            json.loads(response["y_bandpass_plot"][0])
+                        ).reshape((nof_channels - 1, nof_antennas_per_tile))
+                        call_callback = True
+                if "rms_plot" in response:
+                    if response["rms_plot"] != [None]:
+                        rms_plot = np.array(
+                            json.loads(response["rms_plot"][0])
+                        ).reshape((nof_channels - 1, nof_antennas_per_tile))
+                        call_callback = True
+                if call_callback:
+                    if self._component_state_callback is not None:
+                        self._component_state_callback(
+                            x_bandpass_plot=x_bandpass_plot,
+                            y_bandpass_plot=y_bandpass_plot,
+                            rms_plot=rms_plot,
+                        )
+
+        except Exception as e:  # pylint: disable=broad-exception-caught  # XXX
+            if task_callback:
+                task_callback(
+                    status=TaskStatus.FAILED,
+                    result=f"Exception: {e}",
+                )
+            return
+
+    @check_communicating
+    def stop_bandpass_monitor(
+        self: DaqComponentManager,
+        task_callback: Optional[Callable] = None,
+    ) -> tuple[ResultCode, str]:
+        """
+        Stop monitoring antenna bandpasses.
+
+        The MccsDaqReceiver will cease monitoring antenna bandpasses
+            and producing plots of the spectra.
+
+        :param task_callback: Update task state, defaults to None
+
+        :return: a ResultCode and response message
+        """
+        return self._daq_client.stop_bandpass_monitor()
+
     def _data_directory_format_adr55_compliant(
         self: DaqComponentManager,
     ) -> bool:
@@ -382,7 +526,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             "//", "/"
         )
 
-    # TODO: Would there be any mileage in combining these methods?
     def _get_scan_id(self: DaqComponentManager) -> str:
         """
         Get a unique scan ID from SKUID.
