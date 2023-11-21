@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import time
 
+import numpy as np
 import pytest
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
@@ -334,132 +335,119 @@ class TestDaqComponentManager:
         daq_component_manager._set_consumers_to_start(consumer_list)
         assert daq_component_manager._consumers_to_start == consumer_list
 
-    # @pytest.mark.skip(reason="Not implemented.")
-    # @pytest.mark.parametrize(
-    #     ("bandpass_config", "expected_status", "expected_msg"),
-    #     (
-    #         (
-    #             '{"station_config_path": "station_config.yml", '
-    #             '"plot_directory": "/plot"}',
-    #             TaskStatus.REJECTED,
-    #             "Current DAQ config is invalid. The `append_integrated` "
-    #             "option must be set to false for bandpass monitoring.",
-    #         ),
-    #         (
-    #             '{"station_config_path": "station_config.yml", '
-    #             '"plot_directory": "/plot", "auto_handle_daq": "True"}',
-    #             TaskStatus.REJECTED,
-    #             "Specified configuration file (station_config.yml) does not exist.",
-    #         ),
-    #         (
-    #             '{"station_config_path": "tests/data/default_config.yml", '
-    #             '"plot_directory": "invalid_directory", "auto_handle_daq": "True"}',
-    #             TaskStatus.FAILED,
-    #             "Unable to create plotting directory at: invalid_directory",
-    #         ),  # Note: The plot directory for this test must be "invalid_directory"
-    #         (
-    #             "{}",
-    #             TaskStatus.REJECTED,
-    #             "Param `argin` must have keys for `station_config_path`"
-    #             " and `plot_directory`",
-    #         ),
-    #         (
-    #             '{"station_config_path": "blah"}',
-    #             TaskStatus.REJECTED,
-    #             "Param `argin` must have keys for `station_config_path` "
-    #             "and `plot_directory`",
-    #         ),
-    #         (
-    #             '{"plot_directory": "blahblah"}',
-    #             TaskStatus.REJECTED,
-    #             "Param `argin` must have keys for `station_config_path` and "
-    #             "`plot_directory`",
-    #         ),
-    #         (
-    #             '{"station_config_path": "nonexistent_station_config.yml", '
-    #             '"plot_directory": "/plot", "auto_handle_daq": "True"}',
-    #             TaskStatus.REJECTED,
-    #             "Specified configuration file (nonexistent_station_config.yml) "
-    #             "does not exist.",
-    #         ),
-    #         (
-    #             '{"station_config_path": "tests/data/default_config.yml", '
-    #             '"plot_directory": "/app/plot/", "auto_handle_daq": "True"}',
-    #             TaskStatus.IN_PROGRESS,
-    #             "Bandpass monitor active",
-    #         ),
-    #     ),
-    # )
-    # def test_start_stop_bandpass_monitor(
-    #     self: TestDaqComponentManager,
-    #     daq_component_manager: DaqComponentManager,
-    #     callbacks: MockCallableGroup,
-    #     bandpass_config: str,
-    #     expected_status: TaskStatus,
-    #     expected_msg: str,
-    # ) -> None:
-    #     """
-    #     Test for start_bandpass_monitor().
+    @pytest.mark.parametrize(
+        ("bandpass_config", "expected_status", "expected_msg"),
+        (
+            (
+                '{"plot_directory": "/plot"}',
+                TaskStatus.REJECTED,
+                "Current DAQ config is invalid. The `append_integrated` "
+                "option must be set to false for bandpass monitoring.",
+            ),
+            (
+                '{"plot_directory": "invalid_directory", "auto_handle_daq": "True"}',
+                TaskStatus.FAILED,
+                "Unable to create plotting directory at: invalid_directory",
+            ),  # Note: The plot directory for this test must be "invalid_directory"
+            (
+                "{}",
+                TaskStatus.REJECTED,
+                "Param `argin` must have key for `plot_directory`",
+            ),
+            (
+                '{"plot_directory": "/app/plot/", "auto_handle_daq": "True"}',
+                TaskStatus.IN_PROGRESS,
+                "Bandpass monitor active",
+            ),
+        ),
+    )
+    def test_start_stop_bandpass_monitor(  # pylint: disable = too-many-arguments
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+        bandpass_config: str,
+        expected_status: TaskStatus,
+        expected_msg: str,
+        x_pol_bandpass_test_data: np.ndarray,
+        y_pol_bandpass_test_data: np.ndarray,
+    ) -> None:
+        """
+        Test for start_bandpass_monitor().
 
-    #     This tests that all of the configuration errors are properly
-    #     handled and that the happy path also works.
+        This tests that all of the configuration errors are properly
+        handled and that the happy path also works.
 
-    #     :param daq_component_manager: the daq receiver component manager
-    #         under test.
-    #     :param callbacks: a dictionary from which callbacks with
-    #         asynchrony support can be accessed.
-    #     :param bandpass_config: The configuration string to use when
-    #         calling `start_mandpass_monitor`
-    #     :param expected_status: The first expected status returned from
-    #         `start_bandpass_monitor`
-    #     :param expected_msg: The first expected message returned from
-    #         `start_bandpass_monitor`
-    #     """
-    #     daq_component_manager.start_communicating()
-    #     callbacks["communication_state"].assert_call(
-    #         CommunicationStatus.NOT_ESTABLISHED
-    #     )
-    #     callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-    #     # Call start_bandpass
-    #     _ = daq_component_manager.start_bandpass_monitor(
-    #         bandpass_config, task_callback=callbacks["task"]
-    #     )
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        :param bandpass_config: The configuration string to use when
+            calling `start_mandpass_monitor`
+        :param expected_status: The first expected status returned from
+            `start_bandpass_monitor`
+        :param expected_msg: The first expected message returned from
+            `start_bandpass_monitor`
+        :param x_pol_bandpass_test_data: A NumPy array of simulated x-pol bandpass data.
+        :param y_pol_bandpass_test_data: A NumPy array of simulated y-pol bandpass data.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        # Call start_bandpass
+        _ = daq_component_manager.start_bandpass_monitor(
+            bandpass_config, task_callback=callbacks["task"]
+        )
 
-    #     callbacks["task"].assert_call(status=TaskStatus.QUEUED)
-    #     callbacks["task"].assert_call(
-    #         status=expected_status, result=expected_msg, lookahead=5
-    #     )
-    #     # Any ResultCode.REJECTED cases end at the line above.
+        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task"].assert_call(
+            status=expected_status, result=expected_msg, lookahead=5
+        )
+        # Any ResultCode.REJECTED cases end at the line above.
 
-    #     if expected_status == TaskStatus.IN_PROGRESS:
-    #         # Assert status shows bandpass monitor is active.
-    #         status = json.loads(daq_component_manager.daq_status())
-    #         assert status["Bandpass Monitor"]
+        if expected_status == TaskStatus.IN_PROGRESS:
+            # Assert status shows bandpass monitor is active.
+            status = json.loads(daq_component_manager.daq_status())
+            assert status["Bandpass Monitor"]
 
-    #         for i in range(3):
-    #             callbacks["task"].assert_call(
-    #                 status=expected_status, result="plot sent", lookahead=5
-    #             )
-    #             callbacks["component_state"].assert_call(
-    #                 x_bandpass_plot=[f"fake_x_bandpass_plot_{i}"],
-    #                 y_bandpass_plot=[f"fake_y_bandpass_plot_{i}"],
-    #                 rms_plot=[f"fake_rms_plot_{i}"],
-    #                 lookahead=15,
-    #             )
+            for _ in range(3):
+                callbacks["task"].assert_call(
+                    status=expected_status, result="plot sent", lookahead=5
+                )
+                # This isn't working properly.
+                # need to extract the call args and compare... UGH!
+                # while not callbacks["component_state"]._call_queue.empty():
+                call_args = callbacks["component_state"]._call_queue.get(timeout=5)
+                args_dict = call_args[2]
+                received_x_pol_data = args_dict["x_bandpass_plot"]
+                received_y_pol_data = args_dict["y_bandpass_plot"]
 
-    #             time.sleep(3)  # Wait for simulator output.
+                assert np.array_equal(x_pol_bandpass_test_data, received_x_pol_data)
+                assert np.array_equal(y_pol_bandpass_test_data, received_y_pol_data)
 
-    #         assert (
-    #             ResultCode.OK,
-    #             "Bandpass monitor stopping.",
-    #         ) == daq_component_manager.stop_bandpass_monitor()
-    #         callbacks["task"].assert_call(
-    #             status=TaskStatus.COMPLETED,
-    #             result="Bandpass monitoring complete.",
-    #             lookahead=20,
-    #         )
-    #         status = json.loads(daq_component_manager.daq_status())
-    #         assert not status["Bandpass Monitor"]
+                # The following assertion doesn't work properly with numpy arrays.
+                # It results in an illegal boolean array comparison which isn't
+                # what we wanted anyway.
+                # callbacks["component_state"].assert_call(
+                #     x_bandpass_plot=x_pol_bandpass_test_data,
+                #     y_bandpass_plot=y_pol_bandpass_test_data,
+                #     rms_plot=[None],
+                #     lookahead=15,
+                # )
+                time.sleep(3)  # Wait for simulator output.
+
+            assert (
+                ResultCode.OK,
+                "Bandpass monitor stopping.",
+            ) == daq_component_manager.stop_bandpass_monitor()
+            callbacks["task"].assert_call(
+                status=TaskStatus.COMPLETED,
+                result="Bandpass monitoring complete.",
+                lookahead=20,
+            )
+            status = json.loads(daq_component_manager.daq_status())
+            assert not status["Bandpass Monitor"]
 
     @pytest.mark.parametrize(
         ("directory", "outcome"),
@@ -516,9 +504,6 @@ class TestDaqComponentManager:
             re_config = {"directory": daq_component_manager._construct_adr55_filepath()}
             daq_component_manager.configure_daq(json.dumps(re_config))
             time.sleep(1)
-            print(
-                f"Current dir: {daq_component_manager.get_configuration()['directory']}"
-            )
             assert daq_component_manager._data_directory_format_adr55_compliant()
 
     @pytest.mark.parametrize(
