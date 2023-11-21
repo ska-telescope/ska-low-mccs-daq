@@ -23,7 +23,11 @@ from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tango.server import Device, command
 
 from ska_low_mccs_spshw import MccsDaqReceiver
-from ska_low_mccs_spshw.daq_receiver.daq_simulator import DaqModes, DaqSimulator
+from ska_low_mccs_spshw.daq_receiver.daq_simulator import (
+    DaqModes,
+    DaqSimulator,
+    convert_daq_modes,
+)
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
 # TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
@@ -148,6 +152,63 @@ class TestMccsDaqReceiver:
         # Check the IP is what we chose.
         assert status["Receiver IP"] == [daq_ip]
 
+    @pytest.mark.parametrize(
+        "daq_modes",
+        ("DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA", "1, 2, 0"),
+    )
+    def test_start_stop_daq_device(
+        self: TestMccsDaqReceiver,
+        device_under_test: tango.DeviceProxy,
+        daq_modes: str,
+    ) -> None:
+        """
+        Test for Start().
+
+        This tests that when we pass a valid string to the `Start`
+        command that it is successfully parsed into the proper
+        parameters so that `start_daq` can be called.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param daq_modes: The DAQ consumers to start.
+        """
+        device_under_test.adminMode = AdminMode.ONLINE
+        assert device_under_test.adminMode == AdminMode.ONLINE
+
+        start_args = json.dumps({"modes_to_start": f"{daq_modes}"})
+        [result_code], [response] = device_under_test.Start(start_args)
+        assert result_code == ResultCode.QUEUED
+        assert "Start" in response
+
+        # --- TODO: Refactor this block into a test helper method that
+        #  queries DaqStatus until some condition is satisfied.
+        running_consumers = json.loads(device_under_test.DaqStatus()).get(
+            "Running Consumers"
+        )
+        while running_consumers == []:
+            sleep(0.2)
+            running_consumers = json.loads(device_under_test.DaqStatus()).get(
+                "Running Consumers"
+            )
+        # ---
+        # Convert the expected DaqModes.
+        expected_converted_daq_modes = convert_daq_modes(daq_modes)
+        # Convert the running DaqModes after assembling into one string.
+        running_daq_modes: str = ""
+        for consumer in running_consumers:
+            running_daq_modes += f"{consumer[0]},"
+        running_daq_modes = running_daq_modes[0:-1]  # Strip trailing comma.
+        actual_converted_daq_modes = convert_daq_modes(running_daq_modes)
+
+        for consumer in expected_converted_daq_modes:
+            # Match DaqMode.value
+            assert consumer in actual_converted_daq_modes
+
+        [result_code], [response] = device_under_test.Stop()
+        assert result_code == ResultCode.OK
+        assert response == "Daq stopped"
+
 
 class TestPatchedDaq:
     """
@@ -171,16 +232,28 @@ class TestPatchedDaq:
         :return: a mock to be used as a component manager for the daq
             device.
         """
-        mock_component_manager = mocker.Mock()
-        configuration = {
-            "start_daq.return_value": (ResultCode.OK, "Daq started"),
-            "stop_daq.return_value": (ResultCode.OK, "Daq stopped"),
-            "_set_consumers_to_start.return_value": (
-                ResultCode.OK,
-                "SetConsumers command completed OK",
-            ),
-        }
-        mock_component_manager.configure_mock(**configuration)
+        # mock_component_manager = mocker.Mock()
+        mock_component_manager = unittest.mock.Mock()
+        mock_component_manager.start_daq.return_value = (ResultCode.OK, "Daq started")
+        mock_component_manager.stop_daq.return_value = (ResultCode.OK, "Daq stopped")
+        mock_component_manager._set_consumers_to_start.return_value = (
+            ResultCode.OK,
+            "SetConsumers command completed OK",
+        )
+        mock_component_manager.start_bandpass_monitor.return_value = (
+            ResultCode.OK,
+            "Mock bandpass monitor started.",
+        )
+        mock_component_manager.stop_bandpass_monitor.return_value = (
+            ResultCode.OK,
+            "Mock bandpass monitor stopping.",
+        )
+        # configuration = {
+        #     "start_daq.return_value": ,
+        #     "stop_daq.return_value": ,
+        #     "_set_consumers_to_start.return_value": ,
+        # }
+        # mock_component_manager.configure_mock(**configuration)
         return mock_component_manager
 
     @pytest.fixture(name="device_class_under_test")
@@ -248,46 +321,6 @@ class TestPatchedDaq:
         )  # dynamically get DAQ address
         with test_harness as test_context:
             yield test_context
-
-    @pytest.mark.xfail
-    @pytest.mark.parametrize(
-        "daq_modes",
-        ("DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA", "1, 2, 0"),
-    )
-    def test_start_stop_daq_device(
-        self: TestPatchedDaq,
-        device_under_test: tango.DeviceProxy,
-        mock_component_manager: unittest.mock.Mock,
-        daq_modes: str,
-    ) -> None:
-        """
-        Test for Start().
-
-        This tests that when we pass a valid string to the `Start`
-        command that it is successfully parsed into the proper
-        parameters so that `start_daq` can be called.
-
-        :param device_under_test: fixture that provides a
-            :py:class:`tango.DeviceProxy` to the device under test, in a
-            :py:class:`tango.test_context.DeviceTestContext`.
-        :param mock_component_manager: a mock component manager that has
-            been patched into the device under test
-        :param daq_modes: The DAQ consumers to start.
-        """
-        device_under_test.adminMode = AdminMode.ONLINE
-
-        [result_code], [response] = device_under_test.Start(daq_modes)
-
-        assert result_code == ResultCode.OK
-        assert response == "Daq started"
-
-        call_args = mock_component_manager.start_daq.call_args
-        assert call_args.args[0] == daq_modes
-
-        [result_code], [response] = device_under_test.Stop()
-        assert result_code == ResultCode.OK
-        assert response == "Daq stopped"
-        mock_component_manager.stop_daq.assert_called_once_with()
 
     @pytest.mark.parametrize(
         "input_data, result",
@@ -531,3 +564,36 @@ class TestPatchedDaq:
         # it's what we expect.
         call_args = mock_component_manager._set_consumers_to_start.call_args
         assert call_args.args[0] == consumer_list
+
+    def test_start_stop_bandpass_device(
+        self: TestPatchedDaq,
+        device_under_test: tango.DeviceProxy,
+        mock_component_manager: unittest.mock.Mock,
+    ) -> None:
+        """
+        Test for StartBandpassMonitor().
+
+        This tests that when we pass a string to the `StartBandpassMonitor`
+        command that it is successfully passed into the
+        component manager
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param mock_component_manager: a mock component manager that has
+            been patched into the device under test
+        """
+        device_under_test.adminMode = AdminMode.ONLINE
+        assert device_under_test.adminMode == AdminMode.ONLINE
+
+        # Call start_bandpass
+        bandpass_config = '{"some_key": "some_value"}'
+        _ = device_under_test.StartBandpassMonitor(bandpass_config)
+        call_args = mock_component_manager.start_bandpass_monitor.call_args
+        # A bit clunky but it gets padded with command IDs etc.
+        assert call_args[0][0] == bandpass_config
+
+        _ = device_under_test.StopBandpassMonitor()
+        call_args = (
+            mock_component_manager.stop_bandpass_monitor.assert_called_once_with()
+        )

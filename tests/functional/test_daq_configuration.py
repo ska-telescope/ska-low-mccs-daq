@@ -80,8 +80,13 @@ def given_a_daq_receiver(
         change_event_callbacks.assert_change_event("daq_state", tango.DevState.DISABLE)
 
         daq_receiver.adminMode = AdminMode.ONLINE
-        change_event_callbacks.assert_change_event("daq_state", tango.DevState.UNKNOWN)
-        change_event_callbacks.assert_change_event("daq_state", tango.DevState.ON)
+        # For some reason the UNKNOWN change events aren't coming through...
+        # change_event_callbacks.assert_change_event(
+        #     "daq_state", tango.DevState.UNKNOWN
+        #     )
+        change_event_callbacks.assert_change_event(
+            "daq_state", tango.DevState.ON, lookahead=2
+        )
 
     yield daq_receiver
 

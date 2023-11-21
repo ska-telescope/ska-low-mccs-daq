@@ -15,6 +15,7 @@ import pytest
 import tango
 from pytest_bdd import given, parsers, scenarios, then, when
 from ska_control_model import AdminMode
+from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.functional.conftest import (
     poll_until_consumer_running,
@@ -64,17 +65,34 @@ def daq_receiver_fixture(
 
 @given(parsers.cfparse("MccsDaqReceiver AdminMode is set to '{admin_mode_value}'"))
 def admin_mode_set_to_value(
-    daq_receiver: tango.DeviceProxy, admin_mode_value: str
+    daq_receiver: tango.DeviceProxy,
+    admin_mode_value: str,
+    change_event_callbacks: MockTangoEventCallbackGroup,
 ) -> None:
     """
     Ensure device AdminMode is in the correct state.
 
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param admin_mode_value: The value the device's AdminMode attribute should have.
+    :param change_event_callbacks: A change event callback group.
     """
+    daq_receiver.subscribe_event(
+        "state",
+        tango.EventType.CHANGE_EVENT,
+        change_event_callbacks["daq_state"],
+    )
     if daq_receiver.adminMode != AdminMode[admin_mode_value]:
         daq_receiver.adminMode = admin_mode_value
     assert daq_receiver.adminMode == AdminMode[admin_mode_value]
+
+    if AdminMode[admin_mode_value] == AdminMode.ONLINE:
+        change_event_callbacks.assert_change_event(
+            "daq_state", tango.DevState.ON, lookahead=5
+        )
+    elif AdminMode[admin_mode_value] == AdminMode.OFFLINE:
+        change_event_callbacks.assert_change_event(
+            "daq_state", tango.DevState.DISABLE, lookahead=5
+        )
 
 
 @given(parsers.cfparse("the MccsDaqReceiver HealthState is '{health_state}'"))

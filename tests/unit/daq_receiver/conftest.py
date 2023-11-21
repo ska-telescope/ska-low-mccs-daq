@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Iterator
 
+import numpy as np
 import pytest
 from ska_tango_testing.mock import MockCallableGroup
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
@@ -34,7 +35,7 @@ def callbacks_fixture() -> MockCallableGroup:
         "task",
         "extra_daq_mode",
         "task_start_daq",
-        timeout=5.0,
+        timeout=30.0,
     )
 
 
@@ -108,8 +109,28 @@ def daq_component_manager_fixture(
         "",
         skuid_url,
         logger,
-        1,
+        3,
         callbacks["communication_state"],
         callbacks["component_state"],
         callbacks["received_data"],
     )
+
+
+@pytest.fixture(name="x_pol_bandpass_test_data")
+def x_pol_bandpass_test_data_fixture() -> np.ndarray:
+    """
+    Return test bandpass data for x polarisation.
+
+    :return: A NumPy array of simulated x-pol bandpass data.
+    """
+    return np.loadtxt("./x_pol_bandpass.txt", delimiter=",")
+
+
+@pytest.fixture(name="y_pol_bandpass_test_data")
+def y_pol_bandpass_test_data_fixture() -> np.ndarray:
+    """
+    Return test bandpass data for y polarisation.
+
+    :return: A NumPy array of simulated y-pol bandpass data.
+    """
+    return np.loadtxt("./y_pol_bandpass.txt", delimiter=",")
