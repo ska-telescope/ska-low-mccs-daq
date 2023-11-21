@@ -60,12 +60,19 @@ oci-image-build:
     - make oci-build-all CAR_OCI_REGISTRY_HOST=${CI_REGISTRY_IMAGE}
   after_script:
     - source .release
-    - CONTAINER_ID=$(docker create "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:${release}-dev.c${CI_COMMIT_SHORT_SHA}")
-    - docker cp -a ${CONTAINER_ID}:/opt/aavs ${CI_PROJECT_DIR}/aavs
-    - docker rm ${CONTAINER_ID}
+    - docker run --name daq-build-container "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:${release}-dev.c${CI_COMMIT_SHORT_SHA}" sleep 10
+    - docker start daq-build-container
+    - '(docker exec daq-build-container sh -c "env | grep -i lib") >> build.env'
+    - '(docker exec daq-build-container sh -c "env | grep -i path") >> build.env'
+    - docker cp -a daq-build-container:/opt/aavs ${CI_PROJECT_DIR}/aavs
+    - docker cp -a daq-build-container:/usr/local/lib/libxgpu.so ${CI_PROJECT_DIR}/aavs/lib
+    - docker stop daq-build-container
+    - docker rm daq-build-container
   artifacts:
     paths:
       - ${CI_PROJECT_DIR}/aavs
+    reports:
+      dotenv: build.env
 
 
 # This `python-test` job is wholesale copied from:
@@ -75,6 +82,9 @@ oci-image-build:
 python-test:
   image: $SKA_PYTHON_PYTANGO_BUILDER_IMAGE
   stage: test
+  needs:
+    job: oci-image-build
+    artifacts: true
   tags:
     - k8srunner
   before_script:
@@ -95,6 +105,7 @@ python-test:
       fi;
     - mkdir /opt/aavs
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
+    - cp -R ${CI_PROJECT_DIR}/aavs/lib/libxgpu.so /usr/local/lib/
   script:
     - make python-test;
   artifacts:

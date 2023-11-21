@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 from unittest.mock import Mock
 
@@ -200,6 +201,146 @@ class TestDaqHandler:
         if daq_config != "":
             for k, v in daq_config.items():
                 assert config[k] == v
+
+    @pytest.mark.parametrize(
+        (
+            "bandpass_config",
+            "expected_result",
+            "expected_msg",
+            "expected_x_bandpass_plot",
+            "expected_y_bandpass_plot",
+            "expected_rms_plot",
+        ),
+        (
+            (
+                '{"plot_directory": "/plot"}',
+                TaskStatus.REJECTED,
+                "Current DAQ config is invalid. The `append_integrated` "
+                "option must be set to false for bandpass monitoring.",
+                [None],
+                [None],
+                [None],
+            ),
+            (
+                "{}",
+                TaskStatus.REJECTED,
+                "Param `argin` must have key for `plot_directory`",
+                [None],
+                [None],
+                [None],
+            ),
+            (
+                '{"plot_directory": "/app/plot/", "auto_handle_daq": "False"}',
+                TaskStatus.REJECTED,
+                "INTEGRATED_CHANNEL_DATA consumer must be running before"
+                " bandpasses can be monitored.",
+                [None],
+                [None],
+                [None],
+            ),
+            (
+                '{"plot_directory": "/app/plot/", "auto_handle_daq": "False"}',
+                TaskStatus.IN_PROGRESS,
+                "Bandpass monitor active",
+                [None],
+                [None],
+                [None],
+            ),
+        ),
+    )
+    def test_start_stop_bandpass_monitor(  # pylint: disable=too-many-arguments
+        self: TestDaqHandler,
+        daq_address: str,
+        bandpass_config: str,
+        expected_result: TaskStatus,
+        expected_msg: str,
+        expected_x_bandpass_plot: str | None,
+        expected_y_bandpass_plot: str | None,
+        expected_rms_plot: str | None,
+    ) -> None:
+        """
+        Test for starting and stopping the bandpass monitor.
+
+        :param daq_address: The address of the DAQ server.
+        :param bandpass_config: The configuration string to apply.
+        :param expected_result: The expected first TaskStatus
+        :param expected_msg: The expected first response.
+        :param expected_x_bandpass_plot: The expected first x_bandpass_plot
+        :param expected_y_bandpass_plot: The expected first y_bandpass_plot
+        :param expected_rms_plot: The expected first rms_plot
+        """
+        expected_dict = {
+            "result_code": expected_result,
+            "message": expected_msg,
+            "x_bandpass_plot": expected_x_bandpass_plot,
+            "y_bandpass_plot": expected_y_bandpass_plot,
+            "rms_plot": expected_rms_plot,
+        }
+        daq_client = DaqClient(daq_address)
+        assert daq_client.initialise("{}") == {
+            "message": "Daq successfully initialised"
+        }
+
+        # Check stopping before starting.
+        assert daq_client.stop_bandpass_monitor() == (
+            ResultCode.REJECTED,
+            "Bandpass monitor not yet started.",
+        )
+
+        # Manually reconfigure to test consumer later.
+        if json.loads(bandpass_config).get("auto_handle_daq") == "False":
+            daq_client.configure_daq(json.dumps({"append_integrated": False}))
+
+        # # Start the consumer for the happy path test.
+        if expected_result == TaskStatus.IN_PROGRESS:
+            start_result = daq_client.start_daq("INTEGRATED_CHANNEL_DATA")
+            assert next(start_result) == {
+                "status": TaskStatus.IN_PROGRESS,
+                "message": "Start Command issued to gRPC stub",
+            }
+            assert next(start_result) == {
+                "status": TaskStatus.COMPLETED,
+                "message": "Daq has been started and is listening",
+            }
+            # Wait for the consumer to start.
+            stat = json.loads(daq_client.get_status())
+            max_retries = 5
+            tries = 0
+
+            while ["INTEGRATED_CHANNEL_DATA", 5] not in stat.get("Running Consumers"):
+                if tries > max_retries:
+                    pytest.fail("Could not start INTEGRATED_CHANNEL_DATA consumer.")
+                tries += 1
+                time.sleep(tries)
+                stat = json.loads(daq_client.get_status())
+
+        actual_result = daq_client.start_bandpass_monitor(bandpass_config)
+
+        assert next(actual_result) == {
+            "result_code": TaskStatus.IN_PROGRESS,
+            "message": "StartBandpassMonitor command issued to gRPC stub",
+        }
+        # This sleep is legitimately here so we can detect
+        # incorrect/out of order responses.
+        time.sleep(1)
+        assert next(actual_result) == expected_dict
+
+        # Happy path has to be stopped and has an extra response.
+        # Unhappy paths won't have started and skip this block.
+        if expected_result == TaskStatus.IN_PROGRESS:
+            assert (
+                ResultCode.OK,
+                "Bandpass monitor stopping.",
+            ) == daq_client.stop_bandpass_monitor()
+
+            assert next(actual_result) == {
+                "result_code": TaskStatus.COMPLETED,
+                "message": "Bandpass monitoring complete.",
+                "x_bandpass_plot": [None],
+                "y_bandpass_plot": [None],
+                "rms_plot": [None],
+            }
+            daq_client.stop_daq()
 
     def test_access_file_metadata(
         self: TestDaqHandler, daq_handler: DaqHandler, file_metadata: dict
