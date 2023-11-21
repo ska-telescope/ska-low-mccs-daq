@@ -39,7 +39,8 @@ RUN apt-get update && apt-get install -y \
 
 # Set Python3.10 to preferred version, add folders to PATH, create symlink to python3
 RUN update-alternatives --install /usr/bin/python3 python /usr/bin/python3.10 2
-RUN export PATH="/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:${PATH}"
+ENV PATH="/usr/local/lib:/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
 RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 
 # Install pip and poetry.
@@ -75,7 +76,9 @@ EXPOSE 4660/udp
 
 WORKDIR /app/
 COPY pyproject.toml poetry.lock* ./
-ENV PATH="/opt/aavs/include/:/opt/aavs/lib/:/home/daqqer/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
+
 RUN poetry config virtualenvs.create false && poetry install --only main
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
+RUN chmod a+w /app/
+
 USER daqqer
