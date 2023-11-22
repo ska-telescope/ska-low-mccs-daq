@@ -244,14 +244,21 @@ def daq_id_fixture() -> int:
 
 
 @pytest.fixture(name="calibration_solutions")
-def calibration_solutions_fixture() -> dict[tuple[int, float], list[float]]:
+def calibration_solutions_fixture(
+    frequency_channel: int, outside_temperature: float
+) -> dict[tuple[int, float], list[float]]:
     """
     Fixture that provides sample calibration solutions.
+
+    :param outside_temperature: a fixture with an outside temperature
+    :param frequency_channel: a fixture with a calibration frequency channel
 
     :return: a sample calibration solution. The keys are tuples of the channel
         and the outside temperature, and the values are lists of calibration values
     """
     return {
+        (frequency_channel, outside_temperature): [float(1)]
+        + [0.5 * i for i in range(8)],
         (23, 25.0): [float(1)] + [0.5 * i for i in range(8)],
         (45, 25.0): [float(3)] + [1.2 * (i % 2) for i in range(8)],
         (23, 30.0): [float(5)] + [0.6 * i for i in range(8)],
@@ -259,6 +266,26 @@ def calibration_solutions_fixture() -> dict[tuple[int, float], list[float]]:
         (23, 35.0): [float(6)] + [0.7 * i for i in range(8)],
         (45, 35.0): [float(2)] + [1.6 * (i % 2) for i in range(8)],
     }
+
+
+@pytest.fixture(name="outside_temperature")
+def outside_temperature_fixture() -> float:
+    """
+    Fixture for the outside temperature.
+
+    :return: the outside temperature
+    """
+    return 25.34
+
+
+@pytest.fixture(name="frequency_channel")
+def frequency_channel_fixture() -> int:
+    """
+    Fixture for the calibration frequency channel.
+
+    :return: the frequency channel
+    """
+    return 23
 
 
 @pytest.fixture(name="database_host")
