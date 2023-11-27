@@ -1,0 +1,4 @@
+{{- /* Pass arbitrary values through to helm. */}}
+{{- if hasKey .Values "helm_values"}}
+{{toYaml .Values.helm_values}}
+{{- end }}
