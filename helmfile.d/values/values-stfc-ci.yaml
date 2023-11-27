@@ -9,3 +9,12 @@ overrides:
           "1":
             id: 1
             sps: {}
+
+# Use helm_values to set arbitrary helm values.
+# These are passed through to the helm values file as-is.
+# For example,
+#
+# helm_values:
+#   image:
+#     registry: registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq
+#     tag: 0.5.0-dev.cfc920d91
