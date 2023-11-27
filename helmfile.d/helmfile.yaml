@@ -76,3 +76,4 @@ releases:
     version: 0.5.0
     values:
       - templates/daq.yaml.gotmpl
+      - templates/helm-values.yaml.gotmpl
