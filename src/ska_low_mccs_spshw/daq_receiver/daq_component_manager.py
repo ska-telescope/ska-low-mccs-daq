@@ -24,6 +24,7 @@ from ska_tango_base.base import check_communicating
 from ska_tango_base.executor import TaskExecutorComponentManager
 
 __all__ = ["DaqComponentManager"]
+SUBSYSTEM_SLUG = "ska-low-mccs"
 
 
 # pylint: disable=abstract-method,too-many-instance-attributes
@@ -496,7 +497,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         current_directory = self.get_configuration()["directory"].split("/", maxsplit=5)
         # Reconstruct ADR-55 relevant part of the fp to match against.
         current_directory_root = "/".join(current_directory[0:5])
-        return PurePath(current_directory_root).match("/product/*/low-mccs/*")
+        return PurePath(current_directory_root).match(f"/product/*/{SUBSYSTEM_SLUG}/*")
 
     def _construct_adr55_filepath(
         self: DaqComponentManager,
@@ -522,8 +523,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
         existing_directory = self.get_configuration()["directory"]
         # Replace any double slashes with just one in case
         # `existing_directory` begins with one.
-        return f"/product/{eb_id}/low-mccs/{scan_id}/{existing_directory}".replace(
-            "//", "/"
+        return (
+            f"/product/{eb_id}/{SUBSYSTEM_SLUG}/{scan_id}/{existing_directory}".replace(
+                "//", "/"
+            )
         )
 
     def _get_scan_id(self: DaqComponentManager) -> str:
