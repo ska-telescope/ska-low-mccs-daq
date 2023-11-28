@@ -52,8 +52,12 @@ def plot_raw_data(conf):
 
             # Output to file if required
             if conf.output:
-                output = "{}_pol_{}.png".format(conf.output, 'X' if pol == 0 else 'Y')
-                plt.savefig(output, figsize=(12, 8))
+                root, ext = os.path.splitext(conf.output)
+                if not ext:
+                    ext = ".png"
+                output = "{}_pol_{}{}".format(root, pol_names[pol], ext)
+                plt.savefig(output)
+                plt.close()
 
     else:
         for pol in params['pols']:
@@ -72,8 +76,12 @@ def plot_raw_data(conf):
 
             # Output to file if required
             if conf.output:
-                output = "{}_pol_{}.png".format(conf.output, 'X' if pol == 0 else 'Y')
-                plt.savefig(output, figsize=(12, 8))
+                root, ext = os.path.splitext(conf.output)
+                if not ext:
+                    ext = ".png"
+                output = "{}_pol_{}{}".format(root, pol_names[pol], ext)
+                plt.savefig(output)
+                plt.close()
 
     # All done, show plots
     if not conf.output:

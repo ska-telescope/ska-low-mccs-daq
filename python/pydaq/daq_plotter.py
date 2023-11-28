@@ -74,12 +74,7 @@ if __name__ == "__main__":
     (conf, args) = parser.parse_args(argv[1:])
 
     # Set logging
-    log = logging.getLogger('')
-    log.setLevel(logging.INFO)
-    format = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    ch = logging.StreamHandler(stdout)
-    ch.setFormatter(format)
-    log.addHandler(ch)
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
     # Check if a directory or file were specified
     if conf.directory is None and conf.file is None:

@@ -1,5 +1,7 @@
 from __future__ import division
 
+import matplotlib.pyplot as plt
+
 from pydaq.persisters import ChannelFormatFileManager, FileDAQModes
 from pydaq.plotters.utils import *
 
@@ -78,7 +80,7 @@ def plot_channel_data(conf, integrated=False, continuous=False):
         for p, pol in enumerate(params['pols']):
             plt.figure(figsize=(12, 8))
             ts = set_figure_for_timestamps(timestamps, conf.time)
-            plt.title("Tile {} - Polarisation {} - Channel {}. Plotting {}".format(conf.tile_id, pol,
+            plt.title("Tile {} - Polarisation {} - Channel {}. Plotting {}".format(conf.tile_id, pol_names[pol],
                                                                                    params['channels'][0],
                                                                                    conf.plot_type.name))
             for a, antenna in enumerate(params['antennas']):
@@ -90,10 +92,13 @@ def plot_channel_data(conf, integrated=False, continuous=False):
                 plt.grid(True)
                 plt.legend()
 
-            # Output to file if required
             if conf.output:
-                output = "{}_pol_{}.png".format(conf.output, 'X' if pol == 0 else 'Y')
-                plt.savefig(output, figsize=(12, 8))
+                root, ext = os.path.splitext(conf.output)
+                if not ext:
+                    ext = ".png"
+                output = "{}_pol_{}{}".format(root, pol_names[pol], ext)
+                plt.savefig(output)
+                plt.close()
 
     # Generate waterfall plots if required
     elif conf.plot_type == PlotTypes.Spectrum:
@@ -102,7 +107,7 @@ def plot_channel_data(conf, integrated=False, continuous=False):
         if conf.separate:
             for p, pol in enumerate(params['pols']):
                 fig, ax = plt.subplots(nrows=n_rows, ncols=n_cols, sharex='all', sharey='all', figsize=(12, 8))
-                fig.suptitle("Polarisation {}".format(pol))
+                fig.suptitle("Polarisation {}".format(pol_names[pol]))
 
                 for a, antenna in enumerate(params['antennas']):
                     axes, last_row, first_col = get_axes(ax, a)
@@ -116,10 +121,13 @@ def plot_channel_data(conf, integrated=False, continuous=False):
                     if first_col:
                         axes.set_ylabel('Power{}'.format(" (db)" if conf.log else ""))
 
-                # Output to file if required
                 if conf.output:
-                    output = "{}_pol_{}.png".format(conf.output, 'X' if pol == 0 else 'Y')
-                    plt.savefig(output, figsize=(12, 8))
+                    root, ext = os.path.splitext(conf.output)
+                    if not ext:
+                        ext = ".png"
+                    output = "{}_pol_{}{}".format(root, pol_names[pol], ext)
+                    plt.savefig(output)
+                    plt.close()
 
         # Show spectra in same figure
         else:
@@ -129,23 +137,26 @@ def plot_channel_data(conf, integrated=False, continuous=False):
                     plt.plot(frequencies, old_div(np.sum(data[:, a, p, :], axis=1), params['samples']),
                              label="A: {}, RX: {}".format(antenna, get_rx(antenna)),
                              color=get_color(antenna))
-                    plt.title("Tile {} - Polarisation {}".format(conf.tile_id, pol))
+                    plt.title("Tile {} - Polarisation {}".format(conf.tile_id, pol_names[pol]))
                     plt.xlabel('Frequency (MHz)')
                     plt.ylabel('Power{}'.format(" (db)" if conf.log else ""))
                     plt.xlim((frequencies[0], frequencies[-1]))
                     plt.grid(True)
                     plt.legend()
 
-                # Output to file if required
                 if conf.output:
-                    output = "{}_pol_{}.png".format(conf.output, 'X' if pol == 0 else 'Y')
-                    plt.savefig(output, figsize=(12, 8))
+                    root, ext = os.path.splitext(conf.output)
+                    if not ext:
+                        ext = ".png"
+                    output = "{}_pol_{}{}".format(root, pol_names[pol], ext)
+                    plt.savefig(output)
+                    plt.close()
 
     # Generate waterfall plots
     else:
         for p, pol in enumerate(params['pols']):
             fig, ax = plt.subplots(nrows=n_rows, ncols=n_cols, sharex='all', sharey='all', figsize=(12, 8))
-            fig.suptitle("Polarisation {} (Plotting {}) ".format(pol, conf.plot_type.name))
+            fig.suptitle("Polarisation {} (Plotting {}) ".format(pol_names[pol], conf.plot_type.name))
 
             for a, antenna in enumerate(params['antennas']):
                 axes, last_row, first_col = get_axes(ax, a)
@@ -163,10 +174,13 @@ def plot_channel_data(conf, integrated=False, continuous=False):
             cb_ax = fig.add_axes([0.9, 0.1, 0.02, 0.8])
             fig.colorbar(im, cax=cb_ax)
 
-            # Output to file if required
             if conf.output:
-                output = "{}_pol_{}.png".format(conf.output, 'X' if pol == 0 else 'Y')
-                plt.savefig(output, figsize=(12, 8))
+                root, ext = os.path.splitext(conf.output)
+                if not ext:
+                    ext = ".png"
+                output = "{}_pol_{}{}".format(root, pol_names[pol], ext)
+                plt.savefig(output)
+                plt.close()
 
     # All done, show
     if not conf.output:

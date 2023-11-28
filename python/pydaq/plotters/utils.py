@@ -418,3 +418,6 @@ def antenna_coordinates():
         antenna_positions[i] = (antenna_mapping[tile_number][rx_number])
 
     return antenna_positions
+
+
+pol_names = ["X", "Y"]
