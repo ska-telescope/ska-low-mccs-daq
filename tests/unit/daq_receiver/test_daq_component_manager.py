@@ -456,11 +456,11 @@ class TestDaqComponentManager:
             ("/plot", False),
             ("product/blah", False),
             ("/product/blah", False),
-            ("/product/eb_id/low-mccs/scan_id/", True),
-            ("product/eb_id/low-mccs/scan_id/", False),
+            ("/product/eb_id/ska-low-mccs/scan_id/", True),
+            ("product/eb_id/ska-low-mccs/scan_id/", False),
             ("/product/eb_id/some-other-team/scan_id/", False),
             (
-                "/product/low-mccs/some-other-team/scan_id/",
+                "/product/ska-low-mccs/some-other-team/scan_id/",
                 False,
             ),  # Deliberately malformed
         ),

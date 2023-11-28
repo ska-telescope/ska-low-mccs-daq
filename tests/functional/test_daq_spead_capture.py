@@ -125,7 +125,7 @@ def daq_ready_to_receive_beam(
 
     # Configure DAQ
     configuration = {
-        "directory": "/product/test_eb_id/low-mccs/test_scan_id/",
+        "directory": "/product/test_eb_id/ska-low-mccs/test_scan_id/",
         "nof_tiles": 1,
         "receiver_interface": interface,
     }
@@ -294,4 +294,4 @@ def hdf5_directory_fixture() -> str:
 
     :return: the name of target hdf5 directory.
     """
-    return "/test-data/test_eb_id/low-mccs/test_scan_id"
+    return "/test-data/test_eb_id/ska-low-mccs/test_scan_id"
