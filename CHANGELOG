@@ -2,9 +2,12 @@
 
 ## unreleased
 
-## 0.5.0
+## 0.6.0
 
 * [MCCS-1631] Add bandpass monitor.
+
+## 0.5.0
+
 * [LOW-580] Use a queue.SimpleQueue instead of a custom buffer
 * [MCCS-1808] Propagate ADR-55 changes to daq-handler.
 * [MCCS-1776] Add external daq instructions to ReadTheDocs.

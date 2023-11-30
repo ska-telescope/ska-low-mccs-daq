@@ -73,7 +73,7 @@ releases:
   - name: ska-low-mccs-daq
     namespace: ska-low-mccs
     chart: ../charts/ska-low-mccs-daq
-    version: 0.5.0
+    version: 0.6.0
     values:
       - templates/daq.yaml.gotmpl
       - templates/helm-values.yaml.gotmpl
