@@ -314,7 +314,14 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     // Required entries
     header << "HDR_VERSION 1.0" << endl;
     header << "HDR_SIZE " << dada_header_size << endl;
-    header << "BW " << fixed << setprecision(4) << channel_bandwidth_no_oversampling * channels_in_file * 1e-6 << endl;
+
+    float bandwidth_hz;
+    if (channels_in_file > 1 && !individual_channel_files)
+        bandwidth_hz = channel_bandwidth * 2 + (channel_bandwidth_no_oversampling * (channels_in_file - 2));
+    else
+        bandwidth_hz = channel_bandwidth;
+
+    header << "BW " << fixed << setprecision(4) << bandwidth_hz * 1e-6 << endl;
     header << "FREQ " << fixed << setprecision(6) << frequency * 1e-6<< endl;
     header << "TELESCOPE " << "LFAASP" << endl;
     header << "RECEIVER " << "LFAASP" << endl;
@@ -353,7 +360,7 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "UNIXTIME_MSEC " << fixed << setprecision(6) << (timestamp - (int) (timestamp)) * 1e3  << endl;
     header << "FINE_CHAN_WIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth / 1  << endl;
     header << "NFINE_CHAN " << 1 << endl;
-    header << "BANDWIDTH_HZ " << fixed << setprecision(6) << channel_bandwidth_no_oversampling * channels_in_file << endl;
+    header << "BANDWIDTH_HZ " << fixed << setprecision(6) << bandwidth_hz << endl;
     header << "SAMPLE_RATE " << fixed << setprecision(6) << channel_bandwidth << endl;
     header << "MC_IP 0" << endl;
     header << "MC_SRC_IP 0.0.0.0" << endl;
