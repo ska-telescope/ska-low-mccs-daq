@@ -15,8 +15,8 @@ storage: {}  # List of specs of PVCs to create
   #   labels: {}  # optional
   #   annotations: {}  # optional
 
-receivers:
-  1: {}
+receivers: {}
+#  1:
 #     storage: daq-data  # must refer to a PVC
 #     runtime_class: nvidia # optional: must refer to a RunTimeClass existing in the cluster.
 #     gpu_limit: "1" # optional
@@ -32,7 +32,7 @@ receiver_egresses: {}
 image:
   registry: artefact.skao.int
   name: ska-low-mccs-daq
-  tag: 0.6.0
+  tag: ~ # defaults to chart's appVersion when empty
   pullPolicy: IfNotPresent
 
 resources:
