@@ -75,7 +75,7 @@ spec:
         - MccsDaqServer
         name: {{$slug}}-server
 {{- with $image}}
-        image: {{.registry}}/{{.name}}:{{.tag}}
+        image: {{.registry}}/{{.name}}:{{.tag | default $.Chart.AppVersion}}
 {{- end }}
         imagePullPolicy: IfNotPresent
         env:
