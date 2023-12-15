@@ -2,6 +2,10 @@
 
 ## unreleased
 
+## 0.6.1
+
+* [MCCS-1940] Fix DAQ deployment bug
+
 ## 0.6.0
 
 * [MCCS-1631] Add bandpass monitor.
