@@ -16,17 +16,34 @@
                     }
                 },
                 "terminal.integration.defaultProfile.linux": "bash",
+                "editor.formatOnSave": true,
+                "editor.codeActionsOnSave": {
+                    "source.organizeImports": true
+                },
                 "python.pythonPath": "/usr/bin/python3",
-                "python.linting.enabled": true,
-                "python.linting.pylintEnabled": true,
-                "python.linting.pylintPath": "/usr/local/bin/pylint",
+                "python.testing.pytestEnabled": true,
+                "pylint.path": [
+                    "/usr/local/bin/pylint"
+                ],
+                "[python]": {
+                    "editor.defaultFormatter": "ms-python.black-formatter"
+                },
+                "isort.args": [
+                    "--profile",
+                    "black"
+                ],
                 "coverage-gutters.manualCoverageFilePaths": [
-                    "/workspaces/ska-low-mccs/build/reports/code-coverage.xml"
+                    "/workspaces/ska-low-mccs-spshw/build/reports/code-coverage.xml"
                 ],
                 "coverage-gutters.showLineCoverage": true
             },
             "extensions": [
                 "ms-python.python",
+                "ms-python.pylint",
+                "ms-python.black-formatter",
+                "ms-python.flake8",
+                "ms-python.isort",
+                "matangover.mypy",
                 "lextudio.restructuredtext",
                 "trond-snekvik.simple-rst",
                 "davidanson.vscode-markdownlint",
