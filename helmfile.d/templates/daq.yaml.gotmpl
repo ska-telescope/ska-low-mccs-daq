@@ -35,24 +35,15 @@ storage:
 {{- end}}
     size: "250Mi"
 
-{{- range $station_name, $daq_spec := $daqs_to_launch}}
 {{- $cluster_daq_spec := dig "cluster" "daq" dict $platform}}
+{{- range $station_name, $daq_spec := $daqs_to_launch}}
 receivers:
   {{$station_name}}:
     host: {{$daq_spec.host}}
     id: {{$daq_spec.id}}
     storage: daq-data
-{{- range $extra := list "annotations" "node_selector" "affinity" "tolerations"}}
-{{- with (dig $extra dict $cluster_daq_spec)}}
-    {{$extra}}:
-{{toYaml . | indent 6}}
-{{- end}}
-{{- end}}
-{{- with (dig "runtime_class" dict $cluster_daq_spec)}}
-    runtime_class: {{.}}
-{{- end}}
-{{- with (dig "gpu_limit" "" $cluster_daq_spec)}}
-    gpu_limit: {{quote .}}
+{{- with (pick $cluster_daq_spec "annotations" "node_selector" "affinity" "tolerations" "runtime_class" "gpu_limit")}}
+{{toYaml . | indent 4}}
 {{- end}}
 {{- end}}
 {{- end}}

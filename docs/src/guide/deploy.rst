@@ -185,7 +185,7 @@ For example:
 
    receivers:
      1:
-       gpu_limit: "1"
+       gpu_limit: 1
        runtime_class: nvidia
        storage: daq_data
 
