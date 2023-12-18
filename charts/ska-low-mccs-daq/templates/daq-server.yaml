@@ -7,7 +7,7 @@ receivers:
     node_selector:
       kubernetes.io/hostname: psi-node3
     runtime_class: nvidia
-    gpu_limit: "1"
+    gpu_limit: 1
     grpc_port: 50052  # optional; defaults to 50051
     data_port: 4661  # optional; defaults to 4660
 
@@ -87,7 +87,7 @@ spec:
 {{- with $spec.gpu_limit}}
         resources:
           limits:
-            nvidia.com/gpu: {{quote .}}
+            nvidia.com/gpu: {{.}}
 {{- end }}
         securityContext:
           capabilities:

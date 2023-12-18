@@ -53,7 +53,6 @@ unit-tests.xml
 
 # k8s deployment
 PrivateRules.mak
-Chart.lock
 tls.crt
 tls.key
 testing/results/*
