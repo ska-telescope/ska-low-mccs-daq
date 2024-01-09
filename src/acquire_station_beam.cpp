@@ -323,6 +323,7 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
 
     header << "BW " << fixed << setprecision(4) << bandwidth_hz * 1e-6 << endl;
     header << "FREQ " << fixed << setprecision(6) << frequency * 1e-6<< endl;
+    header << "RESOLUTION " << 8192 << endl;
     header << "TELESCOPE " << "LFAASP" << endl;
     header << "RECEIVER " << "LFAASP" << endl;
     header << "INSTRUMENT " << "LFAASP" << endl;
