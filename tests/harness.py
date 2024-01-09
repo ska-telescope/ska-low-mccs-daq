@@ -398,6 +398,7 @@ class SpsTangoTestHarness:
         cabinet_address: str = "10.0.0.0",
         subrack_ids: Iterable[int] = range(1, 3),
         tile_ids: Iterable[int] = range(1, 17),
+        daq_trl: str = "",
         logging_level: int = int(LoggingLevel.DEBUG),
         device_class: type[Device] | str = "ska_low_mccs_spshw.SpsStation",
     ) -> None:
@@ -409,6 +410,7 @@ class SpsTangoTestHarness:
         :param cabinet_address: the network address of the SPS cabinet
         :param subrack_ids: IDs of the subracks in this station.
         :param tile_ids: IDS of the tiles in this station.
+        :param daq_trl: TRL of this Station's DAQ.
         :param logging_level: the Tango device's default logging level.
         :param device_class: The device class to use.
             This may be used to override the usual device class,
@@ -418,6 +420,7 @@ class SpsTangoTestHarness:
             get_sps_station_name(self._station_label),
             device_class,
             StationId=1,
+            DaqTRL=daq_trl,
             TileFQDNs=[
                 get_tile_name(tile_id, station_label=self._station_label)
                 for tile_id in tile_ids
