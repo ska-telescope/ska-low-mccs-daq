@@ -452,6 +452,9 @@ class DaqHandler:
                 process if necessary.
                 Optional. Default False.
 
+            * cadence: Number of seconds over which to average data.
+                Optional. Default 0 (returns snapshots).
+
         :yields: Taskstatus, Message, bandpass/rms plot(s).
         :returns: TaskStatus, Message, None, None, None
         """
@@ -479,6 +482,7 @@ class DaqHandler:
             )
             return
         # monitor_rms: bool = cast(bool, params.get("monitor_rms", False))
+        cadence = cast(int, params.get("cadence", 0))
         auto_handle_daq = params.get("auto_handle_daq", False)
         # Convert to bool if we have a string.
         if not isinstance(auto_handle_daq, bool):
@@ -586,7 +590,7 @@ class DaqHandler:
         self.logger.debug("Starting bandpass plotting thread.")
         bandpass_plotting_thread = threading.Thread(
             target=self.generate_bandpass_plots,
-            args=(os.path.join(plot_directory, station_name), station_name),
+            args=(os.path.join(plot_directory, station_name), station_name, cadence),
         )
         bandpass_plotting_thread.start()
         # Wait for stop, monitoring disk space in the meantime
@@ -812,12 +816,14 @@ class DaqHandler:
         self: DaqHandler,
         plotting_directory: str,
         station_name: str,
+        cadence: int,
     ) -> None:
         """
         Generate antenna bandpass plots.
 
         :param station_name: The name of the station.
         :param plotting_directory: Directory to store plots in.
+        :param cadence: Time in seconds over which to average bandpass data.
         """
         global files_to_plot  # pylint: disable=global-variable-not-assigned
         config = self.get_configuration()
@@ -828,8 +834,6 @@ class DaqHandler:
         x_pol_data: np.ndarray | None = None
         y_pol_data: np.ndarray | None = None
         interval_start = None
-
-        cadence = 60.0  # Time over which to average plots in seconds
 
         _freq_range = np.arange(1, nof_channels) * (old_div(bandwidth, nof_channels))
         _filename_expression = re.compile(
