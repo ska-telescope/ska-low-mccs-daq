@@ -369,6 +369,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
             and DAQ will not be stopped when `StopBandpassMonitor`
             is called.
             Default: False.
+            - cadence
+            The time in seconds over which to average bandpass data.
+            Default: 0 returns snapshots.
         :param task_callback: Update task state, defaults to None
 
         :return: a task status and response message
@@ -407,6 +410,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
             and DAQ will not be stopped when `StopBandpassMonitor`
             is called.
             Default: False.
+            - cadence
+            The time in seconds over which to average bandpass data.
+            Default: 0 returns snapshots.
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Check for abort, defaults to None
         """
@@ -458,6 +464,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                         )
 
         except Exception as e:  # pylint: disable=broad-exception-caught  # XXX
+            self.logger.error("Caught exception in bandpass monitor: %s", e)
             if task_callback:
                 task_callback(
                     status=TaskStatus.FAILED,

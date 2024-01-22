@@ -841,6 +841,9 @@ class MccsDaqReceiver(SKABaseDevice):
             and DAQ will not be stopped when `StopBandpassMonitor`
             is called.
             Default: False.
+            - cadence
+            The time in seconds over which to average bandpass data.
+            Default: 0 returns snapshots.
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
