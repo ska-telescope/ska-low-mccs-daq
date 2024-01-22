@@ -15,16 +15,16 @@ environments:
   aavs3-production:
     kubeContext: aavs3-production
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/helmfile.d/values/aavs3.yaml?ref=671e5a1ce9c6b39a796ab3820b55dafc285ba554
+      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=9a81412a67a852183dd39a34552df24e78a3ab83
   aavs3-staging:
     kubeContext: low-itf
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/helmfile.d/values/aavs3.yaml?ref=671e5a1ce9c6b39a796ab3820b55dafc285ba554
+      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=9a81412a67a852183dd39a34552df24e78a3ab83
       - values/values-aavs3-staging.yaml
   aavs3-minikube:
     kubeContext: minikube
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/helmfile.d/values/aavs3.yaml?ref=671e5a1ce9c6b39a796ab3820b55dafc285ba554
+      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=9a81412a67a852183dd39a34552df24e78a3ab83
       - platform/minikube.yaml
   arcetri:
     kubeContext: minikube
@@ -66,7 +66,7 @@ repositories: []
 
 releases:
   - name: ska-low-mccs-daq
-    namespace: ska-low-mccs
+    namespace: {{.Namespace | default "ska-low-mccs"}}
     chart: ../charts/ska-low-mccs-daq
     version: 0.6.1
     values:
