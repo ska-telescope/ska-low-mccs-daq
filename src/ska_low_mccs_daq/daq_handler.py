@@ -597,6 +597,12 @@ class DaqHandler:
         max_dir_size = 200 * 1024 * 1024
 
         self.logger.info("Bandpass monitor active, entering wait loop.")
+        self.logger.info(
+            "Params: plot_directory: %s, auto_handle_daq: %s, cadence: %i",
+            plot_directory,
+            auto_handle_daq,
+            cadence,
+        )
         self._monitoring_bandpass = True
 
         yield (TaskStatus.IN_PROGRESS, "Bandpass monitor active", None, None, None)
