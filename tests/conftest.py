@@ -233,6 +233,16 @@ def tile_id_fixture() -> int:
     return 1
 
 
+@pytest.fixture(name="station_id", scope="session")
+def station_id_fixture() -> int:
+    """
+    Return the id of the station to which tile under test belongs.
+
+    :return: the id of the station to which tile under test belongs.
+    """
+    return 1
+
+
 @pytest.fixture(name="daq_id", scope="session")
 def daq_id_fixture() -> int:
     """
