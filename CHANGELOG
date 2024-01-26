@@ -2,6 +2,8 @@
 
 ## unreleased
 
+* [MCCS-1885] Introduce `cadence` as an argument to bandpass monitor.
+
 ## 0.6.1
 
 * [MCCS-1940] Fix DAQ deployment bug
