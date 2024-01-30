@@ -791,6 +791,17 @@ class Tile(TileHealthMonitor):
                         dst_port=dst_port,
                         rx_port_filter=dst_port,
                     )
+                    # Temporary - support for single 40G by duplicating entries
+                    self.configure_40g_core(
+                        core_id=n,
+                        arp_table_entry=2,
+                        src_mac=0x620000000000 + ip2long(src_ip),
+                        src_ip=src_ip,
+                        dst_ip=dst_ip,
+                        src_port=src_port,
+                        dst_port=dst_port,
+                        rx_port_filter=dst_port,
+                    )
                 else:
                     self.tpm.tpm_10g_core[n].tx_disable()
 
@@ -831,6 +842,14 @@ class Tile(TileHealthMonitor):
                 self.configure_40g_core(
                     core_id=core_id,
                     arp_table_entry=1,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
+                    dst_port=dst_port
+                )
+                # Temporary - support for single 40G by duplicating entries
+                self.configure_40g_core(
+                    core_id=core_id,
+                    arp_table_entry=3,
                     dst_ip=dst_ip,
                     src_port=src_port,
                     dst_port=dst_port
@@ -892,6 +911,14 @@ class Tile(TileHealthMonitor):
                 self.configure_40g_core(
                     core_id=core_id,
                     arp_table_entry=1,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
+                    dst_port=dst_port
+                )
+                # Temporary - support for single 40G by duplicating entries
+                self.configure_40g_core(
+                    core_id=core_id,
+                    arp_table_entry=3,
                     dst_ip=dst_ip,
                     src_port=src_port,
                     dst_port=dst_port
