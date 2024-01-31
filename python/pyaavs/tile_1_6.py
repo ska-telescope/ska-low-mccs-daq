@@ -278,6 +278,10 @@ class Tile_1_6(Tile):
         for firmware in self.tpm.tpm_test_firmware:
             firmware.initialise_firmware()
 
+        # Temporary - use only FPGA1 40G
+        self.logger.info("Disabling FPGA2 40G Interface")
+        self.tpm["fpga2.dsp_regfile.config_id.is_master"] = 0
+
         # Set station and tile IDs
         self.set_station_id(station_id, tile_id)
 
