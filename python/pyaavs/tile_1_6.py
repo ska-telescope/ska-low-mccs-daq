@@ -215,7 +215,7 @@ class Tile_1_6(Tile):
                    lmc_integrated_use_40g=False, lmc_integrated_dst_ip=5000,
                    src_ip_fpga1=None, src_ip_fpga2=None,
                    dst_ip_fpga1=None, dst_ip_fpga2=None,
-                   src_port=4661, dst_port=4660,
+                   src_port=4661, dst_port=4660, dst_port_single_port_mode=4662, rx_port_single_port_mode=4662,
                    enable_adc=True,
                    enable_ada=False, enable_test=False, use_internal_pps=False,
                    pps_delay=0,
@@ -252,6 +252,13 @@ class Tile_1_6(Tile):
             logging.error("Cannot initialise board - use_internal_pps = True not supported")
             return
 
+        print(
+            f"tile {tile_id} \n"
+            f"Source FPGA1: {src_ip_fpga1}:{src_port}, FPGA2: {src_ip_fpga2}:{src_port}," 
+            f"\nDestination FPGA1: {dst_ip_fpga1}:{dst_port}, FPGA2: {dst_ip_fpga2}:{dst_port},"
+            f"\nChannel 2 Listening on Port {rx_port_single_port_mode},"
+            f"\nDestination channel 2: FPGA1: {dst_ip_fpga1}:{dst_port_single_port_mode}, FPGA2: {dst_ip_fpga2}:{dst_port_single_port_mode}"
+            )
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc,
                      adc_mono_channel_14_bit=adc_mono_channel_14_bit, adc_mono_channel_sel=adc_mono_channel_sel)
@@ -334,7 +341,7 @@ class Tile_1_6(Tile):
         # This will create a loopback between the two FPGAs
         self.set_default_eth_configuration(src_ip_fpga1, src_ip_fpga2,
                                            dst_ip_fpga1, dst_ip_fpga2,
-                                           src_port, dst_port,
+                                           src_port, dst_port, dst_port_single_port_mode, rx_port_single_port_mode,
                                            qsfp_detection)
 
         for firmware in self.tpm.tpm_test_firmware:

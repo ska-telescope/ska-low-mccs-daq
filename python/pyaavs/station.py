@@ -133,15 +133,18 @@ def initialise_tile(params):
     src_ip_40g_fpga2 = f"10.0.2.{this_tile_ip.split('.')[3]}"
     dst_ip_40g_fpga1 = f"10.0.1.{next_tile_ip.split('.')[3]}"
     dst_ip_40g_fpga2 = f"10.0.2.{next_tile_ip.split('.')[3]}"
-    src_port_40g=config['network']['csp_ingest']['src_port']
-    dst_port_40g=config['network']['csp_ingest']['dst_port']
+    src_port_40g = config['network']['csp_ingest']['src_port']
+    dst_port_40g = config['network']['csp_ingest']['dst_port']
+    rx_port_40g_single_port_mode = config['network']['csp_ingest']['dst_port'] + 2
+    dst_port_40g_single_port_mode = rx_port_40g_single_port_mode
     is_first = tile_number == 0
     is_last = tile_number == nof_tiles - 1
 
-    if tile_number == nof_tiles - 1:
+    if tile_number == nof_tiles - 1:    # if is_last?
         if config['network']['csp_ingest']['dst_ip'] != "0.0.0.0":
             dst_ip_40g_fpga1=config['network']['csp_ingest']['dst_ip']
             dst_ip_40g_fpga2=config['network']['csp_ingest']['dst_ip']
+            dst_port_40g_single_port_mode = config['network']['csp_ingest']['dst_port']
 
     # get pps delay for current tile
     pps_delay = 0
@@ -184,6 +187,8 @@ def initialise_tile(params):
             dst_ip_fpga2=dst_ip_40g_fpga2,
             src_port=src_port_40g,
             dst_port=dst_port_40g,
+            dst_port_single_port_mode=dst_port_40g_single_port_mode,
+            rx_port_single_port_mode=rx_port_40g_single_port_mode,
             qsfp_detection=config['station']['qsfp_detection'],
             enable_test=config['station']['enable_test'],
             use_internal_pps=config['station']['use_internal_pps'],
