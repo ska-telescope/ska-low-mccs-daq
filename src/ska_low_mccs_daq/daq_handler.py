@@ -20,9 +20,6 @@ from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 import h5py
 import numpy as np
-from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
-from matplotlib.figure import Figure
-from past.utils import old_div
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
@@ -446,11 +443,13 @@ class DaqHandler:
 
             * monitor_rms: Flag to enable or disable RMS monitoring.
                 Optional. Default False.
+                [DEPRECATED - To be removed.]
 
             * auto_handle_daq: Flag to indicate whether the DaqReceiver should
                 be automatically reconfigured, started and stopped during this
                 process if necessary.
                 Optional. Default False.
+                [DEPRECATED - To be removed.]
 
             * cadence: Number of seconds over which to average data.
                 Optional. Default 0 (returns snapshots).
@@ -548,11 +547,6 @@ class DaqHandler:
         # TODO: Retrieve station name or ID here.
         station_name = "a_station_name"
 
-        # Get and store antenna positions
-        # self._antenna_locations[station_name] = get_antenna_positions(
-        #     station_name
-        #     )
-
         # Create plotting directory structure
         if not self.create_plotting_directory(plot_directory, station_name):
             self.logger.error(
@@ -594,7 +588,7 @@ class DaqHandler:
         )
         bandpass_plotting_thread.start()
         # Wait for stop, monitoring disk space in the meantime
-        max_dir_size = 200 * 1024 * 1024
+        max_dir_size = 1000 * 1024 * 1024
 
         self.logger.info("Bandpass monitor active, entering wait loop.")
         self.logger.info(
@@ -656,6 +650,7 @@ class DaqHandler:
                 # If we don't have any plots, don't uselessly spam [None]s.
                 pass
             else:
+                self.logger.debug("Transmitting bandpass data.")
                 yield (
                     TaskStatus.IN_PROGRESS,
                     "plot sent",
@@ -663,6 +658,7 @@ class DaqHandler:
                     y_bandpass_plot,
                     rms_plot,
                 )
+                self.logger.debug("Bandpass data transmitted.")
             sleep(1)  # Plots will never be sent more often than once per second.
 
         # Stop and clean up
@@ -836,92 +832,17 @@ class DaqHandler:
         nof_channels = config["nof_channels"]
         nof_antennas_per_tile = config["nof_antennas"]
         nof_pols = config["nof_polarisations"]
+        nof_tiles = config["nof_tiles"]
 
         x_pol_data: np.ndarray | None = None
         y_pol_data: np.ndarray | None = None
+        full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=float)
+        tiles_received: list[bool] = [False] * nof_tiles
         interval_start = None
 
-        _freq_range = np.arange(1, nof_channels) * (old_div(bandwidth, nof_channels))
         _filename_expression = re.compile(
             r"channel_integ_(?P<tile>\d+)_(?P<timestamp>\d+_\d+)_0.hdf5"
         )
-
-        # Define fibre - antenna mapping
-        _fibre_preadu_mapping = {
-            0: 1,
-            1: 2,
-            2: 3,
-            3: 4,
-            7: 13,
-            6: 14,
-            5: 15,
-            4: 16,
-            8: 5,
-            9: 6,
-            10: 7,
-            11: 8,
-            15: 9,
-            14: 10,
-            13: 11,
-            12: 12,
-        }
-
-        # Define plotting parameters
-        _ribbon_color = {
-            1: "gray",
-            2: "g",
-            3: "r",
-            4: "k",
-            5: "y",
-            6: "m",
-            7: "deeppink",
-            8: "c",
-            9: "gray",
-            10: "g",
-            11: "r",
-            12: "k",
-            13: "y",
-            14: "m",
-            15: "deeppink",
-            16: "c",
-        }
-        _pol_map = ["X", "Y"]
-
-        # Set up figure and initialise with dummy data
-        plot_lines = []
-        fig = Figure(figsize=(8, 4))
-        canvas = FigureCanvas(fig)
-        ax = fig.add_subplot(111)
-
-        for antenna in range(nof_antennas_per_tile):
-            tpm_input = _fibre_preadu_mapping[antenna]
-            plot_lines.append(
-                ax.plot(
-                    _freq_range,
-                    list(range(511)),
-                    label=f"Antenna {antenna} (RX {tpm_input})",
-                    color=_ribbon_color[tpm_input],
-                    linewidth=0.6,
-                )[0]
-            )
-
-        # TODO: This is commented out until we actually have somewhere that can tell us
-        #       about antenna locations. Any other implicated code is also commented
-        #       out further down this method. (Mostly graph labels.)
-        # Extract antenna locations
-        # antenna_base, _, _ = self._antenna_locations[station_name]
-
-        # Make nice
-        ax.set_xlim((0, bandwidth))
-        ax.set_ylim((0, 50))
-        ax.set_title(f"Tile {0} - Pol {_pol_map[0]}", fontdict={"fontweight": "bold"})
-        ax.set_xlabel("Frequency (MHz)")
-        ax.set_ylabel("Power (dB)")
-        date_text = ax.text(300, 38, "Today's Date", weight="bold", size="10")
-        # legend = ax.legend(loc="lower center", ncol=4, prop={"size": 4})
-        ax.minorticks_on()
-        ax.grid(b=True, which="major", color="0.3", linestyle="-", linewidth=0.5)
-        ax.grid(b=True, which="minor", color="0.8", linestyle="--", linewidth=0.1)
 
         # Loop until asked to stop
         self.logger.info("Entering bandpass plotting loop.")
@@ -933,7 +854,7 @@ class DaqHandler:
 
             # Get the first item in the list
             filepath = files_to_plot[station_name].pop(0)
-            self.logger.info("Processing %s", filepath)
+            self.logger.debug("Processing %s", filepath)
 
             # Extract Tile number
             filename = os.path.basename(os.path.abspath(filepath))
@@ -941,13 +862,14 @@ class DaqHandler:
 
             if parts is not None:
                 tile_number = int(parts.groupdict()["tile"])
+            if tile_number is not None:
+                tiles_received[tile_number] = True
 
             # Open newly create HDF5 file
             with h5py.File(filepath, "r") as f:
                 # Data is in channels/antennas/pols order
                 try:
                     data: np.ndarray = f["chan_"]["data"][:]
-                    timestamp = f["sample_timestamps"]["data"][0]
                 # pylint: disable=broad-exception-caught
                 except Exception as e:
                     self.logger.error("Exception: %s", e)
@@ -959,11 +881,15 @@ class DaqHandler:
                 data[np.isneginf(data)] = 0
                 np.seterr(divide="warn")
 
-            # Format datetime
-            temp = datetime.datetime.utcfromtimestamp(timestamp[0])
-            present = datetime.datetime.now()
+            # Append Tile data to full station set.
+            # full_station_data is made of blocks of data per TPM in TPM order.
+            # Each block of TPM data is in port order.
+            start_index = nof_antennas_per_tile * tile_number
+            full_station_data[
+                :, start_index : start_index + nof_antennas_per_tile, :
+            ] = data
 
-            date_time = temp.strftime(self.TIME_FORMAT_STRING)
+            present = datetime.datetime.now()
             if interval_start is None:
                 interval_start = present
 
@@ -986,50 +912,25 @@ class DaqHandler:
             os.unlink(filepath)
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
-            if (present - interval_start).total_seconds() > cadence:
-                self.logger.info("Plotting graphs and queueing data for transmission")
-                # Loop over polarisations (separate plots)
-                for pol in range(nof_pols):
-                    # Loop over antennas, change plot data and label text
-                    for i, antenna in enumerate(range(nof_antennas_per_tile)):
-                        # Plot average
-                        if pol == 0:
-                            assert x_pol_data is not None
-                            plot_lines[i].set_ydata(x_pol_data[:, antenna])
-                        elif pol == 1:
-                            assert y_pol_data is not None
-                            plot_lines[i].set_ydata(y_pol_data[:, antenna])
-
-                        # legend.get_texts()[i].set_text(
-                        #     f"{i:0>2d} - RX {_fibre_preadu_mapping[antenna]:0>2d} - "
-                        #     f"Base {antenna_base[tile_number * 16 + i]:0>3d}"
-                        # )
-
-                    # Update title and time
-                    ax.set_title(f"Tile {tile_number + 1} - Pol {_pol_map[pol]}")
-                    date_text.set_text(date_time)
-                    saved_plot_path: str = os.path.join(
-                        plotting_directory,
-                        f"tile_{tile_number + 1}_pol_{_pol_map[pol].lower()}.svg",
+            if all(tiles_received):
+                if (present - interval_start).total_seconds() > cadence:
+                    self.logger.debug("Queueing data for transmission")
+                    assert isinstance(full_station_data, np.ndarray)
+                    self._x_bandpass_plots.put(
+                        json.dumps(full_station_data[:, :, 0].tolist())
                     )
-                    # Save updated figure
-                    canvas.print_figure(
-                        saved_plot_path,
-                        pad_inches=0,
-                        dpi=200,
-                        figsize=(8, 4),
+                    self._y_bandpass_plots.put(
+                        json.dumps(full_station_data[:, :, 1].tolist())
                     )
-                assert isinstance(x_pol_data, np.ndarray)
-                self._x_bandpass_plots.put(json.dumps(x_pol_data.tolist()))
-                assert isinstance(y_pol_data, np.ndarray)
-                self._y_bandpass_plots.put(json.dumps(y_pol_data.tolist()))
+                    self.logger.debug("Data queued for transmission.")
 
-                # Reset vars
-                x_pol_data = None
-                y_pol_data = None
-                interval_start = None
+                    # Reset vars
+                    x_pol_data = None
+                    y_pol_data = None
+                    interval_start = None
+                    tiles_received = [False] * nof_tiles
 
-            self.logger.info("Exiting bandpass plotting loop.")
+        self.logger.info("Exiting bandpass plotting loop.")
 
     # pylint: disable=broad-except
     def create_plotting_directory(
