@@ -257,6 +257,7 @@ class Tile(TileHealthMonitor):
                    src_ip_fpga1=None, src_ip_fpga2=None,
                    dst_ip_fpga1=None, dst_ip_fpga2=None,
                    src_port=4661, dst_port=4660, dst_port_single_port_mode=4662, rx_port_single_port_mode=4662,
+                   active_40g_ports_setting="port1-only",
                    enable_adc=True,
                    enable_ada=False, enable_test=False, use_internal_pps=False,
                    pps_delay=0,
@@ -722,6 +723,27 @@ class Tile(TileHealthMonitor):
 
         return self._40g_configuration
 
+    def configure_active_40g_ports(self, configuration):
+        if self.tpm_version == "tpm_v1_2":
+            self.logger.warning("TPM 1.2 does not support different active 40G port configurations. Both 40G ports will be used.")
+            return
+        if configuration == "port1-only":
+            self["fpga1.dsp_regfile.config_id.is_master"] = 0
+            self["fpga2.dsp_regfile.config_id.is_master"] = 1
+            self.logger.info("TPM in single 40G Port mode! Using only 40G Port 1.")
+        elif configuration == "port2-only":
+            self["fpga1.dsp_regfile.config_id.is_master"] = 1
+            self["fpga2.dsp_regfile.config_id.is_master"] = 0
+            self.logger.info("TPM in single 40G Port mode! Using only 40G Port 2.")
+        elif configuration == "both-ports":
+            self["fpga1.dsp_regfile.config_id.is_master"] = 1
+            self["fpga2.dsp_regfile.config_id.is_master"] = 1
+            self.logger.info("TPM in dual 40G Port mode!")
+        else:
+            self.logger.error(f"Invalid configuration {configuration} specifie. Options are: port1-only, port2-only, both-ports")
+        return
+
+
     @connected
     def set_default_eth_configuration(
             self,
@@ -733,6 +755,7 @@ class Tile(TileHealthMonitor):
             dst_port=4660,
             channel2_dst_port=4662,
             channel2_rx_port=4662,
+            active_40g_ports_setting="port1-only",
             qsfp_detection="auto"):
         """
         Set destination and source IP/MAC/ports for 40G cores.
@@ -796,7 +819,6 @@ class Tile(TileHealthMonitor):
                 # otherwise disable TX
                 if cable_detected:
                     self.tpm.tpm_10g_core[n].reset_core(timeout=2)
-
                     self.logger.info(f"Configuring Core {n} ARP table entry 0 with Destination {dst_ip}:{dst_port}. Also RX port filter is {dst_port}.")
                     self.configure_40g_core(
                         core_id=n,
@@ -835,7 +857,7 @@ class Tile(TileHealthMonitor):
                     )
                 else:
                     self.tpm.tpm_10g_core[n].tx_disable()
-
+            
     @connected
     def set_lmc_download(
         self,

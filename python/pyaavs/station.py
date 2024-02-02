@@ -189,6 +189,7 @@ def initialise_tile(params):
             dst_port=dst_port_40g,
             dst_port_single_port_mode=dst_port_40g_single_port_mode,
             rx_port_single_port_mode=rx_port_40g_single_port_mode,
+            active_40g_ports_setting="port1-only",
             qsfp_detection=config['station']['qsfp_detection'],
             enable_test=config['station']['enable_test'],
             use_internal_pps=config['station']['use_internal_pps'],

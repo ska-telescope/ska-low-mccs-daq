@@ -216,6 +216,7 @@ class Tile_1_6(Tile):
                    src_ip_fpga1=None, src_ip_fpga2=None,
                    dst_ip_fpga1=None, dst_ip_fpga2=None,
                    src_port=4661, dst_port=4660, dst_port_single_port_mode=4662, rx_port_single_port_mode=4662,
+                   active_40g_ports_setting="port1-only",
                    enable_adc=True,
                    enable_ada=False, enable_test=False, use_internal_pps=False,
                    pps_delay=0,
@@ -285,10 +286,6 @@ class Tile_1_6(Tile):
         for firmware in self.tpm.tpm_test_firmware:
             firmware.initialise_firmware()
 
-        # Temporary - use only FPGA1 40G
-        self.logger.info("Disabling FPGA2 40G Interface")
-        self.tpm["fpga2.dsp_regfile.config_id.is_master"] = 0
-
         # Set station and tile IDs
         self.set_station_id(station_id, tile_id)
 
@@ -336,6 +333,9 @@ class Tile_1_6(Tile):
                 generator.set_tone(0, 72 * self._sampling_rate / 1024, 0.0)
                 generator.enable_prdg(0.4)
                 generator.channel_select(0xFFFF)
+
+        # Configure Active 40G ports
+        self.configure_active_40g_ports(active_40g_ports_setting)
 
         # Set destination and source IP/MAC/ports for 10G cores
         # This will create a loopback between the two FPGAs
