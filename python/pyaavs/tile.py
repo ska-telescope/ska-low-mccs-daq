@@ -795,7 +795,7 @@ class Tile(TileHealthMonitor):
                 # check for link up (done in reset reset_core) and set default IP address,
                 # otherwise disable TX
                 if cable_detected:
-                    self.tpm.tpm_10g_core[n].reset_core()
+                    self.tpm.tpm_10g_core[n].reset_core(timeout=2)
 
                     self.logger.info(f"Configuring Core {n} ARP table entry 0 with Destination {dst_ip}:{dst_port}. Also RX port filter is {dst_port}.")
                     self.configure_40g_core(
@@ -980,7 +980,7 @@ class Tile(TileHealthMonitor):
             )
 
     @connected
-    def check_arp_table(self, timeout=20.0):
+    def check_arp_table(self, timeout=30.0):
         """
         Check that ARP table has been resolved for all used cores.
         40G interfaces use cores 0 (fpga0) and 1 (fpga1) and
@@ -1014,6 +1014,8 @@ class Tile(TileHealthMonitor):
         for c in core_id:
             if self.tpm.tpm_10g_core[c].is_tx_disabled():
                 self.logger.warning("Skipping ARP table check on FPGA" + str(c+1) + ". TX is disabled!")
+            elif not self.active_40g_port[c]:
+                self.logger.warning("Skipping ARP table check on FPGA" + str(c+1) + ". Port disabled for single active port mode!")
             elif self.tpm.tpm_10g_core[c].is_link_up():
                 linked_core_id.append(c)
             else:
