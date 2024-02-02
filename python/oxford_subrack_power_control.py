@@ -3,8 +3,6 @@ from time import sleep
 
 # TODO: When more than one subrack is installed, add a lookup for subrack IP and specify subrack 'name' as argument to all commands
 
-# TODO: Add method to set all fans to 60, 80 or 100%. Useful once subrack has been power cycled
-
 # TODO: Add method to report which slots of ON or OFF
 
 def connected_to_subrack(func):
@@ -86,3 +84,19 @@ def power_off_tpm(client, slot_list):
 def power_cycle_tpm(slot_list):
     power_off_tpm(slot_list)
     power_on_tpm(slot_list)
+
+# So far retry loop does not seem to be required for configuring subrack fans
+# Can be added if requires as above
+@connected_to_subrack
+def set_fan_speed(client, speed=80):
+    for i in range(4):
+        ret = client.execute_command(command="set_fan_mode", parameters=f"{i+1},0")
+        print(f"Subrack Returned: {ret}")
+        print(f"Subrack Fan {i+1} speed set to MANUAL")
+        sleep(0.5)
+        ret = client.execute_command(command="set_subrack_fan_speed", parameters=f"{i+1},{speed}")
+        print(f"Subrack Returned: {ret}")
+        print(f"Subrack Fan {i+1} speed set to {speed}%")
+
+
+
