@@ -32,9 +32,14 @@ class TestEth40g():
 
         # Stop data transmission
         tf.stop_all_data_transmission(self._test_station)
-
+	
+        # Skip test for selected TPM if configured to use only one 40G port
+        compatible_tiles = [all(tile.active_40g_port) for tile in self._test_station.tiles]
+		    
         # Starting test
-        for n, tile in enumerate(self._test_station.tiles):
+        for n, (tile, compatible) in enumerate(zip(self._test_station.tiles, compatible_tiles)):
+            if not compatible:
+                continue
             if tile.start_40g_test(single_packet_mode, ipg) > 0:
                 self._logger.error("ETH40G Test FAILED! Not possible to start test on Tile %d" % n)
                 self.clean_up()
@@ -42,7 +47,9 @@ class TestEth40g():
 
         for t in range(duration):
             time.sleep(1)
-            for n, tile in enumerate(self._test_station.tiles):
+            for n, (tile, compatible) in enumerate(zip(self._test_station.tiles, compatible_tiles)):
+                if not compatible:
+                    continue
                 tx_pkt_cnt_fpga1 = tile['fpga1.xg_udp.core0_test_tx_pkt_cnt']
                 tx_pkt_cnt_fpga2 = tile['fpga2.xg_udp.core0_test_tx_pkt_cnt']
                 rx_pkt_cnt_fpga1 = tile['fpga1.xg_udp.core0_test_rx_pkt_cnt']
@@ -65,14 +72,21 @@ class TestEth40g():
                 if tile['fpga2.xg_udp.core0_test_status.error'] == 1:
                     self._logger.error("Tile %d FPGA2 error. Test FAILED." % n)
                     errors += 1
-
+                    
+            if not any(compatible_tiles):
+                errors = -100
+                
             if errors == 0:
                 self._logger.info("Test running with no errors detected, elapsed time: %d seconds" % (t+1))
             else:
                 break
 
         self._logger.info("----------------- Test Summary -----------------")
-        for n, tile in enumerate(self._test_station.tiles):
+        for n, (tile, compatible) in enumerate(zip(self._test_station.tiles, compatible_tiles)):
+            if not compatible:
+                port_status = ("Port 1 Enabled, " if tile.active_40g_port[0] else "Port 1 Disabled, ") + ("Port 2 Enabled" if tile.active_40g_port[1] else "Port 2 Disabled")
+                self._logger.warning(f"ETH40G Test SKIPPED for Tile {n} - {port_status}")
+                continue
             tile.stop_40g_test()
             self._logger.info("Tile %d Test result:" % n)
             tx_pkt_cnt_fpga1 = tile['fpga1.xg_udp.core0_test_tx_pkt_cnt']
@@ -112,6 +126,9 @@ class TestEth40g():
             self._logger.error("Test FAILED!")
             self.clean_up()
             return 1
+        elif errors < 0:  # No Tiles Tested
+            self._logger.error("Test SKIPPED! - No Tiles with two active 40G links")
+            return -1
         else:
             self._logger.info("Test PASSED!")
             self.clean_up()

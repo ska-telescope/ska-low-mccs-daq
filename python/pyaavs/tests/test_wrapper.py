@@ -139,6 +139,8 @@ class TestWrapper:
             for n, ret_val in enumerate(test_result):
                 if ret_val == 0:
                     result = "PASSED!"
+                elif ret_val < 0:
+                    result = "SKIPPED!"
                 else:
                     result = "FAILED!"
                     ret = 1
