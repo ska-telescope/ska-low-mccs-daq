@@ -149,10 +149,14 @@ class TestWrapper:
             table_lines = table_txt.split('\n')
             for table_line in table_lines:
                 logging.info(table_line)
-            if not any(test_result):
-                logging.info("ALL TESTS PASSED!")
-            else:
-                logging.info(f"{sum(1 for x in test_result if x)} TESTS FAILED!")
+            if len(test_result) > 1:
+                if all(value == 0 for value in test_result):
+                    logging.info("ALL TESTS PASSED!")
+                else:
+                    if any(value > 0 for value in test_result):
+                        logging.info(f"{sum(1 for x in test_result if x > 0)} TESTS FAILED!")
+                    if any(value < 0 for value in test_result):
+                        logging.info(f"{sum(1 for x in test_result if x < 0)} TESTS SKIPPED!")
             self.log_filter()
             if ret > 0:
                 return ret
