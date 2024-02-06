@@ -2091,14 +2091,14 @@ class Tile(TileHealthMonitor):
         if tpm_start_time is None:
             tpm_sync_time = sync_time
         else:
-            tpm_sync_time = tpm_start_time
+            tpm_sync_time = int(tpm_start_time)
         
         dsp_freq = 237.07e6
         frame_period = 256/dsp_freq # one frame is 256 DSP clk cycles
         clock_freq = 200e6 # ADC data clock
         time_diff = sync_time - tpm_sync_time
-        start_frame = np.ceil(time_diff/frame_period, dtype='int64')
-        frame_offset = int(np.round((start_frame*frame_period – time_diff)*clock_freq))
+        start_frame = int(np.ceil(time_diff/frame_period))
+        frame_offset = int(np.round((start_frame*frame_period - time_diff)*clock_freq))
         start_timestamp_hi = int(start_frame >> 32)
         start_timestamp_lo = int(start_frame - start_timestamp_hi<<32)
 
