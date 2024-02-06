@@ -724,18 +724,51 @@ class Tile(TileHealthMonitor):
         return self._40g_configuration
 
     def configure_active_40g_ports(self, configuration):
+        """
+        Configure which of the two 40G QSFP ports is used.
+        Options are:
+         - Port 1 Only: "port1-only" (lower TPM 40G port, labeled P1 on newer subracks)
+         - Port 2 Only: "port2-only" (upper TPM 40G port, labeled P2 on newer subracks)
+         - Both Port 1 and Port 2: "both-ports"
+        NOTE: TPM 1.2 hardware does not support single port operation. Configurion of the
+        is_master register will be ignored by the FPGA & both ports will always be used.
+        """
         if self.tpm_version == "tpm_v1_2":
             self.logger.warning("TPM 1.2 does not support different active 40G port configurations. Both 40G ports will be used.")
             return
         if configuration == "port1-only":
-            self["fpga1.dsp_regfile.config_id.is_master"] = 0
-            self["fpga2.dsp_regfile.config_id.is_master"] = 1
-            self.logger.info("TPM in single 40G Port mode! Using only 40G Port 1.")
-        elif configuration == "port2-only":
+            if self.tpm.tpm_10g_core[0].is_tx_disabled():
+                self.logger.error(
+                    "Cannot configure to use 40G Port 1. Port was disabled during initialisation."
+                    "\n Re-initialise without QSFP transciever detection set to auto to allow hot swapping of TPM 40G ports."
+                    )
+                return
             self["fpga1.dsp_regfile.config_id.is_master"] = 1
             self["fpga2.dsp_regfile.config_id.is_master"] = 0
+            self.logger.info("TPM in single 40G Port mode! Using only 40G Port 1.")
+        elif configuration == "port2-only":
+            if self.tpm.tpm_10g_core[1].is_tx_disabled():
+                self.logger.error(
+                    "Cannot configure to use 40G Port 2. Port was disabled during initialisation."
+                    "\n Re-initialise without QSFP transciever detection set to auto to allow hot swapping of TPM 40G ports."
+                    )
+                return
+            self["fpga1.dsp_regfile.config_id.is_master"] = 0
+            self["fpga2.dsp_regfile.config_id.is_master"] = 1
             self.logger.info("TPM in single 40G Port mode! Using only 40G Port 2.")
         elif configuration == "both-ports":
+            if self.tpm.tpm_10g_core[0].is_tx_disabled():
+                self.logger.error(
+                    "Cannot configure to use 40G Port 1. Port was disabled during initialisation."
+                    "\n Re-initialise without QSFP transciever detection set to auto to allow hot swapping of TPM 40G ports."
+                    )
+                return
+            if self.tpm.tpm_10g_core[1].is_tx_disabled():
+                self.logger.error(
+                    "Cannot configure to use 40G Port 2. Port was disabled during initialisation."
+                    "\n Re-initialise without QSFP transciever detection set to auto to allow hot swapping of TPM 40G ports."
+                    )
+                return
             self["fpga1.dsp_regfile.config_id.is_master"] = 1
             self["fpga2.dsp_regfile.config_id.is_master"] = 1
             self.logger.info("TPM in dual 40G Port mode!")
@@ -818,7 +851,7 @@ class Tile(TileHealthMonitor):
                 # check for link up (done in reset reset_core) and set default IP address,
                 # otherwise disable TX
                 if cable_detected:
-                    self.tpm.tpm_10g_core[n].reset_core(timeout=2)
+                    self.tpm.tpm_10g_core[n].reset_core(timeout=10)
                     self.logger.info(f"Configuring Core {n} ARP table entry 0 with Destination {dst_ip}:{dst_port}. Also RX port filter is {dst_port}.")
                     self.configure_40g_core(
                         core_id=n,
@@ -1039,6 +1072,7 @@ class Tile(TileHealthMonitor):
             elif not self.active_40g_port[c]:
                 self.logger.warning("Skipping ARP table check on FPGA" + str(c+1) + ". Port disabled for single active port mode!")
             elif self.tpm.tpm_10g_core[c].is_link_up():
+                self.logger.info("Beginning ARP table check on FPGA" + str(c+1) + ".")
                 linked_core_id.append(c)
             else:
                 self.logger.warning("Skipping ARP table check on FPGA" + str(c+1) + ". Link is down!")
