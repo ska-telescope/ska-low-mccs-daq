@@ -418,9 +418,11 @@ class DaqHandler:
             "Receiver Interface": receiver_interface,
             "Receiver Ports": receiver_ports,
             "Receiver IP": [
-                receiver_ip.decode()
-                if isinstance(receiver_ip, bytes)
-                else receiver_ip  # noqa: E501
+                (
+                    receiver_ip.decode()
+                    if isinstance(receiver_ip, bytes)
+                    else receiver_ip
+                )  # noqa: E501
             ],
             "Bandpass Monitor": self._monitoring_bandpass,
         }
@@ -836,7 +838,8 @@ class DaqHandler:
 
         x_pol_data: np.ndarray | None = None
         y_pol_data: np.ndarray | None = None
-        full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=float)
+        # The shape is reversed as DAQ reads the data this way around.
+        full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=int)
         tiles_received: list[bool] = [False] * nof_tiles
         interval_start = None
 
@@ -893,6 +896,7 @@ class DaqHandler:
             if interval_start is None:
                 interval_start = present
 
+            # TODO: This block is currently useless. Get averaging back in.
             # Loop over polarisations (separate plots)
             for pol in range(nof_pols):
                 # Assign first data point or calculate average
@@ -916,12 +920,10 @@ class DaqHandler:
                 if (present - interval_start).total_seconds() > cadence:
                     self.logger.debug("Queueing data for transmission")
                     assert isinstance(full_station_data, np.ndarray)
-                    self._x_bandpass_plots.put(
-                        json.dumps(full_station_data[:, :, 0].tolist())
-                    )
-                    self._y_bandpass_plots.put(
-                        json.dumps(full_station_data[:, :, 1].tolist())
-                    )
+                    x_data = full_station_data[:, :, 0].transpose()
+                    self._x_bandpass_plots.put(json.dumps(x_data.tolist()))
+                    y_data = full_station_data[:, :, 1].transpose()
+                    self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
                     self.logger.debug("Data queued for transmission.")
 
                     # Reset vars
