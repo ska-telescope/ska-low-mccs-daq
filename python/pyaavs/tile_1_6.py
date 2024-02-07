@@ -253,13 +253,6 @@ class Tile_1_6(Tile):
             logging.error("Cannot initialise board - use_internal_pps = True not supported")
             return
 
-        print(
-            f"tile {tile_id} \n"
-            f"Source FPGA1: {src_ip_fpga1}:{src_port}, FPGA2: {src_ip_fpga2}:{src_port}," 
-            f"\nDestination FPGA1: {dst_ip_fpga1}:{dst_port}, FPGA2: {dst_ip_fpga2}:{dst_port},"
-            f"\nChannel 2 Listening on Port {rx_port_single_port_mode},"
-            f"\nDestination channel 2: FPGA1: {dst_ip_fpga1}:{dst_port_single_port_mode}, FPGA2: {dst_ip_fpga2}:{dst_port_single_port_mode}"
-            )
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc,
                      adc_mono_channel_14_bit=adc_mono_channel_14_bit, adc_mono_channel_sel=adc_mono_channel_sel)

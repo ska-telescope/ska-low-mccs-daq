@@ -324,13 +324,6 @@ class Tile(TileHealthMonitor):
         :param adc_mono_channel_sel: Select channel in mono channel mode (0=A, 1=B)
         :type adc_mono_channel_sel: int
         """
-        print(
-            f"tile {tile_id} \n"
-            f"Source FPGA1: {src_ip_fpga1}:{src_port}, FPGA2: {src_ip_fpga2}:{src_port}," 
-            f"\nDestination FPGA1: {dst_ip_fpga1}:{dst_port}, FPGA2: {dst_ip_fpga2}:{dst_port},"
-            f"\nChannel 2 Listening on Port {rx_port_single_port_mode},"
-            f"\nDestination channel 2: FPGA1: {dst_ip_fpga1}:{dst_port_single_port_mode}, FPGA2: {dst_ip_fpga2}:{dst_port_single_port_mode}"
-            )
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc,
                      adc_mono_channel_14_bit=adc_mono_channel_14_bit, adc_mono_channel_sel=adc_mono_channel_sel)
@@ -851,7 +844,6 @@ class Tile(TileHealthMonitor):
                 # otherwise disable TX
                 if cable_detected:
                     self.tpm.tpm_10g_core[n].reset_core(timeout=10)
-                    self.logger.info(f"Configuring Core {n} ARP table entry 0 with Destination {dst_ip}:{dst_port}. Also RX port filter is {dst_port}.")
                     self.configure_40g_core(
                         core_id=n,
                         arp_table_entry=0,
@@ -869,7 +861,6 @@ class Tile(TileHealthMonitor):
                     # Two FPGAs = Two Simultaneous Daisy chains (a chain of FPGA1s and a chain of FPGA2s)
                     # In Single Port Mode Master FPGA uses arp table entry 0, Slave FPGA uses arp table entry 2 to achieve the same
                     # functionality but with a single UDP core.
-                    self.logger.info(f"Configuring Core {n} ARP table entry 2 with Destination {dst_ip}:{channel2_dst_port}. Also RX port filter is {channel2_rx_port}.")
                     self.configure_40g_core(
                         core_id=n,
                         arp_table_entry=2,
@@ -925,7 +916,6 @@ class Tile(TileHealthMonitor):
 
             
             for core_id in range(len(self.tpm.tpm_10g_core)):
-                self.logger.info(f"Configuring Core {core_id} ARP table entry 1 with Destination {dst_ip}:{dst_port}")
                 self.configure_40g_core(
                     core_id=core_id,
                     arp_table_entry=1,
@@ -937,7 +927,6 @@ class Tile(TileHealthMonitor):
                 # Required for operation in single port mode
                 # In Dual Port Mode each core uses arp table entry 1 for LMC transmission
                 # In Single Port Mode Master FPGA uses arp table entry 1, Slave FPGA uses arp table entry 3
-                self.logger.info(f"Configuring Core {core_id} ARP table entry 3 with Destination {dst_ip}:{dst_port}")
                 self.configure_40g_core(
                     core_id=core_id,
                     arp_table_entry=3,
@@ -999,7 +988,6 @@ class Tile(TileHealthMonitor):
                 dst_ip = self._lmc_ip
 
             for core_id in range(len(self.tpm.tpm_10g_core)):
-                self.logger.info(f"Configuring Core {core_id} ARP table entry 1 with Destination {dst_ip}:{dst_port}")
                 self.configure_40g_core(
                     core_id=core_id,
                     arp_table_entry=1,
@@ -1011,7 +999,6 @@ class Tile(TileHealthMonitor):
                 # Required for operation in single port mode
                 # In Dual Port Mode each core uses arp table entry 1 for LMC transmission
                 # In Single Port Mode Master FPGA uses arp table entry 1, Slave FPGA uses arp table entry 3
-                self.logger.info(f"Configuring Core {core_id} ARP table entry 3 with Destination {dst_ip}:{dst_port}")
                 self.configure_40g_core(
                     core_id=core_id,
                     arp_table_entry=3,
