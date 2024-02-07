@@ -34,6 +34,7 @@ class TestStationBeam():
         self._station_config = station_config
         self._test_station = None
         self._daq_eth_if = station_config['eth_if']
+        self._csp_port = station_config['network']['csp_ingest']['dst_port']
         self._total_bandwidth = station_config['test_config']['total_bandwidth']
         self._antennas_per_tile = station_config['test_config']['antennas_per_tile']
         self._pfb_nof_channels = station_config['test_config']['pfb_nof_channels']
@@ -145,7 +146,7 @@ class TestStationBeam():
                 iter += 1
 
                 self._logger.info("Acquiring realtime beamformed data")
-                spead_rx_realtime_inst = SpeadRxBeamPatternCheck(4660, self._daq_eth_if)
+                spead_rx_realtime_inst = SpeadRxBeamPatternCheck(self._csp_port, self._daq_eth_if)
                 errors += np.asarray(spead_rx_realtime_inst.check_data(self._pattern, pattern_type))
                 self._logger.info("Checking pattern iteration %d, errors: %d" % (iter, errors))
 

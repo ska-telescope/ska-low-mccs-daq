@@ -156,6 +156,7 @@ class TestAdc():
         # I'll change this to make it nicer
         daq_config = {
             'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
+            'receiver_ports': str(self._station_config['network']['lmc']['lmc_port']),
             'directory': temp_dir,  # CHANGE THIS if required
             'nof_raw_samples': 32768,
             'nof_beam_channels': 384,

@@ -208,6 +208,7 @@ class TestPfb():
         # I'll change this to make it nicer
         daq_config = {
                       'receiver_interface': self._tpm_config['eth_if'],  # CHANGE THIS if required
+                      'receiver_ports': str(self._tpm_config['network']['lmc']['lmc_port']),
                       'directory': temp_dir,  # CHANGE THIS if required
                       'nof_beam_channels': 384,
                       'nof_beam_samples': 32,

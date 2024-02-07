@@ -323,6 +323,7 @@ class TestDaq:
         # Initialise DAQ. For now, this needs a configuration file with ALL the below configured
         daq_config = {
             'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
+            'receiver_ports': str(self._station_config['network']['lmc']['lmc_port']),
             'directory': temp_dir,  # CHANGE THIS if required
             'nof_beam_channels': 384,
             'nof_beam_samples': 42,
@@ -477,10 +478,16 @@ class TestDaq:
 
         if test_type in ["all", "integrated"]:
             self._logger.info("Checking integrated data format now...")
-
+            
+            # Determine receiver port
+            # If both LMC and LMC integrated share the same interface, then data will be on LMC port not integrated port
+            integ_dst_port = self._station_config['network']['lmc']['integrated_data_port']
+            if not (self._station_config['network']['lmc']['use_teng'] ^ self._station_config['network']['lmc']['use_teng_integrated']):
+                integ_dst_port = self._station_config['network']['lmc']['lmc_port']
             daq_config = {}
             daq_config = {
                 'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
+                'receiver_ports': str(integ_dst_port),
                 'directory': temp_dir,  # CHANGE THIS if required
                 'nof_beam_channels': 384,
                 'nof_beam_samples': 1,

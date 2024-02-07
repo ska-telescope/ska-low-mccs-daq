@@ -36,6 +36,7 @@ class TestInitStation():
         self._test_station = None
         self._station_config = station_config
         self._daq_eth_if = station_config['eth_if']
+        self._csp_port = station_config['network']['csp_ingest']['dst_port']  # Test typically uses a raw socket so port is ignored
         self._total_bandwidth = station_config['test_config']['total_bandwidth']
         self._observation_bandwidth = self._station_config['observation']['bandwidth']
 
@@ -56,7 +57,7 @@ class TestInitStation():
             self._test_station = station.Station(station_config)
             self._test_station.connect()
             time.sleep(1)
-            spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
+            spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(self._csp_port, self._daq_eth_if)
             received_data_rate = np.asarray(spead_rx_realtime_inst.get_data_rate_net_io(expected_data_rate))
             self._logger.info("Station beam data rate: %d bytes/s" % int(received_data_rate))
 

@@ -30,39 +30,39 @@ buffers_processed = 0
 data_ready = False
 
 
-def channel_callback(data_type, filename, tile):
-    """ Data callback to process data
-    :param data_type: Type of data that was generated
-    :param filename: Filename of data file where data was saved """
+#def channel_callback(data_type, filename, tile):
+#    """ Data callback to process data
+#    :param data_type: Type of data that was generated
+#    :param filename: Filename of data file where data was saved """
+#
+#    global tiles_processed
+#    global data_ready
+#
+#    nof_buffers = 2
+#
+#    if data_ready:
+#        return
+#
+#   tiles_processed[tile] += 1
+#    if np.all(tiles_processed >= nof_buffers):
+#        data_ready = True
 
-    global tiles_processed
-    global data_ready
 
-    nof_buffers = 2
-
-    if data_ready:
-        return
-
-    tiles_processed[tile] += 1
-    if np.all(tiles_processed >= nof_buffers):
-        data_ready = True
-
-
-def station_callback(data_type, filename, samples):
-    """ Data callback to process data
-    :param data_type: Type of data that was generated
-    :param filename: Filename of data file where data was saved """
-
-    global buffers_processed
-    global data_ready
-    global nof_samples
-
-    if data_ready:
-        return
-
-    buffers_processed += 1
-    if nof_samples == samples:
-        data_ready = True
+#def station_callback(data_type, filename, samples):
+#    """ Data callback to process data
+#    :param data_type: Type of data that was generated
+#    :param filename: Filename of data file where data was saved """
+#
+#    global buffers_processed
+#    global data_ready
+#    global nof_samples
+#
+#    if data_ready:
+#        return
+#
+#    buffers_processed += 1
+#    if nof_samples == samples:
+#        data_ready = True
 
 
 def delete_files(directory):
@@ -71,102 +71,102 @@ def delete_files(directory):
         os.remove(os.path.join(directory, f))
 
 
-def offline_beamformer(data):
-    global nof_samples
-    x = np.sum(np.power(np.abs(np.sum(data[:, 0, :], axis=0)), 2))
-    y = np.sum(np.power(np.abs(np.sum(data[:, 1, :], axis=0)), 2))
-
-    return x / nof_samples, y / nof_samples
-
-
-def initialise_daq(daq_config):
-    logging.info("Starting DAQ")
-    receiver.populate_configuration(daq_config)
-    receiver.initialise_daq()
-    receiver.start_continuous_channel_data_consumer(channel_callback)
-    # Wait for DAQ to initialise
-    tf.accurate_sleep(4)
-    logging.info("DAQ initialised")
+#def offline_beamformer(data):
+#    global nof_samples
+#    x = np.sum(np.power(np.abs(np.sum(data[:, 0, :], axis=0)), 2))
+#    y = np.sum(np.power(np.abs(np.sum(data[:, 1, :], axis=0)), 2))
+#
+#    return x / nof_samples, y / nof_samples
 
 
-def stop_daq():
-    # Stop DAQ
-    try:
-        receiver.stop_daq()
-    except Exception as e:
-        logging.error("Failed to stop DAQ cleanly: {}".format(e))
+#def initialise_daq(daq_config):
+#    logging.info("Starting DAQ")
+#    receiver.populate_configuration(daq_config)
+#    receiver.initialise_daq()
+#    receiver.start_continuous_channel_data_consumer(channel_callback)
+#    # Wait for DAQ to initialise
+#    tf.accurate_sleep(4)
+#    logging.info("DAQ initialised")
 
 
-def get_offline_beam(daq_config, test_station, channel, antennas_per_tile=16):
-    """ Grab channel data """
-    global buffers_processed
-    global data_ready
-    global tiles_processed
+#def stop_daq():
+#    # Stop DAQ
+#    try:
+#        receiver.stop_daq()
+#    except Exception as e:
+#        logging.error("Failed to stop DAQ cleanly: {}".format(e))
 
-    # Reset number of processed tiles
-    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=int)
 
-    # Stop any data transmission
-    test_station.stop_data_transmission()
-    tf.accurate_sleep(1)
-
-    # # Start DAQ
-    # logging.info("Starting DAQ")
-    # receiver.populate_configuration(daq_config)
-    # receiver.initialise_daq()
-    # receiver.start_continuous_channel_data_consumer(channel_callback)
-    #
-    # # Wait for DAQ to initialise
-    # tf.accurate_sleep(2)
-
-    # Start sending data
-    test_station.send_channelised_data_continuous(channel, daq_config['nof_channel_samples'])
-    logging.info("Acquisition started")
-
-    # Wait for observation to finish
-    while not data_ready:
-        tf.accurate_sleep(0.1)
-    data_ready = False
-
-    # All done, instruct receiver to stop writing to disk
-    receiver.WRITE_TO_DISK = False
-    logging.info("Channelised Data acquired")
-
-    # # Stop DAQ
-    # try:
-    #     receiver.stop_daq()
-    # except Exception as e:
-    #     logging.error("Failed to stop DAQ cleanly: {}".format(e))
-
-    # Stop data transmission and reset
-    test_station.stop_data_transmission()
-    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=int)
-    buffers_processed = 0
-    receiver.WRITE_TO_DISK = True
-    data_ready = False
-
-    # Create channel manager
-    channel_file_mgr = ChannelFormatFileManager(root_path=daq_config['directory'],
-                                                daq_mode=FileDAQModes.Continuous)
-
-    # Read in generate data file, combinig data from multiple tiles
-    data = np.zeros((1, daq_config['nof_tiles'] * antennas_per_tile, 2, daq_config['nof_channel_samples']),
-                     dtype=np.complex64)
-
-    for tile in range(daq_config['nof_tiles']):
-        read_data, _ = channel_file_mgr.read_data(timestamp=None,
-                                                  tile_id=tile,
-                                                  n_samples=daq_config['nof_channel_samples'])
-
-        read_data = (read_data['real'] + 1j * read_data['imag']).astype(np.complex64)
-        data[:, tile * antennas_per_tile: (tile + 1) * antennas_per_tile, :, :] = read_data
-
-    # antenna, pol, samples order
-    data = data[0, :, :, :]
-    logging.info("Beamforming data offline")
-    x, y = offline_beamformer(data)
-
-    return 10 * np.log10([x, y])
+#def get_offline_beam(daq_config, test_station, channel, antennas_per_tile=16):
+#    """ Grab channel data """
+#    global buffers_processed
+#    global data_ready
+#    global tiles_processed
+#
+#    # Reset number of processed tiles
+#    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=int)
+#
+#    # Stop any data transmission
+#    test_station.stop_data_transmission()
+#    tf.accurate_sleep(1)
+#
+#    # # Start DAQ
+#    # logging.info("Starting DAQ")
+#    # receiver.populate_configuration(daq_config)
+#    # receiver.initialise_daq()
+#    # receiver.start_continuous_channel_data_consumer(channel_callback)
+#    #
+#    # # Wait for DAQ to initialise
+#    # tf.accurate_sleep(2)
+#
+#    # Start sending data
+#    test_station.send_channelised_data_continuous(channel, daq_config['nof_channel_samples'])
+#    logging.info("Acquisition started")
+#
+#    # Wait for observation to finish
+#    while not data_ready:
+#        tf.accurate_sleep(0.1)
+#    data_ready = False
+#
+#    # All done, instruct receiver to stop writing to disk
+#    receiver.WRITE_TO_DISK = False
+#    logging.info("Channelised Data acquired")
+#
+#    # # Stop DAQ
+#    # try:
+#    #     receiver.stop_daq()
+#    # except Exception as e:
+#    #     logging.error("Failed to stop DAQ cleanly: {}".format(e))
+#
+#    # Stop data transmission and reset
+#    test_station.stop_data_transmission()
+#    tiles_processed = np.zeros(daq_config['nof_tiles'], dtype=int)
+#    buffers_processed = 0
+#    receiver.WRITE_TO_DISK = True
+#    data_ready = False
+#
+#    # Create channel manager
+#    channel_file_mgr = ChannelFormatFileManager(root_path=daq_config['directory'],
+#                                                daq_mode=FileDAQModes.Continuous)
+#
+#    # Read in generate data file, combinig data from multiple tiles
+#    data = np.zeros((1, daq_config['nof_tiles'] * antennas_per_tile, 2, daq_config['nof_channel_samples']),
+#                     dtype=np.complex64)
+#
+#    for tile in range(daq_config['nof_tiles']):
+#        read_data, _ = channel_file_mgr.read_data(timestamp=None,
+#                                                  tile_id=tile,
+#                                                  n_samples=daq_config['nof_channel_samples'])
+#
+#        read_data = (read_data['real'] + 1j * read_data['imag']).astype(np.complex64)
+#        data[:, tile * antennas_per_tile: (tile + 1) * antennas_per_tile, :, :] = read_data
+#
+#    # antenna, pol, samples order
+#    data = data[0, :, :, :]
+#    logging.info("Beamforming data offline")
+#    x, y = offline_beamformer(data)
+#
+#    return 10 * np.log10([x, y])
 
 
 # def get_realtime_beam(daq_config, channel):
@@ -214,6 +214,8 @@ class TestFullStation():
         self._logger = logger
         self._station_config = station_config
         self._daq_eth_if = station_config['eth_if']
+        self._csp_port = station_config['network']['csp_ingest']['dst_port']
+        self._lmc_port = station_config['network']['lmc']['lmc_port']
         self._total_bandwidth = station_config['test_config']['total_bandwidth']
         self._antennas_per_tile = station_config['test_config']['antennas_per_tile']
         self._pfb_nof_channels = station_config['test_config']['pfb_nof_channels']
@@ -324,8 +326,8 @@ class TestFullStation():
         daq_config['directory'] = data_directory
         self._logger.info("Using temporary directory {}".format(data_directory))
 
-        # spead_rx_realtime_inst = spead_rx(4660, self._daq_eth_if)
-        # spead_rx_offline_inst = spead_rx_offline(4660, self._daq_eth_if)
+        # spead_rx_realtime_inst = spead_rx(self._csp_port, self._daq_eth_if)
+        # spead_rx_offline_inst = spead_rx_offline(self._lmc_port, self._daq_eth_if)
         try:
 
             # initialise_daq(daq_config)
@@ -386,7 +388,7 @@ class TestFullStation():
             self._logger.info("Dummy Acquisition channelised data, channel %d" % channelised_channel)
             self._test_station.send_channelised_data_continuous(channelised_channel, daq_config['nof_channel_samples'])
             time.sleep(2)
-            spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles), self._daq_eth_if)
+            spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles), self._daq_eth_if)
             offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
             self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0],
                                                                                offline_beam_power[1],
@@ -413,7 +415,7 @@ class TestFullStation():
                     for tile in self._test_station.tiles:
                         tile.set_channeliser_truncation(scale)
 
-                    spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles),
+                    spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles),
                                                                     self._daq_eth_if)
                     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                     self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0],
@@ -437,8 +439,7 @@ class TestFullStation():
 
                     for tile in self._test_station.tiles:
                         tile.set_channeliser_truncation(scale)
-
-                    spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles),
+                    spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles),
                                                                     self._daq_eth_if)
                     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                     self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0],
@@ -451,7 +452,7 @@ class TestFullStation():
                 # for tile in self._test_station.tiles:
                 #     tile.set_channeliser_truncation(scale)
                 #
-                #     spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles),
+                #     spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles),
                 #                                                     self._daq_eth_if)
                 #     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                 #     self._logger.info("Offline beamformed channel power: %f %f %d " % (
@@ -462,7 +463,7 @@ class TestFullStation():
                 ##     for tile in self._test_station.tiles:
                 ##         tile.set_channeliser_truncation(scale)
                 ##     time.sleep(2)
-                ##     spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles), self._daq_eth_if)
+                ##     spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles), self._daq_eth_if)
                 ##     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                 ##     self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
                 ##     del spead_rx_offline_inst
@@ -481,7 +482,7 @@ class TestFullStation():
                 ##             scale = scale_new
                 ##     target_power = offline_beam_power[0]
 
-                # spead_rx_offline_inst = SpeadRxBeamPowerOffline(4660, len(self._test_station.tiles), self._daq_eth_if)
+                # spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles), self._daq_eth_if)
                 # offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                 # self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
                 # del spead_rx_offline_inst
@@ -503,7 +504,7 @@ class TestFullStation():
 
                     time.sleep(0.1)
                     self._logger.info("Acquiring realtime beamformed data")
-                    spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(4660, self._daq_eth_if)
+                    spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(self._csp_port, self._daq_eth_if)
                     realtime_beam_power = np.asarray(spead_rx_realtime_inst.get_power(beamformed_channel))
                     self._logger.info("Realtime beamformed channel power: %f %f %d" % (realtime_beam_power[0],
                                                                                        realtime_beam_power[1],
