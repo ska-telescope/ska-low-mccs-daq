@@ -253,7 +253,7 @@ class Tile(TileHealthMonitor):
     def initialise(self,
                    station_id=0, tile_id=0,
                    lmc_use_40g=False, lmc_dst_ip=None, lmc_dst_port=4660,
-                   lmc_integrated_use_40g=False, lmc_integrated_dst_ip=None,
+                   lmc_integrated_use_40g=False,
                    src_ip_fpga1=None, src_ip_fpga2=None,
                    dst_ip_fpga1=None, dst_ip_fpga2=None,
                    src_port=4661, dst_port=4660, dst_port_single_port_mode=4662, rx_port_single_port_mode=4662,
@@ -282,8 +282,6 @@ class Tile(TileHealthMonitor):
         :type lmc_dst_port: int
         :param lmc_integrated_use_40g: if True use 40G interface to transmit LMC integrated data, otherwise use 1G
         :type lmc_integrated_use_40g: bool
-        :param lmc_integrated_dst_ip: destination IP address for LMC integrated data packets
-        :type lmc_integrated_dst_ip: str
         :param src_ip_fpga1: source IP address for FPGA1 40G interface
         :type src_ip_fpga1: str
         :param src_ip_fpga2: source IP address for FPGA2 40G interface
@@ -427,7 +425,8 @@ class Tile(TileHealthMonitor):
         if lmc_integrated_use_40g:
             logging.info("Using 10G for integrated LMC traffic")
             self.set_lmc_integrated_download("10g", 1024, 2048,
-                                             dst_ip=lmc_integrated_dst_ip)
+                                             dst_ip=lmc_dst_ip,
+                                             dst_port=lmc_dst_port)
         else:
             logging.info("Using 1G for integrated LMC traffic")
             self.set_lmc_integrated_download("1g", 1024, 2048)

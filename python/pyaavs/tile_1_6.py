@@ -212,7 +212,7 @@ class Tile_1_6(Tile):
     def initialise(self,
                    station_id=0, tile_id=0,
                    lmc_use_40g=False, lmc_dst_ip=None, lmc_dst_port=4660,
-                   lmc_integrated_use_40g=False, lmc_integrated_dst_ip=5000,
+                   lmc_integrated_use_40g=False,
                    src_ip_fpga1=None, src_ip_fpga2=None,
                    dst_ip_fpga1=None, dst_ip_fpga2=None,
                    src_port=4661, dst_port=4660, dst_port_single_port_mode=4662, rx_port_single_port_mode=4662,
@@ -362,7 +362,8 @@ class Tile_1_6(Tile):
         if lmc_integrated_use_40g:
             logging.info("Using 10G for integrated LMC traffic")
             self.set_lmc_integrated_download("10g", 1024, 2048,
-                                             dst_ip=lmc_integrated_dst_ip)
+                                             dst_ip=lmc_dst_ip,
+                                             dst_port=lmc_dst_port)
         else:
             logging.info("Using 1G for integrated LMC traffic")
             self.set_lmc_integrated_download("1g", 1024, 2048)

@@ -145,6 +145,15 @@ def initialise_tile(params):
             dst_ip_40g_fpga1=config['network']['csp_ingest']['dst_ip']
             dst_ip_40g_fpga2=config['network']['csp_ingest']['dst_ip']
             dst_port_40g_single_port_mode = config['network']['csp_ingest']['dst_port']
+    
+    # If all traffic is going through 40G then set the destination port to
+    # the lmc_port. If only integrated data is going through the 40G set the
+    # destination port to integrated_data_port 
+    lmc_dst_port=config['network']['lmc']['lmc_port']
+    lmc_dst_ip = config['network']['lmc']['lmc_ip']
+    if config['network']['lmc']['use_teng_integrated'] and not config['network']['lmc']['use_teng']:
+        lmc_dst_port=config['network']['lmc']['integrated_data_port']
+        lmc_dst_ip = config['network']['lmc']['integrated_data_ip']
 
     # get pps delay for current tile
     pps_delay = 0
@@ -177,10 +186,9 @@ def initialise_tile(params):
             station_id=config['station']['id'],
             tile_id=tile_number,
             lmc_use_40g=config['network']['lmc']['use_teng'],
-            lmc_dst_ip=config['network']['lmc']['lmc_ip'],
-            lmc_dst_port=config['network']['lmc']['lmc_port'],
+            lmc_dst_ip=lmc_dst_ip,
+            lmc_dst_port=lmc_dst_port,
             lmc_integrated_use_40g=config['network']['lmc']['use_teng_integrated'],
-            lmc_integrated_dst_ip=config['network']['lmc']['lmc_ip'],
             src_ip_fpga1=src_ip_40g_fpga1,
             src_ip_fpga2=src_ip_40g_fpga2,
             dst_ip_fpga1=dst_ip_40g_fpga1,
