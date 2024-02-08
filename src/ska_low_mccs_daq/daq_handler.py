@@ -837,10 +837,12 @@ class DaqHandler:
         nof_tiles = config["nof_tiles"]
 
         x_pol_data: np.ndarray | None = None
+        x_pol_data_count: int = 0
         y_pol_data: np.ndarray | None = None
+        y_pol_data_count: int = 0
         # The shape is reversed as DAQ reads the data this way around.
         full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=int)
-        tiles_received: list[bool] = [False] * nof_tiles
+        files_received_per_tile: list[int] = [0] * nof_tiles
         interval_start = None
 
         _filename_expression = re.compile(
@@ -866,7 +868,7 @@ class DaqHandler:
             if parts is not None:
                 tile_number = int(parts.groupdict()["tile"])
             if tile_number is not None:
-                tiles_received[tile_number] = True
+                files_received_per_tile[tile_number] += 1
 
             # Open newly create HDF5 file
             with h5py.File(filepath, "r") as f:
@@ -878,11 +880,11 @@ class DaqHandler:
                     self.logger.error("Exception: %s", e)
                 data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
 
-                # Convert to power in dB
-                np.seterr(divide="ignore")
-                data = 10 * np.log10(data)
-                data[np.isneginf(data)] = 0
-                np.seterr(divide="warn")
+                # # Convert to power in dB
+                # np.seterr(divide="ignore")
+                # data = 10 * np.log10(data)
+                # data[np.isneginf(data)] = 0
+                # np.seterr(divide="warn")
 
             # Append Tile data to full station set.
             # full_station_data is made of blocks of data per TPM in TPM order.
@@ -899,38 +901,52 @@ class DaqHandler:
             # TODO: This block is currently useless. Get averaging back in.
             # Loop over polarisations (separate plots)
             for pol in range(nof_pols):
-                # Assign first data point or calculate average
-                if pol == 0:
+                # Assign first data point or maintain sum of all data.
+                # Divide by _pol_data_count to calculate the moving average on-demand.
+                if pol == 1:
                     if x_pol_data is None:
-                        x_pol_data = data[1:, :, pol]
+                        x_pol_data_count = 1
+                        x_pol_data = full_station_data[:, :, pol]
                     else:
-                        # Can we calc avgs in this way? :S
-                        x_pol_data = (x_pol_data + data[1:, :, pol]) / 2
-                elif pol == 1:
+                        x_pol_data_count += 1
+                        x_pol_data = x_pol_data + full_station_data[:, :, pol]
+                elif pol == 0:
                     if y_pol_data is None:
-                        y_pol_data = data[1:, :, pol]
+                        y_pol_data_count = 1
+                        y_pol_data = full_station_data[:, :, pol]
                     else:
-                        y_pol_data = (y_pol_data + data[1:, :, pol]) / 2
+                        y_pol_data_count += 1
+                        y_pol_data = y_pol_data + full_station_data[:, :, pol]
 
             # Delete read file.
             os.unlink(filepath)
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
-            if all(tiles_received):
+
+            # Assert that we've received the same number (1+) of files per tile.
+            if all(files_received_per_tile) and (
+                len(set(files_received_per_tile)) == 1
+            ):
                 if (present - interval_start).total_seconds() > cadence:
                     self.logger.debug("Queueing data for transmission")
                     assert isinstance(full_station_data, np.ndarray)
-                    x_data = full_station_data[:, :, 0].transpose()
+                    x_data = full_station_data[:, :, 1].transpose()
+                    # Averaged x data (commented out for now)
+                    # x_data = x_pol_data.transpose() / x_pol_data_count
                     self._x_bandpass_plots.put(json.dumps(x_data.tolist()))
-                    y_data = full_station_data[:, :, 1].transpose()
+                    y_data = full_station_data[:, :, 0].transpose()
+                    # Averaged y data (commented out for now)
+                    # y_data = y_pol_data.transpose() / y_pol_data_count
                     self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
                     self.logger.debug("Data queued for transmission.")
 
                     # Reset vars
                     x_pol_data = None
+                    x_pol_data_count = 0
                     y_pol_data = None
+                    y_pol_data_count = 0
                     interval_start = None
-                    tiles_received = [False] * nof_tiles
+                    files_received_per_tile = [0] * nof_tiles
 
         self.logger.info("Exiting bandpass plotting loop.")
 
@@ -1005,7 +1021,7 @@ class IntegratedDataHandler(FileSystemEventHandler):
         global files_to_plot  # pylint: disable=global-variable-not-assigned
         if event.event_type in ["created"]:
             # Ignore lock files and other temporary files
-            if not ("channel" in event.src_path and "lock" not in event.src_path):
+            if not ("channel_integ" in event.src_path and "lock" not in event.src_path):
                 return
 
             # Add to list
