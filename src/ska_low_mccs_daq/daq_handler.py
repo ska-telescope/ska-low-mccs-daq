@@ -878,12 +878,6 @@ class DaqHandler:
                     self.logger.error("Exception: %s", e)
                 data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
 
-                # Convert to power in dB
-                np.seterr(divide="ignore")
-                data = 10 * np.log10(data)
-                data[np.isneginf(data)] = 0
-                np.seterr(divide="warn")
-
             # Append Tile data to full station set.
             # full_station_data is made of blocks of data per TPM in TPM order.
             # Each block of TPM data is in port order.
