@@ -894,13 +894,13 @@ class DaqHandler:
             # Loop over polarisations (separate plots)
             for pol in range(nof_pols):
                 # Assign first data point or calculate average
-                if pol == 0:
+                if pol == 1:
                     if x_pol_data is None:
                         x_pol_data = data[1:, :, pol]
                     else:
                         # Can we calc avgs in this way? :S
                         x_pol_data = (x_pol_data + data[1:, :, pol]) / 2
-                elif pol == 1:
+                elif pol == 0:
                     if y_pol_data is None:
                         y_pol_data = data[1:, :, pol]
                     else:
@@ -914,9 +914,9 @@ class DaqHandler:
                 if (present - interval_start).total_seconds() > cadence:
                     self.logger.debug("Queueing data for transmission")
                     assert isinstance(full_station_data, np.ndarray)
-                    x_data = full_station_data[:, :, 0].transpose()
+                    x_data = full_station_data[:, :, 1].transpose()
                     self._x_bandpass_plots.put(json.dumps(x_data.tolist()))
-                    y_data = full_station_data[:, :, 1].transpose()
+                    y_data = full_station_data[:, :, 0].transpose()
                     self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
                     self.logger.debug("Data queued for transmission.")
 
