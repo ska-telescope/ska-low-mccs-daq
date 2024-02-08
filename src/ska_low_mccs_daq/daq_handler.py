@@ -999,7 +999,7 @@ class IntegratedDataHandler(FileSystemEventHandler):
         global files_to_plot  # pylint: disable=global-variable-not-assigned
         if event.event_type in ["created"]:
             # Ignore lock files and other temporary files
-            if not ("channel" in event.src_path and "lock" not in event.src_path):
+            if not ("channel_integ" in event.src_path and "lock" not in event.src_path):
                 return
 
             # Add to list
