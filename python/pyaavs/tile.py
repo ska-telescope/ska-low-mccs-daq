@@ -245,6 +245,9 @@ class Tile(TileHealthMonitor):
 
     @property
     def active_40g_port(self):
+        # If single 40G not supported by firmware both ports must be used
+        if not self.tpm.has_register("fpga1.dsp_regfile.config_id.is_master"):
+            return [True, True]
         return [
             self.tpm["fpga1.dsp_regfile.config_id.is_master"] > 0,
             self.tpm["fpga2.dsp_regfile.config_id.is_master"] > 0
@@ -725,6 +728,10 @@ class Tile(TileHealthMonitor):
         NOTE: TPM 1.2 hardware does not support single port operation. Configurion of the
         is_master register will be ignored by the FPGA & both ports will always be used.
         """
+        # If single 40G not supported by firmware both ports must be used
+        if not self.tpm.has_register("fpga1.dsp_regfile.config_id.is_master"):
+            self.logger.warning("TPM firmware does not support different active 40G port configurations. Both 40G ports will be used.")
+            return
         if self.tpm_version == "tpm_v1_2":
             self.logger.warning("TPM 1.2 does not support different active 40G port configurations. Both 40G ports will be used.")
             return
