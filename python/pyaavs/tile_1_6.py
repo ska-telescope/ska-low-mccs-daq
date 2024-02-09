@@ -289,6 +289,9 @@ class Tile_1_6(Tile):
         self.tpm["board.regfile.ena_stream"] = 0x1
         # self.tpm['board.regfile.ethernet_pause'] = 10000
         self.set_c2c_burst()
+        
+        # Display Temperature during initialisation
+        logging.info(f"Board Temperature - {round(self.get_temperature(), 1)} C")
 
         # Switch off both PREADUs
         self.tpm.tpm_preadu[0].switch_off()

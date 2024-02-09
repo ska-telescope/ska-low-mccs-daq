@@ -359,7 +359,10 @@ class Tile(TileHealthMonitor):
         # Enable C2C streaming
         self.tpm["board.regfile.c2c_stream_enable"] = 0x1
         self.set_c2c_burst()
-
+        
+        # Display Temperature during initialisation
+        logging.info(f"Board Temperature - {round(self.get_temperature(), 1)} C")
+        
         # Switch off both PREADUs
         for preadu in self.tpm.tpm_preadu:
             preadu.switch_off()
