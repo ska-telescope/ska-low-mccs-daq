@@ -15,20 +15,20 @@ environments:
   aavs3-deprecated:  # You should be using infra-issued credentials!
     kubeContext: aavs3-production
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=9a81412a67a852183dd39a34552df24e78a3ab83
+      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=f8d67d88872af0672133aaff7cab2ce5b00ea472
   aavs3-production:
     kubeContext: infra:au-itf-aavs302-k8s
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=9a81412a67a852183dd39a34552df24e78a3ab83
+      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=f8d67d88872af0672133aaff7cab2ce5b00ea472
   aavs3-staging:
     kubeContext: low-itf
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=9a81412a67a852183dd39a34552df24e78a3ab83
+      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=f8d67d88872af0672133aaff7cab2ce5b00ea472
       - values/values-aavs3-staging.yaml
   aavs3-minikube:
     kubeContext: minikube
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=9a81412a67a852183dd39a34552df24e78a3ab83
+      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=f8d67d88872af0672133aaff7cab2ce5b00ea472
       - platform/minikube.yaml
   arcetri:
     kubeContext: minikube
