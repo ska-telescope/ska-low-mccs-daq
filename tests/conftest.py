@@ -230,7 +230,7 @@ def tile_id_fixture() -> int:
 
     :return: the id of the tile under test.
     """
-    return 1
+    return 5
 
 
 @pytest.fixture(name="station_id", scope="session")
