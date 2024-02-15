@@ -127,6 +127,7 @@ def daq_ready_to_receive_beam(
     configuration = {
         "directory": "/product/test_eb_id/ska-low-mccs/test_scan_id/",
         "nof_tiles": 1,
+        "append_integrated": False,
         "receiver_interface": interface,
     }
     daq_device.Configure(json.dumps(configuration))
@@ -207,6 +208,10 @@ def daq_device_has_no_running_consumers(
 
     :param daq_device: The daq_device fixture to use.
     """
+    if daq_device.state() != tango.DevState.ON:
+        daq_device.adminMode = AdminMode.ONLINE
+        poll_until_state_change(daq_device, tango.DevState.ON, 5)
+
     status = json.loads(daq_device.DaqStatus())
     if status["Running Consumers"] != []:
         daq_device.Stop()  # Stops *all* consumers.
