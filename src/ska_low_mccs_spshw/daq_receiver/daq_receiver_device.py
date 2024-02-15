@@ -296,9 +296,9 @@ class MccsDaqReceiver(SKABaseDevice):
         self._health_model = DaqHealthModel(self._component_state_callback)
         self._received_data_mode = ""
         self._received_data_result = ""
-        self._x_bandpass_plot = np.zeros(shape=(256, 511), dtype=float)
-        self._y_bandpass_plot = np.zeros(shape=(256, 511), dtype=float)
-        self._rms_plot = np.zeros(shape=(256, 511), dtype=float)
+        self._x_bandpass_plot = np.zeros(shape=(511, 256), dtype=float)
+        self._y_bandpass_plot = np.zeros(shape=(511, 256), dtype=float)
+        self._rms_plot = np.zeros(shape=(511, 256), dtype=float)
         self.set_change_event("healthState", True, False)
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
