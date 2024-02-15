@@ -951,6 +951,7 @@ class DaqHandler:
                 # pylint: disable=broad-exception-caught
                 except Exception as e:
                     self.logger.error("Exception: %s", e)
+                    continue
                 data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
 
                 # Convert to power in dB
