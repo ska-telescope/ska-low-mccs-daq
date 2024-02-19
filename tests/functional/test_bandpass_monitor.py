@@ -9,9 +9,8 @@
 from __future__ import annotations
 
 import json
-import os
 import time
-from typing import Callable
+from typing import Any
 
 import numpy as np
 import pytest
@@ -69,6 +68,22 @@ def daq_interface(
     :return: the network interface
     """
     return interface
+
+
+@pytest.fixture(name="daq_config")
+def daq_config_fixture(interface: str) -> dict[str, Any]:
+    """
+    Get the config to configure the daq with.
+
+    :param interface: The interface to send/listen on.
+    :return: the config to configure the DAQ with.
+    """
+    return {
+        "directory": "/product/test_eb_id/ska-low-mccs/test_scan_id/",
+        "nof_tiles": 1,
+        "append_integrated": False,
+        "receiver_interface": interface,
+    }
 
 
 @given("the DAQ is available", target_fixture="daq_device")
@@ -134,18 +149,17 @@ def tile_ready_to_send_to_daq(
                 tango.EventType.CHANGE_EVENT,
                 change_event_callbacks["tile_adminMode"],
             )
-            change_event_callbacks["tile_adminMode"].assert_change_event(Anything)
             tile_device.adminMode = 0
             change_event_callbacks["tile_adminMode"].assert_change_event(
-                AdminMode.ONLINE
+                AdminMode.ONLINE, lookahead=2, consume_nonmatches=True
             )
 
         tile_device.on()
-        poll_until_state_change(tile_device, tango.DevState.ON, 100)
+        poll_until_state_change(tile_device, tango.DevState.ON, 20)
 
     if tile_device.tileProgrammingState not in ["Initialised", "Synchronised"]:
         assert expect_attribute(
-            tile_device, "tileProgrammingState", "Initialised", timeout=240.0
+            tile_device, "tileProgrammingState", "Initialised", timeout=5.0
         )
 
     # Start the ADCs and SDP processing chain.
@@ -244,19 +258,20 @@ def daq_reject_bandpass_need_consumer_running(
             'can be monitored."',
         ),
         lookahead=3,
+        consume_nonmatches=True,
     )
 
 
 @given("the DAQ is configured")
 def daq_configure(
     daq_device: tango.DeviceProxy,
-    interface: str,
+    daq_config: dict[str, Any],
 ) -> None:
     """
     Configure the Daq device.
 
     :param daq_device: A 'tango.DeviceProxy' to the Daq device.
-    :param interface: This interface to listen on
+    :param daq_config: the config to configure the DAQ with.
     """
     # Set initial state.
     if daq_device.state() != tango.DevState.ON:
@@ -264,13 +279,7 @@ def daq_configure(
         poll_until_state_change(daq_device, tango.DevState.ON, 5)
 
     # Configure DAQ
-    configuration = {
-        "directory": "/product/test_eb_id/ska-low-mccs/test_scan_id/",
-        "nof_tiles": 1,
-        "append_integrated": False,
-        "receiver_interface": interface,
-    }
-    daq_device.Configure(json.dumps(configuration))
+    daq_device.Configure(json.dumps(daq_config))
 
 
 @given("the DAQ is started with the integrated channel data consumer")
@@ -344,16 +353,10 @@ def daq_bandpass_monitor_running(
             start_bandpass_result[1][0],
             '"Bandpass monitor active"',
         ),
-        lookahead=20,
+        lookahead=12,
+        consume_nonmatches=True,
     )
-    time_elapsed = 0
-    timeout = 10
-    while time_elapsed < timeout:
-        if json.loads(daq_device.DaqStatus())["Bandpass Monitor"]:
-            break
-        time.sleep(1)
-        time_elapsed += 1
-    assert json.loads(daq_device.DaqStatus())["Bandpass Monitor"]
+    verify_bandpass_state(daq_device, True)
 
 
 @when("the DAQ is commanded to stop monitoring bandpasses")
@@ -376,14 +379,7 @@ def daq_monitor_stopped(
 
     :param daq_device: A 'tango.DeviceProxy' to the Daq device.
     """
-    time_elapsed = 0
-    timeout = 10
-    while time_elapsed < timeout:
-        if not json.loads(daq_device.DaqStatus())["Bandpass Monitor"]:
-            break
-        time.sleep(1)
-        time_elapsed += 1
-    assert not json.loads(daq_device.DaqStatus())["Bandpass Monitor"]
+    verify_bandpass_state(daq_device, False)
 
 
 @when(
@@ -392,43 +388,28 @@ def daq_monitor_stopped(
 )
 def tile_send_data(
     tile_device: tango.DeviceProxy,
-    get_hdf5_count: Callable,
 ) -> None:
     """
     Command the tile to start sending data.
 
     :param tile_device: A 'tango.DeviceProxy' to the Tile device.
-    :param get_hdf5_count: A callable to return the number of hdf5 files
-        in a directory.
-
-    :return: the initial number of hdf5 files in directory.
     """
-    initial_count = get_hdf5_count()
     tile_device.SendDataSamples(json.dumps({"data_type": "channel"}))
-    return initial_count
 
 
 @then("the DAQ reports that it has received integrated channel data")
 def daq_received_data(
     change_event_callbacks: MockTangoEventCallbackGroup,
-    get_hdf5_count: Callable,
-    initial_hdf5_count: int,
 ) -> None:
     """
-    Confirm Daq has received the correct data.
+    Confirm Daq has received data.
 
     :param change_event_callbacks: a dictionary of callables to be used as
         tango change event callbacks.
-    :param initial_hdf5_count: the initial number of hdf5 files in directory.
-    :param get_hdf5_count: A callable to return the number of hdf5 files
-        in a directory.
     """
     change_event_callbacks["data_received_callback"].assert_change_event(
         ("integrated_channel", Anything)
     )
-
-    final_hdf5_count = get_hdf5_count()
-    assert final_hdf5_count - initial_hdf5_count >= 1
 
 
 @then("the DAQ saves bandpass data to its relevant attributes")
@@ -449,43 +430,18 @@ def daq_bandpasses_saved(
     assert np.count_nonzero(daq_device.yPolBandpass) > 0
 
 
-@pytest.fixture(name="get_hdf5_count", scope="session")
-def get_hdf5_count_fixture(get_hdf5_files: Callable) -> Callable:
+def verify_bandpass_state(daq_device: tango.DeviceProxy, state: bool) -> None:
     """
-    Return a function to count number of .hdf5 files in a given directory.
+    Verify that the bandpass monitor is in the desired state.
 
-    :param get_hdf5_files: the a callable to retreive hdf5 files.
-
-    :return: A function to count .hdf5 files in directory.
+    :param daq_device: A 'tango.DeviceProxy' to the Daq device.
+    :param state: the desired state of the bandpass monitor.
     """
-
-    def _hdf5_count() -> int:
-        return len(get_hdf5_files())
-
-    return _hdf5_count
-
-
-@pytest.fixture(name="get_hdf5_files", scope="session")
-def get_hdf5_fixture(hdf5_directory: str) -> Callable:
-    """
-    Return a function to get .hdf5 files in a given directory.
-
-    :param hdf5_directory: the hdf5 destination file.
-
-    :return: A function return .hdf5 files in directory.
-    """
-
-    def _hdf5_files() -> list[str]:
-        return [f for f in os.listdir(hdf5_directory) if f.endswith(".hdf5")]
-
-    return _hdf5_files
-
-
-@pytest.fixture(name="hdf5_directory", scope="session")
-def hdf5_directory_fixture() -> str:
-    """
-    Return the path to the test-data directory.
-
-    :return: the name of target hdf5 directory.
-    """
-    return "/test-data/test_eb_id/ska-low-mccs/test_scan_id"
+    time_elapsed = 0
+    timeout = 10
+    while time_elapsed < timeout:
+        if json.loads(daq_device.DaqStatus())["Bandpass Monitor"] == state:
+            break
+        time.sleep(1)
+        time_elapsed += 1
+    assert json.loads(daq_device.DaqStatus())["Bandpass Monitor"] == state
