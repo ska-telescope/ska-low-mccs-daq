@@ -183,44 +183,55 @@ class DaqHandler:
         :param additional_info: Any additional information/metadata.
         """
         # Callbacks to call for all data modes.
-        daq_mode = self._data_mode_mapping[data_mode]
-        if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
-            metadata = self.daq_instance._persisters[daq_mode].get_metadata(
-                tile_id=additional_info
-            )
-        else:
-            metadata = self.daq_instance._persisters[daq_mode].get_metadata()
-        if additional_info is not None:
-            metadata["additional_info"] = additional_info
+        try:
+            daq_mode = self._data_mode_mapping[data_mode]
+            self.logger.error("Sanity check")
+            if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
+                self.logger.error("Sanity check")
+                metadata = self.daq_instance._persisters[daq_mode].get_metadata(
+                    tile_id=additional_info
+                )
+                self.logger.error(f"Metadata received {metadata}")
+            else:
+                self.logger.error(
+                    "data callback from DaqModes.STATION_BEAM_DATA, "
+                    "DaqModes.CORRELATOR_DATA"
+                )
+                metadata = self.daq_instance._persisters[daq_mode].get_metadata()
+                self.logger.error(f"Metadata received2 {metadata}")
+            if additional_info is not None and metadata is not None:
+                metadata["additional_info"] = additional_info
 
-        # Call additional callbacks per data mode if needed.
-        if data_mode == "read_raw_data":
-            pass
+            # Call additional callbacks per data mode if needed.
+            if data_mode == "read_raw_data":
+                pass
 
-        if data_mode == "read_beam_data":
-            pass
+            if data_mode == "read_beam_data":
+                pass
 
-        if data_mode == "integrated_beam":
-            pass
+            if data_mode == "integrated_beam":
+                pass
 
-        if data_mode == "station_beam":
-            pass
+            if data_mode == "station_beam":
+                pass
 
-        if data_mode == "read_channel_data":
-            pass
+            if data_mode == "read_channel_data":
+                pass
 
-        if data_mode == "continuous_channel":
-            pass
+            if data_mode == "continuous_channel":
+                pass
 
-        if data_mode == "integrated_channel":
-            self._integrated_channel_callback(
-                data_mode=data_mode,
-                file_name=file_name,
-                metadata=metadata,
-            )
+            if data_mode == "integrated_channel":
+                self._integrated_channel_callback(
+                    data_mode=data_mode,
+                    file_name=file_name,
+                    metadata=metadata,
+                )
 
-        if data_mode == "correlator":
-            pass
+            if data_mode == "correlator":
+                pass
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error(f"Exception in file change callback {repr(e)}")
 
     def _integrated_channel_callback(
         self: DaqHandler,
@@ -421,9 +432,11 @@ class DaqHandler:
             "Receiver Interface": receiver_interface,
             "Receiver Ports": receiver_ports,
             "Receiver IP": [
-                receiver_ip.decode()
-                if isinstance(receiver_ip, bytes)
-                else receiver_ip  # noqa: E501
+                (
+                    receiver_ip.decode()
+                    if isinstance(receiver_ip, bytes)
+                    else receiver_ip
+                )  # noqa: E501
             ],
             "Bandpass Monitor": self._monitoring_bandpass,
         }
