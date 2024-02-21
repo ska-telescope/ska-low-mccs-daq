@@ -187,7 +187,7 @@ class DaqHandler:
             )
         else:
             metadata = self.daq_instance._persisters[daq_mode].get_metadata()
-        if additional_info is not None:
+        if additional_info is not None and metadata is not None:
             metadata["additional_info"] = additional_info
 
         # Call additional callbacks per data mode if needed.
