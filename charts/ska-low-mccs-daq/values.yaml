@@ -8,26 +8,29 @@ labels:
 global:
   minikube: false
 
-storage: {}  # List of specs of PVCs to create
-  # daq-data:
-  #   storage_class: nfss1  # optional but recommend; if omitted, the cluster default will be used
-  #   size: "250Mi"
-  #   labels: {}  # optional
-  #   annotations: {}  # optional
+storage: {}
+#   daq-data:
+#     storage_class: nfss1  # optional but recommend; if omitted, the cluster default will be used
+#     size: "250Mi"
+#     labels: {}  # optional
+#     annotations: {}  # optional
 
 receivers: {}
-#  1:
-#     storage: daq-data  # must refer to a PVC
+#   1:
+#     port: 50052  # optional; defaults to 50051
+#     data_port: 4661  # optional; defaults to 4660
 #     runtime_class: nvidia # optional: must refer to a RunTimeClass existing in the cluster.
-#     gpu_limit: "1" # optional
+#     gpu_limit: 1 # optional
+#     storage: daq-data  # must refer to a PVC
 #     node_selector: {}  # optional
 #     affinity: {}  # optional
+#     tolerations: {}  # optional
 #     annotations: {}  # optional
 
 receiver_egresses: {}
 #   1:
-#     ip:  # required: this is the IP address of an external DAQ receiver
-#     port:  # optional: defaults to 50051
+#     ip: 10.11.12.13  # required: this is the IP address of an external DAQ receiver
+#     port: 50050  # optional: defaults to 50051
 
 image:
   registry: artefact.skao.int

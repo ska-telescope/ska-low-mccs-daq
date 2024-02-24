@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "$comment": "schema for ska-low-mccs-daq chart values file",
+  "type": "object",
+  "properties": {
+    "image": {
+      "type": "object",
+      "properties": {
+        "registry": {
+          "$comment": "registry is a URI, but could be scheme-less",
+          "type": "string",
+          "pattern": "^(https?://)?[a-z0-9-.]+(/[a-z0-9-_/.]+)?$"
+        },
+        "tag": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-dev\\.c[0-9a-f]{8})?$"
+            }
+          ],
+          "type": ["string", "null"]
+        },
+        "pullPolicy": {
+          "type": "string",
+          "pattern": "^(Always|Never|IfNotPresent)$"
+        }
+      }
+    },
+    "receivers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "port": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "data_port": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "runtime_class": {"type": "string"},
+          "gpu_limit": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "storage": {"type": "string"},
+          "node_selector": {"type": "object"},
+          "affinity": {"type": "object"},
+          "tolerations": {"type": "object"},
+          "annotations": {"type": "object"}
+        },
+        "required": ["storage"],
+        "additionalProperties": false
+      }
+    },
+    "receiver_egresses": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "ip": {
+            "type": "string",
+            "format": "ipv4"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": ["ip"],
+        "additionalProperties": false
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "storage_class": {"type": "string"},
+          "size": {"type": "string"},
+          "labels": {"type": "object"},
+          "annotations": {"type": "object"}
+        },
+        "required": ["size"],
+        "additionalProperties": false
+      }
+    }
+  }
+}
