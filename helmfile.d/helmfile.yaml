@@ -21,7 +21,7 @@ environments:
     values:
       - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=f8d67d88872af0672133aaff7cab2ce5b00ea472
   aavs3-staging:
-    kubeContext: low-itf
+    kubeContext: infra:au-itf-k8s-master01-k8s
     values:
       - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=f8d67d88872af0672133aaff7cab2ce5b00ea472
       - values/values-aavs3-staging.yaml
@@ -61,11 +61,11 @@ environments:
   psi-low:
     kubeContext: psi-low
     values:
-      - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=20895318908c03c21def95a4b0b44caa79c58b38
+      - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=3a4d8033b5c790c926d4d8cfd4e08179dedcd0c0
   psi-low-minikube:
     kubeContext: minikube
     values:
-      - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=20895318908c03c21def95a4b0b44caa79c58b38
+      - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=3a4d8033b5c790c926d4d8cfd4e08179dedcd0c0
       - platform/minikube.yaml
 
 ---
