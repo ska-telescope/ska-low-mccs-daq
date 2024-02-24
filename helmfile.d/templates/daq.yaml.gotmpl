@@ -12,16 +12,16 @@ This template assumes that all daq receivers share a single common storage locat
   {{- range $station_id, $station_spec := $station_cluster_spec.stations}}
     {{- $station_name := dig "name" (printf "%s-%s" $station_cluster_id $station_id) $station_spec}}
 
-    {{- $daq_spec := dig "sps" "daq" dict $station_spec}}
-    {{- $daq_enabled := pluck "enabled" $daq_spec $station_spec (dict "enabled" true) | first}}
-    {{- $daq_simulated := pluck "simulated" $daq_spec $station_spec (dict "simulated" false) | first}}
+    {{- $sps_spec := dig "sps" (dict "enabled" false) $station_spec}}
+    {{- $daq_spec := dig "daq" dict $sps_spec}}
+    {{- $daq_enabled := pluck "enabled" $daq_spec $sps_spec $station_spec (dict "enabled" true) | first}}
+    {{- $daq_simulated := pluck "simulated" $daq_spec $sps_spec $station_spec (dict "simulated" false) | first}}
     {{- if (and $daq_enabled (not $daq_simulated))}}
       {{- $daq_ip := dig "ip" "" $daq_spec}}
       {{- if $daq_ip}}
         {{- $_ := set $daqs_to_egress $station_name $daq_spec}}
       {{- else}}
-        {{- $host := printf "daq-receiver-%s" $station_name}}
-        {{- $_ := set $daqs_to_launch $station_name (dict "host" $host "id" (int $station_id))}}
+        {{- $_ := set $daqs_to_launch $station_name dict}}
       {{- end}}
     {{- end}}
   {{- end}}
@@ -39,8 +39,6 @@ storage:
 {{- range $station_name, $daq_spec := $daqs_to_launch}}
 receivers:
   {{$station_name}}:
-    host: {{$daq_spec.host}}
-    id: {{$daq_spec.id}}
     storage: daq-data
 {{- with (pick $cluster_daq_spec "annotations" "node_selector" "affinity" "tolerations" "runtime_class" "gpu_limit")}}
 {{toYaml . | indent 4}}
