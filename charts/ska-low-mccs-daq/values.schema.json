@@ -40,15 +40,20 @@
             "type": "integer",
             "minimum": 1
           },
-          "runtime_class": {"type": "string"},
+          "runtime_class": {"type": ["string", "null"]},
           "gpu_limit": {
-            "type": "integer",
-            "minimum": 1
+            "oneOf": [
+              {"type": "null"},
+              {
+                "type": "integer",
+                "minimum": 1
+              }
+            ]
           },
           "storage": {"type": "string"},
-          "node_selector": {"type": "object"},
-          "affinity": {"type": "object"},
-          "tolerations": {"type": "object"},
+          "node_selector": {"type": ["object", "null"]},
+          "affinity": {"type": ["object", "null"]},
+          "tolerations": {"type": ["object", "null"]},
           "annotations": {"type": "object"}
         },
         "required": ["storage"],
