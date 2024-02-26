@@ -582,7 +582,7 @@ class SpsTangoTestHarness:
             for example with a patched subclass.
         """
         self._tango_test_harness.add_device(
-            get_tile_name(subrack_id, station_label=self._station_label),
+            get_tile_name(tile_id, station_label=self._station_label),
             device_class,
             TileId=tile_id,
             SimulationConfig=int(SimulationMode.TRUE),
