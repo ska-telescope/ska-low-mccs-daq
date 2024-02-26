@@ -2130,10 +2130,10 @@ class Tile(TileHealthMonitor):
                 return current_tc
 
         raise ValueError("Unable to calculate delay for PPS pulse "
-            f"current_delay {current_delay}" 
-            f"current_tc {current_tc} "
-            f"target {current_tc} "
-            f"margin {margin} "
+            f"current_delay {current_delay}, " 
+            f"current_tc {current_tc}, "
+            f"target {current_tc}, "
+            f"margin {margin}"
         )
 
     # -----------------------------
