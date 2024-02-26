@@ -2051,12 +2051,13 @@ class Tile(TileHealthMonitor):
             self.tpm[f + ".beamf.timestamp_req"] = t0 + int(delay)
 
     @connected
-    def start_acquisition(self, start_time=None, delay=2):
+    def start_acquisition(self, start_time=None, delay=2, tpm_start_time=None):
         """
         Start data acquisition.
 
-        :param start_time: Time for starting (frames)
-        :param delay: delay after start_time (frames)
+        :param start_time: Time for starting (seconds)
+        :param delay: delay after start_time (seconds)
+        :param tpm_start_time: TPM will act as if it is started at this time (seconds)
         """
         devices = ["fpga1", "fpga2"]
         for f in devices:
@@ -2085,12 +2086,34 @@ class Tile(TileHealthMonitor):
         else:
             t0 = start_time
 
-        sync_time = t0 + delay
+        sync_time = int(t0 + delay)
+
+        if tpm_start_time is None:
+            tpm_sync_time = sync_time
+        else:
+            tpm_sync_time = int(tpm_start_time)
+        
+        clock_freq = 200e6 # ADC data clock
+        frame_period =  1.08e-6 # 27/32 * 1024 * ADC sample rate
+        time_diff = sync_time - tpm_sync_time
+        start_frame = int(np.ceil(time_diff/frame_period))
+        frame_offset = int(np.round((start_frame*frame_period - time_diff)*clock_freq))
+        start_timestamp_hi = int(start_frame >> 32)
+        start_timestamp_lo = start_frame & 0xffffffff
+
         # Write start time
         if self.tpm.tpm_test_firmware[0].station_beamformer_implemented:
             self.set_beamformer_epoch(sync_time)
         for f in devices:
-            self.tpm[f + ".pps_manager.sync_time_val"] = sync_time
+            if self.tpm.has_register(f"{f}.pps_manager.sync_time_actual_val"):
+                self.tpm[f"{f}.pps_manager.sync_time_actual_val"] = sync_time
+                # Set time TPM thinks the sync time happens
+                self.tpm[f"{f}.pps_manager.sync_time_val"] = tpm_sync_time
+                self.tpm[f"{f}.pps_manager.timestamp_rst_value_lo"] = start_timestamp_lo
+                self.tpm[f"{f}.pps_manager.timestamp_rst_value_hi"] = start_timestamp_hi
+                self.tpm[f"{f}.pps_manager.sync_time_val_fine"] = frame_offset
+            else:
+                self.logger.error(f"Syncing to other TPM's is not possible with this version of the firmware")
 
     @staticmethod
     def calculate_delay(current_delay, current_tc, target, margin):
