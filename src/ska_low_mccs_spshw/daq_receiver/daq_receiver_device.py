@@ -293,7 +293,7 @@ class MccsDaqReceiver(SKABaseDevice):
         self._health_state = (
             HealthState.UNKNOWN
         )  # InitCommand.do() does this too late.# noqa: E501
-        self._health_model = DaqHealthModel(self._component_state_callback)
+        self._health_model = DaqHealthModel(self._component_state_callback, ignore_power_state=True)
         self._received_data_mode = ""
         self._received_data_result = ""
         self._x_bandpass_plot = np.zeros(shape=(511, 256), dtype=float)

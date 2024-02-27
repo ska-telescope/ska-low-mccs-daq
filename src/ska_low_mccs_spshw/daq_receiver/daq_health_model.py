@@ -18,36 +18,3 @@ __all__ = ["DaqHealthModel"]
 
 class DaqHealthModel(HealthModel):
     """A health model for a Daq receiver."""
-
-    def __init__(
-        self: DaqHealthModel,
-        component_state_callback: Callable[..., None],
-    ) -> None:
-        """
-        Initialise a new instance.
-
-        :param component_state_callback: callback to be called whenever
-            there is a change to this component's state, including the health
-            model's evaluated health state.
-        """
-        super().__init__(component_state_callback)
-
-    def evaluate_health(
-        self: DaqHealthModel,
-    ) -> HealthState:
-        """
-        Compute overall health of the Daq receiver.
-
-        :return: an overall health of the Daq receiver.
-        """
-        daq_health = super().evaluate_health()
-
-        for health in [
-            HealthState.FAILED,
-            HealthState.UNKNOWN,
-            HealthState.DEGRADED,
-        ]:
-            if daq_health == health:
-                return health
-
-        return HealthState.OK
