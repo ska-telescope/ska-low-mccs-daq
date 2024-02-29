@@ -8,13 +8,10 @@
 """An implementation of a health model for a DAQ receiver."""
 from __future__ import annotations
 
-from typing import Callable
-
-from ska_control_model import HealthState
-from ska_low_mccs_common.health import HealthModel
+from ska_low_mccs_common.health import BaseHealthModel
 
 __all__ = ["DaqHealthModel"]
 
 
-class DaqHealthModel(HealthModel):
+class DaqHealthModel(BaseHealthModel):
     """A health model for a Daq receiver."""
