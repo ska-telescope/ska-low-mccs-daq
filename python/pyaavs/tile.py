@@ -2063,8 +2063,8 @@ class Tile(TileHealthMonitor):
         :param tpm_start_time: TPM will act as if it is started at this time (seconds)
         """
         devices = ["fpga1", "fpga2"]
-        for f in devices:
-            self.tpm[f + ".regfile.eth10g_ctrl"] = 0x0
+        for fpga in devices:
+            self.tpm[f"{fpga}.regfile.eth10g_ctrl"] = 0x0
 
         # Temporary (moved here from TPM control)
         if len(self.tpm.find_register("fpga1.regfile.c2c_stream_header_insert")) > 0:
@@ -2078,10 +2078,10 @@ class Tile(TileHealthMonitor):
             self.tpm["fpga1.regfile.lmc_stream_demux"] = 0x1
             self.tpm["fpga2.regfile.lmc_stream_demux"] = 0x1
 
-        for f in devices:
+        for fpga in devices:
             # Disable start force (not synchronised start)
-            self.tpm[f + ".pps_manager.start_time_force"] = 0x0
-            self.tpm[f + ".lmc_gen.timestamp_force"] = 0x0
+            self.tpm[f"{fpga}.pps_manager.start_time_force"] = 0x0
+            self.tpm[f"{fpga}.lmc_gen.timestamp_force"] = 0x0
 
         # Read current sync time
         if start_time is None:
@@ -2107,16 +2107,20 @@ class Tile(TileHealthMonitor):
         # Write start time
         if self.tpm.tpm_test_firmware[0].station_beamformer_implemented:
             self.set_beamformer_epoch(sync_time)
-        for f in devices:
-            if self.tpm.has_register(f"{f}.pps_manager.sync_time_actual_val"):
-                self.tpm[f"{f}.pps_manager.sync_time_actual_val"] = sync_time
+        for fpga in devices:
+            
+            if not self.tpm.has_register(f"{fpga}.pps_manager.sync_time_actual_val") and tpm_start_time is not None:
+                raise LibraryError(f"Syncing to other TPM's is not possible with this version of the firmware")
+                
+            if self.tpm.has_register(f"{fpga}.pps_manager.sync_time_actual_val"):
+                self.tpm[f"{fpga}.pps_manager.sync_time_actual_val"] = sync_time
                 # Set time TPM thinks the sync time happens
-                self.tpm[f"{f}.pps_manager.sync_time_val"] = tpm_sync_time
-                self.tpm[f"{f}.pps_manager.timestamp_rst_value_lo"] = start_timestamp_lo
-                self.tpm[f"{f}.pps_manager.timestamp_rst_value_hi"] = start_timestamp_hi
-                self.tpm[f"{f}.pps_manager.sync_time_val_fine"] = frame_offset
+                self.tpm[f"{fpga}.pps_manager.sync_time_val"] = tpm_sync_time
+                self.tpm[f"{fpga}.pps_manager.timestamp_rst_value_lo"] = start_timestamp_lo
+                self.tpm[f"{fpga}.pps_manager.timestamp_rst_value_hi"] = start_timestamp_hi
+                self.tpm[f"{fpga}.pps_manager.sync_time_val_fine"] = frame_offset
             else:
-                self.logger.error(f"Syncing to other TPM's is not possible with this version of the firmware")
+                self.tpm[f"{fpga}.pps_manager.sync_time_val"] = sync_time
 
     @staticmethod
     def calculate_delay(current_delay, current_tc, target, margin):
