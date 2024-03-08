@@ -868,7 +868,14 @@ class DaqHandler:
             if parts is not None:
                 tile_number = int(parts.groupdict()["tile"])
             if tile_number is not None:
-                files_received_per_tile[tile_number] += 1
+                try:
+                    files_received_per_tile[tile_number] += 1
+                except IndexError as e:
+                    print(f"ERROR: {e}")
+                    print(
+                        f"len files_received_per_tile: {len(files_received_per_tile)}"
+                    )
+                    files_received_per_tile[tile_number - 1] += 1
 
             # Open newly create HDF5 file
             with h5py.File(filepath, "r") as f:
