@@ -162,6 +162,7 @@ class DaqHandler:
         self._x_bandpass_plots: queue.Queue = queue.Queue()
         self._y_bandpass_plots: queue.Queue = queue.Queue()
         self._rms_plots: queue.Queue = queue.Queue()
+        self._station_name: str = ""
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -851,9 +852,11 @@ class DaqHandler:
 
         # Loop until asked to stop
         self.logger.info("Entering bandpass plotting loop.")
+        print("Entering bandpass plotting loop.")
         while not self._stop_bandpass:
             # Wait for files to be queued. Check every second.
             if len(files_to_plot[station_name]) == 0:
+                print("No files to plot")
                 sleep(1)
                 continue
 
@@ -868,7 +871,9 @@ class DaqHandler:
             if parts is not None:
                 tile_number = int(parts.groupdict()["tile"])
             if tile_number is not None:
+                print(f"Got tile number {tile_number}")
                 try:
+                    print("NO ERROR :D")
                     files_received_per_tile[tile_number] += 1
                 except IndexError as e:
                     print(f"ERROR: {e}")
@@ -936,6 +941,7 @@ class DaqHandler:
             ):
                 if (present - interval_start).total_seconds() > cadence:
                     self.logger.debug("Queueing data for transmission")
+                    print("Queueing data for transmission")
                     assert isinstance(full_station_data, np.ndarray)
                     x_data = full_station_data[:, :, 1].transpose()
                     # Averaged x data (commented out for now)
@@ -946,6 +952,7 @@ class DaqHandler:
                     # y_data = y_pol_data.transpose() / y_pol_data_count
                     self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
                     self.logger.debug("Data queued for transmission.")
+                    print("Data queued for transmission.")
 
                     # Reset vars
                     x_pol_data = None
