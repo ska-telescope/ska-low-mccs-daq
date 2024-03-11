@@ -395,7 +395,7 @@ class SpsTangoTestHarness:
 
     def set_sps_station_device(  # pylint: disable=too-many-arguments
         self: SpsTangoTestHarness,
-        station_address: str = "10.0.0.128",
+        station_address: str = "10.0.0.152",
         subrack_ids: Iterable[int] = range(1, 3),
         tile_ids: Iterable[int] = range(1, 17),
         daq_trl: str = "",
