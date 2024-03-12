@@ -162,7 +162,7 @@ class DaqHandler:
         self._x_bandpass_plots: queue.Queue = queue.Queue()
         self._y_bandpass_plots: queue.Queue = queue.Queue()
         self._rms_plots: queue.Queue = queue.Queue()
-        self._station_name: str = ""
+        self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -547,11 +547,8 @@ class DaqHandler:
             #     if tmp > 5:
             #         return
 
-        # TODO: Retrieve station name or ID here.
-        station_name = "a_station_name"
-
         # Create plotting directory structure
-        if not self.create_plotting_directory(plot_directory, station_name):
+        if not self.create_plotting_directory(plot_directory, self._station_name):
             self.logger.error(
                 "Unable to create plotting directory at %s", plot_directory
             )
@@ -579,7 +576,7 @@ class DaqHandler:
 
         # Start directory monitor
         observer = Observer()
-        data_handler = IntegratedDataHandler(station_name)
+        data_handler = IntegratedDataHandler(self._station_name)
         observer.schedule(data_handler, data_directory)
         observer.start()
 
@@ -587,7 +584,11 @@ class DaqHandler:
         self.logger.debug("Starting bandpass plotting thread.")
         bandpass_plotting_thread = threading.Thread(
             target=self.generate_bandpass_plots,
-            args=(os.path.join(plot_directory, station_name), station_name, cadence),
+            args=(
+                os.path.join(plot_directory, self._station_name),
+                self._station_name,
+                cadence,
+            ),
         )
         bandpass_plotting_thread.start()
         # Wait for stop, monitoring disk space in the meantime
