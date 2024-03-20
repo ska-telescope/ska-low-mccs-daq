@@ -216,6 +216,7 @@ class Tile_1_6(Tile):
                    src_ip_fpga1=None, src_ip_fpga2=None,
                    dst_ip_fpga1=None, dst_ip_fpga2=None,
                    src_port=4661, dst_port=4660, dst_port_single_port_mode=4662, rx_port_single_port_mode=4662,
+                   netmask_40g=None, gateway_ip_40g=None,
                    active_40g_ports_setting="port1-only",
                    enable_adc=True,
                    enable_ada=False, enable_test=False, use_internal_pps=False,
@@ -335,10 +336,18 @@ class Tile_1_6(Tile):
 
         # Set destination and source IP/MAC/ports for 10G cores
         # This will create a loopback between the two FPGAs
-        self.set_default_eth_configuration(src_ip_fpga1, src_ip_fpga2,
-                                           dst_ip_fpga1, dst_ip_fpga2,
-                                           src_port, dst_port, dst_port_single_port_mode, rx_port_single_port_mode,
-                                           qsfp_detection)
+        self.set_default_eth_configuration(
+                                           src_ip_fpga1=src_ip_fpga1,
+                                           src_ip_fpga2=src_ip_fpga2,
+                                           dst_ip_fpga1=dst_ip_fpga1,
+                                           dst_ip_fpga2=dst_ip_fpga2,
+                                           src_port=src_port,
+                                           dst_port=dst_port,
+                                           channel2_dst_port=dst_port_single_port_mode,
+                                           channel2_rx_port=rx_port_single_port_mode,
+                                           netmask_40g=netmask_40g,
+                                           gateway_ip_40g=gateway_ip_40g,
+                                           qsfp_detection=qsfp_detection)
 
         for firmware in self.tpm.tpm_test_firmware:
             if not firmware.check_ddr_initialisation():
@@ -349,7 +358,9 @@ class Tile_1_6(Tile):
             logging.info("Using 10G for LMC traffic")
             self.set_lmc_download("10g", 8192,
                                   dst_ip=lmc_dst_ip,
-                                  dst_port=lmc_dst_port)
+                                  dst_port=lmc_dst_port,
+                                  netmask_40g=netmask_40g,
+                                  gateway_ip_40g=gateway_ip_40g)
         else:
             logging.info("Using 1G for LMC traffic")
             self.set_lmc_download("1g")
@@ -359,7 +370,9 @@ class Tile_1_6(Tile):
             logging.info("Using 10G for integrated LMC traffic")
             self.set_lmc_integrated_download("10g", 1024, 2048,
                                              dst_ip=lmc_dst_ip,
-                                             dst_port=lmc_dst_port)
+                                             dst_port=lmc_dst_port,
+                                             netmask_40g=netmask_40g,
+                                             gateway_ip_40g=gateway_ip_40g)
         else:
             logging.info("Using 1G for integrated LMC traffic")
             self.set_lmc_integrated_download("1g", 1024, 2048)

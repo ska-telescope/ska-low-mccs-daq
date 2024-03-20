@@ -7,6 +7,7 @@ from future.utils import iteritems
 from multiprocessing import Pool
 from threading import Thread
 from builtins import input
+from ipaddress import IPv4Interface
 import threading
 import logging
 import socket
@@ -42,6 +43,7 @@ configuration = {'tiles': None,
                      'bandwidth': 8 * (400e6 / 512.0),
                      'start_frequency_channel': 50e6},
                  'network': {
+                    'tile_40g_subnet' : None,
                      'lmc': {
                          'tpm_cpld_port': 10000,
                          'lmc_ip': "10.0.10.200",
@@ -128,11 +130,30 @@ def initialise_tile(params):
     nof_tiles = len(config['tiles'])
     this_tile_ip = socket.gethostbyname(config['tiles'][tile_number])
     next_tile_ip = socket.gethostbyname(config['tiles'][(tile_number + 1) % nof_tiles])
-
+    
+    # Default 40G network config as used at AAVS1 & AAVS2
     src_ip_40g_fpga1 = f"10.0.1.{this_tile_ip.split('.')[3]}"
     src_ip_40g_fpga2 = f"10.0.2.{this_tile_ip.split('.')[3]}"
     dst_ip_40g_fpga1 = f"10.0.1.{next_tile_ip.split('.')[3]}"
     dst_ip_40g_fpga2 = f"10.0.2.{next_tile_ip.split('.')[3]}"
+    netmask_40g = None
+    gateway_ip_40g = None
+    # Support for SKA-Low 40G network config with specified subnet
+    if config['network']['tile_40g_subnet'] is not None:
+        next_tile_number = tile_number + 1
+        ip_intf_40g = IPv4Interface(config['network']['tile_40g_subnet'])
+        first_40g_ip = ip_intf_40g.ip
+        netmask_40g = ip_intf_40g.network.netmask
+        gateway_ip_40g = ip_intf_40g.network.broadcast_address - 1
+        src_ip_40g_fpga1 = str(first_40g_ip + 2*tile_number)
+        src_ip_40g_fpga2 = str(first_40g_ip + 2*tile_number + 1)
+        dst_ip_40g_fpga1 = str(first_40g_ip + 2*next_tile_number)
+        dst_ip_40g_fpga2 = str(first_40g_ip + 2*next_tile_number + 1)
+    logging.info(f"Configuring TPM {tile_number} 40G Interfaces with IPs {src_ip_40g_fpga1} & {src_ip_40g_fpga2}, netmask {netmask_40g} and gateway {gateway_ip_40g}")
+    # Convert IPv4Address type to hex if not None
+    netmask_40g = int(netmask_40g) if netmask_40g is not None else netmask_40g
+    gateway_ip_40g = int(gateway_ip_40g) if gateway_ip_40g is not None else gateway_ip_40g
+
     src_port_40g = config['network']['csp_ingest']['src_port']
     dst_port_40g = config['network']['csp_ingest']['dst_port']
     rx_port_40g_single_port_mode = config['network']['csp_ingest']['dst_port'] + 2
@@ -140,7 +161,7 @@ def initialise_tile(params):
     is_first = tile_number == 0
     is_last = tile_number == nof_tiles - 1
 
-    if tile_number == nof_tiles - 1:    # if is_last?
+    if is_last:
         if config['network']['csp_ingest']['dst_ip'] != "0.0.0.0":
             dst_ip_40g_fpga1=config['network']['csp_ingest']['dst_ip']
             dst_ip_40g_fpga2=config['network']['csp_ingest']['dst_ip']
@@ -197,6 +218,8 @@ def initialise_tile(params):
             dst_port=dst_port_40g,
             dst_port_single_port_mode=dst_port_40g_single_port_mode,
             rx_port_single_port_mode=rx_port_40g_single_port_mode,
+            netmask_40g=netmask_40g,
+            gateway_ip_40g=gateway_ip_40g,
             active_40g_ports_setting="port1-only",  # "port2-only", "both-ports"
             qsfp_detection=config['station']['qsfp_detection'],
             enable_test=config['station']['enable_test'],

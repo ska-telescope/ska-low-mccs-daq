@@ -3,10 +3,10 @@ from time import sleep
 
 # TODO: Add method to report which slots of ON or OFF      
  
-RAL_SUBRACK_1 = "10.0.10.14"
-# RAL_SUBRACK_2 = "10.0.10.34"
-# RAL_SURBACK_3 = "10.0.10.54"
-# RAL_SUBRACK_4 = "10.0.10.74"
+RAL_SUBRACK_1 = "10.132.0.14"
+# RAL_SUBRACK_2 = "10.132.0.34"
+# RAL_SURBACK_3 = "10.132.0.54"
+# RAL_SUBRACK_4 = "10.132.0.74"
 OXFORD_SUBRACK_1 = "10.0.10.64"
 
 class Subrack:
