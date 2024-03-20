@@ -384,6 +384,11 @@ class Tile_1_6(Tile):
         for _station_beamf in self.tpm.station_beamf:
             _station_beamf.set_first_last_tile(is_first_tile, is_last_tile)
 
+        # Clear Health Monitoring Following Initialisation 
+        # Clears any false errors detected from bring-up
+        self.enable_health_monitoring()
+        self.clear_health_status()
+
     def f2f_aurora_test_start(self):
         """Start test on Aurora f2f link."""
         for f2f in self.tpm.tpm_f2f:
