@@ -324,6 +324,15 @@ class TileHealthMonitor():
                 value = list(value.values())[0]
             # Create dictionary of monitoring points in same format as lookup
             health_status = self._create_nested_dict(lookup, value, health_status)
+
+            # Clear select health_status point if defined.
+            if "clear_method" in lookup_entry:
+                try:
+                    lookup_entry["clear_method"]()
+                except Exception as e:
+                    self.logger.error(f"Unable to clear monitoring_point {monitoring_point} "
+                                      "Exception : {e}")
+
         return health_status
     
     @communication_check
