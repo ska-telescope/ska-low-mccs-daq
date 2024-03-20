@@ -4,9 +4,9 @@ from time import sleep
 # TODO: Add method to report which slots of ON or OFF      
  
 RAL_SUBRACK_1 = "10.132.0.14"
-# RAL_SUBRACK_2 = "10.132.0.34"
-# RAL_SURBACK_3 = "10.132.0.54"
-# RAL_SUBRACK_4 = "10.132.0.74"
+RAL_SUBRACK_2 = "10.132.0.34"
+RAL_SURBACK_3 = "10.132.0.54"
+RAL_SUBRACK_4 = "10.132.0.74"
 OXFORD_SUBRACK_1 = "10.0.10.64"
 
 class Subrack:
@@ -112,6 +112,18 @@ class OxfordSubrack(Subrack):
         super().__init__(ip=OXFORD_SUBRACK_1)
 
 
-class RALSubrack(Subrack):
+class RALSubrack1(Subrack):
     def __init__(self):
         super().__init__(ip=RAL_SUBRACK_1)
+
+class RALSubrack2(Subrack):
+    def __init__(self):
+        super().__init__(ip=RAL_SUBRACK_2)
+
+class RALSubrack3(Subrack):
+    def __init__(self):
+        super().__init__(ip=RAL_SUBRACK_3)
+
+class RALSubrack4(Subrack):
+    def __init__(self):
+        super().__init__(ip=RAL_SUBRACK_4)
