@@ -18,9 +18,8 @@ import time
 import math
 import os
 from ipaddress import IPv4Address
-from typing import Optional, List
 
-from pyfabil.base.definitions import Device, LibraryError, BoardError, Status, RegisterInfo
+from pyfabil.base.definitions import Device, LibraryError, BoardError, Status
 from pyfabil.base.utils import ip2long
 from pyfabil.boards.tpm import TPM
 
@@ -186,7 +185,6 @@ class Tile(TileHealthMonitor):
         info['fpga_firmware']['compile_host'] = self.tpm.tpm_firmware_information[0].get_host()
         info['fpga_firmware']['git_branch'] = self.tpm.tpm_firmware_information[0].get_git_branch()
         info['fpga_firmware']['git_commit'] = self.tpm.tpm_firmware_information[0].get_git_commit()
-        info['fpga_firmware']['version'] = self.tpm.tpm_firmware_information[0].get_firmware_version()
         # Dictionary manipulation, move 1G network information
         info['network'] = {}
         info['network']['1g_ip_address'] = IPv4Address(info['hardware']['ip_address'])
@@ -511,109 +509,6 @@ class Tile(TileHealthMonitor):
             self.enable_health_monitoring()
             self.clear_health_status()
 
-    @connected
-    def find_register(
-        self, 
-        register_name: str="", 
-        display: bool=False, 
-        info: bool=False
-    ) -> List[Optional[RegisterInfo]]:
-        """
-        Return register information from a provided search string.
-
-        Note: this is a wrapper method of 'pyfabil.tpm.find_register'
-
-         :param string: Regular expression to search against
-         :param display: True to output result to console
-         :param info: print a message with additional information if True.
-
-         :return: List of found registers
-         """
-        return self.tpm.find_register(register_name, display, info)
-    
-    @connected
-    def check_pll_locked(self):
-        """
-        Check in hardware if PLL is locked.
-
-        :return: True if PLL is locked.
-        """
-        pll_status = self.tpm["pll", 0x508]
-        return pll_status in [0xF2, 0xE7]
-
-    @connected
-    def get_beamformer_table(self, fpga_id: int = 0):
-        """
-        Returns a table with the following entries for each 8-channel block:
-        0: start physical channel (64-440)
-        1: beam_index:  subarray beam used for this region, range [0:48)
-        2: subarray_id: ID of the subarray [1:48]
-                Here is the same for all channels
-        3: subarray_logical_channel: Logical channel in the subarray
-                Here equal to the station logical channel
-        4: subarray_beam_id: ID of the subarray beam
-        5: substation_id: ID of the substation
-        6: aperture_id:  ID of the aperture (station*100+substation?)
-
-        :param fpga_id: A parameter to specify what fpga we want
-            to return the beamformer table for. (Default fpga_id = 0)
-
-        Note: this is a wrapper method of 'pyfabil.tpm.station_beamf.get_channel_table'
-
-        :return: Nx7 table with one row every 8 channels
-        """
-        return self.tpm.station_beamf[fpga_id].get_channel_table()
-
-    @connected
-    def define_channel_table(self, region_array: List[List[int]], fpga_id: Optional[int] = None):
-        """
-        Set frequency regions.
-
-        Regions are defined in a 2-d array, for a maximum of 16 regions.
-        Each element in the array defines a region, with the form:
-            [start_ch, nof_ch, beam_index,
-                <optional>
-            subarray_id, subarray_logical_ch, aperture_id, substation_id]
-            0: start_ch:    region starting channel (currently must be a
-                multiple of 2, LS bit discarded)
-            1: nof_ch:      size of the region: must be multiple of 8 chans
-            2: beam_index:  subarray beam used for this region, range [0:48)
-            3: subarray_id: ID of the subarray [1:48]
-            4: subarray_logical_channel: Logical channel in the subarray
-                it is the same for all (sub)stations in the subarray
-                Defaults to station logical channel
-            5: subarray_beam_id: ID of the subarray beam
-                Defaults to beam index
-            6: substation_ID: ID of the substation
-                Defaults to 0 (no substation)
-            7: aperture_id:  ID of the aperture (station*100+substation?)
-                Defaults to
-
-        Note: this is a wrapper method of 'pyfabil.tpm.station_beamf.define_channel_table'            
-
-        Total number of channels must be <= 384
-        The routine computes the arrays beam_index, region_off, region_sel,
-        and the total number of channels nof_chans,
-        and programs it in the hardware.
-        Optional parameters are placeholders for firmware supporting
-        more than 1 subarray. Current firmware supports only one subarray
-        and substation, so corresponding IDs must be the same in each row
-
-        :param fpga_id: the id of the fpga we want to define the channel table for.
-            if None both are configured.
-        :param region_array: bidimensional array, one row for each
-                        spectral region, 3 or 8 items long
-        
-        :return: True if OK
-        """
-        if fpga_id is None:
-            # define in both fpga.
-            is_fpga1_set = self.tpm.station_beamf[0].define_channel_table(region_array)
-            is_fpga2_set =self.tpm.station_beamf[1].define_channel_table(region_array)
-            return is_fpga1_set & is_fpga2_set
-
-        return self.tpm.station_beamf[fpga_id].define_channel_table(region_array)
-        
     def program_fpgas(self, bitfile):
         """
         Program both FPGAs with specified firmware.
@@ -911,7 +806,7 @@ class Tile(TileHealthMonitor):
         if not self.tpm.has_register("fpga1.dsp_regfile.config_id.is_master"):
             self.logger.warning("TPM firmware does not support different active 40G port configurations. Both 40G ports will be used.")
             return
-        if self.tpm_version() == "tpm_v1_2":
+        if self.tpm_version == "tpm_v1_2":
             self.logger.warning("TPM 1.2 does not support different active 40G port configurations. Both 40G ports will be used.")
             return
         if configuration == "port1-only":
@@ -1001,7 +896,7 @@ class Tile(TileHealthMonitor):
                     cable_detected = True
                 elif qsfp_detection == "flyover_test":
                     cable_detected = True
-                    if self.tpm_version() == "tpm_v1_2":
+                    if self.tpm_version == "tpm_v1_2":
                         self.logger.warning(
                             "Forcing QSFP module detection as 'flyover_test' is not supported on TPM 1.2"
                         )
@@ -2829,7 +2724,7 @@ class Tile(TileHealthMonitor):
         assert set(range(len(levels))) == set(self.preadu_signal_map)
 
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
+            if self.tpm_version == "tpm_v1_2":
                 preadu.select_low_passband()
             preadu.read_configuration()
 
@@ -2848,7 +2743,7 @@ class Tile(TileHealthMonitor):
         :return: Attenuation levels corresponding to each ADC channel, in dB.
         """
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
+            if self.tpm_version == "tpm_v1_2":
                 preadu.select_low_passband()
             preadu.read_configuration()
 
@@ -2865,7 +2760,7 @@ class Tile(TileHealthMonitor):
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
+            if self.tpm_version == "tpm_v1_2":
                 preadu.select_low_passband()
             preadu.read_configuration()
 
@@ -2896,7 +2791,7 @@ class Tile(TileHealthMonitor):
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
+            if self.tpm_version == "tpm_v1_2":
                 preadu.select_low_passband()
             preadu.read_configuration()
             preadu.set_attenuation(attenuation, list(range(16)))
@@ -3006,14 +2901,13 @@ class Tile(TileHealthMonitor):
                f"DDR Memory Capacity          | {info['hardware']['DDR_SIZE_GB']} GB per FPGA \n"\
                f"{'_'*29}|{'_'*60} \n"\
                f"{' '*29}| \n"\
-               f"FPGA Firmware Design         | {info['fpga_firmware']['design']} \n" \
-               f"FPGA Firmware Release        | {info['fpga_firmware']['version']} \n" \
-               f"FPGA Firmware Build          | {info['fpga_firmware']['build']} \n"\
+               f"FPGA Firmware Design         | {info['fpga_firmware']['design']} \n"\
+               f"FPGA Firmware Revision       | {info['fpga_firmware']['build']} \n"\
                f"FPGA Firmware Compile Time   | {info['fpga_firmware']['compile_time']} UTC \n"\
                f"FPGA Firmware Compile User   | {info['fpga_firmware']['compile_user']}  \n"\
                f"FPGA Firmware Compile Host   | {info['fpga_firmware']['compile_host']} \n"\
                f"FPGA Firmware Git Branch     | {info['fpga_firmware']['git_branch']} \n"\
-               f"FPGA Firmware Git Commit     | {info['fpga_firmware']['git_commit']} \n" \
+               f"FPGA Firmware Git Commit     | {info['fpga_firmware']['git_commit']} \n"\
                f"{'_'*29}|{'_'*60} \n"\
                f"{' '*29}| \n"\
                f"1G (MGMT) IP Address         | {str(info['network']['1g_ip_address'])} \n"\
@@ -3169,7 +3063,6 @@ class Tile(TileHealthMonitor):
                         "time": "",
                         "author": "",
                         "board": "",
-                        "firmware_version": "",
                     }
                 )
         else:
@@ -3187,14 +3080,9 @@ class Tile(TileHealthMonitor):
                             "time": plugin.get_time(),
                             "author": plugin.get_user(),
                             "board": plugin.get_board(),
-                            "firmware_version": plugin.get_firmware_version(),
                         }
                     )
         return firmware
-
-    @connected
-    def get_ddr_if_stat(self,key, fpga_id=0):
-        return self.tpm[f"fpga{fpga_id+1}.ddr_if.{key}"]
 
 if __name__ == "__main__":
     tile = Tile(ip="10.0.10.2", port=10000)
