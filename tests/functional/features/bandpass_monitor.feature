@@ -1,9 +1,11 @@
+@XTP-34301
 Feature: Test bandpass monitor
     Test that antenna bandpasses can be received and plots of them can be produced
 
     Background:
         Given interface eth0
 
+    @XTP-34297
     Scenario: Not listening for integrated channel data
         Given the DAQ is available
         And no consumers are running
@@ -12,6 +14,7 @@ Feature: Test bandpass monitor
         When the DAQ is commanded to start monitoring for bandpasses with `auto_handle_daq` set to `False`
         Then the DAQ rejects the command and reports that the integrated channel data consumer must be running to monitor for bandpasses
 
+    XTP-34299
     Scenario: Stop bandpass monitor
         Given the DAQ is available
         And no consumers are running
@@ -21,6 +24,7 @@ Feature: Test bandpass monitor
         When the DAQ is commanded to stop monitoring bandpasses
         Then the DAQ reports that it is stopping monitoring bandpasses
 
+    @XTP-34300
     Scenario: Receive bandpass data
         Given the DAQ is available
         And no consumers are running
