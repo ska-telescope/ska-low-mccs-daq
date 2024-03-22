@@ -14,7 +14,7 @@ Feature: Test bandpass monitor
         When the DAQ is commanded to start monitoring for bandpasses with `auto_handle_daq` set to `False`
         Then the DAQ rejects the command and reports that the integrated channel data consumer must be running to monitor for bandpasses
 
-    XTP-34299
+    @XTP-34299
     Scenario: Stop bandpass monitor
         Given the DAQ is available
         And no consumers are running
