@@ -134,32 +134,32 @@ def load_tpm_1_2_lookup(obj):
         'timing': {
             'clocks': {
                 'FPGA0': {
-                    'JESD': {"method": partial(obj.check_clock_status, fpga_id=0, clock_name='JESD'), "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True},
-                    'DDR' : {"method": partial(obj.check_clock_status, fpga_id=0, clock_name='DDR'),  "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True},
-                    'UDP' : {"method": partial(obj.check_clock_status, fpga_id=0, clock_name='UDP'),  "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True}
+                    'JESD': {"method": partial(obj.check_clock_status, fpga_id=0, clock_name='JESD'), "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True, "clear_method": partial(obj.clear_clock_status, fpga_id=0, clock_name='JESD')},
+                    'DDR' : {"method": partial(obj.check_clock_status, fpga_id=0, clock_name='DDR'),  "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True, "clear_method": partial(obj.clear_clock_status, fpga_id=0, clock_name='DDR')},
+                    'UDP' : {"method": partial(obj.check_clock_status, fpga_id=0, clock_name='UDP'),  "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True, "clear_method": partial(obj.clear_clock_status, fpga_id=0, clock_name='UDP')}
                 },
                 'FPGA1': {
-                    'JESD': {"method": partial(obj.check_clock_status, fpga_id=1, clock_name='JESD'), "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True},
-                    'DDR' : {"method": partial(obj.check_clock_status, fpga_id=1, clock_name='DDR'),  "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True},
-                    'UDP' : {"method": partial(obj.check_clock_status, fpga_id=1, clock_name='UDP'),  "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True}
+                    'JESD': {"method": partial(obj.check_clock_status, fpga_id=1, clock_name='JESD'), "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True, "clear_method": partial(obj.clear_clock_status, fpga_id=1, clock_name='JESD')},
+                    'DDR' : {"method": partial(obj.check_clock_status, fpga_id=1, clock_name='DDR'),  "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True, "clear_method": partial(obj.clear_clock_status, fpga_id=1, clock_name='DDR')},
+                    'UDP' : {"method": partial(obj.check_clock_status, fpga_id=1, clock_name='UDP'),  "rate": ["fast"], "group": ["timing", "clocks"], "exp_value": True, "clear_method": partial(obj.clear_clock_status, fpga_id=1, clock_name='UDP')}
                 }
             },
             'clock_managers' : {
                 'FPGA0': {
-                    'C2C_MMCM' : {"method": partial(obj.check_clock_manager_status, fpga_id=0, name='C2C'),  "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0)},
-                    'JESD_MMCM': {"method": partial(obj.check_clock_manager_status, fpga_id=0, name='JESD'), "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0)},
-                    'DSP_MMCM' : {"method": partial(obj.check_clock_manager_status, fpga_id=0, name='DSP'),  "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0)}
+                    'C2C_MMCM' : {"method": partial(obj.check_clock_manager_status, fpga_id=0, name='C2C'),  "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0), "clear_method": partial(obj.clear_clock_manager_status, fpga_id=0, name='C2C')},
+                    'JESD_MMCM': {"method": partial(obj.check_clock_manager_status, fpga_id=0, name='JESD'), "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0), "clear_method": partial(obj.clear_clock_manager_status, fpga_id=0, name='JESD')},
+                    'DSP_MMCM' : {"method": partial(obj.check_clock_manager_status, fpga_id=0, name='DSP'),  "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0), "clear_method": partial(obj.clear_clock_manager_status, fpga_id=0, name='DSP')}
                 },
                 'FPGA1': {
-                    'C2C_MMCM' : {"method": partial(obj.check_clock_manager_status, fpga_id=1, name='C2C'),  "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0)},
-                    'JESD_MMCM': {"method": partial(obj.check_clock_manager_status, fpga_id=1, name='JESD'), "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0)},
-                    'DSP_MMCM' : {"method": partial(obj.check_clock_manager_status, fpga_id=1, name='DSP'),  "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0)}
+                    'C2C_MMCM' : {"method": partial(obj.check_clock_manager_status, fpga_id=1, name='C2C'),  "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0), "clear_method": partial(obj.clear_clock_manager_status, fpga_id=1, name='C2C')},
+                    'JESD_MMCM': {"method": partial(obj.check_clock_manager_status, fpga_id=1, name='JESD'), "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0), "clear_method": partial(obj.clear_clock_manager_status, fpga_id=1, name='JESD')},
+                    'DSP_MMCM' : {"method": partial(obj.check_clock_manager_status, fpga_id=1, name='DSP'),  "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0), "clear_method": partial(obj.clear_clock_manager_status, fpga_id=1, name='DSP')}
                 }
             },
             'pps': {
-                'status': {"method": obj.check_pps_status, "rate": ["fast"], "group": ["timing", "pps"], "exp_value": True}
+                'status': {"method": obj.check_pps_status, "rate": ["fast"], "group": ["timing", "pps"], "exp_value": True, "clear_method": obj.clear_pps_status}
             },
-            'pll': {"method": obj.check_ad9528_pll_status, "rate": ["fast"], "group": ["timing", "pll"], "exp_value": (True, 0)}
+            'pll': {"method": obj.check_ad9528_pll_status, "rate": ["fast"], "group": ["timing", "pll"], "exp_value": (True, 0), "clear_method": obj.clear_ad9528_pll_status}
         },
         'io':{
             'jesd_interface': {
@@ -187,8 +187,8 @@ def load_tpm_1_2_lookup(obj):
             'ddr_interface': {
                 'initialisation': {"method": obj.check_ddr_initialisation, "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": True},
                 'reset_counter' : {
-                    'FPGA0': {"method": partial(obj.check_ddr_reset_counter, fpga_id=0, show_result=False), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": 0},
-                    'FPGA1': {"method": partial(obj.check_ddr_reset_counter, fpga_id=1, show_result=False), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": 0}
+                    'FPGA0': {"method": partial(obj.check_ddr_reset_counter, fpga_id=0, show_result=False), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": 0, "clear_method": partial(obj.clear_ddr_reset_counter, fpga_id=0),},
+                    'FPGA1': {"method": partial(obj.check_ddr_reset_counter, fpga_id=1, show_result=False), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": 0, "clear_method": partial(obj.clear_ddr_reset_counter, fpga_id=1),}
                 }
             },
             'f2f_interface': {
@@ -198,7 +198,7 @@ def load_tpm_1_2_lookup(obj):
             },
             'udp_interface': {
                 'arp'            : {"method": partial(obj.check_udp_arp_table_status, show_result=False), "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": True},
-                'status'         : {"method": obj.check_udp_status,                                       "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": True},
+                'status'         : {"method": obj.check_udp_status,                                       "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": True, "clear_method":obj.clear_udp_status},
                 'crc_error_count': {
                     'FPGA0': {"method": partial(obj.check_udp_crc_error_counter, fpga_id=0), "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": 0},
                     'FPGA1': {"method": partial(obj.check_udp_crc_error_counter, fpga_id=1), "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": 0}
@@ -218,9 +218,9 @@ def load_tpm_1_2_lookup(obj):
             }
         },
         'dsp': {
-            'tile_beamf': {"method": obj.check_tile_beamformer_status, "rate": ["fast"], "group": ["dsp", "tile_beamf"], "exp_value": True},
+            'tile_beamf': {"method": obj.check_tile_beamformer_status, "rate": ["fast"], "group": ["dsp", "tile_beamf"], "exp_value": True, "clear_method": obj.clear_tile_beamformer_status},
             'station_beamf': {
-                'status'                : {"method": obj.check_station_beamformer_status, "rate": ["fast"], "group": ["dsp", "station_beamf"], "exp_value": True},
+                'status'                : {"method": obj.check_station_beamformer_status, "rate": ["fast"], "group": ["dsp", "station_beamf"], "exp_value": True, "clear_method": obj.clear_station_beamformer_status},
                 'ddr_parity_error_count': {"method": obj.check_ddr_parity_error_counter,  "rate": ["fast"], "group": ["dsp", "station_beamf"], "exp_value": {'FPGA0': 0, 'FPGA1': 0}},
             }
         }

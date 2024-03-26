@@ -324,22 +324,58 @@ class TileHealthMonitor():
                 value = list(value.values())[0]
             # Create dictionary of monitoring points in same format as lookup
             health_status = self._create_nested_dict(lookup, value, health_status)
+
+            # Clear select health_status point if defined.
+            if "clear_method" in lookup_entry:
+                try:
+                    lookup_entry["clear_method"]()
+                except Exception as e:
+                    self.logger.error(f"Unable to clear monitoring_point {monitoring_point} "
+                                      "Exception : {e}")
+
         return health_status
     
     @communication_check
     @health_monitoring_compatible
-    def clear_health_status(self):
-        self.clear_clock_status(fpga_id=None, clock_name=None)
-        self.clear_clock_manager_status(fpga_id=None, name=None)
-        self.clear_pps_status(fpga_id=None)
-        self.clear_ad9528_pll_status()
-        self.clear_jesd_error_counters(fpga_id=None)
-        self.clear_ddr_reset_counter(fpga_id=None)
-        self.clear_f2f_pll_lock_loss_counter(core_id=None)
-        self.clear_udp_status(fpga_id=None)
-        self.clear_tile_beamformer_status(fpga_id=None)
-        self.clear_station_beamformer_status(fpga_id=None)
-        return
+    def clear_health_status(self, group = None):
+        """
+        Clear health status by group.
+
+        :param group: Optional monitoring point group to clear.
+
+        By default group is None, meaning all health status are cleared.
+        """
+        if group is None:
+            self.clear_clock_status(fpga_id=None, clock_name=None)
+            self.clear_clock_manager_status(fpga_id=None, name=None)
+            self.clear_pps_status(fpga_id=None)
+            self.clear_ad9528_pll_status()
+            self.clear_jesd_error_counters(fpga_id=None)
+            self.clear_ddr_reset_counter(fpga_id=None)
+            self.clear_f2f_pll_lock_loss_counter(core_id=None)
+            self.clear_udp_status(fpga_id=None)
+            self.clear_tile_beamformer_status(fpga_id=None)
+            self.clear_station_beamformer_status(fpga_id=None)
+        elif group == "clocks":
+            self.clear_clock_status(fpga_id=None, clock_name=None)
+        elif group == "clock_managers":
+            self.clear_clock_manager_status(fpga_id=None, name=None)
+        elif group == "pps":
+                self.clear_pps_status(fpga_id=None)
+        elif group == "pll":
+                self.clear_ad9528_pll_status()
+        elif group == "jesd_interface":
+            self.clear_jesd_error_counters(fpga_id=None)
+        elif group == "ddr_interface":
+            self.clear_ddr_reset_counter(fpga_id=None)
+        elif group == "f2f_interface":
+            self.clear_f2f_pll_lock_loss_counter(core_id=None)
+        elif group == "udp_interface":
+            self.clear_udp_status(fpga_id=None)
+        elif group == "tile_beamf":
+            self.clear_tile_beamformer_status(fpga_id=None)
+        elif group == "station_beamf": 
+            self.clear_station_beamformer_status(fpga_id=None)
 
     def fpga_gen(self, fpga_id):
         return range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
