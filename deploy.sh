@@ -14,7 +14,7 @@ function display_help(){
     echo "-C             Correlator will be compiled, installing CUDA and xGPU in the process (off by default)"
     echo "               NOTE: Automated install of CUDA and xGPU not supported yet"
     echo "-p             Activate AAVS virtualenv in .bashrc (off by default)"
-    echo "-a <aavs path> specifies location of installed AAVS (default /opt/aavs)"
+    echo "-a <aavs path> specifies location of installed AAVS (default /opt/aavs), must be absolute"
     echo "-v <venv path> specifies location of 'python' virtualenv folder (default /opt/aavs)"
     echo "-b <pyfabil_branch> specifies pyfabil branch to be installed"
     echo "-t <itpm_bios_branch> specifies itpm-bios branch to be installed"
@@ -97,6 +97,12 @@ do
            ;;
     esac
 done
+
+
+if [ "$VENV_INSTALL" == "/opt/aavs" ]; then
+    export VENV_INSTALL=$AAVS_INSTALL;
+fi
+
 
 # Check if printing help
 if [ $PRINT_HELP == true ]; then
@@ -184,11 +190,6 @@ function create_install() {
   fi
 
 
-  export AAVS_INSTALL=$AAVS_INSTALL
-  if [[ ! -n "`cat ~/.bashrc | grep AAVS_INSTALL`" ]]; then
-      echo "export AAVS_INSTALL=$AAVS_INSTALL" >> ~/.bashrc
-  fi
-
 
   # Create python3 virtual environment
   if [[ ! -d "$VENV_INSTALL/python" ]]; then
@@ -198,9 +199,9 @@ function create_install() {
     # virtualenv -p python3 $AAVS_INSTALL/python
     $PYTHON -m venv $VENV_INSTALL/python
     
-    # Add AAVS virtual environment alias to .bashrc
+    # Add AAVS virtual environment alias to .bashrc, uses default venv
     if [[ ! -n "`cat ~/.bashrc | grep aavs_python`" ]]; then
-      echo "alias aavs_python=\"source $VENV_INSTALL/python/bin/activate\"" >> ~/.bashrc
+      echo "alias aavs_python=\"source /opt/aavs/python/bin/activate\"" >> ~/.bashrc
       echo "Setting virtual environment alias"
 
       # Check if compiling correlator
@@ -233,6 +234,11 @@ echo "Created installation directory tree"
 # If software directory is not defined in environment, set it
 if [ -z "$AAVS_SOFTWARE_DIRECTORY" ]; then
   export AAVS_SOFTWARE_DIRECTORY=`pwd`
+fi
+
+
+if [[ ! -n "`cat $VENV_INSTALL/python/bin/activate | grep AAVS_INSTALL`" ]]; then
+    echo "export AAVS_INSTALL=$AAVS_INSTALL" >> $VENV_INSTALL/python/bin/activate
 fi
 
 # Start python virtual environment
