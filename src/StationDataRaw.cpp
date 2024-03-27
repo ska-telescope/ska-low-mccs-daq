@@ -9,6 +9,10 @@
 #include "StationDataRaw.h"
 #include "SPEAD.h"
 
+// Constants needed to manage time in TAI format
+//
+const uint64_t TAI_2000 = 946684768 - 5; // Unix time of TAI 2000, including extra leap seconds
+const double TAI_OFFSET = 37.0;    // TAI-UTC offset since 2017-01-01
 // -------------------------------------------------------------------------------------------------------------
 // STATION DATA CONSUMER
 // -------------------------------------------------------------------------------------------------------------
@@ -149,6 +153,12 @@ bool StationRawData::processPacket()
     // Get the number of items and get a pointer to the packet payload
     auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
     uint8_t *payload = packet + SPEAD_HEADERLEN + nofitems * SPEAD_ITEMLEN;
+    // check if header is using TAI time: 6 elements in header,
+    // timestamp entry implicit at TAI 2000.0
+    bool tai_time = (nofitems == 6);
+    if (tai_time) {
+        timestamp = TAI_2000;
+    }
 
     for(unsigned i = 1; i <= nofitems; i++)
     {
@@ -157,8 +167,12 @@ bool StationRawData::processPacket()
         {
             case 0x0001:  // Heap counter
             {
-                logical_channel_id = (uint16_t) ((SPEAD_ITEM_ADDR(item) >> 32) & 0xFFFF); // 16-bits
-                packet_counter = (uint32_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFF); // 32-bits
+                if (tai_time) {
+                    packet_counter = (uint64_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFFFFLL); // 40-bits
+                } else {
+                    logical_channel_id = (uint16_t) ((SPEAD_ITEM_ADDR(item) >> 32) & 0xFFFF); // 16-bits
+                    packet_counter = (uint32_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFF); // 32-bits
+		}
                 break;
             }
             case 0x0004: // Payload length
@@ -184,6 +198,9 @@ bool StationRawData::processPacket()
             case 0x3000: // Antenna and Channel information
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
+                if (tai_time) {
+                    logical_channel_id = (uint16_t) ((SPEAD_ITEM_ADDR(item) >> 32) & 0xFFFF); // 16-bits
+                }
                 beam_id = (uint16_t) ((val >> 16) & 0xFFFF);
                 frequency_id = (uint16_t) (val & 0xFFFF);
                 break;
@@ -215,16 +232,18 @@ bool StationRawData::processPacket()
         }
     }
 
-    // Check whether timestamp counter has rolled over
-    if (timestamp == 0 && logical_channel_id == 0) {
-        timestamp_rollover += 1;
-        timestamp += timestamp_rollover << 48;
+    if (!tai_time) {
+        // Check whether timestamp counter has rolled over
+	if (timestamp == 0 && logical_channel_id == 0) {
+	    timestamp_rollover += 1;
+	    timestamp += timestamp_rollover << 48;
+	}
+	else if (timestamp == 0)
+	    timestamp += timestamp_rollover << 48;
+	else
+	    // Multiply packet_counter by rollover counts
+            timestamp += timestamp_rollover << 48;
     }
-    else if (timestamp == 0)
-        timestamp += timestamp_rollover << 48;
-    else
-        // Multiply packet_counter by rollover counts
-        timestamp += timestamp_rollover << 48;
 
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
@@ -554,7 +573,7 @@ void StationRawPersister::threadEntry()
             RawStationMetadata metadata = {buffer->frequency,
                                            buffer->nof_packets,
                                            buffer->seq_number,
-	    				                   buffer->sample_offset};
+	    				   buffer->sample_offset};
             callback(buffer->data, buffer->ref_time, &metadata);
         }
         else
