@@ -2,6 +2,7 @@
 
 ## unreleased
 
+* [MCCS-1883] Add bandpass monitor labels. Fix attribute size.
 * [MCCS-1885] Introduce `cadence` as an argument to bandpass monitor.
 
 ## 0.6.1

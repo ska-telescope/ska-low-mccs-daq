@@ -20,9 +20,6 @@ from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 import h5py
 import numpy as np
-from matplotlib.backends.backend_svg import FigureCanvasSVG as FigureCanvas
-from matplotlib.figure import Figure
-from past.utils import old_div
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
@@ -165,6 +162,7 @@ class DaqHandler:
         self._x_bandpass_plots: queue.Queue = queue.Queue()
         self._y_bandpass_plots: queue.Queue = queue.Queue()
         self._rms_plots: queue.Queue = queue.Queue()
+        self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -190,7 +188,7 @@ class DaqHandler:
             )
         else:
             metadata = self.daq_instance._persisters[daq_mode].get_metadata()
-        if additional_info is not None:
+        if additional_info is not None and metadata is not None:
             metadata["additional_info"] = additional_info
 
         # Call additional callbacks per data mode if needed.
@@ -421,9 +419,11 @@ class DaqHandler:
             "Receiver Interface": receiver_interface,
             "Receiver Ports": receiver_ports,
             "Receiver IP": [
-                receiver_ip.decode()
-                if isinstance(receiver_ip, bytes)
-                else receiver_ip  # noqa: E501
+                (
+                    receiver_ip.decode()
+                    if isinstance(receiver_ip, bytes)
+                    else receiver_ip
+                )  # noqa: E501
             ],
             "Bandpass Monitor": self._monitoring_bandpass,
         }
@@ -446,11 +446,13 @@ class DaqHandler:
 
             * monitor_rms: Flag to enable or disable RMS monitoring.
                 Optional. Default False.
+                [DEPRECATED - To be removed.]
 
             * auto_handle_daq: Flag to indicate whether the DaqReceiver should
                 be automatically reconfigured, started and stopped during this
                 process if necessary.
                 Optional. Default False.
+                [DEPRECATED - To be removed.]
 
             * cadence: Number of seconds over which to average data.
                 Optional. Default 0 (returns snapshots).
@@ -545,16 +547,8 @@ class DaqHandler:
             #     if tmp > 5:
             #         return
 
-        # TODO: Retrieve station name or ID here.
-        station_name = "a_station_name"
-
-        # Get and store antenna positions
-        # self._antenna_locations[station_name] = get_antenna_positions(
-        #     station_name
-        #     )
-
         # Create plotting directory structure
-        if not self.create_plotting_directory(plot_directory, station_name):
+        if not self.create_plotting_directory(plot_directory, self._station_name):
             self.logger.error(
                 "Unable to create plotting directory at %s", plot_directory
             )
@@ -582,7 +576,7 @@ class DaqHandler:
 
         # Start directory monitor
         observer = Observer()
-        data_handler = IntegratedDataHandler(station_name)
+        data_handler = IntegratedDataHandler(self._station_name)
         observer.schedule(data_handler, data_directory)
         observer.start()
 
@@ -590,11 +584,15 @@ class DaqHandler:
         self.logger.debug("Starting bandpass plotting thread.")
         bandpass_plotting_thread = threading.Thread(
             target=self.generate_bandpass_plots,
-            args=(os.path.join(plot_directory, station_name), station_name, cadence),
+            args=(
+                os.path.join(plot_directory, self._station_name),
+                self._station_name,
+                cadence,
+            ),
         )
         bandpass_plotting_thread.start()
         # Wait for stop, monitoring disk space in the meantime
-        max_dir_size = 200 * 1024 * 1024
+        max_dir_size = 1000 * 1024 * 1024
 
         self.logger.info("Bandpass monitor active, entering wait loop.")
         self.logger.info(
@@ -656,6 +654,7 @@ class DaqHandler:
                 # If we don't have any plots, don't uselessly spam [None]s.
                 pass
             else:
+                self.logger.debug("Transmitting bandpass data.")
                 yield (
                     TaskStatus.IN_PROGRESS,
                     "plot sent",
@@ -663,6 +662,7 @@ class DaqHandler:
                     y_bandpass_plot,
                     rms_plot,
                 )
+                self.logger.debug("Bandpass data transmitted.")
             sleep(1)  # Plots will never be sent more often than once per second.
 
         # Stop and clean up
@@ -836,92 +836,20 @@ class DaqHandler:
         nof_channels = config["nof_channels"]
         nof_antennas_per_tile = config["nof_antennas"]
         nof_pols = config["nof_polarisations"]
+        nof_tiles = config["nof_tiles"]
 
         x_pol_data: np.ndarray | None = None
+        x_pol_data_count: int = 0
         y_pol_data: np.ndarray | None = None
+        y_pol_data_count: int = 0
+        # The shape is reversed as DAQ reads the data this way around.
+        full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=int)
+        files_received_per_tile: list[int] = [0] * nof_tiles
         interval_start = None
 
-        _freq_range = np.arange(1, nof_channels) * (old_div(bandwidth, nof_channels))
         _filename_expression = re.compile(
             r"channel_integ_(?P<tile>\d+)_(?P<timestamp>\d+_\d+)_0.hdf5"
         )
-
-        # Define fibre - antenna mapping
-        _fibre_preadu_mapping = {
-            0: 1,
-            1: 2,
-            2: 3,
-            3: 4,
-            7: 13,
-            6: 14,
-            5: 15,
-            4: 16,
-            8: 5,
-            9: 6,
-            10: 7,
-            11: 8,
-            15: 9,
-            14: 10,
-            13: 11,
-            12: 12,
-        }
-
-        # Define plotting parameters
-        _ribbon_color = {
-            1: "gray",
-            2: "g",
-            3: "r",
-            4: "k",
-            5: "y",
-            6: "m",
-            7: "deeppink",
-            8: "c",
-            9: "gray",
-            10: "g",
-            11: "r",
-            12: "k",
-            13: "y",
-            14: "m",
-            15: "deeppink",
-            16: "c",
-        }
-        _pol_map = ["X", "Y"]
-
-        # Set up figure and initialise with dummy data
-        plot_lines = []
-        fig = Figure(figsize=(8, 4))
-        canvas = FigureCanvas(fig)
-        ax = fig.add_subplot(111)
-
-        for antenna in range(nof_antennas_per_tile):
-            tpm_input = _fibre_preadu_mapping[antenna]
-            plot_lines.append(
-                ax.plot(
-                    _freq_range,
-                    list(range(511)),
-                    label=f"Antenna {antenna} (RX {tpm_input})",
-                    color=_ribbon_color[tpm_input],
-                    linewidth=0.6,
-                )[0]
-            )
-
-        # TODO: This is commented out until we actually have somewhere that can tell us
-        #       about antenna locations. Any other implicated code is also commented
-        #       out further down this method. (Mostly graph labels.)
-        # Extract antenna locations
-        # antenna_base, _, _ = self._antenna_locations[station_name]
-
-        # Make nice
-        ax.set_xlim((0, bandwidth))
-        ax.set_ylim((0, 50))
-        ax.set_title(f"Tile {0} - Pol {_pol_map[0]}", fontdict={"fontweight": "bold"})
-        ax.set_xlabel("Frequency (MHz)")
-        ax.set_ylabel("Power (dB)")
-        date_text = ax.text(300, 38, "Today's Date", weight="bold", size="10")
-        # legend = ax.legend(loc="lower center", ncol=4, prop={"size": 4})
-        ax.minorticks_on()
-        ax.grid(b=True, which="major", color="0.3", linestyle="-", linewidth=0.5)
-        ax.grid(b=True, which="minor", color="0.8", linestyle="--", linewidth=0.1)
 
         # Loop until asked to stop
         self.logger.info("Entering bandpass plotting loop.")
@@ -933,7 +861,7 @@ class DaqHandler:
 
             # Get the first item in the list
             filepath = files_to_plot[station_name].pop(0)
-            self.logger.info("Processing %s", filepath)
+            self.logger.debug("Processing %s", filepath)
 
             # Extract Tile number
             filename = os.path.basename(os.path.abspath(filepath))
@@ -941,96 +869,96 @@ class DaqHandler:
 
             if parts is not None:
                 tile_number = int(parts.groupdict()["tile"])
+            if tile_number is not None:
+                try:
+                    files_received_per_tile[tile_number] += 1
+                except IndexError as e:
+                    self.logger.error(
+                        f"Caught exception: {e}. "
+                        f"Tile {tile_number} out of bounds! "
+                        f"Max tile number: {len(files_received_per_tile)}"
+                    )
 
             # Open newly create HDF5 file
             with h5py.File(filepath, "r") as f:
                 # Data is in channels/antennas/pols order
                 try:
                     data: np.ndarray = f["chan_"]["data"][:]
-                    timestamp = f["sample_timestamps"]["data"][0]
                 # pylint: disable=broad-exception-caught
                 except Exception as e:
                     self.logger.error("Exception: %s", e)
                     continue
                 data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
 
-                # Convert to power in dB
-                np.seterr(divide="ignore")
-                data = 10 * np.log10(data)
-                data[np.isneginf(data)] = 0
-                np.seterr(divide="warn")
+                # # Convert to power in dB
+                # np.seterr(divide="ignore")
+                # data = 10 * np.log10(data)
+                # data[np.isneginf(data)] = 0
+                # np.seterr(divide="warn")
 
-            # Format datetime
-            temp = datetime.datetime.utcfromtimestamp(timestamp[0])
+            # Append Tile data to full station set.
+            # full_station_data is made of blocks of data per TPM in TPM order.
+            # Each block of TPM data is in port order.
+            start_index = nof_antennas_per_tile * tile_number
+            full_station_data[
+                :, start_index : start_index + nof_antennas_per_tile, :
+            ] = data
+
             present = datetime.datetime.now()
-
-            date_time = temp.strftime(self.TIME_FORMAT_STRING)
             if interval_start is None:
                 interval_start = present
 
+            # TODO: This block is currently useless. Get averaging back in.
             # Loop over polarisations (separate plots)
             for pol in range(nof_pols):
-                # Assign first data point or calculate average
-                if pol == 0:
+                # Assign first data point or maintain sum of all data.
+                # Divide by _pol_data_count to calculate the moving average on-demand.
+                if pol == 1:
                     if x_pol_data is None:
-                        x_pol_data = data[1:, :, pol]
+                        x_pol_data_count = 1
+                        x_pol_data = full_station_data[:, :, pol]
                     else:
-                        # Can we calc avgs in this way? :S
-                        x_pol_data = (x_pol_data + data[1:, :, pol]) / 2
-                elif pol == 1:
+                        x_pol_data_count += 1
+                        x_pol_data = x_pol_data + full_station_data[:, :, pol]
+                elif pol == 0:
                     if y_pol_data is None:
-                        y_pol_data = data[1:, :, pol]
+                        y_pol_data_count = 1
+                        y_pol_data = full_station_data[:, :, pol]
                     else:
-                        y_pol_data = (y_pol_data + data[1:, :, pol]) / 2
+                        y_pol_data_count += 1
+                        y_pol_data = y_pol_data + full_station_data[:, :, pol]
 
             # Delete read file.
             os.unlink(filepath)
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
-            if (present - interval_start).total_seconds() > cadence:
-                self.logger.info("Plotting graphs and queueing data for transmission")
-                # Loop over polarisations (separate plots)
-                for pol in range(nof_pols):
-                    # Loop over antennas, change plot data and label text
-                    for i, antenna in enumerate(range(nof_antennas_per_tile)):
-                        # Plot average
-                        if pol == 0:
-                            assert x_pol_data is not None
-                            plot_lines[i].set_ydata(x_pol_data[:, antenna])
-                        elif pol == 1:
-                            assert y_pol_data is not None
-                            plot_lines[i].set_ydata(y_pol_data[:, antenna])
 
-                        # legend.get_texts()[i].set_text(
-                        #     f"{i:0>2d} - RX {_fibre_preadu_mapping[antenna]:0>2d} - "
-                        #     f"Base {antenna_base[tile_number * 16 + i]:0>3d}"
-                        # )
+            # Assert that we've received the same number (1+) of files per tile.
+            if all(files_received_per_tile) and (
+                len(set(files_received_per_tile)) == 1
+            ):
+                if (present - interval_start).total_seconds() > cadence:
+                    self.logger.debug("Queueing data for transmission")
+                    assert isinstance(full_station_data, np.ndarray)
+                    x_data = full_station_data[:, :, 1].transpose()
+                    # Averaged x data (commented out for now)
+                    # x_data = x_pol_data.transpose() / x_pol_data_count
+                    self._x_bandpass_plots.put(json.dumps(x_data.tolist()))
+                    y_data = full_station_data[:, :, 0].transpose()
+                    # Averaged y data (commented out for now)
+                    # y_data = y_pol_data.transpose() / y_pol_data_count
+                    self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
+                    self.logger.debug("Data queued for transmission.")
 
-                    # Update title and time
-                    ax.set_title(f"Tile {tile_number + 1} - Pol {_pol_map[pol]}")
-                    date_text.set_text(date_time)
-                    saved_plot_path: str = os.path.join(
-                        plotting_directory,
-                        f"tile_{tile_number + 1}_pol_{_pol_map[pol].lower()}.svg",
-                    )
-                    # Save updated figure
-                    canvas.print_figure(
-                        saved_plot_path,
-                        pad_inches=0,
-                        dpi=200,
-                        figsize=(8, 4),
-                    )
-                assert isinstance(x_pol_data, np.ndarray)
-                self._x_bandpass_plots.put(json.dumps(x_pol_data.tolist()))
-                assert isinstance(y_pol_data, np.ndarray)
-                self._y_bandpass_plots.put(json.dumps(y_pol_data.tolist()))
+                    # Reset vars
+                    x_pol_data = None
+                    x_pol_data_count = 0
+                    y_pol_data = None
+                    y_pol_data_count = 0
+                    interval_start = None
+                    files_received_per_tile = [0] * nof_tiles
 
-                # Reset vars
-                x_pol_data = None
-                y_pol_data = None
-                interval_start = None
-
-            self.logger.info("Exiting bandpass plotting loop.")
+        self.logger.info("Exiting bandpass plotting loop.")
 
     # pylint: disable=broad-except
     def create_plotting_directory(
@@ -1103,7 +1031,7 @@ class IntegratedDataHandler(FileSystemEventHandler):
         global files_to_plot  # pylint: disable=global-variable-not-assigned
         if event.event_type in ["created"]:
             # Ignore lock files and other temporary files
-            if not ("channel" in event.src_path and "lock" not in event.src_path):
+            if not ("channel_integ" in event.src_path and "lock" not in event.src_path):
                 return
 
             # Add to list
