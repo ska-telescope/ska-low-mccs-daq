@@ -251,4 +251,3 @@ def daq_id_fixture() -> int:
     :return: the daq id of this daq receiver.
     """
     return 1
-

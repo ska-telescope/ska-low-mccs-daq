@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 DEFAULT_STATION_LABEL = "ci-1"  # station 1 of cluster "ci"
 
 
-
 def get_sps_station_name(station_label: str | None = None) -> str:
     """
     Return the SPS station Tango device name.
@@ -195,7 +194,6 @@ class SpsTangoTestHarness:
         self._station_label = station_label or DEFAULT_STATION_LABEL
         self._tango_test_harness = TangoTestHarness()
 
-
     def set_sps_station_device(  # pylint: disable=too-many-arguments
         self: SpsTangoTestHarness,
         station_address: str = "10.0.0.152",
@@ -263,7 +261,6 @@ class SpsTangoTestHarness:
             SubrackServerContextManager(subrack_simulator),
         )
 
-
     def add_subrack_device(  # pylint: disable=too-many-arguments
         self: SpsTangoTestHarness,
         subrack_id: int,
@@ -305,19 +302,6 @@ class SpsTangoTestHarness:
             SubrackPort=port,
             UpdateRate=update_rate,
             LoggingLevelDefault=logging_level,
-        )
-
-    def add_mock_field_station_device(
-        self: SpsTangoTestHarness,
-        mock: unittest.mock.Mock,
-    ) -> None:
-        """
-        Add a mock Field Station Tango device to this test harness.
-
-        :param mock: the mock to be used as a mock Field Station device.
-        """
-        self._tango_test_harness.add_mock_device(
-            get_field_station_name(self._station_label), mock
         )
 
     def add_mock_subrack_device(
