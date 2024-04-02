@@ -859,13 +859,14 @@ class Tile(TileHealthMonitor):
                     cable_detected = False
 
 
-                # generate src IP and MAC address
+                # 40G Source IP
+                src_ip = src_ip_list[n]
+                # If src IP not specified, generate one based on 1G IP
                 if src_ip_list[n] is None:
                     src_ip_octets = self._ip.split(".")
-                else:
-                    src_ip_octets = src_ip_list[n].split(".")
+                    src_ip = f"10.0.{n + 1}.{src_ip_octets[3]}"
 
-                src_ip = src_ip_list[n]
+                # 40G Destination IP
                 dst_ip = dst_ip_list[n]
 
                 # if QSFP cable is detected then reset core,
