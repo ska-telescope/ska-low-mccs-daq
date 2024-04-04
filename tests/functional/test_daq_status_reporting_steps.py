@@ -89,10 +89,12 @@ def admin_mode_set_to_value(
         change_event_callbacks.assert_change_event(
             "daq_state", tango.DevState.ON, lookahead=5
         )
+        assert daq_receiver.state() == tango.DevState.ON
     elif AdminMode[admin_mode_value] == AdminMode.OFFLINE:
         change_event_callbacks.assert_change_event(
             "daq_state", tango.DevState.DISABLE, lookahead=5
         )
+        assert daq_receiver.state() == tango.DevState.DISABLE
 
 
 @given(parsers.cfparse("the MccsDaqReceiver HealthState is '{health_state}'"))
@@ -271,6 +273,7 @@ def start_all_consumers(
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param all_available_consumers: A list of all DaqModes/consumers.
     """
+    assert daq_receiver.adminMode == AdminMode.ONLINE
     daq_receiver.Start(
         json.dumps({"modes_to_start": ",".join(all_available_consumers)})
     )
