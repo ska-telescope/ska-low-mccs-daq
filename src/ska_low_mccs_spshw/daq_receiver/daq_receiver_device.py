@@ -296,9 +296,9 @@ class MccsDaqReceiver(SKABaseDevice):
         self._health_model = DaqHealthModel(self._component_state_callback)
         self._received_data_mode = ""
         self._received_data_result = ""
-        self._x_bandpass_plot = np.zeros(shape=(511, 256), dtype=float)
-        self._y_bandpass_plot = np.zeros(shape=(511, 256), dtype=float)
-        self._rms_plot = np.zeros(shape=(511, 256), dtype=float)
+        self._x_bandpass_plot = np.zeros(shape=(256, 512), dtype=float)
+        self._y_bandpass_plot = np.zeros(shape=(256, 512), dtype=float)
+        self._rms_plot = np.zeros(shape=(256, 512), dtype=float)
         self.set_change_event("healthState", True, False)
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
@@ -376,11 +376,6 @@ class MccsDaqReceiver(SKABaseDevice):
             self._device.set_change_event("xPolBandpass", True, False)
             self._device.set_change_event("yPolBandpass", True, False)
             self._device.set_change_event("rmsPlot", True, False)
-
-            # Archived attributes should be logged to the EDA eventually.
-            self._device.set_archive_event("xPolBandpass", True, False)
-            self._device.set_archive_event("yPolBandpass", True, False)
-            self._device.set_archive_event("rmsPlot", True, False)
 
             return (ResultCode.OK, "Init command completed OK")
 
@@ -919,8 +914,8 @@ class MccsDaqReceiver(SKABaseDevice):
 
     @attribute(
         dtype=(("DevFloat",),),
-        max_dim_x=256,  # Antennas
-        max_dim_y=511,  # Channels
+        max_dim_x=512,  # Channels
+        max_dim_y=256,  # Antennas
     )
     def xPolBandpass(self: MccsDaqReceiver) -> np.ndarray:
         """
@@ -932,8 +927,8 @@ class MccsDaqReceiver(SKABaseDevice):
 
     @attribute(
         dtype=(("DevFloat",),),
-        max_dim_x=256,
-        max_dim_y=511,
+        max_dim_x=512,  # Channels
+        max_dim_y=256,  # Antennas
     )
     def yPolBandpass(self: MccsDaqReceiver) -> np.ndarray:
         """
@@ -945,8 +940,8 @@ class MccsDaqReceiver(SKABaseDevice):
 
     @attribute(
         dtype=(("DevFloat",),),
-        max_dim_x=256,
-        max_dim_y=511,
+        max_dim_x=512,  # Channels
+        max_dim_y=256,  # Antennas
     )
     def rmsPlot(self: MccsDaqReceiver) -> np.ndarray:
         """

@@ -14,7 +14,7 @@ import random
 import threading
 from datetime import date
 from pathlib import PurePath
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Final, Optional
 
 import numpy as np
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
@@ -30,6 +30,8 @@ SUBSYSTEM_SLUG = "ska-low-mccs"
 # pylint: disable=abstract-method,too-many-instance-attributes
 class DaqComponentManager(TaskExecutorComponentManager):
     """A component manager for a DaqReceiver."""
+
+    NOF_ANTS_PER_STATION: Final = 256
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -382,6 +384,45 @@ class DaqComponentManager(TaskExecutorComponentManager):
             task_callback=task_callback,
         )
 
+    def _to_db(self: DaqComponentManager, data: np.ndarray) -> np.ndarray:
+        np.seterr(divide="ignore")
+        log_data = 10 * np.log10(data)
+        log_data[np.isneginf(log_data)] = 0.0
+        np.seterr(divide="warn")
+        return log_data
+
+    def _to_shape(
+        self: DaqComponentManager, a: np.ndarray, shape: tuple[int, int]
+    ) -> np.ndarray:
+        y_, x_ = shape
+        y, x = a.shape
+        y_pad = y_ - y
+        x_pad = x_ - x
+        return np.pad(
+            a,
+            (
+                (y_pad // 2, y_pad // 2 + y_pad % 2),
+                (x_pad // 2, x_pad // 2 + x_pad % 2),
+            ),
+            mode="constant",
+        )
+
+    def _get_data_from_response(
+        self: DaqComponentManager,
+        response: dict[str, Any],
+        data_to_extract: str,
+        nof_channels: int,
+    ) -> np.ndarray | None:
+        extracted_data = None
+        try:
+            extracted_data = self._to_shape(
+                self._to_db(np.array(json.loads(response[data_to_extract][0]))),
+                (self.NOF_ANTS_PER_STATION, nof_channels),
+            )  # .reshape((self.NOF_ANTS_PER_STATION, nof_channels))
+        except ValueError as e:
+            self.logger.error(f"Caught mismatch in {data_to_extract} shape: {e}")
+        return extracted_data
+
     # pylint: disable = too-many-branches
     @check_communicating
     def _start_bandpass_monitor(
@@ -417,7 +458,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param task_abort_event: Check for abort, defaults to None
         """
         config = self.get_configuration()
-        nof_antennas_per_tile = int(config["nof_antennas"])
         nof_channels = int(config["nof_channels"])
 
         if task_callback:
@@ -435,26 +475,33 @@ class DaqComponentManager(TaskExecutorComponentManager):
                         status=TaskStatus(response["result_code"]),
                         result=response["message"],
                     )
+
                 if "x_bandpass_plot" in response:
                     if response["x_bandpass_plot"] != [None]:
                         # Reconstruct the numpy array.
-                        x_bandpass_plot = np.array(
-                            json.loads(response["x_bandpass_plot"][0])
-                        ).reshape((nof_channels - 1, nof_antennas_per_tile))
-                        call_callback = True
+                        x_bandpass_plot = self._get_data_from_response(
+                            response, "x_bandpass_plot", nof_channels
+                        )
+                        if x_bandpass_plot is not None:
+                            call_callback = True
+
                 if "y_bandpass_plot" in response:
                     if response["y_bandpass_plot"] != [None]:
                         # Reconstruct the numpy array.
-                        y_bandpass_plot = np.array(
-                            json.loads(response["y_bandpass_plot"][0])
-                        ).reshape((nof_channels - 1, nof_antennas_per_tile))
-                        call_callback = True
+                        y_bandpass_plot = self._get_data_from_response(
+                            response, "y_bandpass_plot", nof_channels
+                        )
+                        if y_bandpass_plot is not None:
+                            call_callback = True
+
                 if "rms_plot" in response:
                     if response["rms_plot"] != [None]:
-                        rms_plot = np.array(
-                            json.loads(response["rms_plot"][0])
-                        ).reshape((nof_channels - 1, nof_antennas_per_tile))
-                        call_callback = True
+                        rms_plot = self._get_data_from_response(
+                            response, "rms_plot", nof_channels
+                        )
+                        if rms_plot is not None:
+                            call_callback = True
+
                 if call_callback:
                     if self._component_state_callback is not None:
                         self._component_state_callback(
