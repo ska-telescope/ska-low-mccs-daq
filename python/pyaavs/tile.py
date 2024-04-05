@@ -17,6 +17,7 @@ import numpy as np
 import time
 import math
 import os
+from ipaddress import IPv4Address
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status
 from pyfabil.base.utils import ip2long
@@ -162,6 +163,55 @@ class Tile(TileHealthMonitor):
         :rtype: string
         """
         return "tpm_v1_2"
+
+    @property
+    def info(self):
+        communication_status = self.check_communication()
+        if not communication_status["CPLD"]:
+            raise BoardError(f"Bard communication error, unable to get health status. Check communication status and try again.")
+        info = {}
+        # Populate Hardware portion as provided by Sanitas
+        info['hardware'] = self.tpm.get_board_info()
+        # Convert EEP information to IPv4Address type
+        info['hardware']['ip_address_eep'] = IPv4Address(info['hardware']['ip_address_eep'])
+        info['hardware']['netmask_eep'] = IPv4Address(info['hardware']['netmask_eep'])
+        info['hardware']['gateway_eep'] = IPv4Address(info['hardware']['gateway_eep'])
+        # Populate Firmware Build information from first FPGA
+        info['fpga_firmware'] = {}
+        info['fpga_firmware']['design'] = self.tpm.tpm_firmware_information[0].get_design()
+        info['fpga_firmware']['build'] = self.tpm.tpm_firmware_information[0].get_build()
+        info['fpga_firmware']['compile_time'] = self.tpm.tpm_firmware_information[0].get_time()
+        info['fpga_firmware']['compile_user'] = self.tpm.tpm_firmware_information[0].get_user()
+        info['fpga_firmware']['compile_host'] = self.tpm.tpm_firmware_information[0].get_host()
+        info['fpga_firmware']['git_branch'] = self.tpm.tpm_firmware_information[0].get_git_branch()
+        info['fpga_firmware']['git_commit'] = self.tpm.tpm_firmware_information[0].get_git_commit()
+        # Dictionary manipulation, move 1G network information
+        info['network'] = {}
+        info['network']['1g_ip_address'] = IPv4Address(info['hardware']['ip_address'])
+        info['network']['1g_mac_address'] = info['hardware']['MAC']
+        info['network']['1g_netmask'] = IPv4Address(info['hardware']['netmask'])
+        info['network']['1g_gateway'] = IPv4Address(info['hardware']['gateway'])
+        del info['hardware']['ip_address']
+        del info['hardware']['MAC']
+        del info['hardware']['netmask']
+        del info['hardware']['gateway']
+        # Add 40G network information, using ARP table entry for station beam packets
+        if communication_status["FPGA0"] and communication_status["FPGA1"]:
+            config_40g_1 = self.get_40g_core_configuration(arp_table_entry=0, core_id=0)
+            config_40g_2 = self.get_40g_core_configuration(arp_table_entry=0, core_id=1)
+            info['network']['40g_ip_address_p1'] = IPv4Address(config_40g_1['src_ip'])
+            mac = config_40g_1['src_mac']
+            info['network']['40g_mac_address_p1'] = ':'.join(f'{(mac >> (i * 8)) & 0xFF:02X}' for i in reversed(range(6)))
+            info['network']['40g_gateway_p1'] = IPv4Address(config_40g_1['gateway_ip'])
+            info['network']['40g_netmask_p1'] = IPv4Address(config_40g_1['netmask'])
+            info['network']['40g_ip_address_p2']= IPv4Address(config_40g_2['src_ip'])
+            mac = config_40g_2['src_mac']
+            info['network']['40g_mac_address_p2'] = ':'.join(f'{(mac >> (i * 8)) & 0xFF:02X}' for i in reversed(range(6)))
+            info['network']['40g_gateway_p2'] = IPv4Address(config_40g_2['gateway_ip'])
+            info['network']['40g_netmask_p2'] = IPv4Address(config_40g_2['netmask'])
+        else:
+            info['network'].update(dict.fromkeys(['40g_ip_address_p1', '40g_mac_address_p1', '40g_gateway_p1', '40g_netmask_p1', '40g_ip_address_p2', '40g_mac_address_p2', '40g_gateway_p2', '40g_netmask_p2']))
+        return info
 
     def connect(
         self,
@@ -2836,7 +2886,43 @@ class Tile(TileHealthMonitor):
         :return: Information string
         :rtype: str
         """
-        return str(self.tpm)
+        info = self.info
+        return f"\nTile Processing Module {info['hardware']['HARDWARE_REV']} Serial Number: {info['hardware']['SN']} \n"\
+               f"{'_'*90} \n"\
+               f"{' '*29}| \n"\
+               f"Classification               | {info['hardware']['PN']}-{info['hardware']['BOARD_MODE']} \n"\
+               f"Hardware Revision            | {info['hardware']['HARDWARE_REV']} \n"\
+               f"Serial Number                | {info['hardware']['SN']} \n"\
+               f"BIOS Revision                | {info['hardware']['bios']} \n"\
+               f"Board Location               | {info['hardware']['LOCATION']} \n"\
+               f"DDR Memory Capacity          | {info['hardware']['DDR_SIZE_GB']} GB per FPGA \n"\
+               f"{'_'*29}|{'_'*60} \n"\
+               f"{' '*29}| \n"\
+               f"FPGA Firmware Design         | {info['fpga_firmware']['design']} \n"\
+               f"FPGA Firmware Revision       | {info['fpga_firmware']['build']} \n"\
+               f"FPGA Firmware Compile Time   | {info['fpga_firmware']['compile_time']} UTC \n"\
+               f"FPGA Firmware Compile User   | {info['fpga_firmware']['compile_user']}  \n"\
+               f"FPGA Firmware Compile Host   | {info['fpga_firmware']['compile_host']} \n"\
+               f"FPGA Firmware Git Branch     | {info['fpga_firmware']['git_branch']} \n"\
+               f"FPGA Firmware Git Commit     | {info['fpga_firmware']['git_commit']} \n"\
+               f"{'_'*29}|{'_'*60} \n"\
+               f"{' '*29}| \n"\
+               f"1G (MGMT) IP Address         | {str(info['network']['1g_ip_address'])} \n"\
+               f"1G (MGMT) MAC Address        | {info['network']['1g_mac_address']} \n"\
+               f"1G (MGMT) Netmask            | {str(info['network']['1g_netmask'])} \n"\
+               f"1G (MGMT) Gateway IP         | {str(info['network']['1g_gateway'])} \n"\
+               f"EEP IP Address               | {str(info['hardware']['ip_address_eep'])} \n"\
+               f"EEP Netmask                  | {str(info['hardware']['netmask_eep'])} \n"\
+               f"EEP Gateway IP               | {str(info['hardware']['gateway_eep'])} \n"\
+               f"40G Port 1 IP Address        | {str(info['network']['40g_ip_address_p1'])} \n"\
+               f"40G Port 1 MAC Address       | {str(info['network']['40g_mac_address_p1'])} \n"\
+               f"40G Port 1 Netmask           | {str(info['network']['40g_netmask_p1'])} \n"\
+               f"40G Port 1 Gateway IP        | {str(info['network']['40g_gateway_p1'])} \n"\
+               f"40G Port 2 IP Address        | {str(info['network']['40g_ip_address_p2'])} \n"\
+               f"40G Port 2 MAC Address       | {str(info['network']['40g_mac_address_p2'])} \n"\
+               f"40G Port 2 Netmask           | {str(info['network']['40g_netmask_p2'])} \n"\
+               f"40G Port 2 Gateway IP        | {str(info['network']['40g_gateway_p2'])} \n"
+
 
     def __getitem__(self, key):
         """
