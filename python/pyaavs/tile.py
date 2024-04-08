@@ -18,6 +18,7 @@ import time
 import math
 import os
 from ipaddress import IPv4Address
+from datetime import datetime 
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status
 from pyfabil.base.utils import ip2long
@@ -302,6 +303,17 @@ class Tile(TileHealthMonitor):
             self.tpm["fpga1.dsp_regfile.config_id.is_master"] > 0,
             self.tpm["fpga2.dsp_regfile.config_id.is_master"] > 0
         ]
+    
+    @property
+    def new_spead_header(self):
+        
+        if not self.tpm.has_register("fpga1.beamf_ring.control.new_spead_header"):  
+            return False
+        elif self.tpm[f"fpga1.beamf_ring.control.new_spead_header"] == 1:
+            return True
+        else:
+            return False
+
 
     def initialise(self,
                    station_id=0, tile_id=0,
@@ -320,7 +332,9 @@ class Tile(TileHealthMonitor):
                    is_last_tile=False,
                    qsfp_detection="auto",
                    adc_mono_channel_14_bit=False,
-                   adc_mono_channel_sel=0):
+                   adc_mono_channel_sel=0,
+                   tpm_start_time=None,
+                   new_spead_header_format=False):
         """
         Connect and initialise.
 
@@ -378,6 +392,7 @@ class Tile(TileHealthMonitor):
         :param adc_mono_channel_sel: Select channel in mono channel mode (0=A, 1=B)
         :type adc_mono_channel_sel: int
         """
+
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc,
                      adc_mono_channel_14_bit=adc_mono_channel_14_bit, adc_mono_channel_sel=adc_mono_channel_sel)
@@ -508,6 +523,19 @@ class Tile(TileHealthMonitor):
         if self.tpm.has_register('fpga1.pps_manager.pps_errors'):
             self.enable_health_monitoring()
             self.clear_health_status()
+
+        if new_spead_header_format:
+            if not self.tpm.has_register("fpga1.beamf_ring.control.new_spead_header"):
+                raise LibraryError(f"New spead header is not supported with this version of the firmware")
+            else:
+                for fpga in "fpga1", "fpga2":
+                    self.tpm[f"{fpga}.beamf_ring.control.new_spead_header"] = 1
+
+        if tpm_start_time is not None:
+            self.start_acquisition(tpm_start_time=tpm_start_time)
+        else:
+            logging.info("Start time is not set, please run start_acquisition separately")
+
 
     def program_fpgas(self, bitfile):
         """
@@ -2153,6 +2181,8 @@ class Tile(TileHealthMonitor):
         :param delay: delay after start_time (seconds)
         :param tpm_start_time: TPM will act as if it is started at this time (seconds)
         """
+
+        tai_2000_epoch = datetime(2000,1,1,0,0,0).timestamp() - 37
         devices = ["fpga1", "fpga2"]
         for fpga in devices:
             self.tpm[f"{fpga}.regfile.eth10g_ctrl"] = 0x0
@@ -2186,7 +2216,17 @@ class Tile(TileHealthMonitor):
             tpm_sync_time = sync_time
         else:
             tpm_sync_time = int(tpm_start_time)
-        
+
+        for fpga in devices:
+            if self.tpm.has_register(f"{fpga}.beamf_ring.control.new_spead_header"):
+                if self.tpm[f"{fpga}.beamf_ring.control.new_spead_header"] == 1:
+                    # sync time must be a multiple of 864 to ensure there is an integer number of frames from TAI2000 to sync time 
+                    tpm_sync_time = int(tpm_sync_time - (tpm_sync_time - tai_2000_epoch)%864)
+                    csp_reference_frame = int((tpm_sync_time - tai_2000_epoch)*390625//864)  # integer as start_frame is a multiple of 864 seconds
+                    self.tpm[f"{fpga}.beamf_ring.control.new_spead_header"] = 1
+                    self.tpm[f"{fpga}.beamf_ring.ref_epoch_frame_hi"] = int(csp_reference_frame >> 32)
+                    self.tpm[f"{fpga}.beamf_ring.ref_epoch_frame_lo"] = csp_reference_frame & 0xffffffff
+
         clock_freq = 200e6 # ADC data clock
         frame_period =  1.08e-6 # 27/32 * 1024 * ADC sample rate
         time_diff = sync_time - tpm_sync_time
@@ -2199,7 +2239,6 @@ class Tile(TileHealthMonitor):
         if self.tpm.tpm_test_firmware[0].station_beamformer_implemented:
             self.set_beamformer_epoch(sync_time)
         for fpga in devices:
-            
             if not self.tpm.has_register(f"{fpga}.pps_manager.sync_time_actual_val") and tpm_start_time is not None:
                 raise LibraryError(f"Syncing to other TPM's is not possible with this version of the firmware")
                 
