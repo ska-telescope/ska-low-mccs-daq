@@ -194,7 +194,7 @@ def tile_ready_to_send_to_daq(
     tpm_lmc_config = {
         "mode": "1G",
         "destination_ip": daq_status["Receiver IP"][0],
-        "destination_port": daq_status["Receiver Ports"][0],
+        "destination_port": int(daq_status["Receiver Ports"][0]),
     }
     tile_device.SetLmcDownload(json.dumps(tpm_lmc_config))
 

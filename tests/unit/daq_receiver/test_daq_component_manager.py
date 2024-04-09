@@ -390,6 +390,13 @@ class TestDaqComponentManager:
         :param x_pol_bandpass_test_data: A NumPy array of simulated x-pol bandpass data.
         :param y_pol_bandpass_test_data: A NumPy array of simulated y-pol bandpass data.
         """
+        # Pad test data with zeros to match attr shape.
+        x_pol_bandpass_test_data = daq_component_manager._to_shape(
+            x_pol_bandpass_test_data, (256, 512)
+        )
+        y_pol_bandpass_test_data = daq_component_manager._to_shape(
+            y_pol_bandpass_test_data, (256, 512)
+        )
         daq_component_manager.start_communicating()
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
@@ -423,8 +430,14 @@ class TestDaqComponentManager:
                 received_x_pol_data = args_dict["x_bandpass_plot"]
                 received_y_pol_data = args_dict["y_bandpass_plot"]
 
-                assert np.array_equal(x_pol_bandpass_test_data, received_x_pol_data)
-                assert np.array_equal(y_pol_bandpass_test_data, received_y_pol_data)
+                assert np.array_equal(
+                    daq_component_manager._to_db(x_pol_bandpass_test_data),
+                    received_x_pol_data,
+                )
+                assert np.array_equal(
+                    daq_component_manager._to_db(y_pol_bandpass_test_data),
+                    received_y_pol_data,
+                )
 
                 # The following assertion doesn't work properly with numpy arrays.
                 # It results in an illegal boolean array comparison which isn't

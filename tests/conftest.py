@@ -21,6 +21,8 @@ import pytest
 import tango
 from _pytest.python_api import ApproxBase
 
+from tests.harness import get_daq_name
+
 TPM_BAY_COUNT = 8
 MAX_SUBRACK_FAN_SPEED = 8000.0
 
@@ -251,3 +253,13 @@ def daq_id_fixture() -> int:
     :return: the daq id of this daq receiver.
     """
     return 1
+
+
+@pytest.fixture(name="daq_trl")
+def daq_trl_fixture() -> str:
+    """
+    Return a DAQ TRL for testing purposes.
+
+    :returns: A DAQ TRL.
+    """
+    return get_daq_name()

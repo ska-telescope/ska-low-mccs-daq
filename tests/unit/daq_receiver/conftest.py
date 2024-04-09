@@ -123,7 +123,7 @@ def x_pol_bandpass_test_data_fixture() -> np.ndarray:
 
     :return: A NumPy array of simulated x-pol bandpass data.
     """
-    return np.loadtxt("./x_pol_bandpass.txt", delimiter=",")
+    return np.loadtxt("./x_pol_bandpass.txt", delimiter=",").transpose()
 
 
 @pytest.fixture(name="y_pol_bandpass_test_data")
@@ -133,4 +133,4 @@ def y_pol_bandpass_test_data_fixture() -> np.ndarray:
 
     :return: A NumPy array of simulated y-pol bandpass data.
     """
-    return np.loadtxt("./y_pol_bandpass.txt", delimiter=",")
+    return np.loadtxt("./y_pol_bandpass.txt", delimiter=",").transpose()
