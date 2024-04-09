@@ -78,7 +78,7 @@ def get_subrack_name(subrack_id: int, station_label: str | None = None) -> str:
 
     :return: the subrack Tango device name
     """
-    return f"low-mccs/subrack/{station_label or DEFAULT_STATION_LABEL}-{subrack_id}"
+    return f"low-mccs/subrack/{station_label or DEFAULT_STATION_LABEL}-sr{subrack_id}"
 
 
 def get_tile_name(tile_id: int, station_label: str | None = None) -> str:
@@ -91,7 +91,7 @@ def get_tile_name(tile_id: int, station_label: str | None = None) -> str:
 
     :return: the tile Tango device name
     """
-    return f"low-mccs/tile/{station_label or DEFAULT_STATION_LABEL}-{tile_id:02}"
+    return f"low-mccs/tile/{station_label or DEFAULT_STATION_LABEL}-tpm{tile_id:02}"
 
 
 def get_daq_name(station_label: str | None = None) -> str:
