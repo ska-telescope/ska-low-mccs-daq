@@ -57,7 +57,7 @@ class TileHealthMonitor():
     def enable_health_monitoring(self):
         communication_status = self.check_communication()
         if not all(communication_status.values()):
-            raise BoardError(f"Bard communication error, unable to enable health monitoring. Check communication status and try again.")
+            raise BoardError(f"Board communication error, unable to enable health monitoring. Check communication status and try again.")
         # For use with get_health_status and clear_health_status
         # Enable anything that requires an enable
         self.enable_clock_monitoring()
@@ -283,7 +283,7 @@ class TileHealthMonitor():
         fpga_communication = True
         communication_status = self.check_communication()
         if not communication_status["CPLD"]:
-            raise BoardError(f"Bard communication error, unable to get health status. Check communication status and try again.")
+            raise BoardError(f"Board communication error, unable to get health status. Check communication status and try again.")
         if not (communication_status["FPGA0"] and communication_status["FPGA1"]):
             fpga_communication = False
             self.logger.warning(f"Not able to communicate with one of more FPGAs. Reduced health status will be returned.")
@@ -316,7 +316,7 @@ class TileHealthMonitor():
                                           "Exception : {e}")
         return health_status
     
-    def clear_health_status(self):
+    def clear_health_status(self, group=None):
         communication_status = self.check_communication()
         if communication_status['CPLD']:
             if group is None or group  == "pll":

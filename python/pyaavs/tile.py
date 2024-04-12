@@ -168,7 +168,7 @@ class Tile(TileHealthMonitor):
     def info(self):
         communication_status = self.check_communication()
         if not communication_status["CPLD"]:
-            raise BoardError(f"Bard communication error, unable to get health status. Check communication status and try again.")
+            raise BoardError(f"Board communication error, unable to get health status. Check communication status and try again.")
         info = {}
         # Populate Hardware portion as provided by Sanitas
         info['hardware'] = self.tpm.get_board_info()
