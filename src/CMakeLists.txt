@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 # Add include and lib directories
 link_directories(/usr/local /usr/lib/x86_64-linux-gnu/lib ${DAQ_DIRECTORY}/lib)
-include_directories(/usr/lib/x86_64-linux-gnu/include /opt/aavs/include)
+include_directories(/usr/lib/x86_64-linux-gnu/include ${CMAKE_INSTALL_PREFIX}/include)
 include_directories(${DAQ_DIRECTORY}/include)
 
 project(AAVS_DAQ C CXX)
@@ -13,7 +13,7 @@ option(WITH_SMALL_STATION "Compile a separate library for 48 element stations" O
 message(STATUS "Correlator compilation: ${WITH_CORRELATOR}")
 message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")
 
-link_directories(/opt/aavs/lib)
+link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 
 # CMAKE compilation flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx -g")

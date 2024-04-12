@@ -14,6 +14,7 @@ function display_help(){
     echo "-C             Correlator will be compiled, installing CUDA and xGPU in the process (off by default)"
     echo "               NOTE: Automated install of CUDA and xGPU not supported yet"
     echo "-p             Activate AAVS virtualenv in .bashrc (off by default)"
+    echo "-a <aavs path> specifies location of installed AAVS (default /opt/aavs), must be absolute"
     echo "-v <venv path> specifies location of 'python' virtualenv folder (default /opt/aavs)"
     echo "-b <pyfabil_branch> specifies pyfabil branch to be installed"
     echo "-t <itpm_bios_branch> specifies itpm-bios branch to be installed"
@@ -66,7 +67,8 @@ ITPM_BIOS_BRANCH="main"
 INSTALL_DOCS_REQS=false
 
 # Process command-line arguments
-while getopts "Chpcdb:t:v:" flag
+
+while getopts "Chpcdb:t:v:a:" flag
 do
     case "${flag}" in
         C) COMPILE_CORRELATOR=ON ;;
@@ -76,18 +78,31 @@ do
         d) INSTALL_DOCS_REQS=true ;;
         b) PYFABIL_BRANCH=${OPTARG} ;;
         t) ITPM_BIOS_BRANCH=${OPTARG} ;;
-        v) export VENV_INSTALL=${OPTARG}
+        v) export VENV_INSTALL=${OPTARG%/}
            if [[ ${VENV_INSTALL:0:1} == "-" ]]; then # If argument is next option
              echo "Error: -${flag} requires an argument."
              exit 1                   # Exit abnormally.
            fi
            echo "Selected venv Path: $VENV_INSTALL" ;;
+        a) export AAVS_INSTALL=${OPTARG%/}
+           if [[ ${AAVS_INSTALL:0:1} == "-" ]]; then # If argument is next option
+             echo "Error: -${flag} requires an argument."
+             exit 1                   # Exit abnormally.
+           fi
+           echo "Selected AAVS Path: $AAVS_INSTALL" ;;
+
         \?)                                    # If expected argument omitted:
            echo "Error: missing argument."
            exit 1                   # Exit abnormally.
            ;;
     esac
 done
+
+
+if [ "$VENV_INSTALL" == "/opt/aavs" ]; then
+    export VENV_INSTALL=$AAVS_INSTALL;
+fi
+
 
 # Check if printing help
 if [ $PRINT_HELP == true ]; then
@@ -121,7 +136,7 @@ function install_package(){
 # Check if printing help
 if [ $CLEAN == true ]; then
     echo "Cleaning aavs-system installation"
-    sudo rm -r /opt/aavs/python src/build python/build python/dist third_party
+    sudo rm -r $VENV_INSTALL/python src/build python/build python/dist third_party
 fi
 
 # Create installation directory tree
@@ -184,9 +199,9 @@ function create_install() {
     # virtualenv -p python3 $AAVS_INSTALL/python
     $PYTHON -m venv $VENV_INSTALL/python
     
-    # Add AAVS virtual environment alias to .bashrc
+    # Add AAVS virtual environment alias to .bashrc, uses default venv
     if [[ ! -n "`cat ~/.bashrc | grep aavs_python`" ]]; then
-      echo "alias aavs_python=\"source $VENV_INSTALL/python/bin/activate\"" >> ~/.bashrc
+      echo "alias aavs_python=\"source /opt/aavs/python/bin/activate\"" >> ~/.bashrc
       echo "Setting virtual environment alias"
 
       # Check if compiling correlator
@@ -219,6 +234,11 @@ echo "Created installation directory tree"
 # If software directory is not defined in environment, set it
 if [ -z "$AAVS_SOFTWARE_DIRECTORY" ]; then
   export AAVS_SOFTWARE_DIRECTORY=`pwd`
+fi
+
+
+if [[ ! -n "`cat $VENV_INSTALL/python/bin/activate | grep AAVS_INSTALL`" ]]; then
+    echo "export AAVS_INSTALL=$AAVS_INSTALL" >> $VENV_INSTALL/python/bin/activate
 fi
 
 # Start python virtual environment

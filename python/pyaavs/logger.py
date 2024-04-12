@@ -1,6 +1,7 @@
 from logging.handlers import TimedRotatingFileHandler
 import logging
 import sys
+import os
 
 # Set up default logging (and remove existing loggers)
 root_logger = logging.getLogger()
@@ -9,7 +10,9 @@ root_logger.setLevel(logging.INFO)
 root_logger.handlers = []
 
 # Set file handler
-file_handler = TimedRotatingFileHandler("/opt/aavs/log/aavs.log", when="h", interval=1, backupCount=180, utc=True)
+
+aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
+file_handler = TimedRotatingFileHandler(f"{aavs_install_path}/log/aavs.log", when="h", interval=1, backupCount=180, utc=True)
 file_handler.setFormatter(formatter)
 file_handler.setLevel(logging.INFO)
 root_logger.addHandler(file_handler)
