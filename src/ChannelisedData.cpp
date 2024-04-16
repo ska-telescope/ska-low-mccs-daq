@@ -233,7 +233,7 @@ bool ContinuousChannelisedData::initialiseConsumer(json configuration)
     start_time = round((double) configuration["start_time"]);
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t) nof_tiles);
+    initialiseRingBuffer(packet_size, (size_t) 131072 * nof_tiles);
 
     // Create channel container
     if (bitwidth == 16) {
@@ -552,6 +552,7 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
     nof_antennas = configuration["nof_antennas"];
     nof_pols     = configuration["nof_pols"];
     nof_samples  = 1;
+    bitwidth     = configuration["bitwidth"];
     packet_size  = configuration["max_packet_size"];
 
     // Create ring buffer

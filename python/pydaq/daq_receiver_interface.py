@@ -242,7 +242,7 @@ class DaqReceiver:
                                                  self._config['nof_antennas'] * self._config['nof_polarisations'] *
                                                  self._config['nof_channel_samples'])
         elif mode == 'integrated':
-            dtype = np.uint16 if self._conf["integrated_channel_bitwidth"] == 16 else np.uint32
+            dtype = np.uint16 if self._config["integrated_channel_bitwidth"] == 16 else np.uint32
             values = self._get_numpy_from_ctypes(data, dtype,
                                                  self._config['nof_antennas'] * self._config['nof_polarisations'] *
                                                  self._config['nof_channels'])
