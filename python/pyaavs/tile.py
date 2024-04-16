@@ -503,8 +503,11 @@ class Tile(TileHealthMonitor):
 
         # Clear Health Monitoring Following Initialisation
         # Clears any false errors detected from bring-up
-        self.enable_health_monitoring()
-        self.clear_health_status()
+        # Bitfiles sbf410 and older do not support health monitoring
+        # Check for existance of moved pps register
+        if self.tpm.has_register('fpga1.pps_manager.pps_errors'):
+            self.enable_health_monitoring()
+            self.clear_health_status()
 
     def program_fpgas(self, bitfile):
         """
