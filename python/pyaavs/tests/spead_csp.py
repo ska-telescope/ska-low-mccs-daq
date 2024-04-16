@@ -59,6 +59,7 @@ class spead_rx(Process):
         self.id = 0
         self.file_name = "integrated_channel_" + str(int(time.time())) + '.h5'
         self.is_spead = 0
+        self.is_new_spead = 0
         self.processed_frame = 0
         self.exp_data = [[0] * 4 ] * 1024
         self.checked = 0
@@ -117,50 +118,74 @@ class spead_rx(Process):
             id = item >> 48
             val = item & 0x0000FFFFFFFFFFFF
             # print(hex(id) + " " + hex(val))
-            if id == 0x5304 and idx == 0:
-                self.is_spead = 1
-            elif id == 0x8001 and idx == 1:
-                heap_counter = val
-                self.packet_counter = heap_counter & 0xFFFFFFFF
-                self.logical_channel_id = heap_counter >> 32
-            elif id == 0x8004 and idx == 2:
-                self.payload_length = val
-            elif id == 0x9027 and idx == 3:
-                self.sync_time = val
-            elif id == 0x9600 and idx == 4:
-                self.timestamp = val
-            elif id == 0x9011 and idx == 5:
-                self.center_frequency = val & 0xFFFFFFFF
-                exp_freq = 400e6 * (self.logical_channel_id + first_channel) / 512
-                if self.center_frequency != exp_freq:
-                    print("Error frequency ID")
-                    print("Expected ID " + str(exp_freq) + ", received " + str(self.center_frequency))
-                    print(hex(val))
-                    print("Received logical channel_id: " + str(self.logical_channel_id))
+            
+            if not (self.is_new_spead == 1 and idx > 6):
+                if id == 0x5304 and idx == 0:
+                    self.is_spead = 1
+                    if val & 0x000000000000FFFF == 0x0006:
+                        self.is_new_spead = 1
+                elif id == 0x8001 and idx == 1:
+                    heap_counter = val
+                    if self.is_new_spead == 0:
+                        self.packet_counter = heap_counter & 0xFFFFFFFF
+                        self.logical_channel_id = heap_counter >> 32
+                    else:
+                        self.packet_counter = heap_counter & 0xFFFFFFFFFF
+                elif id == 0x8004 and idx == 2:
+                    self.payload_length = val
+                elif id == 0x9027 and idx == 3:
+                    self.sync_time = val
+                elif id == 0x9600 and idx == 4:
+                    self.timestamp = val
+                elif id == 0x9011 and idx == 5:
+                    self.center_frequency = val & 0xFFFFFFFF
+                    exp_freq = 400e6 * (self.logical_channel_id + first_channel) / 512
+                    if self.center_frequency != exp_freq:
+                        print("Error frequency ID")
+                        print("Expected ID " + str(exp_freq) + ", received " + str(self.center_frequency))
+                        print(hex(val))
+                        print("Received logical channel_id: " + str(self.logical_channel_id))
+                        input("Press a key...")
+                        # break
+                elif id == 0xb010 and idx == 5:
+                    self.scan_id = val & 0xffffffff
+                    self.center_frequency = 0
+                elif id == 0xb010 and idx == 3 and self.is_new_spead == 1:
+                    self.scan_id = val & 0xffffffffffff
+                elif id == 0xb000 and idx == 6:
+                    self.csp_channel_info = val
+                    physical_channel_id = val & 0x3FF
+                    if physical_channel_id != self.logical_channel_id + first_channel:
+                        print("Error physical channel ID")
+                        print("Expected ID " + str(self.logical_channel_id + first_channel) + ", received " + str(physical_channel_id))
+                        print(hex(val))
+                        print("Received logical channel_id: " + str(self.logical_channel_id))
+                        input("Press a key...")
+                        # break
+                elif id == 0xb000 and idx == 4 and self.is_new_spead == 1:
+                    self.csp_channel_info = val 
+                    self.logical_channel_id = val >> 32
+                    physical_channel_id = val & 0x3FF
+                    if physical_channel_id != self.logical_channel_id + first_channel:
+                        print("Error physical channel ID")
+                        print("Expected ID " + str(self.logical_channel_id + first_channel) + ", received " + str(physical_channel_id))
+                        print(hex(val))
+                        print("Received logical channel_id: " + str(self.logical_channel_id))
+                        input("Press a key...")
+                        # break        
+                elif id == 0xb001 and idx == 7:
+                    self.csp_antenna_info = val
+                elif id == 0xb001 and idx == 5 and self.is_new_spead == 1:
+                    self.csp_antenna_info = val
+                elif id == 0x3300 and idx == 8:
+                    self.offset = 9*8
+                elif id == 0x3300 and idx == 6 and self.is_new_spead == 1:
+                    self.offset = 7*8
+                else:
+                    print("Error in header")
+                    print("Unexpected item " + hex(item) + " at position " + str(idx))
                     input("Press a key...")
-                    # break
-            elif id == 0xb010 and idx == 5:
-                self.scan_id = val & 0xffffffff
-                self.center_frequency = 0
-            elif id == 0xb000 and idx == 6:
-                self.csp_channel_info = val
-                physical_channel_id = val & 0x3FF
-                if physical_channel_id != self.logical_channel_id + first_channel:
-                    print("Error physical channel ID")
-                    print("Expected ID " + str(self.logical_channel_id + first_channel) + ", received " + str(physical_channel_id))
-                    print(hex(val))
-                    print("Received logical channel_id: " + str(self.logical_channel_id))
-                    input("Press a key...")
-                    # break
-            elif id == 0xb001 and idx == 7:
-                self.csp_antenna_info = val
-            elif id == 0x3300 and idx == 8:
-                self.offset = 9*8
-            else:
-                print("Error in header")
-                print("Unexpected item " + hex(item) + " at position " + str(idx))
-                input("Press a key...")
-                break
+                    break
 
     def dump(self, channel_id):
         s = "Packet Error \n"
