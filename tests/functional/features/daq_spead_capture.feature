@@ -22,6 +22,7 @@ Feature: Receiving SPEAD packets.
   Background:
     Given interface eth0
     
+  @XTP-34316
   Scenario Outline: Sending SPEAD packets to be captured by DAQ
       Given this test is running against station <station_name>.
       And the DAQ is available
