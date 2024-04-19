@@ -144,8 +144,8 @@ bool AntennaBuffer::processPacket() {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 antenna_0_id = (uint8_t) (val & 0xFF);
                 antenna_1_id = (uint8_t) ((val >> 8) & 0xFF);
-                antenna_1_id = (uint8_t) ((val >> 16) & 0xFF);
-                antenna_1_id = (uint8_t) ((val >> 24) & 0xFF);
+                antenna_2_id = (uint8_t) ((val >> 16) & 0xFF);
+                antenna_3_id = (uint8_t) ((val >> 24) & 0xFF);
                 nof_included_antennas = (uint8_t) ((val >> 32) & 0xFF);
                 break;
             }
