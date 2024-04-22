@@ -19,6 +19,11 @@ import math
 import os
 from ipaddress import IPv4Address
 from datetime import datetime 
+import sys
+
+if sys.version_info.minor >= 9:
+    from astropy.time import Time as AstropyTime
+
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status
 from pyfabil.base.utils import ip2long
@@ -307,9 +312,9 @@ class Tile(TileHealthMonitor):
     @property
     def new_spead_header(self):
         
-        if not self.tpm.has_register("fpga1.beamf_ring.control.new_spead_header"):  
+        if not self.tpm.has_register("fpga1.beamf_ring.control.new_spead_format"):  
             return False
-        elif self.tpm[f"fpga1.beamf_ring.control.new_spead_header"] == 1:
+        elif self.tpm[f"fpga1.beamf_ring.control.new_spead_format"] == 1:
             return True
         else:
             return False
@@ -391,6 +396,10 @@ class Tile(TileHealthMonitor):
         :type adc_mono_channel_14_bit: bool
         :param adc_mono_channel_sel: Select channel in mono channel mode (0=A, 1=B)
         :type adc_mono_channel_sel: int
+        :param tpm_start_time: Sets internal TPM start time, used to synchronize to other TPM's
+        :type tpm_start_time: int
+        :param new_spead_header_format: Sets the CSP spead header to the version specified in ICD ECP-230134
+        :type new_spead_header_format: bool
         """
 
         # Connect to board
@@ -525,11 +534,11 @@ class Tile(TileHealthMonitor):
             self.clear_health_status()
 
         if new_spead_header_format:
-            if not self.tpm.has_register("fpga1.beamf_ring.control.new_spead_header"):
+            if not self.tpm.has_register("fpga1.beamf_ring.control.new_spead_format"):
                 raise LibraryError(f"New spead header is not supported with this version of the firmware")
             else:
-                for fpga in "fpga1", "fpga2":
-                    self.tpm[f"{fpga}.beamf_ring.control.new_spead_header"] = 1
+                for fpga in ["fpga1", "fpga2"]:
+                    self.tpm[f"{fpga}.beamf_ring.control.new_spead_format"] = 1
 
         if tpm_start_time is not None:
             self.start_acquisition(tpm_start_time=tpm_start_time)
@@ -2181,8 +2190,7 @@ class Tile(TileHealthMonitor):
         :param delay: delay after start_time (seconds)
         :param tpm_start_time: TPM will act as if it is started at this time (seconds)
         """
-
-        tai_2000_epoch = datetime(2000,1,1,0,0,0).timestamp() - 37
+        
         devices = ["fpga1", "fpga2"]
         for fpga in devices:
             self.tpm[f"{fpga}.regfile.eth10g_ctrl"] = 0x0
@@ -2218,12 +2226,18 @@ class Tile(TileHealthMonitor):
             tpm_sync_time = int(tpm_start_time)
 
         for fpga in devices:
-            if self.tpm.has_register(f"{fpga}.beamf_ring.control.new_spead_header"):
-                if self.tpm[f"{fpga}.beamf_ring.control.new_spead_header"] == 1:
+            if self.tpm.has_register(f"{fpga}.beamf_ring.control.new_spead_format"):
+                if self.tpm[f"{fpga}.beamf_ring.control.new_spead_format"] == 1:
+                    # TAI 200 epoch in unix
+                    if sys.version_info.minor >= 9:
+                        tai_2000_epoch = int(AstropyTime('2000-01-01 00:00:00', scale='tai').unix)
+                    else:
+                        #tai_2000_epoch = datetime(2000,1,1,0,0,0).timestamp() - 37
+                        raise LibraryError(f"for TAI time in the new CSP spead header at least python 3.9.0 is required")
+
                     # sync time must be a multiple of 864 to ensure there is an integer number of frames from TAI2000 to sync time 
                     tpm_sync_time = int(tpm_sync_time - (tpm_sync_time - tai_2000_epoch)%864)
                     csp_reference_frame = int((tpm_sync_time - tai_2000_epoch)*390625//864)  # integer as start_frame is a multiple of 864 seconds
-                    self.tpm[f"{fpga}.beamf_ring.control.new_spead_header"] = 1
                     self.tpm[f"{fpga}.beamf_ring.ref_epoch_frame_hi"] = int(csp_reference_frame >> 32)
                     self.tpm[f"{fpga}.beamf_ring.ref_epoch_frame_lo"] = csp_reference_frame & 0xffffffff
 
