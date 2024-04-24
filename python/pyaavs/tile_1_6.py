@@ -227,8 +227,7 @@ class Tile_1_6(Tile):
                    qsfp_detection="auto",
                    adc_mono_channel_14_bit=False,
                    adc_mono_channel_sel=0,
-                   tpm_start_time=None,
-                   new_spead_header_format=False):
+                   tpm_start_time=None):
         """
         Connect and initialise.
 
@@ -253,8 +252,6 @@ class Tile_1_6(Tile):
         :type adc_mono_channel_sel: int
         :param tpm_start_time: Sets internal TPM start time, used to synchronize to other TPM's
         :type tpm_start_time: int
-        :param new_spead_header_format: Sets the CSP spead header to the version specified in ICD ECP-230134
-        :type new_spead_header_format: bool
         """
         if use_internal_pps:
             logging.error("Cannot initialise board - use_internal_pps = True not supported")
@@ -397,13 +394,6 @@ class Tile_1_6(Tile):
         if self.tpm.has_register('fpga1.pps_manager.pps_errors'):
             self.enable_health_monitoring()
             self.clear_health_status()
-
-        if new_spead_header_format:
-            if not self.tpm.has_register("fpga1.beamf_ring.control.new_spead_format"):
-                raise LibraryError(f"New spead header is not supported with this version of the firmware")
-            else:
-                for fpga in ["fpga1", "fpga2"]:
-                    self.tpm[f"{fpga}.beamf_ring.control.new_spead_format"] = 1
 
         if tpm_start_time is not None:
             self.start_acquisition(tpm_start_time=tpm_start_time)
