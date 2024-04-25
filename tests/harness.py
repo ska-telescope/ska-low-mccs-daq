@@ -65,7 +65,7 @@ def get_sps_station_name(station_label: str | None = None) -> str:
 
     :return: the SPS station Tango device name
     """
-    return f"low-mccs/sps_station/{station_label or DEFAULT_STATION_LABEL}"
+    return f"low-mccs/spsstation/{station_label or DEFAULT_STATION_LABEL}"
 
 
 def get_subrack_name(subrack_id: int, station_label: str | None = None) -> str:
