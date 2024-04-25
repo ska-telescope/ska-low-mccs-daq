@@ -7,7 +7,7 @@ import pytest
 
 class CiConfig:
     def __init__(self):
-        self.test_config = f"config/test_config_te7dastardly.yml"
+        self.test_config = f"config/test_config_ral_ci_runner.yml"
         self.config = "/opt/aavs-ci-runner/config/ral_ci_runner.yml"
 
 
