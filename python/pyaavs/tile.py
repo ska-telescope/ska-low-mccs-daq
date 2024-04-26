@@ -21,8 +21,8 @@ from ipaddress import IPv4Address
 from datetime import datetime 
 import sys
 
-if sys.version_info.minor >= 9:
-    from astropy.time import Time as AstropyTime
+#if sys.version_info.minor >= 9:
+from astropy.time import Time as AstropyTime
 
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status
@@ -338,7 +338,8 @@ class Tile(TileHealthMonitor):
                    qsfp_detection="auto",
                    adc_mono_channel_14_bit=False,
                    adc_mono_channel_sel=0,
-                   tpm_start_time=None):
+                   tpm_start_time=None,
+                   new_spead_header_format=False):
         """
         Connect and initialise.
 
@@ -397,6 +398,8 @@ class Tile(TileHealthMonitor):
         :type adc_mono_channel_sel: int
         :param tpm_start_time: Sets internal TPM start time, used to synchronize to other TPM's
         :type tpm_start_time: int
+        :param new_spead_header_format: Sets the CSP spead header to the version specified in ICD ECP-230134
+        :type new_spead_header_format: bool
         """
 
         # Connect to board
@@ -529,6 +532,13 @@ class Tile(TileHealthMonitor):
         if self.tpm.has_register('fpga1.pps_manager.pps_errors'):
             self.enable_health_monitoring()
             self.clear_health_status()
+
+        if new_spead_header_format:
+            if not self.tpm.has_register("fpga1.beamf_ring.control.new_spead_format"):
+                raise LibraryError(f"New spead header is not supported with this version of the firmware")
+            else:
+                for fpga in ["fpga1", "fpga2"]:
+                    self.tpm[f"{fpga}.beamf_ring.control.new_spead_format"] = 1
 
         if tpm_start_time is not None:
             self.start_acquisition(tpm_start_time=tpm_start_time)
@@ -1803,7 +1813,7 @@ class Tile(TileHealthMonitor):
 
     @connected
     def define_spead_header(
-        self, station_id, subarray_id, nof_antennas, ref_epoch=-1, start_time=0, new_spead_header_format=False
+        self, station_id, subarray_id, nof_antennas, ref_epoch=-1, start_time=0
     ):
         """
         Define SPEAD header for last tile.
@@ -1819,8 +1829,6 @@ class Tile(TileHealthMonitor):
         :param start_time: start time (TODO describe better)
         :return: True if parameters OK, False for error
         :rtype: bool
-        :param new_spead_header_format: Sets the CSP spead header to the version specified in ICD ECP-230134
-        :type new_spead_header_format: bool
         """
         ret1 = self.tpm.station_beamf[0].define_spead_header(
             station_id, subarray_id, nof_antennas, ref_epoch, start_time
@@ -1828,14 +1836,6 @@ class Tile(TileHealthMonitor):
         ret2 = self.tpm.station_beamf[1].define_spead_header(
             station_id, subarray_id, nof_antennas, ref_epoch, start_time
         )
-
-        if new_spead_header_format:
-            if not self.tpm.has_register("fpga1.beamf_ring.control.new_spead_format"):
-                raise LibraryError(f"New spead header is not supported with this version of the firmware")
-            else:
-                for fpga in ["fpga1", "fpga2"]:
-                    self.tpm[f"{fpga}.beamf_ring.control.new_spead_format"] = 1
-
         return ret1 and ret2
 
     @connected
@@ -2236,23 +2236,22 @@ class Tile(TileHealthMonitor):
         else:
             tpm_sync_time = int(tpm_start_time)
         
-        if sys.version_info.minor >= 9:
-            extra_leap_seconds = 5  # since 2000.0
-            tai_2000_epoch = int(AstropyTime('2000-01-01 00:00:00', scale='tai').unix)
-            tai_2000_epoch -= extra_leap_seconds
+        # if sys.version_info.minor >= 9:
+        extra_leap_seconds = 5  # since 2000.0
+        tai_2000_epoch = int(AstropyTime('2000-01-01 00:00:00', scale='tai').unix)
+        tai_2000_epoch -= extra_leap_seconds
+        # sync time must be a multiple of 864 seconds since tai_2000_epoch 
+        # to ensure there is an integer number of frames from TAI2000 to sync time 
+        # This is applied only if there is a register to set 
+        if self.tpm.has_register(f"{fpga}.pps_manager.sync_time_actual_val"):
+            tpm_sync_time = int(tpm_sync_time - (tpm_sync_time - tai_2000_epoch)%864)
 
-            # sync time must be a multiple of 864 seconds since tai_2000_epoch 
-            # to ensure there is an integer number of frames from TAI2000 to sync time 
-            # This is applied only if there is a register to set 
-            if self.tpm.has_register(f"{fpga}.pps_manager.sync_time_actual_val"):
-                tpm_sync_time = int(tpm_sync_time - (tpm_sync_time - tai_2000_epoch) % 864)
-
-        clock_freq = 200e6  # ADC data clock
-        frame_period = 1.08e-6  # 27/32 * 1024 * ADC sample rate
+        clock_freq = 200e6 # ADC data clock
+        frame_period =  1.08e-6 # 27/32 * 1024 * ADC sample rate
         time_diff = sync_time - tpm_sync_time
-        frame_bias = 42  # time required to load internal pipelines in the ADC
+        frame_bias = 42  # time required to load internal pipleines in the ADC
         start_frame = int(np.ceil(time_diff/frame_period)) 
-        frame_offset = int(np.round((start_frame*frame_period - time_diff)*clock_freq)) + frame_bias
+        frame_offset = int(np.round((start_frame*frame_period - time_diff)*clock_freq))+ frame_bias
         if frame_offset > 215:
             frame_offset -= 216
             start_frame -= 1
@@ -2263,7 +2262,7 @@ class Tile(TileHealthMonitor):
         for fpga in devices:
             if not self.tpm.has_register(f"{fpga}.pps_manager.sync_time_actual_val") and tpm_start_time is not None:
                 raise LibraryError(f"Syncing to other TPM's is not possible with this version of the firmware")
-
+                
             if self.tpm.has_register(f"{fpga}.pps_manager.sync_time_actual_val"):
                 self.tpm[f"{fpga}.pps_manager.sync_time_actual_val"] = sync_time
                 # Set time TPM thinks the sync time happens
@@ -2277,6 +2276,7 @@ class Tile(TileHealthMonitor):
         # Write start time in beamformer
         if self.tpm.tpm_test_firmware[0].station_beamformer_implemented:
             self.set_beamformer_epoch(sync_time)
+
 
     def check_communication(self):
         """
