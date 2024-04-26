@@ -43,6 +43,7 @@ class TestWrapper:
                        }
 
         self.test_todo = []
+        self.test_skipped = False
         self.tpm_config = tpm_config
         self.log_file = log_file
 
@@ -117,6 +118,7 @@ class TestWrapper:
         return self.class_dict[test]['parameter_names']
 
     def execute(self, iterations=1):
+        self.test_skipped = False
         for _ in range(iterations):
             test_result = []
             ret = 0
@@ -141,6 +143,7 @@ class TestWrapper:
                     result = "PASSED!"
                 elif ret_val < 0:
                     result = "SKIPPED!"
+                    self.test_skipped = True
                 else:
                     result = "FAILED!"
                     ret = 1
@@ -171,12 +174,13 @@ class TestWrapper:
             station_config['observation']['start_frequency_channel'] = 50e6
             station_config['observation']['bandwidth'] = 300e6
         station_inst = station.Station(station_config)
-        station_inst.connect()
+        success = station_inst.connect()
         if max_power:
             station_inst.test_generator_input_select(0xFFFFFFFF)
             station_inst.test_generator_set_noise(0.95)
         station_config['station']['program'] = False
         station_config['station']['initialise'] = False
+        return success
 
     def adc_power_down(self):
         station_config = self.tpm_config
