@@ -146,7 +146,7 @@ bool StationRawData::processPacket()
     uint16_t station_id = 0;
     uint16_t nof_contributing_antennas = 0;
     uint32_t payload_offset = 0;
-    double timestamp_scale = 1.0e-9;
+    double timestamp_scale = 1.0e-8;  // new time format
     double sampling_time = 1.08e-6;
     uint32_t scan_id = 0;
 
@@ -157,7 +157,8 @@ bool StationRawData::processPacket()
     // timestamp entry implicit at TAI 2000.0
     bool tai_time = (nofitems == 6);
     if (tai_time) {
-        timestamp = TAI_2000;
+        sync_time = TAI_2000;
+	timestamp_scale = 2.21184e-3; // 2048*1.08e-6
     }
 
     for(unsigned i = 1; i <= nofitems; i++)
@@ -168,7 +169,7 @@ bool StationRawData::processPacket()
             case 0x0001:  // Heap counter
             {
                 if (tai_time) {
-                    packet_counter = (uint64_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFFFFLL); // 40-bits
+                    packet_counter = timestamp = (uint64_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFFFFLL); // 40-bits
                 } else {
                     logical_channel_id = (uint16_t) ((SPEAD_ITEM_ADDR(item) >> 32) & 0xFFFF); // 16-bits
                     packet_counter = (uint32_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFF); // 32-bits

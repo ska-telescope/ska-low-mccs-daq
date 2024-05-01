@@ -2201,8 +2201,11 @@ class Tile(TileHealthMonitor):
         :param delay: delay after start_time (seconds)
         :param tpm_start_time: TPM will act as if it is started at this time (seconds)
         """
-        
         devices = ["fpga1", "fpga2"]
+        if self['fpga1.dsp_regfile.stream_status.channelizer_vld'] or \
+           self['fpga2.dsp_regfile.stream_status.channelizer_vld']:
+            raise LibraryError(f"Acquisition already started")
+
         for fpga in devices:
             self.tpm[f"{fpga}.regfile.eth10g_ctrl"] = 0x0
 
@@ -2245,6 +2248,7 @@ class Tile(TileHealthMonitor):
         # This is applied only if there is a register to set 
         if self.tpm.has_register(f"{fpga}.pps_manager.sync_time_actual_val"):
             tpm_sync_time = int(tpm_sync_time - (tpm_sync_time - tai_2000_epoch)%864)
+            # sync_time = tpm_sync_time + ((sync_time-tpm_sync_time)//27 + 1)*27 
 
         clock_freq = 200e6 # ADC data clock
         frame_period =  1.08e-6 # 27/32 * 1024 * ADC sample rate
@@ -2257,6 +2261,7 @@ class Tile(TileHealthMonitor):
             start_frame -= 1
         start_timestamp_hi = int(start_frame >> 32)
         start_timestamp_lo = start_frame & 0xffffffff
+        polyfilt_initial_shift = (((start_frame-1) & 0x1f) * 160) & 0x3ff 
 
         # Write start time
         for fpga in devices:
@@ -2264,12 +2269,15 @@ class Tile(TileHealthMonitor):
                 raise LibraryError(f"Syncing to other TPM's is not possible with this version of the firmware")
                 
             if self.tpm.has_register(f"{fpga}.pps_manager.sync_time_actual_val"):
-                self.tpm[f"{fpga}.pps_manager.sync_time_actual_val"] = sync_time
                 # Set time TPM thinks the sync time happens
+                self.tpm[f"{fpga}.pps_manager.sync_time_actual_val"] = sync_time
                 self.tpm[f"{fpga}.pps_manager.sync_time_val"] = tpm_sync_time
                 self.tpm[f"{fpga}.pps_manager.timestamp_rst_value_lo"] = start_timestamp_lo
                 self.tpm[f"{fpga}.pps_manager.timestamp_rst_value_hi"] = start_timestamp_hi
                 self.tpm[f"{fpga}.pps_manager.sync_time_val_fine"] = frame_offset
+                self.tpm[f"{fpga}.dsp_regfile.channelizer_config.initial_shift"] = polyfilt_initial_shift
+                self.tpm[f"{fpga}.dsp_regfile.channelizer_config.load_shift"] = 1
+                self.tpm[f"{fpga}.dsp_regfile.channelizer_config.load_shift"] = 0
             else:
                 self.tpm[f"{fpga}.pps_manager.sync_time_val"] = sync_time
 

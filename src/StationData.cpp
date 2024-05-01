@@ -120,7 +120,7 @@ bool StationData::processPacket()
     uint16_t nof_contributing_antennas = 0;
     uint32_t payload_offset = 0;
     uint32_t scan_id = 0;
-    double timestamp_scale = 1.0e-9;
+    double timestamp_scale = 1.0e-8;  // new timestamp format
 
     // Get the number of items and get a pointer to the packet payload
     auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
@@ -129,7 +129,8 @@ bool StationData::processPacket()
     // timestamp entry implicit at TAI 2000.0
     bool tai_time = (nofitems == 6);
     if (tai_time) {
-	timestamp = TAI_2000;
+	sync_time = TAI_2000;
+	timestamp_scale = 2.21184e-3; // 2048*1.08e-6
     }
     for(unsigned i = 1; i <= nofitems; i++)
     {
@@ -139,7 +140,7 @@ bool StationData::processPacket()
             case 0x0001:  // Heap counter
             {
 		if (tai_time) {
-		    packet_counter = (uint64_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFFFFLL); // 40-bits
+		    packet_counter = timestamp = (uint64_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFFFFLL); // 40-bits
 		} else {
                     logical_channel_id = (uint16_t) ((SPEAD_ITEM_ADDR(item) >> 32) & 0xFFFF); // 16-bits
                     packet_counter = (uint32_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFF); // 32-bits
@@ -188,7 +189,6 @@ bool StationData::processPacket()
 	    case 0x3010: // Scan ID
 	    {
 	        scan_id = (uint32_t) SPEAD_ITEM_ADDR(item);
-		timestamp_scale = 1.0e-8;   // new time format
 	    }
             case 0x3300: // Payload offset
             {
@@ -214,14 +214,8 @@ bool StationData::processPacket()
             // Multiply packet_counter by rollover counts
             timestamp += timestamp_rollover << 48;
     }
-    // Calculate packet time
+    // Calculate packet time. It is expressed in UTC
     double packet_time = sync_time + timestamp * timestamp_scale;
-    // Adjust for TAI to UTC offset: packet time in UTC.
-    // TODO: use TAI time in all display routines, or use UTC time structure
-    //
-    if (tai_time) {
-	packet_time -= TAI_OFFSET;
-    }
     // Calculate frequency if not present
     if (frequency == 0) {
        frequency = 781250 * frequency_id;
