@@ -140,7 +140,8 @@ class TestHealthMonitoring():
         self._logger.info("Executing Health Monitoring test")
 
         self.errors = 0
-        
+        self.error_msg_list = []
+
         for n, tile in enumerate(self._test_station.tiles):
             
             # Bitfiles sbf410 and older do not support health monitoring
