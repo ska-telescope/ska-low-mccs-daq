@@ -14,9 +14,13 @@ class TestHealthMonitoring():
         self._logger = logger
         self._station_config = station_config
         self.errors = 0
+        self.error_msg_list = []
 
     def clean_up(self):
         if self.errors > 0:
+            self._logger.error("ERROR summary:")
+            for error_msg in self.error_msg_list:
+                self._logger.error(error_msg)
             self._logger.error(f"Health Monitoring Test FAILED! {self.errors} Errors")
             return 1
         self._logger.info("Health Monitoring Test PASSED!")
@@ -25,7 +29,9 @@ class TestHealthMonitoring():
     def check_analog_measurements(self, key, unit, expected, measurement, tpm_id):
         # Preliminary Checks
         if expected.keys() != measurement.keys():
-            self._logger.error(f"Got {len(measurement.keys())} {key} measurements, expected {len(expected.keys())}. Test FAILED")
+            error_msg = f"TPM{tpm_id}: Got {len(measurement.keys())} {key} measurements, expected {len(expected.keys())}. Test FAILED"
+            self.error_msg_list.append(error_msg)
+            self._logger.error(error_msg)
             self.errors += 1
         # Check Measurements
         for name, value in measurement.items():
@@ -34,7 +40,9 @@ class TestHealthMonitoring():
                 if expected[name]['exp_value'].get('skip', False):
                     self._logger.warning(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['exp_value']['min']}{unit} - {expected[name]['exp_value']['max']}{unit}. Expected Failure")
                 else:
-                    self._logger.error(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['exp_value']['min']}{unit} - {expected[name]['exp_value']['max']}{unit}. Test FAILED")
+                    error_msg = f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, outside acceptable range {expected[name]['exp_value']['min']}{unit} - {expected[name]['exp_value']['max']}{unit}. Test FAILED"
+                    self.error_msg_list.append(error_msg)
+                    self._logger.error(error_msg)
                     self.errors += 1
             else:
                 self._logger.info(f"TPM{tpm_id} {name} {key.capitalize()} is {value}{unit}, within acceptable range {expected[name]['exp_value']['min']}{unit} - {expected[name]['exp_value']['max']}{unit}.")
@@ -63,22 +71,26 @@ class TestHealthMonitoring():
                continue
             if 'exp_value' in val:
                 if '.'.join(key_list) in MON_POINT_SKIP:
-                    print(f"Skipping checks for {'->'.join(key_list)}.")
+                    self._logger.warning(f"Skipping checks for {'->'.join(key_list)}.")
                     key_list.pop()
                 else:
                     expected_value = val['exp_value']
                     try: 
                         current_value = self.get_health_by_path(current_health, key_list)
                     except KeyError:
-                        print(f"{'->'.join(key_list)} expected but not found in Health Status.  Test FAILED")
+                        error_msg = f"TPM{tpm_id} {'->'.join(key_list)} expected but not found in Health Status. Test FAILED"
+                        self.error_msg_list.append(error_msg)
+                        self._logger.error(error_msg)
                         self.errors += 1
                         key_list.pop()
                         break
                     if current_value != expected_value:
-                        print(f"{'->'.join(key_list)} is {current_value}, expected {expected_value}. Test FAILED")
-                        self.errors+=1
+                        error_msg = f"TPM{tpm_id} {'->'.join(key_list)} is {current_value}, expected {expected_value}. Test FAILED"
+                        self.error_msg_list.append(error_msg)
+                        self._logger.error(error_msg)
+                        self.errors += 1
                     else:
-                        print(f"{'->'.join(key_list)} is {expected_value} as expected.")
+                        self._logger.info(f"TPM{tpm_id} {'->'.join(key_list)} is {expected_value} as expected.")
                     key_list.pop()
             else:
                 self.recursive_check_health_dict(val, current_health, key_list, tpm_id)
@@ -91,13 +103,15 @@ class TestHealthMonitoring():
             error_dict = tile.check_ddr_parity_error_counter()
             for fpga in ['FPGA0', 'FPGA1']:
                 if error_dict[fpga] != expected_dict[fpga]:
-                    print(f"{fpga} DDR parity error count is {error_dict[fpga]}, expected {expected_dict[fpga]}.  Test FAILED")
+                    error_msg = f"{fpga} DDR parity error count is {error_dict[fpga]}, expected {expected_dict[fpga]}.  Test FAILED"
+                    self.error_msg_list.append(error_msg)
+                    self._logger.error(error_msg)
                     self.errors += 1
                 else:
-                    print(f"{fpga} DDR parity error count is {error_dict[fpga]} as expected.")
+                    self._logger.info(f"{fpga} DDR parity error count is {error_dict[fpga]} as expected.")
             return
-        print("Testing DDR parity error injection and detection...")
-        print("Clearing DDR parity error count for both FPGAs.")
+        self._logger.info("Testing DDR parity error injection and detection...")
+        self._logger.info("Clearing DDR parity error count for both FPGAs.")
         tile.clear_station_beamformer_status()
         check_parity_error({'FPGA0': 0, 'FPGA1': 0})
         tile.inject_ddr_parity_error(fpga_id=0)
@@ -108,12 +122,12 @@ class TestHealthMonitoring():
         tile.inject_ddr_parity_error(fpga_id=1)
         tile.inject_ddr_parity_error(fpga_id=1)
         check_parity_error({'FPGA0': 2, 'FPGA1': 3})
-        print("Clearing DDR parity error count for FPGA0.")
+        self._logger.info("Clearing DDR parity error count for FPGA0.")
         tile.clear_station_beamformer_status(fpga_id=0)
         check_parity_error({'FPGA0': 0, 'FPGA1': 3})
         tile.inject_ddr_parity_error()
         check_parity_error({'FPGA0': 1, 'FPGA1': 4})
-        print("Clearing DDR parity error count for both FPGAs.")
+        self._logger.info("Clearing DDR parity error count for both FPGAs.")
         tile.clear_station_beamformer_status()
         check_parity_error({'FPGA0': 0, 'FPGA1': 0})
         return
