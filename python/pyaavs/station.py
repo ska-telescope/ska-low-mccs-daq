@@ -44,6 +44,7 @@ configuration = {'tiles': None,
                      'start_frequency_channel': 50e6},
                  'network': {
                     'tile_40g_subnet' : None,
+                    'active_40g_qsfp' : "port1-only",
                      'lmc': {
                          'tpm_cpld_port': 10000,
                          'lmc_ip': "10.0.10.200",
@@ -220,7 +221,7 @@ def initialise_tile(params):
             rx_port_single_port_mode=rx_port_40g_single_port_mode,
             netmask_40g=netmask_40g,
             gateway_ip_40g=gateway_ip_40g,
-            active_40g_ports_setting="port1-only",  # "port2-only", "both-ports"
+            active_40g_ports_setting=config['network']['active_40g_qsfp'], #"port1-only", "port2-only", "both-ports"
             qsfp_detection=config['station']['qsfp_detection'],
             enable_test=config['station']['enable_test'],
             use_internal_pps=config['station']['use_internal_pps'],
