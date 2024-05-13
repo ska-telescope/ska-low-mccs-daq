@@ -373,7 +373,8 @@ class Station(object):
                 self._slack.info("Station beamformer enabled with start frequency {:.2f} MHz and bandwidth {:.2f} MHz".format(
                     self.configuration['observation']['start_frequency_channel'] * 1e-6,
                     self.configuration['observation']['bandwidth'] * 1e-6))
-
+            else:
+                logging.info("Station beamformer disabled")
             # configure beamformer
             if self.tiles[0].tpm.tpm_test_firmware[0].tile_beamformer_implemented and \
                     self.tiles[0].tpm.tpm_test_firmware[0].station_beamformer_implemented:
@@ -390,17 +391,12 @@ class Station(object):
                                                  ref_epoch=-1,
                                                  start_time=0)
 
-                    # Start beamformer
-                    if self.configuration['station']['start_beamformer']:
-                        logging.info("Starting station beamformer")
-                        tile.start_beamformer(start_time=0, duration=-1)
-
-                        # Set beamformer scaling
-                        for tile in self.tiles:
-                            for station_beamf in tile.tpm.station_beamf:
-                                station_beamf.set_csp_rounding(
-                                    self.configuration['station']['beamformer_scaling']
-                                )
+                    # Set beamformer scaling
+                    for tile in self.tiles:
+                        for station_beamf in tile.tpm.station_beamf:
+                            station_beamf.set_csp_rounding(
+                                self.configuration['station']['beamformer_scaling']
+                            )
 
             # If in testing mode, override tile-specific test generators
             if self.configuration['station']['enable_test']:
@@ -427,6 +423,13 @@ class Station(object):
             self._check_pps_sampling_synchronisation()
             self._check_time_synchronisation()
             self._start_acquisition()
+
+            # Start beamformer
+            if self.tiles[0].tpm.tpm_test_firmware[0].tile_beamformer_implemented and \
+                self.tiles[0].tpm.tpm_test_firmware[0].station_beamformer_implemented and \
+                self.configuration['station']['start_beamformer']:
+                logging.info("Starting station beamformer")
+                self.start_beamformer(start_time=0, duration=-1)
 
             # Setting PREADU values
             att_value = self.configuration['station']['default_preadu_attenuation']
@@ -806,6 +809,39 @@ class Station(object):
             tile.tpm[key] = value
 
 
+    def start_beamformer(self, start_time=0, duration=-1, scan_id=0, mask=0xffffffffff):
+        """ 
+        Start beamformer synchronized among tiles.
+
+        Duration: if > 0 is a duration in frames * 256 (276.48 us)
+        if == -1 run forever
+
+        :param start_time: time (in ADC frames/256) for first frame sent
+        :type start_time: int
+        :param duration: duration in ADC frames/256. Multiple of 8
+        :type duration: int
+        :type scan_id: int
+        :param mask: Bitmask of the channels to be started. Unsupported by FW
+        :type mask: int
+        :return: False for error (e.g. beamformer already running)
+        :rtype bool:
+        """
+        if self.tiles[0].beamformer_is_running():
+            return False
+
+        if start_time == 0:
+            start_time = self.tiles[0].current_station_beamformer_frame() + 256
+
+        retvalues = [tile.start_beamformer(start_time, duration, scan_id, mask)
+                for tile in station.tiles]
+        return all(retvalues)
+
+    def stop_beamformer(self):
+        """ Stop station beamformer. """
+        retvalues = [tile.stop_beamformer() for tile in station.tiles]
+        return all(retvalues)
+
+
 def apply_config_file(input_dict, output_dict):
     """ Recursively copy value from input_dict to output_dict"""
     for k, v in iteritems(input_dict):
@@ -815,7 +851,6 @@ def apply_config_file(input_dict, output_dict):
             logging.warning("{} not a valid configuration item. Skipping".format(k))
         else:
             output_dict[k] = v
-
 
 def load_configuration_file(filepath):
     """ Load station configuration from configuration file """
