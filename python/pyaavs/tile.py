@@ -806,7 +806,7 @@ class Tile(TileHealthMonitor):
         if not self.tpm.has_register("fpga1.dsp_regfile.config_id.is_master"):
             self.logger.warning("TPM firmware does not support different active 40G port configurations. Both 40G ports will be used.")
             return
-        if self.tpm_version == "tpm_v1_2":
+        if self.tpm_version() == "tpm_v1_2":
             self.logger.warning("TPM 1.2 does not support different active 40G port configurations. Both 40G ports will be used.")
             return
         if configuration == "port1-only":
@@ -896,7 +896,7 @@ class Tile(TileHealthMonitor):
                     cable_detected = True
                 elif qsfp_detection == "flyover_test":
                     cable_detected = True
-                    if self.tpm_version == "tpm_v1_2":
+                    if self.tpm_version() == "tpm_v1_2":
                         self.logger.warning(
                             "Forcing QSFP module detection as 'flyover_test' is not supported on TPM 1.2"
                         )
@@ -2724,7 +2724,7 @@ class Tile(TileHealthMonitor):
         assert set(range(len(levels))) == set(self.preadu_signal_map)
 
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version == "tpm_v1_2":
+            if self.tpm_version() == "tpm_v1_2":
                 preadu.select_low_passband()
             preadu.read_configuration()
 
@@ -2743,7 +2743,7 @@ class Tile(TileHealthMonitor):
         :return: Attenuation levels corresponding to each ADC channel, in dB.
         """
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version == "tpm_v1_2":
+            if self.tpm_version() == "tpm_v1_2":
                 preadu.select_low_passband()
             preadu.read_configuration()
 
@@ -2760,7 +2760,7 @@ class Tile(TileHealthMonitor):
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version == "tpm_v1_2":
+            if self.tpm_version() == "tpm_v1_2":
                 preadu.select_low_passband()
             preadu.read_configuration()
 
@@ -2791,7 +2791,7 @@ class Tile(TileHealthMonitor):
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version == "tpm_v1_2":
+            if self.tpm_version() == "tpm_v1_2":
                 preadu.select_low_passband()
             preadu.read_configuration()
             preadu.set_attenuation(attenuation, list(range(16)))
