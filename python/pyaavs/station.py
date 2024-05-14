@@ -833,12 +833,12 @@ class Station(object):
             start_time = self.tiles[0].current_station_beamformer_frame() + 256
 
         retvalues = [tile.start_beamformer(start_time, duration, scan_id, mask)
-                for tile in station.tiles]
+                for tile in self.tiles]
         return all(retvalues)
 
     def stop_beamformer(self):
         """ Stop station beamformer. """
-        retvalues = [tile.stop_beamformer() for tile in station.tiles]
+        retvalues = [tile.stop_beamformer() for tile in self.tiles]
         return all(retvalues)
 
 
