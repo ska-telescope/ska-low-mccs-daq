@@ -69,7 +69,12 @@ class TestDaqHandler:
 
         persister_mock = Mock()
         persister_mock.get_metadata.side_effect = get_metadata
-        persisters = {DaqModes.INTEGRATED_CHANNEL_DATA: persister_mock}
+        correlator_persister_mock = Mock()
+        correlator_persister_mock.get_metadata.side_effect = get_metadata
+        persisters = {
+            DaqModes.INTEGRATED_CHANNEL_DATA: persister_mock,
+            DaqModes.CORRELATOR_DATA: correlator_persister_mock,
+        }
         daqrx = Mock()
         daqrx._persisters = persisters
         return daqrx
@@ -359,5 +364,14 @@ class TestDaqHandler:
 
         file_callback_result = next(start_result)
         assert isinstance(file_callback_result, tuple)
+        assert ("integrated_channel", "file_name") == file_callback_result[0:2]
+        extra_info = file_callback_result[2]
+        assert json.loads(extra_info) == file_metadata
+
+        daq_handler._file_dump_callback("correlator", "correlator_file_name")
+
+        file_callback_result = next(start_result)
+        assert isinstance(file_callback_result, tuple)
+        assert ("correlator", "correlator_file_name") == file_callback_result[0:2]
         extra_info = file_callback_result[2]
         assert json.loads(extra_info) == file_metadata
