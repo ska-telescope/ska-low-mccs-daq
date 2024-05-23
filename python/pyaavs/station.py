@@ -418,11 +418,12 @@ class Station(object):
             #     for tile in self.tiles:
             #         tile.check_arp_table()
 
-            # If initialising, synchronise all tiles in station
-            logging.info("Synchronising station")
-            self._check_pps_sampling_synchronisation()
-            self._check_time_synchronisation()
-            self._start_acquisition()
+            if self.tiles[0].tpm.has_register("fpga1.beamf_ring.control.new_spead_format"):
+                # If initialising, synchronise all tiles in station
+                logging.info("Synchronising station")
+                self._check_pps_sampling_synchronisation()
+                self._check_time_synchronisation()
+                self._start_acquisition()
 
             # Start beamformer
             if self.tiles[0].tpm.tpm_test_firmware[0].tile_beamformer_implemented and \
@@ -430,6 +431,13 @@ class Station(object):
                 self.configuration['station']['start_beamformer']:
                 logging.info("Starting station beamformer")
                 self.start_beamformer(start_time=0, duration=-1)
+
+            if not self.tiles[0].tpm.has_register("fpga1.beamf_ring.control.new_spead_format"):
+                # If initialising, synchronise all tiles in station
+                logging.info("Synchronising station")
+                self._check_pps_sampling_synchronisation()
+                self._check_time_synchronisation()
+                self._start_acquisition()
 
             # Setting PREADU values
             att_value = self.configuration['station']['default_preadu_attenuation']
