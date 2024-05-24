@@ -18,3 +18,4 @@ slacker
 singleton_decorator
 tabulate
 psutil
+pytest

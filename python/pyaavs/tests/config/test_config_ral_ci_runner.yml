@@ -1,7 +1,7 @@
 # Test configuration parameters
 
 # DAQ Ethernet Interface
-daq_eth_if: "ens6f0"
+daq_eth_if: "ens6f1"
 
 # Single TPM tests will be run on the TPM identified by index within the station
 single_tpm_test_station_idx: 0

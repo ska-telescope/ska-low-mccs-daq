@@ -442,13 +442,13 @@ class Station(object):
                     )
                     for tile in self.tiles:
                         tile.equalize_preadu_gain(self.configuration['station']['equalize_preadu'])
-
+            return True
         elif not self.properly_formed_station:
             logging.warning("Some tiles were not initialised or programmed. Not forming station")
-
+            return False
         # If not initialising, check that station is formed properly
         else:
-            self.check_station_status()
+            return self.check_station_status()
 
     def check_station_status(self):
         """ Check that the station is still valid """
@@ -467,6 +467,9 @@ class Station(object):
 
         if not self.properly_formed_station:
             logging.warning("Station configuration is incorrect (unreachable TPMs or incorrect tile ids)!")
+            return False
+        else:
+            return True
 
     def _check_time_synchronisation(self):
         """ Check UTC time synchronisation across tiles and FPGAs. Re-write UTC time when check fails """
