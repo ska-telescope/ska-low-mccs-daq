@@ -1749,8 +1749,8 @@ class Tile(TileHealthMonitor):
         """
         # if SPEAD new format is supported, set ref_epoch_frame register
         if self.tpm.has_register("fpga1.beamf_ring.control.new_spead_format"):
-            # tpm_sync_time = self.tpm["fpga1.pps_manager.sync_time_val"]
-            # extra_leap_seconds = 5
+            # TAI epoch expressed as a constant for efficiency.
+            # extra_leap_seconds = 5  # Extra leap seconds since year 2000
             # tai_2000_epoch = int(AstropyTime('2000-01-01 00:00:00', scale='tai').unix)-extra_leap_seconds
             tai_2000_epoch = 946684763
             # integer as time difference is a multiple of 864 seconds
@@ -2279,7 +2279,7 @@ class Tile(TileHealthMonitor):
 
         clock_freq = 200e6 # ADC data clock
         frame_period =  1.08e-6 # 27/32 * 1024 * ADC sample rate
-        time_diff = sync_time - tpm_sync_time
+        time_diff = sync_time - global_sync_time
         frame_bias = 42  # time required to load internal pipelines in the ADC
         start_frame = int(np.ceil(time_diff/frame_period)) 
         frame_offset = int(np.round((start_frame*frame_period - time_diff)*clock_freq)

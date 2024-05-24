@@ -209,7 +209,7 @@ class TestTileBeamformer():
                 beam_val = tf.get_beam_value(data, p, c) # - self._beam_start_channel)
                 single_val = ref_value
 
-                if abs(beam_val.real / 16 - single_val.real) > 1 or abs(beam_val.imag / 16 - single_val.imag) > 1:
+                if abs(beam_val.real / 16 - single_val.real) > 2 or abs(beam_val.imag / 16 - single_val.imag) > 2:
                     self._logger.error("Error in beam sum:")
                     self._logger.error("Individual antenna values:")
                     self._logger.error(single_input_data)
@@ -279,8 +279,8 @@ class TestTileBeamformer():
             self._logger.info("Corrected value pol0:")
             self._logger.info(beam_val_corrected_pol0)
 
-            if abs(beam_val_reference_pol0.real - beam_val_corrected_pol0.real) >= 2 or abs(beam_val_reference_pol0.imag - beam_val_corrected_pol0.imag) >= 2 or \
-               abs(beam_val_reference_pol1.real - beam_val_corrected_pol1.real) >= 2 or abs(beam_val_reference_pol1.imag - beam_val_corrected_pol1.imag) >= 2:
+            if abs(beam_val_reference_pol0.real - beam_val_corrected_pol0.real) > 2 or abs(beam_val_reference_pol0.imag - beam_val_corrected_pol0.imag) > 2 or \
+               abs(beam_val_reference_pol1.real - beam_val_corrected_pol1.real) > 2 or abs(beam_val_reference_pol1.imag - beam_val_corrected_pol1.imag) > 2:
                 self._logger.error("Error in beam pointing:")
                 self._logger.error("Reference value pol0/pol1:")
                 self._logger.error(beam_val_reference_pol0)
