@@ -1,12 +1,16 @@
-{{- /* Configure daq.
-
-This template assumes that all daq receivers share a single common storage location.
-*/}}
+{{- /* Configure daq. */}}
 {{- $overrides := .Values | get "overrides" dict}}
 {{- $platform := mergeOverwrite .Values.platform $overrides}}
+{{- if (not (hasPrefix "0.3." $platform.metadata.version))}}
+{{- fail (printf "Unsupported platform spec version %s" .Values.platform.metadata.version)}}
+{{- end}}
 
 {{- $daqs_to_launch := dict}}
 {{- $daqs_to_egress := dict}}
+
+{{- $cluster_daq_spec := dig "cluster" "daq" dict $platform}}
+{{- $daq_storage_name := dig "local_storage_claim" "daq-data" $cluster_daq_spec}}
+{{- $daq_storage_class := dig "storage_class" "" $cluster_daq_spec}}
 
 {{- range $station_name, $station_spec := $platform.array.stations}}
   {{- $sps_spec := dig "sps" (dict "enabled" false) $station_spec}}
@@ -25,20 +29,21 @@ This template assumes that all daq receivers share a single common storage locat
 {{- end}}
 
 {{- if $daqs_to_launch}}
+{{- if $daq_storage_class}}
 storage:
-  daq-data:
-{{- with $platform.cluster.daq.storage_class}}
-    storage_class: {{.}}
-{{- end}}
+  {{$daq_storage_name}}:
+    storage_class: {{$daq_storage_class}}
     size: "250Mi"
-
-{{- $cluster_daq_spec := dig "cluster" "daq" dict $platform}}
-{{- range $station_name, $daq_spec := $daqs_to_launch}}
+{{- end}}
+{{- with $daqs_to_launch}}
 receivers:
+{{- range $station_name, $daq_spec := .}}
   {{$station_name}}:
-    storage: daq-data
+    storage: {{$daq_storage_name}}
+{{- $cluster_daq_spec := dig "cluster" "daq" dict $platform}}
 {{- with (pick $cluster_daq_spec "annotations" "node_selector" "affinity" "tolerations" "runtime_class" "gpu_limit")}}
 {{toYaml . | indent 4}}
+{{- end}}
 {{- end}}
 {{- end}}
 {{- end}}

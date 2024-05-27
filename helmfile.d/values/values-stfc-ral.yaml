@@ -1,16 +1,6 @@
 defaults:
   logging_level_default: 5
 
-overrides:
-  metadata:
-    version: 0.3.0
-
-  array:
-    stations:
-      "ci-1":
-        id: 1
-        sps: {}
-
 # Use helm_values to set arbitrary helm values.
 # These are passed through to the helm values file as-is.
 # For example,
