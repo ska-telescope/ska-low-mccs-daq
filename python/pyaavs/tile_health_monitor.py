@@ -404,6 +404,33 @@ class TileHealthMonitor():
             available_voltages.extend(self.tpm.tpm_sysmon[fpga].get_available_voltages())
         return available_voltages
 
+
+    def get_tpm_temperature_thresholds(self):
+        """
+        Return a dictionary of temperature thresholds.
+
+        return structure looks like:
+        >> {
+            "board_warning_threshold": (min, max),
+            "board_alarm_threshold"  : (min, max),
+            "fpga1_warning_threshold": (min, max),
+            "fpga1_alarm_threshold": (min, max),
+            "fpga2_warning_threshold": (min, max),
+            "fpga2_alarm_threshold": (min, max),
+        }
+
+        :return: A dictionary containing the temperature thresholds.
+        :rtype: dict
+        """
+        return {
+            "board_warning_threshold": self.tpm.tpm_monitor[0].get_board_warn_temp_thresholds(),
+            "board_alarm_threshold"  : self.tpm.tpm_monitor[0].get_board_alm_temp_thresholds(),
+            "fpga1_warning_threshold": self.tpm.tpm_monitor[0].get_fpga_warn_temp_thresholds(fpga_id=0),
+            "fpga1_alarm_threshold": self.tpm.tpm_monitor[0].get_fpga_alm_temp_thresholds(fpga_id=0),
+            "fpga2_warning_threshold": self.tpm.tpm_monitor[0].get_fpga_warn_temp_thresholds(fpga_id=1),
+            "fpga2_alarm_threshold": self.tpm.tpm_monitor[0].get_fpga_alm_temp_thresholds(fpga_id=1),
+        }
+
     def get_voltage(self, fpga_id=None, voltage_name=None):
         """
         Get voltage measurements for TPM.
