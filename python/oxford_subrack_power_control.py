@@ -1,13 +1,13 @@
 from utilities.skalab.hardware_client import WebHardwareClient
 from time import sleep
 
-# TODO: Add method to report which slots of ON or OFF      
- 
+# TODO: Add method to report which slots are ON or OFF
+
 RAL_SUBRACK_1 = "10.132.0.14"
 RAL_SUBRACK_2 = "10.132.0.34"
 RAL_SURBACK_3 = "10.132.0.54"
 RAL_SUBRACK_4 = "10.132.0.74"
-OXFORD_SUBRACK_1 = "10.0.10.64"
+# OXFORD_SUBRACK_1 = "10.0.10.64"
 
 class Subrack:
     def __init__(self, ip):
@@ -107,10 +107,9 @@ class Subrack:
                 print(f"Subrack Fan {i+1} speed set to {speed}%")
 
 
-class OxfordSubrack(Subrack):
-    def __init__(self):
-        super().__init__(ip=OXFORD_SUBRACK_1)
-
+# class OxfordSubrack(Subrack):
+#     def __init__(self):
+#        super().__init__(ip=OXFORD_SUBRACK_1)
 
 class RALSubrack1(Subrack):
     def __init__(self):
