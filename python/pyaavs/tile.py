@@ -18,6 +18,7 @@ import time
 import math
 import os
 from ipaddress import IPv4Address
+from typing import Optional, List
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status, RegisterInfo
 from pyfabil.base.utils import ip2long
@@ -515,7 +516,7 @@ class Tile(TileHealthMonitor):
         register_name: str="", 
         display: bool=False, 
         info: bool=False
-    ) -> list[None | RegisterInfo]:
+    ) -> List[Optional[RegisterInfo]]:
         """
         Return register information from a provided search string.
 
@@ -563,7 +564,7 @@ class Tile(TileHealthMonitor):
         return self.tpm.station_beamf[fpga_id].get_channel_table()
 
     @connected
-    def define_channel_table(self, region_array: list[list[int]], fpga_id: None | int = None):
+    def define_channel_table(self, region_array: List[List[int]], fpga_id: Optional[int] = None):
         """
         Set frequency regions.
 
