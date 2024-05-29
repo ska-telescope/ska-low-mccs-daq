@@ -5,40 +5,40 @@ environments:
       - platform/minikube.yaml
   stfc-ci:
     values:
-      - platform/minikube.yaml
+      - platform/stfc-ci.yaml
       - values/values-stfc-ci.yaml
   aa0.5-production:
     kubeContext: infra:au-aa-mccs-cloud01-k8s
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/aa0.5.yaml?ref=8509331045e64eaec9f18e63fade839e300385e6
-      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s8-1.yaml?ref=8509331045e64eaec9f18e63fade839e300385e6
-      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s8-6.yaml?ref=8509331045e64eaec9f18e63fade839e300385e6
-      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s9-2.yaml?ref=8509331045e64eaec9f18e63fade839e300385e6
-      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s10-3.yaml?ref=8509331045e64eaec9f18e63fade839e300385e6
+      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/aa0.5.yaml?ref=de56857f9fd070fd10c88e03faa511042147320e
+      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s8-1.yaml?ref=de56857f9fd070fd10c88e03faa511042147320e
+      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s8-6.yaml?ref=de56857f9fd070fd10c88e03faa511042147320e
+      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s9-2.yaml?ref=de56857f9fd070fd10c88e03faa511042147320e
+      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s10-3.yaml?ref=de56857f9fd070fd10c88e03faa511042147320e
       - values/values-aa0-5.yaml
   aa0.5-minikube:
     kubeContext: minikube
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/aa0.5.yaml?ref=8509331045e64eaec9f18e63fade839e300385e6
-      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s8-1.yaml?ref=8509331045e64eaec9f18e63fade839e300385e6
-      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s8-6.yaml?ref=8509331045e64eaec9f18e63fade839e300385e6
-      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s9-2.yaml?ref=8509331045e64eaec9f18e63fade839e300385e6
-      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s10-3.yaml?ref=8509331045e64eaec9f18e63fade839e300385e6
+      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/aa0.5.yaml?ref=de56857f9fd070fd10c88e03faa511042147320e
+      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s8-1.yaml?ref=de56857f9fd070fd10c88e03faa511042147320e
+      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s8-6.yaml?ref=de56857f9fd070fd10c88e03faa511042147320e
+      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s9-2.yaml?ref=de56857f9fd070fd10c88e03faa511042147320e
+      - git::https://gitlab.com/ska-telescope/ska-low-deployment.git@helmfile.d/platform/low/s10-3.yaml?ref=de56857f9fd070fd10c88e03faa511042147320e
       - values/values-aa0-5.yaml
       - platform/minikube.yaml
   aavs3-production:
     kubeContext: infra:au-itf-aavs302-k8s
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=1fcf7de6e6fb40f69a821814fc2a53a5ef457c6f
+      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=396d367739c6291fc27790c0cf3ea075cfd82a4b
   aavs3-staging:
     kubeContext: infra:au-itf-k8s-master01-k8s
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=1fcf7de6e6fb40f69a821814fc2a53a5ef457c6f
+      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=396d367739c6291fc27790c0cf3ea075cfd82a4b
       - values/values-aavs3-staging.yaml
   aavs3-minikube:
     kubeContext: minikube
     values:
-      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=1fcf7de6e6fb40f69a821814fc2a53a5ef457c6f
+      - git::https://gitlab.com/ska-telescope/ska-low-aavs3.git@/tmdata/instrument/mccs-configuration/aavs3.yaml?ref=396d367739c6291fc27790c0cf3ea075cfd82a4b
       - platform/minikube.yaml
   arcetri:
     kubeContext: minikube
@@ -53,11 +53,11 @@ environments:
   low-itf:
     kubeContext: infra:au-itf-k8s-master01-k8s
     values:
-      - git::https://gitlab.com/ska-telescope/aiv/ska-low-itf.git@/helmfile.d/values/platform.yaml?ref=58c05bd6d9829be0c7657b910623e6115442c0bf
+      - git::https://gitlab.com/ska-telescope/aiv/ska-low-itf.git@/helmfile.d/values/platform.yaml?ref=6d9f75a8763ef794aa2d9734be8227377b0eeb86
   low-itf-minikube:
     kubeContext: minikube
     values:
-      - git::https://gitlab.com/ska-telescope/aiv/ska-low-itf.git@/helmfile.d/values/platform.yaml?ref=58c05bd6d9829be0c7657b910623e6115442c0bf
+      - git::https://gitlab.com/ska-telescope/aiv/ska-low-itf.git@/helmfile.d/values/platform.yaml?ref=6d9f75a8763ef794aa2d9734be8227377b0eeb86
       - platform/minikube.yaml
   oxford:
     kubeContext: minikube
@@ -67,13 +67,17 @@ environments:
   psi-low:
     kubeContext: psi-low
     values:
-      - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=6805bb007429a09a81dc7e12723d0fba28bbde5c
+      - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=2c9cb13ea6dd886dbc2e33b442251c85dd32376b
   psi-low-minikube:
     kubeContext: minikube
     values:
-      - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=6805bb007429a09a81dc7e12723d0fba28bbde5c
+      - git::https://gitlab.com/ska-telescope/ska-psi-low.git@/helmfile.d/values/platform.yaml?ref=2c9cb13ea6dd886dbc2e33b442251c85dd32376b
       - platform/minikube.yaml
-
+  stfc-ral:
+    values:
+      - platform/stfc-ral.yaml
+      - values/values-stfc-ral.yaml
+  
 ---
 
 repositories: []
