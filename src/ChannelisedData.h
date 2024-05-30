@@ -19,7 +19,7 @@
 
 // ----------------------- Channelised Data Container and Helpers ---------------------------------
 
-// Class which will hold the raw antenna data
+// Class which will hold the channel data
 template <class T> class ChannelDataContainer
 {
 public:
@@ -104,8 +104,8 @@ public:
                 for (unsigned k = 0; k < nof_included_antennas; k++)
                 {
                     long dst_index = (channel + i) * nof_samples * nof_antennas * nof_pols +
-                                    (start_sample_index + j) * nof_antennas * nof_pols +
-                                    (start_antenna_id + k) * nof_pols;
+                                     (start_sample_index + j) * nof_antennas * nof_pols +
+                                     (start_antenna_id + k) * nof_pols;
 
                     long src_index = i * samples * nof_included_antennas * nof_pols +
                                      j * nof_included_antennas * nof_pols +
@@ -125,7 +125,7 @@ public:
         nof_packets++;
     }
 
-    //  Clear buffer and antenna information
+    //  Clear buffer and channel information
     void clear()
     {
         // Clear buffer, set all content to 0
@@ -146,8 +146,8 @@ public:
         {
             // Call callback for every tile (if buffer has some content)
             for(unsigned i = 0; i < nof_tiles; i++)
-                    callback((uint32_t *) channel_data[i].data, this->timestamp,
-                             channel_data[i].tile, cont_channel_id);
+                callback((uint32_t *) channel_data[i].data, this->timestamp,
+                     channel_data[i].tile, cont_channel_id);
             clear();
             return;
         }
@@ -210,7 +210,7 @@ protected:
 
 private:
 
-    // AntennaInformation object
+    // Channel data container object
     ChannelDataContainer<uint16_t> *container;
     uint32_t num_packets = 0;
 
@@ -245,8 +245,9 @@ protected:
 
 private:
 
-    // AntennaInformation object
-    ChannelDataContainer<uint16_t> **containers = nullptr;
+    // Channel data container object
+    ChannelDataContainer<uint16_t> **containers_16bit = nullptr;
+    ChannelDataContainer<uint32_t> **containers_32bit = nullptr;
     unsigned int nof_containers = 4;
     unsigned int nof_buffer_skips = 0;
     unsigned int current_container = 0;
@@ -264,6 +265,9 @@ private:
     uint16_t nof_channels = 0;        // Number of channels
     uint32_t nof_samples = 0;         // Number of time samples
     double start_time = -1;           // Acquisition start time
+    uint32_t bitwidth = 16;           // Number of bits per sample
+    double sampling_time = 1.08e-6;   // Sampling time
+
 };
 
 // This class is responsible for consuming integrated channel SPEAD packets coming out of TPMs
@@ -289,8 +293,9 @@ protected:
 
 private:
 
-    // AntennaInformation object
-    ChannelDataContainer<uint16_t> *container;
+    // Channel Data container object
+    ChannelDataContainer<uint16_t> *container_16bit;
+    ChannelDataContainer<uint32_t> *container_32bit;
     uint32_t num_packets = 0;
 
     // Data setup
@@ -299,6 +304,7 @@ private:
     uint16_t nof_tiles = 0;           // Number of tiles
     uint16_t nof_channels = 0;        // Number of channels
     uint32_t nof_samples = 0;         // Number of time samples
+    uint16_t bitwidth = 16;           // Sample bitwidth
 
 };
 

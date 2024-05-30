@@ -36,9 +36,6 @@ class DaqModes(IntEnum):
     ANTENNA_BUFFER = 8
 
 
-# Custom numpy type for creating complex signed 8-bit data
-complex_8t = np.dtype([('real', np.int8), ('imag', np.int8)])
-
 # Global configuration dictionary
 conf = {"nof_antennas": 16,
         "nof_channels": 512,
@@ -54,6 +51,9 @@ conf = {"nof_antennas": 16,
         "nof_beam_samples": 42,
         "nof_beam_channels": 384,
         "nof_station_samples": 262144,
+        "integrated_channel_bitwidth": 16,
+        "continuous_channel_bitwidth": 16,
+        "persist_all_buffers": True,
         "append_integrated": True,
         "tsamp": 1.1325,
         "sampling_rate": (800e6 / 2.0) * (32.0 / 27.0) / 512.0,
@@ -181,7 +181,7 @@ def channel_data_callback(data, timestamp, tile, channel_id, mode='burst'):
         return
 
     # Ignore first two buffers
-    if mode == 'continuous':
+    if mode == 'continuous' and not conf['persist_all_buffers']:
         if tile not in list(cont_data_dumped.keys()):
             cont_data_dumped[tile] = 1
             if tile == 0:
@@ -195,10 +195,12 @@ def channel_data_callback(data, timestamp, tile, channel_id, mode='burst'):
 
     # Extract data sent by DAQ
     if mode == 'continuous':
-        values = get_numpy_from_ctypes(data, complex_8t,
+        dtype = complex_8t if conf["continuous_channel_bitwidth"] == 16 else complex_16t
+        values = get_numpy_from_ctypes(data, dtype,
                                        conf['nof_antennas'] * conf['nof_polarisations'] * conf['nof_channel_samples'])
     elif mode == 'integrated':
-        values = get_numpy_from_ctypes(data, np.uint16,
+        dtype = np.uint16 if conf["integrated_channel_bitwidth"] == 16 else np.uint32
+        values = get_numpy_from_ctypes(data, dtype,
                                        conf['nof_antennas'] * conf['nof_polarisations'] * conf['nof_channels'])
     else:
         values = get_numpy_from_ctypes(data, complex_8t,
@@ -415,15 +417,6 @@ def correlator_callback(data, timestamp, channel, arg2):
             values[counter * nof_stokes:(counter + 1) * nof_stokes] = grid[i, j, :]
             counter += 1
 
-    # # Convert from lower triangular to upper triangular form using some numpy magic
-    # values = values.reshape((nof_channels, nof_baselines, nof_stokes))
-    # indices = np.tril_indices(nof_antennas)
-    # grid = np.zeros((nof_channels, nof_antennas, nof_antennas, nof_stokes))
-    # grid[:, indices[0], indices[1]] = values[:]
-    # grid.transpose((0, 2, 1, 3))
-    # indices = np.triu_indices(nof_antennas)
-    # values = np.conj(grid[:, indices[0], indices[1], :])
-
     # Persist extracted data to file
     if conf['nof_correlator_channels'] == 1:
         # Persist extracted data to file
@@ -634,6 +627,8 @@ def start_continuous_channel_data_consumer(callback=None):
               "nof_antennas": conf['nof_antennas'],
               "nof_tiles": conf['nof_tiles'],
               "nof_pols": conf['nof_polarisations'],
+              "bitwidth": conf['continuous_channel_bitwidth'],
+              "sampling_time": 1.0 / conf['sampling_rate'],
               "nof_buffer_skips": conf['continuous_period'] // (
                       sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * conf['nof_channel_samples']),
               "start_time": conf['acquisition_start_time'],
@@ -644,8 +639,10 @@ def start_continuous_channel_data_consumer(callback=None):
         raise Exception("Failed to start continuous channel data consumer")
     running_consumers[DaqModes.CONTINUOUS_CHANNEL_DATA] = True
 
-    # Create data persister 
+    # Create data persister
+    data_type = 'complex' if conf["continuous_channel_bitwidth"] == 16 else 'complex16'
     channel_file = ChannelFormatFileManager(root_path=conf['directory'],
+                                            data_type=data_type,
                                             daq_mode=FileDAQModes.Continuous,
                                             observation_metadata=conf['observation_metadata'])
     channel_file.set_metadata(n_chans=1,
@@ -675,6 +672,7 @@ def start_integrated_channel_data_consumer(callback=None):
               "nof_antennas": conf['nof_antennas'],
               "nof_tiles": conf['nof_tiles'],
               "nof_pols": conf['nof_polarisations'],
+              "bitwidth": conf['integrated_channel_bitwidth'],
               "max_packet_size": conf['receiver_frame_size']}
 
     # Start channel data consumer
@@ -683,7 +681,9 @@ def start_integrated_channel_data_consumer(callback=None):
     running_consumers[DaqModes.INTEGRATED_CHANNEL_DATA] = True
 
     # Create data persister
-    channel_file = ChannelFormatFileManager(root_path=conf['directory'], data_type='uint16',
+    data_type = 'uint16' if conf["integrated_channel_bitwidth"] == 16 else 'uint32'
+    channel_file = ChannelFormatFileManager(root_path=conf['directory'],
+                                            data_type=data_type,
                                             daq_mode=FileDAQModes.Integrated,
                                             observation_metadata=conf['observation_metadata'])
     channel_file.set_metadata(n_chans=conf['nof_channels'],
@@ -1073,7 +1073,7 @@ def populate_configuration(configuration):
 
     # CHeck if filesize restriction is set
     if conf['max_filesize'] is not None:
-        aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = conf['max_filesize']
+        AAVSFileManager.FILE_SIZE_GIGABYTES = conf['max_filesize']
 
 
 def initialise_daq(filepath=None):
@@ -1280,7 +1280,7 @@ if __name__ == "__main__":
                       type="float", default=1.1325,
                       help="Sampling time in s (required for -I and -X) [default: 1.1325s]")
     parser.add_option("", "--sampling_rate", action="store", dest="sampling_rate",
-                      type="int", default=(800e6 / 2.0) * (32.0 / 27.0) / 512.0,
+                      type="float", default=(800e6 / 2.0) * (32.0 / 27.0) / 512.0,
                       help="FPGA sampling rate [default: {:,.2e}]".format((800e6 / 2.0) * (32.0 / 27.0) / 512.0))
     parser.add_option("", "--oversampling_factor", action="store", dest="oversampling_factor",
                       type="float", default=32.0 / 27.0,
@@ -1288,8 +1288,14 @@ if __name__ == "__main__":
     parser.add_option("", "--continuous_period", action="store", dest="continuous_period",
                       type="int", default=0, help="Number of elapsed seconds between successive dumps of continuous "
                                                   "channel data [default: 0 (dump everything)")
+    parser.add_option("", "--integrated_channel_bitwidth", action="store", dest="integrated_channel_bitwidth",
+                        type=int, default=16, help="Bit width of integrated channel data")
+    parser.add_option("", "--continuous_channel_bitwidth", action="store", dest="continuous_channel_bitwidth",
+                      type=int, default=16, help="Bit width of continuous channel data")
     parser.add_option("", "--append_integrated", action="store_false", dest="append_integrated", default=True,
                       help="Append integrated data in the same file (default: True")
+    parser.add_option("", "--persist_all_buffers", action="store_true", dest="persist_all_buffers", default=False,
+                      help="Do not ignore the first 3 received buffers for continuous channel data. (default: False")
 
     # Receiver options
     parser.add_option("-P", "--receiver_ports", action="store", dest="receiver_ports",
@@ -1360,7 +1366,7 @@ if __name__ == "__main__":
     threading.current_thread().name = "DAQ"
 
     if config.max_filesize is not None:
-        aavs_file.AAVSFileManager.FILE_SIZE_GIGABYTES = config.max_filesize
+        AAVSFileManager.FILE_SIZE_GIGABYTES = config.max_filesize
 
     # Populate configuration
     populate_configuration(config)

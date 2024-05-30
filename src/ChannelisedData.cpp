@@ -19,7 +19,7 @@ bool ChannelisedData::initialiseConsumer(json configuration)
         (key_in_json(configuration, "nof_pols")) &&
         (key_in_json(configuration, "max_packet_size"))) {
         LOG(FATAL, "Missing configuration item for ChannelisedData consumer. Requires "
-                "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols and max_packet_size");
+                    "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols and max_packet_size");
         return false;
     }
 
@@ -64,17 +64,8 @@ bool ChannelisedData::packetFilter(unsigned char *udp_packet)
         return false;
 
     // Check whether the SPEAD packet contains burst channel data
-    // Header must contain capture mode ID and its value 
-    // must be 4
-    //
-    for (unsigned short i = 0; i < SPEAD_GET_NITEMS(hdr); i++) {
-        uint64_t item = SPEAD_ITEM(udp_packet, i);
-        if (SPEAD_ITEM_ID(item) == 0x2004) {
-            uint64_t mode = SPEAD_ITEM_ADDR(item);
-            return mode == 0x4;
-	    }
-    }
-    return false;
+    uint64_t mode = SPEAD_ITEM_ADDR(SPEAD_ITEM(udp_packet, 5));
+    return mode == 0x4;
 }
 
 // Function called when a burst stream capture has finished
@@ -215,23 +206,28 @@ bool ContinuousChannelisedData::initialiseConsumer(json configuration)
         (key_in_json(configuration, "nof_samples")) &&
         (key_in_json(configuration, "nof_antennas")) &&
         (key_in_json(configuration, "nof_pols")) &&
+        (key_in_json(configuration, "bitwidth")) &&
+        (key_in_json(configuration, "sampling_time")) &&
         (key_in_json(configuration, "nof_buffer_skips")) &&
         (key_in_json(configuration, "max_packet_size")) &&
         (key_in_json(configuration, "start_time"))) {
         LOG(FATAL, "Missing configuration item for ContinuousChannelisedData consumer. Requires "
-                   "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols, "
-                   "nof_buffer_skips, start_time and max_packet_size");
+                   "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols, nof_buffer_skips,"
+                   "start_time and max_packet_size");
         return false;
     }
 
     // Set local values
-    nof_channels = configuration["nof_channels"];
-    nof_tiles    = configuration["nof_tiles"];
-    nof_samples  = configuration["nof_samples"];
-    nof_antennas = configuration["nof_antennas"];
-    nof_pols     = configuration["nof_pols"];
-    packet_size  = configuration["max_packet_size"];
+    nof_channels  = configuration["nof_channels"];
+    nof_tiles     = configuration["nof_tiles"];
+    nof_samples   = configuration["nof_samples"];
+    nof_antennas  = configuration["nof_antennas"];
+    nof_pols      = configuration["nof_pols"];
+    bitwidth      = configuration["bitwidth"];
+    sampling_time = configuration["sampling_time"];
+    packet_size   = configuration["max_packet_size"];
     nof_buffer_skips = configuration["nof_buffer_skips"];
+
 
     // Set star time, to the nearest second
     start_time = round((double) configuration["start_time"]);
@@ -240,9 +236,19 @@ bool ContinuousChannelisedData::initialiseConsumer(json configuration)
     initialiseRingBuffer(packet_size, (size_t) 131072 * nof_tiles);
 
     // Create channel container
-    containers = (ChannelDataContainer<uint16_t> **) malloc(nof_containers * sizeof(ChannelDataContainer<uint16_t> *));
-    for(unsigned i = 0; i < nof_containers; i++)
-        containers[i] = new ChannelDataContainer<uint16_t>(nof_tiles, nof_antennas, nof_samples, nof_channels, nof_pols);
+    if (bitwidth == 16) {
+        containers_16bit = (ChannelDataContainer<uint16_t> **) malloc(
+                nof_containers * sizeof(ChannelDataContainer<uint16_t> *));
+        for (unsigned i = 0; i < nof_containers; i++)
+            containers_16bit[i] = new ChannelDataContainer<uint16_t>(nof_tiles, nof_antennas, nof_samples,
+                                                                     nof_channels, nof_pols);
+    } else if (bitwidth == 32) {
+        containers_32bit = (ChannelDataContainer<uint32_t> **) malloc(
+                nof_containers * sizeof(ChannelDataContainer<uint16_t> *));
+        for (unsigned i = 0; i < nof_containers; i++)
+            containers_32bit[i] = new ChannelDataContainer<uint32_t>(nof_tiles, nof_antennas, nof_samples,
+                                                                     nof_channels, nof_pols);
+    }
 
     // All done
     return true;
@@ -251,16 +257,27 @@ bool ContinuousChannelisedData::initialiseConsumer(json configuration)
 // Override clean up method
 void ContinuousChannelisedData::cleanUp() {
     // Delete containers
-    for(unsigned i = 0; i < nof_containers; i++)
-        delete containers[i];
-    free(containers);
+    if (bitwidth == 16) {
+        for (unsigned i = 0; i < nof_containers; i++)
+            delete containers_16bit[i];
+        free(containers_16bit);
+    }
+    else {
+        for (unsigned i = 0; i < nof_containers; i++)
+            delete containers_32bit[i];
+        free(containers_32bit);
+    }
 }
 
 // Set continuous channelised data callback
 void ContinuousChannelisedData::setCallback(DataCallback callback)
 {
-    for(unsigned i = 0; i < nof_containers; i++)
-        containers[i] -> setCallback(callback);
+    if (bitwidth == 16)
+        for(unsigned i = 0; i < nof_containers; i++)
+            containers_16bit[i] -> setCallback(callback);
+    else
+        for(unsigned i = 0; i < nof_containers; i++)
+            containers_32bit[i] -> setCallback(callback);
 }
 
 // Packet filter
@@ -278,14 +295,8 @@ bool ContinuousChannelisedData::packetFilter(unsigned char *udp_packet)
         return false;
 
     // Check whether the SPEAD packet contains continuous channel data
-    for (unsigned short i = 0; i < SPEAD_GET_NITEMS(hdr); i++) {
-        uint64_t item = SPEAD_ITEM(udp_packet, i);
-        if (SPEAD_ITEM_ID(item) == 0x2004) {
-            uint64_t mode = SPEAD_ITEM_ADDR(item);
-            return mode == 0x5 || mode == 0x7;
-	    }
-    }
-    return false;
+    uint64_t mode = SPEAD_ITEM_ADDR(SPEAD_ITEM(udp_packet, 5));
+    return (mode == 0x5 || mode == 0x7);
 }
 
 // Get and process packet
@@ -381,18 +392,15 @@ bool ContinuousChannelisedData::processPacket()
     // Calculate number of samples in packet
     uint32_t samples_in_packet;
 
-    samples_in_packet = (uint32_t) ((payload_length - payload_offset) /
-                                    (nof_included_antennas * nof_included_channels * nof_pols * sizeof(uint16_t)));
+    if (bitwidth == 16)
+        samples_in_packet = (uint32_t) ((payload_length - payload_offset) /
+                                        (nof_included_antennas * nof_included_channels * nof_pols * sizeof(uint16_t)));
+    else
+        samples_in_packet = (uint32_t) ((payload_length - payload_offset) /
+                                        (nof_included_antennas * nof_included_channels * nof_pols * sizeof(uint32_t)));
 
-    // TEMPORARY: Timestamp_scale may disappear, so it's hardcoded for now
-    double packet_time = sync_time + timestamp * 1.08e-6; // timestamp_scale;
-
-    // Check whether packet timestamp is past start time
-    if (start_time > 0 and packet_time < start_time) {
-        ring_buffer -> pull_ready();
-        return true;
-    }
-
+    // Compute packet time
+    double packet_time = sync_time + timestamp * sampling_time;
     
     // Handle packet counter rollover
     // First condition ensures that if DAQ is started before transmission, firs packet with counter 0 are not updates
@@ -429,10 +437,17 @@ bool ContinuousChannelisedData::processPacket()
 
             // We have processed the packet items, now comes the data
             unsigned index = (current_container - 1) % nof_containers;
-            containers[index]->add_data(tile_id, start_channel_id, packet_index * samples_in_packet,
-                                        samples_in_packet, start_antenna_id,
-                                        (uint16_t *) (payload + payload_offset), packet_time,
-                                        nof_included_channels, nof_included_antennas, cont_channel_id);
+            if (bitwidth == 16)
+                containers_16bit[index]->add_data(tile_id, start_channel_id, packet_index * samples_in_packet,
+                                            samples_in_packet, start_antenna_id,
+                                            (uint16_t *) (payload + payload_offset), packet_time,
+                                            nof_included_channels, nof_included_antennas, cont_channel_id);
+            else
+                containers_32bit[index]->add_data(tile_id, start_channel_id, packet_index * samples_in_packet,
+                                            samples_in_packet, start_antenna_id,
+                                            (uint32_t *) (payload + payload_offset), packet_time,
+                                            nof_included_channels, nof_included_antennas, cont_channel_id);
+
         }
 
         // Ready from packet
@@ -441,7 +456,7 @@ bool ContinuousChannelisedData::processPacket()
     }
 
     // Check if we skipped buffer boundaries
-    if (packet_index == 0 && packet_time >= reference_time + nof_samples * 1.08e-6 && 
+    if (packet_index == 0 && packet_time >= reference_time + nof_samples * sampling_time &&
         num_packets > nof_tiles * 2 && tile_id == 0 && pol_id == 0)
     {
         // Increment buffer skip
@@ -455,8 +470,14 @@ bool ContinuousChannelisedData::processPacket()
 
             // If we are skipping buffer, then persist previous current container
             if (nof_buffer_skips != 0) {
-                if (containers[current_container]->nof_packets > 0)
-                    containers[current_container]->persist_container();
+                if (bitwidth == 16) {
+                    if (containers_16bit[current_container]->nof_packets > 0)
+                        containers_16bit[current_container]->persist_container();
+                } else {
+                    if (containers_32bit[current_container]->nof_packets > 0)
+                        containers_32bit[current_container]->persist_container();
+                }
+
 
                 // Update container index
                 current_container = (current_container + 1) % nof_containers;
@@ -465,12 +486,18 @@ bool ContinuousChannelisedData::processPacket()
                 current_container = (current_container + 1) % nof_containers;
 
                 // If the number of processed packet in this container is greater than 0, persist it
-                if (containers[current_container]->nof_packets > 0)
-                    containers[current_container]->persist_container();
+                if (bitwidth == 16) {
+                    if (containers_16bit[current_container]->nof_packets > 0)
+                        containers_16bit[current_container]->persist_container();
+                } else {
+                    if (containers_32bit[current_container]->nof_packets > 0)
+                        containers_32bit[current_container]->persist_container();
+                }
+
             }
 
             // Update timestamp
-            reference_time += nof_samples * 1.08e-6;
+            reference_time += nof_samples * sampling_time;
             num_packets = 0;
         }
     }
@@ -485,10 +512,17 @@ bool ContinuousChannelisedData::processPacket()
     num_packets++;
 
     // We have processed the packet items, now comes the data
-    containers[current_container] -> add_data(tile_id, start_channel_id, packet_index * samples_in_packet, 
-                                              samples_in_packet, start_antenna_id,
-                                              (uint16_t *) (payload + payload_offset), packet_time, 
-                                              nof_included_channels, nof_included_antennas, cont_channel_id);
+    if (bitwidth == 16)
+        containers_16bit[current_container] -> add_data(tile_id, start_channel_id, packet_index * samples_in_packet,
+                                                  samples_in_packet, start_antenna_id,
+                                                  (uint16_t *) (payload + payload_offset), packet_time,
+                                                  nof_included_channels, nof_included_antennas, cont_channel_id);
+    else
+        containers_32bit[current_container] -> add_data(tile_id, start_channel_id, packet_index * samples_in_packet,
+                                                  samples_in_packet, start_antenna_id,
+                                                  (uint32_t *) (payload + payload_offset), packet_time,
+                                                  nof_included_channels, nof_included_antennas, cont_channel_id);
+
 
     // Ready from packet
     ring_buffer -> pull_ready();
@@ -505,27 +539,34 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
         (key_in_json(configuration, "nof_channels")) &&
         (key_in_json(configuration, "nof_antennas")) &&
         (key_in_json(configuration, "nof_pols")) &&
+        (key_in_json(configuration, "bitwidth")) &&
         (key_in_json(configuration, "max_packet_size"))) {
         LOG(FATAL, "Missing configuration item for IntegratedChannelisedData consumer. Requires "
-                "nof_tiles, nof_channels, nof_antennas, nof_pols and max_packet_size");
+                "nof_tiles, nof_channels, nof_antennas, nof_pols, bitwidth and max_packet_size");
         return false;
     }
 
     // Set local values
-    this -> nof_channels = configuration["nof_channels"];
-    this -> nof_tiles    = configuration["nof_tiles"];
-    this -> nof_antennas = configuration["nof_antennas"];
-    this -> nof_pols     = configuration["nof_pols"];
-    this -> nof_samples  = 1;
-    this -> packet_size  = configuration["max_packet_size"];
+    nof_channels = configuration["nof_channels"];
+    nof_tiles    = configuration["nof_tiles"];
+    nof_antennas = configuration["nof_antennas"];
+    nof_pols     = configuration["nof_pols"];
+    nof_samples  = 1;
+    bitwidth     = configuration["bitwidth"];
+    packet_size  = configuration["max_packet_size"];
 
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t) 1024);
 
     // Create channel container
-    container = new ChannelDataContainer<uint16_t>(this -> nof_tiles, this -> nof_antennas,
-                                                   this -> nof_samples, this -> nof_channels,
-                                                   this -> nof_pols);
+    if (bitwidth == 16)
+        container_16bit = new ChannelDataContainer<uint16_t>(nof_tiles, nof_antennas, nof_samples,
+                                                             nof_channels, nof_pols);
+    else if (bitwidth == 32)
+        container_32bit = new ChannelDataContainer<uint32_t>(nof_tiles, nof_antennas, nof_samples,
+                                                             nof_channels, nof_pols);
+    else
+        LOG(FATAL, "Unsupported integrated channelised bitwidth %d", bitwidth);
 
     return true;
 }
@@ -533,7 +574,10 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
 // Set integrate channel callback
 void IntegratedChannelisedData::setCallback(DataCallback callback)
 {
-    this -> container -> setCallback(callback);
+    if (bitwidth == 16)
+        container_16bit -> setCallback(callback);
+    else
+        container_32bit -> setCallback(callback);
 }
 
 void IntegratedChannelisedData::cleanUp() {
@@ -555,14 +599,8 @@ bool IntegratedChannelisedData::packetFilter(unsigned char *udp_packet)
         return false;
 
     // Check whether the SPEAD packet contains integrated channel data
-    for (unsigned short i = 0; i < SPEAD_GET_NITEMS(hdr); i++) {
-        uint64_t item = SPEAD_ITEM(udp_packet, i);
-        if (SPEAD_ITEM_ID(item) == 0x2004) {
-            uint64_t mode = SPEAD_ITEM_ADDR(item);
-            return mode == 0x6;
-	    }
-    }
-    return false;
+    uint64_t mode = SPEAD_ITEM_ADDR(SPEAD_ITEM(udp_packet, 5));
+    return mode == 0x6;
 }
 
 // Get and process packet
@@ -662,23 +700,36 @@ bool IntegratedChannelisedData::processPacket()
 
     // Overwrite number of included channels since this does not fit in header for integrated data
     nof_included_channels = static_cast<uint16_t>((payload_length - payload_offset) /
-            (nof_included_antennas * nof_pols * samples_in_packet * sizeof(uint16_t)));
+            (nof_included_antennas * nof_pols * samples_in_packet * bitwidth / 8));
 
     // TEMPORARY: Timestamp_scale may disappear, so it's hardcoded for now
     double packet_time = sync_time + timestamp * 1.08e-6;
 
     // Check if we processed all the sample
-    if (num_packets == this -> nof_channels * this -> nof_antennas * this -> nof_tiles / (nof_included_antennas * nof_included_channels))
+    auto total_packets = (nof_antennas / nof_included_antennas) *
+                          (nof_channels / nof_included_channels) * nof_pols * nof_tiles;
+
+    if (num_packets == total_packets)
     {
-        container -> persist_container();
+        if (bitwidth == 16)
+            container_16bit -> persist_container();
+        else
+            container_32bit -> persist_container();
+
         num_packets = 0;
     }
 
     // We have processed the packet items, now comes the data
     num_packets++;
-    container -> add_data(tile_id, start_channel_id, 0, samples_in_packet,
-                          start_antenna_id, (uint16_t *) (payload + payload_offset), packet_time,
-                          nof_included_channels, nof_included_antennas);
+    if (bitwidth == 16)
+        container_16bit -> add_data(tile_id, start_channel_id, 0, samples_in_packet,
+                                    start_antenna_id, (uint16_t *) (payload + payload_offset), packet_time,
+                                    nof_included_channels, nof_included_antennas);
+    else
+        container_32bit -> add_data(tile_id, start_channel_id, 0, samples_in_packet,
+                                    start_antenna_id, (uint32_t *) (payload + payload_offset), packet_time,
+                                    nof_included_channels, nof_included_antennas);
+
 
     // Ready from packet
     ring_buffer -> pull_ready();

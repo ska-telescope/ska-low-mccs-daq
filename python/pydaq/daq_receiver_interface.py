@@ -15,7 +15,7 @@ import yaml
 from pyaavs.logger import root_logger as daq_logger
 from pyaavs.slack import get_slack_instance
 from pydaq.persisters import *
-from pydaq.persisters import aavs_file
+from pydaq.persisters import aavs_file, complex_8t, complex_16t
 
 
 # Define consumer type Enums
@@ -30,10 +30,6 @@ class DaqModes(IntEnum):
     STATION_BEAM_DATA = 6
     CORRELATOR_DATA = 7
     ANTENNA_BUFFER = 8
-
-
-# Custom numpy type for creating complex signed 8-bit data
-complex_8t = np.dtype([('real', np.int8), ('imag', np.int8)])
 
 
 class DaqReceiver:
@@ -104,6 +100,9 @@ class DaqReceiver:
                         "nof_beam_samples": 42,
                         "nof_beam_channels": 384,
                         "nof_station_samples": 262144,
+                        "integrated_channel_bitwidth": 16,
+                        "continuous_channel_bitwidth": 16,
+                        "persist_all_buffers": True,
                         "append_integrated": True,
                         "sampling_time": 1.1325,
                         "sampling_rate": (800e6 / 2.0) * (32.0 / 27.0) / 512.0,
@@ -123,6 +122,7 @@ class DaqReceiver:
                         "acquisition_duration": -1,
                         "acquisition_start_time": -1,
                         "description": "",
+                        "daq_library": None,
                         "observation_metadata": {}  # This is populated automatically
                         }
 
@@ -223,7 +223,7 @@ class DaqReceiver:
             return
 
         # Ignore first two buffers for continuous channel mode
-        if mode == 'continuous':
+        if mode == 'continuous' and not self._config['persist_all_buffers']:
             if tile not in list(self._buffer_counter.keys()):
                 self._buffer_counter[tile] = 1
                 if tile == 0:
@@ -237,11 +237,13 @@ class DaqReceiver:
 
         # Extract data sent by DAQ
         if mode == 'continuous':
-            values = self._get_numpy_from_ctypes(data, complex_8t,
+            dtype = complex_8t if self._config["continuous_channel_bitwidth"] == 16 else complex_16t
+            values = self._get_numpy_from_ctypes(data, dtype,
                                                  self._config['nof_antennas'] * self._config['nof_polarisations'] *
                                                  self._config['nof_channel_samples'])
         elif mode == 'integrated':
-            values = self._get_numpy_from_ctypes(data, np.uint16,
+            dtype = np.uint16 if self._config["integrated_channel_bitwidth"] == 16 else np.uint32
+            values = self._get_numpy_from_ctypes(data, dtype,
                                                  self._config['nof_antennas'] * self._config['nof_polarisations'] *
                                                  self._config['nof_channels'])
         else:
@@ -644,6 +646,8 @@ class DaqReceiver:
                   "nof_antennas": self._config['nof_antennas'],
                   "nof_tiles": self._config['nof_tiles'],
                   "nof_pols": self._config['nof_polarisations'],
+                  "bitwidth": self._config['continuous_channel_bitwidth'],
+                  "sampling_time": 1.0 / self._config['sampling_rate'],
                   "nof_buffer_skips": int(self._config['continuous_period'] //
                                           (self._sampling_time[DaqModes.CONTINUOUS_CHANNEL_DATA] * self._config[
                                               'nof_channel_samples'])),
@@ -657,7 +661,9 @@ class DaqReceiver:
         self._running_consumers[DaqModes.CONTINUOUS_CHANNEL_DATA] = True
 
         # Create data persister
+        data_type = 'complex' if self._config["continuous_channel_bitwidth"] == 16 else 'complex16'
         channel_file = ChannelFormatFileManager(root_path=self._config['directory'],
+                                                data_type=data_type,
                                                 daq_mode=FileDAQModes.Continuous,
                                                 observation_metadata=self._config['observation_metadata'])
         channel_file.set_metadata(n_chans=1,
@@ -681,6 +687,7 @@ class DaqReceiver:
                   "nof_antennas": self._config['nof_antennas'],
                   "nof_tiles": self._config['nof_tiles'],
                   "nof_pols": self._config['nof_polarisations'],
+                  "bitwidth": self._config['integrated_channel_bitwidth'],
                   "max_packet_size": self._config['receiver_frame_size']}
 
         # Start channel data consumer
@@ -690,7 +697,9 @@ class DaqReceiver:
         self._running_consumers[DaqModes.INTEGRATED_CHANNEL_DATA] = True
 
         # Create data persister
-        channel_file = ChannelFormatFileManager(root_path=self._config['directory'], data_type='uint16',
+        data_type = 'uint16' if self._config["integrated_channel_bitwidth"] == 16 else 'uint32'
+        channel_file = ChannelFormatFileManager(root_path=self._config['directory'],
+                                                data_type=data_type,
                                                 daq_mode=FileDAQModes.Integrated,
                                                 observation_metadata=self._config['observation_metadata'])
         channel_file.set_metadata(n_chans=self._config['nof_channels'],
@@ -974,7 +983,7 @@ class DaqReceiver:
 
     # ------------------------------------- INITIALISATION -----------------------------------
 
-    def initialise_daq(self) -> None:
+    def initialise_daq(self, filepath=None) -> None:
         """ Initialise DAQ library """
 
         # Remove any locks
@@ -985,7 +994,7 @@ class DaqReceiver:
         logging.info("Initialising library")
 
         # Initialise C++ library
-        self._initialise_library()
+        self._initialise_library(filepath)
 
         # Set logging callback
         self._call_attach_logger(self._daq_logging_function)
@@ -1471,7 +1480,7 @@ if __name__ == "__main__":
                       type="float", default=1.1325,
                       help="Sampling time in s (required for -I and -D) [default: 1.1325s]")
     parser.add_option("", "--sampling_rate", action="store", dest="sampling_rate",
-                      type="int", default=(800e6 / 2.0) * (32.0 / 27.0) / 512.0,
+                      type="float", default=(800e6 / 2.0) * (32.0 / 27.0) / 512.0,
                       help="FPGA sampling rate [default: {:,.2e}]".format((800e6 / 2.0) * (32.0 / 27.0) / 512.0))
     parser.add_option("", "--oversampling_factor", action="store", dest="oversampling_factor",
                       type="float", default=32.0 / 27.0,
@@ -1479,8 +1488,14 @@ if __name__ == "__main__":
     parser.add_option("", "--continuous_period", action="store", dest="continuous_period",
                       type="int", default=0, help="Number of elapsed seconds between successive dumps of continuous "
                                                   "channel data [default: 0 (dump everything)")
+    parser.add_option("", "--integrated_channel_bitwidth", action="store", dest="integrated_channel_bitwidth",
+                      type=int, default=16, help="Bit width of integrated channel data")
+    parser.add_option("", "--continuous_channel_bitwidth", action="store", dest="continuous_channel_bitwidth",
+                      type=int, default=16, help="Bit width of continuous channel data")
     parser.add_option("", "--append_integrated", action="store_false", dest="append_integrated", default=True,
                       help="Append integrated data in the same file (default: True")
+    parser.add_option("", "--persist_all_buffers", action="store_true", dest="persist_all_buffers", default=False,
+                      help="Do not ignore the first 3 received buffers for continuous channel data. (default: False")
 
     # Receiver options
     parser.add_option("-P", "--receiver_ports", action="store", dest="receiver_ports",
@@ -1533,6 +1548,8 @@ if __name__ == "__main__":
                       help="Disable logging [default: Enabled]")
 
     # Observation options
+    parser.add_option("--daq_library", action="store", dest="daq_library", default=None,
+                      help="Directly specify the AAVS DAQ library to use")
     parser.add_option("--description", action="store", dest="description", default="",
                       help="Observation description, stored in file metadata (default: "")")
     parser.add_option("--station-config", action="store", dest="station_config", default=None,
@@ -1586,7 +1603,7 @@ if __name__ == "__main__":
     daq_instance.send_slack_message("DAQ running with command:\n {}".format(' '.join(argv)))
 
     # Initialise library
-    daq_instance.initialise_daq()
+    daq_instance.initialise_daq(config.daq_library)
 
     # Generate list of modes to start
     modes_to_start = []
