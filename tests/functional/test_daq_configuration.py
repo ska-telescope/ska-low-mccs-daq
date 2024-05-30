@@ -20,6 +20,8 @@ from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.harness import SpsTangoTestHarnessContext
 
+from ..test_tools import retry_communication
+
 gc.disable()
 
 EXTRA_TYPES = {
@@ -79,7 +81,7 @@ def given_a_daq_receiver(
     if admin_mode == AdminMode.OFFLINE:
         change_event_callbacks.assert_change_event("daq_state", tango.DevState.DISABLE)
 
-        daq_receiver.adminMode = AdminMode.ONLINE
+        retry_communication(daq_receiver)
         # For some reason the UNKNOWN change events aren't coming through...
         # change_event_callbacks.assert_change_event(
         #     "daq_state", tango.DevState.UNKNOWN

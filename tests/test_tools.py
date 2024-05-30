@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 import tango
-from ska_control_model import ResultCode
+from ska_control_model import AdminMode, ResultCode
 from ska_tango_testing.mock.placeholders import Anything
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tango import EventType
@@ -89,3 +89,30 @@ def execute_lrc_to_completion(
         (command_id, "COMPLETED")
     )
     device_proxy.unsubscribe_event(subscription_id)
+
+
+def retry_communication(device_proxy: tango.Deviceproxy, timeout: int = 30) -> None:
+    """
+    Retry communication with the backend.
+
+    NOTE: This is to be used for devices that do not know if the backend is avaliable
+    at the time of the call. For example the daq_handler backend gRPC server
+    may not be ready when we try to start communicating.
+    In this case we will retry connection.
+
+    :param device_proxy: A 'tango.DeviceProxy' to the backend device.
+    :param timeout: A max time in seconds before we give up trying
+    """
+    tick = 2
+    if device_proxy.adminMode != AdminMode.ONLINE:
+        terminate_time = time.time() + timeout
+        while time.time() < terminate_time:
+            try:
+                device_proxy.adminMode = AdminMode.ONLINE
+                break
+            except tango.DevFailed:
+                print(f"{device_proxy.dev_name()} failed to communicate with backend.")
+                time.sleep(tick)
+        assert device_proxy.adminMode == AdminMode.ONLINE
+    else:
+        print(f"Device {device_proxy.dev_name()} is already ONLINE nothing to do.")
