@@ -18,7 +18,7 @@ link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 # CMAKE compilation flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx -g")
 
-# Souce files
+# Source files
 set(AAVS_FILES RawData.cpp
         RawData.h
         ChannelisedData.cpp
@@ -45,10 +45,16 @@ endif()
 # CMAKE compilation flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx -g")
 
+# Source file for raw station beam acquisition
+set(STATION_BEAM_FILES StationDataRaw.cpp
+        StationData.h
+        acquire_station_beam.cpp
+        acquire_station_beam.h)
+
 # Compile library
 add_library(aavsdaq SHARED ${AAVS_FILES})
 
-# Compile library
+# Compile AAVSDAQ library
 if (WITH_CORRELATOR)
     # Link required libraries
     target_link_libraries(aavsdaq daq xgpu_aavs ${CMAKE_THREAD_LIBS_INIT})
@@ -62,6 +68,16 @@ else()
     # Link required libraries
     target_link_libraries(aavsdaq daq ${CMAKE_THREAD_LIBS_INIT})
 endif()
+
+# Compile raw station beam library
+add_library(aavsstationbeam SHARED ${STATION_BEAM_FILES})
+set_target_properties(aavsstationbeam PROPERTIES PUBLIC_HEADER "acquire_station_beam.h")
+target_link_libraries(aavsstationbeam aavsdaq ${MAKE_THREAD_LIBS_INIT})
+
+# Install raw station beam library
+install(TARGETS "aavsstationbeam"
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
 
 # Create executable
 add_executable(test_aavs test_aavs.cpp)

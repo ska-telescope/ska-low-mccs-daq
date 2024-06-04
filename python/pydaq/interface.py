@@ -55,8 +55,10 @@ class LogLevel(Enum):
 
 # Global store for interface objects
 aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
-aavsdaq_library = f"{aavs_install_path}/lib/libaavsdaq.so".encode('ASCII')
-library = None
+aavsdaq_library_path = f"{aavs_install_path}/lib/libaavsdaq.so".encode('ASCII')
+aavsstationbeam_library_path = f"{aavs_install_path}/lib/libaavsstationbeam.so".encode('ASCII')
+aavsdaq_library = None
+aavsstationbeam_library = None
 
 # Define consumer data callback wrapper
 DATA_CALLBACK = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_void_p), ctypes.c_double,
@@ -81,11 +83,11 @@ def initialise_library(filepath=None):
     """ Wrap AAVS DAQ shared library functionality in ctypes
     :param filepath: Path to library path
     """
+    global aavsdaq_library_path
     global aavsdaq_library
-    global library
 
     # This only need to be done once
-    if library is not None:
+    if aavsdaq_library is not None:
         return None
 
     # Load AAVS DAQ shared library
@@ -108,62 +110,106 @@ def initialise_library(filepath=None):
         raise Exception("AAVS DAQ library not found")
 
     # Load library
-    library = ctypes.CDLL(_library)
+    aavsdaq_library = ctypes.CDLL(_library)
 
     # Define attachLogger
-    library.attachLogger.argtypes = [LOGGER_CALLBACK]
-    library.attachLogger.restype = None
+    aavsdaq_library.attachLogger.argtypes = [LOGGER_CALLBACK]
+    aavsdaq_library.attachLogger.restype = None
 
     # Define startReceiver function
-    library.startReceiver.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_uint32,
-                                      ctypes.c_uint32]
-    library.startReceiver.restype = ctypes.c_int
+    aavsdaq_library.startReceiver.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_uint32,
+                                              ctypes.c_uint32]
+    aavsdaq_library.startReceiver.restype = ctypes.c_int
 
-    library.startReceiverThreaded.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_uint32,
-                                              ctypes.c_uint32, ctypes.c_uint32]
-    library.startReceiverThreaded.restype = ctypes.c_int
+    aavsdaq_library.startReceiverThreaded.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_uint32,
+                                                      ctypes.c_uint32, ctypes.c_uint32]
+    aavsdaq_library.startReceiverThreaded.restype = ctypes.c_int
 
     # Define stopReceiver function
-    library.stopReceiver.argtypes = []
-    library.stopReceiver.restype = ctypes.c_int
+    aavsdaq_library.stopReceiver.argtypes = []
+    aavsdaq_library.stopReceiver.restype = ctypes.c_int
 
     # Define loadConsumer function
-    library.loadConsumer.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
-    library.loadConsumer.restype = ctypes.c_int
+    aavsdaq_library.loadConsumer.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+    aavsdaq_library.loadConsumer.restype = ctypes.c_int
 
     # Define initialiseConsumer function
-    library.initialiseConsumer.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
-    library.initialiseConsumer.restype = ctypes.c_int
+    aavsdaq_library.initialiseConsumer.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+    aavsdaq_library.initialiseConsumer.restype = ctypes.c_int
 
     # Define startConsumer function
-    library.startConsumer.argtypes = [ctypes.c_char_p, DATA_CALLBACK]
-    library.startConsumer.restype = ctypes.c_int
+    aavsdaq_library.startConsumer.argtypes = [ctypes.c_char_p, DATA_CALLBACK]
+    aavsdaq_library.startConsumer.restype = ctypes.c_int
 
     # Define stopConsumer function
-    library.stopConsumer.argtypes = [ctypes.c_char_p]
-    library.stopConsumer.restype = ctypes.c_int
+    aavsdaq_library.stopConsumer.argtypes = [ctypes.c_char_p]
+    aavsdaq_library.stopConsumer.restype = ctypes.c_int
 
     # Locate aavsdaq.so
     if filepath is not None:
-        aavsdaq_library = filepath
+        aavsdaq_library_path = filepath
     else:
         aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
-        aavsdaq_library = find("libaavsdaq.so", f"{aavs_install_path}/lib")
-        if aavsdaq_library is None:
-            aavsdaq_library = find("libaavsdaq.so", "/usr/local/lib")
-        if aavsdaq_library is None:
-            aavsdaq_library = find_library("aavsdaq")
+        aavsdaq_library_path = find("libaavsdaq.so", f"{aavs_install_path}/lib")
+        if aavsdaq_library_path is None:
+            aavsdaq_library_path = find("libaavsdaq.so", "/usr/local/lib")
+        if aavsdaq_library_path is None:
+            aavsdaq_library_path = find_library("aavsdaq")
 
-    aavsdaq_library = aavsdaq_library.encode()
-    
+    aavsdaq_library_path = aavsdaq_library_path.encode()
+
+def initialise_station_beam_library(filepath=None):
+    """ Wrap AAVS DAQ shared library functionality in ctypes
+    :param filepath: Path to library path
+    """
+    global aavstationbeam_library_path
+    global aavsstationbeam_library
+
+    # This only need to be done once
+    if aavsstationbeam_library is not None:
+        return None
+
+    # Load AAVS DAQ shared library
+    _library = None
+    library_found = False
+    if 'AAVS_INSTALL' in list(os.environ.keys()):
+        # Check if library is in AAVS directory
+        if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsstationbeam.so")):
+            _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsstationbeam.so")
+            library_found = True
+
+    if not library_found:
+        _library = find("libaavsstationbeam.so", "/opt/aavs/lib")
+        if _library is None:
+            _library = find("libaavsstationbeam.so", "/usr/local/lib")
+        if _library is None:
+            _library = find_library("daq")
+
+    if _library is None:
+        raise Exception("AAVS Station Beam library not found")
+
+    aavstationbeam_library_path = _library.encode()
+
+    # Load library
+    aavsstationbeam_library = ctypes.CDLL(_library)
+
+    # Define start capture
+    aavsstationbeam_library.start_capture.argtypes = [ctypes.c_char_p]
+    aavsstationbeam_library.start_capture.restype = ctypes.c_int
+
+    # Define stop capture
+    aavsstationbeam_library.stop_capture.argtypes = []
+    aavsstationbeam_library.stop_capture.restype = ctypes.c_int
+
+
 # ------------- Function wrappers to library ---------------------------
 
 
 def call_attach_logger(logging_callback):
     """ Attach logger
     :param logging_callback: Function which will process logs """
-    global library
-    library.attachLogger(logging_callback)
+    global aavsdaq_library
+    aavsdaq_library.attachLogger(logging_callback)
 
 
 def call_start_receiver(interface, ip, frame_size, frames_per_block, nof_blocks):
@@ -175,8 +221,8 @@ def call_start_receiver(interface, ip, frame_size, frames_per_block, nof_blocks)
     :param nof_blocks: Number of blocks
     :return: Return code
     """
-    global library
-    return library.startReceiver(interface, ip, frame_size, frames_per_block, nof_blocks)
+    global aavsdaq_library
+    return aavsdaq_library.startReceiver(interface, ip, frame_size, frames_per_block, nof_blocks)
 
 def call_start_receiver_threaded(interface, ip, frame_size, frames_per_block, nof_blocks, nof_threads):
     """ Start network receiver thread
@@ -188,13 +234,13 @@ def call_start_receiver_threaded(interface, ip, frame_size, frames_per_block, no
     :param nof_threads: Number of threads
     :return: Return code
     """
-    global library
-    return library.startReceiverThreaded(interface, ip, frame_size, frames_per_block, nof_blocks, nof_threads)
+    global aavsdaq_library
+    return aavsdaq_library.startReceiverThreaded(interface, ip, frame_size, frames_per_block, nof_blocks, nof_threads)
 
 def call_stop_receiver():
     """ Stop network receiver thread """
-    global library
-    return library.stopReceiver()
+    global aavsdaq_library
+    return aavsdaq_library.stopReceiver()
 
 
 def call_add_receiver_port(port):
@@ -202,8 +248,8 @@ def call_add_receiver_port(port):
     :param port: Port number
     :return: Return code
     """
-    global library
-    return library.addReceiverPort(port)
+    global aavsdaq_library
+    return aavsdaq_library.addReceiverPort(port)
 
 
 def start_consumer(consumer, configuration, callback=None):
@@ -212,23 +258,23 @@ def start_consumer(consumer, configuration, callback=None):
     :param configuration: Dictionary containing consumer configuration
     :param callback: Callback function
     :return: Return code """
-    global library
+    global aavsdaq_library
 
     # Change str type
     consumer = consumer.encode()
 
     # Load consumer
-    res = library.loadConsumer(aavsdaq_library, consumer)
+    res = aavsdaq_library.loadConsumer(aavsdaq_library_path, consumer)
     if res != Result.Success.value:
         return Result.Failure
 
     # Generate JSON from configuration and initialise consumer
-    res = library.initialiseConsumer(consumer, json.dumps(configuration).encode())
+    res = aavsdaq_library.initialiseConsumer(consumer, json.dumps(configuration).encode())
     if res != Result.Success.value:
         return Result.Failure
 
     # Start consumer
-    res = library.startConsumer(consumer, callback)
+    res = aavsdaq_library.startConsumer(consumer, callback)
     if res != Result.Success.value:
         return Result.Failure
 
@@ -243,7 +289,23 @@ def stop_consumer(consumer):
     # Change str type
     consumer = consumer.encode()
 
-    if library.stopConsumer(consumer) == Result.Success.value:
+    if aavsdaq_library.stopConsumer(consumer) == Result.Success.value:
+        return Result.Success
+    else:
+        return Result.Failure
+
+
+def call_start_raw_station_acqusition(configuration):
+    """ Start receiving raw station beam data """
+    if aavsstationbeam_library.start_capture(json.dumps(configuration).encode()) == Result.Success.value:
+        return Result.Success
+    else:
+        return Restult.Failure
+
+
+def call_stop_raw_station_acquisition():
+    """ Stop receiving raw station beam data """
+    if aavsstationbeam_library.stop_capture() == Result.Success.value:
         return Result.Success
     else:
         return Result.Failure
