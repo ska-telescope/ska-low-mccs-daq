@@ -303,11 +303,15 @@ pushd python || exit
   pip install -r requirements.pip || exit
 
   # If greater than or equal to required version install more requirements
-  python_version=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")')
-  required_version="3.9.0"
-  if [[ $(echo -e "$python_version\n$required_version" | sort -V | head -n1) == "$required_version" ]]; then
-    pip install -r requirements_2.pip || exit
+  python_major_version=$(python -c 'import sys; print(f"{sys.version_info.major}")')
+  python_minor_version=$(python -c 'import sys; print(f"{sys.version_info.minor}")')
+  required_major_version=3
+  required_minor_version=9
+
+  if [[ ${python_major_version} == ${required_major_version} && ${python_minor_version} -ge ${required_minor_version} ]]; then
+    pip install -r python3_9_requirements.pip || exit
   fi
+
   if [ $INSTALL_DOCS_REQS == true ]; then
     pip install -r requirements_docs.pip || exit
   fi
