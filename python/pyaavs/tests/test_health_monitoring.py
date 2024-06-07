@@ -66,6 +66,20 @@ class TestHealthMonitoring():
                 self.check_analog_measurements('currents', 'A', reference_health['currents'], current_health['currents'], tpm_id)
                 key_list.pop()
                 continue
+            if key_list == ['alarms']:
+                expected_value = val['exp_value']
+                if isinstance(expected_value, dict):
+                    for alm, alm_val in current_health['alarms'].items():
+                        if alm_val != expected_value[alm]:
+                             if alm_val == 1 and alm == 'voltage_alm':
+                                 self._logger.warning(f"TPM{tpm_id} alarm->voltage_alm is {alm_val}!")
+                             else:
+                                 error_msg = f"TPM{tpm_id} alarm->{alm} is {alm_val}, expected {expected_value[alm]}. Test FAILED"
+                                 self.error_msg_list.append(error_msg)
+                        else:
+                            self._logger.info(f"TPM{tpm_id} alarm->{alm} is {alm_val} as expected.")
+                key_list.pop()
+                continue
             if not isinstance(val, dict):
                key_list.pop()
                continue
