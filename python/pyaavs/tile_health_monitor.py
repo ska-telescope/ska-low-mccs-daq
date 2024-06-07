@@ -18,7 +18,7 @@ from pyfabil.base.definitions import LibraryError, BoardError
 from copy import copy
 from functools import reduce
 import operator
-
+from functools import partial
 from pyaavs.tpm_1_6_monitoring_point_lookup import load_tpm_1_6_lookup
 from pyaavs.tpm_1_2_monitoring_point_lookup import load_tpm_1_2_lookup
 
@@ -430,6 +430,59 @@ class TileHealthMonitor():
             "fpga2_warning_threshold": self.tpm.tpm_monitor[0].get_fpga_warn_temp_thresholds(fpga_id=1),
             "fpga2_alarm_threshold": self.tpm.tpm_monitor[0].get_fpga_alm_temp_thresholds(fpga_id=1),
         }
+    
+    def set_tpm_temperature_thresholds(
+        self,
+        board_alarm_threshold=None,
+        fpga1_alarm_threshold=None,
+        fpga2_alarm_threshold=None,
+    ) -> None:
+        """
+        Set the temperature thresholds.
+
+        NOTE: Warning this method can configure the shutdown temperature of 
+        components and must be used with care. This method is capped to a minimum 
+        of 20 and maximum of 50 (unit: Degree Celsius). And is ONLY supported in tpm1_6.
+
+        :param board_alarm_threshold: A tuple containing the minimum and 
+            maximum alarm thresholds for the board (unit: Degree Celsius)
+        :param fpga1_alarm_threshold: A tuple containing the minimum and 
+            maximum alarm thresholds for the fpga1 (unit: Degree Celsius)
+        :param fpga2_alarm_threshold: A tuple containing the minimum and 
+            maximum alarm thresholds for the fpga2 (unit: Degree Celsius)
+        """
+        if self.tpm_version() != "tpm_v1_6":
+            self.logger.info("this method only supports tpm_v1_6.")
+            return
+
+        def _is_in_range_20_50(value):
+            """
+            Return True if value is larger than 20 and less than 50.
+            
+            :param value: value under test
+            """
+            min_settable = 20
+            max_settable = 50
+            if min_settable <= value <= max_settable:
+                return True
+            return False
+
+        if board_alarm_threshold is not None:
+            if _is_in_range_20_50(board_alarm_threshold[0]) and _is_in_range_20_50(board_alarm_threshold[1]):
+                self.tpm.tpm_monitor[0].set_board_alm_temp_thresholds(board_alarm_threshold[0], board_alarm_threshold[1])
+            else:
+                self.logger.info(f"{board_alarm_threshold=} not in capped range 20-50. Doing nothing")
+        if fpga1_alarm_threshold is not None:
+            if _is_in_range_20_50(fpga1_alarm_threshold[0]) and _is_in_range_20_50(fpga1_alarm_threshold[1]):
+                self.tpm.tpm_monitor[0].set_fpgas_alm_temp_thresholds(fpga1_alarm_threshold[0], fpga1_alarm_threshold[1], fpga_id=0)
+            else:
+                self.logger.info(f"{fpga1_alarm_threshold=} not in capped range 20-50. Doing nothing")
+        if fpga2_alarm_threshold is not None:
+            if _is_in_range_20_50(fpga2_alarm_threshold[0]) and _is_in_range_20_50(fpga2_alarm_threshold[1]):
+                self.tpm.tpm_monitor[0].set_fpgas_alm_temp_thresholds(fpga2_alarm_threshold[0], fpga2_alarm_threshold[1], fpga_id=1)
+            else:
+                self.logger.debug(f"{fpga2_alarm_threshold=} not in capped range 20-50. Doing nothing")
+
 
     def get_voltage(self, fpga_id=None, voltage_name=None):
         """
