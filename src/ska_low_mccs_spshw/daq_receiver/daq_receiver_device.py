@@ -485,10 +485,12 @@ class MccsDaqReceiver(SKABaseDevice):
         self.logger.info(
             "Data of type %s has been written to file %s", data_mode, file_name
         )
-        if metadata is None:
-            metadata_dict = {}
-        else:
+        try:
             metadata_dict = json.loads(metadata)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.warning(f"Failed to load metadata: {repr(e)}")
+            metadata_dict = {}
+        self.logger.error(f"metadata is {metadata=}")
         event_value: dict[str, Union[str, int]] = {
             "data_mode": data_mode,
             "file_name": file_name,
