@@ -485,7 +485,10 @@ class MccsDaqReceiver(SKABaseDevice):
         self.logger.info(
             "Data of type %s has been written to file %s", data_mode, file_name
         )
-        metadata_dict = json.loads(metadata)
+        if metadata is None:
+            metadata = "{}"
+        else:
+            metadata_dict = json.loads(metadata)
         event_value: dict[str, Union[str, int]] = {
             "data_mode": data_mode,
             "file_name": file_name,
