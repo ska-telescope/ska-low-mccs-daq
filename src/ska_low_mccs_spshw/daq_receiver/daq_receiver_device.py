@@ -490,17 +490,18 @@ class MccsDaqReceiver(SKABaseDevice):
         except Exception as e:  # pylint: disable=broad-except
             self.logger.warning(f"Failed to load metadata: {repr(e)}")
             metadata_dict = {}
-        self.logger.error(f"metadata is {metadata=}")
+
         event_value: dict[str, Union[str, int]] = {
             "data_mode": data_mode,
             "file_name": file_name,
             "metadata": metadata_dict,
         }
-        if "additional_info" in metadata_dict:
-            if data_mode == "station":
-                event_value["amount_of_data"] = metadata_dict["additional_info"]
-            elif data_mode != "correlator":
-                event_value["tile"] = metadata_dict["additional_info"]
+        if metadata_dict:
+            if "additional_info" in metadata_dict:
+                if data_mode == "station":
+                    event_value["amount_of_data"] = metadata_dict["additional_info"]
+                elif data_mode != "correlator":
+                    event_value["tile"] = metadata_dict["additional_info"]
 
         result = json.dumps(event_value)
         if (
