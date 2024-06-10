@@ -26,6 +26,8 @@ from tests.functional.conftest import (
 )
 from tests.harness import get_daq_name, get_subrack_name, get_tile_name
 
+from ..test_tools import retry_communication
+
 scenarios("./features/daq_spead_capture.feature")
 
 
@@ -120,7 +122,7 @@ def daq_ready_to_receive_beam(
     """
     # Set initial state.
     if daq_device.state() != tango.DevState.ON:
-        daq_device.adminMode = AdminMode.ONLINE
+        retry_communication(daq_device)
         poll_until_state_change(daq_device, tango.DevState.ON, 5)
 
     # Configure DAQ
@@ -209,7 +211,7 @@ def daq_device_has_no_running_consumers(
     :param daq_device: The daq_device fixture to use.
     """
     if daq_device.state() != tango.DevState.ON:
-        daq_device.adminMode = AdminMode.ONLINE
+        retry_communication(daq_device)
         poll_until_state_change(daq_device, tango.DevState.ON, 5)
 
     status = json.loads(daq_device.DaqStatus())

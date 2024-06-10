@@ -23,6 +23,8 @@ from tests.functional.conftest import (
 )
 from tests.harness import SpsTangoTestHarnessContext
 
+from ..test_tools import retry_communication
+
 scenarios("./features/daq_status_reporting.feature")
 
 
@@ -82,7 +84,10 @@ def admin_mode_set_to_value(
         change_event_callbacks["daq_state"],
     )
     if daq_receiver.adminMode != AdminMode[admin_mode_value]:
-        daq_receiver.adminMode = admin_mode_value
+        if admin_mode_value == AdminMode.ONLINE:
+            retry_communication(daq_receiver)
+        else:
+            daq_receiver.adminMode = admin_mode_value
     assert daq_receiver.adminMode == AdminMode[admin_mode_value]
 
     if AdminMode[admin_mode_value] == AdminMode.ONLINE:

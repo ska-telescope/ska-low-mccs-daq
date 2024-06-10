@@ -27,6 +27,8 @@ from tests.functional.conftest import (
 )
 from tests.harness import get_daq_name, get_subrack_name, get_tile_name
 
+from ..test_tools import retry_communication
+
 scenarios("./features/bandpass_monitor.feature")
 
 
@@ -139,7 +141,7 @@ def tile_ready_to_send_to_daq(
         tango change event callbacks.
     """
     if subrack_device.state() != tango.DevState.ON:
-        subrack_device.adminMode = 0
+        subrack_device.adminMode = AdminMode.ONLINE
         poll_until_state_change(subrack_device, tango.DevState.ON, 5)
 
     if tile_device.state() != tango.DevState.ON:
@@ -149,7 +151,7 @@ def tile_ready_to_send_to_daq(
                 tango.EventType.CHANGE_EVENT,
                 change_event_callbacks["tile_adminMode"],
             )
-            tile_device.adminMode = 0
+            tile_device.adminMode = AdminMode.ONLINE
             change_event_callbacks["tile_adminMode"].assert_change_event(
                 AdminMode.ONLINE, lookahead=2, consume_nonmatches=True
             )
@@ -189,7 +191,7 @@ def daq_device_has_no_running_consumers(
     :param daq_device: A 'tango.DeviceProxy' to the Daq device.
     """
     if daq_device.state() != tango.DevState.ON:
-        daq_device.adminMode = AdminMode.ONLINE
+        retry_communication(daq_device)
         poll_until_state_change(daq_device, tango.DevState.ON, 5)
 
     status = json.loads(daq_device.DaqStatus())
@@ -275,7 +277,7 @@ def daq_configure(
     """
     # Set initial state.
     if daq_device.state() != tango.DevState.ON:
-        daq_device.adminMode = AdminMode.ONLINE
+        retry_communication(daq_device)
         poll_until_state_change(daq_device, tango.DevState.ON, 5)
 
     # Configure DAQ

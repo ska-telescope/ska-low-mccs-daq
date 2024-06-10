@@ -23,6 +23,8 @@ from tests.functional.conftest import (
 )
 from tests.harness import SpsTangoTestHarnessContext
 
+from ..test_tools import retry_communication
+
 scenarios("./features/daq_basic_functionality.feature")
 
 
@@ -167,8 +169,7 @@ def daq_device_is_in_admin_mode_online(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    if daq_receiver.adminMode != AdminMode.ONLINE:
-        daq_receiver.adminMode = AdminMode.ONLINE
+    retry_communication(daq_receiver)
     assert daq_receiver.adminMode == AdminMode.ONLINE
 
 
@@ -181,7 +182,7 @@ def set_admin_mode_online(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    daq_receiver.adminMode = AdminMode.ONLINE
+    retry_communication(daq_receiver)
 
 
 @when("I set adminMode to OFFLINE")
@@ -231,7 +232,7 @@ def daq_device_is_on(
     :param daq_receiver: The daq_receiver fixture to use.
     """
     if daq_receiver.state() != tango.DevState.ON:
-        daq_receiver.adminMode = AdminMode.ONLINE
+        retry_communication(daq_receiver)
         poll_until_state_change(daq_receiver, tango.DevState.ON)
     assert daq_receiver.state() == tango.DevState.ON
 
