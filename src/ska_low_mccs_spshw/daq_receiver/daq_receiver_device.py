@@ -961,6 +961,15 @@ class MccsDaqReceiver(SKABaseDevice):
         """
         return self._rms_plot
 
+    @attribute(dtype="DevString")
+    def healthReport(self: MccsDaqReceiver) -> str:
+        """
+        Get the health report.
+
+        :return: the health report.
+        """
+        return self._health_model.health_report
+
 
 # ----------
 # Run server
