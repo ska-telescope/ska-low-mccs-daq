@@ -502,6 +502,8 @@ class MccsDaqReceiver(SKABaseDevice):
                     event_value["amount_of_data"] = metadata_dict["additional_info"]
                 elif data_mode != "correlator":
                     event_value["tile"] = metadata_dict["additional_info"]
+        else:
+            self.logger.info(f"No metadata found for {data_mode=}, {file_name=}")
 
         result = json.dumps(event_value)
         if (
