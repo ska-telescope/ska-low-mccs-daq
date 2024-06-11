@@ -186,6 +186,7 @@ class Tile(TileHealthMonitor):
         info['fpga_firmware']['compile_host'] = self.tpm.tpm_firmware_information[0].get_host()
         info['fpga_firmware']['git_branch'] = self.tpm.tpm_firmware_information[0].get_git_branch()
         info['fpga_firmware']['git_commit'] = self.tpm.tpm_firmware_information[0].get_git_commit()
+        info['fpga_firmware']['firmware_version'] = self.tpm.tpm_firmware_information[0].get_firmware_version()
         # Dictionary manipulation, move 1G network information
         info['network'] = {}
         info['network']['1g_ip_address'] = IPv4Address(info['hardware']['ip_address'])
@@ -3011,7 +3012,8 @@ class Tile(TileHealthMonitor):
                f"FPGA Firmware Compile User   | {info['fpga_firmware']['compile_user']}  \n"\
                f"FPGA Firmware Compile Host   | {info['fpga_firmware']['compile_host']} \n"\
                f"FPGA Firmware Git Branch     | {info['fpga_firmware']['git_branch']} \n"\
-               f"FPGA Firmware Git Commit     | {info['fpga_firmware']['git_commit']} \n"\
+               f"FPGA Firmware Git Commit     | {info['fpga_firmware']['git_commit']} \n" \
+               f"FPGA Firmware version        | {info['fpga_firmware']['firmware_version']} \n" \
                f"{'_'*29}|{'_'*60} \n"\
                f"{' '*29}| \n"\
                f"1G (MGMT) IP Address         | {str(info['network']['1g_ip_address'])} \n"\
@@ -3167,6 +3169,7 @@ class Tile(TileHealthMonitor):
                         "time": "",
                         "author": "",
                         "board": "",
+                        "firmware_version": "",
                     }
                 )
         else:
@@ -3184,6 +3187,7 @@ class Tile(TileHealthMonitor):
                             "time": plugin.get_time(),
                             "author": plugin.get_user(),
                             "board": plugin.get_board(),
+                            "firmware_version": plugin.get_firmware_version(),
                         }
                     )
         return firmware
