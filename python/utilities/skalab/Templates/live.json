@@ -1,0 +1,68 @@
+{
+    "Base": {
+        "app": {
+            "desc": "Application Name",
+            "type": "string",
+            "value": "Live"
+        },
+        "path": {
+            "desc": "Local settings Path",
+            "type": "path",
+            "value": "~/.skalab/"
+        },
+        "profile": {
+            "desc": "Profile Name",
+            "type": "string",
+            "value": "Default"
+        }
+    },
+    "Data": {
+        "daq_path": {
+            "desc": "Directory for DAQ data",
+            "type": "path",
+            "value": "~/.skalab/data/daq"
+        },
+        "integrated_spectra_path": {
+            "desc": "Directory for Integrated Spectra data",
+            "type": "path",
+            "value": "~/.skalab/data/integrated_spectra"
+        },
+        "temperatures_path": {
+            "desc": "Directory for Temperatures data",
+            "type": "path",
+            "value": "~/.skalab/data/temperatures"
+        }
+    },
+    "Live": {
+        "default_path_export_data": {
+            "desc": "Default Export Data Path",
+            "type": "path",
+            "value": "~/.skalab/data/csv"
+        },
+        "default_path_save_pictures": {
+            "desc": "Default Save Pictures Path",
+            "type": "path",
+            "value": "~/.skalab/data/pictures"
+        },
+        "log": {
+            "desc": "Log Path",
+            "type": "path",
+            "value": "~/.skalab/data/log"
+        },
+        "preadu_version": {
+            "desc": "PreADU version number",
+            "type": "float",
+            "value": 3.2
+        },
+        "query_interval": {
+            "desc": "Query interval (seconds)",
+            "type": "float",
+            "value": 3.0
+        },
+        "station_file": {
+            "desc": "The Station File",
+            "type": "file",
+            "value": "/opt/aavs/config/aavs2.yml"
+        }
+    }
+}

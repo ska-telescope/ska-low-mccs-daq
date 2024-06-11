@@ -3,10 +3,11 @@ import datetime
 import subprocess
 import calendar
 import time
-
+import copy
 import h5py
 import numpy as np
 import configparser
+from operator import sub
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
@@ -15,7 +16,8 @@ from PyQt5.QtGui import QPainter
 import sys
 sys.path.append("../../pyaavs/tests/")
 from pydaq.persisters import *
-from get_nic import getnic
+#from get_nic import getnic
+import netifaces as ni
 from colorsys import rgb_to_hls, hls_to_rgb
 from PyQt5.QtWidgets import QWidget, QStyleOption
 from PyQt5.QtGui import QPainter
@@ -25,7 +27,7 @@ from PyQt5.QtWidgets import QWidget
 
 COLORI = ["b", "g", "k", "r", "orange", "magenta", "darkgrey", "turquoise"] * 4
 
-
+    
 def parse_profile(config=""):
     confparser = configparser.ConfigParser()
     confparser.read(config)
@@ -70,122 +72,6 @@ def getTextFromFile(fname):
         with open(fname) as f:
             text = f.read()
         return text
-
-
-
-class Led(QWidget):
-    
-    Circle   = 1
-    Red    = 1
-    Green  = 2
-    Orange = 3
-    Grey   = 4
-
-    shapes={
-        Circle:"""
-            <svg height="50.000000px" id="svg9493" width="50.000000px" xmlns="http://www.w3.org/2000/svg">
-              <defs id="defs9495">
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient6650" x1="23.402565" x2="23.389874" xlink:href="#linearGradient6506" y1="44.066776" y2="42.883698"/>
-                <linearGradient id="linearGradient6494">
-                  <stop id="stop6496" offset="0.0000000" style="stop-color:%s;stop-opacity:1.0000000;"/>              
-                  <stop id="stop6498" offset="1.0000000" style="stop-color:%s;stop-opacity:1.0000000;"/>
-                </linearGradient>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient6648" x1="23.213980" x2="23.201290" xlink:href="#linearGradient6494" y1="42.754631" y2="43.892632"/>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient6646" x1="23.349695" x2="23.440580" xlink:href="#linearGradient5756" y1="42.767944" y2="43.710873"/>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient6644" x1="23.193102" x2="23.200001" xlink:href="#linearGradient5742" y1="42.429230" y2="44.000000"/>
-                <linearGradient id="linearGradient6506">
-                  <stop id="stop6508" offset="0.0000000" style="stop-color:#ffffff;stop-opacity:0.0000000;"/>
-                  <stop id="stop6510" offset="1.0000000" style="stop-color:#ffffff;stop-opacity:0.87450981;"/>
-                </linearGradient>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient7498" x1="23.402565" x2="23.389874" xlink:href="#linearGradient6506" y1="44.066776" y2="42.883698"/>
-                <linearGradient id="linearGradient7464">
-                  <stop id="stop7466" offset="0.0000000" style="stop-color:#00039a;stop-opacity:1.0000000;"/>
-                  <stop id="stop7468" offset="1.0000000" style="stop-color:#afa5ff;stop-opacity:1.0000000;"/>
-                </linearGradient>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient7496" x1="23.213980" x2="23.201290" xlink:href="#linearGradient7464" y1="42.754631" y2="43.892632"/>
-                <linearGradient id="linearGradient5756">
-                  <stop id="stop5758" offset="0.0000000" style="stop-color:#828282;stop-opacity:1.0000000;"/>
-                  <stop id="stop5760" offset="1.0000000" style="stop-color:#929292;stop-opacity:0.35294119;"/>
-                </linearGradient>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient9321" x1="22.935030" x2="23.662106" xlink:href="#linearGradient5756" y1="42.699776" y2="43.892632"/>
-                <linearGradient id="linearGradient5742">
-                  <stop id="stop5744" offset="0.0000000" style="stop-color:#adadad;stop-opacity:1.0000000;"/>
-                  <stop id="stop5746" offset="1.0000000" style="stop-color:#f0f0f0;stop-opacity:1.0000000;"/>
-                </linearGradient>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient7492" x1="23.193102" x2="23.200001" xlink:href="#linearGradient5742" y1="42.429230" y2="44.000000"/>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient9527" x1="23.193102" x2="23.200001" xlink:href="#linearGradient5742" y1="42.429230" y2="44.000000"/>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient9529" x1="22.935030" x2="23.662106" xlink:href="#linearGradient5756" y1="42.699776" y2="43.892632"/>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient9531" x1="23.213980" x2="23.201290" xlink:href="#linearGradient7464" y1="42.754631" y2="43.892632"/>
-                <linearGradient gradientUnits="userSpaceOnUse" id="linearGradient9533" x1="23.402565" x2="23.389874" xlink:href="#linearGradient6506" y1="44.066776" y2="42.883698"/>
-              </defs>
-              <g id="layer1">
-                <g id="g9447" style="overflow:visible" transform="matrix(31.25000,0.000000,0.000000,31.25000,-625.0232,-1325.000)">
-                  <path d="M 24.000001,43.200001 C 24.000001,43.641601 23.641601,44.000001 23.200001,44.000001 C 22.758401,44.000001 22.400001,43.641601 22.400001,43.200001 C 22.400001,42.758401 22.758401,42.400001 23.200001,42.400001 C 23.641601,42.400001 24.000001,42.758401 24.000001,43.200001 z " id="path6596" style="fill:url(#linearGradient6644);fill-opacity:1.0000000;stroke:Fill;stroke-width:0.00000001;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.0000000;stroke-opacity:0.0000000;overflow:visible" transform="translate(-2.399258,-1.000000e-6)"/>
-                  <path d="M 23.906358,43.296204 C 23.906358,43.625433 23.639158,43.892633 23.309929,43.892633 C 22.980700,43.892633 22.713500,43.625433 22.713500,43.296204 C 22.713500,42.966975 22.980700,42.699774 23.309929,42.699774 C 23.639158,42.699774 23.906358,42.966975 23.906358,43.296204 z " id="path6598" style="fill:url(#linearGradient6646);fill-opacity:1.0000000;stroke:Fill;stroke-width:0.80000001;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.0000000;stroke-opacity:0.0000000;overflow:visible" transform="matrix(1.082474,0.000000,0.000000,1.082474,-4.431649,-3.667015)"/>
-                  <path d="M 23.906358,43.296204 C 23.906358,43.625433 23.639158,43.892633 23.309929,43.892633 C 22.980700,43.892633 22.713500,43.625433 22.713500,43.296204 C 22.713500,42.966975 22.980700,42.699774 23.309929,42.699774 C 23.639158,42.699774 23.906358,42.966975 23.906358,43.296204 z " id="path6600" style="fill:url(#linearGradient6648);fill-opacity:1.0000000;stroke:Fill;stroke-width:0.80000001;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.0000000;stroke-opacity:0.0000000;overflow:visible" transform="matrix(0.969072,0.000000,0.000000,0.969072,-1.788256,1.242861)"/>
-                  <path d="M 23.906358,43.296204 C 23.906358,43.625433 23.639158,43.892633 23.309929,43.892633 C 22.980700,43.892633 22.713500,43.625433 22.713500,43.296204 C 22.713500,42.966975 22.980700,42.699774 23.309929,42.699774 C 23.639158,42.699774 23.906358,42.966975 23.906358,43.296204 z " id="path6602" style="fill:url(#linearGradient6650);fill-opacity:1.0000000;stroke:Fill;stroke-width:0.80000001;visibility: hidden;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.0000000;stroke-opacity:0.0000000;overflow:visible" transform="matrix(0.773196,0.000000,0.000000,0.597938,2.776856,17.11876)"/>
-                </g>
-              </g>
-            </svg>
-        """}
-    
-    colours={Red: (0xCF, 0x00, 0x00), 
-            Green  : (0x0f, 0x69, 0x00), 
-            Orange : (0xe2, 0x76, 0x02), 
-            Grey   : (0x7a, 0x7a, 0x7a)}
-
-    def __init__(self, parent=None, **kwargs):
-        self.m_value=False
-        self.m_Colour=Led.Grey
-        self.m_shape=Led.Circle
-
-        QWidget.__init__(self, parent, **kwargs)
-        self.renderer=QSvgRenderer()
-
-    def Colour(self): return self.m_Colour
-    def setColour(self, newColour):
-        self.m_Colour=newColour
-        self.update()    
-    Colour=pyqtProperty(int, Colour, setColour)
-
-    def value(self): return self.m_value
-    def setValue(self, value):
-        self.m_value=value
-        self.update()    
-    value=pyqtProperty(bool, value, setValue)
-
-    def sizeHint(self): 
-        return QSize(48,48)
-
-    def adjust(self, r, g, b):
-        def normalise(x): return x/255.0
-        def denormalise(x): return int(x*255.0)
-        (h,l,s)=rgb_to_hls(normalise(r),normalise(g),normalise(b))        
-        (nr,ng,nb)=hls_to_rgb(h,l*1.5,s)
-        return (denormalise(nr),denormalise(ng),denormalise(nb))
-
-    def paintEvent(self, event):
-        option=QStyleOption()
-        option.initFrom(self)
-
-        h=option.rect.height()
-        w=option.rect.width()
-        size=min(w,h)
-        x=abs(size-w)/2.0
-        y=abs(size-h)/2.0
-        bounds=QRectF(x,y,size,size)
-        painter=QPainter(self);
-        painter.setRenderHint(QPainter.Antialiasing, True)
-
-        (dark_r,dark_g,dark_b)=self.colours[self.m_Colour]
-        dark_str="rgb(%d,%d,%d)" % (dark_r,dark_g,dark_b)
-        light_str="rgb(%d,%d,%d)" % self.adjust(dark_r,dark_g,dark_b)
-
-        __xml=(self.shapes[self.m_shape]%(dark_str,dark_str)).encode('utf8')
-        self.renderer.load(QByteArray(__xml))
-        self.renderer.render(painter, bounds)
-
-
 
 
 class MiniCanvas(FigureCanvas):
@@ -552,7 +438,7 @@ def calc_disk_usage(directory=".", pattern="*.hdf5"):
         # if len(str(total)) > 3:
         #     total = total / 1000.
         #     unit = 'GB'
-        return "%d%s" % (float(l[0].replace(",", ".")[:-1]), l[0][-1])
+        return "%s" % (l[0].replace(",", "."))
     except:
         return "0 MB"
 
@@ -728,15 +614,30 @@ def decodeChannelList(stringa="1-16"):
 #     return mediato, power_rf
 
 
+# def get_if_name(lmc_ip):
+#     #print("Scan for TPM Network interface...")
+#     tpm_nic = ""
+#     interfaces = os.listdir('/sys/class/net/') # getnic.interfaces() replaced!
+#     for i in interfaces:
+#         if 'inet4' in getnic.ipaddr([i])[i].keys():
+#             if lmc_ip in getnic.ipaddr([i])[i]['inet4']:
+#                 #print("IF: %s, Addr: %s" %(i, getnic.ipaddr([i])[i]['inet4']))
+#                 tpm_nic = i
+#     return tpm_nic
+#
+
+
 def get_if_name(lmc_ip):
-    #print("Scan for TPM Network interface...")
+    nics = ni.interfaces()
     tpm_nic = ""
-    interfaces = os.listdir('/sys/class/net/') # getnic.interfaces() replaced!
-    for i in interfaces:
-        if 'inet4' in getnic.ipaddr([i])[i].keys():
-            if lmc_ip in getnic.ipaddr([i])[i]['inet4']:
-                #print("IF: %s, Addr: %s" %(i, getnic.ipaddr([i])[i]['inet4']))
-                tpm_nic = i
+    for n in nics:
+        conf = ni.ifaddresses(n)
+        for k in conf.keys():
+            for l in conf[k]:
+                if 'addr' in l.keys():
+                    if l['addr'] == lmc_ip:
+                        tpm_nic = n
+                        break
     return tpm_nic
 
 
@@ -1124,7 +1025,7 @@ class MapPlot(QtWidgets.QWidget):
         self.tiles = [int(a['tile']) for a in ant]
         self.x = [float(str(a['East']).replace(",", ".")) for a in ant]
         self.y = [float(str(a['North']).replace(",", ".")) for a in ant]
-        self.ids = [int(str(a['id'])) for a in ant]
+        self.ids = [a['id'] for a in ant]
         self.mask = mask
         self.circle = []
         self.cross = []
@@ -1152,7 +1053,7 @@ class MapPlot(QtWidgets.QWidget):
                 self.cross[-1].set(visible=False)
                 self.locate += [locate]
                 self.locate[-1].set(visible=False)
-                self.names += [self.canvas.ax.text(self.x[i] + 0.1, self.y[i] + 0.3, ("%d" % ant), fontsize=10)]
+                self.names += [self.canvas.ax.text(self.x[i] + 0.1, self.y[i] + 0.3, ant, fontsize=10)]
                 self.names[-1].set(visible=False)
             self.updatePlot()
 

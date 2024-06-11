@@ -3192,6 +3192,10 @@ class Tile(TileHealthMonitor):
                     )
         return firmware
 
+    @connected
+    def get_ddr_if_stat(self,key, fpga_id=0):
+        return self.tpm[f"fpga{fpga_id+1}.ddr_if.{key}"]
+
 if __name__ == "__main__":
     tile = Tile(ip="10.0.10.2", port=10000)
     tile.connect()

@@ -19,3 +19,8 @@ singleton_decorator
 tabulate
 psutil
 pytest
+get_nic
+pyqt5 
+typing_extensions
+netifaces
+

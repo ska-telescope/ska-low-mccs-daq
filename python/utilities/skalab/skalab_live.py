@@ -19,7 +19,7 @@ import numpy as np
 from PyQt5 import QtWidgets, uic, QtCore, QtGui
 from PyQt5.QtCore import Qt
 import pydaq.daq_receiver as daq
-from skalab_utils import MiniPlots, calcolaspettro, closest, MyDaq, get_if_name, BarPlot, ChartPlots, getTextFromFile
+from skalab_utils import MiniPlots, calcolaspettro, closest, MyDaq, get_if_name, BarPlot, ChartPlots
 from skalab_utils import parse_profile, ts_to_datestring, dt_to_timestamp, Archive, COLORI, decodeChannelList
 from skalab_preadu import Preadu, PreaduGui, bound
 from pyaavs.station import Station
@@ -84,8 +84,9 @@ class Live(SkalabBase):
     signalRms = QtCore.pyqtSignal()
     signalTemp = QtCore.pyqtSignal()
 
-    def __init__(self, config="", uiFile="", profile="Default", size=[1190, 936], swpath=default_app_dir):
+    def __init__(self, uiFile="", profile="Default", size=[1190, 936], swpath=default_app_dir):
         """ Initialise main window """
+        self.connected = False
         self.wg = uic.loadUi(uiFile)
 
         self.wgProBox = QtWidgets.QWidget(self.wg.qtab_conf)
@@ -96,7 +97,6 @@ class Live(SkalabBase):
         super(Live, self).__init__(App="live", Profile=profile, Path=swpath, parent=self.wgProBox)
         self.logger = SkalabLog(parent=self.wg.qw_log, logname=__name__, profile=self.profile)
         # Load window file
-        self.connected = False
         self.setCentralWidget(self.wg)
         self.resize(size[0], size[1])
         self.populate_table_profile()
@@ -185,7 +185,7 @@ class Live(SkalabBase):
         #self.procMonitor = Thread(target=self.procRunMonitor)
         #self.procMonitor.start()
 
-        self.config_file = config
+        self.config_file = self.profile['Live']['station_file']
         self.show_rms = False
         self.show_spectra_grid = self.wg.qcheck_spectra_grid.isChecked()
 
@@ -217,7 +217,11 @@ class Live(SkalabBase):
         self.qwRms.setGeometry(QtCore.QRect(0, 0, w, h))
         self.qwRmsMainLayout.insertWidget(0, self.qwRms)
 
-        self.populate_help()
+        self.populate_help(uifile=uiFile)
+        station.load_configuration_file(self.config_file)
+        self.stationIps = station.configuration['tiles']
+        self.updateComboIps(self.stationIps)
+        self.customizeMapping()
 
     def load_events(self):
         # Live Plots Connections
@@ -244,13 +248,6 @@ class Live(SkalabBase):
         self.wg.qradio_preadu.toggled.connect(lambda: self.check_preadu())
         self.wg.qcombo_chart.currentIndexChanged.connect(lambda: self.switchChart())
         self.wg.qcombo_tpm.currentIndexChanged.connect(lambda: self.updatePreadu())
-
-    def populate_help(self, uifile="Gui/skalab_live.ui"):
-        with open(uifile) as f:
-            data = f.readlines()
-        helpkeys = [d[d.rfind('name="Help_'):].split('"')[1] for d in data if 'name="Help_' in d]
-        for k in helpkeys:
-            self.wg.findChild(QtWidgets.QTextEdit, k).setText(getTextFromFile(k.replace("_", "/")+".html"))
 
     def savePicture(self):
         fd = QtWidgets.QFileDialog()
@@ -331,7 +328,7 @@ class Live(SkalabBase):
             self.wg.qbutton_stop.setEnabled(False)
             self.wg.qbutton_save.setEnabled(True)
             self.wg.qbutton_export.setEnabled(True)
-            self.wg.qcombo_rms_label.setEnabled(False)
+            self.wg.qcombo_rms_label.setEnabled(True)
             self.wg.qcombo_tpm.setEnabled(True)
 
     def check_rms(self, b):
@@ -446,13 +443,14 @@ class Live(SkalabBase):
     def connect(self):
         if not self.connected:
             # Load station configuration
+            self.config_file = self.profile['Live']['station_file']
             station.load_configuration_file(self.config_file)
             self.station_configuration = station.configuration
             if self.newTilesIPs is not None:
                 station.configuration['tiles'] = self.newTilesIPs
-            # Test
-            #if True:
+                self.updateComboIps(self.newTilesIPs)
             try:
+                # if True:
                 # Create station
                 self.tpm_station = Station(station.configuration)
                 # Connect station (program, initialise and configure if required)
@@ -470,8 +468,11 @@ class Live(SkalabBase):
                     self.wg.qbutton_connect.setText("ONLINE")
                     # print("REINIT LIVE BARs: ", len(self.tpm_station.tiles))
                     self.tempBoardPlots.reinit(len(self.tpm_station.tiles))
+                    self.tempBoardPlots.set_xticklabels([str(i+1) for i in range(len(self.tpm_station.tiles))])
                     self.tempFpga1Plots.reinit(len(self.tpm_station.tiles))
+                    self.tempFpga1Plots.set_xticklabels([str(i+1) for i in range(len(self.tpm_station.tiles))])
                     self.tempFpga2Plots.reinit(len(self.tpm_station.tiles))
+                    self.tempFpga2Plots.set_xticklabels([str(i+1) for i in range(len(self.tpm_station.tiles))])
 
                     if self.tpm_station.tiles[0].tpm_version() == "tpm_v1_2":
                         self.rms_remap = [1, 0, 3, 2, 5, 4, 7, 6,
@@ -554,7 +555,7 @@ class Live(SkalabBase):
                     self.logger.logger.error("Failed to get DAQ data!")
                     pass
                 cycle = 0.0
-                while cycle < (int(self.profile['Live']['query_interval']) - 1) and not self.skipThreadPause:
+                while cycle < (int(float(self.profile['Live']['query_interval'])) - 1) and not self.skipThreadPause:
                     sleep(0.1)
                     cycle = cycle + 0.1
                 self.skipThreadPause = False
@@ -640,7 +641,7 @@ class Live(SkalabBase):
                         if self.wpreadu.write_armed and not self.preadu[self.wg.qcombo_tpm.currentIndex()].Busy and self.connected:
                             self.writing_preadu = True
                             # for i in range(self.wpreadu.inputs):
-                            #     self.preadu[self.wg.qcombo_tpm.currentIndex()].preadu.set_register_value(nrx=i, value=int("0x" + self.wpreadu.records[i]['value'].text(), 16))
+                            #     self.preadu[self.wg.qcombo_tpm.currentIndex()].preadu.set_register_value(nrx=i, value=int("0x" + self.wpreadu.records[i].text(), 16))
                             # logging.debug(self.wpreadu.tpmConf, self.wpreadu.guiConf)
                             self.preadu[self.wg.qcombo_tpm.currentIndex()].write_configuration(self.wpreadu.guiConf)
                             self.wpreadu.write_armed = False
@@ -682,7 +683,9 @@ class Live(SkalabBase):
             if ipath[-1] != "/":
                 ipath += "/"
             if glob.glob(ipath + "*channel_integ_*hdf5"):
-                remap = [0, 1, 2, 3, 8, 9, 10, 11, 15, 14, 13, 12, 7, 6, 5, 4]
+                remap_integrated_spectra = [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7]
+                if self.wg.qcombo_rms_label.currentIndex() == 0:
+                    remap_integrated_spectra = np.arange(16)
                 monitorData, timestamps = self.monitor_file_manager.read_data(tile_id=self.wg.qcombo_tpm.currentIndex(),
                                                                               n_samples=1,
                                                                               sample_offset=-1)
@@ -693,16 +696,19 @@ class Live(SkalabBase):
                                                                   (8 * float(self.tpm_station.configuration['station']['channel_integration_time'])))
                         #logging.debug("PLOTTO ORA IL ", ts_to_datestring(timestamps[0][0]))
                         for i in range(16):
+                            title = "TPM INPUT F-%02d" % (i + 1)
+                            if self.wg.qcombo_rms_label.currentIndex() == 0:
+                                title = "ADC INPUT %d-%d" % (2 * i, 2 * i + 1)
                             # Plot X Pol
-                            spettro = monitorData[:, remap[i], 0, -1]
+                            spettro = monitorData[:, remap_integrated_spectra[i], 0, -1]
                             with np.errstate(divide='ignore'):
                                 spettro = 10 * np.log10(np.array(spettro))
                             self.monitorPlots.plotCurve(self.monitor_asse_x, spettro, i, xAxisRange=[1, 400],
-                                                        yAxisRange=[0, 40], title="INPUT-%02d" % i,
+                                                        yAxisRange=[0, 40], title=title,
                                                         xLabel="MHz", yLabel="dB", colore="b", grid=True, lw=1,
                                                         show_line=True)
                             # Plot Y Pol
-                            spettro = monitorData[:, remap[i], 1, -1]
+                            spettro = monitorData[:, remap_integrated_spectra[i], 1, -1]
                             with np.errstate(divide='ignore'):
                                 spettro = 10 * np.log10(np.array(spettro))
                             self.monitorPlots.plotCurve(self.monitor_asse_x, spettro, i, xAxisRange=[1, 400],
@@ -729,7 +735,10 @@ class Live(SkalabBase):
                 remapped_power = []
                 for x in self.rms_remap:
                     with np.errstate(divide='ignore', invalid='ignore'):
-                        remapped_power += [10 * np.log10(np.power((adc_rms[x] * (1.7 / 256.)), 2) / 400.) + 30 + 12]
+                        # TPM 1.2 calibrated formula (AD9680, Vpp 1.7, impedance 400 Ohm)
+                        # remapped_power += [10 * np.log10(np.power((adc_rms[x] * (1.7 / 256.)), 2) / 400.) + 30 + 12]
+                        # TPM 1.6 calibrated formula (AD9696, Vpp 1.59, impedance 200 Ohm)
+                        remapped_power += [10 * np.log10(np.power((adc_rms[x] * (1.59 / 256.)), 2) / 200.) + 30 + 10.4]
                 rms += [remapped_rms]
                 if self.rms_file is not None:
                     self.rms_file.write(name=k, data=remapped_rms)
@@ -764,7 +773,7 @@ class Live(SkalabBase):
                                 else:
                                     attenuation = 0
                                 dsa = self.wpreadu.staticRx.rx[self.preaduConf[t][i]['version']].op_get_attenuation(self.preaduConf[t][i]['code'])
-                                new_dsa = bound(int(round(dsa + attenuation)))
+                                new_dsa = bound(round(dsa + attenuation, 2))
                                 self.preaduConf[t][i]['code'] = self.wpreadu.staticRx.rx[self.preaduConf[t][i]['version']].op_set_attenuation(self.preaduConf[t][i]['code'], new_dsa)
                         self.writing_preadu = True
                         self.eq_armed = True
@@ -778,14 +787,16 @@ class Live(SkalabBase):
                             for i in range(len(RMS[t])):
                                 rms = RMS[t][i]  # rms_remap[i]]
                                 with np.errstate(divide='ignore', invalid='ignore'):
-                                    power = 10 * np.log10(np.power((rms * (1.7 / 256.)), 2) / 400.) + 30 + 12
+                                    # TPM 1.2 calibrated formula (AD9680, Vpp 1.7, impedance 400 Ohm)
+                                    # power = 10 * np.log10(np.power((rms * (1.7 / 256.)), 2) / 400.) + 30 + 12
+                                    # TPM 1.6 calibrated formula (AD9696, Vpp 1.59, impedance 200 Ohm)
+                                    power = 10 * np.log10(np.power((rms * (1.59 / 256.)), 2) / 200.) + 30 + 10.4
                                 if power == (-np.inf):
                                     power = -30
                                 dsa = self.wpreadu.staticRx.rx[self.preaduConf[t][i]['version']].op_get_attenuation(self.preaduConf[t][i]['code'])
-                                new_dsa = bound(int(round(dsa + (power - target))))
+                                new_dsa = bound(round(dsa + (power - target), 2))
                                 self.preaduConf[t][i]['code'] = self.wpreadu.staticRx.rx[self.preaduConf[t][i]['version']].op_set_attenuation(self.preaduConf[t][i]['code'], new_dsa)
-                                #logging.debug("TPM-%02d INPUT-%02d, Level: %3.1f, Old DSA %d, New DSA %d" % (b+1, i, power, dsa, new_dsa))
-                                #logging.debug(i, self.preadu.preadu.get_register_value(nrx=i), self.preaduConf[b][i]['dsa'])
+                                # logging.info("TPM-%02d INPUT-%02d, Level: %3.2f, Target: %3.2f, Old DSA %3.2f, New DSA %3.2f" % (t+1, i, power, target, dsa, new_dsa))
                             self.eq_armed = True
                             self.writing_preadu = True
                             while self.writing_preadu:
@@ -904,7 +915,10 @@ class Live(SkalabBase):
             self.live_mapping = [12, 13, 14, 15, 3, 2, 1, 0, 8, 9, 10, 11, 7, 6, 5, 4]
         elif self.wg.qcombo_rms_label.currentIndex() == 4:
             # TPM 1.6 Fibre Mapping
-            self.live_mapping = [12, 13, 14, 15, 3, 2, 1, 0, 8, 9, 10, 11, 7, 6, 5, 4]
+            self.live_mapping = [4, 5, 6, 7, 11, 10, 9, 8, 0, 1, 2, 3, 15, 14, 13, 12]
+        elif self.wg.qcombo_rms_label.currentIndex() == 5:
+            # TPM 1.6 Fibre Mapping
+            self.live_mapping = [4, 5, 6, 7, 11, 10, 9, 8, 0, 1, 2, 3, 15, 14, 13, 12]
         else:
             self.live_mapping = np.arange(16)
 
@@ -977,13 +991,13 @@ class Live(SkalabBase):
                 self.drawRmsCharts()
             else:
                 if len(self.rms) == len(self.tpm_station.tiles):
-
                     # self.wg.qlabel_tstamp_rms.setText(ts_to_datestring(dt_to_timestamp(datetime.datetime.utcnow())))
                     # ADU Map
                     rms_remap = np.arange(32)
                     colors = ['b'] * 32
                     if self.wg.qcombo_rms_label.currentIndex() == 1:
                         # ADU RF Receivers Polarization X-Y remapping
+                        # This must be corrected for different ADU version (different fw has different mapping)
                         rms_remap = [1, 0, 3, 2, 5, 4, 7, 6,
                                      8, 9, 10, 11, 12, 13, 14, 15,
                                      17, 16, 19, 18, 21, 20, 23, 22,
@@ -1004,11 +1018,18 @@ class Live(SkalabBase):
                                      25, 24, 27, 26, 29, 28, 31, 30]
                         colors = ['b', 'g'] * 16
                     elif self.wg.qcombo_rms_label.currentIndex() == 4:
-                        # TPM 1.6 Fibre Mapping
+                        # TPM 1.6 Fibre Mapping PreADU 2019 Wrong SPI
                         rms_remap = [15, 14, 13, 12, 11, 10,  9,  8,
                                        6,  7,  4,  5,  2,  3, 0,  1,
                                      31, 30, 29, 28, 27, 26, 25, 24,
                                      22, 23, 20, 21, 18, 19, 16, 17]
+                        colors = ['b', 'g'] * 16
+                    elif self.wg.qcombo_rms_label.currentIndex() == 5:
+                        # TPM 1.6 Fibre Mapping
+                        rms_remap = [16, 17, 18, 19, 20, 21, 22, 23,
+                                     25, 24, 27, 26, 29, 28, 31, 30,
+                                      0,  1,  2,  3,  4,  5,  6,  7,
+                                      9,  8, 11, 10, 13, 12, 15, 14]
                         colors = ['b', 'g'] * 16
                     for t in range(len(self.station_configuration['tiles'])):
                         powers = np.zeros(32)
@@ -1017,9 +1038,12 @@ class Live(SkalabBase):
                                 self.qp_rms[t].plotBar(self.rms[t][rms_remap[i]], i, colors[i])
                             elif self.wg.qradio_rms_dsa.isChecked():
                                 #self.qp_rms[t].plotBar(self.preaduConf[t][i]['dsa'], i, 'r')
-                                self.qp_rms[t].plotBar(self.wpreadu.staticRx.rx[self.preaduConf[t][i]['version']].op_get_attenuation(self.preaduConf[t][i]['code']), i, 'r')
+                                self.qp_rms[t].plotBar(self.wpreadu.staticRx.rx[self.preaduConf[t][i]['version']].op_get_attenuation(self.preaduConf[t][i]['code']), rms_remap[i], 'r')
                             with np.errstate(divide='ignore', invalid='ignore'):
-                                power = 10 * np.log10(np.power((self.rms[t][rms_remap[i]] * (1.7 / 256.)), 2) / 400.) + 30 + 12
+                                # TPM 1.2 calibrated formula (AD9680, Vpp 1.7, impedance 400 Ohm)
+                                # power = 10 * np.log10(np.power((self.rms[t][rms_remap[i]] * (1.7 / 256.)), 2) / 400.) + 30 + 12
+                                # TPM 1.6 calibrated formula (AD9696, Vpp 1.59, impedance 200 Ohm)
+                                power = 10 * np.log10(np.power((self.rms[t][rms_remap[i]] * (1.59 / 256.)), 2) / 200.) + 30 + 10.4
                             if power == -np.inf:
                                 power = -60
                             powers[i] = power
@@ -1289,14 +1313,19 @@ if __name__ == "__main__":
                       default=False, help="Acquire and save temperatures")
     parser.add_option("--profile", action="store", dest="profile",
                       type="str", default="Default", help="Live Profile file to load")
+    parser.add_option("--connect", action="store_true", dest="connect",
+                      default=False, help="Enable auto connect on temperatures [Default Disabled]")
     (opt, args) = parser.parse_args(argv[1:])
 
     live_logger = logging.getLogger(__name__)
     if not opt.nogui:
         app = QtWidgets.QApplication(sys.argv)
-        window = Live(config=opt.config, uiFile="Gui/skalab_live.ui", swpath=default_app_dir)
+        window = Live(uiFile="Gui/skalab_live.ui", profile=opt.profile, swpath=default_app_dir)
         window.signalTemp.connect(window.updateTempPlot)
         window.signalRms.connect(window.updateRms)
+        if opt.connect:
+            window.wg.qradio_temps.setChecked(True)
+            window.connect()
         sys.exit(app.exec_())
     else:
         profile = []
@@ -1348,7 +1377,7 @@ if __name__ == "__main__":
                             except:
                                 live_logger.error("ERROR SAVING TEMPERATURES!")
                                 temp_file.close()
-                                ive_logger.info("File closed: ", temp_path + fname, "\n")
+                                live_logger.info("File closed: ", temp_path + fname, "\n")
                                 break
                     else:
                         live_logger.warning("There is no any temperatures path specified in the profile file.\n")

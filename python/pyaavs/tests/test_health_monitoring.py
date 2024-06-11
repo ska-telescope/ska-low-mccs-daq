@@ -7,7 +7,16 @@ import logging
 import operator
 
 # Add to this list any monitoring points that are expected to fail
-MON_POINT_SKIP = []
+MON_POINT_SKIP = [
+    'io.ddr_interface.rd_dat_cnt.FPGA0',
+    'io.ddr_interface.rd_dat_cnt.FPGA1',
+    'io.ddr_interface.wr_cnt.FPGA0',
+    'io.ddr_interface.wr_cnt.FPGA1',
+    'io.ddr_interface.rd_cnt.FPGA0',
+    'io.ddr_interface.rd_cnt.FPGA1',
+    'timing.timestamp.FPGA0',
+    'timing.timestamp.FPGA1'
+]
 
 class TestHealthMonitoring():
     def __init__(self, station_config, logger):

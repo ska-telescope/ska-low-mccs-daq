@@ -371,7 +371,7 @@ class AAVSOpticalRx(DualBandRx):
 
     @staticmethod
     def op_set_attenuation(code, att):
-        return (code & 0b111) + (att << 3)
+        return (code & 0b111) + (round(att) << 3)
 
     @staticmethod
     def op_get_attenuation(code):
@@ -434,11 +434,49 @@ class NewSKAOpticalRx(Rx):
 
     @staticmethod
     def op_set_attenuation(code, att):
-        return (code & 0b111) + (att << 3)
+        return (code & 0b111) + (round(att) << 3)
 
     @staticmethod
     def op_get_attenuation(code):
         return (code & 0b11111000) >> 3
+
+
+class AAVS3OpticalRx(Rx):
+    '''
+    INAF SKA-AAVS3 Optical Receiver for TPM 1.6
+
+    No 50 Ohm Termination Capability, Only one pass-band filter (50-350MHz)
+
+    LSB - 0.125dB,0.25dB,0.5dB,1dB,2dB,4dB,8dB,16dB - MSB
+    '''
+    def __init__(self, code=0, bit_string=None, type=None, version=None, fw_map=None, sn=0):
+        if bit_string is None:
+            self.bit_string = {}
+            self.bit_string['b0'] = "not used"
+            self.bit_string['b1'] = "Attenuation 0.25dB"
+            self.bit_string['b2'] = "Attenuation 0.5dB"
+            self.bit_string['b3'] = "Attenuation 1dB"
+            self.bit_string['b4'] = "Attenuation 2dB"
+            self.bit_string['b5'] = "Attenuation 4dB"
+            self.bit_string['b6'] = "Attenuation 8dB"
+            self.bit_string['b7'] = "Attenuation 16dB"
+        if version is None:
+            version = "AAVS3OpticalRx"
+        if type is None:
+            type = "RF-X"
+        if fw_map is None:
+            fw_map = {'preadu_id': 0, 'channel': 0, 'pol': 'n/a', 'adu_in': 0, 'tpm_in': 0}
+
+        super(AAVS3OpticalRx, self).__init__(code=code, bit_string=bit_string, type=type,
+                                              version=version, fw_map=fw_map, sn=sn)
+
+    @staticmethod
+    def op_set_attenuation(code, att):
+        return round(att * 8) & 0b11111110
+
+    @staticmethod
+    def op_get_attenuation(code):
+        return code / 8.
 
 
 class InafSkaRfRx(Rx):
@@ -479,11 +517,11 @@ class InafSkaRfRx(Rx):
     @staticmethod
     def op_set_attenuation(code, att):
         code = code & 0b00010101
-        code = code + ((att & 0b1) << 6)  # 1dB
-        code = code + (att & 0b10)  # 2dB
-        code = code + ((att & 0b100) << 1) # 4dB
-        code = code + ((att & 0b1000) << 2)  # 8dB
-        code = code + ((att & 0b10000) << 3)  # 16dB
+        code = code + ((round(att) & 0b1) << 6)  # 1dB
+        code = code + (round(att) & 0b10)  # 2dB
+        code = code + ((round(att) & 0b100) << 1) # 4dB
+        code = code + ((round(att) & 0b1000) << 2)  # 8dB
+        code = code + ((round(att) & 0b10000) << 3)  # 16dB
         return code
 
     @staticmethod
@@ -856,7 +894,7 @@ class preAduAAVS1:
         return self.rx[self.spi_remap[nrx]].fw_map
 
 
-class preAduAAVS3:
+class preAdu2019:
     '''
     A preADU board with embedded optical WDM receivers
     The receiver bit mapping is the same for RF1 and RF2 and Ctrl only DSA
@@ -929,6 +967,75 @@ class preAduAAVS3:
         pass
 
 
+class preAduAAVS3:
+    '''
+    A preADU board with embedded optical WDM receivers
+    The receiver bit mapping is the same for RF1 and RF2 and Ctrl only DSA
+    Reversed RF1-RF2 (RF connectors placed to the opposite layer)
+    Funny SPI lane trace (15-16-13-14-11-12-9-10-7-8-5-6-3-4-1-2)
+    It will be corrected in the next version
+    '''
+    def __init__(self):
+        self.nof_rx = 32
+        self.rx = []
+        for i in range(self.nof_rx):
+            self.rx += [AAVS3OpticalRx()]
+            self.rx[i].sn = i
+        self.spi_remap = np.arange(32)
+        # self.spi_remap = [1, 0, 3, 2, 5, 4, 7, 6,
+        #                   17, 16, 19, 18, 21, 20, 23, 22,
+        #                   30, 31, 28, 29, 26, 27, 24, 25,
+        #                   14, 15, 12, 13, 10, 11, 8, 9]
+
+
+    def set_rx_attenuation(self, nrx, att):
+        self.rx[self.spi_remap[nrx]].set_attenuation(bound(att))
+
+    def get_rx_attenuation(self, nrx):
+        return self.rx[self.spi_remap[nrx]].get_attenuation()
+
+    def set_all_rx_attenuation(self, att):
+        for i in range(self.nof_rx):
+            self.rx[self.spi_remap[i]].set_attenuation(bound(att))
+
+    def get_register_value(self, nrx):
+        return self.rx[self.spi_remap[nrx]].get_reg_value()
+
+    def set_register_value(self, nrx, value):
+        return self.rx[self.spi_remap[nrx]].set_reg_value(value=value)
+
+    def set_spi_conf(self, nrx, preadu_id, channel_filter, pol, adu_in, tpm_in):
+        self.rx[self.spi_remap[nrx]].fw_map['preadu_id'] = preadu_id
+        self.rx[self.spi_remap[nrx]].fw_map['channel_filter'] = channel_filter
+        self.rx[self.spi_remap[nrx]].fw_map['pol'] = pol
+        self.rx[self.spi_remap[nrx]].fw_map['adu_in'] = adu_in
+        self.rx[self.spi_remap[nrx]].fw_map['tpm_in'] = tpm_in
+
+    def get_spi_conf(self, nrx):
+        return self.rx[self.spi_remap[nrx]].fw_map
+
+    def set_hipass(self, rx):
+        pass
+
+    def set_lopass(self, rx):
+        pass
+
+    def is_lopass(self, num):
+        return False
+
+    def is_hipass(self, num):
+        return False
+
+    def is_terminated(self, num):
+        return False
+
+    def set_rx_hi_filter(self, num):
+        pass
+
+    def set_rx_lo_filter(self, num):
+        pass
+
+
 class Preadu(object):
     def __init__(self, tpm=None, preadu_version="2.1", debug=0):
         """ This is the PreADU class """
@@ -952,9 +1059,13 @@ class Preadu(object):
             self.preadu = preAduSadino()
             print(self.tpm.get_ip() + " PREADU: SADino with Mixed RF and AAVS1 Like RF Rxs selected")
         elif self.preadu_version == "3.1":
+            self.preadu = preAdu2019()
+            self.rf_map = read_routing_table("./SignalMap/TPM_PreADU2019.txt")
+            print(self.tpm.get_ip() + " PREADU: New Gen with Wrong SPI Map selected")
+        elif self.preadu_version == "3.2":
             self.preadu = preAduAAVS3()
             self.rf_map = read_routing_table("./SignalMap/TPM_AAVS3.txt")
-            print(self.tpm.get_ip() + " PREADU: New Gen with Embedded Optical WDM Receivers selected")
+            print(self.tpm.get_ip() + " PREADU: AAVS3 with Embedded Optical WDM Receivers selected")
 
         for spimap in self.rf_map:
             self.preadu.set_spi_conf(nrx=int(spimap[0]),
@@ -1033,9 +1144,13 @@ class Preadu(object):
             self.preadu = preAduSadino()
             print(self.tpm.get_ip() + " PREADU: SADino with Mixed RF and AAVS1 Like RF Rxs selected")
         elif self.preadu_version == "3.1":
+            self.preadu = preAdu2019()
+            self.rf_map = read_routing_table("./SignalMap/TPM_PreADU2019.txt")
+            print(self.tpm.get_ip() + " PREADU: New Gen with Wrong SPI Map selected")
+        elif self.preadu_version == "3.2":
             self.preadu = preAduAAVS3()
             self.rf_map = read_routing_table("./SignalMap/TPM_AAVS3.txt")
-            print(self.tpm.get_ip() + " PREADU: New Gen with Embedded Optical WDM Receivers selected")
+            print(self.tpm.get_ip() + " PREADU: AAVS3 with Embedded Optical WDM Receivers selected")
         for spimap in self.rf_map:
             self.preadu.set_spi_conf(nrx=int(spimap[0]), preadu_id=int(spimap[3]), channel_filter=int(spimap[4]),
                                      pol=spimap[1], adu_in=spimap[0], tpm_in=spimap[2])
@@ -1047,11 +1162,12 @@ class TestingReceivers:
         """ This Class is created to support the GUI """
         self.rx = {'AAVSOpticalRx': AAVSOpticalRx(),
                    'InafSkaRfRx': InafSkaRfRx(),
-                   'NewSKAOpticalRx': NewSKAOpticalRx()}
+                   'NewSKAOpticalRx': NewSKAOpticalRx(),
+                   'AAVS3OpticalRx': AAVS3OpticalRx()}
 
 
 class PreaduGui(object):
-    def __init__(self, parent, preadu_version="3.1", debug=0):
+    def __init__(self, parent, preadu_version="3.2", debug=0):
         """ This is the PreADU Gui Class """
         super(PreaduGui, self).__init__()
 
@@ -1063,8 +1179,11 @@ class PreaduGui(object):
 
         self.inputs = CHANNELS
         self.rf_map = read_routing_table("./SignalMap/TPM_AAVS1.txt")
-        if self.preadu_version == "3.1":
-            self.rf_map = read_routing_table("./SignalMap/TPM_AAVS3.txt")
+        if float(self.preadu_version) > 3:
+            if self.preadu_version == "3.1":
+                self.rf_map = read_routing_table("./SignalMap/TPM_PreADU2019.txt")
+            else:
+                self.rf_map = read_routing_table("./SignalMap/TPM_AAVS3.txt")
         self.tpmConf = {}
         self.guiConf = {}
 
@@ -1177,7 +1296,7 @@ class PreaduGui(object):
             # Attenuation
             self.records[num]['att'].setText(str(self.staticRx.rx[self.guiConf[num]['version']].op_get_attenuation(self.guiConf[num]['code'])))
             #time.sleep(0.001)
-            if not self.preadu_version == "3.1":
+            if float(self.preadu_version) < float("3.1"):
                 # print(num, self.staticRx.rx[self.guiConf[num]['version']].op_is_lopass(self.guiConf[num]['code']))
                 update_flag_lo_filter(self.records[num], self.staticRx.rx[self.guiConf[num]['version']].op_is_lopass(
                     self.guiConf[num]['code']))
@@ -1231,7 +1350,10 @@ class PreaduGui(object):
                 update_flag_termination(self.records[num], self.staticRx.rx[self.guiConf[num]['version']].op_is_terminated(self.guiConf[num]['code']))
 
     def action_plus(self, num):
-        valore = int(self.records[num]['att'].text()) + 1
+        if self.preadu_version == "3.2":
+            valore = float(self.records[num]['att'].text()) + 0.25
+        else:
+            valore = float(self.records[num]['att'].text()) + 1
         if valore > 31:
             valore = 31
         self.records[num]['code'].setFont(font_bold())
@@ -1240,7 +1362,10 @@ class PreaduGui(object):
         self.records[num]['att'].setText(str(self.staticRx.rx[self.guiConf[num]['version']].op_get_attenuation(self.guiConf[num]['code'])))
 
     def action_minus(self, num):
-        valore = int(self.records[num]['att'].text()) - 1
+        if self.preadu_version == "3.2":
+            valore = float(self.records[num]['att'].text()) - 0.25
+        else:
+            valore = float(self.records[num]['att'].text()) - 1
         if valore < 0:
             valore = 0
         self.guiConf[num]['code'] = self.staticRx.rx[self.guiConf[num]['version']].op_set_attenuation(self.guiConf[num]['code'], bound(valore))
@@ -1296,12 +1421,12 @@ class PreaduGui(object):
     def apply_configuration(self):
         self.write_armed = True
 
-    def set_preadu_version(self, preadu_version="3.1"):
+    def set_preadu_version(self, preadu_version="3.2"):
         self.preadu_version = preadu_version
         self.adjustControls()
 
     def adjustControls(self):
-        if float(self.preadu_version.split(".")[0]) > 2:
+        if float(self.preadu_version) >= 3:
             table_names = "ADU#  Code      Attenuation           Rx             Fibre       RMS           dBm"
             self.label_legend_1.setText(table_names)
             self.label_legend_2.setText(table_names)

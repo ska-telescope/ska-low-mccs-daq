@@ -2,7 +2,7 @@ import sys
 sys.path.append("../")
 import os.path
 import time
-from tqdm import tqdm
+# from tqdm import tqdm
 from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
@@ -13,11 +13,15 @@ from skalab_utils import MyDaq, get_if_name, closest, calcolaspettro, linear2dB
 import pydaq.daq_receiver as daq
 from skalab_preadu import *
 
+from pathlib import Path
+
+
 def bound(value, low=0, high=31):
     '''
         Bound the PreADU DSA values between 0 and 31
     '''
     return max(low, min(high, value))
+
 
 def read_routing_table(map_file):
     mappa = []
@@ -115,10 +119,10 @@ def runRms(chan=0, tpm=0, duration=10, interval=0.01, ylim="", autoy=False, titl
         fw_map = preadu.get_spi_conf(nrx=id)
         #print(fw_map)
         if fw_map['pol'].upper() == "RF-2":
-            dsa_x_ann = ax2.annotate("DSA: %02d dB" % (preadu.get_rx_attenuation(nrx=id)), (3, 20), fontsize=16, color='b')
+            dsa_x_ann = ax2.annotate("DSA: %3.2f dB" % (preadu.get_rx_attenuation(nrx=id)), (3, 20), fontsize=16, color='b')
             level_x_ann = ax2.annotate("LEVEL: - dBm", (18, 20), fontsize=16, color='b')
         else:
-            dsa_y_ann = ax2.annotate("DSA: %02d dB" % (preadu.get_rx_attenuation(nrx=id)), (65, 20), fontsize=16, color='g')
+            dsa_y_ann = ax2.annotate("DSA: %3.2f dB" % (preadu.get_rx_attenuation(nrx=id)), (65, 20), fontsize=16, color='g')
             level_y_ann = ax2.annotate("LEVEL: - dBm", (80, 20), fontsize=16, color='g')
     ax2.set_axis_off()
     fig.tight_layout()
@@ -244,7 +248,14 @@ if __name__ == "__main__":
                      14, 15, 12, 13, 10, 11, 8, 9]
         signal_map_file = "../SignalMap/TPM_AAVS1.txt"
     elif opts.version == "3.1":
-        print("Using RMS Mapping for TPM 1.6 with PreADU>=3.0")
+        print("Using RMS Mapping for TPM 1.6 with PreADU==3.1 (2019)")
+        fibre_remap = [15, 14, 13, 12, 11, 10, 9, 8,
+                       6, 7, 4, 5, 2, 3, 0, 1,
+                       31, 30, 29, 28, 27, 26, 25, 24,
+                       22, 23, 20, 21, 18, 19, 16, 17]
+        signal_map_file = "../SignalMap/TPM_PreADU2019.txt"
+    elif float(opts.version) > 3.1:
+        print("Using RMS Mapping for TPM 1.6 with PreADU>=3.2")
         fibre_remap = [15, 14, 13, 12, 11, 10, 9, 8,
                        6, 7, 4, 5, 2, 3, 0, 1,
                        31, 30, 29, 28, 27, 26, 25, 24,
@@ -276,9 +287,13 @@ if __name__ == "__main__":
     preadu = None
     rf_map = read_routing_table("../SignalMap/TPM_AAVS1.txt")
     if board_version == 3.1:
+        preadu = preAdu2019()
+        rf_map = read_routing_table("../SignalMap/TPM_PreADU2019.txt")
+        print("PreADU 3.1 with Optical Receivers selected (v2019 with SPI bug)")
+    if board_version == 3.2:
         preadu = preAduAAVS3()
         rf_map = read_routing_table("../SignalMap/TPM_AAVS3.txt")
-        print("PreADU 3.1 with Optical Receivers selected (pre-AAVS3)")
+        print("PreADU 3.2 with Optical Receivers selected (AAVS3 and AA*)")
     elif board_version == 2.0:
         preadu = preAduRf()
         print("PreADU 2.0 (RF) without optical receivers")
@@ -351,7 +366,7 @@ if __name__ == "__main__":
                     power = 10 * np.log10(np.power((rms[rx_id] * (1.7 / 256.)), 2) / 400.) + 30 + 12
                 if power == (-np.inf):
                     power = -30
-                dsa = bound(int(round(dsa + (power - float(opts.eqvalue)))))
+                dsa = bound(round(dsa + (power - float(opts.eqvalue)), 2))
                 preadu.set_rx_attenuation(nrx=rx_id, att=dsa)
                 tpm_station.tiles[opts.tpm - 1].tpm.tpm_preadu[preadu_id].channel_filters[channel_filter] = \
                     preadu.get_register_value(nrx=rx_id)
@@ -364,7 +379,7 @@ if __name__ == "__main__":
             dsa_x = dsa
         else:
             dsa_y = dsa
-    #print()
+        #print()
 
     if opts.daq:
         data = runDAQ(opts.dir, chan=(opts.channel - 1), tpm=(opts.tpm - 1), duration=opts.duration,
@@ -376,24 +391,28 @@ if __name__ == "__main__":
         path = opts.dir
         if not path[-1] == "/":
             path += "/"
-        if not os.path.exists(path + "DATA"):
-            os.mkdir(path + "DATA")
+        # if not os.path.exists(path + "DATA"):
+        #     os.mkdir(path + "DATA")
         data_ora = datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y-%m-%d_%H%M%S")
         if not opts.title == "":
             fname = path + "DATA/%s_PDL_%s.txt" % (data_ora, opts.title)
         else:
             fname = path + "DATA/%s_PDL_%s_INPUT-%02d.txt" % (data_ora, opts.title, opts.channel)
+        pname = Path(fname)
+        pname.mkdir(parents=True, exist_ok=True)
         with open(fname, "w") as f:
             f.write("Timestamp\tPol-Y\tPol-X\tDSA (Y-X)\t%d\t%d\n" % (dsa_y, dsa_x))
             for i in range(len(data['tstamp'])):
                 f.write("%f\t%6.3f\t%6.3f\n" % (data['tstamp'][i], data['Pol-Y'][i], data['Pol-X'][i]))
-        if not os.path.exists(path + "PICTURES"):
-            os.mkdir(path + "PICTURES")
+        # if not os.path.exists(path + "PICTURES"):
+        #     os.mkdir(path + "PICTURES")
         #plt.title("PDL of Fibre #%d are --> Pol-X %3.2f dB,  Pol-Y %3.2f dB" % (opts.channel, pdl_x, pdl_y))
         if not opts.title == "":
             fname = path + "PICTURES/%s_PDL_%s.png" % (data_ora, opts.title)
         else:
             fname = path + "PICTURES/%s_PDL_%s_INPUT-%02d.png" % (data_ora, opts.title, opts.channel)
+        pname = Path(fname)
+        pname.mkdir(parents=True, exist_ok=True)
         plt.savefig(fname)
         plt.show()
     else:

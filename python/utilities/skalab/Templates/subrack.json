@@ -1,0 +1,63 @@
+{
+    "Base": {
+        "app": {
+            "desc": "Application Name",
+            "type": "string",
+            "value": "Subrack"
+        },
+        "path": {
+            "desc": "Local settings Path",
+            "type": "path",
+            "value": "~/.skalab/"
+        },
+        "profile": {
+            "desc": "Profile Name",
+            "type": "string",
+            "value": "Default"
+        }
+    },
+    "Query": {
+        "deny": {
+            "desc": "Query keys denied",
+            "type": "string",
+            "value": "api_version,tpm_ips,tpm_mcu_temperatures,assigned_tpm_ip_adds,tpms_temp_alarms,tpms_voltage_alarms,tpms_temperatures"
+        },
+        "once": {
+            "desc": "Query keys once",
+            "type": "string",
+            "value": "api_version,assigned_tpm_ip_adds,tpm_present,tpm_on_off"
+        },
+        "tiles": {
+            "desc": "Query keys dedicated for Tiles",
+            "type": "string",
+            "value": "api_version,tpm_ips,assigned_tpm_ip_adds"
+        }
+    },
+    "Subrack": {
+        "data_path": {
+            "desc": "Subrack output directory",
+            "type": "path",
+            "value": "~/.skalab/data/subrack"
+        },
+        "ip": {
+            "desc": "Subrack IP Address",
+            "type": "string",
+            "value": "10.0.10.32"
+        },
+        "log": {
+            "desc": "Subrack log directory",
+            "type": "path",
+            "value": "~/.skalab/data/log"
+        },
+        "port": {
+            "desc": "Subrack IP Port",
+            "type": "int",
+            "value": 8081
+        },
+        "query_interval": {
+            "desc": "Query Interval in seconds",
+            "type": "float",
+            "value": 3.0
+        }
+    }
+}
