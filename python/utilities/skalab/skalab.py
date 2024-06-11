@@ -15,11 +15,12 @@
 __copyright__ = "Copyright 2023, Istituto di RadioAstronomia, Radiotelescopi di Medicina, INAF, Italy"
 __author__ = "Andrea Mattana"
 __credits__ = ["Andrea Mattana"]
-__license__ = "GPL"
-__version__ = "1.3.1"
-__release__ = "2023-03-22"
+__license__ = "BSD3"
+__version__ = "2.0.5"
+__release__ = "2023-10-03"
 __maintainer__ = "Andrea Mattana"
 
+import gc
 import shutil
 import sys
 import os
@@ -34,9 +35,10 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from skalab_live import Live
 from skalab_playback import Playback
 from skalab_subrack import Subrack
-from skalab_monitor import Monitor
+#from skalab_monitor import MonitorTPM
 from skalab_station import SkalabStation
 from skalab_utils import parse_profile, getTextFromFile
+from skalab_base import ConfWizard
 from pathlib import Path
 import logging
 logger = logging.getLogger()
@@ -49,47 +51,47 @@ profile_filename = "skalab.ini"
 
 COLORI = ["b", "g"]
 
-configuration = {'tiles': None,
-                 'time_delays': None,
-                 'station': {
-                     'id': 0,
-                     'name': "Unnamed",
-                     "number_of_antennas": 256,
-                     'program': False,
-                     'initialise': False,
-                     'program_cpld': False,
-                     'enable_test': False,
-                     'start_beamformer': False,
-                     'bitfile': None,
-                     'channel_truncation': 5,
-                     'channel_integration_time': -1,
-                     'beam_integration_time': -1,
-                     'equalize_preadu': 0,
-                     'default_preadu_attenuation': 0,
-                     'beamformer_scaling': 4,
-                     'pps_delays': 0},
-                 'observation': {
-                     'bandwidth': 8 * (400e6 / 512.0),
-                     'start_frequency_channel': 50e6},
-                 'network': {
-                     'lmc': {
-                         'tpm_cpld_port': 10000,
-                         'lmc_ip': "10.0.10.200",
-                         'use_teng': True,
-                         'lmc_port': 4660,
-                         'lmc_mac': 0x248A078F9D38,
-                         'integrated_data_ip': "10.0.0.2",
-                         'integrated_data_port': 5000,
-                         'use_teng_integrated': True},
-                     'csp_ingest': {
-                         'src_ip': "10.0.10.254",
-                         'dst_mac': 0x248A078F9D38,
-                         'src_port': None,
-                         'dst_port': 4660,
-                         'dst_ip': "10.0.10.200",
-                         'src_mac': None}
-                    }
-                 }
+
+def runWizard(fullpath=""):
+    if not os.path.exists(fullpath):
+        conf = configparser.ConfigParser()
+        conf['Base'] = {'subrack': "Default",
+                        'live': "Default",
+                        'playback': "Default",
+                        'station': "Default"}
+        if not os.path.exists(default_app_dir):
+            print("\nCouldn't find SKALAB configuration files directory,\nGenerating a new one in " + default_app_dir)
+            os.makedirs(default_app_dir)
+        conf_path = default_app_dir + profile
+        if not os.path.exists(conf_path):
+            os.makedirs(conf_path)
+        print("\nGenerating a new SKALAB default configuration file: " + fullpath)
+        conf_path = conf_path + "/skalab.ini"
+        with open(conf_path, 'w') as configfile:
+            conf.write(configfile)
+    profiles = parse_profile(fullpath)
+
+    msgBox = QtWidgets.QMessageBox()
+    msgBox.setText("\n\n                       Welcome to SKALAB v." + __version__ + "                     " +
+                   "\n\n\n   the WIZARD assistant will help you generating the            " +
+                   "\n                SKALAB Modules configuration files                 " +
+                   "\n\n   EDIT the proposed configuration for each module             " +
+                   "\n\n    click DONE to validate it and go to the next step             \n\n")
+    msgBox.setWindowTitle("SKALAB Setup")
+    msgBox.setIcon(QtWidgets.QMessageBox.Information)
+    # msgBox.setWindowIcon(QtGui.QIcon('Pictures/wizard.png'))
+    msgBox.exec_()
+    if profiles.sections():
+        for n, module_name in enumerate(profiles['Base']):
+            # if not os.path.exists(default_app_dir + profiles['Base'][module_name] + "/" + module_name + ".ini"):
+            wg = ConfWizard(App=module_name, Profile=profiles['Base'][module_name], Path=default_app_dir,
+                            msg="Step %d/%d" % (n + 1, len(profiles['Base'])))
+            wg.wg.show()
+            wg.wg.raise_()
+            done = app.exec_()
+            wg.wg.close()
+            del wg
+            gc.collect()
 
 
 class SkaLab(QtWidgets.QMainWindow):
@@ -98,17 +100,11 @@ class SkaLab(QtWidgets.QMainWindow):
     def __init__(self, uiFile, profile="Default"):
         """ Initialise main window """
         super(SkaLab, self).__init__()
-        #super(SkalabBase, self).__init__(App="", Profile="", Path="")
         # Load window file
         self.wg = uic.loadUi(uiFile)
         self.setCentralWidget(self.wg)
         self.resize(1210, 970)
         self.setWindowTitle("The SKA in LAB Project")
-        # self.profile = {'App': {'subrack': "",
-        #                         'live': "",
-        #                         'playback': "",
-        #                         'station': ""},
-        #                 'Init': {'station_setup': ""}}
         self.profile_name = ""
         self.profile_file = ""
         self.load_profile(profile)
@@ -123,12 +119,17 @@ class SkaLab(QtWidgets.QMainWindow):
         self.pic_ska.setGeometry(1, 1, 1111, 401)
         self.pic_ska.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/bungarra.png"))
 
+        self.pic_ska_auth = QtWidgets.QLabel(self.wg.qwpics_authpic)
+        self.pic_ska_auth.setGeometry(0, 0, 80, 78)
+        self.pic_ska_auth.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/People/AMattana.png"))
+
         self.pic_ska_help = QtWidgets.QLabel(self.wg.qwpics_help)
-        self.pic_ska_help.setGeometry(1, 1, 489, 120)
-        self.pic_ska_help.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/ska_inaf_logo_mini.png"))
-        self.wg.qlabel_sw_version.setText("Version: " + __version__)
-        self.wg.qlabel_sw_release.setText("Released on: " + __release__)
-        self.wg.qlabel_sw_author.setText("Author: " + __author__)
+        self.pic_ska_help.setGeometry(1, 1, 380, 118)
+        self.pic_ska_help.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/ska_inaf_logo.png"))
+
+        self.wg.qlabel_sw2_version.setText(__version__)
+        self.wg.qlabel_sw2_release.setText(__release__)
+        self.wg.qlabel_sw2_author.setText(__author__)
 
         # Instantiating Station Tab. This must be always done as first
         QtWidgets.QTabWidget.setTabVisible(self.wg.qtabMain, self.tabStationIndex, True)
@@ -142,12 +143,11 @@ class SkaLab(QtWidgets.QMainWindow):
 
         QtWidgets.QTabWidget.setTabVisible(self.wg.qtabMain, self.tabLiveIndex, True)
         self.wgLiveLayout = QtWidgets.QVBoxLayout()
-        self.wgLive = Live(self.config_file, "Gui/skalab_live.ui", size=[1190, 936],
+        self.wgLive = Live(uiFile="Gui/skalab_live.ui", size=[1190, 936],
                            profile=self.profile['Base']['live'],
                            swpath=default_app_dir)
         self.wgLive.signalTemp.connect(self.wgLive.updateTempPlot)
         self.wgLive.signalRms.connect(self.wgLive.updateRms)
-
         self.wgLiveLayout.addWidget(self.wgLive)
         self.wg.qwLive.setLayout(self.wgLiveLayout)
 
@@ -232,8 +232,7 @@ class SkaLab(QtWidgets.QMainWindow):
             if os.path.exists(fullpath):
                 print("Loading Skalab Profile: " + profile + " (" + fullpath + ")")
             else:
-                print("\nThe Skalab Profile does not exist.\nGenerating a new one in "
-                      + fullpath + "\n")
+                print("\nThe Skalab Profile does not exist.\nGenerating a new one in " + fullpath)
                 self.make_profile(profile=profile)
             self.profile = parse_profile(fullpath)
             self.profile_name = profile
@@ -246,20 +245,16 @@ class SkaLab(QtWidgets.QMainWindow):
                 msgBox.setWindowTitle("Error!")
                 msgBox.exec_()
             else:
-                self.config_file = self.profile['Init']['station_file']
-                # self.wg.qline_configfile.setText(self.config_file)
+                # self.config_file = self.profile['Init']['station_file']
                 self.populate_table_profile()
-                # if 'Extras' in self.profile.keys():
-                #     if 'text_editor' in self.profile['Extras'].keys():
-                #         self.text_editor = self.profile['Extras']['text_editor']
 
     def reload_profile(self, profile):
         self.load_profile(profile=profile)
         if self.profile.sections():
             if self.profile['Base']['subrack']:
                 self.wgSubrack.load_profile(App="subrack", Profile=self.profile['Base']['subrack'], Path=default_app_dir)
-            if self.profile['Base']['monitor']:
-                self.wgMonitor.load_profile(App="monitor", Profile=self.profile['Base']['monitor'], Path=default_app_dir)
+            # if self.profile['Base']['monitor']:
+            #     self.wgMonitor.load_profile(App="monitor", Profile=self.profile['Base']['monitor'], Path=default_app_dir)
             if self.profile['Base']['live']:
                 self.wgLive.load_profile(App="live", Profile=self.profile['Base']['live'], Path=default_app_dir)
             if self.profile['Base']['playback']:
@@ -288,7 +283,7 @@ class SkaLab(QtWidgets.QMainWindow):
             data = f.readlines()
         helpkeys = [d[d.rfind('name="Help_'):].split('"')[1] for d in data if 'name="Help_' in d]
         for k in helpkeys:
-            self.wg.findChild(QtWidgets.QTextEdit, k).setText(getTextFromFile(k.replace("_", "/")+".html"))
+            self.wg.findChild(QtWidgets.QTextEdit, k).setHtml(getTextFromFile(k.replace("_", "/")+".html"))
 
     def populate_table_profile(self):
         #self.wg.qtable_profile = QtWidgets.QTableWidget(self.wg.qtabMain)
@@ -304,6 +299,7 @@ class SkaLab(QtWidgets.QMainWindow):
         # Header Horizontal
         item = QtWidgets.QTableWidgetItem()
         item.setTextAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignVCenter)
+        item.setFlags(item.flags() ^ QtCore.Qt.ItemIsEditable)
         font = QtGui.QFont()
         font.setBold(True)
         font.setWeight(75)
@@ -318,8 +314,10 @@ class SkaLab(QtWidgets.QMainWindow):
         for k in self.profile.sections():
             # Empty Row
             item = QtWidgets.QTableWidgetItem()
+            item.setFlags(item.flags() ^ QtCore.Qt.ItemIsEditable)
             self.wg.qtable_profile.setVerticalHeaderItem(row, item)
             item = self.wg.qtable_profile.verticalHeaderItem(row)
+            item.setFlags(item.flags() ^ QtCore.Qt.ItemIsEditable)
             item.setText(" ")
             item = QtWidgets.QTableWidgetItem()
             item.setText(" ")
@@ -332,29 +330,32 @@ class SkaLab(QtWidgets.QMainWindow):
             font.setWeight(75)
             item.setFont(font)
             item.setText("[" + k + "]")
+            item.setFlags(item.flags() ^ QtCore.Qt.ItemIsEditable)
             self.wg.qtable_profile.setVerticalHeaderItem(row, item)
             row = row + 1
 
             for s in self.profile[k].keys():
                 item = QtWidgets.QTableWidgetItem()
+                item.setFlags(item.flags() ^ QtCore.Qt.ItemIsEditable)
                 self.wg.qtable_profile.setVerticalHeaderItem(row, item)
                 item = self.wg.qtable_profile.verticalHeaderItem(row)
                 item.setText(s)
                 item = QtWidgets.QTableWidgetItem()
                 item.setText(self.profile[k][s])
+                item.setFlags(item.flags() ^ QtCore.Qt.ItemIsEditable)
                 self.wg.qtable_profile.setItem(row, 0, item)
                 row = row + 1
 
         self.wg.qtable_profile.horizontalHeader().setDefaultSectionSize(365)
         self.wg.qtable_profile.setSortingEnabled(__sortingEnabled)
 
-    def make_profile(self, profile="Default", subrack="Default", live="Default", playback="Default", station="Default", config=""):
+    def make_profile(self, profile="Default", subrack="Default", live="Default", playback="Default", station="Default"):
         conf = configparser.ConfigParser()
         conf['Base'] = {'subrack': subrack,
                         'live': live,
                         'playback': playback,
                         'station': station}
-        conf['Init'] = {'station_file': config}
+        #conf['Init'] = {'station_file': config}
         #conf['Extras'] = {'text_editor': self.text_editor}
         if not os.path.exists(default_app_dir):
             os.makedirs(default_app_dir)
@@ -379,8 +380,8 @@ class SkaLab(QtWidgets.QMainWindow):
                           subrack=self.wgSubrack.profile['Base']['profile'],
                           live=self.wgLive.profile['Base']['profile'],
                           playback=self.wgPlay.profile['Base']['profile'],
-                          station=self.wgStation.profile['Base']['profile'],
-                          config=self.config_file)
+                          station=self.wgStation.profile['Base']['profile']) #  ,
+                          #  config=self.config_file)
         if reload:
             self.load_profile(profile=this_profile)
 
@@ -419,18 +420,23 @@ if __name__ == "__main__":
     from optparse import OptionParser
     from sys import argv, stdout
 
-    parser = OptionParser(usage="usage: %station_subrack [options]")
-    parser.add_option("--profile", action="store", dest="profile",
-                      type="str", default="Default", help="Skalab Profile to load")
+    app = QtWidgets.QApplication(sys.argv)
+    parser = OptionParser(usage="usage: %skalab [options]")
+    parser.add_option("--wizard", action="store_true", dest="wizard",
+                      default=False, help="Run the configuration Wizard")
     (opt, args) = parser.parse_args(argv[1:])
 
-    app = QtWidgets.QApplication(sys.argv)
+    profile = "Default"
     if os.path.exists(default_app_dir + "startup.ini"):
         autoload = parse_profile(default_app_dir + "startup.ini")
         if autoload.sections():
             profile = autoload['Base']["autoload_profile"]
-    else:
-        profile = opt.profile
 
+    fullpath = default_app_dir + profile + "/" + profile_filename
+
+    if (not os.path.exists(fullpath)) or opt.wizard:
+        runWizard(fullpath=fullpath)
+
+    print("\nStarting SKALAB...\n")
     window = SkaLab("Gui/skalab_main.ui", profile=profile)
     sys.exit(app.exec_())

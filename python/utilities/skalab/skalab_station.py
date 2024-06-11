@@ -16,7 +16,7 @@ from pyaavs.tile_wrapper import Tile
 from pyfabil import TPMGeneric
 from pyfabil.base.definitions import LibraryError, BoardError, PluginError, InstrumentError
 import subprocess
-
+from pyaavs.station import configuration
 from skalab_utils import MapPlot
 
 default_app_dir = str(Path.home()) + "/.skalab/"
@@ -82,36 +82,55 @@ class SkalabStation(SkalabBase):
             if 'text_editor' in self.profile['Extras'].keys():
                 self.text_editor = self.profile['Extras']['text_editor']
 
-        self.load_events()
+        self.mapPlot = None
         self.config_file = self.profile['Station']['station_file']
         self.setup_config()
         self.tpm_ips_from_subrack = []
 
-        self.maks_tiles = np.arange(1, 17).tolist()
+        self.mask_tiles = np.arange(1, 17).tolist()
         self.populate_cb_tiles()
         self.pauseAction = False
+        self.station_map_file = ""
         self.station_map = []
         if "station_map" in self.profile['Station'].keys():
-            self.wg.qline_map_file.setText(self.profile['Station']["station_map"])
-            self.station_map = self.loadStationMap(self.profile['Station']["station_map"])
-            ant_id_list = sorted(["%03d" % x['id'] for x in self.station_map])
+            if os.path.exists(self.profile['Station']["station_map"]):
+                self.station_map_file = self.profile['Station']["station_map"]
+                self.wg.qline_map_file.setText(self.profile['Station']["station_map"])
+                self.loadMap()
+        self.load_events()
+        self.populate_help(uifile=uiFile)
+
+    def loadMap(self):
+        if os.path.exists(self.station_map_file):
+            self.station_map = self.loadStationMap(self.station_map_file)
+            ant_id_list = sorted([x['id'] for x in self.station_map])
             tpm_list = list(dict.fromkeys(["%d" % x['tile'] for x in self.station_map]))
             input_list = ["%d" % x for x in np.arange(1, 17)]
+            self.wg.combo_antenna.clear()
             self.wg.combo_antenna.addItems(ant_id_list)
+            self.wg.combo_tpm.clear()
             self.wg.combo_tpm.addItems(tpm_list)
+            self.wg.combo_input.clear()
             self.wg.combo_input.addItems(input_list)
-            self.mapPlot = MapPlot(self.wg.plotWidgetMap, self.station_map, self.maks_tiles)
+            self.mapPlot = MapPlot(self.wg.plotWidgetMap, self.station_map, self.mask_tiles)
             self.mapPlot.plotMap()
             self.mapPlot.canvas.mpl_connect('motion_notify_event', self.onmotion)
             self.plotMap()
-            self.annot = self.mapPlot.canvas.ax.annotate("", xy=(0, 0), xytext=(20, 20), textcoords="offset points",
-                                bbox=dict(boxstyle="round", fc="w"),
-                                arrowprops=dict(arrowstyle="->"))
+            self.annot = self.mapPlot.canvas.ax.annotate("", xy=(0, 0), xytext=(30, 30), textcoords="offset points",
+                                                         bbox=dict(boxstyle="round", fc="w"),
+                                                         arrowprops=dict(arrowstyle="->"))
             self.annot.set_visible(False)
 
     def update_annot(self, x, y, text):
         pos = (x, y)
         self.annot.xy = pos
+        new_x = x
+        if x > 0:
+            new_x = -130 - x
+        new_y = y
+        if y > 0:
+            new_y = -80 - y
+        self.annot.set_position((new_x+30, new_y+40))
         self.annot.set_text(text)
         self.annot.get_bbox_patch().set_facecolor('w')
 
@@ -119,7 +138,7 @@ class SkalabStation(SkalabBase):
         for a in self.station_map:
             if (a['East'] > x - 0.6) and (a['East'] < x + 0.6):
                 if (a['North'] > y - 0.6) and (a['North'] < y + 0.6):
-                    return "Antenna ID: " + str(a['id']) + "\nTILE: " + str(int(a['tile'])) + ", Input: " + str(
+                    return "Ant Name: " + str(a['id']) + "\nTILE: " + str(int(a['tile'])) + ", Input: " + str(
                         int(a['input']))
         return ""
 
@@ -187,7 +206,7 @@ class SkalabStation(SkalabBase):
     def locateAntenna(self):
         self.mapPlot.highlightClear()
         if self.wg.cb_locate_enable_antenna.isChecked():
-            antId = [ant['id'] for ant in self.station_map if ant['id'] == int(self.wg.combo_antenna.currentText())]
+            antId = [ant['id'] for ant in self.station_map if ant['id'] == self.wg.combo_antenna.currentText()]
             if len(antId):
                 self.mapPlot.highlightAntenna(antId=antId, color='yellow')
         if self.wg.cb_locate_enable_antenna_list.isChecked():
@@ -195,10 +214,12 @@ class SkalabStation(SkalabBase):
                 ant_records = self.wg.qline_find_antlist.text().split(",")
                 ant_list = []
                 for a in ant_records:
-                    if "-" in a:
-                        ant_list += np.arange(int(a.split("-")[0]), int(a.split("-")[1])+1).tolist()
-                    else:
-                        ant_list += [int(a)]
+                    # Deprecated since new AAVS3 Antenna names are text
+                    # if "-" in a:
+                    #     ant_list += np.arange(int(a.split("-")[0]), int(a.split("-")[1])+1).tolist()
+                    # else:
+                    #     ant_list += [a]
+                    ant_list += [a]
                 antId = []
                 for a in ant_list:
                     antId += [ant['id'] for ant in self.station_map if ant['id'] == a]
@@ -254,6 +275,8 @@ class SkalabStation(SkalabBase):
         self.wg.cb_tooltip.stateChanged.connect(lambda: self.enableTooltip())
         self.wg.qbutton_map_deselect.clicked.connect(lambda: self.tile_select_none())
         self.wg.qbutton_map_select.clicked.connect(lambda: self.tile_select_all())
+        self.wg.qbutton_map_browse.clicked.connect(lambda: self.browse_map())
+        self.wg.qbutton_map_load.clicked.connect(lambda: self.loadMap())
 
     def browse_config(self):
         fd = QtWidgets.QFileDialog()
@@ -263,15 +286,24 @@ class SkalabStation(SkalabBase):
                                               directory="/opt/aavs/config/", options=options)[0]
         self.wg.qline_configfile.setText(self.config_file)
 
+    def browse_map(self):
+        fd = QtWidgets.QFileDialog()
+        fd.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
+        options = fd.options()
+        self.station_map_file = fd.getOpenFileName(self, caption="Select a Station Map File...",
+                                              directory="StationMap/", options=options)[0]
+        self.wg.qline_map_file.setText(self.station_map_file)
+
     def loadStationMap(self, map_file):
         with open(map_file) as f:
             data = f.readlines()
         station_map = []
-        for d in data:
+        # Skip first line as header
+        for d in data[1:]:
             if (len(d.split()) == 5) and (d[0] != "#"):
                 antenna_map = {'tile': int(d.split()[0]),
                                'input': int(d.split()[1]),
-                               'id': int(d.split()[2]),
+                               'id': d.split()[2],
                                'North': float(d.split()[3]),
                                'East': float(d.split()[4])}
                 station_map += [antenna_map]
@@ -300,6 +332,7 @@ class SkalabStation(SkalabBase):
         if not self.config_file == "":
             # self.wgPlay.config_file = self.config_file
             # self.wgLive.config_file = self.config_file
+            station.configuration = configuration.copy()
             station.load_configuration_file(self.config_file)
             self.wg.qline_configfile.setText(self.config_file)
             self.station_name = station.configuration['station']['name']
@@ -348,7 +381,7 @@ class SkalabStation(SkalabBase):
                         for i in tpm_ip_list:
                             details += "\n%s" % i
                         details += "\n\nSUBRACK IP LIST OF TPM POWERED ON: (%d): " % len(self.tpm_ips_from_subrack)
-                        for i in tpm_ip_from_subrack_short:
+                        for i in self.tpm_ips_from_subrack:
                             details += "\n%s" % i
                         msgBox.setDetailedText(details)
                         msgBox.exec_()
@@ -379,6 +412,8 @@ class SkalabStation(SkalabBase):
                         break
                 if station_on:
                     self.doInit = True
+                    # switch view to the Log tab
+                    self.wg.tabWidget.setCurrentIndex(3)
                 else:
                     msgBox = QtWidgets.QMessageBox()
                     msgBox.setText("STATION\nOne or more TPMs forming the station is unreachable\n"
@@ -389,7 +424,7 @@ class SkalabStation(SkalabBase):
                     for i in tpm_ip_list:
                         details += "\n%s" % i
                     details += "\n\nSUBRACK IP LIST OF TPM POWERED ON: (%d): " % len(self.tpm_ips_from_subrack)
-                    for i in tpm_ip_from_subrack:
+                    for i in self.tpm_ips_from_subrack:
                         details += "\n%s" % i
                     msgBox.setDetailedText(details)
                     msgBox.exec_()
@@ -404,13 +439,12 @@ class SkalabStation(SkalabBase):
         while True:
             if self.doInit:
                 if True:
-                    swpath = os.getenv("AAVS_HOME")[:-1]
-                    swstation = "/aavs-system/python/pyaavs/station.py "
+                    swstation = "../../pyaavs/station.py"
                     swopt = " -I"
                     if self.wg.checkProgram.isChecked():
                         swopt += " -P"
                     sp = subprocess.Popen(
-                        "python " + swpath + swstation + " --config='" + self.config_file + "'" + swopt, shell=True,
+                        "python " + swstation + " --config='" + self.config_file + "'" + swopt, shell=True,
                         stdout=subprocess.PIPE)
                     while True:
                         msg = sp.stdout.readline()
@@ -500,7 +534,10 @@ class SkalabStation(SkalabBase):
         self.wg.qtable_tpm.clearSpans()
         #self.wg.qtable_tpm.setGeometry(QtCore.QRect(20, 180, 511, 141))
         self.wg.qtable_tpm.setObjectName("conf_qtable_tpm")
-        self.wg.qtable_tpm.setColumnCount(2)
+        self.wg.qtable_tpm.setColumnCount(1)
+        if 'time_delays' in station.configuration.keys():
+            if station.configuration['time_delays'] is not None:
+                self.wg.qtable_tpm.setColumnCount(2)
         self.wg.qtable_tpm.setRowCount(len(station.configuration['tiles']))
         for i in range(len(station.configuration['tiles'])):
             self.wg.qtable_tpm.setVerticalHeaderItem(i, QtWidgets.QTableWidgetItem("TPM-%02d" % (i + 1)))
@@ -511,23 +548,25 @@ class SkalabStation(SkalabBase):
         item.setFont(font)
         item.setTextAlignment(QtCore.Qt.AlignCenter)
         self.wg.qtable_tpm.setHorizontalHeaderItem(0, item)
-        item = QtWidgets.QTableWidgetItem("DELAYS")
-        font = QtGui.QFont()
-        font.setBold(True)
-        font.setWeight(75)
-        item.setFont(font)
-        item.setTextAlignment(QtCore.Qt.AlignCenter)
-        self.wg.qtable_tpm.setHorizontalHeaderItem(1, item)
         for n, i in enumerate(station.configuration['tiles']):
             item = QtWidgets.QTableWidgetItem(str(i))
             item.setTextAlignment(QtCore.Qt.AlignCenter)
             item.setFlags(QtCore.Qt.ItemIsEnabled)
             self.wg.qtable_tpm.setItem(n, 0, item)
-        for n, i in enumerate(station.configuration['time_delays']):
-            item = QtWidgets.QTableWidgetItem(str(i))
-            item.setTextAlignment(QtCore.Qt.AlignCenter)
-            item.setFlags(QtCore.Qt.ItemIsEnabled)
-            self.wg.qtable_tpm.setItem(n, 1, item)
+        if 'time_delays' in station.configuration.keys():
+            if station.configuration['time_delays'] is not None:
+                item = QtWidgets.QTableWidgetItem("DELAYS")
+                font = QtGui.QFont()
+                font.setBold(True)
+                font.setWeight(75)
+                item.setFont(font)
+                item.setTextAlignment(QtCore.Qt.AlignCenter)
+                self.wg.qtable_tpm.setHorizontalHeaderItem(1, item)
+                for n, i in enumerate(station.configuration['time_delays']):
+                    item = QtWidgets.QTableWidgetItem(str(i))
+                    item.setTextAlignment(QtCore.Qt.AlignCenter)
+                    item.setFlags(QtCore.Qt.ItemIsEnabled)
+                    self.wg.qtable_tpm.setItem(n, 1, item)
         self.wg.qtable_tpm.horizontalHeader().setStretchLastSection(True)
         self.wg.qtable_tpm.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.wg.qtable_tpm.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
@@ -541,7 +580,10 @@ class SkalabStation(SkalabBase):
 
         total_rows = len(station.configuration['network'].keys()) * 2 - 1
         for i in station.configuration['network'].keys():
-            total_rows += len(station.configuration['network'][i])
+            try:
+                total_rows += len(station.configuration['network'][i])
+            except TypeError:
+                pass
         self.wg.qtable_network.setRowCount(total_rows)
         item = QtWidgets.QTableWidgetItem("SECTION: NETWORK")
         font = QtGui.QFont()
@@ -553,6 +595,14 @@ class SkalabStation(SkalabBase):
         self.wg.qtable_network.setHorizontalHeaderItem(0, item)
         n = 0
         for i in station.configuration['network'].keys():
+            if i == 'tile_40g_subnet': ##TODO Added tile40g subnet implementation?
+                self.wg.qtable_network.setVerticalHeaderItem(n, QtWidgets.QTableWidgetItem(i.upper()))
+                item = QtWidgets.QTableWidgetItem(str(station.configuration['network'][i]))
+                item.setTextAlignment(QtCore.Qt.AlignLeft)
+                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                self.wg.qtable_network.setItem(n, 0, item)
+                n = n + 1
+                continue
             if n:
                 item = QtWidgets.QTableWidgetItem(" ")
                 item.setTextAlignment(QtCore.Qt.AlignCenter)

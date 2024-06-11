@@ -5,7 +5,7 @@ from skalab_base import SkalabBase
 from skalab_log import SkalabLog
 import gc
 import os.path
-import glob
+import copy
 import shutil
 import sys
 import numpy as np
@@ -13,7 +13,7 @@ import configparser
 from PyQt5 import QtWidgets, uic, QtCore, QtGui
 from hardware_client import WebHardwareClient
 from skalab_utils import BarPlot, ChartPlots, colors, dt_to_timestamp
-from skalab_utils import ts_to_datestring, parse_profile, COLORI, getTextFromFile
+from skalab_utils import ts_to_datestring, parse_profile, COLORI
 from threading import Thread
 from time import sleep
 import datetime
@@ -189,10 +189,8 @@ class Subrack(SkalabBase):
         self.processTlm.start()
         # print("Start Thread Subrack readTlm")
 
-
         self.wg.qplot_chart_tpm.setVisible(False)
-
-        self.populate_help()
+        self.populate_help(uifile=uiFile)
 
     def load_events(self):
         self.wg.qbutton_connect.clicked.connect(lambda: self.connect())
@@ -227,13 +225,6 @@ class Subrack(SkalabBase):
                 self.query_deny = list(self.profile['Query']['deny'].split(","))
             # if 'tiles' in self.profile['Query'].keys():
             #     self.query_tiles = list(self.profile['Query']['tiles'].split(","))
-
-    def populate_help(self, uifile="Gui/skalab_subrack.ui"):
-        with open(uifile) as f:
-            data = f.readlines()
-        helpkeys = [d[d.rfind('name="Help_'):].split('"')[1] for d in data if 'name="Help_' in d]
-        for k in helpkeys:
-            self.wg.findChild(QtWidgets.QTextEdit, k).setText(getTextFromFile(k.replace("_", "/")+".html"))
 
     def cmdSwitchTpm(self, slot):
         if self.connected:
@@ -446,8 +437,8 @@ class Subrack(SkalabBase):
                 self.plotTpmPower.plotBar(data=self.telemetry["tpm_powers"][i], bar=i, color=COLORI[i])
             self.plotTpmPower.set_xticklabels(labels=["%3.1f" % x for x in self.telemetry["tpm_voltages"]])
         else:
-            self.logger.error("No data available")
-            self.logger.error(self.telemetry.keys())
+            # self.logger.error("No data available")
+            # self.logger.error(self.telemetry.keys())
             self.plotTpmPower.set_xlabel("No data available")
         self.plotTpmPower.updatePlot()
         if "power_supply_powers" in self.telemetry.keys():
@@ -465,38 +456,16 @@ class Subrack(SkalabBase):
         else:
             self.plotMgnTemp.set_xlabel("No data available")
         self.plotMgnTemp.updatePlot()
-        # if "tpms_temperatures_0" in self.telemetry.keys():
-        #     self.plotTpmTemp.set_xlabel("TPM Board Temperatures")
-        #     for i in range(8):
-        #         self.plotTpmTemp.plotBar(data=self.telemetry["tpms_temperatures_0"][i], bar=i, color=COLORI[i])
-        # else:
-        #     self.plotTpmTemp.set_xlabel("No data available")
-        # self.plotTpmTemp.updatePlot()
-
-    def setup_hdf5(self):
-        if not self.profile['Subrack']['data_path'] == "":
-            fname = self.profile['Subrack']['data_path']
-            if not fname[-1] == "/":
-                fname = fname + "/"
-            fname += datetime.datetime.strftime(datetime.datetime.utcnow(), "subrack_tlm_%Y-%m-%d_%H%M%S.h5")
-            return h5py.File(fname, 'a')
-        else:
-            msgBox = QtWidgets.QMessageBox()
-            msgBox.setText("Please Select a valid path to save the Subrack data and save it into the current profile")
-            msgBox.setWindowTitle("Error!")
-            msgBox.setIcon(QtWidgets.QMessageBox.Critical)
-            msgBox.exec_()
-            return None
 
     def connect(self):
         if not self.wg.qline_ip.text() == "":
             if not self.connected:
-                self.logger.logger.info("Connecting to Subrack %s:%d..." % (self.ip, int(self.port)))
+                self.logger.info("Connecting to Subrack %s:%d..." % (self.ip, int(self.port)))
                 self.client = WebHardwareClient(self.ip, self.port)
                 if self.client.connect():
-                    self.logger.logger.info("Successfully connected")
+                    self.logger.info("Successfully connected")
                     self.connected = True
-                    self.logger.logger.info("Querying list of Subrack API attributes")
+                    self.logger.info("Querying list of Subrack API attributes")
                     self.tlm_keys = self.client.execute_command("list_attributes")["retvalue"]
                     self.checkTpmIps()
                     self.wg.qbutton_connect.setStyleSheet("background-color: rgb(78, 154, 6);")
@@ -508,7 +477,7 @@ class Subrack(SkalabBase):
 
                 else:
                     self.wg.qlabel_message.setText("The Subrack server does not respond!")
-                    self.logger.logger.error("Unable to connect to the Subrack server %s:%d" % (self.ip, int(self.port)))
+                    self.logger.error("Unable to connect to the Subrack server %s:%d" % (self.ip, int(self.port)))
                     self.wg.qbutton_connect.setStyleSheet("background-color: rgb(204, 0, 0);")
                     self.wg.qbutton_connect.setText("OFFLINE")
                     self.wg.frame_tpm.setEnabled(False)
@@ -544,7 +513,6 @@ class Subrack(SkalabBase):
             for tlmk in self.tlm_keys:
                 if tlmk in self.query_once:
                     data = self.client.get_attribute(tlmk)
-                    self.logger.logger.debug("GET_ATT: ", tlmk, data)
                     if data["status"] == "OK":
                         self.system[tlmk] = data["value"]
                     else:
@@ -552,7 +520,7 @@ class Subrack(SkalabBase):
                         time.sleep(0.1)
                         while (retry < 10) and (not data["status"] == "OK"):
                             data = self.client.get_attribute(tlmk)
-                            self.logger.logger.info("RETRY: ", retry, data)
+                            self.logger.info("RETRY: " + retry + " --> " + data)
                             retry = retry + 1
                             time.sleep(0.1)
                             if data["status"] == "OK":
@@ -563,7 +531,7 @@ class Subrack(SkalabBase):
             if 'api_version' in self.system.keys():
                 tpm_ips = []
                 self.wg.qlabel_message.setText("SubRack API version: " + self.system['api_version'])
-                self.logger.logger.info("Subrack API version: " + self.system['api_version'])
+                self.logger.info("Subrack API version: " + self.system['api_version'])
                 if "assigned_tpm_ip_adds" in self.system.keys():
                     if "tpm_present" in self.system.keys():
                         if "tpm_on_off" in self.system.keys():
@@ -582,7 +550,7 @@ class Subrack(SkalabBase):
                     self.tpm_ips = tpm_ips.copy()
                     self.updateRequest = True
             else:
-                self.logger.logger.warning("The Subrack is running with a very old API version!")
+                self.logger.warning("The Subrack is running with a very old API version!")
 
 
     def getTelemetry(self):
@@ -594,6 +562,10 @@ class Subrack(SkalabBase):
                 if not tlmk in self.query_deny:
                     if self.connected:
                         data = self.client.get_attribute(tlmk)
+                        if "tpm_voltages" in tlmk:
+                            c = np.array(copy.deepcopy(data)["value"])
+                            c[c == None] = 0.0
+                            data["value"] = c.tolist()
                         if data["status"] == "OK":
                             telemetry[tlmk] = data["value"]
                 if self.query_once_armed and (tlmk in self.query_once):
@@ -604,7 +576,7 @@ class Subrack(SkalabBase):
                         else:
                             telemetry[tlmk] = data["info"]
         except:
-            self.logger.logger.error("Error reading Telemetry [attribute: %s], skipping..." % tkey)
+            self.logger.error("Error reading Telemetry [attribute: %s], skipping..." % tkey)
             return
         self.telemetry = dict(telemetry)
         for tlmk in telemetry.keys():
@@ -630,7 +602,7 @@ class Subrack(SkalabBase):
                     try:
                         self.data_charts[tlmk] = self.data_charts[tlmk][1:] + [telemetry[tlmk]]
                     except:
-                        self.logger.logger.error("ERROR --> key:", tlmk, "\nValue: ", telemetry[tlmk])
+                        self.logger.error("ERROR --> key: " + tlmk + "\nValue: " + telemetry[tlmk])
                         pass
                 else:
                     if tlmk not in self.data_charts.keys():
@@ -641,12 +613,12 @@ class Subrack(SkalabBase):
     def setup_hdf5(self):
         if not self.profile['Subrack']['data_path'] == "":
             fname = self.profile['Subrack']['data_path']
-            if not fname[-1] == "/":
-                fname = fname + "/"
-                if  os.path.exists(str(Path.home()) + fname) != True:
-                    os.makedirs(str(Path.home()) + fname)
-            fname += datetime.datetime.strftime(datetime.datetime.utcnow(), "subrack_tlm_%Y-%m-%d_%H%M%S.h5")
-            return h5py.File(str(Path.home()) + fname, 'a')
+            path = Path(fname)
+            self.logger.info("Generating directory for Subrack HDF5 Telemetry Files on " + fname)
+            path.mkdir(parents=True, exist_ok=True)
+            fname += datetime.datetime.strftime(datetime.datetime.utcnow(), "/subrack_tlm_%Y-%m-%d_%H%M%S.h5")
+            self.logger.info("Started recording Subrack HDF5 Telemetry Files in " + fname)
+            return h5py.File(fname, 'a')
         else:
             msgBox = QtWidgets.QMessageBox()
             msgBox.setText("Please Select a valid path to save the Subrack data and save it into the current profile")
@@ -654,71 +626,6 @@ class Subrack(SkalabBase):
             msgBox.setIcon(QtWidgets.QMessageBox.Critical)
             msgBox.exec_()
             return None
-
-    def connect(self):
-        if not self.wg.qline_ip.text() == "":
-            if not self.connected:
-                print("Connecting to Subrack %s:%d..." % (self.ip, int(self.port)))
-                self.client = WebHardwareClient(self.ip, self.port)
-                if self.client.connect():
-                    self.tlm_keys = self.client.execute_command("list_attributes")["retvalue"]
-                    for tlmk in self.tlm_keys:
-                        if tlmk in self.query_once:
-                            data = self.client.get_attribute(tlmk)
-                            if data["status"] == "OK":
-                                self.telemetry[tlmk] = data["value"]
-                            else:
-                                self.telemetry[tlmk] = data["info"]
-                    if 'api_version' in self.telemetry.keys():
-                        self.wg.qlabel_message.setText("Subrack API version: " + self.telemetry['api_version'])
-                    self.wg.qbutton_connect.setStyleSheet("background-color: rgb(78, 154, 6);")
-                    self.wg.qbutton_connect.setText("ONLINE")
-                    self.wg.frame_tpm.setEnabled(True)
-                    self.wg.frame_fan.setEnabled(True)
-                    self.connected = True
-
-                    self.tlm_hdf = self.setup_hdf5()
-                    self.getTelemetry()
-                else:
-                    self.wg.qlabel_message.setText("The Subrack server does not respond!")
-                    self.wg.qbutton_connect.setStyleSheet("background-color: rgb(204, 0, 0);")
-                    self.wg.qbutton_connect.setText("OFFLINE")
-                    self.wg.frame_tpm.setEnabled(False)
-                    self.wg.frame_fan.setEnabled(False)
-                    self.client = None
-                    self.connected = False
-            else:
-                self.connected = False
-                self.wg.qbutton_connect.setStyleSheet("background-color: rgb(204, 0, 0);")
-                self.wg.qbutton_connect.setText("OFFLINE")
-                self.wg.frame_tpm.setEnabled(False)
-                self.wg.frame_fan.setEnabled(False)
-                self.client.disconnect()
-                del self.client
-                gc.collect()
-                if (type(self.tlm_hdf) is not None):
-                    try:
-                        self.tlm_hdf.close()
-                    except:
-                        pass
-        else:
-            self.wg.qlabel_connection.setText("Missing IP!")
-
-    def getTelemetry(self):
-        tkey = ""
-        telemetry = {}
-        try:
-            for tlmk in self.tlm_keys:
-                tkey = tlmk
-                if not tlmk in self.query_deny:
-                    if self.connected:
-                        data = self.client.get_attribute(tlmk)
-                        if data["status"] == "OK":
-                            telemetry[tlmk] = data["value"]
-        except:
-            print("Error reading Telemetry [attribute: %s], skipping..." % tkey)
-            return
-        return telemetry
 
     def writeTlm(self):
         if self.tlm_hdf is not None:
@@ -732,7 +639,11 @@ class Subrack(SkalabBase):
                             self.tlm_hdf.create_dataset(tlmk, data=[[self.telemetry[tlmk]]],
                                                         chunks=True, maxshape=(None, 1))
                     except:
-                        self.logger.logger.error("HDF5 WRITE TLM ERROR in ", tlmk, "\nData: ", self.telemetry[tlmk])
+                        # if self.telemetry[tlmk].__class__ == list:
+                        #     self.logger.error("HDF5 WRITE TLM ERROR in ", tlmk, "\nData: ", self.telemetry[tlmk].__str__())
+                        # else:
+                        #print("\n\nTLM KEYS", tlmk, "\n\n")
+                        self.logger.error("HDF5 WRITE TLM ERROR in " + tlmk + "\nData: " + self.telemetry[tlmk].__str__())
                 else:
                     if type(self.telemetry[tlmk]) is list:
                         self.tlm_hdf[tlmk].resize((self.tlm_hdf[tlmk].shape[0] +
@@ -762,7 +673,7 @@ class Subrack(SkalabBase):
                     sleep(0.1)
                     self.signalTlm.emit()
                 except:
-                    self.logger.logger.warning("Failed to get Subrack Telemetry!")
+                    # self.logger.warning("Failed to get Subrack Telemetry!")
                     pass
                 cycle = 0.0
                 while ((cycle < (float(self.profile['Subrack']['query_interval']))) and (not self.skipThreadPause) and (not self.stopThreads)):
@@ -816,7 +727,7 @@ class Subrack(SkalabBase):
 
     def cmdClose(self):
         self.stopThreads = True
-        self.logger.logger.info("Stopping Threads")
+        self.logger.info("Stopping Threads")
         self.logger.stopLog()
         if type(self.tlm_hdf) is not None:
             try:
@@ -834,7 +745,7 @@ class Subrack(SkalabBase):
         if result == QtWidgets.QMessageBox.Yes:
             event.accept()
             self.stopThreads = True
-            self.logger.logger.info("Stopping Threads")
+            self.logger.info("Stopping Threads")
             if type(self.tlm_hdf) is not None:
                 try:
                     self.tlm_hdf.close()
@@ -863,6 +774,8 @@ if __name__ == "__main__":
                       default=False, help="Single Telemetry Request. If not provided, the script runs indefinitely")
     parser.add_option("--directory", action="store", dest="directory",
                       type="str", default="", help="Output Directory [Default: "", it means do not save data]")
+    parser.add_option("--connect", action="store_true", dest="connect",
+                      default=False, help="Enable auto connect [Default Disabled]")
     (opt, args) = parser.parse_args(argv[1:])
 
     subrack_logger = logging.getLogger(__name__)
@@ -870,6 +783,8 @@ if __name__ == "__main__":
         app = QtWidgets.QApplication(sys.argv)
         window = Subrack(ip=opt.ip, port=opt.port, uiFile="Gui/skalab_subrack.ui", profile=opt.profile, swpath=default_app_dir)
         window.signalTlm.connect(window.updateTlm)
+        if opt.connect:
+            window.connect()
         sys.exit(app.exec_())
     else:
         profile = []

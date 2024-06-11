@@ -1,0 +1,43 @@
+{
+    "Base": {
+        "app": {
+            "desc": "Application Name",
+            "type": "string",
+            "value": "Station"
+        },
+        "path": {
+            "desc": "Local settings Path",
+            "type": "path",
+            "value": "~/.skalab/"
+        },
+        "profile": {
+            "desc": "Profile Name",
+            "type": "string",
+            "value": "Default"
+        }
+    },
+    "Extras": {
+        "text_editor": {
+            "desc": "Default text editor",
+            "type": "string",
+            "value": "gedit"
+        }
+    },
+    "Station": {
+        "log": {
+            "desc": "Station Log Directory",
+            "type": "path",
+            "value": "~/.skalab/log"
+        },
+        "station_file": {
+            "desc": "The Station File",
+            "type": "file",
+            "value": "~/aavs-system/config/aavs2.yml"
+        },
+        "station_map": {
+            "desc": "The Station Map File",
+            "type": "file",
+            "value": "~/aavs-system/python/utilities/skalab/StationMap/AAVS3.txt"
+        }
+    }
+}

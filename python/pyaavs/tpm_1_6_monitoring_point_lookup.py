@@ -1,5 +1,7 @@
 from functools import partial
 
+from pyfabil.base.definitions import Device
+
 """
 For use with Tile Health Monitor Class
 Tile Health Monitor will produce a health status dictionary matching
@@ -151,6 +153,10 @@ def load_tpm_1_6_lookup(obj):
                     'DSP_MMCM' : {"method": partial(obj.check_clock_manager_status, fpga_id=1, name='DSP'),  "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": (True, 0), "clear_method": partial(obj.clear_clock_manager_status, fpga_id=1, name='DSP')}
                 }
             },
+            'timestamp' : {
+                'FPGA0' : {"method": partial(obj.get_fpga_timestamp, device=Device.FPGA_1), "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": "+1"},
+                'FPGA1' : {"method": partial(obj.get_fpga_timestamp, device=Device.FPGA_2), "rate": ["fast"], "group": ["timing", "clock_managers"], "exp_value": "+1"},
+            },
             'pps': {
                 'status': {"method": obj.check_pps_status, "rate": ["fast"], "group": ["timing", "pps"], "exp_value": True, "clear_method": obj.clear_pps_status}
             },
@@ -184,7 +190,19 @@ def load_tpm_1_6_lookup(obj):
                 'reset_counter' : {
                     'FPGA0': {"method": partial(obj.check_ddr_reset_counter, fpga_id=0, show_result=False), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": 0, "clear_method": partial(obj.clear_ddr_reset_counter, fpga_id=0),},
                     'FPGA1': {"method": partial(obj.check_ddr_reset_counter, fpga_id=1, show_result=False), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": 0, "clear_method": partial(obj.clear_ddr_reset_counter, fpga_id=1),}
-                }
+                },
+                'rd_cnt' : {
+                    'FPGA0': {"method": partial(obj.get_ddr_if_stat, fpga_id=0, key = "rd_cnt"), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": "+1"},
+                    'FPGA1': {"method": partial(obj.get_ddr_if_stat, fpga_id=1, key = "rd_cnt"), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": "+1"},
+                },
+                'wr_cnt' : {
+                    'FPGA0': {"method": partial(obj.get_ddr_if_stat, fpga_id=0, key = "wr_cnt"), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": "+1"},
+                    'FPGA1': {"method": partial(obj.get_ddr_if_stat, fpga_id=1, key = "wr_cnt"), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": "+1"},
+                },
+                'rd_dat_cnt' : {
+                    'FPGA0': {"method": partial(obj.get_ddr_if_stat, fpga_id=0, key = "rd_dat_cnt"), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": "+1"},
+                    'FPGA1': {"method": partial(obj.get_ddr_if_stat, fpga_id=1, key = "rd_dat_cnt"), "rate": ["fast"], "group": ["io", "ddr_interface"], "exp_value": "+1"},
+                },
             },
             'f2f_interface': {
                 'pll_status': {"method": partial(obj.check_f2f_pll_status, show_result=False), "rate": ["fast"], "group": ["io", "f2f_interface"], "exp_value": (True, 0)},

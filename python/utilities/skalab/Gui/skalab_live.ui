@@ -400,10 +400,10 @@
       </rect>
      </property>
      <property name="currentText">
-      <string>TPM ADU Input (0-31)</string>
+      <string>TPM 1.6 WDM Optical Rx Fibers</string>
      </property>
      <property name="currentIndex">
-      <number>0</number>
+      <number>5</number>
      </property>
      <property name="maxVisibleItems">
       <number>16</number>
@@ -429,6 +429,11 @@
      <item>
       <property name="text">
        <string>TPM 1.6 RF Rx XY Pols</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>TPM 1.6 PreADU 2019 Wrong SPI</string>
       </property>
      </item>
      <item>
@@ -1069,7 +1074,12 @@
       </property>
       <item>
        <property name="text">
-        <string>3.1   AAVS3 integrated design</string>
+        <string>3.2   AAVS3 and AA*</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>3.1   2019 integrated design</string>
        </property>
       </item>
       <item>

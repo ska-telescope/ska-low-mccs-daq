@@ -179,7 +179,7 @@ class WebHardwareClient(HardwareClient):
         query = {"type": "command", "param": command, "value": parameters}
 
         try:
-            res = requests.get(url=f"{path}/get/json.htm", params=query, timeout=10)
+            res = requests.get(url=f"{path}/get/json.htm", params=query, timeout=20)
         except requests.exceptions.RequestException as request_exception:
             return {
                 "status": "ERROR",

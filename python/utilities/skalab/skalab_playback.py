@@ -3,19 +3,16 @@ import datetime
 
 from skalab_base import SkalabBase
 from skalab_log import SkalabLog
-import shutil
 import sys
 import os
 import gc
 import glob
 from pathlib import Path
 
-import configparser
 import numpy as np
-from PyQt5 import QtWidgets, uic, QtCore, QtGui
-from PyQt5.QtCore import Qt
+from PyQt5 import QtWidgets, uic, QtCore
 from skalab_utils import dB2Linear, linear2dB, MiniPlots, read_data, dircheck, findtiles, calc_disk_usage
-from skalab_utils import calcolaspettro, closest, parse_profile, getTextFromFile, moving_average
+from skalab_utils import calcolaspettro, closest, moving_average
 from pyaavs import station
 from pydaq.persisters import FileDAQModes, RawFormatFileManager
 COLORI = ["b", "g"]
@@ -161,7 +158,7 @@ class Playback(SkalabBase):
         self.wg.ctrl_raw.hide()
         self.wg.ctrl_rms.hide()
         self.wg.ctrl_spectra.show()
-        self.populate_help()
+        self.populate_help(uifile=uiFile)
 
     def load_events(self):
         self.wg.qbutton_browse.clicked.connect(lambda: self.browse_data_folder())
@@ -206,13 +203,6 @@ class Playback(SkalabBase):
             msgBox.setText("PLAYBACK: Please SELECT a valid configuration file first...")
             msgBox.setWindowTitle("Error!")
             msgBox.exec_()
-
-    def populate_help(self, uifile="Gui/skalab_playback.ui"):
-        with open(uifile) as f:
-            data = f.readlines()
-        helpkeys = [d[d.rfind('name="Help_'):].split('"')[1] for d in data if 'name="Help_' in d]
-        for k in helpkeys:
-            self.wg.findChild(QtWidgets.QTextEdit, k).setText(getTextFromFile(k.replace("_", "/")+".html"))
 
     def play_tpm_update(self):
         # Update TPM list
@@ -406,7 +396,7 @@ class Playback(SkalabBase):
         elif self.wg.qradio_power.isChecked():
             move_avg_len = int(float(self.wg.qline_movavgwdw.text()))
             if self.wg.qcheck_movavg.isChecked() and (move_avg_len < 2):
-                self.log.error("Invalid Moving Average Window Length. It must be greater than 1. (found %d)"
+                self.logger.logger.error("Invalid Moving Average Window Length. It must be greater than 1. (found %d)"
                                % move_avg_len)
             else:
                 lw = 1
@@ -443,7 +433,7 @@ class Playback(SkalabBase):
                     self.move_avg = {}
                     if self.wg.qcheck_movavg.isChecked():
                         if move_avg_len > len(self.power_x):
-                            self.log.error("Invalid Moving Average Window Length. "
+                            self.logger.logger.error("Invalid Moving Average Window Length. "
                                            "Forced to the maximum allowed length as size of data vector %d" % len(x))
                             move_avg_len = len(self.power_x)
                             self.power_x = [self.power_x[int(move_avg_len / 2)]]
@@ -583,9 +573,9 @@ class Playback(SkalabBase):
             if result == QtWidgets.QMessageBox.Yes:
                 fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
                 if os.path.exists(fpath) and fpath:
-                    self.log.info("Saving data in " + fpath)
+                    self.logger.logger.info("Saving data in " + fpath)
                     for k in self.move_avg.keys():
-                        self.log.info("Saving: " + fpath + "/" + k + ".txt")
+                        self.logger.logger.info("Saving: " + fpath + "/" + k + ".txt")
                         with open(fpath + "/" + k + ".txt", "w") as f:
                             for n, d in enumerate(self.move_avg[k]):
                                 f.write("%d\t%6.3f\n" % (self.power_x[n], d))
@@ -608,7 +598,7 @@ class Playback(SkalabBase):
                 fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
                 if os.path.exists(fpath) and fpath:
                     tnow = datetime.datetime.strftime(datetime.datetime.utcnow(), "TILE-%02d_SPECTOGRAM_SAVED_ON_%Y-%m-%d_%H%M%S.png")
-                    self.log.info("Saving: " + fpath + "/" + tnow)
+                    self.logger.logger.info("Saving: " + fpath + "/" + tnow)
                     self.spectrogramPlots.savePicture(fpath + "/" + tnow)
         elif self.wg.qradio_avg.isChecked():
             result = QtWidgets.QMessageBox.question(self, "Save Picture...",
@@ -618,7 +608,7 @@ class Playback(SkalabBase):
                 fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
                 if os.path.exists(fpath) and fpath:
                     tnow = datetime.datetime.strftime(datetime.datetime.utcnow(), "TILE-%02d_AVERAGED_SPECTRA_SAVED_ON_%Y-%m-%d_%H%M%S.png")
-                    self.log.info("Saving: " + fpath + "/" + tnow)
+                    self.logger.logger.info("Saving: " + fpath + "/" + tnow)
                     self.miniPlots.savePicture(fpath + "/" + tnow)
         elif self.wg.qradio_raw.isChecked():
             result = QtWidgets.QMessageBox.question(self, "Save Picture...",
@@ -628,7 +618,7 @@ class Playback(SkalabBase):
                 fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
                 if os.path.exists(fpath) and fpath:
                     tnow = datetime.datetime.strftime(datetime.datetime.utcnow(), "TILE-%02d_ADC-RAW-DATA_SAVED_ON_%Y-%m-%d_%H%M%S.png")
-                    self.log.info("Saving: " + fpath + "/" + tnow)
+                    self.logger.logger.info("Saving: " + fpath + "/" + tnow)
                     self.rawPlots.savePicture(fpath + "/" + tnow)
         elif self.wg.qradio_rms.isChecked():
             result = QtWidgets.QMessageBox.question(self, "Save Picture...",
@@ -638,7 +628,7 @@ class Playback(SkalabBase):
                 fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
                 if os.path.exists(fpath) and fpath:
                     tnow = datetime.datetime.strftime(datetime.datetime.utcnow(), "TILE-%02d_RMS_SAVED_ON_%Y-%m-%d_%H%M%S.png")
-                    self.log.info("Saving: " + fpath + "/" + tnow)
+                    self.logger.logger.info("Saving: " + fpath + "/" + tnow)
                     self.rmsPlots.savePicture(fpath + "/" + tnow)
         elif self.wg.qradio_power.isChecked():
             result = QtWidgets.QMessageBox.question(self, "Save Picture...",
@@ -648,7 +638,7 @@ class Playback(SkalabBase):
                 fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
                 if os.path.exists(fpath) and fpath:
                     tnow = datetime.datetime.strftime(datetime.datetime.utcnow(), "TILE-%02d_POWER_SAVED_ON_%Y-%m-%d_%H%M%S.png")
-                    self.log.info("Saving: " + fpath + "/" + tnow)
+                    self.logger.logger.info("Saving: " + fpath + "/" + tnow)
                     self.powerPlots.savePicture(fpath + "/" + tnow)
 
     def reformat_plots(self):
@@ -690,7 +680,7 @@ class Playback(SkalabBase):
             msgBox.exec_()
 
     def cb_show_spectra_grid(self, state):
-        if state == Qt.Checked:
+        if state == QtCore.Qt.Checked:
             self.show_spectra_grid = True
             self.miniPlots.showGrid(show_grid=True)
         else:
@@ -698,7 +688,7 @@ class Playback(SkalabBase):
             self.miniPlots.showGrid(show_grid=False)
 
     def cb_show_raw_grid(self, state):
-        if state == Qt.Checked:
+        if state == QtCore.Qt.Checked:
             self.show_raw_grid = True
             self.rawPlots.showGrid(show_grid=True)
         else:
@@ -706,7 +696,7 @@ class Playback(SkalabBase):
             self.rawPlots.showGrid(show_grid=False)
 
     def cb_show_power_grid(self, state):
-        if state == Qt.Checked:
+        if state == QtCore.Qt.Checked:
             self.show_power_grid = True
             self.powerPlots.showGrid(show_grid=True)
         else:
@@ -714,7 +704,7 @@ class Playback(SkalabBase):
             self.powerPlots.showGrid(show_grid=False)
 
     def cb_show_rms_grid(self, state):
-        if state == Qt.Checked:
+        if state == QtCore.Qt.Checked:
             self.show_rms_grid = True
             self.rmsPlots.showGrid(show_grid=True)
         else:
@@ -723,7 +713,7 @@ class Playback(SkalabBase):
 
     def cb_show_xline(self, state):
         times = [0] #if self.wg.qradio_avg.isChecked() else range(self.nof_files)
-        if state == Qt.Checked:
+        if state == QtCore.Qt.Checked:
             for k in times:
                 self.miniPlots.hide_line("b", True)
             self.miniPlots.hide_annotation(["b"], self.wg.qcheck_rms.isChecked())
@@ -734,7 +724,7 @@ class Playback(SkalabBase):
 
     def cb_show_yline(self, state):
         times = [0] #if self.wg.qradio_avg.isChecked() else range(self.nof_files)
-        if state == Qt.Checked:
+        if state == QtCore.Qt.Checked:
             for k in times:
                 self.miniPlots.hide_line("g", True)
             self.miniPlots.hide_annotation(["g"], self.wg.qcheck_rms.isChecked())
@@ -745,7 +735,7 @@ class Playback(SkalabBase):
 
     def cb_show_rms(self, state):
         times = [0] #if self.wg.qradio_avg.isChecked() else range(len(self.lines))
-        if state == Qt.Checked:
+        if state == QtCore.Qt.Checked:
             self.show_rms = True
             for k in times:
                 self.miniPlots.hide_annotation(["b"], visu=self.wg.qcheck_xpol_sp.isChecked())

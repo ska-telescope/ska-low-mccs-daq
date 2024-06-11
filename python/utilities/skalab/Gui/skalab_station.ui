@@ -690,9 +690,9 @@
      <widget class="QComboBox" name="combo_antenna">
       <property name="geometry">
        <rect>
-        <x>110</x>
+        <x>150</x>
         <y>70</y>
-        <width>51</width>
+        <width>131</width>
         <height>25</height>
        </rect>
       </property>
@@ -819,12 +819,12 @@
        <rect>
         <x>20</x>
         <y>70</y>
-        <width>81</width>
+        <width>121</width>
         <height>23</height>
        </rect>
       </property>
       <property name="text">
-       <string>ANTENNA: </string>
+       <string>ANTENNA NAME: </string>
       </property>
       <property name="alignment">
        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -856,7 +856,7 @@
        </rect>
       </property>
       <property name="text">
-       <string>1-10,20,24</string>
+       <string>1,10,20,24</string>
       </property>
       <property name="readOnly">
        <bool>false</bool>
@@ -907,7 +907,7 @@
        </rect>
       </property>
       <property name="text">
-       <string>query form ok</string>
+       <string>&quot;,&quot; separator</string>
       </property>
       <property name="alignment">
        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>

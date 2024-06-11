@@ -21,14 +21,16 @@ class QTextEditLogger(logging.Handler):
         self.logname = ""
         self.caption = caption
         self.total = 0
+        self.records = 0
         self.msgQueue = []
 
-        html_header = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" "
-        html_header += "\"http://www.w3.org/TR/REC-html40/strict.dtd\"><html><head>"
-        html_header += "<meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">p, li "
-        html_header += "{ white-space: pre-wrap; }</style></head><body style=\" font-family:\"Courier\";"
-        html_header += "font-size:11pt; font-weight:400; font-style:normal;\">"
-        self.widget.insertHtml(html_header)
+        # html_header = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" "
+        # html_header += "\"http://www.w3.org/TR/REC-html40/strict.dtd\"><html><head>"
+        # html_header += "<meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">p, li "
+        # html_header += "{ white-space: pre-wrap; }</style></head><body style=\" font-family:\"Courier\";"
+        # html_header += "font-size:11pt; font-weight:400; font-style:normal;\">"
+        # self.widget.insertHtml(html_header)
+        self.records = 0
 
         # print("Start Thread Log: ", self.logname, ", Level:", self.level)
 
@@ -49,6 +51,14 @@ class QTextEditLogger(logging.Handler):
                 fancymsg += "\n<span style='font-weight:600; color:#ff7800;'>" + msg + "</span><br>"
 
             self.widget.insertHtml(fancymsg)
+            self.records = self.records + 1
+            if self.records > 100:
+                a = self.widget.toHtml()
+                cut_a = a[a.find("<span style=", a.find("<br />") + 1):]
+                self.widget.clear()
+                self.widget.insertHtml(cut_a)
+                self.records = cut_a.count("<span style=")
+
             self.widget.moveCursor(QtGui.QTextCursor.End)
             if self.caption is not None:
                 self.total = self.total + 1
@@ -117,7 +127,12 @@ class SkalabLog(QtWidgets.QMainWindow):
             profile = {'Base': {'app': "TEST"}}
             logname = "TEST"
         pname = Path(logname)
-        pname.mkdir(parents=True, exist_ok=True)
+        try:
+            pname.mkdir(parents=True, exist_ok=True)
+        except:
+            logname = default_app_dir + "/log"
+            pname = Path(logname)
+            pname.mkdir(parents=True, exist_ok=True)
         fname = logname + "/" + logname[logname.rfind("/") + 1:].lower() + \
                 datetime.datetime.strftime(datetime.datetime.utcnow(), "_log_%Y-%m-%d_%H%M%S.txt")
         self.file_handler = TimedRotatingFileHandler(fname, when="h", interval=1, backupCount=180, utc=True)
@@ -160,7 +175,7 @@ class SkalabLog(QtWidgets.QMainWindow):
         self.logger.info("Logging Time is set to UTC")
 
         self.stopThread = False
-        self.procWriteLog = Thread(target=self.procLog)
+        self.procWriteLog = Thread(name="Thread logger",target=self.procLog)
         self.procWriteLog.start()
         self.signalLogInfo.connect(self.writeLogInfo)
         self.signalLogWarning.connect(self.writeLogWarning)
@@ -168,6 +183,9 @@ class SkalabLog(QtWidgets.QMainWindow):
 
     def info(self, msg):
         self.logger.info(msg)
+
+    def debug(self, msg):
+        self.logger.debug(msg)
 
     def warning(self, msg):
         self.logger.warning(msg)
@@ -257,9 +275,11 @@ if __name__ == "__main__":
     wg = QtWidgets.QMainWindow()
     wg.resize(1000, 600)
 
-    if not os.path.exists(default_app_dir):
-        os.mkdir(default_app_dir)
+    # if not os.path.exists(default_app_dir):
+    #     os.mkdir(default_app_dir)
     fname = default_app_dir + "/testlog"
+    pname = Path(fname)
+    pname.mkdir(parents=True, exist_ok=True)
 
     slog = SkalabLog(parent=wg, logname=__name__)
     # slog.signalLogInfo.connect(slog.writeLogInfo)

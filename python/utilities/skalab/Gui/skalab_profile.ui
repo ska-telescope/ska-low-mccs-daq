@@ -26,9 +26,9 @@
   <widget class="QComboBox" name="qcombo_profile">
    <property name="geometry">
     <rect>
-     <x>170</x>
+     <x>140</x>
      <y>20</y>
-     <width>161</width>
+     <width>191</width>
      <height>31</height>
     </rect>
    </property>
@@ -98,9 +98,9 @@
   <widget class="QLineEdit" name="qline_configuration_file">
    <property name="geometry">
     <rect>
-     <x>170</x>
+     <x>140</x>
      <y>80</y>
-     <width>601</width>
+     <width>631</width>
      <height>31</height>
     </rect>
    </property>
@@ -243,7 +243,7 @@
    <property name="geometry">
     <rect>
      <x>800</x>
-     <y>300</y>
+     <y>440</y>
      <width>311</width>
      <height>31</height>
     </rect>
@@ -262,7 +262,7 @@
    <property name="geometry">
     <rect>
      <x>800</x>
-     <y>340</y>
+     <y>480</y>
      <width>311</width>
      <height>31</height>
     </rect>
@@ -278,7 +278,7 @@
    <property name="geometry">
     <rect>
      <x>800</x>
-     <y>390</y>
+     <y>530</y>
      <width>89</width>
      <height>31</height>
     </rect>
@@ -291,7 +291,7 @@
    <property name="geometry">
     <rect>
      <x>1020</x>
-     <y>390</y>
+     <y>530</y>
      <width>89</width>
      <height>31</height>
     </rect>
@@ -304,7 +304,7 @@
    <property name="geometry">
     <rect>
      <x>800</x>
-     <y>460</y>
+     <y>600</y>
      <width>311</width>
      <height>31</height>
     </rect>
@@ -323,7 +323,7 @@
    <property name="geometry">
     <rect>
      <x>800</x>
-     <y>490</y>
+     <y>630</y>
      <width>311</width>
      <height>31</height>
     </rect>
@@ -383,13 +383,124 @@
    <property name="geometry">
     <rect>
      <x>910</x>
-     <y>390</y>
+     <y>530</y>
      <width>89</width>
      <height>31</height>
     </rect>
    </property>
    <property name="text">
     <string>Clear</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="qlabel_conf_label_9">
+   <property name="geometry">
+    <rect>
+     <x>800</x>
+     <y>690</y>
+     <width>311</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="layoutDirection">
+    <enum>Qt::LeftToRight</enum>
+   </property>
+   <property name="text">
+    <string>SAVE as will save current table values
+to a new profile</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
+   </property>
+   <property name="wordWrap">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="qlabel_desc">
+   <property name="geometry">
+    <rect>
+     <x>860</x>
+     <y>340</y>
+     <width>251</width>
+     <height>71</height>
+    </rect>
+   </property>
+   <property name="layoutDirection">
+    <enum>Qt::LeftToRight</enum>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="textFormat">
+    <enum>Qt::AutoText</enum>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+   </property>
+   <property name="wordWrap">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="qlabel_type">
+   <property name="geometry">
+    <rect>
+     <x>860</x>
+     <y>290</y>
+     <width>251</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="layoutDirection">
+    <enum>Qt::LeftToRight</enum>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="qlabel_type_2">
+   <property name="geometry">
+    <rect>
+     <x>800</x>
+     <y>290</y>
+     <width>41</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="layoutDirection">
+    <enum>Qt::LeftToRight</enum>
+   </property>
+   <property name="text">
+    <string>Type: </string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="qlabel_desc_2">
+   <property name="geometry">
+    <rect>
+     <x>800</x>
+     <y>340</y>
+     <width>51</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="layoutDirection">
+    <enum>Qt::LeftToRight</enum>
+   </property>
+   <property name="text">
+    <string>Desc:</string>
+   </property>
+   <property name="textFormat">
+    <enum>Qt::AutoText</enum>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+   </property>
+   <property name="wordWrap">
+    <bool>true</bool>
    </property>
   </widget>
   <zorder>qline_row</zorder>
@@ -415,6 +526,11 @@
   <zorder>qlabel_conf_label_7</zorder>
   <zorder>qlabel_conf_label_8</zorder>
   <zorder>qbutton_clear</zorder>
+  <zorder>qlabel_conf_label_9</zorder>
+  <zorder>qlabel_desc</zorder>
+  <zorder>qlabel_type</zorder>
+  <zorder>qlabel_type_2</zorder>
+  <zorder>qlabel_desc_2</zorder>
  </widget>
  <resources/>
  <connections/>

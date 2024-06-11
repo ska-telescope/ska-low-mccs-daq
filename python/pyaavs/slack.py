@@ -34,6 +34,7 @@ class AavsSlack(object):
     def __init__(self, token="", channel="#aavs-notifications", station="AAVS2", tokenPath="", verbose=False):
         self.station = station.upper()
         self.channel = channel
+        tok = None
         if token:
             self.token = token
         else:
