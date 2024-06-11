@@ -186,7 +186,7 @@ class Tile(TileHealthMonitor):
         info['fpga_firmware']['compile_host'] = self.tpm.tpm_firmware_information[0].get_host()
         info['fpga_firmware']['git_branch'] = self.tpm.tpm_firmware_information[0].get_git_branch()
         info['fpga_firmware']['git_commit'] = self.tpm.tpm_firmware_information[0].get_git_commit()
-        info['fpga_firmware']['firmware_version'] = self.tpm.tpm_firmware_information[0].get_firmware_version()
+        info['fpga_firmware']['version'] = self.tpm.tpm_firmware_information[0].get_firmware_version()
         # Dictionary manipulation, move 1G network information
         info['network'] = {}
         info['network']['1g_ip_address'] = IPv4Address(info['hardware']['ip_address'])
@@ -3006,14 +3006,14 @@ class Tile(TileHealthMonitor):
                f"DDR Memory Capacity          | {info['hardware']['DDR_SIZE_GB']} GB per FPGA \n"\
                f"{'_'*29}|{'_'*60} \n"\
                f"{' '*29}| \n"\
-               f"FPGA Firmware Design         | {info['fpga_firmware']['design']} \n"\
-               f"FPGA Firmware Revision       | {info['fpga_firmware']['build']} \n"\
+               f"FPGA Firmware Design         | {info['fpga_firmware']['design']} \n" \
+               f"FPGA Firmware Release        | {info['fpga_firmware']['version']} \n" \
+               f"FPGA Firmware Build          | {info['fpga_firmware']['build']} \n"\
                f"FPGA Firmware Compile Time   | {info['fpga_firmware']['compile_time']} UTC \n"\
                f"FPGA Firmware Compile User   | {info['fpga_firmware']['compile_user']}  \n"\
                f"FPGA Firmware Compile Host   | {info['fpga_firmware']['compile_host']} \n"\
                f"FPGA Firmware Git Branch     | {info['fpga_firmware']['git_branch']} \n"\
                f"FPGA Firmware Git Commit     | {info['fpga_firmware']['git_commit']} \n" \
-               f"FPGA Firmware version        | {info['fpga_firmware']['firmware_version']} \n" \
                f"{'_'*29}|{'_'*60} \n"\
                f"{' '*29}| \n"\
                f"1G (MGMT) IP Address         | {str(info['network']['1g_ip_address'])} \n"\
