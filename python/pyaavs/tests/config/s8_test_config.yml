@@ -1,0 +1,19 @@
+# Test configuration parameters
+
+# DAQ Ethernet Interface
+daq_eth_if: "enp4s0np0"
+
+# Single TPM tests will be run on the TPM identified by index within the station
+single_tpm_test_station_idx: 0
+
+# Gigabit only test
+gigabit_only: False
+
+# Total Bandwidth
+total_bandwidth: 400e6
+
+# nof_frequency_channels
+pfb_nof_channels: 512
+
+# Number of antennas per tile
+antennas_per_tile: 16

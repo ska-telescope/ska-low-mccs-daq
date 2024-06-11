@@ -9,6 +9,11 @@ RAL_SURBACK_3 = "10.132.0.54"
 RAL_SUBRACK_4 = "10.132.0.74"
 # OXFORD_SUBRACK_1 = "10.0.10.64"
 
+S8_SUBRACK_1 = "10.132.0.1"
+S8_SUBRACK_2 = "10.132.0.17"
+S8_SUBRACK_3 = "10.132.0.33"
+S8_SUBRACK_4 = "10.132.0.49"
+
 class Subrack:
     def __init__(self, ip):
         self._ip = ip
@@ -126,3 +131,20 @@ class RALSubrack3(Subrack):
 class RALSubrack4(Subrack):
     def __init__(self):
         super().__init__(ip=RAL_SUBRACK_4)
+
+
+class S8Subrack1(Subrack):
+    def __init__(self):
+       super().__init__(ip=S8_SUBRACK_1)
+
+class S8Subrack2(Subrack):
+    def __init__(self):
+        super().__init__(ip=S8_SUBRACK_2)
+
+class S8Subrack3(Subrack):
+    def __init__(self):
+        super().__init__(ip=S8_SUBRACK_3)
+
+class S8Subrack4(Subrack):
+    def __init__(self):
+        super().__init__(ip=S8_SUBRACK_4)
