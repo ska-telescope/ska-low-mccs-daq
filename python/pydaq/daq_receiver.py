@@ -937,7 +937,7 @@ def start_station_beam_acquisition():
               "capture_time": conf['acquisition_start_time']}
 
     # Start capture
-    if call_start_raw_station_acqusition(params) != Result.Success:
+    if call_start_raw_station_acquisition(params) != Result.Success:
         if conf['logging']:
             logging.info("Failed to start raw station beam capture")
         raise Exception("Failed to start raw station beam capture")

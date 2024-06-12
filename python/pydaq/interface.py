@@ -295,12 +295,12 @@ def stop_consumer(consumer):
         return Result.Failure
 
 
-def call_start_raw_station_acqusition(configuration):
+def call_start_raw_station_acquisition(configuration):
     """ Start receiving raw station beam data """
     if aavsstationbeam_library.start_capture(json.dumps(configuration).encode()) == Result.Success.value:
         return Result.Success
     else:
-        return Restult.Failure
+        return Result.Failure
 
 
 def call_stop_raw_station_acquisition():
