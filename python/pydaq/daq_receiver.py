@@ -34,6 +34,7 @@ class DaqModes(IntEnum):
     STATION_BEAM_DATA = 6
     CORRELATOR_DATA = 7
     ANTENNA_BUFFER = 8
+    RAW_STATION_BEAM = 10
 
 
 # Global configuration dictionary
@@ -71,14 +72,18 @@ conf = {"nof_antennas": 16,
         "max_filesize": None,
         "acquisition_duration": -1,
         "acquisition_start_time": -1,
+        "station_beam_source": "",
+        "station_beam_start_channel": 0,
+        "station_beam_dada": False,
+        "station_beam_individual_channels": False,
         "description": "",
         "daq_library": None,
-        "observation_metadata": {}  # This is populdated automatically
+        "observation_metadata": {}  # This is populated automatically
         }
 
 # Global DAQ modes
 modes = ["read_raw_data", "read_beam_data", "integrated_beam", "station_beam", "read_channel_data",
-         "continuous_channel", "integrated_channel", "correlator", "antenna_buffer"]
+         "continuous_channel", "integrated_channel", "correlator", "antenna_buffer", "raw_station_beam"]
 
 # Logging function
 logging_function = None
@@ -910,6 +915,38 @@ def start_antenna_buffer_data_consumer(callback=None):
         logging.info("Started antenna buffer consumer")
 
 
+def start_station_beam_acquisition():
+    """ Start station beam acquisition using acquire_station_beam interface """
+    global conf
+
+    duration = conf['acquisition_duration'] if conf['acquisition_duration'] > 0 else 60
+    max_filesize = conf['max_filesize'] if conf['max_filesize'] is not None else 1
+
+    # Generate configuration for raw consumer
+    params = {"base_directory": conf['directory'],
+              "max_file_size": max_filesize,
+              "duration": duration,
+              "nof_samples": conf['nof_station_samples'],
+              "start_channel": conf['station_beam_start_channel'],
+              "nof_channels": conf['nof_channels'],
+              "interface": conf['receiver_interface'],
+              "ip": conf['receiver_ip'].decode(),
+              "dada": conf['station_beam_dada'],
+              "individual": conf['station_beam_individual_channels'],
+              "source": conf['station_beam_source'],
+              "capture_time": conf['acquisition_start_time']}
+
+    # Start capture
+    if call_start_raw_station_acquisition(params) != Result.Success:
+        if conf['logging']:
+            logging.info("Failed to start raw station beam capture")
+        raise Exception("Failed to start raw station beam capture")
+    elif conf['logging']:
+        logging.info("Started raw station beam capture")
+
+    running_consumers[DaqModes.RAW_STATION_BEAM] = True
+
+
 # ------------------------------------ Stop consumer functions ------------------------------------------
 
 
@@ -1012,6 +1049,16 @@ def stop_antenna_buffer_data_consumer():
         logging.info("Stopped antenna buffer data consumer")
 
 
+def stop_station_beam_acquisition():
+    """ Stop acquisition of raw station beam"""
+    if call_stop_raw_station_acquisition() != Result.Success:
+        raise Exception("Failed to stop raw station beam acquisition")
+    running_consumers[DaqModes.RAW_STATION_BEAM] = False
+
+    if conf['logging']:
+        logging.info("Stopped station beam capture")
+
+
 # ------------------------------------------ Wrapper Functions Body ---------------------------------------
 
 
@@ -1076,6 +1123,23 @@ def populate_configuration(configuration):
         AAVSFileManager.FILE_SIZE_GIGABYTES = conf['max_filesize']
 
 
+def initialise_station_beam():
+    """ Initialise the libraries for acquiring the raw station beam """
+
+    # Initialise AAVS DAQ library
+    if conf['logging']:
+        logging.info("Initialising libraries")
+
+    # Initialise the DAQ library
+    initialise_library()
+
+    # Initialise the station beam library
+    initialise_station_beam_library()
+
+    # Set logging callback
+    call_attach_logger(logging_function)
+
+
 def initialise_daq(filepath=None):
     """ Initialise DAQ library """
 
@@ -1123,6 +1187,11 @@ def stop_daq():
 
     global cont_data_dumped
     global timestamps
+
+    # If station beam is being acquired, stop it
+    if running_consumers[DaqModes.RAW_STATION_BEAM]:
+        stop_station_beam_acquisition()
+        return
 
     # Clear timestamps
     timestamps = {}
@@ -1289,13 +1358,17 @@ if __name__ == "__main__":
                       type="int", default=0, help="Number of elapsed seconds between successive dumps of continuous "
                                                   "channel data [default: 0 (dump everything)")
     parser.add_option("", "--integrated_channel_bitwidth", action="store", dest="integrated_channel_bitwidth",
-                        type=int, default=16, help="Bit width of integrated channel data")
+                      type=int, default=16, help="Bit width of integrated channel data")
     parser.add_option("", "--continuous_channel_bitwidth", action="store", dest="continuous_channel_bitwidth",
                       type=int, default=16, help="Bit width of continuous channel data")
     parser.add_option("", "--append_integrated", action="store_false", dest="append_integrated", default=True,
                       help="Append integrated data in the same file (default: True")
     parser.add_option("", "--persist_all_buffers", action="store_true", dest="persist_all_buffers", default=False,
                       help="Do not ignore the first 3 received buffers for continuous channel data. (default: False")
+    parser.add_option("--raw_station_beam_start_channel", action="store", dest="station_beam_start_channel",
+                      type=int, default=0, help="Start channel ID for raw station beam [default: 0]")
+    parser.add_option("--raw_station_beam_source", dest="station_beam_source", action="store", default="",
+                      help="Station beam observed source [default = \"\"]")
 
     # Receiver options
     parser.add_option("-P", "--receiver_ports", action="store", dest="receiver_ports",
@@ -1322,6 +1395,9 @@ if __name__ == "__main__":
                       default=False, help="Read integrated beam data [default: False]")
     parser.add_option("-S", "--read_station_beam_data", action="store_true", dest="station_beam",
                       default=False, help="Read station beam data [default: False]")
+    parser.add_option("--read_raw_station_beam_data", action="store_true", dest="raw_station_beam",
+                      default=False, help="Read raw station beam data, uses acquire_station_beam. This mode cannot"
+                                          "be used with any other mode [default: False]")
     parser.add_option("-C", "--read_channel_data", action="store_true", dest="read_channel_data",
                       default=False, help="Read channelised data [default: False]")
     parser.add_option("-X", "--read_continuous_channel_data", action="store_true", dest="continuous_channel",
@@ -1342,6 +1418,11 @@ if __name__ == "__main__":
                       default=None,
                       help="Maximum file size in GB, set 0 to save each data set to a separate hdf5 file [default: 4 GB]",
                       type="float")
+    parser.add_option("--store_as_dada", action="store_true", dest="station_beam_dada", default=False,
+                      help="Save raw station beam data as dada files [default: False]")
+    parser.add_option("--individual_station_channels", action="store_true",
+                      dest="station_beam_individual_channels", default=False,
+                      help="Store raw station beam channels individually [default: False]")
     parser.add_option("--disable-logging", action="store_false", dest="logging", default=True,
                       help="Disable logging [default: Enabled]")
 
@@ -1382,15 +1463,25 @@ if __name__ == "__main__":
     # Check if any mode was chosen
     if not any([config.read_beam_data, config.read_channel_data, config.read_raw_data, config.correlator,
                 config.continuous_channel, config.integrated_beam, config.integrated_channel,
-                config.station_beam, config.antenna_buffer]):
+                config.station_beam, config.antenna_buffer, config.raw_station_beam]):
         logging.error("No DAQ mode was set. Exiting")
+        exit(0)
+
+    # If reading raw station beam, no other modes can be selected
+    if config.raw_station_beam and any([config.read_beam_data, config.read_channel_data, config.read_raw_data,
+                                        config.correlator, config.continuous_channel, config.integrated_beam,
+                                        config.integrated_channel, config.station_beam, config.antenna_buffer]):
+        logging.error("Raw station beam mode has to be used in isolation")
         exit(0)
 
     # Push command to slack
     slack.info("DAQ running with command:\n {}".format(' '.join(argv)))
 
     # Initialise library
-    initialise_daq(config.daq_library)
+    if config.raw_station_beam:
+        initialise_station_beam()
+    else:
+        initialise_daq(config.daq_library)
 
     # ------------------------------- Raw data consumer ------------------------------------------
     if config.read_raw_data:
@@ -1426,6 +1517,10 @@ if __name__ == "__main__":
     # Correlator mode
     if config.correlator:
         start_correlator()
+
+    # --------------------------------------- Raw Station Beam ------------------------------------------
+    if config.raw_station_beam:
+        start_station_beam_acquisition()
 
     logging.info("Ready to receive data. Enter 'q' to quit")
 

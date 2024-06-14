@@ -30,6 +30,7 @@ class DaqModes(IntEnum):
     STATION_BEAM_DATA = 6
     CORRELATOR_DATA = 7
     ANTENNA_BUFFER = 8
+    RAW_STATION_BEAM = 10
 
 
 class DaqReceiver:
@@ -121,6 +122,10 @@ class DaqReceiver:
                         "max_filesize": None,
                         "acquisition_duration": -1,
                         "acquisition_start_time": -1,
+                        "station_beam_source": "",
+                        "station_beam_start_channel": 0,
+                        "station_beam_dada": False,
+                        "station_beam_individual_channels": False,
                         "description": "",
                         "daq_library": None,
                         "observation_metadata": {}  # This is populated automatically
@@ -130,8 +135,9 @@ class DaqReceiver:
         aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
         self._daq_library_path = f"{aavs_install_path}/lib/libaavsdaq.so".encode('ASCII')
 
-        # Pointer to shared library object
+        # Pointer to shared library objects
         self._daq_library = None
+        self._station_beam_library = None
 
         # List of data callbacks
         self._callbacks = {DaqModes.RAW_DATA: self.DATA_CALLBACK(self._raw_data_callback),
@@ -900,6 +906,35 @@ class DaqReceiver:
 
         logging.info("Started antenna buffer consumer")
 
+    def _start_station_beam_acquisition(self):
+        """ Start station beam acquisition using acquire_station_beam interface """
+
+        duration = self._config['acquisition_duration'] if self._config['acquisition_duration'] > 0 else 60
+        max_filesize = self._config['max_filesize'] if self._config['max_filesize'] is not None else 1
+
+        # Generate configuration for raw consumer
+        params = {"base_directory": self._config['directory'],
+                  "max_file_size": max_filesize,
+                  "duration": duration,
+                  "nof_samples": self._config['nof_station_samples'],
+                  "start_channel": self._config['station_beam_start_channel'],
+                  "nof_channels": self._config['nof_channels'],
+                  "interface": self._config['receiver_interface'],
+                  "ip": self._config['receiver_ip'],
+                  "dada": self._config['station_beam_dada'],
+                  "individual": self._config['station_beam_individual_channels'],
+                  "source": self._config['station_beam_source'],
+                  "capture_time": self._config['acquisition_start_time']}
+
+        # Start capture
+        if self._start_raw_station_acquisition(params) != self.Result.Success:
+            logging.error("Failed to start raw station beam capture")
+            raise Exception("Failed to start raw station beam capture")
+        else:
+            logging.info("Started raw station beam capture")
+
+        self._running_consumers[DaqModes.RAW_STATION_BEAM] = True
+
     def _stop_raw_data_consumer(self) -> None:
         """ Stop raw data consumer """
         self._external_callbacks[DaqModes.RAW_DATA] = None
@@ -981,7 +1016,30 @@ class DaqReceiver:
 
         logging.info("Stopped antenna buffer consumer")
 
+    def _stop_station_beam_acquisition(self):
+        """ Stop acquisition of raw station beam"""
+        if self._stop_raw_station_acquisition() != self.Result.Success:
+            raise Exception("Failed to stop raw station beam acquisition")
+        self._running_consumers[DaqModes.RAW_STATION_BEAM] = False
+
+        logging.info("Stopped station beam capture")
+
     # ------------------------------------- INITIALISATION -----------------------------------
+
+    def initialise_station_beam(self, filepath=None):
+        """ Initialise the libraries for acquiring the raw station beam """
+
+        # Initialise AAVS DAQ library
+        logging.info("Initialising station beam libraries")
+
+        # Initialise the DAQ library
+        self._initialise_library(filepath)
+
+        # Initialise the station beam library
+        self._initialise_station_beam_library(filepath)
+
+        # Set logging callback
+        self._call_attach_logger(self._daq_logging_function)
 
     def initialise_daq(self, filepath=None) -> None:
         """ Initialise DAQ library """
@@ -1073,8 +1131,17 @@ class DaqReceiver:
             if DaqModes.ANTENNA_BUFFER == mode:
                 self._start_antenna_buffer_data_consumer()
 
+            # Running in acquire station beam mode
+            if DaqModes.RAW_STATION_BEAM == mode:
+                self._start_station_beam_acquisition()
+
     def stop_daq(self) -> None:
         """ Stop DAQ """
+
+        # If station beam is being acquired, stop it
+        if self._running_consumers[DaqModes.RAW_STATION_BEAM]:
+            self._stop_station_beam_acquisition()
+            return
 
         # Clear data
         self._buffer_counter = {}
@@ -1269,6 +1336,54 @@ class DaqReceiver:
 
     # ---------------------------- Wrapper to library C++ shared library calls ----------------------------
 
+    def _initialise_station_beam_library(self, filepath: Optional[str] = None) -> None:
+        """ Wrap AAVS DAQ shared library functionality in ctypes
+        :param filepath: Path to library path """
+
+        def find(filename: str, path: str) -> Union[str, None]:
+            """ Find a file in a path
+            :param filename: File name
+            :param path: Path to search in """
+            for root, dirs, files in os.walk(path):
+                if filename in files:
+                    return os.path.join(root, filename)
+
+            return None
+
+        # This only need to be done once
+        if self._station_beam_library is not None:
+            return None
+
+        # Load AAVS DAQ shared library
+        _library = None
+        library_found = False
+        if 'AAVS_INSTALL' in list(os.environ.keys()):
+            # Check if library is in AAVS directory
+            if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsstationbeam.so")):
+                _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsstationbeam.so")
+                library_found = True
+
+        if not library_found:
+            _library = find("libaavsstationbeam.so", "/opt/aavs/lib")
+            if _library is None:
+                _library = find("libaavsstationbeam.so", "/usr/local/lib")
+            if _library is None:
+                _library = find_library("daq")
+
+        if _library is None:
+            raise Exception("AAVS Station Beam library not found")
+
+        # Load library
+        self._station_beam_library = ctypes.CDLL(_library)
+
+        # Define start capture
+        self._station_beam_library.start_capture.argtypes = [ctypes.c_char_p]
+        self._station_beam_library.start_capture.restype = ctypes.c_int
+
+        # Define stop capture
+        self._station_beam_library.stop_capture.argtypes = []
+        self._station_beam_library.stop_capture.restype = ctypes.c_int
+
     def _initialise_library(self, filepath: Optional[str] = None) -> None:
         """ Wrap AAVS DAQ shared library functionality in ctypes
         :param filepath: Path to library path
@@ -1437,6 +1552,20 @@ class DaqReceiver:
         else:
             return self.Result.Failure
 
+    def _start_raw_station_acquisition(self, configuration: Dict[str, Any]):
+        """ Start receiving raw station beam data """
+        if self._station_beam_library.start_capture(json.dumps(configuration).encode()) == self.Result.Success.value:
+            return self.Result.Success
+        else:
+            return self.Result.Failure
+
+    def _stop_raw_station_acquisition(self):
+        """ Stop receiving raw station beam data """
+        if self._station_beam_library.stop_capture() == self.Result.Success.value:
+            return self.Result.Success
+        else:
+            return self.Result.Failure
+
 
 # Script main entry point
 if __name__ == "__main__":
@@ -1496,6 +1625,10 @@ if __name__ == "__main__":
                       help="Append integrated data in the same file (default: True")
     parser.add_option("", "--persist_all_buffers", action="store_true", dest="persist_all_buffers", default=False,
                       help="Do not ignore the first 3 received buffers for continuous channel data. (default: False")
+    parser.add_option("--raw_station_beam_start_channel", action="store", dest="station_beam_start_channel",
+                      type=int, default=0, help="Start channel ID for raw station beam [default: 0]")
+    parser.add_option("--raw_station_beam_source", dest="station_beam_source", action="store", default="",
+                      help="Station beam observed source [default = \"\"]")
 
     # Receiver options
     parser.add_option("-P", "--receiver_ports", action="store", dest="receiver_ports",
@@ -1524,6 +1657,9 @@ if __name__ == "__main__":
                       default=False, help="Read integrated beam data [default: False]")
     parser.add_option("-S", "--read_station_beam_data", action="store_true", dest="station_beam",
                       default=False, help="Read station beam data [default: False]")
+    parser.add_option("--read_raw_station_beam_data", action="store_true", dest="raw_station_beam",
+                      default=False, help="Read raw station beam data, uses acquire_station_beam. This mode cannot"
+                                          "be used with any other mode [default: False]")
     parser.add_option("-C", "--read_channel_data", action="store_true", dest="read_channel_data",
                       default=False, help="Read channelised data [default: False]")
     parser.add_option("-X", "--read_continuous_channel_data", action="store_true", dest="continuous_channel",
@@ -1544,6 +1680,11 @@ if __name__ == "__main__":
                       default=None, type="float",
                       help="Maximum file size in GB, set 0 to save each data set to a separate "
                            "hdf5 file [default: 4 GB]")
+    parser.add_option("--store_as_dada", action="store_true", dest="station_beam_dada", default=False,
+                      help="Save raw station beam data as dada files [default: False]")
+    parser.add_option("--individual_station_channels", action="store_true",
+                      dest="station_beam_individual_channels", default=False,
+                      help="Store raw station beam channels individually [default: False]")
     parser.add_option("--disable-logging", action="store_false", dest="logging", default=True,
                       help="Disable logging [default: Enabled]")
 
@@ -1574,7 +1715,7 @@ if __name__ == "__main__":
     daq_config = {}
     for key in config.__dict__.keys():
         modes = ["read_raw_data", "read_beam_data", "integrated_beam", "station_beam", "read_channel_data",
-                 "continuous_channel", "integrated_channel", "correlator", "antenna_buffer"]
+                 "continuous_channel", "integrated_channel", "correlator", "antenna_buffer", "raw_station_beam"]
         if key not in modes:
             daq_config[key] = getattr(config, key)
 
@@ -1595,15 +1736,25 @@ if __name__ == "__main__":
     # Check if any mode was chosen
     if not any([config.read_beam_data, config.read_channel_data, config.read_raw_data,
                 config.correlator, config.antenna_buffer, config.continuous_channel,
-                config.integrated_beam, config.integrated_channel, config.station_beam]):
+                config.integrated_beam, config.integrated_channel, config.raw_station_beam]):
         logging.error("No DAQ mode was set. Exiting")
+        exit(0)
+
+    # If reading raw station beam, no other modes can be selected
+    if config.raw_station_beam and any([config.read_beam_data, config.read_channel_data, config.read_raw_data,
+                                        config.correlator, config.continuous_channel, config.integrated_beam,
+                                        config.integrated_channel, config.station_beam, config.antenna_buffer]):
+        logging.error("Raw station beam mode has to be used in isolation")
         exit(0)
 
     # Push command to slack
     daq_instance.send_slack_message("DAQ running with command:\n {}".format(' '.join(argv)))
 
     # Initialise library
-    daq_instance.initialise_daq(config.daq_library)
+    if config.raw_station_beam:
+        daq_instance.initialise_station_beam()
+    else:
+        daq_instance.initialise_daq(config.daq_library)
 
     # Generate list of modes to start
     modes_to_start = []
@@ -1633,6 +1784,9 @@ if __name__ == "__main__":
 
     if config.antenna_buffer:
         modes_to_start.append(DaqModes.ANTENNA_BUFFER)
+
+    if config.raw_station_beam:
+        modes_to_start.append(DaqModes.RAW_STATION_BEAM)
 
     # Start acquiring
     daq_instance.start_daq(modes_to_start)

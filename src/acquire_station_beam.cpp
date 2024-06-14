@@ -7,6 +7,8 @@
 #include <ctime>
 #include <bits/stdc++.h>
 
+#include "acquire_station_beam.h"
+
 #include "DAQ.h"
 
 using namespace std;
@@ -550,11 +552,8 @@ void test_acquire_station_beam() {
 // -----------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------
 
-int main(int argc, char *argv[])
-{
-    // Process command-line argument
-    parse_arguments(argc, argv);
-
+// Set up and start raw station beam acquisition
+RESULT start_acquisition() {
     // Split files into max_file_size_gb x 1G. If DADA header is being generated, set do not split file (set
     // cutoff counter to "infinity"
     if (include_dada_header)
@@ -598,31 +597,108 @@ int main(int argc, char *argv[])
     auto res = loadConsumer(libaavsdaq_location.c_str(), "stationdataraw");
     if (res != SUCCESS) {
         LOG(ERROR, "Failed to load station data consumser");
-        return 0;
+        return FAILURE;
     }
 
     if (initialiseConsumer("stationdataraw", j.dump().c_str()) != SUCCESS) {
         LOG(ERROR, "Failed to initialise station data consumser");
-        return 0;
+        return FAILURE;
     }
 
     if (startConsumerDynamic("stationdataraw", raw_station_beam_callback) != SUCCESS) {
         LOG(ERROR, "Failed to start station data consumser");
-        return 0;
+        return FAILURE;
     }
 
+    return SUCCESS;
+}
+
+// Stop raw beam acquisition
+RESULT stop_acquisition() {
+    if (stopConsumer("stationdataraw") != SUCCESS) {
+        LOG(ERROR, "Failed to stop station data consumser");
+        return FAILURE;
+    }
+
+    if (stopReceiver() != SUCCESS) {
+        LOG(ERROR, "Failed to stop receiver");
+        return FAILURE;
+    }
+
+    return SUCCESS;
+}
+
+// Start capture, for external use
+RESULT start_capture(const char* json_string) {
+
+    auto configuration = json::parse(json_string);
+
+    // List of items accepted by station raw data receiver
+    std::string arguments [12] = {"base_directory", "max_file_size", "duration",
+                                  "nof_samples", "start_channel", "nof_channels",
+                                  "interface", "ip", "source", "dada", "individual",
+                                  "capture_time"};
+
+    // Check that all required arguments are present in json configuration
+    for (string arg : arguments) {
+        if (!(key_in_json(configuration, arg))) {
+            LOG(FATAL, "Missing configuration item %s", arg.c_str());
+            return FAILURE;
+        }
+    }
+
+    // Apply arguments
+    max_file_size_gb = configuration["max_file_size"];
+    duration = (uint32_t) configuration["duration"];
+    nof_samples = (uint64_t) configuration["nof_samples"];
+    start_channel = (uint32_t) configuration["start_channel"];
+    nof_channels = (uint32_t) configuration["nof_channels"];
+    interface = configuration["interface"];
+    ip = configuration["ip"];
+    source = configuration["source"];
+    include_dada_header = configuration["dada"];
+    individual_channel_files = configuration["individual"];
+
+    base_directory = configuration["base_directory"];
+    // Check that path ends with path separator
+    auto dir_len = base_directory.length();
+    if (strncmp(base_directory.c_str() + dir_len - 1, "/", 1) != 0)
+        base_directory += '/';
+
+    // Parse capture time
+    if (configuration["capture_time"] != -1) {
+        std::string utc_date = configuration["capture_time"];
+
+        // Convert UTC datetime string to Unix timestamp
+        std::tm tm_utc = {};
+        std::stringstream ss(utc_date);
+        ss >> std::get_time(&tm_utc, "%Y/%m/%d_%H:%M:%S");
+        capture_start_time = static_cast<double>(timegm(&tm_utc));
+    }
+
+    // Start acquisition
+    return start_acquisition();
+}
+
+// Stop capture, for external use
+RESULT stop_capture() {
+    return stop_acquisition();
+}
+
+int main(int argc, char *argv[])
+{
+    // Process command-line argument
+    parse_arguments(argc, argv);
+
+    // Start acquisition
+    start_acquisition();
+
+    // Wait for required amount of time
     auto time_diff = capture_start_time - std::time(0);
     if (time_diff > 0)
         duration += time_diff;
     sleep(duration);
 
-    if (stopConsumer("stationdataraw") != SUCCESS) {
-        LOG(ERROR, "Failed to stop station data consumser");
-        return 0;
-    }
-
-    if (stopReceiver() != SUCCESS) {
-        LOG(ERROR, "Failed to stop receiver");
-        return 0;
-    }
+    // Stop acquisition
+    stop_acquisition();
 }
