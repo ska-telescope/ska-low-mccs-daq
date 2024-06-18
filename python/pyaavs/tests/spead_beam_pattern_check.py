@@ -84,8 +84,8 @@ def check_buffer(id):
     for n in list(range(id, realtime_max_packets, realtime_nof_processes)):
         spead_header = spead_header_decoder.decode_header(realtime_pkt_buff[pkt_buffer_idx + 42: pkt_buffer_idx + 42 + 72])
 
-        if spead_header.is_csp_packet and not spead_header.is_new_spead:
-            if spead_header.is_new_spead: 
+        if spead_header.is_csp_packet and not spead_header.is_ska_spead:
+            if spead_header.is_ska_spead: 
                 pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 56
             else:
                 pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72
@@ -106,7 +106,7 @@ def check_buffer(id):
 
 class CspSpeadHeaderDecoded:
     is_spead            : bool
-    is_new_spead        : bool
+    is_ska_spead        : bool
     is_csp_packet       : bool
     packet_counter      : int
     logical_channel_id  : int
@@ -128,7 +128,7 @@ class CspSpeadHeaderDecoder(Process):
 
     def clear_header(self):
         self.spead_header.is_spead              = False
-        self.spead_header.is_new_spead          = False
+        self.spead_header.is_ska_spead          = False
         self.spead_header.is_csp_packet         = False
         self.spead_header.packet_counter        = 0
         self.spead_header.logical_channel_id    = 0
@@ -152,14 +152,14 @@ class CspSpeadHeaderDecoder(Process):
             item = items[idx]
             id = item >> 48
             val = item & 0x0000FFFFFFFFFFFF
-            if not (self.spead_header.is_new_spead == 1 and idx > 6):
+            if not (self.spead_header.is_ska_spead == 1 and idx > 6):
                 if id == 0x5304 and idx == 0:
                     self.spead_header.is_spead = True
                     if val & 0x000000000000FFFF == 0x0006:
-                        self.spead_header.is_new_spead = True
+                        self.spead_header.is_ska_spead = True
                 elif id == 0x8001 and idx == 1:
                     heap_counter = val
-                    if self.spead_header.is_new_spead == False:
+                    if self.spead_header.is_ska_spead == False:
                         self.spead_header.packet_counter = heap_counter & 0xFFFFFFFF
                         self.spead_header.logical_channel_id = heap_counter >> 32
                     else:
@@ -177,25 +177,25 @@ class CspSpeadHeaderDecoder(Process):
                     self.spead_header.scan_id = val & 0xffffffff
                     self.spead_header.center_frequency = 0
                     self.spead_header.timestamp_scale = 108
-                elif id == 0xb010 and idx == 3 and self.spead_header.is_new_spead == True:
+                elif id == 0xb010 and idx == 3 and self.spead_header.is_ska_spead == True:
                     self.spead_header.scan_id = val & 0xffffffffffff
                     self.spead_header.timestamp_scale = 108
                 elif id == 0xb000 and idx == 6:
                     self.spead_header.is_csp_packet = True
                     self.spead_header.csp_channel_info = val
                     self.spead_header.physical_channel_id = val & 0x3FF
-                elif id == 0xb000 and idx == 4 and self.spead_header.is_new_spead == True:
+                elif id == 0xb000 and idx == 4 and self.spead_header.is_ska_spead == True:
                     self.spead_header.is_csp_packet = True
                     self.spead_header.csp_channel_info = val
                     self.spead_header.logical_channel_id = val >> 32
                     self.spead_header.physical_channel_id = val & 0x3FF 
                 elif id == 0xb001 and idx == 7:
                     self.spead_header.csp_antenna_info = val
-                elif id == 0xb001 and idx == 5 and self.spead_header.is_new_spead == True:
+                elif id == 0xb001 and idx == 5 and self.spead_header.is_ska_spead == True:
                     self.spead_header.csp_antenna_info = val
                 elif id == 0x3300 and idx == 8:
                     self.spead_header.offset = 9*8
-                elif id == 0x3300 and idx == 6 and self.spead_header.is_new_spead == True:
+                elif id == 0x3300 and idx == 6 and self.spead_header.is_ska_spead == True:
                     self.spead_header.offset = 7*8
                 else:
                     print("Error in header")

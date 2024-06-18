@@ -81,7 +81,7 @@ class SpeadRxBeamPowerRealtime(Process):
         self.exp_pkt_cnt = -1
         self.id = 0
         self.is_spead = 0
-        self.is_new_spead = 0
+        self.is_ska_spead = 0
         self.processed_frame = 0
         self.accu_x = 0
         self.accu_y = 0
@@ -122,14 +122,14 @@ class SpeadRxBeamPowerRealtime(Process):
             id = item >> 48
             val = item & 0x0000FFFFFFFFFFFF
             # print(hex(id) + " " + hex(val))
-            if not (self.is_new_spead == 1 and idx > 6):
+            if not (self.is_ska_spead == 1 and idx > 6):
                 if id == 0x5304 and idx == 0:
                     self.is_spead = 1
                     if val & 0x000000000000FFFF == 0x0006:
-                        self.is_new_spead = 1
+                        self.is_ska_spead = 1
                 elif id == 0x8001 and idx == 1:
                     heap_counter = val
-                    if self.is_new_spead == 0:
+                    if self.is_ska_spead == 0:
                         self.packet_counter = heap_counter & 0xFFFFFFFF
                         self.logical_channel_id = heap_counter >> 32
                     else:
@@ -154,7 +154,7 @@ class SpeadRxBeamPowerRealtime(Process):
                 elif id == 0xb010 and idx == 5:
                     self.scan_id = val & 0xFFFFFFFF
                     self.center_frequency = 0
-                elif id == 0xb010 and idx == 3 and self.is_new_spead == 1:
+                elif id == 0xb010 and idx == 3 and self.is_ska_spead == 1:
                     self.scan_id = val & 0xffffffffffff
                 elif id == 0xb000 and idx == 6:
                     is_csp_packet = True
@@ -168,7 +168,7 @@ class SpeadRxBeamPowerRealtime(Process):
                             print("Received logical channel_id: " + str(self.logical_channel_id))
                             input("Press a key...")
                             # break
-                elif id == 0xb000 and idx == 4 and self.is_new_spead == 1:
+                elif id == 0xb000 and idx == 4 and self.is_ska_spead == 1:
                     is_csp_packet = True
                     self.logical_channel_id = val >> 32
 
@@ -184,11 +184,11 @@ class SpeadRxBeamPowerRealtime(Process):
                             # break        
                 elif id == 0xb001 and idx == 7:
                     self.csp_antenna_info = val
-                elif id == 0xb001 and idx == 5 and self.is_new_spead == 1:
+                elif id == 0xb001 and idx == 5 and self.is_ska_spead == 1:
                     self.csp_antenna_info = val
                 elif id == 0x3300 and idx == 8:
                     self.offset = 9*8
-                elif id == 0x3300 and idx == 6 and self.is_new_spead == 1:
+                elif id == 0x3300 and idx == 6 and self.is_ska_spead == 1:
                     self.offset = 7*8
                 else:
                     print("Error in header")
@@ -213,7 +213,7 @@ class SpeadRxBeamPowerRealtime(Process):
                 # print(self.lmc_tpm_id)
                 if self.logical_channel_id == self.channel_id:
 
-                    if self.is_new_spead == 1:
+                    if self.is_ska_spead == 1:
                         pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 56
                     else:
                         pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72

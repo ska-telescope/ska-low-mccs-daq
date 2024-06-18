@@ -418,7 +418,7 @@ class Station(object):
             #     for tile in self.tiles:
             #         tile.check_arp_table()
 
-            if self.tiles[0].tpm.has_register("fpga1.beamf_ring.control.new_spead_format"):
+            if self.tiles[0].tpm.has_register("fpga1.beamf_ring.control.ska_spead_format"):
                 # If initialising, synchronise all tiles in station
                 logging.info("Synchronising station")
                 self._check_pps_sampling_synchronisation()
@@ -432,7 +432,7 @@ class Station(object):
                 logging.info("Starting station beamformer")
                 self.start_beamformer(start_time=0, duration=-1)
 
-            if not self.tiles[0].tpm.has_register("fpga1.beamf_ring.control.new_spead_format"):
+            if not self.tiles[0].tpm.has_register("fpga1.beamf_ring.control.ska_spead_format"):
                 # If initialising, synchronise all tiles in station
                 logging.info("Synchronising station")
                 self._check_pps_sampling_synchronisation()

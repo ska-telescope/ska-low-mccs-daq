@@ -108,7 +108,7 @@ class SpeadRxBeamPowerOffline(Process):
         self.exp_pkt_cnt = -1
         self.id = 0
         self.is_spead = 0
-        self.is_new_spead = 0
+        self.is_ska_spead = 0
         self.processed_frame = 0
         self.accu_x = 0
         self.accu_y = 0
@@ -149,11 +149,11 @@ class SpeadRxBeamPowerOffline(Process):
             id = item >> 48
             val = item & 0x0000FFFFFFFFFFFF
             # print(hex(id) + " " + hex(val))
-            if not (self.is_new_spead == 1 and idx > 6):
+            if not (self.is_ska_spead == 1 and idx > 6):
                 if id == 0x5304 and idx == 0:
                     self.is_spead = 1
                     if val & 0x000000000000FFFF == 0x0006:
-                        self.is_new_spead = 1
+                        self.is_ska_spead = 1
                 elif id == 0x8001 and idx == 1:
                     heap_counter = val
                     self.packet_counter = heap_counter & 0xFFFFFFFF
@@ -202,9 +202,9 @@ class SpeadRxBeamPowerOffline(Process):
                     self.csp_antenna_info = val
                 elif id == 0x3300 and idx == 8:
                     self.offset = 9*8
-                elif id == 0xb010 and idx == 3 and self.is_new_spead == 1:
+                elif id == 0xb010 and idx == 3 and self.is_ska_spead == 1:
                         self.scan_id = val & 0xffffffffffff
-                elif id == 0xb000 and idx == 4 and self.is_new_spead == 1:
+                elif id == 0xb000 and idx == 4 and self.is_ska_spead == 1:
                 
                     self.logical_channel_id = val >> 32
                     
@@ -218,9 +218,9 @@ class SpeadRxBeamPowerOffline(Process):
                             print("Received logical channel_id: " + str(self.logical_channel_id))
                             input("Press a key...")
                             # break    
-                elif id == 0xb001 and idx == 5 and self.is_new_spead == 1:
+                elif id == 0xb001 and idx == 5 and self.is_ska_spead == 1:
                         self.csp_antenna_info = val
-                elif id == 0x3300 and idx == 6 and self.is_new_spead == 1:
+                elif id == 0x3300 and idx == 6 and self.is_ska_spead == 1:
                         self.offset = 7*8
                 else:
                     print("Error in header")
