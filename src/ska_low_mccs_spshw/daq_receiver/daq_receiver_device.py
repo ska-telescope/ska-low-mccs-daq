@@ -479,17 +479,25 @@ class MccsDaqReceiver(SKABaseDevice):
         self.logger.info(
             "Data of type %s has been written to file %s", data_mode, file_name
         )
-        metadata_dict = json.loads(metadata)
+        try:
+            metadata_dict = json.loads(metadata)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.warning(f"Failed to load metadata: {repr(e)}")
+            metadata_dict = {}
+
         event_value: dict[str, Union[str, int]] = {
             "data_mode": data_mode,
             "file_name": file_name,
             "metadata": metadata_dict,
         }
-        if "additional_info" in metadata_dict:
-            if data_mode == "station":
-                event_value["amount_of_data"] = metadata_dict["additional_info"]
-            elif data_mode != "correlator":
-                event_value["tile"] = metadata_dict["additional_info"]
+        if metadata_dict:
+            if "additional_info" in metadata_dict:
+                if data_mode == "station":
+                    event_value["amount_of_data"] = metadata_dict["additional_info"]
+                elif data_mode != "correlator":
+                    event_value["tile"] = metadata_dict["additional_info"]
+        else:
+            self.logger.info(f"No metadata found for {data_mode=}, {file_name=}")
 
         result = json.dumps(event_value)
         if (
