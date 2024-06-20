@@ -371,6 +371,19 @@ class SpsTangoTestHarness:
             get_tile_name(tile_id, station_label=self._station_label), mock
         )
 
+    def add_mock_daq_device(
+        self: SpsTangoTestHarness,
+        mock: unittest.mock.Mock,
+    ) -> None:
+        """
+        Add a mock daq Tango device to this test harness.
+
+        :param mock: the mock to be used as a mock daq device.
+        """
+        self._tango_test_harness.add_mock_device(
+            get_daq_name(self._station_label), mock
+        )
+
     def set_daq_instance(
         self: SpsTangoTestHarness,
         daq_instance: DaqServerBackendProtocol | None = None,
