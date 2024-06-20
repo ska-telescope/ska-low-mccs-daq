@@ -191,6 +191,12 @@ class DaqHandler:
         if additional_info is not None and metadata is not None:
             metadata["additional_info"] = additional_info
 
+        self._data_received_callback(
+            data_mode=data_mode,
+            file_name=file_name,
+            metadata=metadata,
+        )
+
         # Call additional callbacks per data mode if needed.
         if data_mode == "read_raw_data":
             pass
@@ -211,23 +217,19 @@ class DaqHandler:
             pass
 
         if data_mode == "integrated_channel":
-            self._integrated_channel_callback(
-                data_mode=data_mode,
-                file_name=file_name,
-                metadata=metadata,
-            )
+            pass
 
         if data_mode == "correlator":
             pass
 
-    def _integrated_channel_callback(
+    def _data_received_callback(
         self: DaqHandler,
         data_mode: str,
         file_name: str,
         metadata: Optional[str] = None,
     ) -> None:
         """
-        Call callbacks for only the integrated channel DaqMode.
+        Send file receipt information.
 
         :param data_mode: The DAQ data type written
         :param file_name: The filename written
