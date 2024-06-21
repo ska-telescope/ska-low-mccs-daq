@@ -4,11 +4,11 @@ RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d
 RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
     chmod 0440 /etc/sudoers.d/daqqer
 
-COPY --chown=daqqer:daqqer ./ /app/
+# COPY --chown=daqqer:daqqer --chmod=0440 ./ /app/
 
 # Setup environment variables
 # When updating AAVS_SYSTEM_SHA, also update aavs_system in pyproject.toml
-ENV AAVS_SYSTEM_SHA=4fd6ff7f78697bb48fcb80c06e5638daf5db8b6e
+ENV AAVS_SYSTEM_SHA=da4b62585f896f312cfdee220cfe5688e104bb4e
 ENV AAVS_DAQ_SHA=65c8339543ff94818ccc9335583168c9b7f877f4
 ENV PYFABIL_SHA=44705affebc0bcd689902da58471fb81fad0d779
 ENV DEBIAN_FRONTEND=noninteractive
@@ -34,6 +34,7 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     python3.10 \
     python3-distutils \
+    python3.10-dev \
     sudo \
     tzdata
 
@@ -43,7 +44,7 @@ ENV PATH="/usr/local/lib:/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr
 ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
 RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 
-# Install pip and poetry.
+# # Install pip and poetry.
 ENV POETRY_HOME=/opt/poetry
 ENV POETRY_VERSION=1.3.2
 RUN curl -sSL https://bootstrap.pypa.io/get-pip.py | gosu root python3
@@ -81,5 +82,6 @@ RUN poetry config virtualenvs.create false && poetry install --only main
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/
+RUN usermod -a -G aavs_logger daqqer
 
 USER daqqer
