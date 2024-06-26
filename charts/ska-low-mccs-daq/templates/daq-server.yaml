@@ -98,17 +98,20 @@ spec:
             - SYS_ADMIN
             - KILL
             - SYS_TIME
-{{- with $spec.storage}}
         volumeMounts:
-        - name: {{.}}
+        - name: daq-mount
           mountPath: /product # ADR-55 requires this name
       volumes:
-      - name: {{.}}
+      - name: daq-mount
+{{- if hasKey $spec "storage"}}
         persistentVolumeClaim:
-          claimName: {{.}}
+          claimName: {{$spec.storage}}
+{{- else}}
+        emptyDir:
+          medium: Memory
+{{- end }}
       securityContext:
         fsGroup: 1000
-{{- end }}
 {{- with $spec.node_selector}}
       nodeSelector:
 {{ toYaml . | indent 8 }}

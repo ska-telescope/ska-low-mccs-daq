@@ -75,7 +75,7 @@ environments:
       - platform/minikube.yaml
   stfc-ral:
     values:
-      - git::https://gitlab.com/ska-telescope/mccs/ska-low-mccs-spshw.git@helmfile.d/platform/stfc-ral.yaml?ref=7a1ce0087f515716d12dbf1fd55924e0ed4a016c
+      - platform/stfc-ral.yaml
       - values/values-stfc-ral.yaml
   
 ---

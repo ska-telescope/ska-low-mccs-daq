@@ -56,7 +56,7 @@
           "tolerations": {"type": ["object", "null"]},
           "annotations": {"type": "object"}
         },
-        "required": ["storage"],
+        "required": [],
         "additionalProperties": false
       }
     },
