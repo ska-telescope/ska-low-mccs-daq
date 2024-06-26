@@ -1,4 +1,6 @@
 platform:
+  metadata:
+    version: 0.5.0
   cluster:
     minikube: true
     domain: techops.internal.skao.int

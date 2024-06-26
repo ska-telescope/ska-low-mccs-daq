@@ -1,7 +1,7 @@
 {{- /* Configure daq. */}}
 {{- $overrides := .Values | get "overrides" dict}}
 {{- $platform := mergeOverwrite .Values.platform $overrides}}
-{{- if (not (hasPrefix "0.3." $platform.metadata.version))}}
+{{- if (not (hasPrefix "0.5." $platform.metadata.version))}}
 {{- fail (printf "Unsupported platform spec version %s" .Values.platform.metadata.version)}}
 {{- end}}
 

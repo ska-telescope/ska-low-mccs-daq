@@ -1,17 +1,22 @@
 platform:
   metadata:
-    version: 0.3.0
+    version: 0.5.0
     description: A platform configuration specification for Oxford
 
   # cluster:  specified by minikube.yaml
 
   array:
     name: oxford
+    cabinetbanks:
+      oxford:
+        id: 1
+        stations:
+          - oxford
     stations:
       oxford:
         id: 1
         sps:
-          sdn_first_interface: 10.0.0.152/16
+          sdn_first_interface: 10.0.0.128/16
           daq:
             ip: 172.17.6.145
           tpms:
