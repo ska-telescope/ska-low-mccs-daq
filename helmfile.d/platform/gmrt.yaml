@@ -1,6 +1,6 @@
 platform:
   metadata:
-    version: 0.5.0
+    version: 0.6.0
     description: A platform configuration specification for GMRT
 
   # cluster:  specified by minikube.yaml

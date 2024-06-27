@@ -41,7 +41,7 @@ receivers:
   {{$station_name}}:
     storage: {{$daq_storage_name}}
 {{- $cluster_daq_spec := dig "cluster" "daq" dict $platform}}
-{{- with (pick $cluster_daq_spec "annotations" "node_selector" "affinity" "tolerations" "runtime_class" "gpu_limit")}}
+{{- with (pick $cluster_daq_spec "annotations" "node_selector" "affinity" "tolerations" "nvidia_gpu")}}
 {{toYaml . | indent 4}}
 {{- end}}
 {{- end}}
