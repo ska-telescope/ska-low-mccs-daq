@@ -8,7 +8,7 @@ RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
 
 # Setup environment variables
 # When updating AAVS_SYSTEM_SHA, also update aavs_system in pyproject.toml
-ENV AAVS_SYSTEM_SHA=da4b62585f896f312cfdee220cfe5688e104bb4e
+ENV AAVS_SYSTEM_SHA=a33209c2c9899bf8b565c99186abbaf7605ad6ee
 ENV AAVS_DAQ_SHA=65c8339543ff94818ccc9335583168c9b7f877f4
 ENV PYFABIL_SHA=44705affebc0bcd689902da58471fb81fad0d779
 ENV DEBIAN_FRONTEND=noninteractive
@@ -47,7 +47,7 @@ RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 # # Install pip and poetry.
 ENV POETRY_HOME=/opt/poetry
 ENV POETRY_VERSION=1.3.2
-RUN curl -sSL https://bootstrap.pypa.io/get-pip.py | gosu root python3
+RUN curl -sSL --retry 3 --connect-timeout 15 https://bootstrap.pypa.io/get-pip.py | gosu root python3
 RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | gosu root python3 - --yes
 RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
     ln -sfn /opt/poetry/bin/poetry /usr/local/bin/poetry

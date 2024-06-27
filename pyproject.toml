@@ -17,14 +17,14 @@ url = 'https://pypi.org/simple'
 [tool.poetry.dependencies]
 # When updating this dependency, also update AAVS_SYSTEM_REF in the Dockerfile
 pyfabil = { git = "https://gitlab.com/ska-telescope/pyfabil.git", rev = "44705affebc0bcd689902da58471fb81fad0d779" }
-aavs_system = { git = "https://gitlab.com/ska-telescope/aavs-system.git", rev = "da4b62585f896f312cfdee220cfe5688e104bb4e", subdirectory = "python" }
+aavs_system = { git = "https://gitlab.com/ska-telescope/aavs-system.git", rev = "a33209c2c9899bf8b565c99186abbaf7605ad6ee", subdirectory = "python" }
 python = "~3.10"
 future = "^0.18.2"
 numpy = "^1.23.0"
 PyYAML = "^6.0"
 ska-control-model = "0.3.1"
 # ska-low-mccs-daq-interface = "^0.1.1"
-ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", branch="main" }
+ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", branch="mccs-2173" }
 singleton-decorator = "1.0.0"
 slacker = "0.14.0"
 h5py = "3.7.0"
@@ -67,7 +67,7 @@ ska-ser-sphinx-theme = "^0.1.1"
 sphinxcontrib-plantuml = "^0.25"
 ska-control-model = "^0.3.1"
 # ska-low-mccs-daq-interface = "^0.1.1"
-ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", branch="main" }
+ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", branch="mccs-2173" }
 numpy = "^1.23.0"
 matplotlib = "3.5.3"
 h5py = "3.7.0"
