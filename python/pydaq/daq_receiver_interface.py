@@ -1138,11 +1138,6 @@ class DaqReceiver:
     def stop_daq(self) -> None:
         """ Stop DAQ """
 
-        # If station beam is being acquired, stop it
-        if self._running_consumers[DaqModes.RAW_STATION_BEAM]:
-            self._stop_station_beam_acquisition()
-            return
-
         # Clear data
         self._buffer_counter = {}
         self._timestamps = {}
@@ -1156,7 +1151,8 @@ class DaqReceiver:
                           DaqModes.INTEGRATED_CHANNEL_DATA: self._stop_integrated_channel_data_consumer,
                           DaqModes.STATION_BEAM_DATA: self._stop_station_beam_data_consumer,
                           DaqModes.CORRELATOR_DATA: self._stop_correlator,
-                          DaqModes.ANTENNA_BUFFER: self._stop_antenna_buffer_consumer}
+                          DaqModes.ANTENNA_BUFFER: self._stop_antenna_buffer_consumer,
+                          DaqModes.RAW_STATION_BEAM: self._stop_station_beam_acquisition}
 
         # Stop all running consumers
         for k, running in self._running_consumers.items():
