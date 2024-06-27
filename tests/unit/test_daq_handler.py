@@ -129,7 +129,7 @@ class TestDaqHandler:
         :param expected_msg: The message expected from `StartDaq`.
         """
         daq_client = DaqClient(daq_address)
-        assert daq_client.initialise("{}") == {
+        assert daq_client.initialise("{}", "") == {
             "message": "Daq successfully initialised"
         }
 
@@ -187,7 +187,7 @@ class TestDaqHandler:
         :param expected_msg: The message expected from `Configure`.
         """
         daq_client = DaqClient(daq_address)
-        assert daq_client.initialise("{}") == {
+        assert daq_client.initialise("{}", "") == {
             "message": "Daq successfully initialised"
         }
 
@@ -282,7 +282,7 @@ class TestDaqHandler:
             "rms_plot": expected_rms_plot,
         }
         daq_client = DaqClient(daq_address)
-        assert daq_client.initialise("{}") == {
+        assert daq_client.initialise("{}", "") == {
             "message": "Daq successfully initialised"
         }
 

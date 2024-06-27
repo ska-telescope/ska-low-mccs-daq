@@ -156,6 +156,7 @@ class DaqHandler:
             "correlator": DaqModes.CORRELATOR_DATA,
             "station": DaqModes.STATION_BEAM_DATA,
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
+            "raw_station_beam": DaqModes.RAW_STATION_BEAM,
         }
         # TODO: Check this typehint. Floats might be ints, not sure.
         self._antenna_locations: dict[
@@ -166,6 +167,8 @@ class DaqHandler:
         self._y_bandpass_plots: queue.Queue = queue.Queue()
         self._rms_plots: queue.Queue = queue.Queue()
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
+        self._custom_libaavsdaq_filepath: Optional[str] = None
+        self._config: Optional[dict[str, Any]] = None
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -244,37 +247,43 @@ class DaqHandler:
             )
 
     def initialise(
-        self: DaqHandler, config: dict[str, Any]
+        self: DaqHandler,
+        config: dict[str, Any],
+        libaavsdaq_filepath: str,
     ) -> tuple[ResultCode, str]:  # noqa: E501
         """
         Initialise a new DaqReceiver instance.
 
         :param config: the configuration to apply
+        :param libaavsdaq_filepath: Filepath to a specific libaavsdaq version.
 
         :return: a resultcode, message tuple
         """
-        if self._initialised is False:
-            self.logger.info("Initialising daq.")
-            self.daq_instance = DaqReceiver()
-            try:
-                if config:
-                    self.daq_instance.populate_configuration(config)
+        self.logger.info("Initialising daq.")
+        self.daq_instance = DaqReceiver()
 
-                self.daq_instance.initialise_daq()
-                self._receiver_started = True
-                self._initialised = True
-            # pylint: disable=broad-except
-            except Exception as e:
-                self.logger.error(
-                    "Caught exception in `DaqHandler.initialise`: %s", e
-                )  # noqa: E501
-                return ResultCode.FAILED, f"Caught exception: {e}"
-            self.logger.info("Daq initialised.")
-            return ResultCode.OK, "Daq successfully initialised"
+        if libaavsdaq_filepath == "":
+            self._custom_libaavsdaq_filepath = None
+        else:
+            self._custom_libaavsdaq_filepath = libaavsdaq_filepath
 
-        # else
-        self.logger.info("Daq already initialised")
-        return ResultCode.REJECTED, "Daq already initialised"
+        try:
+            if config:
+                self._config = config
+            if self._config is not None:
+                self.daq_instance.populate_configuration(self._config)
+
+            self.daq_instance.initialise_daq(filepath=self._custom_libaavsdaq_filepath)
+            self._receiver_started = True
+            self._initialised = True
+        # pylint: disable=broad-except
+        except Exception as e:
+            self.logger.error(
+                "Caught exception in `DaqHandler.initialise`: %s", e
+            )  # noqa: E501
+            return ResultCode.FAILED, f"Caught exception: {e}"
+        self.logger.info("Daq initialised.")
+        return ResultCode.OK, "Daq successfully initialised"
 
     @property
     def initialised(self) -> bool:
@@ -313,7 +322,7 @@ class DaqHandler:
             raise
 
         if not self._receiver_started:
-            self.daq_instance.initialise_daq()
+            self.daq_instance.initialise_daq(filepath=self._custom_libaavsdaq_filepath)
             self._receiver_started = True
 
         try:
@@ -372,8 +381,8 @@ class DaqHandler:
                     )
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
-
-            self.daq_instance.populate_configuration(config)
+            self._config = config
+            self.daq_instance.populate_configuration(self._config)
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Daq reconfigured"
 
