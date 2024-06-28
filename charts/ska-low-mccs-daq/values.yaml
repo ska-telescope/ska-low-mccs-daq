@@ -19,8 +19,7 @@ receivers: {}
 #   1:
 #     port: 50052  # optional; defaults to 50051
 #     data_port: 4661  # optional; defaults to 4660
-#     runtime_class: nvidia # optional: must refer to a RunTimeClass existing in the cluster.
-#     gpu_limit: 1 # optional
+#     nvidia_gpu: true  # optional; defaults to false
 #     storage: daq-data  # must refer to a PVC
 #     node_selector: {}  # optional
 #     affinity: {}  # optional

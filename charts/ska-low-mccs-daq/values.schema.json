@@ -40,23 +40,14 @@
             "type": "integer",
             "minimum": 1
           },
-          "runtime_class": {"type": ["string", "null"]},
-          "gpu_limit": {
-            "oneOf": [
-              {"type": "null"},
-              {
-                "type": "integer",
-                "minimum": 1
-              }
-            ]
-          },
+          "nvidia_gpu": {"type": "boolean"},
           "storage": {"type": "string"},
           "node_selector": {"type": ["object", "null"]},
           "affinity": {"type": ["object", "null"]},
           "tolerations": {"type": ["object", "null"]},
           "annotations": {"type": "object"}
         },
-        "required": ["storage"],
+        "required": [],
         "additionalProperties": false
       }
     },
