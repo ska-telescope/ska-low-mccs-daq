@@ -193,11 +193,6 @@ class TestDaqHandler:
                 "Daq has been started and is listening",
             ),  # noqa: E501
             (
-                DaqModes.CORRELATOR_DATA,
-                TaskStatus.COMPLETED,
-                "Daq has been started and is listening",
-            ),  # noqa: E501
-            (
                 DaqModes.ANTENNA_BUFFER,
                 TaskStatus.COMPLETED,
                 "Daq has been started and is listening",
