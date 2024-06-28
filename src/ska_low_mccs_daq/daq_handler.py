@@ -228,6 +228,9 @@ class DaqHandler:
         if data_mode == "correlator":
             pass
 
+        if data_mode == "raw_station_beam":
+            pass
+
     def _data_received_callback(
         self: DaqHandler,
         data_mode: str,
@@ -324,6 +327,14 @@ class DaqHandler:
         if not self._receiver_started:
             self.daq_instance.initialise_daq(filepath=self._custom_libaavsdaq_filepath)
             self._receiver_started = True
+
+        # Can only start RAW_STATION_BEAM mode on its own.
+        if DaqModes.RAW_STATION_BEAM in converted_modes_to_start:
+            if len(converted_modes_to_start) > 1:
+                self.logger.error("DaqModes.RAW_STATION_BEAM must be started alone.")
+                return
+            # Reinitialise for RAW_STATION_BEAM
+            self.daq_instance.initialise_station_beam()
 
         try:
             self.client_queue = queue.SimpleQueue()
