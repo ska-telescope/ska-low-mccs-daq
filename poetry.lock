@@ -2505,7 +2505,7 @@ ska-control-model = "^0.3.1"
 type = "git"
 url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git"
 reference = "mccs-2173"
-resolved_reference = "a22dbb54a8907c1b23a2355c448c57b4917b7577"
+resolved_reference = "c22d2ea903f3aa9f4bec345ea083cbb3038c48a6"
 
 [[package]]
 name = "ska-ser-sphinx-theme"

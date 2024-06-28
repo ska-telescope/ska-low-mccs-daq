@@ -5,8 +5,7 @@ receivers:
   1:
     port: 50052  # optional; defaults to 50051
     data_port: 4661  # optional; defaults to 4660
-    runtime_class: nvidia
-    gpu_limit: 1
+    nvidia_gpu: true
     storage: daq-data
     node_selector:
       kubernetes.io/hostname: psi-node3
@@ -67,8 +66,8 @@ spec:
       labels:
         component: {{$slug}}-server
     spec:
-{{- with $spec.runtime_class}}
-      runtimeClassName: {{quote .}}
+{{- if $spec.nvidia_gpu}}
+      runtimeClassName: nvidia
 {{- end }}
       containers:
       - command:
@@ -84,10 +83,10 @@ spec:
         ports:
           - containerPort: {{$grpc_port}}
             protocol: TCP
-{{- with $spec.gpu_limit}}
+{{- if $spec.nvidia_gpu}}
         resources:
           limits:
-            nvidia.com/gpu: {{.}}
+            nvidia.com/gpu: 1
 {{- end }}
         securityContext:
           capabilities:
@@ -98,17 +97,20 @@ spec:
             - SYS_ADMIN
             - KILL
             - SYS_TIME
-{{- with $spec.storage}}
         volumeMounts:
-        - name: {{.}}
+        - name: daq-mount
           mountPath: /product # ADR-55 requires this name
       volumes:
-      - name: {{.}}
+      - name: daq-mount
+{{- if hasKey $spec "storage"}}
         persistentVolumeClaim:
-          claimName: {{.}}
+          claimName: {{$spec.storage}}
+{{- else}}
+        emptyDir:
+          medium: Memory
+{{- end }}
       securityContext:
         fsGroup: 1000
-{{- end }}
 {{- with $spec.node_selector}}
       nodeSelector:
 {{ toYaml . | indent 8 }}
