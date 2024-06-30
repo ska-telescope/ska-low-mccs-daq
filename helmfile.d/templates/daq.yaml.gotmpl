@@ -1,10 +1,6 @@
 {{- /* Configure daq. */}}
 {{- $overrides := .Values | get "overrides" dict}}
 {{- $platform := mergeOverwrite .Values.platform $overrides}}
-{{- if (not (semverCompare "~0.6.0" $platform.metadata.version))}}
-{{- fail (printf "Unsupported platform spec version %s" .Values.platform.metadata.version)}}
-{{- end}}
-
 {{- $daqs_to_launch := dict}}
 {{- $daqs_to_egress := dict}}
 
@@ -16,6 +12,11 @@
   {{- $sps_spec := dig "sps" (dict "enabled" false) $station_spec}}
   {{- $daq_spec := dig "daq" dict $sps_spec}}
   
+  {{- $common_config := pick $daq_spec "receiver_ip"}}
+  {{- $_ := set $common_config "grpc_port" (dig "grpc_port" 50051 $daq_spec)}}
+  {{- $_ := set $common_config "receiver_interface" (dig "receiver_interface" "eth0" $daq_spec)}}
+  {{- $_ := set $common_config "receiver_port" (dig "receiver_port" 4660 $daq_spec)}}
+
   {{- $calibration_daq_spec := dig "calibration_daq" dict $daq_spec}}
   {{- $calibration_daq_enabled := pluck "enabled" $calibration_daq_spec $daq_spec $sps_spec $station_spec (dict "enabled" true) | first}}
   {{- $calibration_daq_simulated := pluck "simulated" $calibration_daq_spec $sps_spec $station_spec (dict "simulated" false) | first}}
@@ -25,9 +26,10 @@
       {{- $daq_to_ingress := pick $calibration_daq_spec "ip" "port"}}
       {{- $_ := set $daqs_to_egress $calibration_daq_name $daq_to_ingress}}
     {{- else}}
-      {{- $daq_to_launch := pick $cluster_daq_spec "nvidia_gpu" "annotations" "node_selector" "affinity" "tolerations"}}
-      {{- $_ := set $daq_to_launch "storage" $daq_storage_name}}
-      {{- $_ := set $daqs_to_launch $calibration_daq_name $daq_to_launch}}
+      {{- $calibration_daq_to_launch := pick $cluster_daq_spec "nvidia_gpu" "annotations" "node_selector" "affinity" "tolerations"}}
+      {{- $_ := set $calibration_daq_to_launch "storage" $daq_storage_name}}
+      {{- $calibration_daq_to_launch = mergeOverwrite $calibration_daq_to_launch $common_config}}
+      {{- $_ := set $daqs_to_launch $calibration_daq_name $calibration_daq_to_launch}}
     {{- end}}
   {{- end}}
 
@@ -40,9 +42,10 @@
       {{- $daq_to_ingress := pick $bandpass_daq_spec "ip" "port"}}
       {{- $_ := set $daqs_to_egress $bandpass_daq_name $bandpass_daq_spec}}
     {{- else}}
-      {{- $daq_to_launch := pick $cluster_daq_spec "annotations" "node_selector" "affinity" "tolerations"}}
-      {{- $_ := set $daq_to_launch "nvidia_gpu" false}}
-      {{- $_ := set $daqs_to_launch $bandpass_daq_name $daq_to_launch}}
+      {{- $bandpass_daq_to_launch := pick $cluster_daq_spec "annotations" "node_selector" "affinity" "tolerations"}}
+      {{- $_ := set $bandpass_daq_to_launch "nvidia_gpu" false}}
+      {{- $bandpass_daq_to_launch = mergeOverwrite $bandpass_daq_to_launch $common_config}}
+      {{- $_ := set $daqs_to_launch $bandpass_daq_name $bandpass_daq_to_launch}}
     {{- end}}
   {{- end}}
 {{- end}}
@@ -52,21 +55,15 @@
 storage:
   {{$daq_storage_name}}:
     storage_class: {{$daq_storage_class}}
-    size: "250Mi"
+    size: 250Mi
 {{- end}}
 {{- with $daqs_to_launch}}
 receivers:
-{{- range $station_name, $daq_spec := .}}
-  {{$station_name}}:
-{{toYaml $daq_spec | indent 4}}
-{{- end}}
+{{toYaml . | indent 2}}
 {{- end}}
 {{- end}}
 
-{{- if $daqs_to_egress}}
+{{- with $daqs_to_egress}}
 receiver_egresses:
-{{- range $station_name, $daq_spec := $daqs_to_egress}}
-  {{$station_name}}:
-{{toYaml $daq_spec | indent 4}}
-{{- end}}
+{{toYaml . | indent 2}}
 {{- end}}

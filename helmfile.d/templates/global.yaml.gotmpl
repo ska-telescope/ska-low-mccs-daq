@@ -1,0 +1,5 @@
+{{- $overrides := .Values | get "overrides" dict}}
+{{- $platform := mergeOverwrite .Values.platform $overrides}}
+{{- if (not (semverCompare "~0.6.0" $platform.metadata.version))}}
+{{- fail (printf "Unsupported platform spec version %s" .Values.platform.metadata.version)}}
+{{- end}}

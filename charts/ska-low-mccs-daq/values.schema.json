@@ -13,13 +13,18 @@
         },
         "tag": {
           "oneOf": [
-            {"type": "null"},
+            {
+              "type": "null"
+            },
             {
               "type": "string",
               "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)((-dev\\.c[0-9a-f]{8})|(-dirty))?$"
             }
           ],
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "pullPolicy": {
           "type": "string",
@@ -32,22 +37,54 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "port": {
+          "grpc_port": {
             "type": "integer",
             "minimum": 1
           },
-          "data_port": {
+          "receiver_interface": {
+            "type": "string"
+          },
+          "receiver_ip": {
+            "type": "string",
+            "format": "ipv4"
+          },
+          "receiver_port": {
             "type": "integer",
             "minimum": 1
           },
-          "nvidia_gpu": {"type": "boolean"},
-          "storage": {"type": "string"},
-          "node_selector": {"type": ["object", "null"]},
-          "affinity": {"type": ["object", "null"]},
-          "tolerations": {"type": ["object", "null"]},
-          "annotations": {"type": "object"}
+          "nvidia_gpu": {
+            "type": "boolean"
+          },
+          "storage": {
+            "type": "string"
+          },
+          "node_selector": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "affinity": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "tolerations": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "annotations": {
+            "type": "object"
+          }
         },
-        "required": [],
+        "required": [
+          "grpc_port",
+          "receiver_interface",
+          "receiver_port"
+        ],
         "additionalProperties": false
       }
     },
@@ -65,7 +102,9 @@
             "minimum": 1
           }
         },
-        "required": ["ip"],
+        "required": [
+          "ip"
+        ],
         "additionalProperties": false
       }
     },
@@ -74,12 +113,22 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "storage_class": {"type": "string"},
-          "size": {"type": "string"},
-          "labels": {"type": "object"},
-          "annotations": {"type": "object"}
+          "storage_class": {
+            "type": "string"
+          },
+          "size": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "object"
+          },
+          "annotations": {
+            "type": "object"
+          }
         },
-        "required": ["size"],
+        "required": [
+          "size"
+        ],
         "additionalProperties": false
       }
     }
