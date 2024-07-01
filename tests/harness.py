@@ -67,7 +67,7 @@ def get_daq_name(station_label: str | None = None) -> str:
 
     :return: the DAQ Tango device name
     """
-    return f"low-mccs/daqreceiver/{station_label or DEFAULT_STATION_LABEL}"
+    return f"low-mccs/calibration-daq/{station_label or DEFAULT_STATION_LABEL}"
 
 
 class SpsTangoTestHarnessContext:
