@@ -8,7 +8,7 @@ include_directories(${DAQ_DIRECTORY}/include)
 project(AAVS_DAQ C CXX)
 
 # Add option to compile correlator
-option(WITH_CORRELATOR "Compile cross-correlator which uses xGPU" OFF)
+option(WITH_CORRELATOR "Compile cross-correlator which uses xGPU" ON)
 option(WITH_SMALL_STATION "Compile a separate library for 48 element stations" OFF)
 message(STATUS "Correlator compilation: ${WITH_CORRELATOR}")
 message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")

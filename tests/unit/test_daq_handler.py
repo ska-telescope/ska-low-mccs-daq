@@ -133,7 +133,7 @@ class TestDaqHandler:
             "message": "Daq successfully initialised"
         }
 
-        responses = daq_client.start_daq(args)
+        responses = daq_client.start_daq(modes_to_start=args)
 
         assert next(responses) == {
             "status": TaskStatus.IN_PROGRESS,
