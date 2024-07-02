@@ -2,9 +2,11 @@ FROM nvidia/cuda:11.4.3-devel-ubuntu20.04 AS cuda_base
 
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
 RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
-    chmod 0440 /etc/sudoers.d/daqqer
+    chmod 0760 /etc/sudoers.d/daqqer
+    #chmod 0440 /etc/sudoers.d/daqqer
 
 # COPY --chown=daqqer:daqqer --chmod=0440 ./ /app/
+COPY --chown=daqqer:daqqer --chmod=0760 ./ /app/
 
 # Setup environment variables
 # When updating AAVS_SYSTEM_SHA, also update aavs_system in pyproject.toml
