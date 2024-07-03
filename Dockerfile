@@ -2,7 +2,7 @@ FROM nvidia/cuda:11.4.3-devel-ubuntu20.04 AS cuda_base
 
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
 RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
-    chmod 0760 /etc/sudoers.d/daqqer
+    chmod 0764 /etc/sudoers.d/daqqer
 
 COPY --chown=daqqer:daqqer ./ /app/
 
