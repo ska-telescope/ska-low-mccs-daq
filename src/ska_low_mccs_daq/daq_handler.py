@@ -168,7 +168,7 @@ class DaqHandler:
         self._rms_plots: queue.Queue = queue.Queue()
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
         self._custom_libaavsdaq_filepath: Optional[str] = None
-        self._config: Optional[dict[str, Any]] = None
+        self._config: dict[str, Any] = {}
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -272,15 +272,15 @@ class DaqHandler:
 
         try:
             if config:
-                self._config = config
-            if self._config is not None:
+                for k, v in list(config.items()):
+                    self._config[k] = v
+            if self._config != {}:
                 self.daq_instance.populate_configuration(self._config)
 
             self.daq_instance.initialise_daq(filepath=self._custom_libaavsdaq_filepath)
             self._receiver_started = True
             self._initialised = True
-        # pylint: disable=broad-except
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             self.logger.error(
                 "Caught exception in `DaqHandler.initialise`: %s", e
             )  # noqa: E501
@@ -314,6 +314,7 @@ class DaqHandler:
         :yield: a status update.
 
         :raises ValueError: if an invalid DaqMode is supplied
+        :raises Exception: If an unexpected Exception is caught.
         """
         try:
             # Convert string representation to DaqModes
@@ -324,9 +325,18 @@ class DaqHandler:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
             raise
 
-        if not self._receiver_started:
-            self.daq_instance.initialise_daq(filepath=self._custom_libaavsdaq_filepath)
-            self._receiver_started = True
+        try:
+            if not self._receiver_started:
+                self.daq_instance.initialise_daq(
+                    filepath=self._custom_libaavsdaq_filepath
+                )
+                self._receiver_started = True
+                self.logger.info("Restarted daq's receiver thread.")
+        except Exception as e:
+            self.logger.error(
+                "Caught exception initialising in daq_handler.start: %s", e
+            )
+            raise
 
         # Can only start RAW_STATION_BEAM mode on its own.
         if DaqModes.RAW_STATION_BEAM in converted_modes_to_start:
