@@ -116,16 +116,18 @@ def check_initialisation(func: Wrapped) -> Wrapped:
         :param args: positional arguments to the wrapped function
         :param kwargs: keyword arguments to the wrapped function
 
-        :raises ValueError: if component initialisation has
-            not been completed.
         :return: whatever the wrapped function returns
         """
         if not self.initialised:
-            raise ValueError(
-                f"Cannot execute '{type(self).__name__}.{func.__name__}'. "
-                "DaqReceiver has not been initialised. "
-                "Set adminMode to ONLINE to re-initialise."
+            self.logger.warning(
+                "Daq has not been initialised. Initialising with defaults now."
             )
+            self.initialise(self._config, "")
+            # raise ValueError(
+            #     f"Cannot execute '{type(self).__name__}.{func.__name__}'. "
+            #     "DaqReceiver has not been initialised. "
+            #     "Set adminMode to ONLINE to re-initialise."
+            # )
         return func(self, *args, **kwargs)
 
     return cast(Wrapped, _wrapper)
