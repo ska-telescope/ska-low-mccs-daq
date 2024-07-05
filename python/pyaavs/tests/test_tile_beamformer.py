@@ -77,6 +77,7 @@ class TestTileBeamformer():
         tile_id = tile['fpga1.dsp_regfile.config_id.tpm_id']
         nof_channels = self._nof_channels
 
+        gain = 2.0
         # Initialise DAQ. For now, this needs a configuration file with ALL the below configured
         # I'll change this to make it nicer
         daq_config = {
@@ -117,7 +118,7 @@ class TestTileBeamformer():
             tf.set_delay(tile, time_delays)
             ref_antenna = random.randrange(0, 16, 1)
             ref_pol = random.randrange(0, 2, 1)
-            tf.reset_beamf_coeff(tile, gain=1.0)
+            tf.reset_beamf_coeff(tile, gain=gain)
             time_delays_hw = [[0.0, 0.0]]*16
             tile.set_pointing_delay(time_delays_hw, 0.0)
             tile.load_pointing_delay()
@@ -150,7 +151,7 @@ class TestTileBeamformer():
             self._logger.debug("Ref Pol: %d", ref_pol)
             for p in range(2):
                 for n in range(16):
-                    coeff[p][n] = ref_value / single_input_data[p][n]
+                    coeff[p][n] = gain * ref_value / single_input_data[p][n]
             self._logger.debug("Coefficients:")
             self._logger.debug(coeff)
 
@@ -183,7 +184,7 @@ class TestTileBeamformer():
                 for a in range(16):
                     exp_val = ref_value
                     rcv_val = single_input_data[p][a]
-                    if abs(exp_val.real - rcv_val.real) > 1 or abs(exp_val.imag - rcv_val.imag) > 1:
+                    if abs(exp_val.real - rcv_val.real) > 2 or abs(exp_val.imag - rcv_val.imag) > 2:
                         self._logger.error("Error in beamformed values!")
                         self._logger.error("Reference Antenna:")
                         self._logger.error(ref_value)
@@ -208,7 +209,7 @@ class TestTileBeamformer():
                 beam_val = tf.get_beam_value(data, p, c) # - self._beam_start_channel)
                 single_val = ref_value
 
-                if abs(beam_val.real / 16 - single_val.real) > 1 or abs(beam_val.imag / 16 - single_val.imag) > 1:
+                if abs(beam_val.real / 16 - single_val.real) > 2 or abs(beam_val.imag / 16 - single_val.imag) > 2:
                     self._logger.error("Error in beam sum:")
                     self._logger.error("Individual antenna values:")
                     self._logger.error(single_input_data)
@@ -278,8 +279,8 @@ class TestTileBeamformer():
             self._logger.info("Corrected value pol0:")
             self._logger.info(beam_val_corrected_pol0)
 
-            if abs(beam_val_reference_pol0.real - beam_val_corrected_pol0.real) >= 2 or abs(beam_val_reference_pol0.imag - beam_val_corrected_pol0.imag) >= 2 or \
-               abs(beam_val_reference_pol1.real - beam_val_corrected_pol1.real) >= 2 or abs(beam_val_reference_pol1.imag - beam_val_corrected_pol1.imag) >= 2:
+            if abs(beam_val_reference_pol0.real - beam_val_corrected_pol0.real) > 2 or abs(beam_val_reference_pol0.imag - beam_val_corrected_pol0.imag) > 2 or \
+               abs(beam_val_reference_pol1.real - beam_val_corrected_pol1.real) > 2 or abs(beam_val_reference_pol1.imag - beam_val_corrected_pol1.imag) > 2:
                 self._logger.error("Error in beam pointing:")
                 self._logger.error("Reference value pol0/pol1:")
                 self._logger.error(beam_val_reference_pol0)

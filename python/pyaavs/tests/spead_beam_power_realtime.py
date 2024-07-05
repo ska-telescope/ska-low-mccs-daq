@@ -22,7 +22,7 @@ def power(id):
     power = np.zeros(2, dtype=np.uint64)
     nof_saturation = np.zeros(2, dtype=np.uint64)
     nof_sample = np.zeros(2, dtype=np.uint64)
-
+    
     for n, pkt_idx in enumerate(realtime_timestamp_idx_list):
         if n % realtime_nof_processes == id:
             # print("%d %d" % (id, n))
@@ -81,6 +81,7 @@ class SpeadRxBeamPowerRealtime(Process):
         self.exp_pkt_cnt = -1
         self.id = 0
         self.is_spead = 0
+        self.is_ska_spead = 0
         self.processed_frame = 0
         self.accu_x = 0
         self.accu_y = 0
@@ -121,53 +122,79 @@ class SpeadRxBeamPowerRealtime(Process):
             id = item >> 48
             val = item & 0x0000FFFFFFFFFFFF
             # print(hex(id) + " " + hex(val))
-            if id == 0x5304 and idx == 0:
-                self.is_spead = 1
-            elif id == 0x8001 and idx == 1:
-                heap_counter = val
-                self.packet_counter = heap_counter & 0xFFFFFFFF
-                self.logical_channel_id = heap_counter >> 32
-            elif id == 0x8004 and idx == 2:
-                self.payload_length = val
-            elif id == 0x9027 and idx == 3:
-                self.sync_time = val
-            elif id == 0x9600 and idx == 4:
-                self.timestamp = val
-            elif id == 0x9011 and idx == 5:
-                if first_channel >= 0:
-                    self.center_frequency = val & 0xFFFFFFFF
-                    exp_freq = 400e6*(self.logical_channel_id + first_channel) / 512
-                    if self.center_frequency != exp_freq:
-                        print("Error frequency ID")
-                        print("Expected ID " + str(exp_freq) + ", received " + str(self.center_frequency))
-                        print(hex(val))
-                        print("Received logical channel_id: " + str(self.logical_channel_id))
-                        input("Press a key...")
-                        # break
-            elif id == 0xb010 and idx == 5:
-                self.scan_id = val & 0xFFFFFFFF
-                self.center_frequency = 0
-            elif id == 0xb000 and idx == 6:
-                is_csp_packet = True
-                if first_channel >= 0:
-                    self.csp_channel_info = val
-                    physical_channel_id = val & 0x3FF
-                    if physical_channel_id != self.logical_channel_id + first_channel:
-                        print("Error physical channel ID")
-                        print("Expected ID " + str(self.logical_channel_id + first_channel) + ", received " + str(physical_channel_id))
-                        print(hex(val))
-                        print("Received logical channel_id: " + str(self.logical_channel_id))
-                        input("Press a key...")
-                        # break
-            elif id == 0xb001 and idx == 7:
-                self.csp_antenna_info = val
-            elif id == 0x3300 and idx == 8:
-                self.offset = 9*8
-            else:
-                print("Error in header")
-                print("Unexpected item " + hex(item) + " at position " + str(idx))
-                input("Press a key...")
-                break
+            if not (self.is_ska_spead == 1 and idx > 6):
+                if id == 0x5304 and idx == 0:
+                    self.is_spead = 1
+                    if val & 0x000000000000FFFF == 0x0006:
+                        self.is_ska_spead = 1
+                elif id == 0x8001 and idx == 1:
+                    heap_counter = val
+                    if self.is_ska_spead == 0:
+                        self.packet_counter = heap_counter & 0xFFFFFFFF
+                        self.logical_channel_id = heap_counter >> 32
+                    else:
+                        self.packet_counter = heap_counter & 0xFFFFFFFFFFFF
+                elif id == 0x8004 and idx == 2:
+                    self.payload_length = val
+                elif id == 0x9027 and idx == 3:
+                    self.sync_time = val
+                elif id == 0x9600 and idx == 4:
+                    self.timestamp = val
+                elif id == 0x9011 and idx == 5:
+                    if first_channel >= 0:
+                        self.center_frequency = val & 0xFFFFFFFF
+                        exp_freq = 400e6*(self.logical_channel_id + first_channel) / 512
+                        if self.center_frequency != exp_freq:
+                            print("Error frequency ID")
+                            print("Expected ID " + str(exp_freq) + ", received " + str(self.center_frequency))
+                            print(hex(val))
+                            print("Received logical channel_id: " + str(self.logical_channel_id))
+                            input("Press a key...")
+                            # break
+                elif id == 0xb010 and idx == 5:
+                    self.scan_id = val & 0xFFFFFFFF
+                    self.center_frequency = 0
+                elif id == 0xb010 and idx == 3 and self.is_ska_spead == 1:
+                    self.scan_id = val & 0xffffffffffff
+                elif id == 0xb000 and idx == 6:
+                    is_csp_packet = True
+                    if first_channel >= 0:
+                        self.csp_channel_info = val
+                        physical_channel_id = val & 0x3FF
+                        if physical_channel_id != self.logical_channel_id + first_channel:
+                            print("Error physical channel ID")
+                            print("Expected ID " + str(self.logical_channel_id + first_channel) + ", received " + str(physical_channel_id))
+                            print(hex(val))
+                            print("Received logical channel_id: " + str(self.logical_channel_id))
+                            input("Press a key...")
+                            # break
+                elif id == 0xb000 and idx == 4 and self.is_ska_spead == 1:
+                    is_csp_packet = True
+                    self.logical_channel_id = val >> 32
+
+                    if first_channel >= 0:
+                        self.csp_channel_info = val
+                        physical_channel_id = val & 0x3FF
+                        if physical_channel_id != self.logical_channel_id + first_channel:
+                            print("Error physical channel ID")
+                            print("Expected ID " + str(self.logical_channel_id + first_channel) + ", received " + str(physical_channel_id))
+                            print(hex(val))
+                            print("Received logical channel_id: " + str(self.logical_channel_id))
+                            input("Press a key...")
+                            # break        
+                elif id == 0xb001 and idx == 7:
+                    self.csp_antenna_info = val
+                elif id == 0xb001 and idx == 5 and self.is_ska_spead == 1:
+                    self.csp_antenna_info = val
+                elif id == 0x3300 and idx == 8:
+                    self.offset = 9*8
+                elif id == 0x3300 and idx == 6 and self.is_ska_spead == 1:
+                    self.offset = 7*8
+                else:
+                    print("Error in header")
+                    print("Unexpected item " + hex(item) + " at position " + str(idx))
+                    input("Press a key...")
+                    break
         return is_csp_packet
 
     def process_buffer(self, max_packets, contiguous_packets=0):
@@ -184,9 +211,13 @@ class SpeadRxBeamPowerRealtime(Process):
             if self.spead_header_decode(realtime_pkt_buff[pkt_buffer_idx + 42:pkt_buffer_idx + 42 + 72]):
                 # print(self.lmc_capture_mode)
                 # print(self.lmc_tpm_id)
-
                 if self.logical_channel_id == self.channel_id:
-                    pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72
+
+                    if self.is_ska_spead == 1:
+                        pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 56
+                    else:
+                        pkt_buffer_idx_offset = pkt_buffer_idx + 42 + 72
+ 
                     realtime_timestamp_idx_list.append(pkt_buffer_idx_offset)
                     nof_full_buff += 1
 
@@ -209,7 +240,6 @@ class SpeadRxBeamPowerRealtime(Process):
                                 realtime_timestamp_idx_list = [pkt_buffer_idx]
 
             pkt_buffer_idx += 16384
-
         return contiguous_packets_count
 
     def calculate_power(self):
@@ -219,6 +249,7 @@ class SpeadRxBeamPowerRealtime(Process):
         global realtime_timestamp_idx_list
 
         t1_start = perf_counter()
+        
         with Pool(realtime_nof_processes) as p:
              beam_list = p.map(power, list(range(realtime_nof_processes)))
         # beam_list = beamformer(0)

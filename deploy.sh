@@ -301,6 +301,17 @@ popd
 # Install required python packages
 pushd python || exit
   pip install -r requirements.pip || exit
+
+  # If greater than or equal to required version install more requirements
+  python_major_version=$(python -c 'import sys; print(f"{sys.version_info.major}")')
+  python_minor_version=$(python -c 'import sys; print(f"{sys.version_info.minor}")')
+  required_major_version=3
+  required_minor_version=9
+
+  if [[ ${python_major_version} == ${required_major_version} && ${python_minor_version} -ge ${required_minor_version} ]]; then
+    pip install -r python3_9_requirements.pip || exit
+  fi
+
   if [ $INSTALL_DOCS_REQS == true ]; then
     pip install -r requirements_docs.pip || exit
   fi

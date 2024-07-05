@@ -226,7 +226,8 @@ class Tile_1_6(Tile):
                    is_last_tile=False,
                    qsfp_detection="auto",
                    adc_mono_channel_14_bit=False,
-                   adc_mono_channel_sel=0):
+                   adc_mono_channel_sel=0,
+                   global_start_time=None):
         """
         Connect and initialise.
 
@@ -249,6 +250,8 @@ class Tile_1_6(Tile):
         :type adc_mono_channel_14_bit: bool
         :param adc_mono_channel_sel: Select channel in mono channel mode (0=A, 1=B)
         :type adc_mono_channel_sel: int
+        :param global_start_time: Sets internal TPM start time, used to synchronize to other TPM's
+        :type global_start_time: int
         """
         if use_internal_pps:
             logging.error("Cannot initialise board - use_internal_pps = True not supported")
@@ -392,6 +395,10 @@ class Tile_1_6(Tile):
             self.enable_health_monitoring()
             self.clear_health_status()
 
+        if global_start_time is not None:
+            self.start_acquisition(tpm_start_time=tpm_start_time)
+        else:
+            logging.info("Start time is not set, please run start_acquisition separately")
 
     def f2f_aurora_test_start(self):
         """Start test on Aurora f2f link."""
