@@ -12,12 +12,12 @@
 
 """
 
-__copyright__ = "Copyright 2023, Istituto di RadioAstronomia, Radiotelescopi di Medicina, INAF, Italy"
+__copyright__ = "Copyright 2024, Istituto di RadioAstronomia, Radiotelescopi di Medicina, INAF, Italy"
 __author__ = "Andrea Mattana"
 __credits__ = ["Andrea Mattana"]
 __license__ = "BSD3"
-__version__ = "2.1.1"
-__release__ = "2024-06-21"
+__version__ = "2.2.0"
+__release__ = "2024-07-09"
 __maintainer__ = "Andrea Mattana"
 
 import gc

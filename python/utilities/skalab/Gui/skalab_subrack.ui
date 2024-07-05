@@ -889,9 +889,9 @@
     <widget class="QLabel" name="qline_ip">
      <property name="geometry">
       <rect>
-       <x>90</x>
+       <x>86</x>
        <y>10</y>
-       <width>151</width>
+       <width>141</width>
        <height>31</height>
       </rect>
      </property>

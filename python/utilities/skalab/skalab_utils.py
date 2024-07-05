@@ -25,8 +25,18 @@ from PyQt5.QtCore import pyqtSignal, QSize, QByteArray, QRectF, pyqtProperty
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtWidgets import QWidget
 
-COLORI = ["b", "g", "k", "r", "orange", "magenta", "darkgrey", "turquoise"] * 4
+min_api_version = "v2.5.1"
+min_bios_version = "v1.6.0"
 
+#COLORI = ["b", "g", "k", "r", "orange", "magenta", "darkgrey", "turquoise"] * 4
+COLORI = [QtGui.QColor("blue"),
+          QtGui.QColor("green"),
+          QtGui.QColor("black"),
+          QtGui.QColor("red"),
+          QtGui.QColor("orange"),
+          QtGui.QColor("magenta"),
+          QtGui.QColor("darkgrey"),
+          QtGui.QColor("turquoise")] * 4
     
 def parse_profile(config=""):
     confparser = configparser.ConfigParser()
@@ -74,9 +84,16 @@ def getTextFromFile(fname):
         return text
 
 
+class clickableQLabel(QtWidgets.QLabel):
+    clicked = pyqtSignal()
+
+    def mousePressEvent(self, ev):
+        self.clicked.emit()
+
+
 class MiniCanvas(FigureCanvas):
     def __init__(self, nplot, parent=None, dpi=100, xlabel="MHz", ylabel="dB",
-                 xlim=[0, 400], ylim=[-80, -20], size=(11.5, 6.7)):
+                 xlim=[0, 400], ylim=[-80, -20], size=(11.5, 6.7), title=""):
         self.nplot = nplot
         self.dpi = dpi
         self.fig = Figure(size, dpi=self.dpi, facecolor='white')
@@ -87,7 +104,10 @@ class MiniCanvas(FigureCanvas):
                                              int(np.ceil(math.sqrt(self.nplot))), i + 1)]
             self.ax[i].xaxis.set_label_text(xlabel, fontsize=7)
             self.ax[i].yaxis.set_label_text(ylabel, fontsize=9)
-            self.ax[i].set_title("INPUT-%02d" % (i + 1), fontsize=10)
+            if title == "":
+                self.ax[i].set_title("INPUT-%02d" % (i + 1), fontsize=10)
+            else:
+                self.ax[i].set_title(title, fontsize=10)
             self.ax[i].tick_params(axis='both', which='minor', labelsize=8)
             self.ax[i].tick_params(axis='both', which='both', labelsize=8)
             self.ax[i].set_ylim(ylim)
@@ -100,12 +120,12 @@ class MiniCanvas(FigureCanvas):
 class MiniPlots(QtWidgets.QWidget):
     """ Class encapsulating a matplotlib plot"""
     def __init__(self, parent=None, nplot=16, dpi=100, xlabel="MHz", ylabel="dB", xlim=[0, 400],
-                 ylim=[-80, -20], size=(11.2, 6.8)):
+                 ylim=[-80, -20], size=(11.2, 6.8), title=""):
         QtWidgets.QWidget.__init__(self, parent)
         """ Class initialiser """
         self.nplot = nplot
         self.canvas = MiniCanvas(self.nplot, parent=parent, dpi=dpi, xlabel=xlabel,
-                                 ylabel=ylabel, xlim=xlim, ylim=ylim, size=size)
+                                 ylabel=ylabel, xlim=xlim, ylim=ylim, size=size, title=title)
         self.updateGeometry()
         self.vbl = QtWidgets.QVBoxLayout()
         self.vbl.addWidget(self.canvas)
@@ -121,39 +141,44 @@ class MiniPlots(QtWidgets.QWidget):
             self.canvas.ax[i].set_visible(visu)
         self.canvas.draw()
 
-    def plotCurve(self, assex, data, ant, xAxisRange=None, yAxisRange=None, colore="b", xLabel="", yLabel="", title="",
+    def plotCurve(self, assex, data, ant, name="", xAxisRange=None, yAxisRange=None, colore=QtGui.QColor("blue"), xLabel="", yLabel="", title="",
                   titlesize=10, rfpower=0, annotate_rms=False, rms_position=-20, grid=False, show_line=True, lw=1, markersize=1):
         """ Plot the data as a curve"""
         self.titlesize = titlesize
         from_scratch = True
+        nome_serie = name
+        if name == "":
+            nome_serie = colore.name()
         if len(data) != 0:
-            if (colore + 'line') in self.plots[int(ant)].keys():
-                if len(self.plots[int(ant)][colore + 'line'].get_ydata()) == len(data):
-                    self.plots[int(ant)][colore + 'line'].set_data(assex, data)
-                    self.plots[int(ant)][colore + 'line'].set_visible(show_line)
-                    self.plots[int(ant)][colore + 'line'].set_lw(lw)
-                    self.plots[int(ant)][colore + 'line'].set_markersize(markersize)
-                    self.plots[int(ant)][colore + 'line'].set_marker(".")
-                    self.plots[int(ant)][colore + 'line'].set_color(colore)
+            if (nome_serie + 'line') in self.plots[int(ant)].keys():
+                if len(self.plots[int(ant)][nome_serie + 'line'].get_ydata()) == len(data):
+                    self.plots[int(ant)][nome_serie + 'line'].set_data(assex, data)
+                    self.plots[int(ant)][nome_serie + 'line'].set_visible(show_line)
+                    self.plots[int(ant)][nome_serie + 'line'].set_lw(lw)
+                    self.plots[int(ant)][nome_serie + 'line'].set_markersize(markersize)
+                    self.plots[int(ant)][nome_serie + 'line'].set_marker(".")
+                    self.plots[int(ant)][nome_serie + 'line'].set_color(colore.name())
                     from_scratch = False
             if from_scratch:
-                line, = self.canvas.ax[int(ant)].plot(assex, data, color=colore, lw=lw, markersize=markersize, marker=".")
-                self.plots[int(ant)][colore + 'line'] = line
-                self.plots[int(ant)][colore + 'line'].set_visible(show_line)
+                line, = self.canvas.ax[int(ant)].plot(assex, data, color=colore.name(), lw=lw, markersize=markersize,
+                                                      marker=".", label=name)
+                self.plots[int(ant)][nome_serie + 'line'] = line
+                self.plots[int(ant)][nome_serie + 'line'].set_visible(show_line)
+                self.plots[int(ant)][nome_serie + 'label'] = name
                 if colore == "b":
                     ann = self.canvas.ax[ant].annotate("%3.1f" % rfpower + " dBm",
                                                        (xAxisRange[0] + 20, rms_position),
-                                                       fontsize=(titlesize - 2), color=colore)
+                                                       fontsize=(titlesize - 2), color=colore.name())
                 else:
                     ann = self.canvas.ax[ant].annotate("%3.1f" % rfpower + " dBm",
                                                        (xAxisRange[1] - 130, rms_position),
-                                                       fontsize=(titlesize - 2), color=colore)
-                self.plots[int(ant)][colore + 'rms'] = ann
-                self.plots[int(ant)][colore + 'rmsvalue'] = rfpower
+                                                       fontsize=(titlesize - 2), color=colore.name())
+                self.plots[int(ant)][nome_serie + 'rms'] = ann
+                self.plots[int(ant)][nome_serie + 'rmsvalue'] = rfpower
                 self.plots[int(ant)]['xAxisRange'] = xAxisRange
                 self.plots[int(ant)]['yAxisRange'] = yAxisRange
-                self.plots[int(ant)][colore + 'show_rms'] = annotate_rms
-                self.plots[int(ant)][colore + 'show_rms_pos'] = rms_position
+                self.plots[int(ant)][nome_serie + 'show_rms'] = annotate_rms
+                self.plots[int(ant)][nome_serie + 'show_rms_pos'] = rms_position
             if xAxisRange is not None:
                 self.canvas.ax[ant].set_xlim(xAxisRange)
             if yAxisRange is not None:
@@ -167,9 +192,9 @@ class MiniPlots(QtWidgets.QWidget):
             if grid:
                 self.canvas.ax[ant].grid(grid)
             if show_line:
-                self.plots[int(ant)][colore + 'rms'].set_visible(annotate_rms)
+                self.plots[int(ant)][nome_serie + 'rms'].set_visible(annotate_rms)
             else:
-                self.plots[int(ant)][colore + 'rms'].set_visible(False)
+                self.plots[int(ant)][nome_serie + 'rms'].set_visible(False)
 
     def plotSpectrogram(self, spettrogramma, ant, title="", startfreq=0, stopfreq=400,
                         xmin=0, xmax=500, ytickstep=5, wclim=(-100, -10)):
@@ -188,14 +213,14 @@ class MiniPlots(QtWidgets.QWidget):
         self.canvas.ax[ant].yaxis.set_label_text("MHz", fontsize=9)
         self.canvas.ax[ant].set_title(title, fontsize=10)
 
-    def plotPower(self, assex, data, ant, xAxisRange=None, yAxisRange=None, colore="b", xLabel="", yLabel="", title="",
+    def plotPower(self, assex, data, ant, xAxisRange=None, yAxisRange=None, colore=QtGui.QColor("blue"), xLabel="", yLabel="", title="",
                   titlesize=10, grid=False, show_line=True, lw=1, xdatetime=False):
         """ Plot the data as a curve"""
         self.titlesize = titlesize
         if len(data) != 0:
-            line, = self.canvas.ax[int(ant)].plot(assex, data, color=colore, lw=lw, markersize=1, marker=".")
-            self.plots[int(ant)][colore + 'line'] = line
-            self.plots[int(ant)][colore + 'line'].set_visible(show_line)
+            line, = self.canvas.ax[int(ant)].plot(assex, data, color=colore.name(), lw=lw, markersize=1, marker=".")
+            self.plots[int(ant)][colore.name() + 'line'] = line
+            self.plots[int(ant)][colore.name() + 'line'].set_visible(show_line)
             if not xAxisRange == None:
                 if not xdatetime:
                     if xAxisRange[0] == xAxisRange[1]:
@@ -252,9 +277,28 @@ class MiniPlots(QtWidgets.QWidget):
         self.canvas.draw()
         #self.show()
 
+    def showLegend(self, names=None):
+        lg = self.canvas.ax[0].get_legend()
+        if lg:
+            lg.remove()
+        lines = []
+        labels = []
+        if names:
+            for n in names:
+                lines += [self.plots[0][n + 'line']]
+                labels += [self.plots[0][n + 'label']]
+            self.canvas.ax[0].legend(lines, labels)
+        self.canvas.draw()
+
     def set_x_limits(self, xAxisRange):
         for i in range(self.nplot):
             self.canvas.ax[i].set_xlim(xAxisRange)
+        self.canvas.draw()
+        #self.show()
+
+    def set_line_width(self, names, lw):
+        for n in names:
+            self.plots[0][n + 'line'].set_linewidth(lw)
         self.canvas.draw()
         #self.show()
 
@@ -283,13 +327,23 @@ class MiniPlots(QtWidgets.QWidget):
         self.canvas.draw()
         #self.show()
 
-    def hide_line(self, colore, visu=True):
+    def hide_line(self, nome_serie, visu=True):
         for n in range(self.nplot):
-            if colore + 'line' in self.plots[n].keys():
-                self.plots[n][colore + 'line'].set_visible(visu)
-            if colore + 'rms' in self.plots[n].keys():
-                self.plots[n][colore + 'rms'].set_visible(visu)
-            self.plots[n][colore + 'show_rms'] = visu
+            if nome_serie + 'line' in self.plots[n].keys():
+                self.plots[n][nome_serie + 'line'].set_visible(visu)
+            if nome_serie + 'rms' in self.plots[n].keys():
+                self.plots[n][nome_serie + 'rms'].set_visible(visu)
+            self.plots[n][nome_serie + 'show_rms'] = visu
+        self.canvas.draw()
+
+    def hide_lines(self, lista_nomi, visu=True):
+        for nome_serie in lista_nomi:
+            for n in range(self.nplot):
+                if nome_serie + 'line' in self.plots[n].keys():
+                    self.plots[n][nome_serie + 'line'].set_visible(visu)
+                if nome_serie + 'rms' in self.plots[n].keys():
+                    self.plots[n][nome_serie + 'rms'].set_visible(visu)
+                self.plots[n][nome_serie + 'show_rms'] = visu
         self.canvas.draw()
 
     def hide_annotation(self, pols=['b', 'g'], visu=True):
@@ -811,7 +865,7 @@ class BarPlot(QtWidgets.QWidget):
     def plotBar(self, data, bar, color):
         """ Plot the data as Bars"""
         self.bars[bar].set_height(data)
-        self.bars[bar].set_color(color)
+        self.bars[bar].set_color(color.name())
 
     def plotAxBars(self, ydata, xdata):
         """ Plot the data as Bars"""
@@ -885,7 +939,7 @@ class ChartPlots(QtWidgets.QWidget):
     #
     def plotCurve(self, data, trace, color):
         self.canvas.lines[trace].set_ydata(data)
-        self.canvas.lines[trace].set_color(color)
+        self.canvas.lines[trace].set_color(color.name())
 
     def showGrid(self, show_grid=True):
         self.canvas.ax.grid(show_grid)
