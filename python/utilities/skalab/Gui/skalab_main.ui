@@ -462,7 +462,7 @@
    </widget>
    <widget class="QWidget" name="qtabLive">
     <attribute name="title">
-     <string>Live Monitor</string>
+     <string>TPM Live</string>
     </attribute>
     <widget class="QWidget" name="qwLive" native="true">
      <property name="geometry">

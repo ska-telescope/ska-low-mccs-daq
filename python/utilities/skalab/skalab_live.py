@@ -99,7 +99,7 @@ class Live(SkalabBase):
         # Load window file
         self.setCentralWidget(self.wg)
         self.resize(size[0], size[1])
-        self.populate_table_profile()
+        #self.populate_table_profile()
         self.updateRequest = False
 
         self.preadu_version = self.profile['Live']['preadu_version']
@@ -127,10 +127,12 @@ class Live(SkalabBase):
         self.qw_preadu.show()
         self.wpreadu = PreaduGui(parent=self.qw_preadu, debug=0, preadu_version=self.preadu_version)
         if self.preadu_version == "2.0":
-            self.wg.qcombo_preadu_version.setCurrentIndex(3)
+            self.wg.qcombo_preadu_version.setCurrentIndex(4)
         elif self.preadu_version == "2.1":
-            self.wg.qcombo_preadu_version.setCurrentIndex(2)
+            self.wg.qcombo_preadu_version.setCurrentIndex(3)
         elif self.preadu_version == "2.2":
+            self.wg.qcombo_preadu_version.setCurrentIndex(2)
+        elif self.preadu_version == "3.0":
             self.wg.qcombo_preadu_version.setCurrentIndex(1)
         else:
             self.wg.qcombo_preadu_version.setCurrentIndex(0)
@@ -222,6 +224,17 @@ class Live(SkalabBase):
         self.stationIps = station.configuration['tiles']
         self.updateComboIps(self.stationIps)
         self.customizeMapping()
+
+        if self.alarm:
+            if len(self.newKeys):
+                self.wg.tabWidget.tabBar().setTabTextColor(1, QtGui.QColor(25, 255, 25))
+            if len(self.errorKeys):
+                self.wg.tabWidget.tabBar().setTabTextColor(1, QtGui.QColor(255, 25, 25))
+            icon = QtGui.QIcon()
+            icon.addPixmap(QtGui.QPixmap("Pictures/Icons/icon_warning_16.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+            self.wg.tabWidget.tabBar().setTabIcon(1, icon)
+        #icon = QtGui.QIcon()
+        #self.wg.tabWidget.tabBar().setTabIcon(1, icon)
 
     def load_events(self):
         # Live Plots Connections
