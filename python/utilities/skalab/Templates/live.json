@@ -45,7 +45,7 @@
             "value": "~/.skalab/data/pictures"
         },
         "log": {
-            "desc": "Log Path",
+            "desc": "Live Log Path",
             "type": "path",
             "value": "~/.skalab/data/log"
         },
@@ -63,6 +63,18 @@
             "desc": "The Station File",
             "type": "file",
             "value": "/opt/aavs/config/aavs2.yml"
+        }
+    },
+    "Log": {
+        "path": {
+            "desc": "Live log directory",
+            "type": "path",
+            "value": "~/.skalab/log"
+        },
+        "n_entries": {
+            "desc": "Number of the maximum entries that will be shown in the log QTextEdit Widget, managed as FIFO",
+            "type": "int",
+            "value": "100"
         }
     }
 }
