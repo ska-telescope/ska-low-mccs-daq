@@ -18,7 +18,7 @@ class ConfWizard(QtWidgets.QMainWindow):
         self.open = True
 
         self.wg = QtWidgets.QMainWindow()
-        self.wg.resize(1200, 900)
+        self.wg.resize(1200, 940)
         self.wg.setWindowTitle("SKALAB Configuration Wizard")
 
         pic_wizard = QtWidgets.QLabel(self.wg)
@@ -96,7 +96,12 @@ class SkalabBase(QtWidgets.QMainWindow):
         self.connected = False
         self.profile = {}
         self.jprofile = {}
+        self.newKeys = []
+        self.errorKeys = []
+        self.alarm = False
         self.wgProfile = uic.loadUi("Gui/skalab_profile.ui", parent)
+        self.wgProfile.qlabel_errors.setVisible(False)
+        self.wgProfile.qlabel_newkeys.setVisible(False)
         self.wgProfile.qbutton_load.clicked.connect(lambda: self.load())
         self.wgProfile.qbutton_saveas.clicked.connect(lambda: self.save_as_profile())
         self.wgProfile.qbutton_save.clicked.connect(lambda: self.save_profile())
@@ -224,9 +229,78 @@ class SkalabBase(QtWidgets.QMainWindow):
             self.profile = self.readConfig(fullPath)
             self.jprofile = self.readJson("Templates/" + App.lower() + ".json")
             self.clear()
+            self.validateProfile()
+            for k in self.newKeys:
+                if "," not in k:
+                    self.profile[k] = {}
+                else:
+                    self.profile[k.split(",")[0]][k.split(",")[1]] = self.jprofile[k.split(",")[0]][k.split(",")[1]]['value']
+            if not self.newKeys == []:
+                self.wgProfile.qlabel_newkeys.setVisible(True)
+            if not self.errorKeys == []:
+                self.wgProfile.qlabel_errors.setVisible(True)
+                #print("Trovate nuove chiavi\n", self.newKeys)
+                # msgBox = QtWidgets.QMessageBox()
+                # message = ("Found new sections/keys in JSON profile that are missing in the local profile file: <br>" +
+                #            "<br>&nbsp;&nbsp;&nbsp;<b>" + self.profile['Base']['app'] + "/" +
+                #            self.profile['Base']['profile'] + "</b>  <br>" +
+                #            "<br>They will be automatically added with their default values.<br>" +
+                #            "<br>Please check them (<span style='color: #000000; background-color: #99cc00;'>" +
+                #            "GREEN</span>) and adjust with your needs.<br>")
+                # msgBox.setText(message)
+                # msgBox.setWindowTitle("WARNING: Found new Profile items")
+                # msgBox.setIcon(QtWidgets.QMessageBox.Information)
+                # details = ""
+                # for k in self.newKeys:
+                #     if not "," in k:
+                #         details += "SECTION: " + k + "\n"
+                #         self.profile[k] = {}
+                #     else:
+                #         details += "   - " + k.replace(",", ":  ") + "\n"
+                #         self.profile[k.split(",")[0]][k.split(",")[1]] = self.jprofile[k.split(",")[0]][k.split(",")[1]]['value']
+                # msgBox.setDetailedText(details)
+                # msgBox.exec_()
+            #print(self.newKeys)
+            if (not self.errorKeys == []) or ():
+                self.alarm = True
             self.populate_table_profile()
             self.updateProfileCombo(current=Profile)
             self.reload()
+
+    def validateProfile(self):
+        self.newKeys = []
+        self.errorKeys = []
+        for kj_section in self.jprofile.keys():
+            if kj_section in self.profile.keys():
+                for kj_attribute in self.jprofile[kj_section]:
+                    if not kj_attribute in self.profile[kj_section]:
+                        self.newKeys += [kj_section + "," + kj_attribute]
+                    else:
+                        if self.jprofile[kj_section][kj_attribute]['type'] == "int":
+                            try:
+                                foo = int(self.profile[kj_section][kj_attribute])
+                            except:
+                                self.errorKeys += [kj_section + "," + kj_attribute]
+                        elif self.jprofile[kj_section][kj_attribute]['type'] == "float":
+                            try:
+                                foo = float(self.profile[kj_section][kj_attribute])
+                            except:
+                                self.errorKeys += [kj_section + "," + kj_attribute]
+                        elif self.jprofile[kj_section][kj_attribute]['type'] == "string":
+                            try:
+                                foo = str(self.profile[kj_section][kj_attribute])
+                            except:
+                                self.errorKeys += [kj_section + "," + kj_attribute]
+                        elif self.jprofile[kj_section][kj_attribute]['type'] == "path":
+                            if not os.path.exists(self.profile[kj_section][kj_attribute]):
+                                self.errorKeys += [kj_section + "," + kj_attribute]
+                        elif self.jprofile[kj_section][kj_attribute]['type'] == "file":
+                            if not os.path.isfile(self.profile[kj_section][kj_attribute]):
+                                self.errorKeys += [kj_section + "," + kj_attribute]
+            else:
+                self.newKeys += [kj_section]
+                for kj_attribute in self.jprofile[kj_section]:
+                    self.newKeys += [kj_section + "," + kj_attribute]
 
     def delete_profile(self, profile_name):
         result = QtWidgets.QMessageBox.question(self,
@@ -331,6 +405,9 @@ class SkalabBase(QtWidgets.QMainWindow):
             font.setBold(True)
             font.setWeight(75)
             item.setFont(font)
+            item.setForeground(QtGui.QBrush(QtGui.QColor(0, 0, 0)))
+            if i in self.newKeys:
+                item.setBackground(QtGui.QBrush(QtGui.QColor(0, 255, 0)))
             self.wgProfile.qtable_conf.setVerticalHeaderItem(q, item)
             item = QtWidgets.QTableWidgetItem(" ")
             item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
@@ -341,11 +418,16 @@ class SkalabBase(QtWidgets.QMainWindow):
                 item = QtWidgets.QTableWidgetItem(k)
                 item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
                 item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item.setForeground(QtGui.QBrush(QtGui.QColor(0, 0, 0)))
+                if (i+","+k) in self.newKeys:
+                    item.setBackground(QtGui.QBrush(QtGui.QColor(0, 255, 0)))
                 self.wgProfile.qtable_conf.setVerticalHeaderItem(q, item)
-                #print(i, k, self.profile[i][k]['value'])
                 item = QtWidgets.QTableWidgetItem(str(self.profile[i][k]))
                 item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
                 item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item.setForeground(QtGui.QBrush(QtGui.QColor(0, 0, 0)))
+                if (i+","+k) in self.errorKeys:
+                    item.setBackground(QtGui.QBrush(QtGui.QColor(255, 0, 0)))
                 self.wgProfile.qtable_conf.setItem(q, 0, item)
                 q = q + 1
             item = QtWidgets.QTableWidgetItem(" ")

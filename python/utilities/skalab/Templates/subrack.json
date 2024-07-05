@@ -59,5 +59,17 @@
             "type": "float",
             "value": 3.0
         }
+    },
+    "Log": {
+        "path": {
+            "desc": "Subrack log directory",
+            "type": "path",
+            "value": "~/.skalab/log"
+        },
+        "n_entries": {
+            "desc": "Number of the maximum entries that will be shown in the log QTextEdit Widget, managed as FIFO",
+            "type": "int",
+            "value": "100"
+        }
     }
 }

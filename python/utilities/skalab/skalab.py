@@ -16,8 +16,8 @@ __copyright__ = "Copyright 2023, Istituto di RadioAstronomia, Radiotelescopi di 
 __author__ = "Andrea Mattana"
 __credits__ = ["Andrea Mattana"]
 __license__ = "BSD3"
-__version__ = "2.0.5"
-__release__ = "2023-10-03"
+__version__ = "2.1.1"
+__release__ = "2024-06-21"
 __maintainer__ = "Andrea Mattana"
 
 import gc
@@ -94,6 +94,31 @@ def runWizard(fullpath=""):
             gc.collect()
 
 
+# class ProfileSelector(QtWidgets.QDialog):
+#     def __init__(self, App=""):
+#         super(ProfileSelector).__init__()
+#         Form.setObjectName("Form")
+#         Form.resize(272, 161)
+#         self.comboBox = QtWidgets.QComboBox(Form)
+#         self.comboBox.setGeometry(QtCore.QRect(30, 60, 211, 25))
+#         self.comboBox.setObjectName("comboBox")
+#         self.button_cancel = QtWidgets.QPushButton(Form)
+#         self.button_cancel.setGeometry(QtCore.QRect(30, 110, 89, 25))
+#         self.button_cancel.setObjectName("button_cancel")
+#         self.button_select = QtWidgets.QPushButton(Form)
+#         self.button_select.setGeometry(QtCore.QRect(150, 110, 89, 25))
+#         self.button_select.setObjectName("button_select")
+#         self.label = QtWidgets.QLabel(Form)
+#         self.label.setGeometry(QtCore.QRect(30, 20, 211, 20))
+#         self.label.setAlignment(QtCore.Qt.AlignCenter)
+#         self.label.setObjectName("label")
+#
+#         Form.setWindowTitle("Form")
+#         self.button_cancel.setText("Cancel")
+#         self.button_select.setText("Select")
+#         self.label.setText("Select a Profile for")
+#
+#
 class SkaLab(QtWidgets.QMainWindow):
     """ Main UI Window class """
 
@@ -108,6 +133,7 @@ class SkaLab(QtWidgets.QMainWindow):
         self.profile_name = ""
         self.profile_file = ""
         self.load_profile(profile)
+        self.wg.qtable_profile.cellDoubleClicked.connect(self.editValue)
         self.updateProfileCombo(current=self.profile_name)
 
         self.tabStationIndex = 1
@@ -150,6 +176,17 @@ class SkaLab(QtWidgets.QMainWindow):
         self.wgLive.signalRms.connect(self.wgLive.updateRms)
         self.wgLiveLayout.addWidget(self.wgLive)
         self.wg.qwLive.setLayout(self.wgLiveLayout)
+        #if not self.wgLive.errorKeys == []:
+        if True:
+            #print("RICOLORO")
+            #self.wg.qtabMain.setTabText(self.wg.qtabMain.indexOf(self.wg.qtabLive),
+            #                            "<span style='color: #000000; background-color: #99cc00;'>TPM Live</span>")
+            self.wg.qtabMain.tabBar().setTabTextColor(self.tabLiveIndex, QtGui.QColor(25, 25, 255))
+            icon = QtGui.QIcon()
+            icon.addPixmap(QtGui.QPixmap("Pictures/Icons/icon_warning_16.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+            self.wg.qtabMain.tabBar().setTabIcon(self.tabLiveIndex, icon)
+            #self.wg.qtabMain.tabBar().setTabTextColor(0, QtGui.QColor(25, 255, 25))
+            #self.wg.qtabMain.tabBar().setTabTextColor(1, QtGui.QColor(255, 25, 25))
 
         QtWidgets.QTabWidget.setTabVisible(self.wg.qtabMain, self.tabPlayIndex, True)
         self.wgPlayLayout = QtWidgets.QVBoxLayout()
@@ -206,6 +243,36 @@ class SkaLab(QtWidgets.QMainWindow):
         self.wg.qbutton_profile_saveas.clicked.connect(lambda: self.save_as_profile())
         self.wg.qbutton_profile_load.clicked.connect(lambda: self.reload_profile(self.wg.qcombo_profiles.currentText()))
         self.wg.qbutton_profile_delete.clicked.connect(lambda: self.delete_profile(self.wg.qcombo_profiles.currentText()))
+
+    def editValue(self, row, col):
+        items = ["Spring", "Summer", "Fall", "Winter"]
+
+        item, ok = QtWidgets.QInputDialog().getItem(self, "QInputDialog().getItem()",
+                                          "Season:", items, 0, False)
+        if ok and not item == "":
+            print(item)
+
+        # # Base keys cannot be edited
+        # if row > 1:
+        #     key = self.wg.qtable_profile.verticalHeaderItem(row)
+        #     if key is not None:
+        #         if not key.text() == " " and not "[" in key.text():
+        #
+            #         self.wgProfile.qline_row.setText(str(row))
+            #         self.wgProfile.qline_col.setText(str(col))
+            #         self.wgProfile.qline_edit_key.setText(key.text())
+            #         for s in self.jprofile.keys():
+            #             #print(self.jprofile[s].keys())
+            #             if key.text() in self.jprofile[s].keys():
+            #                 self.wgProfile.qlabel_type.setText(str(self.jprofile[s][key.text()]['type']))
+            #                 self.wgProfile.qlabel_desc.setText(str(self.jprofile[s][key.text()]['desc']))
+            #                 break
+            #         NewIndex = self.wgProfile.qtable_conf.currentIndex().siblingAtColumn(0)
+            #         self.wgProfile.qline_edit_value.setText(NewIndex.data())
+            #         item = self.wgProfile.qtable_conf.item(row, col)
+            #         if item:
+            #             self.wgProfile.qline_edit_newvalue.setText(item.text())
+            #             # print(row, col, item.text())
 
     def procUpdateChildren(self):
         while True:

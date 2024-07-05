@@ -635,12 +635,12 @@ class TileInitialization(SkalabBase):
         self.wg.qtable_network.setObjectName("conf_qtable_network")
         self.wg.qtable_network.setColumnCount(1)
 
-        total_rows = len(station.configuration['network'].keys()) * 2 - 1
+        total_rows = len(station.configuration['network'].keys()) + 1
         for i in station.configuration['network'].keys():
-            try:
-                total_rows += len(station.configuration['network'][i])
-            except TypeError:
-                pass
+            if type(station.configuration['network'][i]) is dict:
+                total_rows = total_rows + len(station.configuration['network'][i])
+            else:
+                total_rows = total_rows + 1
         self.wg.qtable_network.setRowCount(total_rows)
         item = QtWidgets.QTableWidgetItem("SECTION: NETWORK")
         font = QtGui.QFont()
@@ -652,14 +652,6 @@ class TileInitialization(SkalabBase):
         self.wg.qtable_network.setHorizontalHeaderItem(0, item)
         n = 0
         for i in station.configuration['network'].keys():
-            if i == 'tile_40g_subnet': ##TODO Added tile40g subnet implementation?
-                self.wg.qtable_network.setVerticalHeaderItem(n, QtWidgets.QTableWidgetItem(i.upper()))
-                item = QtWidgets.QTableWidgetItem(str(station.configuration['network'][i]))
-                item.setTextAlignment(QtCore.Qt.AlignLeft)
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
-                self.wg.qtable_network.setItem(n, 0, item)
-                n = n + 1
-                continue
             if n:
                 item = QtWidgets.QTableWidgetItem(" ")
                 item.setTextAlignment(QtCore.Qt.AlignCenter)
@@ -670,26 +662,36 @@ class TileInitialization(SkalabBase):
                 item.setFlags(QtCore.Qt.ItemIsEnabled)
                 self.wg.qtable_network.setItem(n, 0, item)
                 n = n + 1
-            self.wg.qtable_network.setVerticalHeaderItem(n, QtWidgets.QTableWidgetItem(str(i).upper()))
+            item = QtWidgets.QTableWidgetItem(str(i).upper())
+            item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            font = QtGui.QFont()
+            font.setBold(True)
+            font.setWeight(75)
+            item.setFont(font)
+            self.wg.qtable_network.setVerticalHeaderItem(n, item)
             item = QtWidgets.QTableWidgetItem(" ")
             item.setFlags(QtCore.Qt.ItemIsEnabled)
             self.wg.qtable_network.setItem(n, 0, item)
             n = n + 1
-            try:    
+            if type(station.configuration['network'][i]) is dict:
                 for k in sorted(station.configuration['network'][i].keys()):
                     self.wg.qtable_network.setVerticalHeaderItem(n, QtWidgets.QTableWidgetItem(str(k).upper()))
                     if "MAC" in str(k).upper() and not str(station.configuration['network'][i][k]) == "None":
                         item = QtWidgets.QTableWidgetItem(hex(station.configuration['network'][i][k]).upper())
                     else:
                         item = QtWidgets.QTableWidgetItem(str(station.configuration['network'][i][k]))
-                    item.setTextAlignment(QtCore.Qt.AlignLeft)
+                    item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
                     item.setFlags(QtCore.Qt.ItemIsEnabled)
                     self.wg.qtable_network.setItem(n, 0, item)
                     n = n + 1
-            except AttributeError:
-                ##TODO Added tile40g subnet implementation?
-                pass
-
+            else:
+                if station.configuration['network'][i] is None:
+                    item = QtWidgets.QTableWidgetItem("None")
+                else:
+                    item = QtWidgets.QTableWidgetItem(station.configuration['network'][i])
+                item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                self.wg.qtable_network.setItem(n-1, 0, item)
         self.wg.qtable_network.horizontalHeader().setStretchLastSection(True)
         self.wg.qtable_network.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.wg.qtable_network.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
