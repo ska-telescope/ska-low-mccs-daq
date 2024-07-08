@@ -41,6 +41,7 @@
       {{- $_ := set $daqs_to_egress $bandpass_daq_name $bandpass_daq_spec}}
     {{- else}}
       {{- $daq_to_launch := pick $cluster_daq_spec "annotations" "node_selector" "affinity" "tolerations"}}
+      {{- $_ := set $daq_to_launch "expose_data_service" true}}
       {{- $_ := set $daq_to_launch "nvidia_gpu" false}}
       {{- $_ := set $daqs_to_launch $bandpass_daq_name $daq_to_launch}}
     {{- end}}
