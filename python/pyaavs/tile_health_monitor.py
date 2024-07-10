@@ -450,6 +450,9 @@ class TileHealthMonitor():
             maximum alarm thresholds for the fpga1 (unit: Degree Celsius)
         :param fpga2_alarm_threshold: A tuple containing the minimum and 
             maximum alarm thresholds for the fpga2 (unit: Degree Celsius)
+
+        :raises ValueError: If attempting to set a value outside the specified
+            limit 20-50.
         """
         if self.tpm_version() != "tpm_v1_6":
             self.logger.info("this method only supports tpm_v1_6.")
@@ -471,17 +474,17 @@ class TileHealthMonitor():
             if _is_in_range_20_50(board_alarm_threshold[0]) and _is_in_range_20_50(board_alarm_threshold[1]):
                 self.tpm.tpm_monitor[0].set_board_alm_temp_thresholds(board_alarm_threshold[0], board_alarm_threshold[1])
             else:
-                self.logger.info(f"{board_alarm_threshold=} not in capped range 20-50. Doing nothing")
+                raise ValueError(f"{board_alarm_threshold=} not in capped range 20-50. Doing nothing")
         if fpga1_alarm_threshold is not None:
             if _is_in_range_20_50(fpga1_alarm_threshold[0]) and _is_in_range_20_50(fpga1_alarm_threshold[1]):
                 self.tpm.tpm_monitor[0].set_fpgas_alm_temp_thresholds(fpga1_alarm_threshold[0], fpga1_alarm_threshold[1], fpga_id=0)
             else:
-                self.logger.info(f"{fpga1_alarm_threshold=} not in capped range 20-50. Doing nothing")
+                raise ValueError(f"{fpga1_alarm_threshold=} not in capped range 20-50. Doing nothing")
         if fpga2_alarm_threshold is not None:
             if _is_in_range_20_50(fpga2_alarm_threshold[0]) and _is_in_range_20_50(fpga2_alarm_threshold[1]):
                 self.tpm.tpm_monitor[0].set_fpgas_alm_temp_thresholds(fpga2_alarm_threshold[0], fpga2_alarm_threshold[1], fpga_id=1)
             else:
-                self.logger.debug(f"{fpga2_alarm_threshold=} not in capped range 20-50. Doing nothing")
+                raise ValueError(f"{fpga2_alarm_threshold=} not in capped range 20-50. Doing nothing")
 
 
     def get_voltage(self, fpga_id=None, voltage_name=None):
