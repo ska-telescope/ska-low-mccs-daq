@@ -470,21 +470,23 @@ class TileHealthMonitor():
                 return True
             return False
 
+        # Check all values are in range
         if board_alarm_threshold is not None:
-            if _is_in_range_20_50(board_alarm_threshold[0]) and _is_in_range_20_50(board_alarm_threshold[1]):
-                self.tpm.tpm_monitor[0].set_board_alm_temp_thresholds(board_alarm_threshold[0], board_alarm_threshold[1])
-            else:
+            if not (_is_in_range_20_50(board_alarm_threshold[0]) and _is_in_range_20_50(board_alarm_threshold[1])):
                 raise ValueError(f"{board_alarm_threshold=} not in capped range 20-50. Doing nothing")
         if fpga1_alarm_threshold is not None:
-            if _is_in_range_20_50(fpga1_alarm_threshold[0]) and _is_in_range_20_50(fpga1_alarm_threshold[1]):
-                self.tpm.tpm_monitor[0].set_fpgas_alm_temp_thresholds(fpga1_alarm_threshold[0], fpga1_alarm_threshold[1], fpga_id=0)
-            else:
+            if not (_is_in_range_20_50(fpga1_alarm_threshold[0]) and _is_in_range_20_50(fpga1_alarm_threshold[1])):
                 raise ValueError(f"{fpga1_alarm_threshold=} not in capped range 20-50. Doing nothing")
         if fpga2_alarm_threshold is not None:
-            if _is_in_range_20_50(fpga2_alarm_threshold[0]) and _is_in_range_20_50(fpga2_alarm_threshold[1]):
-                self.tpm.tpm_monitor[0].set_fpgas_alm_temp_thresholds(fpga2_alarm_threshold[0], fpga2_alarm_threshold[1], fpga_id=1)
-            else:
+            if not (_is_in_range_20_50(fpga2_alarm_threshold[0]) and _is_in_range_20_50(fpga2_alarm_threshold[1])):
                 raise ValueError(f"{fpga2_alarm_threshold=} not in capped range 20-50. Doing nothing")
+        
+        if board_alarm_threshold is not None:
+            self.tpm.tpm_monitor[0].set_board_alm_temp_thresholds(board_alarm_threshold[0], board_alarm_threshold[1])
+        if fpga1_alarm_threshold is not None:
+            self.tpm.tpm_monitor[0].set_fpgas_alm_temp_thresholds(fpga1_alarm_threshold[0], fpga1_alarm_threshold[1], fpga_id=0)
+        if fpga2_alarm_threshold is not None:
+            self.tpm.tpm_monitor[0].set_fpgas_alm_temp_thresholds(fpga2_alarm_threshold[0], fpga2_alarm_threshold[1], fpga_id=1)
 
 
     def get_voltage(self, fpga_id=None, voltage_name=None):
