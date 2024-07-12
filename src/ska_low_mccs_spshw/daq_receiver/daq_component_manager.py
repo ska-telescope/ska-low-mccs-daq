@@ -303,14 +303,32 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def stop_daq(
         self: DaqComponentManager,
         task_callback: Optional[Callable] = None,
-    ) -> tuple[ResultCode, str]:
+    ) -> tuple[TaskStatus, str]:
+        """
+        Stop data acquisition.
+
+        :param task_callback: Update task state, defaults to None
+
+        :return: a task status and response message
+        """
+        return self.submit_task(
+            self._stop_daq,
+            task_callback=task_callback,
+        )
+
+    @check_communicating
+    def _stop_daq(
+        self: DaqComponentManager,
+        task_callback: Optional[Callable] = None,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
         """
         Stop data acquisition.
 
         Stops the DAQ receiver and all running consumers.
 
         :param task_callback: Update task state, defaults to None
-        :return: a task status and response message
+        :param task_abort_event: Check for abort, defaults to None
         """
         self.logger.debug("Entering stop_daq")
         if task_callback:
@@ -322,7 +340,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 task_callback(status=TaskStatus.COMPLETED)
             else:
                 task_callback(status=TaskStatus.FAILED)
-        return (result_code, message)
 
     @check_communicating
     def daq_status(
