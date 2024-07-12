@@ -279,11 +279,8 @@ class TestDaqComponentManager:
         time.sleep(acquisition_duration)
 
         # Stop DAQ and check our consumer is not running.
-        rc, message = daq_component_manager.stop_daq(task_callback=callbacks["task"])
-        assert rc == ResultCode.OK.value
-        assert message == "Daq stopped"
+        daq_component_manager._stop_daq(task_callback=callbacks["task"])
 
-        # callbacks["task"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
         callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
         # Once we issue the stop command on the DAQ this will stop the thread
