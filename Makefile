@@ -67,15 +67,17 @@ HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq
 # Helmfile
 ####################
 helmfile-lint:
+	SKIPDEPS=""
 	for environment in aa0.5-production aavs3-production arcetri gmrt low-itf oxford psi-low stfc-ral ; do \
         echo "Linting helmfile against environment '$$environment'" ; \
-		helmfile -e $$environment lint ; \
+		helmfile -e $$environment lint $$SKIPDEPS; \
 		EXIT_CODE=$$? ; \
 		if [ $$EXIT_CODE -gt 0 ]; then \
 		echo "Linting of helmfile against environment '$$environment' FAILED." ; \
 		break ; \
 		fi ; \
-	done ; \
+		SKIPDEPS="--skip-deps" ; \
+	done
 	exit $$EXIT_CODE
 
 .PHONY: helmfile-lint

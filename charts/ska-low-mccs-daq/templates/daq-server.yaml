@@ -2,13 +2,13 @@
 Deploy the DAQ receivers. For example:
 
 receivers:
-  ci-1-bandpass:
+  psi-low-bandpass:
     grpc_port: 50051
-    receiver_interface: net1
-    receiver_ip: 10.0.0.1
+    receiver_nad: psi-low-sps@sdn1
+    receiver_interface: sdn1
     receiver_port: 4660
     nvidia_gpu: true
-    storage: daq-data
+    storage: daq-data-sync
     expose_data_service: true # optional: defaults to false
     node_selector:
       kubernetes.io/hostname: psi-node3
@@ -63,9 +63,9 @@ spec:
   replicas: 1
   template:
     metadata:
-{{- with $spec.annotations }}
+{{- with $spec.receiver_nad }}
       annotations:
-{{ toYaml . | indent 8 }}
+        k8s.v1.cni.cncf.io/networks: {{.}}
 {{- end }}
       labels:
         component: {{$slug}}-server
