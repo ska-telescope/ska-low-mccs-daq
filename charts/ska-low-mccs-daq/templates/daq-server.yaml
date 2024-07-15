@@ -7,6 +7,7 @@ receivers:
     data_port: 4661  # optional; defaults to 4660
     nvidia_gpu: true
     storage: daq-data
+    expose_data_service: true # optional: defaults to false
     node_selector:
       kubernetes.io/hostname: psi-node3
 
@@ -38,6 +39,9 @@ metadata:
   labels:
     component: {{$slug}}
 spec:
+{{- if $spec.expose_data_service}}
+  type: LoadBalancer
+{{- end}}
   ports:
   - name: {{$slug}}-data-port
     port: {{$data_port}}
