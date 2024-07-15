@@ -88,5 +88,5 @@ releases:
     chart: ../charts/ska-low-mccs-daq
     version: 0.6.2
     values:
-      - templates/daq.yaml.gotmpl
-      - templates/helm-values.yaml.gotmpl
+      - .deploy/helmfile.d/templates/daq/daqrxs.yaml.gotmpl
+      - .deploy/helmfile.d/templates/helm-values.yaml.gotmpl
