@@ -1,3 +1,6 @@
 [submodule ".make"]
 	path = .make
 	url = https://gitlab.com/ska-telescope/sdi/ska-cicd-makefile.git
+[submodule "helmfile.d/.deploy"]
+	path = helmfile.d/.deploy
+	url = https://gitlab.com/ska-telescope/ska-low-deployment.git
