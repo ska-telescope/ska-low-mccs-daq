@@ -311,11 +311,11 @@ class Tile(TileHealthMonitor):
         ]
     
     @property
-    def new_spead_header(self):
+    def ska_spead_header(self):
         
         if not self.spead_ska_format_supported:
             return False
-        elif self.tpm[f"fpga1.beamf_ring.control.new_spead_format"] == 1:
+        elif self.tpm[f"fpga1.beamf_ring.control.ska_spead_format"] == 1:
             return True
         else:
             return False
@@ -1848,7 +1848,7 @@ class Tile(TileHealthMonitor):
 
         :return: True if new (SKA) format for CSP SPEAD header is supported
         """
-        return self.tpm.has_register("fpga1.beamf_ring.control.new_spead_format")
+        return self.tpm.has_register("fpga1.beamf_ring.control.ska_spead_format")
 
     @connected
     def set_beamformer_epoch(self, epoch):
@@ -1927,7 +1927,7 @@ class Tile(TileHealthMonitor):
 
     @connected
     def define_spead_header(
-        self, station_id, subarray_id, nof_antennas, ref_epoch=-1, start_time=0, new_spead_header_format=False
+        self, station_id, subarray_id, nof_antennas, ref_epoch=-1, start_time=0, ska_spead_header_format=False
     ):
         """
         Define SPEAD header for last tile.
@@ -1943,8 +1943,8 @@ class Tile(TileHealthMonitor):
         :param start_time: start time (TODO describe better)
         :return: True if parameters OK, False for error
         :rtype: bool
-        :param new_spead_header_format: Sets the CSP spead header to the version specified in ICD ECP-230134
-        :type new_spead_header_format: bool
+        :param ska_spead_header_format: Sets the CSP spead header to the version specified in ICD ECP-230134
+        :type ska_spead_header_format: bool
         """
         ret1 = self.tpm.station_beamf[0].define_spead_header(
             station_id, subarray_id, nof_antennas, ref_epoch, start_time
@@ -1952,21 +1952,21 @@ class Tile(TileHealthMonitor):
         ret2 = self.tpm.station_beamf[1].define_spead_header(
             station_id, subarray_id, nof_antennas, ref_epoch, start_time
         )
-        self.set_spead_format(new_spead_header_format)
+        self.set_spead_format(ska_spead_header_format)
 
     @connected
-    def set_spead_format(self, new_spead_header_format: bool):
+    def set_spead_format(self, ska_spead_header_format: bool):
         """
         Set CSP SPEAD format.
 
-        :param new_spead_header_format: True for new (SKA) format, False for old (AAVS) format
+        :param ska_spead_header_format: True for new (SKA) format, False for old (AAVS) format
         """
         spead_format = 0
-        if new_spead_header_format:
+        if ska_spead_header_format:
             spead_format = 1
         if self.spead_ska_format_supported:
             for fpga in ["fpga1", "fpga2"]:
-                self.tpm[f"{fpga}.beamf_ring.control.new_spead_format"] = spead_format
+                self.tpm[f"{fpga}.beamf_ring.control.ska_spead_format"] = spead_format
         elif spead_format ==1:
             self.logger.error("SKA SPEAD format not supported in hardware")
             raise LibraryError(f"New spead header is not supported with this version of the firmware")
