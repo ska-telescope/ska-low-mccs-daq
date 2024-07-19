@@ -258,7 +258,6 @@ class MccsDaqReceiver(SKABaseDevice):
 
         This is overridden here to change the Tango serialisation model.
         """
-        self._max_workers = 5
         super().init_device()
 
         self._build_state = ",".join(
@@ -319,7 +318,6 @@ class MccsDaqReceiver(SKABaseDevice):
             self.ConsumersToStart,
             self.SkuidUrl,
             self.logger,
-            self._max_workers,
             self._component_communication_state_changed,
             self._component_state_callback,
             self._received_data_callback,
