@@ -109,7 +109,6 @@ def daq_component_manager_fixture(
         "",
         skuid_url,
         logger,
-        3,
         callbacks["communication_state"],
         callbacks["component_state"],
         callbacks["received_data"],

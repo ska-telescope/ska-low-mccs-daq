@@ -248,6 +248,8 @@ class TestPatchedDaq:
             ResultCode.OK,
             "Mock bandpass monitor stopping.",
         )
+        mock_component_manager.max_queued_tasks = 0
+        mock_component_manager.max_executing_tasks = 1
         # configuration = {
         #     "start_daq.return_value": ,
         #     "stop_daq.return_value": ,

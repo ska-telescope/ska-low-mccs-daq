@@ -80,6 +80,9 @@ def execute_lrc_to_completion(
     assert task_status == ResultCode.QUEUED
     assert command_name in command_id.split("_")[-1]
     change_event_callbacks["track_lrc_command"].assert_change_event(
+        (command_id, "STAGING")
+    )
+    change_event_callbacks["track_lrc_command"].assert_change_event(
         (command_id, "QUEUED")
     )
     change_event_callbacks["track_lrc_command"].assert_change_event(
