@@ -75,9 +75,13 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._consumers_to_start: str = "Daqmodes.INTEGRATED_CHANNEL_DATA"
         self._receiver_started: bool = False
         self._daq_id = str(daq_id).zfill(3)
-        self._receiver_interface = receiver_interface
-        self._receiver_ip = receiver_ip
-        self._receiver_ports = receiver_ports
+        self._configuration = {}
+        if receiver_interface:
+            self._configuration["receiver_interface"] = receiver_interface
+        if receiver_ip:
+            self._configuration["receiver_ip"] = receiver_ip
+        if receiver_ports:
+            self._configuration["receiver_ports"] = receiver_ports
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
         self._daq_client = DaqClient(daq_address)
@@ -102,7 +106,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             )  # noqa: E501
 
         try:
-            configuration = json.dumps(self._get_default_config())
+            configuration = json.dumps(self._configuration)
 
             response = self._daq_client.initialise(configuration)
             self.logger.info(response["message"])
@@ -119,50 +123,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             return
         self._update_communication_state(CommunicationStatus.DISABLED)
         self._update_component_state(power=None, fault=None)
-
-    def _get_default_config(self: DaqComponentManager) -> dict[str, Any]:
-        """
-        Retrieve and return a default DAQ configuration.
-
-        :return: A DAQ configuration.
-        """
-        daq_config = {
-            "nof_antennas": 16,
-            "nof_channels": 512,
-            "nof_beams": 1,
-            "nof_polarisations": 2,
-            "nof_tiles": 1,
-            "nof_raw_samples": 32768,
-            "raw_rms_threshold": -1,
-            "nof_channel_samples": 1024,
-            "nof_correlator_samples": 1835008,
-            "nof_correlator_channels": 1,
-            "continuous_period": 0,
-            "nof_beam_samples": 42,
-            "nof_beam_channels": 384,
-            "nof_station_samples": 262144,
-            "append_integrated": True,
-            "sampling_time": 1.1325,
-            "sampling_rate": (800e6 / 2.0) * (32.0 / 27.0) / 512.0,
-            "oversampling_factor": 32.0 / 27.0,
-            "receiver_ports": self._receiver_ports,
-            "receiver_interface": self._receiver_interface,
-            "receiver_ip": self._receiver_ip,
-            "receiver_frame_size": 8500,
-            "receiver_frames_per_block": 32,
-            "receiver_nof_blocks": 256,
-            "receiver_nof_threads": 1,
-            "directory": ".",
-            "logging": True,
-            "write_to_disk": True,
-            "station_config": None,
-            "max_filesize": None,
-            "acquisition_duration": -1,
-            "acquisition_start_time": -1,
-            "description": "",
-            "observation_metadata": {},  # This is populated automatically
-        }
-        return daq_config
 
     @check_communicating
     def get_configuration(self: DaqComponentManager) -> dict[str, str]:
