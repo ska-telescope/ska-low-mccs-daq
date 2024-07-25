@@ -21,7 +21,7 @@ from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskS
 from ska_low_mccs_daq_interface import DaqClient
 from ska_ser_skuid.client import SkuidClient  # type: ignore
 from ska_tango_base.base import check_communicating
-from ska_tango_base.executor import TaskExecutorComponentManager
+from ska_tango_base.executor import TaskExecutor, TaskExecutorComponentManager
 
 __all__ = ["DaqComponentManager"]
 SUBSYSTEM_SLUG = "ska-low-mccs"
@@ -90,6 +90,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             power=None,
             fault=None,
         )
+        self._task_executor = TaskExecutor(max_workers=2)
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
