@@ -12,6 +12,7 @@ import functools
 import json
 import logging
 import os
+import pprint
 import queue
 import re
 import threading
@@ -137,8 +138,54 @@ class DaqHandler:
 
     TIME_FORMAT_STRING = "%d/%m/%y %H:%M:%S"
 
-    def __init__(self: DaqHandler):
-        """Initialise this device."""
+    CONFIG_DEFAULTS = {
+        "nof_antennas": 16,
+        "nof_channels": 512,
+        "nof_beams": 1,
+        "nof_polarisations": 2,
+        "nof_tiles": 1,
+        "nof_raw_samples": 32768,
+        "raw_rms_threshold": -1,
+        "nof_channel_samples": 1024,
+        "nof_correlator_samples": 1835008,
+        "nof_correlator_channels": 1,
+        "continuous_period": 0,
+        "nof_beam_samples": 42,
+        "nof_beam_channels": 384,
+        "nof_station_samples": 262144,
+        "append_integrated": True,
+        "sampling_time": 1.1325,
+        "sampling_rate": (800e6 / 2.0) * (32.0 / 27.0) / 512.0,
+        "oversampling_factor": 32.0 / 27.0,
+        "receiver_frame_size": 8500,
+        "receiver_frames_per_block": 32,
+        "receiver_nof_blocks": 256,
+        "receiver_nof_threads": 1,
+        "directory": ".",
+        "logging": True,
+        "write_to_disk": True,
+        "station_config": None,
+        "max_filesize": None,
+        "acquisition_duration": -1,
+        "acquisition_start_time": -1,
+        "description": "",
+        "observation_metadata": {},  # This is populated automatically
+    }
+
+    def __init__(
+        self: DaqHandler,
+        **extra_config: str,
+    ) -> None:
+        """
+        Initialise this device.
+
+        :param extra_config: keyword args providing extra configuration.
+        """
+        print("Initialising DAQ handler with extra config:")
+        pprint.pprint(extra_config)
+
+        self._config = self.CONFIG_DEFAULTS | extra_config
+
         self.daq_instance: DaqReceiver = None
         self._receiver_started: bool = False
         self._initialised: bool = False
@@ -253,12 +300,14 @@ class DaqHandler:
 
         :return: a resultcode, message tuple
         """
+        self._config |= config
+
         if self._initialised is False:
             self.logger.info("Initialising daq.")
             self.daq_instance = DaqReceiver()
             try:
                 if config:
-                    self.daq_instance.populate_configuration(config)
+                    self.daq_instance.populate_configuration(self._config)
 
                 self.daq_instance.initialise_daq()
                 self._receiver_started = True
@@ -373,7 +422,8 @@ class DaqHandler:
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
 
-            self.daq_instance.populate_configuration(config)
+            self._config |= config
+            self.daq_instance.populate_configuration(self._config)
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Daq reconfigured"
 
@@ -1051,8 +1101,14 @@ def main() -> None:
 
     Create and start a server.
     """
+    handler = DaqHandler(
+        receiver_interface=os.environ["DAQ_RECEIVER_INTERFACE"],
+        receiver_ip=os.environ["DAQ_RECEIVER_IP"],
+        receiver_ports=os.environ["DAQ_RECEIVER_PORTS"],
+    )
     port = os.getenv("DAQ_GRPC_PORT", default="50051")
-    run_server_forever(DaqHandler(), int(port))
+
+    run_server_forever(handler, int(port))
 
 
 if __name__ == "__main__":
