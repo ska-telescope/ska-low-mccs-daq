@@ -13,13 +13,18 @@
         },
         "tag": {
           "oneOf": [
-            {"type": "null"},
+            {
+              "type": "null"
+            },
             {
               "type": "string",
               "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)((-dev\\.c[0-9a-f]{8})|(-dirty))?$"
             }
           ],
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "pullPolicy": {
           "type": "string",
@@ -40,12 +45,37 @@
             "type": "integer",
             "minimum": 1
           },
-          "nvidia_gpu": {"type": "boolean"},
-          "storage": {"type": "string"},
-          "node_selector": {"type": ["object", "null"]},
-          "affinity": {"type": ["object", "null"]},
-          "tolerations": {"type": ["object", "null"]},
-          "annotations": {"type": "object"}
+          "expose_data_service": {
+            "type": "boolean",
+            "default": false
+          },
+          "nvidia_gpu": {
+            "type": "boolean"
+          },
+          "storage": {
+            "type": "string"
+          },
+          "node_selector": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "affinity": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "tolerations": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "annotations": {
+            "type": "object"
+          }
         },
         "required": [],
         "additionalProperties": false
@@ -65,7 +95,9 @@
             "minimum": 1
           }
         },
-        "required": ["ip"],
+        "required": [
+          "ip"
+        ],
         "additionalProperties": false
       }
     },
@@ -74,12 +106,22 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "storage_class": {"type": "string"},
-          "size": {"type": "string"},
-          "labels": {"type": "object"},
-          "annotations": {"type": "object"}
+          "storage_class": {
+            "type": "string"
+          },
+          "size": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "object"
+          },
+          "annotations": {
+            "type": "object"
+          }
         },
-        "required": ["size"],
+        "required": [
+          "size"
+        ],
         "additionalProperties": false
       }
     }
