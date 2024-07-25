@@ -17,7 +17,6 @@ from ska_tango_testing.mock import MockCallableGroup
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from ska_low_mccs_spshw.daq_receiver import DaqComponentManager
-from ska_low_mccs_spshw.daq_receiver.daq_simulator import DaqSimulator
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
 
@@ -74,7 +73,7 @@ def test_context_fixture(daq_id: int) -> Iterator[SpsTangoTestHarnessContext]:
     :yields: a test harness context.
     """
     test_harness = SpsTangoTestHarness()
-    test_harness.set_daq_instance(DaqSimulator())
+    test_harness.set_daq_instance()
     test_harness.set_daq_device(daq_id, address=None)  # dynamically get DAQ address
     with test_harness as test_context:
         yield test_context
@@ -102,9 +101,9 @@ def daq_component_manager_fixture(
     """
     return DaqComponentManager(
         daq_id,
-        "eth0",
-        "172.17.0.230",
-        "[4660]",
+        "",
+        "",
+        "",
         test_context.get_daq_server_address(daq_id),
         "",
         skuid_url,
