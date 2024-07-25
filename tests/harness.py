@@ -387,12 +387,18 @@ class SpsTangoTestHarness:
     def set_daq_instance(
         self: SpsTangoTestHarness,
         daq_instance: DaqServerBackendProtocol | None = None,
+        receiver_interface: str = "eth0",
+        receiver_ip: str = "172.17.0.230",
+        receiver_ports: str | None = None,
     ) -> None:
         """
         And a DAQ instance to the test harness.
 
         :param daq_instance:
             the DAQ instance to be added to the test harness.
+        :param receiver_interface: The interface this DaqReceiver is to watch.
+        :param receiver_ip: The IP address of this DaqReceiver.
+        :param receiver_ports: The ports this DaqReceiver is to watch.
         """
         # Defer importing from any MCCS packages
         # until we know we need to launch a DAQ instance to test against.
@@ -405,8 +411,15 @@ class SpsTangoTestHarness:
         # pylint: disable-next=import-outside-toplevel
         from ska_low_mccs_spshw.daq_receiver.daq_simulator import DaqSimulator
 
+        if receiver_ports is None:
+            receiver_ports = "[4660]"
+
         if daq_instance is None:
-            daq_instance = DaqSimulator()
+            daq_instance = DaqSimulator(
+                receiver_interface=receiver_interface,
+                receiver_ip=receiver_ip,
+                receiver_ports=receiver_ports,
+            )
 
         self._tango_test_harness.add_context_manager(
             "daq",
@@ -417,9 +430,6 @@ class SpsTangoTestHarness:
         self: SpsTangoTestHarness,
         daq_id: int,
         address: tuple[str, int] | None,
-        receiver_interface: str = "eth0",
-        receiver_ip: str = "172.17.0.230",
-        receiver_ports: list[int] | None = None,
         consumers_to_start: list[str] | None = None,
         logging_level: int = int(LoggingLevel.DEBUG),
         device_class: type[Device] | str = "ska_low_mccs_spshw.MccsDaqReceiver",
@@ -431,9 +441,6 @@ class SpsTangoTestHarness:
         :param address: address of the DAQ instance
             to be monitored and controlled by this Tango device.
             It is a tuple of hostname or IP address, and port.
-        :param receiver_interface: The interface this DaqReceiver is to watch.
-        :param receiver_ip: The IP address of this DaqReceiver.
-        :param receiver_ports: The ports this DaqReceiver is to watch.
         :param consumers_to_start: list of consumers to start.
         :param logging_level: the Tango device's default logging level.
         :param device_class: The device class to use.
@@ -442,8 +449,6 @@ class SpsTangoTestHarness:
         """
         port: Callable[[dict[str, Any]], int] | int  # for the type checker
 
-        if receiver_ports is None:
-            receiver_ports = [4660]
         if consumers_to_start is None:
             consumers_to_start = ["DaqModes.INTEGRATED_CHANNEL_DATA"]
 
@@ -461,9 +466,6 @@ class SpsTangoTestHarness:
             get_daq_name(self._station_label),
             device_class,
             DaqId=daq_id,
-            ReceiverInterface=receiver_interface,
-            ReceiverIp=receiver_ip,
-            ReceiverPorts=receiver_ports,
             Host=host,
             Port=port,
             ConsumersToStart=consumers_to_start,
