@@ -24,7 +24,7 @@ numpy = "^1.23.0"
 PyYAML = "^6.0"
 ska-control-model = "0.3.1"
 # ska-low-mccs-daq-interface = "^0.2.0"
-ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", branch="mccs-2173" }
+ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", rev="c22d2ea903f3aa9f4bec345ea083cbb3038c48a6" }
 singleton-decorator = "1.0.0"
 slacker = "0.14.0"
 h5py = "3.7.0"
@@ -67,7 +67,7 @@ ska-ser-sphinx-theme = "^0.1.1"
 sphinxcontrib-plantuml = "^0.25"
 ska-control-model = "^0.3.1"
 # ska-low-mccs-daq-interface = "^0.2.0"
-ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", branch="mccs-2173" }
+ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", rev="c22d2ea903f3aa9f4bec345ea083cbb3038c48a6" }
 numpy = "^1.23.0"
 matplotlib = "3.5.3"
 h5py = "3.7.0"
