@@ -1,15 +1,15 @@
 platform:
   metadata:
-    version: 0.6.0
+    version: 0.7.0
     description: A platform configuration specification for STFC RAL
 
   cluster:
-    daq:
-      storage_class: nfss1
     domain: stfc-ral-k8s.skao.int
     minikube: false
     services:
       jupyterhub: true
+    daq:
+      storage_class: nfss1
   array:
     name: stfc-ral
     cabinetbanks:

@@ -2,11 +2,13 @@
 Deploy the DAQ receivers. For example:
 
 receivers:
-  1:
-    port: 50052  # optional; defaults to 50051
-    data_port: 4661  # optional; defaults to 4660
+  psi-low-bandpass:
+    grpc_port: 50051
+    receiver_nad: psi-low-sps@sdn1
+    receiver_interface: sdn1
+    receiver_port: 4660
     nvidia_gpu: true
-    storage: daq-data
+    storage: daq-data-sync
     expose_data_service: true # optional: defaults to false
     node_selector:
       kubernetes.io/hostname: psi-node3
@@ -14,9 +16,7 @@ receivers:
 */}}
 {{- $image := .Values.image}}
 {{- range $name, $spec := .Values.receivers}}
-{{- $slug := (printf "daq-receiver-%s" $name)}}
-{{- $grpc_port := default 50051 $spec.port}}
-{{- $data_port := default 4660 $spec.data_port}}
+{{- $slug := (printf "daqrx-%s" $name)}}
 ---
 apiVersion: v1
 kind: Service
@@ -27,7 +27,7 @@ metadata:
 spec:
   ports:
   - name: {{$slug}}-grpc-port
-    port: {{$grpc_port}}
+    port: {{$spec.grpc_port}}
     protocol: TCP
   selector:
     component: {{$slug}}-server
@@ -44,7 +44,7 @@ spec:
 {{- end}}
   ports:
   - name: {{$slug}}-data-port
-    port: {{$data_port}}
+    port: {{$spec.receiver_port}}
     protocol: UDP
   selector:
     component: {{$slug}}-server
@@ -63,9 +63,9 @@ spec:
   replicas: 1
   template:
     metadata:
-{{- with $spec.annotations }}
+{{- with $spec.receiver_nad }}
       annotations:
-{{ toYaml . | indent 8 }}
+        k8s.v1.cni.cncf.io/networks: {{.}}
 {{- end }}
       labels:
         component: {{$slug}}-server
@@ -83,9 +83,15 @@ spec:
         imagePullPolicy: IfNotPresent
         env:
           - name: DAQ_GRPC_PORT
-            value: {{$grpc_port | quote}}
+            value: {{$spec.grpc_port | quote}}
+          - name: DAQ_RECEIVER_INTERFACE
+            value: {{$spec.receiver_interface | quote}}
+          - name: DAQ_RECEIVER_IP
+            value: {{get $spec "receiver_ip" | default "" | quote}}
+          - name: DAQ_RECEIVER_PORTS
+            value: {{$spec.receiver_port | quote}}
         ports:
-          - containerPort: {{$grpc_port}}
+          - containerPort: {{$spec.grpc_port}}
             protocol: TCP
 {{- if $spec.nvidia_gpu}}
         resources:

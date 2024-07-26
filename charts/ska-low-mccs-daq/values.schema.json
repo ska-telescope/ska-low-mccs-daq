@@ -37,11 +37,21 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "port": {
+          "grpc_port": {
             "type": "integer",
             "minimum": 1
           },
-          "data_port": {
+          "receiver_nad": {
+            "type": "string"
+          },
+          "receiver_interface": {
+            "type": "string"
+          },
+          "receiver_ip": {
+            "type": "string",
+            "format": "ipv4"
+          },
+          "receiver_port": {
             "type": "integer",
             "minimum": 1
           },
@@ -72,12 +82,13 @@
               "object",
               "null"
             ]
-          },
-          "annotations": {
-            "type": "object"
           }
         },
-        "required": [],
+        "required": [
+          "grpc_port",
+          "receiver_interface",
+          "receiver_port"
+        ],
         "additionalProperties": false
       }
     },
