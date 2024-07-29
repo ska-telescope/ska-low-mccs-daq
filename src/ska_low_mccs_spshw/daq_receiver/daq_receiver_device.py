@@ -202,8 +202,9 @@ class MccsDaqReceiver(SKABaseDevice):
     )
     ReceiverPorts = device_property(
         dtype=str,
+        mandatory=False,
         doc="The port/s this DaqReceiver is monitoring.",
-        default_value="4660",
+        default_value="",
     )
     Host = device_property(
         dtype=str, doc="The host for communication with the DAQ receiver."
