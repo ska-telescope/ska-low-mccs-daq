@@ -23,11 +23,7 @@ from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tango.server import Device, command
 
 from ska_low_mccs_spshw import MccsDaqReceiver
-from ska_low_mccs_spshw.daq_receiver.daq_simulator import (
-    DaqModes,
-    DaqSimulator,
-    convert_daq_modes,
-)
+from ska_low_mccs_spshw.daq_receiver.daq_simulator import DaqModes, convert_daq_modes
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
 # TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
@@ -326,7 +322,7 @@ class TestPatchedDaq:
         :yields: a test harness context.
         """
         test_harness = SpsTangoTestHarness()
-        test_harness.set_daq_instance(DaqSimulator())
+        test_harness.set_daq_instance()
         test_harness.set_daq_device(
             daq_id, address=None, device_class=device_class_under_test
         )  # dynamically get DAQ address
