@@ -21,12 +21,14 @@ from ipaddress import IPv4Address
 from datetime import datetime 
 import sys
 
+
 if sys.version_info.minor >= 9:
     from astropy.time import Time as AstropyTime
 from typing import Optional, List
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status, RegisterInfo
 from pyfabil.base.utils import ip2long
+from pyfabil.base.utils import list_bits_to_int
 from pyfabil.boards.tpm import TPM
 
 from pyaavs.tile_health_monitor import TileHealthMonitor
@@ -786,6 +788,68 @@ class Tile(TileHealthMonitor):
 
         # Re-map values
         return rms
+
+    @connected
+    def enable_broadband_rfi_flagging(self, antennas=range(32)):
+        """
+        Enables broadband rfi flagging on set antennas
+
+        :param antennas: list antennas where broadband rfi flagging will be enabled
+        :type antennas: list(int)
+        """
+
+        if antennas is None:
+            raise AttributeError("antennas must not be None")
+
+        # TODO uncomment when implemented in firmware
+        # mask = list_bits_to_int(antennas)
+        # self.tpm.adc_power_meter[0].enable_RFI(mask=mask & 0x0000ffff)
+        # self.tpm.adc_power_meter[1].enable_RFI(mask=(mask & 0xffff0000) >> 16)
+
+        raise NotImplementedError("enable broadband rfi flagging not yet implemented")
+
+    @connected
+    def disable_broadband_rfi_flagging(self, antennas=range(32)):
+        """
+        Disables rfi detection on set antennas
+
+        :param antennas: list antennas where rfi will be disabled
+        :type antennas: list(int)
+        """
+        if antennas is None:
+            raise AttributeError("antennas must not be None")
+
+        # TODO uncomment when implemented in firmware
+        # mask = list_bits_to_int(antennas)
+        # self.tpm.adc_power_meter[0].disable_RFI(mask=mask & 0x0000ffff)
+        # self.tpm.adc_power_meter[1].disable_RFI(mask=(mask & 0xffff0000) >> 16)
+
+        raise NotImplementedError("disable broadband rfi flagging not yet implemented")
+
+    @connected
+    def read_rfi(self, antennas=range(32)):
+
+        """
+        Reads out the rfi counters
+
+        :param antennas: list antennas of which rfi counters to read
+        :type antennas: list(int)
+
+        :return: rfi counters
+        :rtype: list(int)
+        """
+
+        if antennas is None:
+            raise AttributeError("antennas must not be None")
+
+        rfi_data = []
+        for adc_power_meter in self.tpm.adc_power_meter:
+            rfi_data.extend(adc_power_meter.read_RfiData())
+
+        rfi_data_out = []
+        for antenna_num in antennas:
+            rfi_data_out.append(rfi_data[antenna_num])
+        return rfi_data_out
 
     @connected
     def get_fpga0_temperature(self):
