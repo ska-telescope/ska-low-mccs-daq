@@ -1,9 +1,10 @@
 platform:
   metadata:
-    version: 0.6.0
+    version: 0.7.0
   cluster:
     minikube: true
     domain: cluster.local
+    networks: ~
     services:
       jupyterhub: false  # Not a platform service
       taranta-platform: false  # Not a platform service

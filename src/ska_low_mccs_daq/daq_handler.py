@@ -28,6 +28,9 @@ from watchdog.observers import Observer
 
 __all__ = ["DaqHandler", "main"]
 
+X_POL_INDEX = 0
+Y_POL_INDEX = 1
+
 Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 
 # pylint: disable = too-many-lines
@@ -954,14 +957,14 @@ class DaqHandler:
             for pol in range(nof_pols):
                 # Assign first data point or maintain sum of all data.
                 # Divide by _pol_data_count to calculate the moving average on-demand.
-                if pol == 1:
+                if pol == X_POL_INDEX:
                     if x_pol_data is None:
                         x_pol_data_count = 1
                         x_pol_data = full_station_data[:, :, pol]
                     else:
                         x_pol_data_count += 1
                         x_pol_data = x_pol_data + full_station_data[:, :, pol]
-                elif pol == 0:
+                elif pol == Y_POL_INDEX:
                     if y_pol_data is None:
                         y_pol_data_count = 1
                         y_pol_data = full_station_data[:, :, pol]
@@ -981,11 +984,11 @@ class DaqHandler:
                 if (present - interval_start).total_seconds() > cadence:
                     self.logger.debug("Queueing data for transmission")
                     assert isinstance(full_station_data, np.ndarray)
-                    x_data = full_station_data[:, :, 1].transpose()
+                    x_data = full_station_data[:, :, X_POL_INDEX].transpose()
                     # Averaged x data (commented out for now)
                     # x_data = x_pol_data.transpose() / x_pol_data_count
                     self._x_bandpass_plots.put(json.dumps(x_data.tolist()))
-                    y_data = full_station_data[:, :, 0].transpose()
+                    y_data = full_station_data[:, :, Y_POL_INDEX].transpose()
                     # Averaged y data (commented out for now)
                     # y_data = y_pol_data.transpose() / y_pol_data_count
                     self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
