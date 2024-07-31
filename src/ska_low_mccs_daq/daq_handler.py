@@ -273,8 +273,13 @@ class DaqHandler:
             if config:
                 for k, v in list(config.items()):
                     self._config[k] = v
-            if self._config != {}:
+            self.logger.info(f"Initialising with: {self._config=}")
+            if self._config:
                 self.daq_instance.populate_configuration(self._config)
+
+            # Check configuration.
+            self.logger.debug("Checking config.")
+            self.logger.debug(f"{self.daq_instance.get_configuration()}")
 
             self.daq_instance.initialise_daq(filepath=self._custom_libaavsdaq_filepath)
             self._receiver_started = True
@@ -401,7 +406,9 @@ class DaqHandler:
                     )
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
-            self._config = config
+            if config:
+                for k, v in list(config.items()):
+                    self._config[k] = v
             self.daq_instance.populate_configuration(self._config)
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Daq reconfigured"
