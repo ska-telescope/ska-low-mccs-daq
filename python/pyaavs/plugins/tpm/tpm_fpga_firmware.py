@@ -33,34 +33,34 @@ from pyfabil.base.definitions import (
 from pyfabil.plugins.firmwareblock import FirmwareBlock
 from time import sleep
 
-__all__ = ["Tpm_1_6_TestFirmware"]
+__all__ = ["TpmFpgaFirmware"]
 
 
-class Tpm_1_6_TestFirmware(FirmwareBlock):
-    """ Tpm_1_6_TestFirmware plugin """
+class TpmFpgaFirmware(FirmwareBlock):
+    """ TpmFpgaFirmware plugin """
 
     @firmware({"design": "tpm_test", "major": "1", "minor": ">1"})
     @compatibleboards(BoardMake.Tpm16Board)
-    @friendlyname("tpm_test_firmware")
+    @friendlyname("tpm_test_firmware")  # TODO: Maybe one day we can rename this but its a huge refactor
     @maxinstances(2)
-    def __init__(self: Tpm_1_6_TestFirmware, board: Any, **kwargs: Any) -> None:
+    def __init__(self: TpmFpgaFirmware, board: Any, **kwargs: Any) -> None:
         """
-        Initialize a new Tpm_1_6_TestFirmware instance.
+        Initialize a new TpmFpgaFirmware instance.
 
         :param board: Pointer to board instance
         :param kwargs: named arguments
 
         :raises PluginError: Device argument must be specified
         """
-        super(Tpm_1_6_TestFirmware, self).__init__(board)
+        super(TpmFpgaFirmware, self).__init__(board)
 
         # Device must be specified in kwargs
         if kwargs.get("device", None) is None:
-            raise PluginError("Tpm_1_6_TestFirmware requires device argument")
+            raise PluginError("TpmFpgaFirmware requires device argument")
         self._device = kwargs["device"]
 
         if kwargs.get("fsample", None) is None:
-            logging.info("Tpm_1_6_TestFirmware: Setting default sampling frequency 800 MHz.")
+            logging.info("TpmFpgaFirmware: Setting default sampling frequency 800 MHz.")
             self._fsample = 800e6
         else:
             self._fsample = float(kwargs["fsample"])
@@ -68,12 +68,12 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
         self._dsp_core: Optional[bool] = kwargs.get("dsp_core")
         if self._dsp_core is None:
             logging.debug(
-                "Tpm_1_6_TestFirmware: Setting default value True to dsp_core flag."
+                "TpmFpgaFirmware: Setting default value True to dsp_core flag."
             )
             self._dsp_core = True
         if not self._dsp_core:
             logging.info(
-                "Tpm_1_6_TestFirmware: dsp_core flag is False."
+                "TpmFpgaFirmware: dsp_core flag is False."
             )
 
         self._device_name = "fpga1" if self._device is Device.FPGA_1 else "fpga2"
@@ -231,7 +231,7 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
             )
 
         if retries == max_retries:
-            raise BoardError("Tpm_1_6_TestFirmware: Could not configure JESD cores")
+            raise BoardError("TpmFpgaFirmware: Could not configure JESD cores")
 
         # Initialise DDR
         self.start_ddr_initialisation()
@@ -260,14 +260,14 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
     
     #######################################################################################
 
-    def check_ddr_voltage(self: Tpm_1_6_TestFirmware) -> None:
+    def check_ddr_voltage(self: TpmFpgaFirmware) -> None:
         """Check if DDR voltage regulator is enabled, if not enable it. TPM 1.2 only"""
         if self.board.memory_map.has_register("board.regfile.ctrl.en_ddr_vdd"):
             if self.board["board.regfile.ctrl.en_ddr_vdd"] == 0:
                 self.board["board.regfile.ctrl.en_ddr_vdd"] = 1
                 time.sleep(0.5)
 
-    def start_ddr_initialisation(self: Tpm_1_6_TestFirmware) -> None:
+    def start_ddr_initialisation(self: TpmFpgaFirmware) -> None:
         """Start DDR initialisation."""
         self.check_ddr_voltage()
         logging.debug(self._device_name + " DDR reset")
@@ -275,7 +275,7 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
         self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
 
     # TODO: Move to a DDR plugin
-    def check_ddr_initialisation(self: Tpm_1_6_TestFirmware) -> bool:
+    def check_ddr_initialisation(self: TpmFpgaFirmware) -> bool:
         """Check whether DDR has initialised."""
         if self.board.memory_map.has_register(
             self._device_name + ".regfile.stream_status.ddr_init_done"
@@ -294,7 +294,7 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
             return True
 
     # TODO: Move to a DDR plugin
-    def check_ddr_user_reset_counter(self: Tpm_1_6_TestFirmware, show_result=True) -> int:
+    def check_ddr_user_reset_counter(self: TpmFpgaFirmware, show_result=True) -> int:
         """
         Return value of DDR user reset counter - increments each falling edge 
         of the DDR generated user logic reset.
@@ -305,11 +305,11 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
         return count
     
     # TODO: Move to a DDR plugin
-    def clear_ddr_user_reset_counter(self: Tpm_1_6_TestFirmware) -> None:
+    def clear_ddr_user_reset_counter(self: TpmFpgaFirmware) -> None:
         """Reset value of DDR reset counter"""
         self.board[f'{self._device_name}.ddr_if.status.ddr_monitoring_reset'] = 1
 
-    def initialise_ddr(self: Tpm_1_6_TestFirmware) -> None:
+    def initialise_ddr(self: TpmFpgaFirmware) -> None:
         """Initialise DDR."""
         for _n in range(3):
             self.start_ddr_initialisation()
@@ -319,49 +319,49 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
                     return
         logging.error("Cannot initialise DDR of " + self._device_name.upper())
 
-    def check_data_router_status(self: Tpm_1_6_TestFirmware) -> int:
+    def check_data_router_status(self: TpmFpgaFirmware) -> int:
         """Returns value of data router error register."""
         if not self.board.memory_map.has_register(f'{self._device_name}.data_router.errors'):
             return None
         return self.board[f'{self._device_name}.data_router.errors']
     
-    def clear_data_router_status(self: Tpm_1_6_TestFirmware) -> None:
+    def clear_data_router_status(self: TpmFpgaFirmware) -> None:
         """Reset value of data router errors."""
         if not self.board.memory_map.has_register(f'{self._device_name}.data_router.errors'):
             return
         self.board[f'{self._device_name}.data_router.control.error_rst'] = 1
         return
 
-    def check_data_router_discarded_packets(self: Tpm_1_6_TestFirmware) -> list:
+    def check_data_router_discarded_packets(self: TpmFpgaFirmware) -> list:
         """Returns value of data router nof discarded packets registers."""
         if not self.board.memory_map.has_register(f'{self._device_name}.data_router.discarded_corrupt_spead_count'):
             return None
         return [self.board[f'{self._device_name}.data_router.discarded_corrupt_spead_count'],
                 self.board[f'{self._device_name}.data_router.discarded_backpressure_spead_count']]
 
-    def check_pps_status(self: Tpm_1_6_TestFirmware) -> bool:
+    def check_pps_status(self: TpmFpgaFirmware) -> bool:
         """Check PPS detected and error free"""
         pps_detect = self.board[f'{self._device_name}.pps_manager.pps_detected']
         pps_error = self.board[f'{self._device_name}.pps_manager.pps_errors.pps_count_error']
         return True if pps_detect and not pps_error else False
     
-    def clear_pps_status(self: Tpm_1_6_TestFirmware) -> None:
+    def clear_pps_status(self: TpmFpgaFirmware) -> None:
         """Clear PPS errors"""
         self.board[f'{self._device_name}.pps_manager.pps_errors.pps_errors_rst'] = 1
         return
 
-    def send_raw_data(self: Tpm_1_6_TestFirmware) -> None:
+    def send_raw_data(self: TpmFpgaFirmware) -> None:
         """Send raw data from the TPM."""
         self.board[self._device_name + ".lmc_gen.raw_all_channel_mode_enable"] = 0x0
         self.board[self._device_name + ".lmc_gen.request.raw_data"] = 0x1
 
-    def send_raw_data_synchronised(self: Tpm_1_6_TestFirmware) -> None:
+    def send_raw_data_synchronised(self: TpmFpgaFirmware) -> None:
         """Send raw data from the TPM."""
         self.board[self._device_name + ".lmc_gen.raw_all_channel_mode_enable"] = 0x1
         self.board[self._device_name + ".lmc_gen.request.raw_data"] = 0x1
 
     def send_channelised_data(
-        self: Tpm_1_6_TestFirmware,
+        self: TpmFpgaFirmware,
         number_of_samples: int = 128,
         first_channel: int = 0,
         last_channel: int = 511,
@@ -408,7 +408,7 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
         self.board[self._device_name + ".lmc_gen.request.channelized_data"] = 0x1
 
     def send_channelised_data_continuous(
-        self: Tpm_1_6_TestFirmware, channel_id: int, number_of_samples: int = 128
+        self: TpmFpgaFirmware, channel_id: int, number_of_samples: int = 128
     ) -> None:
         """
         Continuously send channelised data from a single channel.
@@ -451,7 +451,7 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
         self.board[self._device_name + ".lmc_gen.request.channelized_data"] = 0x1
 
     def send_channelised_data_narrowband(
-        self: Tpm_1_6_TestFirmware,
+        self: TpmFpgaFirmware,
         band_frequency: int,
         round_bits: int,
         number_of_samples: int = 128,
@@ -525,35 +525,35 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
             )
         self.board[self._device_name + ".lmc_gen.request.channelized_data"] = 0x1
 
-    def stop_channelised_data_narrowband(self: Tpm_1_6_TestFirmware) -> None:
+    def stop_channelised_data_narrowband(self: TpmFpgaFirmware) -> None:
         """Stop transmission of narrowband channel data."""
         self.stop_channelised_data_continuous()
 
-    def stop_channelised_data_continuous(self: Tpm_1_6_TestFirmware) -> None:
+    def stop_channelised_data_continuous(self: TpmFpgaFirmware) -> None:
         """Stop transmission of continuous channel data."""
         self.board[
             self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"
         ] = 0x0
 
-    def stop_channelised_data(self: Tpm_1_6_TestFirmware) -> None:
+    def stop_channelised_data(self: TpmFpgaFirmware) -> None:
         """Stop sending channelised data."""
         self.board[
             self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"
         ] = 0x0
 
-    def clear_lmc_data_request(self: Tpm_1_6_TestFirmware) -> None:
+    def clear_lmc_data_request(self: TpmFpgaFirmware) -> None:
         """Stop transmission of all LMC data."""
         self.board[self._device_name + ".lmc_gen.request"] = 0
 
-    def send_beam_data(self: Tpm_1_6_TestFirmware) -> None:
+    def send_beam_data(self: TpmFpgaFirmware) -> None:
         """Send beam data from the TPM."""
         self.board[self._device_name + ".lmc_gen.request.beamformed_data"] = 0x1
 
-    def stop_integrated_channel_data(self: Tpm_1_6_TestFirmware) -> None:
+    def stop_integrated_channel_data(self: TpmFpgaFirmware) -> None:
         """Stop receiving integrated beam data from the board."""
         self._integrator.stop_integrated_channel_data()
 
-    def stop_integrated_beam_data(self: Tpm_1_6_TestFirmware) -> None:
+    def stop_integrated_beam_data(self: TpmFpgaFirmware) -> None:
         """Stop receiving integrated beam data from the board."""
         self._integrator.stop_integrated_beam_data()
 
@@ -562,7 +562,7 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
         self._integrator.stop_integrated_data()
 
     def download_beamforming_weights(
-        self: Tpm_1_6_TestFirmware, weights: list[float], antenna: int
+        self: TpmFpgaFirmware, weights: list[float], antenna: int
     ) -> None:
         """
         Apply beamforming weights.
@@ -575,30 +575,30 @@ class Tpm_1_6_TestFirmware(FirmwareBlock):
 
     # Superclass method implementations
 
-    def initialise(self: Tpm_1_6_TestFirmware) -> bool:
+    def initialise(self: TpmFpgaFirmware) -> bool:
         """
-        Initialise Tpm_1_6_TestFirmware.
+        Initialise TpmFpgaFirmware.
 
         :return: success status
         """
-        logging.info("Tpm_1_6_TestFirmware has been initialised")
+        logging.info("TpmFpgaFirmware has been initialised")
         return True
 
-    def status_check(self: Tpm_1_6_TestFirmware) -> Any:
+    def status_check(self: TpmFpgaFirmware) -> Any:
         """
         Perform status check.
 
         :return: Status
         """
-        logging.info("Tpm_1_6_TestFirmware : Checking status")
+        logging.info("TpmFpgaFirmware : Checking status")
         return Status.OK
 
-    def clean_up(self: Tpm_1_6_TestFirmware) -> bool:
+    def clean_up(self: TpmFpgaFirmware) -> bool:
         """
         Perform cleanup.
 
         :return: Success
         """
-        logging.info("Tpm_1_6_TestFirmware : Cleaning up")
+        logging.info("TpmFpgaFirmware : Cleaning up")
         return True
 

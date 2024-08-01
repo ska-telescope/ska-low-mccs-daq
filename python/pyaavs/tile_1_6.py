@@ -174,7 +174,7 @@ class Tile_1_6(Tile):
         self.tpm = TPM()
 
         # Add plugin directory (load module locally)
-        tf = __import__("pyaavs.plugins.tpm_1_6.tpm_test_firmware", fromlist=[None])
+        tf = __import__("pyaavs.plugins.tpm.tpm_fpga_firmware", fromlist=[None])
         self.tpm.add_plugin_directory(os.path.dirname(tf.__file__))
         # Connect using tpm object.
         # simulator parameter is used not to load the TPM specific plugins,
@@ -201,7 +201,7 @@ class Tile_1_6(Tile):
         if load_plugin and self.tpm.is_programmed():
             for device in [Device.FPGA_1, Device.FPGA_2]:
                 self.tpm.load_plugin(
-                    "Tpm_1_6_TestFirmware",
+                    "TpmFpgaFirmware",
                     device=device,
                     fsample=self._sampling_rate,
                     dsp_core=dsp_core,

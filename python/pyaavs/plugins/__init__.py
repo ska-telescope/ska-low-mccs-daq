@@ -14,4 +14,4 @@ __author__ = "Alessio Magro"
 from pyfabil.plugins.firmwareblock import FirmwareBlock
 
 # TPM plugins
-from pyaavs.plugins.tpm_1_6.tpm_test_firmware import Tpm_1_6_TestFirmware
+from pyaavs.plugins.tpm.tpm_fpga_firmware import TpmFpgaFirmware
