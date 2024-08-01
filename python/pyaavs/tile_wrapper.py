@@ -22,7 +22,7 @@ import socket
 from pyfabil.base.definitions import LibraryError
 from pyfabil.boards.tpm_generic import TPMGeneric
 
-from pyaavs.tile import Tile as Tile_1_2
+# from pyaavs.tile import Tile as Tile_1_2
 from pyaavs.tile_1_6 import Tile_1_6
 
 
@@ -68,9 +68,7 @@ class Tile(object):
             _tpm_version = "tpm_v1_6"
 
         if _tpm_version == "tpm_v1_2":
-            return cast(
-                Tile, Tile_1_2(ip, port, lmc_ip, lmc_port, sampling_rate, logger)
-            )
+            raise LibraryError("TPM version no longer supported: tpm_v1_2")
         elif _tpm_version == "tpm_v1_6":
             return cast(
                 Tile, Tile_1_6(ip, port, lmc_ip, lmc_port, sampling_rate, logger)
