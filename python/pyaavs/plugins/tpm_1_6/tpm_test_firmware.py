@@ -30,14 +30,14 @@ from pyfabil.base.definitions import (
     friendlyname,
     maxinstances,
 )
-from pyaavs.plugins.tpm.tpm_test_firmware import TpmTestFirmware
+from pyfabil.plugins.firmwareblock import FirmwareBlock
 from time import sleep
 
 __all__ = ["Tpm_1_6_TestFirmware"]
 
 
-class Tpm_1_6_TestFirmware(TpmTestFirmware):
-    """FirmwareBlock tests class."""
+class Tpm_1_6_TestFirmware(FirmwareBlock):
+    """ Tpm_1_6_TestFirmware plugin """
 
     @firmware({"design": "tpm_test", "major": "1", "minor": ">1"})
     @compatibleboards(BoardMake.Tpm16Board)
@@ -52,15 +52,15 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
 
         :raises PluginError: Device argument must be specified
         """
-        super(TpmTestFirmware, self).__init__(board)
+        super(Tpm_1_6_TestFirmware, self).__init__(board)
 
         # Device must be specified in kwargs
         if kwargs.get("device", None) is None:
-            raise PluginError("TpmTestFirmware requires device argument")
+            raise PluginError("Tpm_1_6_TestFirmware requires device argument")
         self._device = kwargs["device"]
 
         if kwargs.get("fsample", None) is None:
-            logging.info("TpmTestFirmware: Setting default sampling frequency 800 MHz.")
+            logging.info("Tpm_1_6_TestFirmware: Setting default sampling frequency 800 MHz.")
             self._fsample = 800e6
         else:
             self._fsample = float(kwargs["fsample"])
@@ -68,12 +68,12 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
         self._dsp_core: Optional[bool] = kwargs.get("dsp_core")
         if self._dsp_core is None:
             logging.debug(
-                "TpmTestFirmware: Setting default value True to dsp_core flag."
+                "Tpm_1_6_TestFirmware: Setting default value True to dsp_core flag."
             )
             self._dsp_core = True
         if not self._dsp_core:
             logging.info(
-                "TpmTestFirmware: dsp_core flag is False."
+                "Tpm_1_6_TestFirmware: dsp_core flag is False."
             )
 
         self._device_name = "fpga1" if self._device is Device.FPGA_1 else "fpga2"
@@ -231,7 +231,7 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
             )
 
         if retries == max_retries:
-            raise BoardError("TpmTestFirmware: Could not configure JESD cores")
+            raise BoardError("Tpm_1_6_TestFirmware: Could not configure JESD cores")
 
         # Initialise DDR
         self.start_ddr_initialisation()
@@ -257,3 +257,348 @@ class Tpm_1_6_TestFirmware(TpmTestFirmware):
         if self._device is Device.FPGA_1:
             self.board['fpga1.xg_udp.phy_ctrl.rx_polarity'] = 0xc
             self.board['fpga1.xg_udp.phy_ctrl.tx_polarity'] = 0xc
+    
+    #######################################################################################
+
+    def check_ddr_voltage(self: Tpm_1_6_TestFirmware) -> None:
+        """Check if DDR voltage regulator is enabled, if not enable it. TPM 1.2 only"""
+        if self.board.memory_map.has_register("board.regfile.ctrl.en_ddr_vdd"):
+            if self.board["board.regfile.ctrl.en_ddr_vdd"] == 0:
+                self.board["board.regfile.ctrl.en_ddr_vdd"] = 1
+                time.sleep(0.5)
+
+    def start_ddr_initialisation(self: Tpm_1_6_TestFirmware) -> None:
+        """Start DDR initialisation."""
+        self.check_ddr_voltage()
+        logging.debug(self._device_name + " DDR reset")
+        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x1
+        self.board[self._device_name + ".regfile.reset.ddr_rst"] = 0x0
+
+    # TODO: Move to a DDR plugin
+    def check_ddr_initialisation(self: Tpm_1_6_TestFirmware) -> bool:
+        """Check whether DDR has initialised."""
+        if self.board.memory_map.has_register(
+            self._device_name + ".regfile.stream_status.ddr_init_done"
+        ):
+            status = self.board[
+                self._device_name + ".regfile.stream_status.ddr_init_done"
+            ]
+        else:
+            status = self.board[self._device_name + ".regfile.status.ddr_init_done"]
+
+        if status == 0x0:
+            logging.debug("DDR of " + self._device_name.upper() + " is not initialised")
+            return False
+        else:
+            logging.debug("DDR of " + self._device_name.upper() + " initialised!")
+            return True
+
+    # TODO: Move to a DDR plugin
+    def check_ddr_user_reset_counter(self: Tpm_1_6_TestFirmware, show_result=True) -> int:
+        """
+        Return value of DDR user reset counter - increments each falling edge 
+        of the DDR generated user logic reset.
+        """
+        count = self.board[f'{self._device_name}.ddr_if.status.ddr_user_rst_cnt']
+        if show_result:
+            logging.info(f'{self._device_name.upper()} error count {count}')
+        return count
+    
+    # TODO: Move to a DDR plugin
+    def clear_ddr_user_reset_counter(self: Tpm_1_6_TestFirmware) -> None:
+        """Reset value of DDR reset counter"""
+        self.board[f'{self._device_name}.ddr_if.status.ddr_monitoring_reset'] = 1
+
+    def initialise_ddr(self: Tpm_1_6_TestFirmware) -> None:
+        """Initialise DDR."""
+        for _n in range(3):
+            self.start_ddr_initialisation()
+            for _m in range(5):
+                time.sleep(0.2)
+                if self.check_ddr_initialisation():
+                    return
+        logging.error("Cannot initialise DDR of " + self._device_name.upper())
+
+    def check_data_router_status(self: Tpm_1_6_TestFirmware) -> int:
+        """Returns value of data router error register."""
+        if not self.board.memory_map.has_register(f'{self._device_name}.data_router.errors'):
+            return None
+        return self.board[f'{self._device_name}.data_router.errors']
+    
+    def clear_data_router_status(self: Tpm_1_6_TestFirmware) -> None:
+        """Reset value of data router errors."""
+        if not self.board.memory_map.has_register(f'{self._device_name}.data_router.errors'):
+            return
+        self.board[f'{self._device_name}.data_router.control.error_rst'] = 1
+        return
+
+    def check_data_router_discarded_packets(self: Tpm_1_6_TestFirmware) -> list:
+        """Returns value of data router nof discarded packets registers."""
+        if not self.board.memory_map.has_register(f'{self._device_name}.data_router.discarded_corrupt_spead_count'):
+            return None
+        return [self.board[f'{self._device_name}.data_router.discarded_corrupt_spead_count'],
+                self.board[f'{self._device_name}.data_router.discarded_backpressure_spead_count']]
+
+    def check_pps_status(self: Tpm_1_6_TestFirmware) -> bool:
+        """Check PPS detected and error free"""
+        pps_detect = self.board[f'{self._device_name}.pps_manager.pps_detected']
+        pps_error = self.board[f'{self._device_name}.pps_manager.pps_errors.pps_count_error']
+        return True if pps_detect and not pps_error else False
+    
+    def clear_pps_status(self: Tpm_1_6_TestFirmware) -> None:
+        """Clear PPS errors"""
+        self.board[f'{self._device_name}.pps_manager.pps_errors.pps_errors_rst'] = 1
+        return
+
+    def send_raw_data(self: Tpm_1_6_TestFirmware) -> None:
+        """Send raw data from the TPM."""
+        self.board[self._device_name + ".lmc_gen.raw_all_channel_mode_enable"] = 0x0
+        self.board[self._device_name + ".lmc_gen.request.raw_data"] = 0x1
+
+    def send_raw_data_synchronised(self: Tpm_1_6_TestFirmware) -> None:
+        """Send raw data from the TPM."""
+        self.board[self._device_name + ".lmc_gen.raw_all_channel_mode_enable"] = 0x1
+        self.board[self._device_name + ".lmc_gen.request.raw_data"] = 0x1
+
+    def send_channelised_data(
+        self: Tpm_1_6_TestFirmware,
+        number_of_samples: int = 128,
+        first_channel: int = 0,
+        last_channel: int = 511,
+    ) -> None:
+        """
+        Send channelized data from the TPM.
+
+        :param number_of_samples: contiguous time samples sent per channel
+        :param first_channel: First channel transmitted
+        :param last_channel: Last channel transmitted + 1 (python range convention)
+        """
+
+        # get bitfiled configuration of single_channel_mode register
+        single_channel_mode_enable_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"].shift
+        single_channel_mode_last_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.last"].shift
+        single_channel_mode_last_id = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"].shift
+
+        # build register value
+        single_channel_mode_register = (0 << single_channel_mode_enable_shift) | \
+                                       (last_channel << single_channel_mode_last_shift) | \
+                                       (first_channel << single_channel_mode_last_id)
+
+        # write register value into firmware register
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode"
+        ] = single_channel_mode_register
+
+        self.board[self._device_name + ".lmc_gen.channelized_pkt_length"] = (
+            number_of_samples - 1
+        )
+
+        if (
+            len(
+                self.board.find_register(
+                    self._device_name + ".lmc_gen.channelized_ddc_mode"
+                )
+            )
+            != 0
+        ):
+            self.board[self._device_name + ".lmc_gen.channelized_ddc_mode"] = 0x0
+        self.board[self._device_name + ".lmc_gen.request.channelized_data"] = 0x1
+
+    def send_channelised_data_continuous(
+        self: Tpm_1_6_TestFirmware, channel_id: int, number_of_samples: int = 128
+    ) -> None:
+        """
+        Continuously send channelised data from a single channel.
+
+        :param channel_id: Channel ID
+        :param number_of_samples: contiguous time samples sent per channel
+        """
+
+        # get bitfiled configuration of single_channel_mode register
+        single_channel_mode_enable_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"].shift
+        single_channel_mode_last_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.last"].shift
+        single_channel_mode_last_id = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"].shift
+
+        # build register value
+        single_channel_mode_register = (1 << single_channel_mode_enable_shift) | \
+                                       (0x1FF << single_channel_mode_last_shift) | \
+                                       (channel_id << single_channel_mode_last_id)
+
+        # write register value into firmware register
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode"
+            ] = single_channel_mode_register
+
+        self.board[self._device_name + ".lmc_gen.channelized_pkt_length"] = (
+            number_of_samples - 1
+        )
+
+        if (
+            len(
+                self.board.find_register(
+                    self._device_name + ".lmc_gen.channelized_ddc_mode"
+                )
+            )
+            != 0
+        ):
+            self.board[self._device_name + ".lmc_gen.channelized_ddc_mode"] = 0x0
+        self.board[self._device_name + ".lmc_gen.request.channelized_data"] = 0x1
+
+    def send_channelised_data_narrowband(
+        self: Tpm_1_6_TestFirmware,
+        band_frequency: int,
+        round_bits: int,
+        number_of_samples: int = 128,
+    ) -> None:
+        """
+        Continuously send channelised data from a single channel in narrowband mode.
+
+        :param band_frequency: central frequency (in Hz) of narrowband
+        :param round_bits: number of bits rounded after filter
+        :param number_of_samples: samples per lmc packet
+        """
+
+        if (
+                len(
+                    self.board.find_register(
+                        self._device_name + ".lmc_gen.channelized_ddc_mode"
+                    )
+                )
+                == 0
+        ):
+            logging.error(
+                "Narrowband channelizer is not implemented in current FPGA firmware!"
+            )
+            return
+
+        channel_spacing = 800e6 / 1024
+        downsampling_factor = 128
+        # Number of LO steps in the channel spacing
+        lo_steps_per_channel = 2.0 ** 24 / 32.0 * 27
+        if band_frequency < 50e6 or band_frequency > 350e6:
+            logging.error(
+                "Invalid frequency for narrowband lmc. Must be between 50e6 and 350e6"
+            )
+            return
+        hw_frequency = band_frequency / channel_spacing
+        channel_id = int(round(hw_frequency))
+        lo_frequency = (
+            int(round((hw_frequency - channel_id) * lo_steps_per_channel)) & 0xFFFFFF
+        )
+
+        # get bitfiled configuration of single_channel_mode register
+        single_channel_mode_enable_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"].shift
+        single_channel_mode_last_shift = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.last"].shift
+        single_channel_mode_last_id = self.board.memory_map.register_list[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.id"].shift
+
+        # build register value
+        single_channel_mode_register = (1 << single_channel_mode_enable_shift) | \
+                                       (0x1FF << single_channel_mode_last_shift) | \
+                                       (channel_id << single_channel_mode_last_id)
+
+        # write register value into firmware register
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode"
+            ] = single_channel_mode_register
+        self.board[self._device_name + ".lmc_gen.channelized_pkt_length"] = (
+            number_of_samples * downsampling_factor - 1
+        )
+        if (
+            len(
+                self.board.find_register(
+                    self._device_name + ".lmc_gen.channelized_ddc_mode"
+                )
+            )
+            != 0
+        ):
+            self.board[self._device_name + ".lmc_gen.channelized_ddc_mode"] = (
+                0x90000000 | ((round_bits & 0x7) << 24) | lo_frequency
+            )
+        self.board[self._device_name + ".lmc_gen.request.channelized_data"] = 0x1
+
+    def stop_channelised_data_narrowband(self: Tpm_1_6_TestFirmware) -> None:
+        """Stop transmission of narrowband channel data."""
+        self.stop_channelised_data_continuous()
+
+    def stop_channelised_data_continuous(self: Tpm_1_6_TestFirmware) -> None:
+        """Stop transmission of continuous channel data."""
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"
+        ] = 0x0
+
+    def stop_channelised_data(self: Tpm_1_6_TestFirmware) -> None:
+        """Stop sending channelised data."""
+        self.board[
+            self._device_name + ".lmc_gen.channelized_single_channel_mode.enable"
+        ] = 0x0
+
+    def clear_lmc_data_request(self: Tpm_1_6_TestFirmware) -> None:
+        """Stop transmission of all LMC data."""
+        self.board[self._device_name + ".lmc_gen.request"] = 0
+
+    def send_beam_data(self: Tpm_1_6_TestFirmware) -> None:
+        """Send beam data from the TPM."""
+        self.board[self._device_name + ".lmc_gen.request.beamformed_data"] = 0x1
+
+    def stop_integrated_channel_data(self: Tpm_1_6_TestFirmware) -> None:
+        """Stop receiving integrated beam data from the board."""
+        self._integrator.stop_integrated_channel_data()
+
+    def stop_integrated_beam_data(self: Tpm_1_6_TestFirmware) -> None:
+        """Stop receiving integrated beam data from the board."""
+        self._integrator.stop_integrated_beam_data()
+
+    def stop_integrated_data(self) -> None:
+        """Stop transmission of integrated data."""
+        self._integrator.stop_integrated_data()
+
+    def download_beamforming_weights(
+        self: Tpm_1_6_TestFirmware, weights: list[float], antenna: int
+    ) -> None:
+        """
+        Apply beamforming weights.
+
+        :param weights: Weights array
+        :param antenna: Antenna ID
+        """
+        address = self._device_name + ".beamf.ch%02dcoeff" % antenna  # noqa: FS001
+        self.board[address] = weights
+
+    # Superclass method implementations
+
+    def initialise(self: Tpm_1_6_TestFirmware) -> bool:
+        """
+        Initialise Tpm_1_6_TestFirmware.
+
+        :return: success status
+        """
+        logging.info("Tpm_1_6_TestFirmware has been initialised")
+        return True
+
+    def status_check(self: Tpm_1_6_TestFirmware) -> Any:
+        """
+        Perform status check.
+
+        :return: Status
+        """
+        logging.info("Tpm_1_6_TestFirmware : Checking status")
+        return Status.OK
+
+    def clean_up(self: Tpm_1_6_TestFirmware) -> bool:
+        """
+        Perform cleanup.
+
+        :return: Success
+        """
+        logging.info("Tpm_1_6_TestFirmware : Cleaning up")
+        return True
+
