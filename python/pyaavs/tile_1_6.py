@@ -17,7 +17,7 @@ import os
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError
 from pyfabil.base.utils import ip2long
-from pyfabil.boards.tpm_1_6 import TPM_1_6
+from pyfabil.boards.tpm import TPM
 from pyaavs.tile import Tile
 
 
@@ -171,7 +171,7 @@ class Tile_1_6(Tile):
         :type adc_mono_channel_sel: int
         """
         # Try to connect to board, if it fails then set tpm to None
-        self.tpm = TPM_1_6()
+        self.tpm = TPM()
 
         # Add plugin directory (load module locally)
         tf = __import__("pyaavs.plugins.tpm_1_6.tpm_test_firmware", fromlist=[None])
