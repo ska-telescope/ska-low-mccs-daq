@@ -30,7 +30,7 @@ from typing import Optional, List
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status, RegisterInfo
 from pyfabil.base.utils import ip2long
-from pyfabil.boards.tpm import TPM
+# from pyfabil.boards.tpm import TPM
 
 from pyaavs.tile_health_monitor import TileHealthMonitor
 
@@ -252,7 +252,8 @@ class Tile(TileHealthMonitor):
         :type adc_mono_channel_sel: int
         """
         # Try to connect to board, if it fails then set tpm to None
-        self.tpm = TPM()
+        # TODO: Setting TPM to None while removing TPM 1.2 board from PyFABIL
+        self.tpm = None
 
         # Add plugin directory (load module locally)
         tf = __import__("pyaavs.plugins.tpm.tpm_test_firmware", fromlist=[None])
