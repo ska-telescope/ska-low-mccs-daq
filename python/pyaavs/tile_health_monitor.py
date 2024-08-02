@@ -20,8 +20,7 @@ from copy import deepcopy
 from functools import reduce
 import operator
 from functools import partial
-from pyaavs.tpm_1_6_monitoring_point_lookup import load_tpm_1_6_lookup
-from pyaavs.tpm_1_2_monitoring_point_lookup import load_tpm_1_2_lookup
+from pyaavs.tpm_monitoring_point_lookup import load_monitoring_point_lookup
 
 
 def health_monitoring_compatible(func):
@@ -49,10 +48,9 @@ class TileHealthMonitor():
         Method to load monitoring point lookup dict into attribute.
 
         TPM monitoring point format and lookup loaded from:
-        tpm_1_2_monitoring_point_lookup.py
-        tpm_1_6_monitoring_point_lookup.py
+        tpm_monitoring_point_lookup.py
         """
-        self.monitoring_point_lookup_dict = load_tpm_1_2_lookup(self) if  self.tpm_version() == "tpm_v1_2" else load_tpm_1_6_lookup(self)
+        self.monitoring_point_lookup_dict = load_monitoring_point_lookup(self)
         return
 
     def enable_health_monitoring(self):
@@ -389,7 +387,7 @@ class TileHealthMonitor():
         :return: alarm status dict
         :rtype: dict
         """
-        return None if self.tpm_version() == "tpm_v1_2" else self.tpm.get_global_status_alarms()
+        return self.tpm.get_global_status_alarms()
         
     def get_available_voltages(self, fpga_id=None):
         """
@@ -402,12 +400,8 @@ class TileHealthMonitor():
         :rtype: list
         """
         available_voltages = []
-        # LASC Plugin TPM 1.2
-        if self.tpm_version() == "tpm_v1_2":
-            available_voltages.extend(self.tpm.tpm_lasc[0].get_available_voltages())
-        # MCU Plugin TPM 1.6
-        else:
-            available_voltages.extend(self.tpm.tpm_monitor[0].get_available_voltages())
+        # MCU Plugin
+        available_voltages.extend(self.tpm.tpm_monitor[0].get_available_voltages())
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
             available_voltages.extend(self.tpm.tpm_sysmon[fpga].get_available_voltages())
@@ -463,10 +457,6 @@ class TileHealthMonitor():
         :raises ValueError: If attempting to set a value outside the specified
             limit 20-50.
         """
-        if self.tpm_version() != "tpm_v1_6":
-            self.logger.info("this method only supports tpm_v1_6.")
-            return
-
         def _is_in_range_20_50(value):
             """
             Return True if value is larger than 20 and less than 50.
@@ -512,12 +502,8 @@ class TileHealthMonitor():
         :rtype: dict
         """
         voltage_dict = {}
-        # LASC Plugin TPM 1.2
-        if self.tpm_version() == "tpm_v1_2":
-            voltage_dict.update(self.tpm.tpm_lasc[0].get_voltage(voltage_name))
-        # MCU Plugin TPM 1.6
-        else:
-            voltage_dict.update(self.tpm.tpm_monitor[0].get_voltage(voltage_name))
+        # MCU Plugin
+        voltage_dict.update(self.tpm.tpm_monitor[0].get_voltage(voltage_name))
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
             voltage_dict.update(self.tpm.tpm_sysmon[fpga].get_voltage(voltage_name))
@@ -537,12 +523,8 @@ class TileHealthMonitor():
         :rtype: list
         """
         available_currents = []
-        # LASC Plugin TPM 1.2
-        if self.tpm_version() == "tpm_v1_2":
-            available_currents.extend(self.tpm.tpm_lasc[0].get_available_currents())
-        # MCU Plugin TPM 1.6
-        else:
-            available_currents.extend(self.tpm.tpm_monitor[0].get_available_currents())
+        # MCU Plugin
+        available_currents.extend(self.tpm.tpm_monitor[0].get_available_currents())
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
             available_currents.extend(self.tpm.tpm_sysmon[fpga].get_available_currents())
@@ -562,12 +544,8 @@ class TileHealthMonitor():
         :rtype: dict
         """
         current_dict = {}
-        # LASC Plugin TPM 1.2
-        if self.tpm_version() == "tpm_v1_2":
-            current_dict.update(self.tpm.tpm_lasc[0].get_current(current_name))
-        # MCU Plugin TPM 1.6
-        else:
-            current_dict.update(self.tpm.tpm_monitor[0].get_current(current_name))
+        # MCU Plugin
+        current_dict.update(self.tpm.tpm_monitor[0].get_current(current_name))
         # System Monitor Plugin
         for fpga in self.fpga_gen(fpga_id):
             current_dict.update(self.tpm.tpm_sysmon[fpga].get_current(current_name))
@@ -597,7 +575,7 @@ class TileHealthMonitor():
         for adc in adcs:
             reg = self[f'adc{adc}', 0x056F]
             lock_is_up = reg & 0x80 > 0
-            no_loss_of_lock = None if self.tpm_version() == "tpm_v1_2" else reg & 0x8 == 0
+            no_loss_of_lock = reg & 0x8 == 0
             status_dict[f'ADC{adc}'] = (lock_is_up, no_loss_of_lock)
         return status_dict
     
@@ -1078,10 +1056,9 @@ class TileHealthMonitor():
         :return: current status and counter values
         :rtype: dict
         """
-        # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
         # The below code is temporary until nof tpm_f2f instances is corrected and
         # nof_f2f_cores can be replaced with len(self.tpm.tpm_f2f)
-        nof_f2f_cores = 2 if self.tpm_version() == "tpm_v1_2" else 1
+        nof_f2f_cores = 1
         cores = range(nof_f2f_cores) if core_id is None else [core_id]
         counts = {}
         for core in cores:
@@ -1096,7 +1073,7 @@ class TileHealthMonitor():
         :return: soft_err register value
         :rtype: integer
         """
-        return None if self.tpm_version() == "tpm_v1_2" else self.tpm.tpm_f2f[0].get_soft_err()
+        return self.tpm.tpm_f2f[0].get_soft_err()
     
     def check_f2f_hard_errors(self):
         """
@@ -1106,7 +1083,7 @@ class TileHealthMonitor():
         :return: hard_err register value
         :rtype: integer
         """
-        return None if self.tpm_version() == "tpm_v1_2" else self.tpm.tpm_f2f[0].get_hard_err()
+        return self.tpm.tpm_f2f[0].get_hard_err()
 
     def clear_f2f_pll_lock_loss_counter(self, core_id=None):
         """
@@ -1115,10 +1092,9 @@ class TileHealthMonitor():
         :param core_id: Specify which F2F Core, 0,1, or None for both cores
         :type core_id: integer
         """
-        # TPM 1.2 has 2 cores per FPGA while TPM 1.6 has 1
         # The below code is temporary until nof tpm_f2f instances is corrected and
         # nof_f2f_cores can be replaced with len(self.tpm.tpm_f2f)
-        nof_f2f_cores = 2 if self.tpm_version() == "tpm_v1_2" else 1
+        nof_f2f_cores = 1
         cores = range(nof_f2f_cores) if core_id is None else [core_id]
         for core in cores:
             self.tpm.tpm_f2f[core].clear_pll_lock_loss_counter()

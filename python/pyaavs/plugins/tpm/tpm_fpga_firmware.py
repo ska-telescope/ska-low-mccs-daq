@@ -5,7 +5,7 @@
 # Distributed under the terms of the GPL license.
 # See LICENSE.txt for more info.
 """
-Hardware functions for the TPM 1.6 hardware.
+Hardware functions for the TPM hardware.
 
 This is a transcript of the corresponding class from the pyaavs library,
 with code style modified for SKA coding conventions. It depends heavily

@@ -18,11 +18,11 @@ the format descibed below.
   key using the set_monitoring_point_attr() method.
 * Expected values used only for AAVS HW test suite at present.
 
-TPM 1.6 min and max voltage ranges are taken from factory acceptance
+Min and max voltage ranges are taken from factory acceptance
 testing. See https://confluence.skatelescope.org/x/nDhED
 """
 
-def load_tpm_1_6_lookup(obj):
+def load_monitoring_point_lookup(obj):
     return {
         'temperatures': {
             'board': {"method": obj.get_temperature,                          "rate": ["fast"], "group": ["temperatures"], "CPLD-only": True,  "exp_value": { "min": 10.00, "max": 68.00}},

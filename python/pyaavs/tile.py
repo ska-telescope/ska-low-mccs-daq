@@ -8,7 +8,7 @@
 # Distributed under the terms of the GPL license.
 # See LICENSE.txt for more info.
 """
-Hardware functions for the TPM 1.6 hardware.
+Hardware functions for the TPM hardware.
 """
 import functools
 import logging
@@ -135,7 +135,7 @@ class Tile(TileHealthMonitor):
 
         self._sampling_rate = sampling_rate
 
-        # Override inherited preadu signal map attribute for TPM 1.6 preadu
+        # Preadu signal map
         self.preadu_signal_map = {0: {'preadu_id': 1, 'channel': 0},
                                   1: {'preadu_id': 1, 'channel': 1},
                                   2: {'preadu_id': 1, 'channel': 2},
@@ -1061,9 +1061,6 @@ class Tile(TileHealthMonitor):
             # If single 40G not supported by firmware both ports must be used
             self.logger.warning("TPM firmware does not support different active 40G port configurations. Both 40G ports will be used.")
             return
-        if self.tpm_version() == "tpm_v1_2":
-            self.logger.warning("TPM 1.2 does not support different active 40G port configurations. Both 40G ports will be used.")
-            return
         if configuration == "port1-only":
             if self.tpm.tpm_10g_core[0].is_tx_disabled():
                 self.logger.error(
@@ -1151,12 +1148,7 @@ class Tile(TileHealthMonitor):
                     cable_detected = True
                 elif qsfp_detection == "flyover_test":
                     cable_detected = True
-                    if self.tpm_version() == "tpm_v1_2":
-                        self.logger.warning(
-                            "Forcing QSFP module detection as 'flyover_test' is not supported on TPM 1.2"
-                        )
-                    else:
-                        self.tpm.tpm_test_firmware[n].configure_40g_core_flyover_test()
+                    self.tpm.tpm_test_firmware[n].configure_40g_core_flyover_test()
                 elif qsfp_detection == "auto" and self.is_qsfp_module_plugged(n):
                     cable_detected = True
                 elif n == 0 and qsfp_detection == "qsfp1":
@@ -3075,8 +3067,6 @@ class Tile(TileHealthMonitor):
         assert set(range(len(levels))) == set(self.preadu_signal_map)
 
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
-                preadu.select_low_passband()
             preadu.read_configuration()
 
         for adc_channel, level in enumerate(levels):
@@ -3094,8 +3084,6 @@ class Tile(TileHealthMonitor):
         :return: Attenuation levels corresponding to each ADC channel, in dB.
         """
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
-                preadu.select_low_passband()
             preadu.read_configuration()
 
         levels = []
@@ -3111,8 +3099,6 @@ class Tile(TileHealthMonitor):
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
-                preadu.select_low_passband()
             preadu.read_configuration()
 
         # Get current RMS
@@ -3142,8 +3128,6 @@ class Tile(TileHealthMonitor):
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
-                preadu.select_low_passband()
             preadu.read_configuration()
             preadu.set_attenuation(attenuation, list(range(16)))
             preadu.write_configuration()
