@@ -28,6 +28,7 @@ if sys.version_info.minor >= 9:
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status, RegisterInfo
 from pyfabil.base.utils import ip2long
+from pyfabil.boards.tpm_generic import TPMGeneric
 from pyfabil.boards.tpm import TPM
 
 from pyaavs.tile_health_monitor import TileHealthMonitor
@@ -76,7 +77,7 @@ def connected(f):
     return wrapper
 
 
-class Tile_1_6(TileHealthMonitor):
+class Tile(TileHealthMonitor):
     """
     Tile hardware interface library.
     """
@@ -89,9 +90,10 @@ class Tile_1_6(TileHealthMonitor):
         lmc_port=4660,
         sampling_rate=800e6,
         logger=None,
+        tpm_version=None
     ):
         """
-        Iniitalise a new Tile16 instance.
+        Iniitalise a new Tile instance.
 
         :param logger: the logger to be used by this Command. If not
                 provided, then a default module logger will be used.
@@ -107,6 +109,13 @@ class Tile_1_6(TileHealthMonitor):
         :param sampling_rate: ADC sampling rate
         :type sampling_rate: float
         """
+        if tpm_version is None:
+            _tpm = TPMGeneric()
+            tpm_version = _tpm.get_tpm_version(socket.gethostbyname(ip), port)
+            del _tpm
+        if tpm_version == "tpm_v1_2":
+            raise LibraryError("TPM version no longer supported: tpm_v1_2")
+
         if logger is None:
             self.logger = logging.getLogger("")
         else:
