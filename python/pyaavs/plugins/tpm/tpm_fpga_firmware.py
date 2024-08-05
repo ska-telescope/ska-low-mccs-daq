@@ -40,7 +40,7 @@ class TpmFpgaFirmware(FirmwareBlock):
     """ TpmFpgaFirmware plugin """
 
     @firmware({"design": "tpm_test", "major": "1", "minor": ">1"})
-    @compatibleboards(BoardMake.Tpm16Board)
+    @compatibleboards(BoardMake.TpmBoard)
     @friendlyname("tpm_test_firmware")  # TODO: Maybe one day we can rename this but its a huge refactor
     @maxinstances(2)
     def __init__(self: TpmFpgaFirmware, board: Any, **kwargs: Any) -> None:
