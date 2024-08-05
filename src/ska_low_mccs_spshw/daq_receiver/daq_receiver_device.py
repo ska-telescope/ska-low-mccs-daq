@@ -344,8 +344,6 @@ class MccsDaqReceiver(SKABaseDevice):
             )
 
         for command_name, method_name in [
-            # ("Start", "start_daq"),
-            # ("StartBandpassMonitor", "start_bandpass_monitor"),
             ("Stop", "stop_daq"),
         ]:
             self.register_command_object(
@@ -362,7 +360,6 @@ class MccsDaqReceiver(SKABaseDevice):
         for command_name, command_class in [
             ("Start", _StartDaqCommand),
             ("StartBandpassMonitor", _StartBandpassMonitorCommand),
-            # ("Stop", _StopDaqCommand),
         ]:
             self.register_command_object(
                 command_name,
@@ -628,7 +625,6 @@ class MccsDaqReceiver(SKABaseDevice):
         else:
             kwargs = {}
         handler = self.get_command_object("Start")
-        print(f"{kwargs=}")
         (result_code, message) = handler(**kwargs)
         return ([result_code], [message])
 
@@ -649,7 +645,6 @@ class MccsDaqReceiver(SKABaseDevice):
             >>> daq.Stop()
         """
         handler = self.get_command_object("Stop")
-        print("in stop daq device")
         (result_code, message) = handler()
         return ([result_code], [message])
 
