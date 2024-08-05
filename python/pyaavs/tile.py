@@ -907,6 +907,7 @@ class Tile(TileHealthMonitor):
         else:
             return 0
 
+    @connected
     def is_qsfp_module_plugged(self, qsfp_id=0):
         """
         Initialise firmware components.
@@ -1042,6 +1043,7 @@ class Tile(TileHealthMonitor):
 
         return self._40g_configuration
 
+    @connected
     def configure_active_40g_ports(self, configuration):
         """
         Configure which of the two 40G QSFP ports is used.
@@ -3428,6 +3430,7 @@ class Tile(TileHealthMonitor):
 
     # ------------------- Test methods
 
+    @connected
     def f2f_aurora_test_start(self):
         """Start test on Aurora f2f link."""
         for f2f in self.tpm.tpm_f2f:
@@ -3435,11 +3438,13 @@ class Tile(TileHealthMonitor):
         for f2f in self.tpm.tpm_f2f:
             f2f.start_rx_test()
 
+    @connected
     def f2f_aurora_test_check(self):
         """Get test results for Aurora f2f link Tests printed on stdout."""
         for f2f in self.tpm.tpm_f2f:
             f2f.get_test_result()
 
+    @connected
     def f2f_aurora_test_stop(self):
         """Stop test on Aurora f2f link."""
         for f2f in self.tpm.tpm_f2f:

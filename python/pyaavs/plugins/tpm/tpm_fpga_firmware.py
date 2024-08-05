@@ -133,7 +133,7 @@ class TpmFpgaFirmware(FirmwareBlock):
 
         self.load_plugin()
 
-    def load_plugin(self: Tpm16TestFirmware) -> None:
+    def load_plugin(self: TpmFpgaFirmware) -> None:
         """Load required plugin."""
         self._jesd1 = self.board.load_plugin("TpmJesd", device=self._device, core=0, frame_length=216)
         self._jesd2 = self.board.load_plugin("TpmJesd", device=self._device, core=1, frame_length=216)
@@ -195,7 +195,7 @@ class TpmFpgaFirmware(FirmwareBlock):
                     "MultipleChannelTx", device=self._device
                 )
 
-    def initialise_firmware(self: Tpm16TestFirmware) -> None:
+    def initialise_firmware(self: TpmFpgaFirmware) -> None:
         """
         Initialise firmware components.
 
