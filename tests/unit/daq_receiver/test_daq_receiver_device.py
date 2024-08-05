@@ -202,8 +202,6 @@ class TestMccsDaqReceiver:
             assert consumer in actual_converted_daq_modes
 
         [result_code], [response] = device_under_test.Stop()
-        # assert result_code == ResultCode.OK
-        # assert response == "Daq stopped"
         assert result_code == ResultCode.QUEUED
         assert "Stop" == response.split("_")[-1]
         sleep(0.2)
