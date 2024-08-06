@@ -1,4 +1,4 @@
-# type: ignore
+ # type: ignore
 # -*- coding: utf-8 -*-
 #
 # This file is part of the SKA Low MCCS project
@@ -396,7 +396,7 @@ class Tile_1_6(Tile):
             self.clear_health_status()
 
         if global_start_time is not None:
-            self.start_acquisition(tpm_start_time=tpm_start_time)
+            self.start_acquisition(global_start_time=global_start_time)
         else:
             logging.info("Start time is not set, please run start_acquisition separately")
 
