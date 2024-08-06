@@ -838,7 +838,7 @@ class Station(object):
             return False
 
         if start_time == 0:
-            start_time = self.tiles[0].current_station_beamformer_frame() + 256
+            start_time = self.tiles[0].current_station_beamformer_frame() + 512*math.ceil(len(self.tiles)/8)
 
         retvalues = [tile.start_beamformer(start_time, duration, scan_id, mask)
                 for tile in self.tiles]
