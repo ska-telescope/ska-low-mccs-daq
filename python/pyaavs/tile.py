@@ -2849,6 +2849,8 @@ class Tile(TileHealthMonitor):
         self.logger.info("Stopping all transmission")
         # All data format transmission except channelised data continuous stops autonomously
         self.stop_channelised_data_continuous()
+        # For the unlikely event the other data transmission formats are still going
+        self.clear_lmc_data_request()
 
     # ---------------------------- Wrapper for multi channel acquisition ------------------------------------
     # -------------------- multichannel_tx is experimental - not needed in MCCS -----------------------------
