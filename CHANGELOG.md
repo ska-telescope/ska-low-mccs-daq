@@ -2,6 +2,18 @@
 
 ## unreleased
 
+* []
+
+## 0.7.0
+
+* [MCCS-2213] Reconfigure helmfile templates to pull configuration info from TelModel.
+* [MCCS-2202] Allow to configure from an optional NAD.
+* [MCCS-2191] Move static Daq properties from Tango device to backend.
+* [SPRTS-224] Invert the interpretation of X and Y HDF5 file indices.
+* [LOW-938] Add ska-low-deployment as `.deploy` submodule containing deployment templates.
+* [MCCS-2189] Allow exposing Daq's data service as a LoadBalancer with external IP.
+* [MCCS-2189] Deploy two daqs per station. One for calibration one for bandpasses.
+
 ## 0.6.2
 
 * [MCCS-1883] Add bandpass monitor labels. Fix attribute size.
