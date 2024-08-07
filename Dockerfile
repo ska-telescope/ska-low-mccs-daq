@@ -8,8 +8,8 @@ COPY --chown=daqqer:daqqer ./ /app/
 
 # Setup environment variables
 # When updating AAVS_SYSTEM_TAG/PYFABIL_TAG, also update in pyproject.toml
-ENV AAVS_SYSTEM_TAG=1.2.0
-ENV PYFABIL_TAG=1.3.0
+ENV AAVS_SYSTEM_SHA=4fd6ff7f78697bb48fcb80c06e5638daf5db8b6e
+ENV PYFABIL_SHA=44705affebc0bcd689902da58471fb81fad0d779
 ENV AAVS_DAQ_SHA=65c8339543ff94818ccc9335583168c9b7f877f4
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIDIA_VISIBLE_DEVICES all
@@ -62,8 +62,9 @@ WORKDIR /app/xGPU/src/
 RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
 # Install AAVS DAQ
-RUN git clone --branch $AAVS_SYSTEM_TAG https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
+RUN git clone https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
 WORKDIR /app/aavs-system
+RUN git reset --hard ${AAVS_SYSTEM_SHA}
 
 # Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
 COPY deploy.sh /app/aavs-system/
