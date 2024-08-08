@@ -487,7 +487,7 @@ class TestFullStation():
                 # self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
                 # del spead_rx_offline_inst
 
-                self._test_station.stop_data_transmission()
+                self._test_station.stop_channelised_data_continuous()
                 offline_power.append(offline_beam_power)
                 if self._start_and_stop:
                     for tile in self._test_station.tiles:

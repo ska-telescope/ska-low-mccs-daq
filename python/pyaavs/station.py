@@ -729,13 +729,18 @@ class Station(object):
 
     def send_channelised_data_continuous(self, channel_id, number_of_samples=65536):
         """ Send continuous channelised data from all Tiles """
-        self.stop_data_transmission()
+        self.stop_channelised_data_continuous()
         self._wait_available()
         t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
         for tile in self.tiles:
             tile.send_channelised_data_continuous(channel_id=channel_id, number_of_samples=number_of_samples,
                                                   timestamp=t0, seconds=self._seconds)
         return self._check_data_sync(t0)
+
+    def stop_channelised_data_continuous(self):
+        """ Stop sending channelised data """
+        for tile in self.tiles:
+            tile.stop_channelised_data_continuous()
 
     def send_channelised_data_narrowband(self, frequency, round_bits, number_of_samples=256):
         """ Send narrowband continuous channel data """
@@ -744,7 +749,7 @@ class Station(object):
             logging.warning("Downloaded firwmare does not support narrowband channels")
             return
 
-        self.stop_data_transmission()
+        self.stop_channelised_data_continuous()
         self._wait_available()
         t0 = self.tiles[0].get_fpga_timestamp(Device.FPGA_1)
         for tile in self.tiles:
