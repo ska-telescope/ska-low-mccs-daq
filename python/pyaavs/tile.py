@@ -2517,7 +2517,7 @@ class Tile(TileHealthMonitor):
     # -----------------------------
     @connected
     def configure_integrated_channel_data(
-        self, integration_time=0.5, first_channel=0, last_channel=512
+        self, integration_time=0.5, first_channel=0, last_channel=511
     ):
         """
         Configure and start continuous integrated channel data.
@@ -2541,7 +2541,7 @@ class Tile(TileHealthMonitor):
 
     @connected
     def configure_integrated_beam_data(
-        self, integration_time=0.5, first_channel=0, last_channel=192
+        self, integration_time=0.5, first_channel=0, last_channel=191
     ):
         """
         Configure and start continuous integrated beam data.
