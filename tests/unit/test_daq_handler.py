@@ -129,11 +129,11 @@ class TestDaqHandler:
         :param expected_msg: The message expected from `StartDaq`.
         """
         daq_client = DaqClient(daq_address)
-        assert daq_client.initialise("{}") == {
+        assert daq_client.initialise("{}", "") == {
             "message": "Daq successfully initialised"
         }
 
-        responses = daq_client.start_daq(args)
+        responses = daq_client.start_daq(modes_to_start=args)
 
         assert next(responses) == {
             "status": TaskStatus.IN_PROGRESS,
@@ -151,6 +151,90 @@ class TestDaqHandler:
         # assert next(responses) == {"types": "bah", "files": "bah.hdf5"}
         # with pytest.raises(StopIteration):
         #     _ = next(responses)
+
+        assert daq_client.stop_daq() == (ResultCode.OK, "Daq stopped")
+
+    @pytest.mark.parametrize(
+        ("modes_to_start", "expected_status", "expected_msg"),
+        (
+            (
+                DaqModes.RAW_DATA,
+                TaskStatus.COMPLETED,
+                "Daq has been started and is listening",
+            ),  # noqa: E501
+            (
+                DaqModes.CHANNEL_DATA,
+                TaskStatus.COMPLETED,
+                "Daq has been started and is listening",
+            ),  # noqa: E501
+            (
+                DaqModes.BEAM_DATA,
+                TaskStatus.COMPLETED,
+                "Daq has been started and is listening",
+            ),  # noqa: E501
+            (
+                DaqModes.CONTINUOUS_CHANNEL_DATA,
+                TaskStatus.COMPLETED,
+                "Daq has been started and is listening",
+            ),  # noqa: E501
+            (
+                DaqModes.INTEGRATED_BEAM_DATA,
+                TaskStatus.COMPLETED,
+                "Daq has been started and is listening",
+            ),  # noqa: E501
+            (
+                DaqModes.INTEGRATED_CHANNEL_DATA,
+                TaskStatus.COMPLETED,
+                "Daq has been started and is listening",
+            ),  # noqa: E501
+            (
+                DaqModes.STATION_BEAM_DATA,
+                TaskStatus.COMPLETED,
+                "Daq has been started and is listening",
+            ),  # noqa: E501
+            (
+                DaqModes.ANTENNA_BUFFER,
+                TaskStatus.COMPLETED,
+                "Daq has been started and is listening",
+            ),  # noqa: E501
+            (
+                DaqModes.RAW_STATION_BEAM,
+                TaskStatus.COMPLETED,
+                "Daq has been started and is listening",
+            ),  # noqa: E501
+        ),
+    )
+    def test_start_stop_all_daq_modes(
+        self: TestDaqHandler,
+        daq_address: str,
+        modes_to_start: DaqModes,
+        expected_status: ResultCode,
+        expected_msg: str,
+    ) -> None:
+        """
+        Test for DAQ server start and stop.
+
+        :param daq_address: The address of the DAQ server.
+        :param modes_to_start: The modes_to_start with which to call `StartDaq`.
+        :param expected_status: The expected task status expected
+            from `StartDaq`.
+        :param expected_msg: The message expected from `StartDaq`.
+        """
+        daq_client = DaqClient(daq_address)
+        assert daq_client.initialise("{}", "") == {
+            "message": "Daq successfully initialised"
+        }
+
+        responses = daq_client.start_daq(modes_to_start=str(modes_to_start))
+
+        assert next(responses) == {
+            "status": TaskStatus.IN_PROGRESS,
+            "message": "Start Command issued to gRPC stub",
+        }
+        assert next(responses) == {
+            "status": expected_status,
+            "message": expected_msg,
+        }
 
         assert daq_client.stop_daq() == (ResultCode.OK, "Daq stopped")
 
@@ -187,7 +271,7 @@ class TestDaqHandler:
         :param expected_msg: The message expected from `Configure`.
         """
         daq_client = DaqClient(daq_address)
-        assert daq_client.initialise("{}") == {
+        assert daq_client.initialise("{}", "") == {
             "message": "Daq successfully initialised"
         }
 
@@ -282,7 +366,7 @@ class TestDaqHandler:
             "rms_plot": expected_rms_plot,
         }
         daq_client = DaqClient(daq_address)
-        assert daq_client.initialise("{}") == {
+        assert daq_client.initialise("{}", "") == {
             "message": "Daq successfully initialised"
         }
 

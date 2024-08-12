@@ -2,18 +2,18 @@ FROM nvidia/cuda:11.4.3-devel-ubuntu20.04 AS cuda_base
 
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
 RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
-    chmod 0440 /etc/sudoers.d/daqqer
+    chmod 0760 /etc/sudoers.d/daqqer
 
 COPY --chown=daqqer:daqqer ./ /app/
 
 # Setup environment variables
-# When updating AAVS_SYSTEM_TAG/PYFABIL_TAG, also update in pyproject.toml
+# When updating AAVS_SYSTEM_SHA, also update aavs_system in pyproject.toml
 ENV AAVS_SYSTEM_SHA=5236e5dbee16350250cb947ae48a7aa8abc27a7c
 ENV PYFABIL_SHA=a4e8cfa45fdac285894c71fc559621747e94c450
 ENV AAVS_DAQ_SHA=65c8339543ff94818ccc9335583168c9b7f877f4
 ENV DEBIAN_FRONTEND=noninteractive
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV TZ="United_Kingdom/London"
 ENV CUDA_ARCH="sm_80"
 
@@ -35,6 +35,7 @@ RUN apt-get update && apt-get install -y \
     python3.10 \
     libpython3.10-dev \
     python3-distutils \
+    python3.10-dev \
     sudo \
     tzdata
 
@@ -44,10 +45,10 @@ ENV PATH="/usr/local/lib:/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr
 ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
 RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
 
-# Install pip and poetry.
+# # Install pip and poetry.
 ENV POETRY_HOME=/opt/poetry
 ENV POETRY_VERSION=1.3.2
-RUN curl -sSL https://bootstrap.pypa.io/get-pip.py | gosu root python3
+RUN curl -sSL --retry 3 --connect-timeout 15 https://bootstrap.pypa.io/get-pip.py | gosu root python3
 RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | gosu root python3 - --yes
 RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
     ln -sfn /opt/poetry/bin/poetry /usr/local/bin/poetry
@@ -82,5 +83,6 @@ RUN poetry config virtualenvs.create false && poetry install --only main
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/
+RUN usermod -a -G aavs_logger daqqer
 
 USER daqqer

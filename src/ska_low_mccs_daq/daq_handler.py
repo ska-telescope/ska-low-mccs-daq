@@ -117,16 +117,18 @@ def check_initialisation(func: Wrapped) -> Wrapped:
         :param args: positional arguments to the wrapped function
         :param kwargs: keyword arguments to the wrapped function
 
-        :raises ValueError: if component initialisation has
-            not been completed.
         :return: whatever the wrapped function returns
         """
         if not self.initialised:
-            raise ValueError(
-                f"Cannot execute '{type(self).__name__}.{func.__name__}'. "
-                "DaqReceiver has not been initialised. "
-                "Set adminMode to ONLINE to re-initialise."
+            self.logger.warning(
+                "Daq has not been initialised. Initialising with defaults now."
             )
+            self.initialise(self._config, "")
+            # raise ValueError(
+            #     f"Cannot execute '{type(self).__name__}.{func.__name__}'. "
+            #     "DaqReceiver has not been initialised. "
+            #     "Set adminMode to ONLINE to re-initialise."
+            # )
         return func(self, *args, **kwargs)
 
     return cast(Wrapped, _wrapper)
@@ -203,6 +205,7 @@ class DaqHandler:
             "correlator": DaqModes.CORRELATOR_DATA,
             "station": DaqModes.STATION_BEAM_DATA,
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
+            "raw_station_beam": DaqModes.RAW_STATION_BEAM,
         }
         # TODO: Check this typehint. Floats might be ints, not sure.
         self._antenna_locations: dict[
@@ -213,6 +216,7 @@ class DaqHandler:
         self._y_bandpass_plots: queue.Queue = queue.Queue()
         self._rms_plots: queue.Queue = queue.Queue()
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
+        self._custom_libaavsdaq_filepath: Optional[str] = None
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -272,6 +276,9 @@ class DaqHandler:
         if data_mode == "correlator":
             pass
 
+        if data_mode == "raw_station_beam":
+            pass
+
     def _data_received_callback(
         self: DaqHandler,
         data_mode: str,
@@ -297,34 +304,33 @@ class DaqHandler:
         Initialise a new DaqReceiver instance.
 
         :param config: the configuration to apply
-        :param libaavsdaq_filepath: a .so file to use as the C library
+        :param libaavsdaq_filepath: Filepath to a specific libaavsdaq version.
 
         :return: a resultcode, message tuple
         """
         self._config |= config
+        self.logger.info("Initialising daq.")
+        self.daq_instance = DaqReceiver()
 
-        if self._initialised is False:
-            self.logger.info("Initialising daq.")
-            self.daq_instance = DaqReceiver()
-            try:
-                if config:
-                    self.daq_instance.populate_configuration(self._config)
+        if libaavsdaq_filepath == "":
+            self._custom_libaavsdaq_filepath = None
+        else:
+            self._custom_libaavsdaq_filepath = libaavsdaq_filepath
 
-                self.daq_instance.initialise_daq()
-                self._receiver_started = True
-                self._initialised = True
-            # pylint: disable=broad-except
-            except Exception as e:
-                self.logger.error(
-                    "Caught exception in `DaqHandler.initialise`: %s", e
-                )  # noqa: E501
-                return ResultCode.FAILED, f"Caught exception: {e}"
-            self.logger.info("Daq initialised.")
-            return ResultCode.OK, "Daq successfully initialised"
+        try:
+            if config:
+                self.daq_instance.populate_configuration(self._config)
 
-        # else
-        self.logger.info("Daq already initialised")
-        return ResultCode.REJECTED, "Daq already initialised"
+            self.daq_instance.initialise_daq(filepath=self._custom_libaavsdaq_filepath)
+            self._receiver_started = True
+            self._initialised = True
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error(
+                "Caught exception in `DaqHandler.initialise`: %s", e
+            )  # noqa: E501
+            return ResultCode.FAILED, f"Caught exception: {e}"
+        self.logger.info("Daq initialised.")
+        return ResultCode.OK, "Daq successfully initialised"
 
     @property
     def initialised(self) -> bool:
@@ -352,6 +358,7 @@ class DaqHandler:
         :yield: a status update.
 
         :raises ValueError: if an invalid DaqMode is supplied
+        :raises Exception: If an unexpected Exception is caught.
         """
         try:
             # Convert string representation to DaqModes
@@ -362,9 +369,26 @@ class DaqHandler:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
             raise
 
-        if not self._receiver_started:
-            self.daq_instance.initialise_daq()
-            self._receiver_started = True
+        try:
+            if not self._receiver_started:
+                self.daq_instance.initialise_daq(
+                    filepath=self._custom_libaavsdaq_filepath
+                )
+                self._receiver_started = True
+                self.logger.info("Restarted daq's receiver thread.")
+        except Exception as e:
+            self.logger.error(
+                "Caught exception initialising in daq_handler.start: %s", e
+            )
+            raise
+
+        # Can only start RAW_STATION_BEAM mode on its own.
+        if DaqModes.RAW_STATION_BEAM in converted_modes_to_start:
+            if len(converted_modes_to_start) > 1:
+                self.logger.error("DaqModes.RAW_STATION_BEAM must be started alone.")
+                return
+            # Reinitialise for RAW_STATION_BEAM
+            self.daq_instance.initialise_station_beam()
 
         try:
             self.client_queue = queue.SimpleQueue()
@@ -422,7 +446,6 @@ class DaqHandler:
                     )
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
-
             self._config |= config
             self.daq_instance.populate_configuration(self._config)
             self.logger.info("Daq successfully reconfigured.")
