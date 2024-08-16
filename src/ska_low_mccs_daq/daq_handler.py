@@ -932,13 +932,13 @@ class DaqHandler:
                 except Exception as e:
                     self.logger.error("Exception: %s", e)
                     continue
-                data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
-
-                # # Convert to power in dB
-                # np.seterr(divide="ignore")
-                # data = 10 * np.log10(data)
-                # data[np.isneginf(data)] = 0
-                # np.seterr(divide="warn")
+                try:
+                    data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
+                except ValueError as ve:
+                    self.logger.error(
+                        "ValueError caught reshaping data, skipping: %s", ve
+                    )
+                    continue
 
             # Append Tile data to full station set.
             # full_station_data is made of blocks of data per TPM in TPM order.

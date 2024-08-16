@@ -50,7 +50,7 @@ include .make/oci.mk
 ###############################################
 K8S_USE_HELMFILE = true
 K8S_HELMFILE = helmfile.d/helmfile.yaml
-K8S_HELMFILE_ENV ?= stfc-ci
+K8S_HELMFILE_ENV ?= minikube
 
 include .make/k8s.mk
 
@@ -68,7 +68,7 @@ HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq
 ####################
 helmfile-lint:
 	SKIPDEPS=""
-	for environment in aa0.5-production aavs3-production arcetri gmrt low-itf oxford psi-low stfc-ral ; do \
+	for environment in minikube aa0.5-production aavs3-production aavs3-minikube arcetri gmrt low-itf low-itf-minikube oxford psi-low psi-low-minikube ral ral-minikube; do \
         echo "Linting helmfile against environment '$$environment'" ; \
 		helmfile -e $$environment lint $$SKIPDEPS; \
 		EXIT_CODE=$$? ; \
