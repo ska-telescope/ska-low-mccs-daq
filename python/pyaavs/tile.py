@@ -2786,7 +2786,7 @@ class Tile(TileHealthMonitor):
         """
         time.sleep(wait_seconds)
 
-        self.stop_data_transmission()
+        self.stop_channelised_data_continuous()
         # Data transmission should be synchronised across FPGAs
         t_request = self.synchronised_data_operation(timestamp=timestamp, seconds=seconds)
 
@@ -2845,10 +2845,12 @@ class Tile(TileHealthMonitor):
 
     @connected
     def stop_data_transmission(self):
-        """ Stop all data transmission from TPM"""
-        self.logger.info("Stopping all transmission")
+        """ Stop all LMC (non integrated) data transmission from TPM"""
+        self.logger.info("Stopping all LMC (non integrated) data transmission")
         # All data format transmission except channelised data continuous stops autonomously
         self.stop_channelised_data_continuous()
+        # For the unlikely event the other data transmission formats are still going
+        self.clear_lmc_data_request()
 
     # ---------------------------- Wrapper for multi channel acquisition ------------------------------------
     # -------------------- multichannel_tx is experimental - not needed in MCCS -----------------------------
