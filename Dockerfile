@@ -7,10 +7,10 @@ RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
 COPY --chown=daqqer:daqqer ./ /app/
 
 # Setup environment variables
-# When updating AAVS_SYSTEM_SHA, also update aavs_system in pyproject.toml
+# When updating AAVS_SYSTEM_TAG/PYFABIL_TAG, also update in pyproject.toml
 ENV AAVS_SYSTEM_SHA=4fd6ff7f78697bb48fcb80c06e5638daf5db8b6e
-ENV AAVS_DAQ_SHA=65c8339543ff94818ccc9335583168c9b7f877f4
 ENV PYFABIL_SHA=44705affebc0bcd689902da58471fb81fad0d779
+ENV AAVS_DAQ_SHA=65c8339543ff94818ccc9335583168c9b7f877f4
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
@@ -33,6 +33,7 @@ RUN apt-get update && apt-get install -y \
     make \
     pkg-config \
     python3.10 \
+    libpython3.10-dev \
     python3-distutils \
     sudo \
     tzdata

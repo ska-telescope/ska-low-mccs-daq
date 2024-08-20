@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ska-low-mccs-daq"
-version = "0.6.2"
+version = "0.7.0"
 description = "Data acquisition for the SKA-Low Monitoring, Control and Calibration Subsystem (MCCS)"
 license = "BSD-3-Clause"
 authors = ["MCCS team"]
@@ -23,7 +23,7 @@ future = "^0.18.2"
 numpy = "^1.23.0"
 PyYAML = "^6.0"
 ska-control-model = "^1.0.0"
-ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", rev = "7fcb3c3d0091a47b85f45b21aa11785550a4f446" }
+ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", rev = "14954bf332d953cdda09a4d3d1dbcf227012737f" }
 singleton-decorator = "1.0.0"
 slacker = "0.14.0"
 h5py = "3.7.0"
@@ -54,7 +54,6 @@ flake8-use-fstring = "^1.4"
 flake8-rst-docstrings = "^0.2.7"
 mypy = "^1.3.0"
 pep8-naming = "^0.13.1"
-types-pkg-resources = "^0.1.3"
 types-PyYAML = "^6.0.11"
 isort = "^5.10.1"
 
@@ -65,7 +64,7 @@ sphinx-autodoc-typehints = "^1.19"
 ska-ser-sphinx-theme = "^0.1.1"
 sphinxcontrib-plantuml = "^0.25"
 ska-control-model = "^1.0.0"
-ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", rev = "7fcb3c3d0091a47b85f45b21aa11785550a4f446" }
+ska-low-mccs-daq-interface = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git", rev = "14954bf332d953cdda09a4d3d1dbcf227012737f" }
 numpy = "^1.23.0"
 matplotlib = "3.5.3"
 h5py = "3.7.0"
