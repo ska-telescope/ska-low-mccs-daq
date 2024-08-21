@@ -4,6 +4,10 @@
 
 * []
 
+## 0.8.0
+
+* [MCCS-2141] Update to ska-control-model 1.0.0
+
 ## 0.7.0
 
 * [MCCS-2213] Reconfigure helmfile templates to pull configuration info from TelModel.

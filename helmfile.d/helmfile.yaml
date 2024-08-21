@@ -164,7 +164,7 @@ releases:
   - name: ska-low-mccs-daq
     namespace: {{.Namespace | default "ska-low-mccs"}}
     chart: ../charts/ska-low-mccs-daq
-    version: 0.7.0
+    version: 0.8.0
     values:
       - .deploy/helmfile.d/templates/globals.yaml.gotmpl
       - .deploy/helmfile.d/templates/daq/daqrxs.yaml.gotmpl
