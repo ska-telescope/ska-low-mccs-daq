@@ -559,12 +559,34 @@ class Tile(TileHealthMonitor):
     @connected
     def check_pll_locked(self):
         """
-        Check in hardware if PLL is locked.
+        Check in if PLL is locked to external reference clock. 
 
-        :return: True if PLL is locked.
+        :return: True if PLL is locked to external reference clock.
+        """
+        return self.check_ad9528_pll_status()[0]
+
+    @connected
+    def check_pll_reference(self):
+        """
+        Check PLL lock reference.
+        
+        NOTE: If the TPM is fitted in a subrack, the external reference will always be present and provided from the subrack.
+        In this case, the subrack will also need to be monitored to determine if it is using an internal or external reference clock.
+
+        :return: "external" if PLL is locked to external reference clock.
+                 "internal" if PLL is locked to interfal reference clock.
+                 None if PLL is not locked.
         """
         pll_status = self.tpm["pll", 0x508]
-        return pll_status in [0xF2, 0xE7]
+        if pll_status == 0xE7:
+            self.logger.debug("PLL locked to external reference clock.")
+            return "external"
+        elif pll_status == 0xF2:
+            self.logger.warning("PLL locked to internal reference clock.")
+            return "internal"
+        else:
+            self.logger.error(f"PLL is not locked! - Status Readback 0 (0x508): {hex(pll_status)}")
+            return
 
     @connected
     def get_beamformer_table(self, fpga_id: int = 0):
