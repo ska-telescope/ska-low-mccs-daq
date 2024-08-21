@@ -1,21 +1,24 @@
 #!/usr/bin/env python
 import datetime
 
+import h5py
+from PyQt5.QtCore import pyqtSignal
+
 from skalab_base import SkalabBase
 from skalab_log import SkalabLog
 import sys
 import os
+import fnmatch
 import gc
 import glob
 from pathlib import Path
 
 import numpy as np
-from PyQt5 import QtWidgets, uic, QtCore
-from skalab_utils import dB2Linear, linear2dB, MiniPlots, read_data, dircheck, findtiles, calc_disk_usage
-from skalab_utils import calcolaspettro, closest, moving_average
+from PyQt5 import QtWidgets, uic, QtCore, QtGui
+from skalab_utils import dB2Linear, linear2dB, MiniPlots, read_data, COLORI, findtiles, calc_disk_usage
+from skalab_utils import calcolaspettro, closest, moving_average, clickableQLabel
 from pyaavs import station
 from pydaq.persisters import FileDAQModes, RawFormatFileManager
-COLORI = ["b", "g"]
 
 default_app_dir = str(Path.home()) + "/.skalab/"
 default_profile = "Default"
@@ -24,6 +27,23 @@ profile_filename = "playback.ini"
 # import warnings
 # warnings.filterwarnings('ignore')
 # warnings.warn('*GtkDialog mapped*')
+
+
+def clickable(widget):
+    class Filter(QtCore.QObject):
+        clicked = QtCore.pyqtSignal()
+
+        def eventFilter(self, obj, event):
+            if obj == widget:
+                if event.type() == QtCore.QEvent.MouseButtonRelease:
+                    if obj.rect().contains(event.pos()):
+                        self.clicked.emit()
+                        return True
+            return False
+    filter = Filter(widget)
+    widget.installEventFilter(filter)
+    return filter.clicked
+
 
 configuration = {'tiles': None,
                  'time_delays': None,
@@ -106,11 +126,22 @@ class Playback(SkalabBase):
                                           nplot=16, xlabel="time samples", ylabel="ADU RMS",
                                           xlim=[0, 100], ylim=[0, 50])
 
-        self.show()
-        self.load_events()
+        # Populate the playback plots for the spectrogram
+        self.tempPlots = MiniPlots(parent=self.wg.qplot_temp,
+                                          nplot=1, xlabel="samples", ylabel="deg",
+                                          xlim=[0, 100], ylim=[20, 100], title="Temperatures")
+
+        self.load_extras()
 
         self.config_file = config
-        #self.setup_config()
+        self.temp_fname = ""
+        self.check_icon = None
+        self.check_ok = False
+        self.datasets = []
+        self.saved_path = ""
+        self.selected = True
+        self.traces_enabled = []
+        self.traces_disabled = []
 
         self.station_name = ""
         self.folder = ""
@@ -140,10 +171,14 @@ class Playback(SkalabBase):
         self.yAxisRange = [float(self.wg.qline_level_min.text()), float(self.wg.qline_level_max.text())]
 
         self.tiles = []
+        self.current_tile = None
         self.data = []
         self.power = {}
         self.raw = {}
         self.rms = {}
+
+        self.show()
+        self.load_events()
 
         # Show only the first plot view
         self.wg.qplot_spectra.show()
@@ -161,7 +196,8 @@ class Playback(SkalabBase):
         self.populate_help(uifile=uiFile)
 
     def load_events(self):
-        self.wg.qbutton_browse.clicked.connect(lambda: self.browse_data_folder())
+        # RAW
+        self.wg.qbutton_browse.clicked.connect(lambda: self.browse_raw_folder())
         self.wg.qbutton_load.clicked.connect(lambda: self.load_data())
         self.wg.qbutton_plot.clicked.connect(lambda: self.plot_data())
         self.wg.qcombo_tpm.currentIndexChanged.connect(self.calc_data_volume)
@@ -179,11 +215,61 @@ class Playback(SkalabBase):
         self.wg.qline_level_max.textEdited.connect(lambda: self.applyEnable())
         self.wg.qline_band_from.textEdited.connect(lambda: self.applyEnable())
         self.wg.qline_band_to.textEdited.connect(lambda: self.applyEnable())
-        self.wg.qbutton_apply.clicked.connect(lambda: self.applyPressed())
+        #self.wg.qbutton_apply.clicked.connect(lambda: self.applyPressed())
         self.wg.qcheck_xpol_sp.stateChanged.connect(self.cb_show_xline)
         self.wg.qcheck_ypol_sp.stateChanged.connect(self.cb_show_yline)
         self.wg.qcheck_rms.stateChanged.connect(self.cb_show_rms)
         self.wg.qbutton_save.clicked.connect(lambda: self.savePicture())
+        # TEMP
+        self.wg.qbutton_temp_browse.clicked.connect(lambda: self.browse_temp_file())
+        self.wg.qline_filter.textChanged.connect(lambda: self.temp_filter())
+        self.wg.qline_temp_ymin.returnPressed.connect(self.apply_zoom)
+        self.wg.qline_temp_ymax.returnPressed.connect(self.apply_zoom)
+        self.wg.qcheck_temp_grid.stateChanged.connect(self.temp_grid)
+        self.wg.qcheck_temp_legend.stateChanged.connect(self.temp_legend)
+        self.wg.qcheck_temp_noline.stateChanged.connect(self.temp_noline)
+
+    def load_extras(self):
+        self.qlabel_folder = clickableQLabel(self.wg.qtabRaw)
+        self.qlabel_folder.setGeometry(QtCore.QRect(540, 166, 18, 18))
+        self.qlabel_folder.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        self.qlabel_folder.setAutoFillBackground(True)
+        self.qlabel_folder.setLayoutDirection(QtCore.Qt.LeftToRight)
+        self.qlabel_folder.setStyleSheet("background-color: rgb(251, 251, 251);")
+        self.qlabel_folder.setText("")
+        self.qlabel_folder.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        self.qlabel_folder.setObjectName("qlabel_folder")
+        self.qlabel_folder.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_folder_16.svg"))
+        self.qlabel_folder.clicked.connect(lambda: self.open_fmanager(0))
+        self.qlabel_folder.setEnabled(True)
+
+        self.qlabel_folder_2 = clickableQLabel(self.wg.qtabTemp)
+        self.qlabel_folder_2.setGeometry(QtCore.QRect(230, 137, 34, 34))
+        self.qlabel_folder_2.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        self.qlabel_folder_2.setAutoFillBackground(True)
+        self.qlabel_folder_2.setLayoutDirection(QtCore.Qt.LeftToRight)
+        self.qlabel_folder_2.setStyleSheet("background-color: rgb(251, 251, 251);")
+        self.qlabel_folder_2.setText("")
+        self.qlabel_folder_2.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        self.qlabel_folder_2.setObjectName("qlabel_folder")
+        self.qlabel_folder_2.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_folder_32.svg"))
+        self.qlabel_folder_2.clicked.connect(lambda: self.open_fmanager(1))
+        self.qlabel_folder_2.setEnabled(True)
+
+        self.qlabel_select = clickableQLabel(self.wg.qtabTemp)
+        self.qlabel_select.setGeometry(QtCore.QRect(900, 144, 32, 32))
+        self.qlabel_select.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        self.qlabel_select.setAutoFillBackground(True)
+        self.qlabel_select.setLayoutDirection(QtCore.Qt.LeftToRight)
+        self.qlabel_select.setStyleSheet("background-color: rgb(251, 251, 251);")
+        self.qlabel_select.setText("")
+        self.qlabel_select.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        self.qlabel_select.setObjectName("qlabel_select")
+        self.qlabel_select.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_none_32.png"))
+        self.qlabel_select.clicked.connect(self.temp_selection)
+
+        self.wg.qcheck_temp_datetime.setToolTip("DateTime format: yyyy-mm-dd hh:mm:ss\nRecords format from 0 to lenght of data")
+        self.wg.qlabel_check_icon.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_folder_32.svg"))
 
     def setup_config(self):
         if not self.config_file == "":
@@ -213,7 +299,7 @@ class Playback(SkalabBase):
     # def reload(self):
     #     self.wg.qline_configfile.setText(self.profile['Playback']['station_file'])
 
-    def browse_data_folder(self):
+    def browse_raw_folder(self):
         fd = QtWidgets.QFileDialog()
         fd.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
         options = fd.options()
@@ -227,21 +313,276 @@ class Playback(SkalabBase):
         else:
             self.wg.qbutton_load.setEnabled(True)
 
+    def browse_temp_file(self):
+        fd = QtWidgets.QFileDialog()
+        fd.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
+        fd.setFileMode(QtWidgets.QFileDialog.ExistingFile)
+        options = fd.options()
+        self.temp_fname = fd.getOpenFileName(self, caption="Choose a data file",
+                                         directory=self.profile['Playback']['data_path'], options=options)[0]
+        self.wg.qlabel_temp_datapath.setText(self.temp_fname[self.temp_fname.rfind("/")+1:])
+        self.wg.qlabel_path.setText(self.temp_fname[:self.temp_fname.rfind("/")+1])
+        self.check_file()
+        if self.check_ok:
+            self.load_temp()
+            self.plot_temp()
+
     def check_dir(self):
         if not self.wg.qline_datapath.text() == "":
             self.data_tiles = findtiles(directory=self.wg.qline_datapath.text())
-            self.wg.qlabel_dircheck.setText("Found HDF5 Raw files for %d Tiles" % len(self.data_tiles))
+            if len(self.data_tiles):
+                self.wg.qlabel_check_icon_raw.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_ok_32.png"))
+                if len(self.data_tiles) > 1:
+                    self.wg.qlabel_dircheck.setText("Found %d Tiles" % len(self.data_tiles))
+                else:
+                    self.wg.qlabel_dircheck.setText("Found 1 Tile")
+            else:
+                self.wg.qlabel_check_icon_raw.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_error_32.png"))
+                self.wg.qlabel_dircheck.setText("Empty directory!")
             self.play_tpm_update()
+        else:
+            self.wg.qlabel_check_icon_raw.clear()
+
+    def open_fmanager(self, code):
+        if code == 0:
+            if self.saved_path == "":
+                os.system("xdg-open /") # + self.saved_path)
+            else:
+                os.system("xdg-open " + self.saved_path)
+        elif code == 1:
+            if self.wg.qlabel_path.text() != "-":
+                os.system("xdg-open " + self.wg.qlabel_path.text())
+            else:
+                os.system("xdg-open /")
+
+
+    def check_file(self):
+        data_range = "Data Range:     -"
+        if not self.wg.qlabel_temp_datapath.text() == "":
+            if os.path.exists(self.temp_fname):
+                try:
+                    f = h5py.File(self.temp_fname)
+                    self.datasets = []
+                    for k in sorted(f.keys()):
+                        if f[k].shape[1] == 1:
+                            self.datasets += [k]
+                        else:
+                            for n in np.arange(f[k].shape[1]):
+                                self.datasets += [k + "_Sens-%02d" % (n + 1)]
+
+                    # self.wg.cb_datasets.clear()
+                    # self.wg.cb_datasets.addItems(["None"] + sorted(self.datasets))
+                    # self.wg.cb_datasets.setCurrentIndex(0)
+                    if "timestamp" in self.datasets:
+                        self.wg.qlabel_records.setText("%d" % len(f['timestamp']))
+                        self.wg.qline_temp_xmin.setText("0")
+                        self.wg.qline_temp_xmax.setText("%d" % len(f['timestamp']))
+                        data_range = datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(f['timestamp'][:, 0].tolist()[0]), "Data Range:     %Y-%m-%d %H:%M:%S")
+                        data_range += datetime.datetime.strftime(datetime.datetime.utcfromtimestamp(f['timestamp'][:, 0].tolist()[-1]), "  -   %Y-%m-%d %H:%M:%S  UTC")
+                        #self.wg.cb_datasets.setCurrentText("timestamp")
+                    else:
+                        self.wg.qlabel_records.setText("{:d}".format(len(f[f.keys()[0]])))
+                        self.wg.qlabel_check_icon.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_warning_32.png"))
+                        self.wg.qlabel_check_icon.setToolTip("WARNING: Timestamps not found!!!")
+                        data_range = "Data Range:     Missing Timestamp Dataset in the HDF5 File"
+                    f.close()
+                    self.wg.qlabel_check_icon.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_ok_32.png"))
+                    self.wg.qlabel_check_icon.setToolTip("HDF5 File check OK")
+                    self.check_ok = True
+                except Exception as error:
+                    self.wg.qlabel_datacheck.setText("ERROR: This HDF5 File is corrupted!!!")
+                    self.wg.qlabel_check_icon.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_error_32.png"))
+                    self.wg.qlabel_check_icon.setToolTip("ERROR: This HDF5 File is corrupted!!!")
+                    self.wg.qlabel_records.setText("-")
+                    # self.wg.cb_datasets.clear()
+                    self.temp_fname = ""
+                    self.check_ok = False
+                    print(error)
+            else:
+                self.wg.qlabel_records.setText("-")
+                # self.wg.cb_datasets.clear()
+                self.temp_fname = ""
+                self.check_ok = False
+                self.wg.qlabel_check_icon.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_warning_32.png"))
+                self.wg.qlabel_check_icon.setToolTip("This file does not exist...")
+        else:
+            self.wg.qlabel_check_icon.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_folder_32.svg"))
+            self.wg.qlabel_check_icon.setToolTip("Please select a Temperature file...")
+            self.wg.qlabel_path.setText("-")
+            self.wg.qlabel_records.setText("-")
+            # self.wg.cb_datasets.clear()
+            self.temp_fname = ""
+            self.check_ok = False
+        self.wg.qlabel_temp_datarange.setText(data_range)
+
+    def load_temp(self):
+        if self.check_ok:
+            self.traces_enabled = []
+            self.traces_disabled = []
+            f = h5py.File(self.temp_fname)
+            self.temp_data = {}
+            n_elem = 0
+            for j, k in enumerate(sorted(f.keys())):
+                if k == "timestamp":
+                    self.temp_data[k] = {}
+                    self.temp_data[k]['data'] = {}
+                    self.temp_data[k]['data'] = f[k][:, 0].tolist()
+                    # self.temp_data[k]['str'] = [""] * len(self.temp_data[k]['data'])
+                    # for n, tstamp in enumerate(self.temp_data[k]['data']):
+                    #     self.temp_data[k]['str'][n] = datetime.datetime.strftime(
+                    #         datetime.datetime.utcfromtimestamp(int(tstamp)), "%Y-%m-%d %H:%M:%S")
+                else:
+                    if f[k].shape[1] == 1:
+                        colore = COLORI[n_elem]
+                        self.temp_data[k] = {}
+                        self.temp_data[k]['data'] = f[k][:, 0].tolist()
+                        self.temp_data[k]['color'] = colore
+                        self.temp_data[k]['cbox'] = QtWidgets.QCheckBox(self.wg.qscroll_content)
+                        self.temp_data[k]['cbox'].setChecked(True)
+                        self.temp_data[k]['cbox'].stateChanged.connect(lambda t=k:  self.enable_trace(t))
+                        self.temp_data[k]['cbox'].setText(k)
+                        self.temp_data[k]['cbox'].setStyleSheet("color: rgb(" + str(colore.red()) + ", " +
+                                                                str(colore.green()) + ", " +
+                                                                str(colore.blue()) + ");")
+                        self.wg.tracesGridLayout.addWidget(self.temp_data[k]['cbox'], n_elem, 0, 1, 1)
+                        self.traces_enabled += [k]
+                        n_elem = n_elem + 1
+                    else:
+                        for n in np.arange(f[k].shape[1]):
+                            new_name = k + "_Sens-%02d" % (n + 1)
+                            colore = COLORI[n_elem]
+                            self.temp_data[new_name] = {}
+                            self.temp_data[new_name]['data'] = f[k][:, n].tolist()
+                            self.temp_data[new_name]['color'] = colore
+                            self.temp_data[new_name]['cbox'] = QtWidgets.QCheckBox(self.wg.qscroll_content)
+                            self.temp_data[new_name]['cbox'].setChecked(True)
+                            self.temp_data[new_name]['cbox'].stateChanged.connect(lambda state, t=new_name:
+                                                                                  self.enable_trace(state, t))
+                            self.temp_data[new_name]['cbox'].setText(new_name)
+                            self.temp_data[new_name]['cbox'].setStyleSheet("color: rgb(" + str(colore.red()) + ", " +
+                                                                    str(colore.green()) + ", " +
+                                                                    str(colore.blue()) + ");")
+                            self.wg.tracesGridLayout.addWidget(self.temp_data[new_name]['cbox'], n_elem, 0, 1, 1)
+                            self.traces_enabled += [new_name]
+                            n_elem = n_elem + 1
+            f.close()
+
+    def enable_trace(self, state, trace):
+        if state:
+            self.tempPlots.hide_line(trace, True)
+        else:
+            self.tempPlots.hide_line(trace, False)
+        self.traces_enabled = []
+        self.traces_disabled = []
+        for d in self.datasets:
+            if not d == 'timestamp':
+                if fnmatch.fnmatch(d, self.wg.qline_filter.text()):
+                    if self.temp_data[d]['cbox'].isChecked():
+                        self.traces_enabled += [d]
+                    else:
+                        self.traces_disabled += [d]
+                else:
+                    self.traces_disabled += [d]
+        self.temp_noline()
+        self.temp_legend()
+
+    def temp_selection(self):
+        if self.selected:
+            self.tempPlots.hide_lines(self.traces_enabled, False)
+            self.qlabel_select.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_all_32.png"))
+            self.selected = False
+            # for d in self.traces_enabled:
+            #     if not d == "timestamp":
+            #         self.temp_data[d]['cbox'].setChecked(False)
+        else:
+            self.tempPlots.hide_lines(self.traces_enabled, True)
+            self.qlabel_select.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_none_32.png"))
+            self.selected = True
+            # for d in self.traces_enabled:
+            #     if not d == "timestamp":
+            #         self.temp_data[d]['cbox'].setChecked(True)
+        self.temp_noline()
+        self.temp_legend()
+
+    def temp_filter(self):
+        #print("Removing %d elements from grid" % self.wg.tracesGridLayout.count())
+        for i in range(self.wg.tracesGridLayout.count()):
+            item = self.wg.tracesGridLayout.takeAt(0)
+            item.widget().setVisible(False)
+        #self.wg.tracesGridLayout.update()
+        n_elem = 0
+        self.traces_enabled = []
+        self.traces_disabled = []
+        #print(self.datasets)
+        for d in self.datasets:
+            if not d == 'timestamp':
+                if fnmatch.fnmatch(d, self.wg.qline_filter.text()):
+                    #print(self.wg.qline_filter.text(), "--->", d, "--->  True")
+                    self.wg.tracesGridLayout.addWidget(self.temp_data[d]['cbox'], n_elem, 0, 1, 1)
+                    self.temp_data[d]['cbox'].setVisible(True)
+                    # self.traces_enabled += [d]
+                    # self.temp_data[d]['cbox'].setChecked(True)
+                    n_elem = n_elem + 1
+                    if self.temp_data[d]['cbox'].isChecked():
+                        self.traces_enabled += [d]
+                    else:
+                        self.traces_disabled += [d]
+                else:
+                    self.traces_disabled += [d]
+                    #print(self.wg.qline_filter.text(), "--->", d, "--->  False")
+                    #self.temp_data[d]['cbox'].setChecked(False)
+        self.tempPlots.hide_lines(self.traces_enabled, True)
+        self.tempPlots.hide_lines(self.traces_disabled, False)
+        #print("Showing %d elements in grid" % self.wg.tracesGridLayout.count())
+        self.temp_noline()
+        self.temp_legend()
+
+    def plot_temp(self):
+        for n, k in enumerate(self.datasets):
+            if not k == "timestamp":
+                self.tempPlots.plotCurve(self.temp_data['timestamp']['data'],
+                                         self.temp_data[k]['data'], 0, name=k,
+                                         xAxisRange=[self.temp_data['timestamp']['data'][0],
+                                                     self.temp_data['timestamp']['data'][-1]],
+                                         yAxisRange=[20, 100], title="TPM Station Temperatures", xLabel="timestamp",
+                                         yLabel="deg", colore=COLORI[n], annotate_rms=False, markersize=3,
+                                         grid=self.wg.qcheck_temp_grid.isChecked(), lw=2,
+                                         show_line=(not self.wg.qcheck_temp_noline.isChecked()))
+        self.tempPlots.updatePlot()
+
+    def apply_zoom(self):
+        try:
+            ymin = float(self.wg.qline_temp_ymin.text())
+            ymax = float(self.wg.qline_temp_ymax.text())
+            self.tempPlots.set_y_limits([ymin, ymax])
+        except:
+            pass
+
+    def temp_grid(self):
+        self.tempPlots.showGrid(self.wg.qcheck_temp_grid.isChecked())
+
+    def temp_legend(self):
+        if self.wg.qcheck_temp_legend.isChecked():
+            self.tempPlots.showLegend(self.traces_enabled)
+        else:
+            self.tempPlots.showLegend([])
+
+    def temp_noline(self):
+        if self.wg.qcheck_temp_noline.isChecked():
+            self.tempPlots.set_line_width(self.traces_enabled, 0)
+        else:
+            self.tempPlots.set_line_width(self.traces_enabled, 2)
 
     def calc_data_volume(self):
         if not self.wg.qline_datapath.text() == "":
             if len(self.data_tiles):
-                self.wg.qlabel_dataload.setText("# Files: %d" %
-                        dircheck(self.wg.qline_datapath.text(),
-                                 int(self.data_tiles[self.wg.qcombo_tpm.currentIndex()])) +
-                        ", Data Volume: " + calc_disk_usage(self.wg.qline_datapath.text(),
+                self.wg.qlabel_dataload.setText("Data Volume: " + calc_disk_usage(self.wg.qline_datapath.text(),
                         "raw_burst_%d_*.hdf5" % int(self.data_tiles[self.wg.qcombo_tpm.currentIndex()])))
-                #print("raw_burst_%d_*.hdf5" % int(self.data_tiles[self.wg.qcombo_tpm.currentIndex()]))
+                # self.wg.qlabel_dataload.setText("# Files: %d" %
+                #         dircheck(self.wg.qline_datapath.text(),
+                #                  int(self.data_tiles[self.wg.qcombo_tpm.currentIndex()])) +
+                #         ", Data Volume: " + calc_disk_usage(self.wg.qline_datapath.text(),
+                #         "raw_burst_%d_*.hdf5" % int(self.data_tiles[self.wg.qcombo_tpm.currentIndex()])))
 
     def load_data(self):
         if not self.wg.qline_datapath.text() == "":
@@ -264,6 +605,7 @@ class Playback(SkalabBase):
                                          hdf5_file=l,
                                          tile=self.data_tiles[self.wg.qcombo_tpm.currentIndex()],
                                          nof_tiles=self.nof_tiles)
+                        self.current_tile = self.data_tiles[self.wg.qcombo_tpm.currentIndex()] + 1
                         if t:
                             self.data += [{'timestamp': t, 'data': d}]
                         self.wg.qprogress_load.setValue(int((nn + 1) * 100 / len(lista)))
@@ -371,7 +713,7 @@ class Playback(SkalabBase):
                     rms = linear2dB(rms_x[n] / avgnum)
                     self.miniPlots.plotCurve(self.asse_x, spettro, n, xAxisRange=self.xAxisRange,
                                              yAxisRange=self.yAxisRange, title="INPUT-%02d" % i,
-                                             xLabel="MHz", yLabel="dB", colore="b", rfpower=rms,
+                                             xLabel="MHz", yLabel="dB", colore=COLORI[0], rfpower=rms,
                                              annotate_rms=self.show_rms, grid=self.show_spectra_grid, lw=lw,
                                              show_line=self.wg.qcheck_xpol_sp.isChecked(),
                                              rms_position=float(self.wg.qline_rms_pos.text()))
@@ -379,7 +721,7 @@ class Playback(SkalabBase):
                     spettro = linear2dB(spettri_y[n] / avgnum)
                     rms = linear2dB(rms_y[n] / self.nof_files)
                     self.miniPlots.plotCurve(self.asse_x, spettro, n, xAxisRange=self.xAxisRange,
-                                             yAxisRange=self.yAxisRange, colore="g", rfpower=rms,
+                                             yAxisRange=self.yAxisRange, colore=COLORI[1], rfpower=rms,
                                              annotate_rms=self.show_rms, grid=self.show_spectra_grid, lw=lw,
                                              show_line=self.wg.qcheck_ypol_sp.isChecked(),
                                              rms_position=float(self.wg.qline_rms_pos.text()))
@@ -450,14 +792,14 @@ class Playback(SkalabBase):
 
                         self.powerPlots.plotPower(self.power_x, self.move_avg["Input-%02d_Pol-X" % i], n, xAxisRange=xAxisRange,
                                                   yAxisRange=yAxisRange, title="INPUT-%02d" % i, xLabel="time samples",
-                                                  yLabel="dB", colore="b", grid=self.show_power_grid, lw=lw,
+                                                  yLabel="dB", colore=COLORI[0], grid=self.show_power_grid, lw=lw,
                                                   show_line=self.wg.qcheck_xpol_power.isChecked(),
                                                   xdatetime=self.wg.qcheck_datetime.isChecked())
                         self.move_avg["Input-%02d_Pol-Y" % i] = self.power["Input-%02d_Pol-Y" % i].copy()
                         if self.wg.qcheck_movavg.isChecked():
                             self.move_avg["Input-%02d_Pol-Y" % i] = moving_average(self.power["Input-%02d_Pol-Y" % i].copy(), move_avg_len)
                         self.powerPlots.plotPower(self.power_x, self.move_avg["Input-%02d_Pol-Y" % i], n, xAxisRange=xAxisRange,
-                                                  colore="g", show_line=self.wg.qcheck_ypol_power.isChecked(), lw=lw,
+                                                  colore=COLORI[1], show_line=self.wg.qcheck_ypol_power.isChecked(), lw=lw,
                                                   xdatetime=self.wg.qcheck_datetime.isChecked())
                     self.powerPlots.updatePlot()
                     self.wg.qbutton_export.setEnabled(True)
@@ -493,13 +835,13 @@ class Playback(SkalabBase):
                         self.rawPlots.plotCurve(np.arange(len(self.raw["Input-%02d_Pol-X" % i])),
                                                  self.raw["Input-%02d_Pol-X" % i], n, xAxisRange=xAxisRange,
                                                  yAxisRange=yAxisRange, title="INPUT-%02d" % i, xLabel="samples",
-                                                 yLabel="ADU", colore="b", annotate_rms=False, markersize=msize,
+                                                 yLabel="ADU", colore=COLORI[0], annotate_rms=False, markersize=msize,
                                                  grid=self.show_raw_grid, lw=lw, rms_position=140,
                                                  show_line=self.wg.qradio_raw_x.isChecked())
                         self.rawPlots.plotCurve(np.arange(len(self.raw["Input-%02d_Pol-Y" % i])),
                                                  self.raw["Input-%02d_Pol-Y" % i], n, xAxisRange=xAxisRange,
                                                  yAxisRange=yAxisRange, title="INPUT-%02d" % i, xLabel="samples",
-                                                 yLabel="ADU", colore="g", annotate_rms=False, markersize=msize,
+                                                 yLabel="ADU", colore=COLORI[1], annotate_rms=False, markersize=msize,
                                                  grid=self.show_raw_grid, lw=lw, rms_position=140,
                                                  show_line=self.wg.qradio_raw_y.isChecked())
                         self.wg.qprogress_plot.setValue(int((k + 1) * 100 / 1))
@@ -548,10 +890,10 @@ class Playback(SkalabBase):
                     self.rmsPlots.plotPower(range(len(self.rms["Input-%02d_Pol-X" % i])),
                                             self.rms["Input-%02d_Pol-X" % i] , n, xAxisRange=xAxisRange,
                                             yAxisRange=yAxisRange, title="INPUT-%02d" % i, xLabel="time samples",
-                                            yLabel="ADU RMS", colore="b", grid=self.show_rms_grid, lw=lw,
+                                            yLabel="ADU RMS", colore=COLORI[0], grid=self.show_rms_grid, lw=lw,
                                             show_line=self.wg.qcheck_xpol_rms.isChecked())
                     self.rmsPlots.plotPower(range(len(self.rms["Input-%02d_Pol-Y" % i])),
-                                            self.rms["Input-%02d_Pol-Y" % i], n, colore="g",
+                                            self.rms["Input-%02d_Pol-Y" % i], n, colore=COLORI[1],
                                             show_line=self.wg.qcheck_ypol_rms.isChecked(), lw=lw)
                 self.rmsPlots.updatePlot()
                 self.wg.qbutton_save.setEnabled(True)
@@ -590,56 +932,87 @@ class Playback(SkalabBase):
                 print("ciao")
 
     def savePicture(self):
-        if self.wg.qradio_spectrogram.isChecked():
-            result = QtWidgets.QMessageBox.question(self, "Save Picture...",
-                        "Are you sure you want to save this picture?",
-                        QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
-                fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
-                if os.path.exists(fpath) and fpath:
-                    tnow = datetime.datetime.strftime(datetime.datetime.utcnow(), "TILE-%02d_SPECTOGRAM_SAVED_ON_%Y-%m-%d_%H%M%S.png")
-                    self.logger.logger.info("Saving: " + fpath + "/" + tnow)
-                    self.spectrogramPlots.savePicture(fpath + "/" + tnow)
-        elif self.wg.qradio_avg.isChecked():
-            result = QtWidgets.QMessageBox.question(self, "Save Picture...",
-                        "Are you sure you want to save this picture?",
-                        QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
-                fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
-                if os.path.exists(fpath) and fpath:
-                    tnow = datetime.datetime.strftime(datetime.datetime.utcnow(), "TILE-%02d_AVERAGED_SPECTRA_SAVED_ON_%Y-%m-%d_%H%M%S.png")
-                    self.logger.logger.info("Saving: " + fpath + "/" + tnow)
-                    self.miniPlots.savePicture(fpath + "/" + tnow)
-        elif self.wg.qradio_raw.isChecked():
-            result = QtWidgets.QMessageBox.question(self, "Save Picture...",
-                        "Are you sure you want to save this picture?",
-                        QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
-                fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
-                if os.path.exists(fpath) and fpath:
-                    tnow = datetime.datetime.strftime(datetime.datetime.utcnow(), "TILE-%02d_ADC-RAW-DATA_SAVED_ON_%Y-%m-%d_%H%M%S.png")
-                    self.logger.logger.info("Saving: " + fpath + "/" + tnow)
-                    self.rawPlots.savePicture(fpath + "/" + tnow)
-        elif self.wg.qradio_rms.isChecked():
-            result = QtWidgets.QMessageBox.question(self, "Save Picture...",
-                        "Are you sure you want to save this picture?",
-                        QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
-                fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
-                if os.path.exists(fpath) and fpath:
-                    tnow = datetime.datetime.strftime(datetime.datetime.utcnow(), "TILE-%02d_RMS_SAVED_ON_%Y-%m-%d_%H%M%S.png")
-                    self.logger.logger.info("Saving: " + fpath + "/" + tnow)
-                    self.rmsPlots.savePicture(fpath + "/" + tnow)
-        elif self.wg.qradio_power.isChecked():
-            result = QtWidgets.QMessageBox.question(self, "Save Picture...",
-                        "Are you sure you want to save this picture?",
-                        QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-            if result == QtWidgets.QMessageBox.Yes:
-                fpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
-                if os.path.exists(fpath) and fpath:
-                    tnow = datetime.datetime.strftime(datetime.datetime.utcnow(), "TILE-%02d_POWER_SAVED_ON_%Y-%m-%d_%H%M%S.png")
-                    self.logger.logger.info("Saving: " + fpath + "/" + tnow)
-                    self.powerPlots.savePicture(fpath + "/" + tnow)
+        if self.current_tile is not None:
+            if self.wg.qradio_spectrogram.isChecked():
+                result = QtWidgets.QMessageBox.question(self, "Save Picture...",
+                            "Are you sure you want to save this picture?",
+                            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                if result == QtWidgets.QMessageBox.Yes:
+                    self.saved_path = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
+                    if os.path.exists(self.saved_path) and self.saved_path:
+                        tnow = "TILE-%02d_SPECTOGRAM_SAVED_ON_" % self.current_tile
+                        tnow += datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y-%m-%d_%H%M%S.png")
+                        self.logger.logger.info("Saving: " + self.saved_path + "/" + tnow)
+                        self.spectrogramPlots.savePicture(self.saved_path + "/" + tnow)
+                        self.wg.qlabel_check_icon_action.setPixmap(
+                            QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_ok_16.png"))
+                        self.qlabel_folder.setEnabled(True)
+                        self.wg.qlabel_action_comment.setText("Saved picture: " + tnow)
+
+            elif self.wg.qradio_avg.isChecked():
+                result = QtWidgets.QMessageBox.question(self, "Save Picture...",
+                            "Are you sure you want to save this picture?",
+                            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                if result == QtWidgets.QMessageBox.Yes:
+                    self.saved_path = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
+                    if os.path.exists(self.saved_path) and self.saved_path:
+                        tnow = "TILE-%02d_AVERAGED_SPECTRA_SAVED_ON_" % self.current_tile
+                        tnow += datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y-%m-%d_%H%M%S.png")
+                        self.logger.logger.info("Saving: " + self.saved_path + "/" + tnow)
+                        self.miniPlots.savePicture(self.saved_path + "/" + tnow)
+                        self.wg.qlabel_check_icon_action.setPixmap(
+                            QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_ok_16.png"))
+                        self.wg.qlabel_action_comment.setText("Saved picture: " + tnow)
+                        self.qlabel_folder.setEnabled(True)
+
+            elif self.wg.qradio_raw.isChecked():
+                result = QtWidgets.QMessageBox.question(self, "Save Picture...",
+                            "Are you sure you want to save this picture?",
+                            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                if result == QtWidgets.QMessageBox.Yes:
+                    self.saved_path = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
+                    if os.path.exists(self.saved_path) and self.saved_path:
+                        tnow = "TILE-%02d_ADC-RAW-DATA_SAVED_ON_" % self.current_tile
+                        tnow += datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y-%m-%d_%H%M%S.png")
+                        self.logger.logger.info("Saving: " + self.saved_path + "/" + tnow)
+                        self.rawPlots.savePicture(self.saved_path + "/" + tnow)
+                        self.wg.qlabel_check_icon_action.setPixmap(
+                            QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_ok_16.png"))
+                        self.wg.qlabel_action_comment.setText("Saved picture: " + tnow)
+                        self.qlabel_folder.setEnabled(True)
+
+            elif self.wg.qradio_rms.isChecked():
+                result = QtWidgets.QMessageBox.question(self, "Save Picture...",
+                            "Are you sure you want to save this picture?",
+                            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                if result == QtWidgets.QMessageBox.Yes:
+                    self.saved_path = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
+                    if os.path.exists(self.saved_path) and self.saved_path:
+                        tnow = "TILE-%02d_RMS_SAVED_ON_" % self.current_tile
+                        tnow += datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y-%m-%d_%H%M%S.png")
+                        self.logger.logger.info("Saving: " + self.saved_path + "/" + tnow)
+                        self.rmsPlots.savePicture(self.saved_path + "/" + tnow)
+                        self.wg.qlabel_check_icon_action.setPixmap(
+                            QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_ok_16.png"))
+                        self.wg.qlabel_action_comment.setText("Saved picture: " + tnow)
+                        self.qlabel_folder.setEnabled(True)
+
+            elif self.wg.qradio_power.isChecked():
+                result = QtWidgets.QMessageBox.question(self, "Save Picture...",
+                            "Are you sure you want to save this picture?",
+                            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                if result == QtWidgets.QMessageBox.Yes:
+                    self.saved_path = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select a destination Directory"))
+                    if os.path.exists(self.saved_path) and self.saved_path:
+                        tnow = "TILE-%02d_POWER_SAVED_ON_" % self.current_tile
+                        tnow += datetime.datetime.strftime(datetime.datetime.utcnow(), "%Y-%m-%d_%H%M%S.png")
+                        self.logger.logger.info("Saving: " + self.saved_path + "/" + tnow)
+                        self.powerPlots.savePicture(self.saved_path + "/" + tnow)
+                        self.wg.qlabel_check_icon_action.setPixmap(
+                            QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_ok_16.png"))
+                        self.wg.qlabel_action_comment.setText("Saved picture: " + tnow)
+                        self.qlabel_folder.setEnabled(True)
+
 
     def reformat_plots(self):
         try:
@@ -829,15 +1202,16 @@ class Playback(SkalabBase):
             QtWidgets.QTabWidget.setTabVisible(self.wg.qtabMain, index, False)
 
     def applyEnable(self):
-        try:
-            if self.xAxisRange[0] == float(self.wg.qline_band_from.text()) \
-                    and self.xAxisRange[1] == float(self.wg.qline_band_to.text())\
-                    and self.yAxisRange[0] == float(self.wg.qline_level_min.text())\
-                    and self.yAxisRange[1] == float(self.wg.qline_level_max.text()):
-                self.wg.qbutton_apply.setEnabled(False)
-            else:
-                self.wg.qbutton_apply.setEnabled(True)
-        except ValueError:
+        # try:
+        #     if self.xAxisRange[0] == float(self.wg.qline_band_from.text()) \
+        #             and self.xAxisRange[1] == float(self.wg.qline_band_to.text()) \
+        #             and self.yAxisRange[0] == float(self.wg.qline_level_min.text()) \
+        #             and self.yAxisRange[1] == float(self.wg.qline_level_max.text()):
+        # # self.wg.qbutton_apply.setEnabled(False)
+        # # else:
+        # # self.wg.qbutton_apply.setEnabled(True)
+        # # pass
+        # except ValueError:
             pass
 
     def applyPressed(self):
@@ -845,13 +1219,13 @@ class Playback(SkalabBase):
         #        or not self.xAxisRange[1] == float(self.wg.qline_band_to.text()):
         self.xAxisRange = [float(self.wg.qline_band_from.text()), float(self.wg.qline_band_to.text())]
         self.miniPlots.set_x_limits(self.xAxisRange)
-        self.wg.qbutton_apply.setEnabled(False)
+        # self.wg.qbutton_apply.setEnabled(False)
 
         #if not self.yAxisRange[0] == float(self.wg.qline_level_min.text())\
         #        or not self.yAxisRange[1] == float(self.wg.qline_level_max.text()):
         self.yAxisRange = [float(self.wg.qline_level_min.text()), float(self.wg.qline_level_max.text())]
         self.miniPlots.set_y_limits(self.yAxisRange)
-        self.wg.qbutton_apply.setEnabled(False)
+        # self.wg.qbutton_apply.setEnabled(False)
 
     def cmdClose(self):
         self.stopThreads = True

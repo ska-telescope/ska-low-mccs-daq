@@ -20,12 +20,12 @@
         "deny": {
             "desc": "Query keys denied",
             "type": "string",
-            "value": "api_version,tpm_ips,tpm_mcu_temperatures,assigned_tpm_ip_adds,tpms_temp_alarms,tpms_voltage_alarms,tpms_temperatures"
+            "value": "api_version,tpm_ips,tpm_mcu_temperatures,assigned_tpm_ip_adds,tpms_temp_alarms,tpms_voltage_alarms,tpms_temperatures,board_info"
         },
         "once": {
             "desc": "Query keys once",
             "type": "string",
-            "value": "api_version,assigned_tpm_ip_adds,tpm_present,tpm_on_off"
+            "value": "api_version,assigned_tpm_ip_adds,tpm_present,tpm_on_off,board_info"
         },
         "tiles": {
             "desc": "Query keys dedicated for Tiles",

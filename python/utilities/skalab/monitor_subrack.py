@@ -13,10 +13,12 @@ from hardware_client import WebHardwareClient
 from monitor_tile import MonitorTPM
 from monitor_station_init import *
 from skalab_log import SkalabLog
-from skalab_utils import colors,h5py
+from skalab_utils import colors,h5py,min_api_version,min_bios_version
 from threading import Thread, Event, Lock
 from time import sleep
 from pathlib import Path
+import re
+from pkg_resources import parse_version
 
 
 def populateSubrackTable(frame, attributes, top):
@@ -312,14 +314,36 @@ class MonitorSubrack(MonitorTPM):
                             self.tpm_status_info[tlmk] = data["value"]
                         else:
                             self.tpm_status_info[tlmk] = data["info"]
+                    
                     if 'assigned_tpm_ip_adds' in self.tpm_status_info.keys():
                         self.tpm_assigned_tpm_ip_adds = self.tpm_status_info['assigned_tpm_ip_adds']
                     else:
                         self.tpm_assigned_tpm_ip_adds = self.client.get_attribute('assigned_tpm_ip_adds')
+                    
                     if 'api_version' in self.tpm_status_info.keys():
-                        self.logger.info("Subrack API version: " + self.tpm_status_info['api_version'])
+                        api_version = self.tpm_status_info['api_version']
+                        # convert "v2.5.0 (v2.5.0-5-g3cf5695-dirty)" into "v2.5.0-5"
+                        api_version_for_compare = "-".join(re.search(r'\(.*?\)',api_version).group()[1:-1].split("-",2)[:2])
+                        self.logger.info("Subrack API version: " + api_version)
                     else:
-                        self.logger.warning("The Subrack is running with a very old API version!")
+                        api_version_for_compare = 'API version Unknown'
+
+                    if 'board_info' in self.tpm_status_info.keys():
+                        bios_version = self.tpm_status_info['board_info']['SMM']['bios']
+                        self.logger.info("Subrack Bios version: " + bios_version)
+                    else:
+                        self.logger.warning("Bios version not verified!")
+                    
+                    if (parse_version(api_version_for_compare) < parse_version(min_api_version)) | (parse_version(bios_version) < parse_version(min_bios_version)):
+                        self.logger.warning("api_version or bios_version are old or not supported.")
+                        msgBox_versions = QtWidgets.QMessageBox()
+                        msgBox_versions.setText(f"SKALAB is using an old/not supported api_version or bios_version.\n" +\
+                                                f"API: {api_version} (required {min_api_version})\n" +\
+                                                f"bios: {bios_version} (required {min_bios_version})\n" +\
+                                                f"Please update them following the instruction reported in the README file.")
+                        msgBox_versions.setWindowTitle("Warning!")
+                        msgBox_versions.setIcon(QtWidgets.QMessageBox.Warning)
+                        msgBox_versions.exec_()
                     self.wg.subrackbar.setValue(60)
                     self.connected = True
                     self.populateTileInstance()

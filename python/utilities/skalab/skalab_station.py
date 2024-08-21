@@ -284,7 +284,8 @@ class SkalabStation(SkalabBase):
         options = fd.options()
         self.config_file = fd.getOpenFileName(self, caption="Select a Station Config File...",
                                               directory="/opt/aavs/config/", options=options)[0]
-        self.wg.qline_configfile.setText(self.config_file)
+        if self.config_file != "":
+            self.wg.qline_configfile.setText(self.config_file)
 
     def browse_map(self):
         fd = QtWidgets.QFileDialog()
@@ -595,14 +596,6 @@ class SkalabStation(SkalabBase):
         self.wg.qtable_network.setHorizontalHeaderItem(0, item)
         n = 0
         for i in station.configuration['network'].keys():
-            if i == 'tile_40g_subnet': ##TODO Added tile40g subnet implementation?
-                self.wg.qtable_network.setVerticalHeaderItem(n, QtWidgets.QTableWidgetItem(i.upper()))
-                item = QtWidgets.QTableWidgetItem(str(station.configuration['network'][i]))
-                item.setTextAlignment(QtCore.Qt.AlignLeft)
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
-                self.wg.qtable_network.setItem(n, 0, item)
-                n = n + 1
-                continue
             if n:
                 item = QtWidgets.QTableWidgetItem(" ")
                 item.setTextAlignment(QtCore.Qt.AlignCenter)

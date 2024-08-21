@@ -120,7 +120,7 @@
         "once": {
             "desc": "n/a",
             "type": "string",
-            "value": "api_version,assigned_tpm_ip_adds"
+            "value": "api_version,assigned_tpm_ip_adds,board_info"
         }
     },
     "Warning Factor": {

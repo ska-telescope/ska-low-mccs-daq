@@ -718,14 +718,14 @@ class Live(SkalabBase):
                                 spettro = 10 * np.log10(np.array(spettro))
                             self.monitorPlots.plotCurve(self.monitor_asse_x, spettro, i, xAxisRange=[1, 400],
                                                         yAxisRange=[0, 40], title=title,
-                                                        xLabel="MHz", yLabel="dB", colore="b", grid=True, lw=1,
+                                                        xLabel="MHz", yLabel="dB", colore=COLORI[0], grid=True, lw=1,
                                                         show_line=True)
                             # Plot Y Pol
                             spettro = monitorData[:, remap_integrated_spectra[i], 1, -1]
                             with np.errstate(divide='ignore'):
                                 spettro = 10 * np.log10(np.array(spettro))
                             self.monitorPlots.plotCurve(self.monitor_asse_x, spettro, i, xAxisRange=[1, 400],
-                                                        yAxisRange=[0, 40], colore="g", grid=True, lw=1,
+                                                        yAxisRange=[0, 40], colore=COLORI[1], grid=True, lw=1,
                                                         show_line=True)
                         self.monitorPlots.updatePlot()
                         self.monitorPrecTstamp = timestamps[0][0]
@@ -835,7 +835,9 @@ class Live(SkalabBase):
             tris = [tile.get_temperature(), tile.get_fpga0_temperature(), tile.get_fpga1_temperature()]
             self.temperatures += [tris]
             if self.temp_file is not None:
-                self.temp_file.write(name=("TPM-%02d" % (n + 1)), data=tris)
+                self.temp_file.write(name=("TPM-%02d_Board" % (n + 1)), data=tris[0])
+                self.temp_file.write(name=("TPM-%02d_FPGA1" % (n + 1)), data=tris[1])
+                self.temp_file.write(name=("TPM-%02d_FPGA2" % (n + 1)), data=tris[2])
             if k not in self.data_temp_charts.keys():
                 self.data_temp_charts[k] = [[np.nan, np.nan, np.nan]] * 201
             self.data_temp_charts[k] = self.data_temp_charts[k][1:] + [tris]
@@ -1007,7 +1009,7 @@ class Live(SkalabBase):
                     # self.wg.qlabel_tstamp_rms.setText(ts_to_datestring(dt_to_timestamp(datetime.datetime.utcnow())))
                     # ADU Map
                     rms_remap = np.arange(32)
-                    colors = ['b'] * 32
+                    colors = [COLORI[0]] * 32
                     if self.wg.qcombo_rms_label.currentIndex() == 1:
                         # ADU RF Receivers Polarization X-Y remapping
                         # This must be corrected for different ADU version (different fw has different mapping)
@@ -1015,35 +1017,35 @@ class Live(SkalabBase):
                                      8, 9, 10, 11, 12, 13, 14, 15,
                                      17, 16, 19, 18, 21, 20, 23, 22,
                                      24, 25, 26, 27, 28, 29, 30, 31]
-                        colors = ['b', 'g'] * 16
+                        colors = [COLORI[0], COLORI[1]] * 16
                     elif self.wg.qcombo_rms_label.currentIndex() == 2:
                         # TPM 1.2 Fibre Mapping
                         rms_remap = [1, 0, 3, 2, 5, 4, 7, 6,
                                      17, 16, 19, 18, 21, 20, 23, 22,
                                      30, 31, 28, 29, 26, 27, 24, 25,
                                      14, 15, 12, 13, 10, 11, 8, 9]
-                        colors = ['b', 'g'] * 16
+                        colors = [COLORI[0], COLORI[1]] * 16
                     elif self.wg.qcombo_rms_label.currentIndex() == 3:
                         # TPM 1.6 RF Rx
                         rms_remap = [0, 1, 2, 3, 4, 5, 6, 7,
                                      9, 8, 11, 10, 13, 12, 15, 14,
                                      16, 17, 18, 19, 20, 21, 22, 23,
                                      25, 24, 27, 26, 29, 28, 31, 30]
-                        colors = ['b', 'g'] * 16
+                        colors = [COLORI[0], COLORI[1]] * 16
                     elif self.wg.qcombo_rms_label.currentIndex() == 4:
                         # TPM 1.6 Fibre Mapping PreADU 2019 Wrong SPI
                         rms_remap = [15, 14, 13, 12, 11, 10,  9,  8,
                                        6,  7,  4,  5,  2,  3, 0,  1,
                                      31, 30, 29, 28, 27, 26, 25, 24,
                                      22, 23, 20, 21, 18, 19, 16, 17]
-                        colors = ['b', 'g'] * 16
+                        colors = [COLORI[0], COLORI[1]] * 16
                     elif self.wg.qcombo_rms_label.currentIndex() == 5:
                         # TPM 1.6 Fibre Mapping
                         rms_remap = [16, 17, 18, 19, 20, 21, 22, 23,
                                      25, 24, 27, 26, 29, 28, 31, 30,
                                       0,  1,  2,  3,  4,  5,  6,  7,
                                       9,  8, 11, 10, 13, 12, 15, 14]
-                        colors = ['b', 'g'] * 16
+                        colors = [COLORI[0], COLORI[1]] * 16
                     for t in range(len(self.station_configuration['tiles'])):
                         powers = np.zeros(32)
                         for i in range(32):
@@ -1051,7 +1053,7 @@ class Live(SkalabBase):
                                 self.qp_rms[t].plotBar(self.rms[t][rms_remap[i]], i, colors[i])
                             elif self.wg.qradio_rms_dsa.isChecked():
                                 #self.qp_rms[t].plotBar(self.preaduConf[t][i]['dsa'], i, 'r')
-                                self.qp_rms[t].plotBar(self.wpreadu.staticRx.rx[self.preaduConf[t][i]['version']].op_get_attenuation(self.preaduConf[t][i]['code']), rms_remap[i], 'r')
+                                self.qp_rms[t].plotBar(self.wpreadu.staticRx.rx[self.preaduConf[t][i]['version']].op_get_attenuation(self.preaduConf[t][i]['code']), rms_remap[i], COLORI[3])
                             with np.errstate(divide='ignore', invalid='ignore'):
                                 # TPM 1.2 calibrated formula (AD9680, Vpp 1.7, impedance 400 Ohm)
                                 # power = 10 * np.log10(np.power((self.rms[t][rms_remap[i]] * (1.7 / 256.)), 2) / 400.) + 30 + 12
@@ -1063,8 +1065,8 @@ class Live(SkalabBase):
                         if self.wg.qradio_rms_power.isChecked():
                             for pol in range(2):
                                 self.qp_rms[t].markers[pol].set_ydata(powers[pol::2])
-                                self.qp_rms[t].markers[pol].set_markerfacecolor(colors[pol])
-                                self.qp_rms[t].markers[pol].set_markeredgecolor(colors[pol])
+                                self.qp_rms[t].markers[pol].set_markerfacecolor(colors[pol].name())
+                                self.qp_rms[t].markers[pol].set_markeredgecolor(colors[pol].name())
                         self.qp_rms[t].updatePlot()
                 else:
                     self.logger.logger.warning("RMS Length mismatch: got less data (tiles = %d)" % len(self.rms))
@@ -1171,7 +1173,7 @@ class Live(SkalabBase):
                     self.nsamples)
                 self.livePlots.plotCurve(self.asse_x, spettro, n, xAxisRange=xAxisRange,
                                          yAxisRange=yAxisRange, title="INPUT-%02d" % i,
-                                         xLabel="MHz", yLabel="dB", colore="b", rfpower=rms,
+                                         xLabel="MHz", yLabel="dB", colore=COLORI[0], rfpower=rms,
                                          annotate_rms=self.show_rms, grid=self.show_spectra_grid, lw=lw,
                                          show_line=self.wg.qcheck_xpol_sp.isChecked())
 
@@ -1180,7 +1182,7 @@ class Live(SkalabBase):
                     self.live_data[int(self.wg.qcombo_tpm.currentIndex())][self.live_mapping[i - 1], 1, :],
                     self.nsamples)
                 self.livePlots.plotCurve(self.asse_x, spettro, n, xAxisRange=xAxisRange,
-                                         yAxisRange=yAxisRange, colore="g", rfpower=rms,
+                                         yAxisRange=yAxisRange, colore=COLORI[1], rfpower=rms,
                                          annotate_rms=self.show_rms, grid=self.show_spectra_grid, lw=lw,
                                          show_line=self.wg.qcheck_ypol_sp.isChecked())
             self.livePlots.updatePlot()

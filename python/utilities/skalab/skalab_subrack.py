@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import time
-
+import re
 from skalab_base import SkalabBase
 from skalab_log import SkalabLog
 import gc
@@ -12,44 +12,21 @@ import numpy as np
 import configparser
 from PyQt5 import QtWidgets, uic, QtCore, QtGui
 from hardware_client import WebHardwareClient
-from skalab_utils import BarPlot, ChartPlots, colors, dt_to_timestamp
+from skalab_utils import BarPlot, ChartPlots, colors, dt_to_timestamp, clickableQLabel
 from skalab_utils import ts_to_datestring, parse_profile, COLORI
+from skalab_utils import min_api_version, min_bios_version
 from threading import Thread
 from time import sleep
 import datetime
 from pathlib import Path
 import h5py
 import logging
+from pkg_resources import parse_version
 
 MgnTraces = ['board_temperatures', 'backplane_temperatures']
 default_app_dir = str(Path.home()) + "/.skalab/"
 default_profile = "Default"
 profile_filename = "subrack.ini"
-
-'''
-In [3]: client.execute_command("list_attributes")
-Out[3]: 
-{'status': 'OK',
- 'info': 'list_attributes completed OK',
- 'command': 'list_attributes',
- 'retvalue': ['backplane_temperatures',
-  'board_temperatures',
-  'board_current',
-  'subrack_fan_speeds',
-  'subrack_fan_speeds_percent',
-  'subrack_fan_mode',
-  'tpm_temperatures',
-  'tpm_voltages',
-  'tpm_currents',
-  'tpm_powers',
-  'tpm_present',
-  'tpm_supply_fault',
-  'tpm_on_off',
-  'power_supply_fan_speeds',
-  'power_supply_currents',
-  'power_supply_powers',
-  'power_supply_voltages']}
-'''
 
 
 def populateSlots(frame):
@@ -182,6 +159,7 @@ class Subrack(SkalabBase):
         self.data_charts = {}
 
         self.load_events()
+        self.load_extras()
         self.show()
         self.stopThreads = False
         self.skipThreadPause = False
@@ -207,6 +185,22 @@ class Subrack(SkalabBase):
             #self.fans[i]['slider'].valueChanged.connect(lambda state, g=i: self.cmdSetFanSpeed(fan_id=g))
             self.fans[i]['slider'].sliderPressed.connect(lambda g=i: self.sliderPressed(fan_id=g))
             self.fans[i]['slider'].sliderReleased.connect(lambda g=i: self.cmdSetFanSpeed(fan_id=g))
+
+    def load_extras(self):
+        self.qlabel_board_info = clickableQLabel(self.wg.qtab_app)
+        self.qlabel_board_info.setGeometry(QtCore.QRect(229, 13, 24, 24))
+        self.qlabel_board_info.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        self.qlabel_board_info.setAutoFillBackground(True)
+        self.qlabel_board_info.setScaledContents(True)
+        self.qlabel_board_info.setLayoutDirection(QtCore.Qt.LeftToRight)
+        self.qlabel_board_info.setStyleSheet("background-color: rgb(251, 251, 251);")
+        self.qlabel_board_info.setText("")
+        self.qlabel_board_info.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        self.qlabel_board_info.setObjectName("qlabel_board_info")
+        self.qlabel_board_info.setPixmap(QtGui.QPixmap(os.getcwd() + "/Pictures/Icons/icon_info_32.png"))
+        self.qlabel_board_info.clicked.connect(self.show_board_info)
+        self.qlabel_board_info.setEnabled(False)
+
 
     def reload(self, ip=None, port=None):
         if ip is not None:
@@ -468,6 +462,8 @@ class Subrack(SkalabBase):
                     self.logger.info("Querying list of Subrack API attributes")
                     self.tlm_keys = self.client.execute_command("list_attributes")["retvalue"]
                     self.checkTpmIps()
+                    self.check_sw_version()
+                    self.qlabel_board_info.setEnabled(True)
                     self.wg.qbutton_connect.setStyleSheet("background-color: rgb(78, 154, 6);")
                     self.wg.qbutton_connect.setText("ONLINE")
                     self.wg.frame_tpm.setEnabled(True)
@@ -479,6 +475,7 @@ class Subrack(SkalabBase):
                     self.wg.qlabel_message.setText("The Subrack server does not respond!")
                     self.logger.error("Unable to connect to the Subrack server %s:%d" % (self.ip, int(self.port)))
                     self.wg.qbutton_connect.setStyleSheet("background-color: rgb(204, 0, 0);")
+                    self.qlabel_board_info.setEnabled(False)
                     self.wg.qbutton_connect.setText("OFFLINE")
                     self.wg.frame_tpm.setEnabled(False)
                     self.wg.frame_fan.setEnabled(False)
@@ -490,6 +487,7 @@ class Subrack(SkalabBase):
                 self.wg.qbutton_connect.setText("OFFLINE")
                 self.wg.frame_tpm.setEnabled(False)
                 self.wg.frame_fan.setEnabled(False)
+                self.qlabel_board_info.setEnabled(False)
                 self.client.disconnect()
                 del self.client
                 gc.collect()
@@ -500,6 +498,36 @@ class Subrack(SkalabBase):
                         pass
         else:
             self.wg.qlabel_connection.setText("Missing IP!")
+
+    def check_sw_version(self):
+        api_version = "v0.0.0"
+        api_version_for_compare = "v0.0.0"
+        if 'api_version' in self.system.keys():
+            api_version = self.system['api_version']
+            # convert "v2.5.0 (v2.5.0-5-g3cf5695-dirty)" into "v2.5.0-5"
+            api_version_for_compare = "-".join(re.search(r'\(.*?\)', api_version).group()[1:-1].split("-", 2)[:2])
+            self.logger.info("Subrack API version: " + api_version)
+        else:
+            self.logger.warning("The Subrack is running with a very old API version!")
+
+        bios_version = "v0.0.0"
+        if 'board_info' in self.system.keys():
+            bios_version = self.system['board_info']['SMM']['bios']
+            self.logger.info("Subrack Bios version: " + bios_version)
+        else:
+            self.logger.warning("Bios version not verified!")
+
+        if (parse_version(api_version_for_compare) < parse_version(min_api_version)) | (
+                parse_version(bios_version) < parse_version(min_bios_version)):
+            self.logger.warning("api_version or bios_version are old or not supported.")
+            msgBox_versions = QtWidgets.QMessageBox()
+            msgBox_versions.setText(f"SKALAB is using an old/not supported api_version or bios_version.\n\n" + \
+                                    f"API: {api_version} (required {min_api_version})\n" + \
+                                    f"BIOS: {bios_version} (required {min_bios_version})\n\n" + \
+                                    f"Please update them following the instruction reported in the README file.")
+            msgBox_versions.setWindowTitle("Warning!")
+            msgBox_versions.setIcon(QtWidgets.QMessageBox.Warning)
+            msgBox_versions.exec_()
 
     def checkIps(self):
         if self.connected:
@@ -552,6 +580,19 @@ class Subrack(SkalabBase):
             else:
                 self.logger.warning("The Subrack is running with a very old API version!")
 
+    def show_board_info(self):
+        if self.connected:
+            msg = ""
+            for sections in self.system['board_info'].keys():
+                msg += "\n" + sections + "\n"
+                for s in self.system['board_info'][sections].keys():
+                    msg += "   " + s + ": " + self.system['board_info'][sections][s].__str__() + "\n"
+            msgBox_versions = QtWidgets.QMessageBox(self.wg)
+            msgBox_versions.setText(msg)
+            msgBox_versions.setWindowTitle("SMM Board Info")
+            msgBox_versions.setModal(False)
+            msgBox_versions.show()
+        pass
 
     def getTelemetry(self):
         tkey = ""
@@ -602,7 +643,10 @@ class Subrack(SkalabBase):
                     try:
                         self.data_charts[tlmk] = self.data_charts[tlmk][1:] + [telemetry[tlmk]]
                     except:
-                        self.logger.error("ERROR --> key: " + tlmk + "\nValue: " + telemetry[tlmk])
+                        if type(telemetry[tlmk]) == dict:
+                            self.logger.error("ERROR --> key: " + tlmk + "\nValue: " + telemetry[tlmk].__str__())
+                        else:
+                            self.logger.error("ERROR --> key: " + tlmk + "\nValue: " + telemetry[tlmk])
                         pass
                 else:
                     if tlmk not in self.data_charts.keys():
