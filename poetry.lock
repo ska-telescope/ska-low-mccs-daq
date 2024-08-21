@@ -2463,14 +2463,14 @@ reference = "PyPI-public"
 
 [[package]]
 name = "setuptools"
-version = "73.0.0"
+version = "73.0.1"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "setuptools-73.0.0-py3-none-any.whl", hash = "sha256:f2bfcce7ae1784d90b04c57c2802e8649e1976530bb25dc72c2b078d3ecf4864"},
-    {file = "setuptools-73.0.0.tar.gz", hash = "sha256:3c08705fadfc8c7c445cf4d98078f0fafb9225775b2b4e8447e40348f82597c0"},
+    {file = "setuptools-73.0.1-py3-none-any.whl", hash = "sha256:b208925fcb9f7af924ed2dc04708ea89791e24bde0d3020b27df0e116088b34e"},
+    {file = "setuptools-73.0.1.tar.gz", hash = "sha256:d59a3e788ab7e012ab2c4baed1b376da6366883ee20d7a5fc426816e3d7b1193"},
 ]
 
 [package.extras]
@@ -2543,20 +2543,21 @@ version = "0.3.0"
 description = "SKA Low MCCS DAQ Interface repository specifies the client-server interface between the DAQ and its monitoring and control component."
 category = "main"
 optional = false
-python-versions = "^3.10"
-files = []
-develop = false
+python-versions = ">=3.10,<4.0"
+files = [
+    {file = "ska_low_mccs_daq_interface-0.3.0-py3-none-any.whl", hash = "sha256:c6f93d26cfae8cee9aa259be0bc821b7265f0c6b57e8c1813688b56ad007bf01"},
+    {file = "ska_low_mccs_daq_interface-0.3.0.tar.gz", hash = "sha256:5182e8f746fb02931239963090fd2d1025ddff3163b12abc48d4d966381a9478"},
+]
 
 [package.dependencies]
-grpcio = "^1.54.2"
-grpcio-tools = "^1.54.2"
-ska-control-model = "^1.0.0"
+grpcio = ">=1.54.2,<2.0.0"
+grpcio-tools = ">=1.54.2,<2.0.0"
+ska-control-model = ">=1.0.0,<2.0.0"
 
 [package.source]
-type = "git"
-url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git"
-reference = "14954bf332d953cdda09a4d3d1dbcf227012737f"
-resolved_reference = "14954bf332d953cdda09a4d3d1dbcf227012737f"
+type = "legacy"
+url = "https://artefact.skao.int/repository/pypi-internal/simple"
+reference = 'ska-nexus'
 
 [[package]]
 name = "ska-ser-sphinx-theme"
@@ -3156,4 +3157,4 @@ reference = "PyPI-public"
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.10"
-content-hash = "283081b38e45b13f0a63e5816b308502fcb1a5f7ad43deae8f9a71df3ec9d424"
+content-hash = "83305b9f51482c3e8fc81135a868889b9afe83651a34fb57afbd0d7cde40c44f"
