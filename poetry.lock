@@ -2516,8 +2516,8 @@ ska-control-model = "^1.0.0"
 [package.source]
 type = "git"
 url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git"
-reference = "ac9c486cf52853cb8271bf11d778d6284d649768"
-resolved_reference = "ac9c486cf52853cb8271bf11d778d6284d649768"
+reference = "374870735b889d32ba3f286248f4cdab19183599"
+resolved_reference = "374870735b889d32ba3f286248f4cdab19183599"
 
 [[package]]
 name = "ska-ser-sphinx-theme"
@@ -3108,4 +3108,4 @@ reference = "PyPI-public"
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.10"
-content-hash = "f013f67bc8a69a224b5c000c6d403d972140bc78b1d0105ad4287d4f3494a703"
+content-hash = "7a858146f878395449717d186e57848f19c57547c2a8adef5968e237e166e611"
