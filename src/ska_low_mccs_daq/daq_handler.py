@@ -291,12 +291,13 @@ class DaqHandler:
             )
 
     def initialise(
-        self: DaqHandler, config: dict[str, Any]
+        self: DaqHandler, config: dict[str, Any], libaavsdaq_filepath: str = ""
     ) -> tuple[ResultCode, str]:  # noqa: E501
         """
         Initialise a new DaqReceiver instance.
 
         :param config: the configuration to apply
+        :param libaavsdaq_filepath: a .so file to use as the C library
 
         :return: a resultcode, message tuple
         """
