@@ -76,11 +76,14 @@ def subrack_simulator_config_fixture() -> dict[str, Any]:
         "backplane_temperatures": [39.0, 40.0],
         "board_temperatures": [40.0, 41.0],
         "board_current": 1.1,
+        "cpld_pll_locked": True,
         "power_supply_currents": [4.2, 5.8],
         "power_supply_fan_speeds": [90.0, 100.0],
         "power_supply_voltages": [12.0, 12.1],
         "subrack_fan_speeds_percent": [95.0, 96.0, 97.0, 98.0],
         "subrack_fan_mode": [FanMode.AUTO, FanMode.AUTO, FanMode.AUTO, FanMode.AUTO],
+        "subrack_pll_locked": True,
+        "subrack_timestamp": 1234567890,
         "tpm_currents": [0.4] * 8,
         # "tpm_temperatures": [40.0] * 8,  # Not implemented on SMB
         "tpm_voltages": [12.0] * 8,
@@ -114,6 +117,7 @@ def subrack_simulator_attribute_values_fixture(
             subrack_simulator_config["board_temperatures"]
         ),
         "board_current": pytest.approx(subrack_simulator_config["board_current"]),
+        "cpld_pll_locked": subrack_simulator_config["cpld_pll_locked"],
         "power_supply_currents": _approxify(
             subrack_simulator_config["power_supply_currents"]
         ),
@@ -138,6 +142,8 @@ def subrack_simulator_attribute_values_fixture(
             for p in subrack_simulator_config["subrack_fan_speeds_percent"]
         ],
         "subrack_fan_mode": subrack_simulator_config["subrack_fan_mode"],
+        "subrack_pll_locked": subrack_simulator_config["subrack_pll_locked"],
+        "subrack_timestamp": subrack_simulator_config["subrack_timestamp"],
         "tpm_currents": _approxify(subrack_simulator_config["tpm_currents"]),
         # Not implemented on SMB
         # "tpm_temperatures": _approxify(subrack_simulator_config["tpm_temperatures"]),
@@ -177,6 +183,7 @@ def subrack_device_attribute_values_fixture(
         ),
         "boardTemperatures": _approxify(subrack_simulator_config["board_temperatures"]),
         "boardCurrent": [pytest.approx(subrack_simulator_config["board_current"])],
+        "cpldPllLocked": subrack_simulator_config["cpld_pll_locked"],
         "powerSupplyCurrents": _approxify(
             subrack_simulator_config["power_supply_currents"]
         ),
@@ -201,6 +208,8 @@ def subrack_device_attribute_values_fixture(
             for p in subrack_simulator_config["subrack_fan_speeds_percent"]
         ],
         "subrackFanModes": subrack_simulator_config["subrack_fan_mode"],
+        "subrackPllLocked": subrack_simulator_config["subrack_pll_locked"],
+        "subrackTimestamp": subrack_simulator_config["subrack_timestamp"],
         "tpmCurrents": _approxify(subrack_simulator_config["tpm_currents"]),
         # Not implemented on SMB
         # "tpmTemperatures": _approxify(subrack_simulator_config["tpm_temperatures"]),
