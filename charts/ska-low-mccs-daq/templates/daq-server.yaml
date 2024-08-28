@@ -93,11 +93,9 @@ spec:
         ports:
           - containerPort: {{$spec.grpc_port}}
             protocol: TCP
-{{- if $spec.nvidia_gpu}}
         resources:
-          limits:
-            nvidia.com/gpu: 1
-{{- end }}
+          {{- $default_resources := dict "limits" (dict "nvidia.com/gpu" ($spec.nvidia_gpu | default false | ternary "1" "0")) }}
+          {{- $default_resources | merge ($spec.resources | default dict) | toYaml | nindent 10 }}
         securityContext:
           capabilities:
             add:

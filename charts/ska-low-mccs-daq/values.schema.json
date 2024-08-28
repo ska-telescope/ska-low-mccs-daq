@@ -65,6 +65,23 @@
           "storage": {
             "type": "string"
           },
+          "resources": {
+            "type": "object",
+            "properties": {
+              "limits": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "requests": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "node_selector": {
             "type": [
               "object",
