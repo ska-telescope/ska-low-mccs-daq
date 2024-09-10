@@ -306,9 +306,10 @@ class DaqHandler:
             self.logger.info("Initialising daq.")
             self.daq_instance = DaqReceiver()
             try:
-                if config:
-                    self.daq_instance.populate_configuration(self._config)
-
+                self.logger.info(
+                    "Configuring before initialising with: %s", self._config
+                )
+                self.daq_instance.populate_configuration(self._config)
                 self.daq_instance.initialise_daq()
                 self._receiver_started = True
                 self._initialised = True
