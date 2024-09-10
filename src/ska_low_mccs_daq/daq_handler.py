@@ -300,15 +300,18 @@ class DaqHandler:
 
         :return: a resultcode, message tuple
         """
+        self.logger.info("initialise() issued with: %s", config)
         self._config |= config
 
         if self._initialised is False:
-            self.logger.info("Initialising daq.")
+            self.logger.debug("Creating DaqReceiver instance.")
             self.daq_instance = DaqReceiver()
             try:
-                if config:
-                    self.daq_instance.populate_configuration(self._config)
-
+                self.logger.info(
+                    "Configuring before initialising with: %s", self._config
+                )
+                self.daq_instance.populate_configuration(self._config)
+                self.logger.info("Initialising daq.")
                 self.daq_instance.initialise_daq()
                 self._receiver_started = True
                 self._initialised = True
