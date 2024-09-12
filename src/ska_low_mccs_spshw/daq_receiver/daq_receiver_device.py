@@ -7,6 +7,8 @@
 
 """This module implements the MccsDaqReceiver device."""
 
+# pylint: disable = too-many-lines
+
 from __future__ import annotations  # allow forward references in type hints
 
 import json
@@ -259,7 +261,6 @@ class MccsDaqReceiver(SKABaseDevice):
 
         This is overridden here to change the Tango serialisation model.
         """
-        self._max_workers = 5
         super().init_device()
 
         self._build_state = ",".join(
@@ -304,6 +305,7 @@ class MccsDaqReceiver(SKABaseDevice):
         self._y_bandpass_plot = np.zeros(shape=(256, 512), dtype=float)
         self._rms_plot = np.zeros(shape=(256, 512), dtype=float)
         self.set_change_event("healthState", True, False)
+        self.set_archive_event("healthState", True, False)
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
         """
@@ -320,7 +322,6 @@ class MccsDaqReceiver(SKABaseDevice):
             self.ConsumersToStart,
             self.SkuidUrl,
             self.logger,
-            self._max_workers,
             self._component_communication_state_changed,
             self._component_state_callback,
             self._received_data_callback,
@@ -389,9 +390,13 @@ class MccsDaqReceiver(SKABaseDevice):
                 information purpose only.
             """
             self._device.set_change_event("dataReceivedResult", True, False)
+            self._device.set_archive_event("dataReceivedResult", True, False)
             self._device.set_change_event("xPolBandpass", True, False)
+            self._device.set_archive_event("xPolBandpass", True, False)
             self._device.set_change_event("yPolBandpass", True, False)
+            self._device.set_archive_event("yPolBandpass", True, False)
             self._device.set_change_event("rmsPlot", True, False)
+            self._device.set_archive_event("rmsPlot", True, False)
 
             return (ResultCode.OK, "Init command completed OK")
 

@@ -21,7 +21,7 @@ from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskS
 from ska_low_mccs_daq_interface import DaqClient
 from ska_ser_skuid.client import SkuidClient  # type: ignore
 from ska_tango_base.base import check_communicating
-from ska_tango_base.executor import TaskExecutorComponentManager
+from ska_tango_base.executor import TaskExecutor, TaskExecutorComponentManager
 
 __all__ = ["DaqComponentManager"]
 SUBSYSTEM_SLUG = "ska-low-mccs"
@@ -44,7 +44,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         consumers_to_start: str,
         skuid_url: str,
         logger: logging.Logger,
-        max_workers: int,
         communication_state_callback: Callable[[CommunicationStatus], None],
         component_state_callback: Callable[..., None],
         received_data_callback: Callable[[str, str, str], None],
@@ -62,8 +61,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param consumers_to_start: The default consumers to be started.
         :param skuid_url: The address at which a SKUID service is running.
         :param logger: the logger to be used by this object.
-        :param max_workers: the maximum worker threads for the slow commands
-            associated with this component manager.
         :param communication_state_callback: callback to be
             called when the status of the communications channel between
             the component manager and its component changes
@@ -94,10 +91,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
             logger,
             communication_state_callback,
             component_state_callback,
-            max_workers=max_workers,
             power=None,
             fault=None,
         )
+        self._task_executor = TaskExecutor(max_workers=2)
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
