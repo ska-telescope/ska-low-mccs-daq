@@ -45,9 +45,9 @@ def test_context_fixture(
 
     :yield: the DAQ receiver device
     """
-    skip_if_not_real_context = False
-    if station_name == "real-daq-1":
-        skip_if_not_real_context = True
+    skip_if_not_real_context = True
+    if station_name == "ci-1":
+        skip_if_not_real_context = False
     yield from functional_test_context_generator(station_name, skip_if_not_real_context)
 
 

@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from typing import Any, Generator
 
@@ -46,7 +47,7 @@ def station_name_fixture(true_context: bool) -> str:
         pytest.skip(
             "This needs to be run in a true-context against a real DAQ deployment"
         )
-    return "real-daq-1"
+    return os.getenv("STATION_LABEL", "real-daq-1")
 
 
 @pytest.fixture(name="plot_directory")
