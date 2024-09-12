@@ -119,15 +119,16 @@ def tile_device_fixture(station_name: str) -> str:
 
 
 @given("the Subrack is available", target_fixture="subrack_device")
-def subrack_device_fixture(station_name: str) -> str:
+def subrack_device_fixture(station_name: str, subrack_id: int) -> str:
     """
     Return a ``tango.DeviceProxy`` to the subrack device under test.
 
     :param station_name: the name of the station under test.
+    :param subrack_id: the id of the subrack used in this test.
 
     :return: a ``tango.DeviceProxy`` to the subrack device under test.
     """
-    return tango.DeviceProxy(get_subrack_name(1, station_name))
+    return tango.DeviceProxy(get_subrack_name(subrack_id, station_name))
 
 
 @given("the Tile is routed to the DAQ")
