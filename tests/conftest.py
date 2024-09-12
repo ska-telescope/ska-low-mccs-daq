@@ -232,7 +232,7 @@ def subrack_id_fixture() -> int:
 
     :return: the id of the subrack under test.
     """
-    if os.getenv("STATION_LABEL") == "ral-software":
+    if os.getenv("STATION_LABEL") == "stfc-ral-software":
         # This is not the most elegant solution,
         # but, it is a single place we need to change.
         return 2

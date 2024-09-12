@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Callable, Iterator
 
 import pytest
@@ -48,6 +49,10 @@ def test_context_fixture(
     skip_if_not_real_context = True
     if station_name == "ci-1":
         skip_if_not_real_context = False
+    station_env = os.getenv("STATION_LABEL", None)
+    if station_env is not None:
+        if station_env != station_name:
+            pytest.skip("This test is not designed to run in this environment.")
     yield from functional_test_context_generator(station_name, skip_if_not_real_context)
 
 

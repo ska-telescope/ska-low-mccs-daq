@@ -37,6 +37,7 @@ Feature: Receiving SPEAD packets.
       Examples: modes of interest
       |    daq_modes_of_interest    |  data_type  |  no_of_tiles    |    station_name    | 
       |   INTEGRATED_CHANNEL_DATA   |   channel   |      16         |     real-daq-1     |
+      |   INTEGRATED_CHANNEL_DATA   |   channel   |      16         |  stfc-ral-software |
 
 
 

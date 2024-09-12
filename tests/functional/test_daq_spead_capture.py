@@ -65,6 +65,10 @@ def station_name_fixture(
         pytest.skip(
             "This needs to be run in a true-context against a real DAQ deployment"
         )
+    station_env = os.getenv("STATION_LABEL", None)
+    if station_env is not None:
+        if station_env != station_name:
+            pytest.skip("This test is not designed to run in this environment.")
     return station_name
 
 
