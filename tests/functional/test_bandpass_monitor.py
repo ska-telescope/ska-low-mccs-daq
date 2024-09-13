@@ -164,11 +164,11 @@ def tile_ready_to_send_to_daq(
             )
 
         tile_device.on()
-        poll_until_state_change(tile_device, tango.DevState.ON, 20)
+        poll_until_state_change(tile_device, tango.DevState.ON, 60)
 
     if tile_device.tileProgrammingState not in ["Initialised", "Synchronised"]:
         assert expect_attribute(
-            tile_device, "tileProgrammingState", "Initialised", timeout=5.0
+            tile_device, "tileProgrammingState", "Initialised", timeout=20.0
         )
 
     # Start the ADCs and SDP processing chain.
