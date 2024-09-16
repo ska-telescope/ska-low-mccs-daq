@@ -180,11 +180,12 @@ def tile_ready_to_send_to_daq(
     daq_status = json.loads(daq_device.DaqStatus())
 
     tpm_lmc_config = {
-        "mode": "1G",
+        "mode": "10G",
         "destination_ip": daq_status["Receiver IP"][0],
         "destination_port": daq_status["Receiver Ports"][0],
     }
     tile_device.SetLmcDownload(json.dumps(tpm_lmc_config))
+    tile_device.SetLmcIntegratedDownload(json.dumps(tpm_lmc_config))
 
 
 @given("no consumers are running")
@@ -412,22 +413,27 @@ def tile_send_data(
 
     :param tile_device: A 'tango.DeviceProxy' to the Tile device.
     """
-    tile_device.SendDataSamples(json.dumps({"data_type": "channel"}))
+    tile_device.ConfigureIntegratedChannelData('{"integration_time": 5.0}')
+    # tile_device.SendDataSamples(json.dumps({"data_type": "channel"})) ? this is burst
 
 
 @then("the DAQ reports that it has received integrated channel data")
 def daq_received_data(
     change_event_callbacks: MockTangoEventCallbackGroup,
+    tile_device: tango.DeviceProxy,
 ) -> None:
     """
     Confirm Daq has received data.
 
     :param change_event_callbacks: a dictionary of callables to be used as
         tango change event callbacks.
+    :param tile_device: A 'tango.DeviceProxy' to the Tile device.
     """
     change_event_callbacks["data_received_callback"].assert_change_event(
         ("integrated_channel", Anything)
     )
+    # Stop the data transmission, else it will continue forever.
+    tile_device.StopIntegratedData()
 
 
 @then("the DAQ saves bandpass data to its relevant attributes")

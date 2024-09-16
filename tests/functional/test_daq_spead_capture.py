@@ -198,7 +198,7 @@ def tile_ready_to_send_to_daq(
     daq_status = json.loads(daq_device.DaqStatus())
 
     tpm_lmc_config = {
-        "mode": "1G",
+        "mode": "10G",
         "destination_ip": daq_status["Receiver IP"][0],
         "destination_port": int(daq_status["Receiver Ports"][0]),
     }
@@ -220,6 +220,7 @@ def daq_device_has_no_running_consumers(
 
     status = json.loads(daq_device.DaqStatus())
     if status["Running Consumers"] != []:
+        daq_device.StopBandpassMonitor()
         daq_device.Stop()  # Stops *all* consumers.
         poll_until_consumers_stopped(daq_device)
 
@@ -259,7 +260,7 @@ def check_capture(
         in a directory.
     """
     change_event_callbacks["data_received_callback"].assert_change_event(
-        ("integrated_channel", Anything)
+        ("burst_channel", Anything)
     )
 
     final_hdf5_count = get_hdf5_count()
