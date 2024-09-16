@@ -177,12 +177,15 @@ class DaqSimulator:
         self._monitoring_bandpass: bool = False
 
     def initialise(
-        self: DaqSimulator, config: dict[str, Any]
+        self: DaqSimulator,
+        config: dict[str, Any],
+        libaavsdaq_filepath: str = "",
     ) -> tuple[ResultCode, str]:
         """
         Initialise a new DaqReceiver instance.
 
         :param config: the configuration to apply
+        :param libaavsdaq_filepath: Filepath to a custom version of libaavsdaq.so
 
         :return: a resultcode, message tuple
         """
