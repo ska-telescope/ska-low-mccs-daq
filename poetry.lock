@@ -2501,23 +2501,24 @@ reference = "ska-nexus"
 
 [[package]]
 name = "ska-low-mccs-daq-interface"
-version = "0.3.0"
+version = "0.4.0"
 description = "SKA Low MCCS DAQ Interface repository specifies the client-server interface between the DAQ and its monitoring and control component."
 optional = false
-python-versions = "^3.10"
-files = []
-develop = false
+python-versions = ">=3.10,<4.0"
+files = [
+    {file = "ska_low_mccs_daq_interface-0.4.0-py3-none-any.whl", hash = "sha256:bb4f422b3b7b440b72c1956d531e7a1585ba6c2c9017e25aec30c1afa03aee11"},
+    {file = "ska_low_mccs_daq_interface-0.4.0.tar.gz", hash = "sha256:e184a9147aee20187df140f7c5ec0be808946730227860e605c13c32bb5a0a0f"},
+]
 
 [package.dependencies]
-grpcio = "^1.54.2"
-grpcio-tools = "^1.54.2"
-ska-control-model = "^1.0.0"
+grpcio = ">=1.54.2,<2.0.0"
+grpcio-tools = ">=1.54.2,<2.0.0"
+ska-control-model = ">=1.0.0,<2.0.0"
 
 [package.source]
-type = "git"
-url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface.git"
-reference = "374870735b889d32ba3f286248f4cdab19183599"
-resolved_reference = "374870735b889d32ba3f286248f4cdab19183599"
+type = "legacy"
+url = "https://artefact.skao.int/repository/pypi-internal/simple"
+reference = "ska-nexus"
 
 [[package]]
 name = "ska-ser-sphinx-theme"
@@ -3108,4 +3109,4 @@ reference = "PyPI-public"
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.10"
-content-hash = "7a858146f878395449717d186e57848f19c57547c2a8adef5968e237e166e611"
+content-hash = "ab474a11a9fcb544a576a8c73d3bcd635fb78d28e99193ac6bfe0be35c5fa292"

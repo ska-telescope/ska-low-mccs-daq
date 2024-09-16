@@ -2,7 +2,7 @@
 
 ## unreleased
 
-* []
+* [SKB-494] update aavs-system/pydaq to support the new SPEAD format
 
 ## 0.8.0
 
