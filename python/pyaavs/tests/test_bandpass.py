@@ -72,7 +72,7 @@ class TestBandpass:
         self._logger.info("Bandpass Test PASSED!")
         return 0
 
-    def execute(self, placeholder=None):
+    def execute(self, integration_time=1):
         global tiles_processed
         global data_received
         global data
@@ -85,6 +85,8 @@ class TestBandpass:
         self._logger.info("Executing Bandpass test")
 	
         nof_tiles = len(self._test_station.tiles) 
+        config_int_time = self._station_config['station']['channel_integration_time']
+        integration_time = integration_time or config_int_time  # If None, use config time
         
         temp_dir = "./temp_daq_test"
         # Determine receiver port
@@ -114,6 +116,10 @@ class TestBandpass:
             # Stop Station Beam
             tile.stop_beamformer()
             
+            # Set Integration Time
+            self._logger.info(f"Configuring {integration_time} second integration time for TPM{n}.")
+            tile.configure_integrated_channel_data(integration_time)
+            
             for preadu_index, preadu in enumerate(tile.tpm.tpm_preadu):
                 self._logger.info(f"Checking for preaADU for TPM{n}, preADU{preadu_index}...")
                 preadu.switch_off()
@@ -140,6 +146,10 @@ class TestBandpass:
             time.sleep(0.1)
 
         tf.remove_hdf5_files(temp_dir)
+        for tile in self._test_station.tiles:
+            # Revert Integration Time
+            self._logger.info(f"Configuring {config_int_time} second integration time for TPM{n}.")
+            tile.configure_integrated_channel_data(config_int_time)
         return self.clean_up()
 
 
@@ -150,6 +160,9 @@ if __name__ == "__main__":
 
     parser = OptionParser(usage="usage: %station [options]")
     parser = tf.add_default_parser_options(parser)
+    parser.add_option("-t", "--integration_time", action="store", dest="integration_time",
+                      default="1", help="Course channel power integration time in seconds [default: 1]")
+
     (conf, args) = parser.parse_args(argv[1:])
 
     config_manager = ConfigManager(conf.test_config)
@@ -174,4 +187,4 @@ if __name__ == "__main__":
     test_logger = logging.getLogger('TEST_BANDPASS')
 
     test_inst = TestBandpass(tpm_config, test_logger)
-    test_inst.execute()
+    test_inst.execute(int(conf.integration_time))
