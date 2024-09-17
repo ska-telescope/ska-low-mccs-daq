@@ -14,13 +14,14 @@ from typing import Callable, Iterator
 import pytest
 import tango
 from pytest_bdd import given, parsers, scenarios, then, when
-from ska_control_model import AdminMode, HealthState, TaskStatus
+from ska_control_model import AdminMode, HealthState
 
 from tests.functional.conftest import (
     poll_until_command_result,
     poll_until_consumer_running,
     poll_until_consumers_stopped,
     poll_until_state_change,
+    verify_bandpass_state,
 )
 from tests.harness import SpsTangoTestHarnessContext
 
@@ -157,9 +158,8 @@ def daq_device_has_no_running_consumers(
     """
     status = json.loads(daq_receiver.DaqStatus())
     if status["Running Consumers"] != []:
-        ts, cmd_id = daq_receiver.Stop()  # Stops *all* consumers.
-        assert ts == TaskStatus.QUEUED
-        poll_until_command_result(daq_receiver, "COMPLETED", cmd_id)
+        _, [cmd_id] = daq_receiver.Stop()  # Stops *all* consumers.
+        poll_until_command_result(daq_receiver, cmd_id, "COMPLETED")
 
         poll_until_consumers_stopped(daq_receiver)
 
@@ -300,3 +300,27 @@ def check_daq_config_is_channelised(
     :param daq_receiver: The daq_receiver fixture to use.
     """
     poll_until_consumer_running(daq_receiver, "CHANNEL_DATA", no_of_iters=25)
+
+
+@given("the bandpass monitor is not running")
+def monitor_not_running(daq_receiver: tango.DeviceProxy) -> None:
+    """
+    Ensure that the bandpass monitor is not running.
+
+    :param daq_receiver: A 'tango.DeviceProxy' to the Daq device.
+    """
+    if json.loads(daq_receiver.DaqStatus())["Bandpass Monitor"]:
+        daq_receiver.StopBandpassMonitor()
+        daq_monitor_stopped(daq_receiver)
+
+
+@then("the DAQ reports that it is stopping monitoring bandpasses")
+def daq_monitor_stopped(
+    daq_receiver: tango.DeviceProxy,
+) -> None:
+    """
+    Confirm that the bandpass monitor process has stopped.
+
+    :param daq_receiver: A 'tango.DeviceProxy' to the Daq device.
+    """
+    verify_bandpass_state(daq_receiver, False)

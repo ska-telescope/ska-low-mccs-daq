@@ -20,6 +20,7 @@ from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tests.functional.conftest import (
     poll_until_consumer_running,
     poll_until_consumers_stopped,
+    verify_bandpass_state,
 )
 from tests.harness import SpsTangoTestHarnessContext
 
@@ -336,3 +337,27 @@ def daq_has_specific_status(
     # # - Receiver uptime. (Will require keeping track in MccsDaqReceiver somewhere)
     # # - Other misc data stuff eventually (packets rec/tx, time since last pkt, rough
     # # data rates, disk space etcetc)
+
+
+@given("the bandpass monitor is not running")
+def monitor_not_running(daq_receiver: tango.DeviceProxy) -> None:
+    """
+    Ensure that the bandpass monitor is not running.
+
+    :param daq_receiver: A 'tango.DeviceProxy' to the Daq device.
+    """
+    if json.loads(daq_receiver.DaqStatus())["Bandpass Monitor"]:
+        daq_receiver.StopBandpassMonitor()
+        daq_monitor_stopped(daq_receiver)
+
+
+@then("the DAQ reports that it is stopping monitoring bandpasses")
+def daq_monitor_stopped(
+    daq_receiver: tango.DeviceProxy,
+) -> None:
+    """
+    Confirm that the bandpass monitor process has stopped.
+
+    :param daq_receiver: A 'tango.DeviceProxy' to the Daq device.
+    """
+    verify_bandpass_state(daq_receiver, False)
