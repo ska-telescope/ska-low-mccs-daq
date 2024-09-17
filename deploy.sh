@@ -315,7 +315,7 @@ pushd python || exit
   if [ $INSTALL_DOCS_REQS == true ]; then
     pip install -r requirements_docs.pip || exit
   fi
-  python setup.py install || exit
+  sudo python setup.py install || exit
 popd
 
 # Link required scripts to bin directory
