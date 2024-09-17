@@ -184,16 +184,6 @@ class TestHealthMonitoring():
             if not tile.tpm.has_register('board.regfile.pll_lol'):
                 self._logger.warning("CPLD Firmware does not have updated PLL status registers. PLL checks will be skipped.")
                 MON_POINT_SKIP.append('timing.pll')
-		
-            # If TPM is configured in single40G mode then ignore errors in unused 40G UDP core
-            if not tile.active_40g_port[0]:
-                MON_POINT_SKIP.append('io.udp_interface.bip_error_count.FPGA0')
-                MON_POINT_SKIP.append('io.udp_interface.status')    # TODO separate status for two cores - required for single 40G health status
-                MON_POINT_SKIP.append('io.udp_interface.arp')       # TODO separate ARP status for two cores - required for single 40G health status
-            if not tile.active_40g_port[1]:
-                MON_POINT_SKIP.append('io.udp_interface.bip_error_count.FPGA1')
-                MON_POINT_SKIP.append('io.udp_interface.status')    # TODO separate status for two cores - required for single 40G health status
-                MON_POINT_SKIP.append('io.udp_interface.arp')       # TODO separate ARP status for two cores - required for single 40G health status
    
             if not tile.tpm.has_register('fpga1.xg_udp.phy_rx_decode_error_counter_0'):
                 self._logger.warning("FPGA Firmware does not support UDP Decode Error Counter. These checks will be skipped.")

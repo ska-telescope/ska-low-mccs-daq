@@ -1133,17 +1133,18 @@ class TileHealthMonitor():
         fpga_resolved_entries = []
         fpga_unresolved_entries = []
         for fpga in self.fpga_gen(fpga_id):
-            resolved_cnt = 0
-            unresolved_cnt = 0
-            for arp_table in arp_table_ids:
-                arp_status, mac = self.tpm.tpm_10g_core[fpga].get_arp_table_status(arp_table, silent_mode)
-                if arp_status & 0x1:
-                    if arp_status & 0x4:
-                        resolved_cnt += 1
-                    else:
-                        unresolved_cnt += 1
-            fpga_resolved_entries.append(resolved_cnt)
-            fpga_unresolved_entries.append(unresolved_cnt)
+            if self.active_40g_port[fpga]:  # Ignore ARP table if 40G QSFP not in use
+                resolved_cnt = 0
+                unresolved_cnt = 0
+                for arp_table in arp_table_ids:
+                    arp_status, mac = self.tpm.tpm_10g_core[fpga].get_arp_table_status(arp_table, silent_mode)
+                    if arp_status & 0x1:
+                        if arp_status & 0x4:
+                            resolved_cnt += 1
+                        else:
+                            unresolved_cnt += 1
+                fpga_resolved_entries.append(resolved_cnt)
+                fpga_unresolved_entries.append(unresolved_cnt)
         return True if all(fpga_resolved_entries) and not any(fpga_unresolved_entries) else False
 
     def check_udp_status(self, fpga_id=None):
@@ -1160,7 +1161,8 @@ class TileHealthMonitor():
         # one core per fpga, 4 ARP table IDs per core
         errors = []
         for fpga in self.fpga_gen(fpga_id):
-            errors.append(self.tpm.tpm_10g_core[fpga].check_errors())
+            if self.active_40g_port[fpga]:  # Ignore errors if 40G QSFP not in use
+                errors.append(self.tpm.tpm_10g_core[fpga].check_errors())
         return not any(errors) # Return True if status OK, all errors False
     
     def clear_udp_status(self, fpga_id=None):
@@ -1223,7 +1225,10 @@ class TileHealthMonitor():
         """
         counts = {}
         for fpga in self.fpga_gen(fpga_id):
-            counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_bip_error_count()
+            if self.active_40g_port[fpga]:  # Ignore BIP errors if 40G QSFP not in use
+                counts[f'FPGA{fpga}'] = self.tpm.tpm_10g_core[fpga].get_bip_error_count()
+            else:
+                counts[f'FPGA{fpga}'] = {'lane0': 0, 'lane1': 0, 'lane2': 0, 'lane3': 0}
         return counts # Return dict of counter values
 
     def check_udp_decode_error_counter(self, fpga_id=None):
