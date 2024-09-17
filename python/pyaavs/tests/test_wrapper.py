@@ -27,6 +27,7 @@ class TestWrapper:
                        'flagging': "Check if oveflown data are correctly flagged by tile beamformer.",
                        'init_station': "Program, initialise station and start station beamformer.\nCheck if station "
                                        "beam data rate is within expected range.",
+                       'synchronisation': "Check PPS period is as expected and phase drift is within acceptable range.",
                        'antenna_buffer': "Check operation of the antenna buffer in DDR using incremental pattern.",
                        'station_beam': "Check operation of networked beamformer using synthetic data pattern. ",
                        'full_station': "Check operation of networked beamformer comparing offline and realtime beam "
