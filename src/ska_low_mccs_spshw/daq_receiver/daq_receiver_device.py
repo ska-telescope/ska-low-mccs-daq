@@ -7,8 +7,6 @@
 
 """This module implements the MccsDaqReceiver device."""
 
-# pylint: disable = too-many-lines
-
 from __future__ import annotations  # allow forward references in type hints
 
 import json
