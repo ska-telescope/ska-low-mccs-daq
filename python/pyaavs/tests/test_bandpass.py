@@ -49,16 +49,16 @@ class TestBandpass:
         Assume no input to the ADC.
         Verify integrated course channel data for each antenna and polarisation is 0.
         """
-        ch, ant, pol, sam = data.shape
-        for c in range(ch):
-            for a in range(ant):
-                for p in range(pol):
-                    for i in range(1):
-                        if data[c, a, p, i] != 0:
-                            if c != 0:  # Ignore gain in channel 0
-                                tpm_id = a // nof_antennas_per_tile
-                                
-                                self._logger.error(f"Data Error! TPM{tpm_id}, Frequency Channel: {c} ({c*25/32:.2f} MHz), Antenna: {a}, Polarization: {p}, Sample index: {i}. Received data: {data[c, a, p, i]}")
+        channels, antennas, polarisations, samples = data.shape
+        for channel in range(channels):
+            for antenna in range(antennas):
+                for polarisation in range(polarisations):
+                    for i in range(samples):
+                        if data[channel, antenna, polarisation, i] != 0:
+                            if channel != 0:  # Ignore gain in channel 0
+                                tpm_id = antenna // nof_antennas_per_tile
+                                self._logger.error(f"Data Error! TPM{tpm_id}, Frequency Channel: {channel} ({channel*25/32:.2f} MHz), Antenna: {antenna}," 
+                                                   f"Polarization: {polarisation}, Sample index: {i}. Received data: {data[channel, antenna, polarisation, i]}")
                                 self.errors += 1
                                 self.tiles_with_errors.append(tpm_id) if tpm_id not in self.tiles_with_errors else self.tiles_with_errors
         return
