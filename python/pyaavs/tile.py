@@ -1600,7 +1600,9 @@ class Tile(TileHealthMonitor):
         else:
             trunc_vec1 = trunc[0:256]
             trunc_vec2 = trunc[256:512]
-            trunc_vec2.reverse()  # 2nd half of freq chans are in reverse order
+            # Second half of freq chans are in reverse order but this is currently handled in FPGA firmware
+            # In future firmware can be simplified and this can be handled in software
+            # trunc_vec2.reverse()
         #
         # If signal is not specified, apply to all signals
         if signal is None:
