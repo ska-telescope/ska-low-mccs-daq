@@ -21,7 +21,6 @@ from tests.functional.conftest import (
     poll_until_consumer_running,
     poll_until_consumers_stopped,
     poll_until_state_change,
-    verify_bandpass_state,
 )
 from tests.harness import SpsTangoTestHarnessContext
 
@@ -300,27 +299,3 @@ def check_daq_config_is_channelised(
     :param daq_receiver: The daq_receiver fixture to use.
     """
     poll_until_consumer_running(daq_receiver, "CHANNEL_DATA", no_of_iters=25)
-
-
-@given("the bandpass monitor is not running")
-def monitor_not_running(daq_receiver: tango.DeviceProxy) -> None:
-    """
-    Ensure that the bandpass monitor is not running.
-
-    :param daq_receiver: A 'tango.DeviceProxy' to the Daq device.
-    """
-    if json.loads(daq_receiver.DaqStatus())["Bandpass Monitor"]:
-        daq_receiver.StopBandpassMonitor()
-        daq_monitor_stopped(daq_receiver)
-
-
-@then("the DAQ reports that it is stopping monitoring bandpasses")
-def daq_monitor_stopped(
-    daq_receiver: tango.DeviceProxy,
-) -> None:
-    """
-    Confirm that the bandpass monitor process has stopped.
-
-    :param daq_receiver: A 'tango.DeviceProxy' to the Daq device.
-    """
-    verify_bandpass_state(daq_receiver, False)

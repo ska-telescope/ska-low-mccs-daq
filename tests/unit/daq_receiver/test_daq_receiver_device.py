@@ -24,6 +24,11 @@ from tango.server import Device, command
 
 from ska_low_mccs_spshw import MccsDaqReceiver
 from ska_low_mccs_spshw.daq_receiver.daq_simulator import DaqModes, convert_daq_modes
+from tests.functional.conftest import (
+    poll_until_command_result,
+    poll_until_consumers_running,
+    poll_until_consumers_stopped,
+)
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
 # TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
@@ -177,16 +182,18 @@ class TestMccsDaqReceiver:
         assert result_code == ResultCode.QUEUED
         assert "Start" in response
 
-        # --- TODO: Refactor this block into a test helper method that
-        #  queries DaqStatus until some condition is satisfied.
+        # Convert to DaqModes and extract consumer name as a string.
+        modes_to_check = []
+        for daq_mode in convert_daq_modes(daq_modes):
+            modes_to_check.append(str(daq_mode).rsplit(".", maxsplit=1)[-1])
+
+        poll_until_consumers_running(
+            device_under_test,
+            modes_to_check,
+        )
         running_consumers = json.loads(device_under_test.DaqStatus()).get(
             "Running Consumers"
         )
-        while running_consumers == []:
-            sleep(0.2)
-            running_consumers = json.loads(device_under_test.DaqStatus()).get(
-                "Running Consumers"
-            )
         # ---
         # Convert the expected DaqModes.
         expected_converted_daq_modes = convert_daq_modes(daq_modes)
@@ -201,18 +208,11 @@ class TestMccsDaqReceiver:
             # Match DaqMode.value
             assert consumer in actual_converted_daq_modes
 
-        [result_code], [response] = device_under_test.Stop()
+        [result_code], [cmd_id] = device_under_test.Stop()
         assert result_code == ResultCode.QUEUED
-        assert "Stop" == response.split("_")[-1]
-        sleep(0.2)
-        running_consumers = json.loads(device_under_test.DaqStatus()).get(
-            "Running Consumers"
-        )
-        while running_consumers != []:
-            sleep(0.2)
-            running_consumers = json.loads(device_under_test.DaqStatus()).get(
-                "Running Consumers"
-            )
+        assert "Stop" == cmd_id.split("_")[-1]
+        poll_until_command_result(device_under_test, cmd_id, "COMPLETED")
+        poll_until_consumers_stopped(device_under_test)
 
 
 class TestPatchedDaq:

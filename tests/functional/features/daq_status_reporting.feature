@@ -33,7 +33,6 @@ Feature: Daq Status Reporting
         Given this test is running against station_cluster <station_name>
         And an MccsDaqReceiver
         And MccsDaqReceiver AdminMode is set to 'ONLINE'
-        And the bandpass monitor is not running
         And no consumers are running
         When <consumer> is started
         Then consumer_status attribute shows <consumer> as running

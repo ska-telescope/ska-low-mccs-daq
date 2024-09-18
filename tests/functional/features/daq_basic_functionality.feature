@@ -39,7 +39,6 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is available
         And the DAQ is in the ON state
         And the DAQ is in health state OK
-        And the bandpass monitor is not running
         And the DAQ has no consumers running
         When I send the Start command with raw data
         Then the DAQ is in the ON state
@@ -57,7 +56,6 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is available
         And the DAQ is in the ON state
         And the DAQ is in health state OK
-        And the bandpass monitor is not running
         And the DAQ has no consumers running
         When I send the Start command with channelised data
         Then the DAQ is in the ON state

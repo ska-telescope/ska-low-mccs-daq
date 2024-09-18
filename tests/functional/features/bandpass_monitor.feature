@@ -8,7 +8,6 @@ Feature: Test bandpass monitor
     @XTP-34297
     Scenario: Not listening for integrated channel data
         Given the DAQ is available
-        And the bandpass monitor is not running
         And no consumers are running
         And the DAQ is configured
         When the DAQ is commanded to start monitoring for bandpasses with `auto_handle_daq` set to `False`
@@ -17,7 +16,6 @@ Feature: Test bandpass monitor
     @XTP-34299
     Scenario: Stop bandpass monitor
         Given the DAQ is available
-        And the bandpass monitor is not running
         And no consumers are running
         And the DAQ is configured
         And the DAQ is started with the integrated channel data consumer
@@ -28,7 +26,6 @@ Feature: Test bandpass monitor
     @XTP-34300
     Scenario: Receive bandpass data
         Given the DAQ is available
-        And the bandpass monitor is not running
         And no consumers are running
         And the Tile is available
         And the Subrack is available
@@ -39,6 +36,4 @@ Feature: Test bandpass monitor
         When the Tile is commanded to send integrated channel data
         Then the DAQ reports that it has received integrated channel data
         And the DAQ saves bandpass data to its relevant attributes
-        And the DAQ is commanded to stop monitoring bandpasses
-        And the DAQ reports that it is stopping monitoring bandpasses
 

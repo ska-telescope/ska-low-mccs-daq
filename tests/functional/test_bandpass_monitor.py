@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any
+from typing import Any, Generator
 
 import numpy as np
 import pytest
@@ -325,7 +325,7 @@ def daq_bandpass_monitor_running(
     daq_device: tango.DeviceProxy,
     plot_directory: str,
     change_event_callbacks: MockTangoEventCallbackGroup,
-) -> None:
+) -> Generator:
     """
     Start the bandpass monitor.
 
@@ -333,6 +333,8 @@ def daq_bandpass_monitor_running(
     :param plot_directory: the directory to plots are stored to.
     :param change_event_callbacks: a dictionary of callables to be used as
         tango change event callbacks.
+
+    :yields: To return cleanup
     """
     daq_device.subscribe_event(
         "xPolBandpass",
@@ -364,6 +366,13 @@ def daq_bandpass_monitor_running(
         consume_nonmatches=True,
     )
     verify_bandpass_state(daq_device, True)
+
+    yield
+
+    # Cleanup: Turn off bandpass monitor here if it's still on.
+    if json.loads(daq_device.DaqStatus())["Bandpass Monitor"] is True:
+        daq_device.StopBandpassMonitor()
+        verify_bandpass_state(daq_device, False)
 
 
 @when("the DAQ is commanded to stop monitoring bandpasses")
