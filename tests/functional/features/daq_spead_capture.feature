@@ -19,12 +19,9 @@ Feature: Receiving SPEAD packets.
   # Notes:
   # - This test is skipped if not a true context
 
-  Background:
-    Given interface eth0
-
   @XTP-34316
   Scenario Outline: Sending SPEAD packets to be captured by DAQ
-    Given this test is running against station <station_name>.
+    Given this test is running against station <expected_station>.
     And the DAQ is available
     And the DAQ has no consumers running
     And the Tile is available
@@ -35,8 +32,8 @@ Feature: Receiving SPEAD packets.
     Then Daq receives data <daq_modes_of_interest>
 
     Examples: modes of interest
-      | daq_modes_of_interest   | data_type | no_of_tiles | station_name      |
-      | INTEGRATED_CHANNEL_DATA | channel   | 16          | real-daq-1        |
+      | daq_modes_of_interest   | data_type | no_of_tiles | expected_station  |
+    #  | INTEGRATED_CHANNEL_DATA | channel   | 16          | real-daq-1        | # TODO: TileSimulator is sending wrong data.
       | CHANNEL_DATA            | channel   | 16          | stfc-ral-software |
 
 

@@ -3,7 +3,7 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
 
     @XTP-21182
     Scenario Outline: Turning the DAQ on
-        Given this test is running against station <station_name>
+        Given this test is running against station <expected_station>
         And the DAQ is available
         And the DAQ is in the DISABLE state
         And the DAQ is in health state UNKNOWN
@@ -13,14 +13,14 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in health state OK
 
         Examples:
-        |     station_name    |
+        |     expected_station    |
         |        ci-1         |
         |     real-daq-1      |
         |  stfc-ral-software  |
 
 
     Scenario Outline: Turning the DAQ off
-        Given this test is running against station <station_name>
+        Given this test is running against station <expected_station>
         And the DAQ is available
         And the DAQ is in the ON state
         And the DAQ is in health state OK
@@ -30,14 +30,14 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in health state UNKNOWN
 
         Examples:
-        |      station_name   |
+        |      expected_station   |
         |        ci-1         |
         |     real-daq-1      |
         |  stfc-ral-software  |
 
     @XTP-21184
     Scenario Outline: Configuring the DAQ to raw data
-        Given this test is running against station <station_name>
+        Given this test is running against station <expected_station>
         And the DAQ is available
         And the DAQ is in the ON state
         And the DAQ is in health state OK
@@ -48,14 +48,14 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in raw data mode
 
         Examples:
-        |     station_name    |
+        |     expected_station    |
         |        ci-1         |
         |     real-daq-1      |
         |  stfc-ral-software  |
 
     @XTP-21185
     Scenario Outline: Configuring the DAQ to channelised data
-        Given this test is running against station <station_name>
+        Given this test is running against station <expected_station>
         And the DAQ is available
         And the DAQ is in the ON state
         And the DAQ is in health state OK
@@ -66,7 +66,7 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in channelised data mode
 
         Examples:
-        |      station_name   |
+        |      expected_station   |
         |        ci-1         |
         |     real-daq-1      |
         |  stfc-ral-software  |

@@ -3,7 +3,7 @@ Feature: Test bandpass monitor
     Test that antenna bandpasses can be received and plots of them can be produced
 
     Background:
-        Given interface eth0
+        Given we have a station to test against
 
     @XTP-34297
     Scenario: Not listening for integrated channel data
