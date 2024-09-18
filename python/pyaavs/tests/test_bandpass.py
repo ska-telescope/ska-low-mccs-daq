@@ -50,15 +50,17 @@ class TestBandpass:
         Verify integrated course channel data for each antenna and polarisation is 0.
         """
         channels, antennas, polarisations, samples = data.shape
+        mean_power = np.mean(data, axis=(0, 3))
         for channel in range(channels):
             for antenna in range(antennas):
                 for polarisation in range(polarisations):
                     for i in range(samples):
-                        if data[channel, antenna, polarisation, i] != 0:
+                        average = mean_power[antenna, polarisation]
+                        if data[channel, antenna, polarisation, i] > average * 4 + 2 and data[channel+1, antenna, polarisation, i] > average * 4 + 2:
                             if channel != 0:  # Ignore gain in channel 0
                                 tpm_id = antenna // nof_antennas_per_tile
-                                self._logger.error(f"Data Error! TPM{tpm_id}, Frequency Channel: {channel} ({channel*25/32:.2f} MHz), Antenna: {antenna}," 
-                                                   f"Polarization: {polarisation}, Sample index: {i}. Received data: {data[channel, antenna, polarisation, i]}")
+                                self._logger.error(f"Data Error! TPM{tpm_id}, Frequency Channel: {channel} ({channel*25/32:.2f} MHz), Antenna: {antenna % nof_antennas_per_tile}," 
+                                                   f"Polarization: {polarisation}, Sample index: {i}. Received data: {data[channel, antenna, polarisation, i]}. Average data: {average}.")
                                 self.errors += 1
                                 self.tiles_with_errors.append(tpm_id) if tpm_id not in self.tiles_with_errors else self.tiles_with_errors
         return
@@ -86,9 +88,11 @@ class TestBandpass:
 	
         nof_tiles = len(self._test_station.tiles) 
         config_int_time = self._station_config['station']['channel_integration_time']
+        config_chan_trunc = self._station_config['station']['channel_truncation']
         integration_time = integration_time or config_int_time  # If None, use config time
         
         temp_dir = "./temp_daq_test"
+        tf.remove_hdf5_files(temp_dir)
         # Determine receiver port
         # If both LMC and LMC integrated share the same interface, then data will be on LMC port not integrated port
         integ_dst_port = self._station_config['network']['lmc']['integrated_data_port']
@@ -113,9 +117,10 @@ class TestBandpass:
         
         for n, tile in enumerate(self._test_station.tiles):
             
-            # Stop Station Beam
-            tile.stop_beamformer()
-            
+            # Set Channeliser Truncation
+            self._logger.info(f"Disabling channeliser truncation for TPM{n}.")
+            tile.set_channeliser_truncation(0)
+
             # Set Integration Time
             self._logger.info(f"Configuring {integration_time} second integration time for TPM{n}.")
             tile.configure_integrated_channel_data(integration_time)
@@ -132,7 +137,6 @@ class TestBandpass:
                 else:
                     self._logger.info(f"TPM{n} preADU{preadu_index} not detected! Skipping configuring preADU attenuation")
         
-        tf.remove_hdf5_files(temp_dir)
         data_received = False
         tiles_processed = np.zeros(nof_tiles)
 
@@ -150,6 +154,10 @@ class TestBandpass:
             # Revert Integration Time
             self._logger.info(f"Configuring {config_int_time} second integration time for TPM{n}.")
             tile.configure_integrated_channel_data(config_int_time)
+            # Revert Channeliser Truncation
+            self._logger.info(f"Configuring channeliser truncation to {config_chan_trunc} for TPM{n}.")
+            tile.set_channeliser_truncation(config_chan_trunc)
+
         return self.clean_up()
 
 
