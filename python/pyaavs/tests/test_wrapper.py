@@ -17,6 +17,8 @@ class TestWrapper:
         self._tests = {'adc': "Check JESD link setting test patterns in the ADCs and verifying data received by FPGAs",
                        'daq': "Check data transfer from FPGAs to LMC using DAQ software.\nAll data format checked: "
                               "raw, channel, tile beam and integrated data.",
+                       'bandpass': "Check course channel power is 0. This test assumes no analog input is active.\nThis "
+                                   "test can be used to detect hardware faults which present as integrated channel noise.",
                        'channelizer': "Check channelizer output using the FPGA internal tone generator.",
                        'pfb': "Check channelizer output using the FPGA internal pattern generator,\nverify response "
                               "against VHDL simulated response.",
@@ -25,6 +27,7 @@ class TestWrapper:
                        'flagging': "Check if oveflown data are correctly flagged by tile beamformer.",
                        'init_station': "Program, initialise station and start station beamformer.\nCheck if station "
                                        "beam data rate is within expected range.",
+                       'synchronisation': "Check PPS period is as expected and phase drift is within acceptable range.",
                        'antenna_buffer': "Check operation of the antenna buffer in DDR using incremental pattern.",
                        'station_beam': "Check operation of networked beamformer using synthetic data pattern. ",
                        'full_station': "Check operation of networked beamformer comparing offline and realtime beam "
