@@ -90,6 +90,7 @@ class TestChannelizer():
         tile['fpga2.jesd204_if.regfile_channel_disable'] = 0xFFFF
         tile.test_generator_input_select(0xFFFFFFFF)
 
+        # TODO: Update Test to also test channeliser truncation
         tile.set_channeliser_truncation(5)
 
         points_per_channel = int(points)
