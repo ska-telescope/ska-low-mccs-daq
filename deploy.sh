@@ -19,7 +19,6 @@ function display_help(){
     echo "-b <pyfabil_branch> specifies pyfabil branch to be installed"
     echo "-t <itpm_bios_branch> specifies itpm-bios branch to be installed"
     echo "-c             clean build directories and installed python virtual environment"
-    echo "-d             installs requirements for documentation, requires at least python 3.8.1"
     echo "-h             Print this message"
     echo "
 This script should not be executed with sudo, however the user executing it must have sudo privileges. Only the user
@@ -64,7 +63,6 @@ ACTIVATE_VENV=false
 PRINT_HELP=false
 PYFABIL_BRANCH="master"
 ITPM_BIOS_BRANCH="main"
-INSTALL_DOCS_REQS=false
 
 # Process command-line arguments
 
@@ -75,7 +73,6 @@ do
         h) PRINT_HELP=true ;;
         p) ACTIVATE_VENV=true ;;
         c) CLEAN=true ;;
-        d) INSTALL_DOCS_REQS=true ;;
         b) PYFABIL_BRANCH=${OPTARG} ;;
         t) ITPM_BIOS_BRANCH=${OPTARG} ;;
         v) export VENV_INSTALL=${OPTARG%/}
@@ -301,21 +298,7 @@ popd
 # Install required python packages
 pushd python || exit
   pip install -r requirements.pip || exit
-
-  # If greater than or equal to required version install more requirements
-  python_major_version=$(python -c 'import sys; print(f"{sys.version_info.major}")')
-  python_minor_version=$(python -c 'import sys; print(f"{sys.version_info.minor}")')
-  required_major_version=3
-  required_minor_version=9
-
-  if [[ ${python_major_version} == ${required_major_version} && ${python_minor_version} -ge ${required_minor_version} ]]; then
-    pip install -r python3_9_requirements.pip || exit
-  fi
-
-  if [ $INSTALL_DOCS_REQS == true ]; then
-    pip install -r requirements_docs.pip || exit
-  fi
-  sudo python setup.py install || exit
+  pip install .
 popd
 
 # Link required scripts to bin directory

@@ -1,4 +1,5 @@
 --extra-index-url https://artefact.skao.int/repository/pypi-internal/simple
+
 ipython
 h5py
 pyyaml
@@ -9,7 +10,6 @@ gitpython
 pytz
 configparser
 future
-astropy
 matplotlib
 scipy
 mongoengine
@@ -23,4 +23,6 @@ get_nic
 pyqt5 
 typing_extensions
 netifaces
-
+ska-ser-sphinx-theme; python_version>="3.8.1"
+recommonmark; python_version>="3.8.1"
+astropy; python_version>="3.9"
