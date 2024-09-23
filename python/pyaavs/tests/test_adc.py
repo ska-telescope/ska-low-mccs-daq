@@ -72,7 +72,7 @@ class TestAdc():
                 if pattern_type == "ramp":
                     seed = buffer[0]
                     for n in range(len(buffer)):
-                        exp_value = (seed + n) % 256
+                        exp_value = np.uint8((int(seed) + n) & 0xFF)
                         if buffer[n] != exp_value:
                             self._logger.error("Error detected, ramp pattern")
                             self._logger.error("Antenna index: " + str(a))
