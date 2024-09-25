@@ -259,7 +259,10 @@ class UI:
                 selected_param = param_list[param_id - 1]
                 current_value = test_wrapper.get_parameter_value(test, selected_param)
                 parameter_type = type(current_value)
-                new_value = parameter_type(self.get_parameter_value())
+                if parameter_type is bool:
+                    new_value = (self.get_parameter_value().strip().lower() == "true")
+                else:
+                    new_value = parameter_type(self.get_parameter_value())
                 test_wrapper.set_parameter_value(test, selected_param, new_value)
             except:
                 if user_input.upper() == "Q":
