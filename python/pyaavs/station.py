@@ -430,6 +430,7 @@ class Station(object):
                 self.tiles[0].tpm.tpm_test_firmware[0].station_beamformer_implemented and \
                 self.configuration['station']['start_beamformer']:
                 logging.info("Starting station beamformer")
+                time.sleep(1)
                 self.start_beamformer(start_time=0, duration=-1)
 
             if not self.tiles[0].tpm.has_register("fpga1.beamf_ring.control.ska_spead_format"):
