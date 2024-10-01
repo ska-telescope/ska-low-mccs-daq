@@ -31,7 +31,7 @@ class TestEth40g():
         self._logger.debug("Preparing 40G test, duration %d seconds" % duration)
 
         # Stop data transmission
-        tf.stop_all_data_transmission(self._test_station)
+        tf.stop_all_data_transmission(self._test_station)  #TODO - Don't stop transmission if test will be skipped
 	
         # Skip test for selected TPM if configured to use only one 40G port
         compatible_tiles = [all(tile.active_40g_port) for tile in self._test_station.tiles]
