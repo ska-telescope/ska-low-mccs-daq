@@ -3133,9 +3133,55 @@ class Tile(TileHealthMonitor):
     # ----------------------------
 
     def set_pattern(self, stage, pattern, adders, start, shift=0, zero=0):
-        # print("Setting " + stage + " data pattern")
+        """
+        Configure the TPM pattern generator.
+
+        :param stage: The stage in the signal chain where the pattern is injected. 
+            Options are: 'jesd' (output of ADCs), 'channel' (output of channelizer), 
+            or 'beamf' (output of tile beamformer).
+        :type stage: str
+        :param pattern: The data pattern in time order. This must be a list of integers 
+            with a length between 1 and 1024. The pattern represents values in time order 
+            (not antennas or polarizations).
+        :type pattern: list[int]
+        :param adders: A list of 32 integers that expands the pattern to cover 16 antennas 
+            and 2 polarizations in hardware. This list maps the pattern to the corresponding 
+            signals for the antennas and polarizations.
+        :type adders: list[int]
+        :param start: Boolean flag indicating whether to start the pattern immediately. 
+            If False, the pattern will need to be started manually later.
+        :type start: bool
+        :param shift: Optional bit shift (divides the pattern by 2^shift). This must not 
+            be used in the 'beamf' stage, where it is always overridden to 4. 
+            The default value is 0.
+        :type shift: int
+        :param zero: An integer (0-65535) used as a mask to disable the pattern on specific 
+            antennas and polarizations. The same mask is applied to both FPGAs, supporting 
+            up to 8 antennas and 2 polarizations. The default value is 0.
+        :type zero: int
+        """
+
+        def _channelize_pattern(pattern):
+            """ Change the frequency channel order to match che channelizer output
+            :param pattern: pattern buffer, frequency channel in increasing order
+            """
+            tmp = [0]*len(pattern)
+            half = int(len(pattern) / 2)
+            for n in range(int(half / 2)):
+                tmp[4*n] = pattern[2*n]
+                tmp[4*n+1] = pattern[2*n+1]
+                tmp[4*n+2] = pattern[-(1+2*n+1)]
+                tmp[4*n+3] = pattern[-(1+2*n)]
+            return tmp
+        
+        if len(pattern) > 1024:
+            raise ValueError(f"pattern can have at most 1024 entries, supplied {len(pattern)} entries")
+        if len(adders) != 32:
+            raise ValueError(f"adders must be of length 32, supplied {len(adders)} entries")
+        if zero > 65535:
+            raise ValueError(f"zero cannot be larger than 65535, supplied {zero}")
         if stage == "channel":
-            pattern_tmp = channelize_pattern(pattern)
+            pattern_tmp = _channelize_pattern(pattern)
         else:
             pattern_tmp = pattern
 
@@ -3144,20 +3190,30 @@ class Tile(TileHealthMonitor):
             signal_adder += [adders[n]]*4
 
         for i in range(2):
-            fpga = "fpga1" if i == 0 else "fpga2"
+            fpga = f"fpga{i+1}"
             self.tpm.tpm_pattern_generator[i].set_pattern(pattern_tmp, stage)
             self.tpm.tpm_pattern_generator[i].set_signal_adder(signal_adder[64*i:64*(i+1)], stage)
-            self.tpm['%s.pattern_gen.%s_left_shift' % (fpga, stage)] = shift
-            self.tpm['%s.pattern_gen.beamf_left_shift' % fpga] = 4
-            self.tpm['%s.pattern_gen.%s_zero' % (fpga, stage)] = zero
-            self.tpm['%s.pattern_gen.jesd_ramp1_enable' % fpga] = 0x0
-            self.tpm['%s.pattern_gen.jesd_ramp2_enable' % fpga] = 0x0
+            self.tpm[f'{fpga}.pattern_gen.{stage}_left_shift'] = shift
+            self.tpm[f'{fpga}.pattern_gen.beamf_left_shift'] = 4
+            self.tpm[f'{fpga}.pattern_gen.{stage}_zero'] = zero
+            self.tpm[f'{fpga}.pattern_gen.jesd_ramp1_enable'] = 0x0
+            self.tpm[f'{fpga}.pattern_gen.jesd_ramp2_enable'] = 0x0
         if start:
             for i in range(2):
                 self.tpm.tpm.tpm_pattern_generator[i].start_pattern(stage)
 
     def stop_pattern(self, stage):
-        # print("Stopping " + stage + " data pattern")
+        """
+        Stop the data pattern for the specified stage or for all stages.
+
+        :param stage: The stage in the signal chain where the pattern is to be stopped. 
+            Options are 'jesd', 'channel', or 'beamf'. If 'all' is provided, it stops 
+            the pattern on all stages.
+        :type stage: str
+        """
+        stages = ["all", "jesd", "channel", "beamf"]
+        if stage not in stages:
+            raise ValueError(f"stage must be one of: {stages}")
         if stage == "all":
             stages = ["jesd", "channel", "beamf"]
         else:
@@ -3165,6 +3221,27 @@ class Tile(TileHealthMonitor):
         for s in stages:
             for i in range(2):
                 self.tpm.tpm_pattern_generator[i].stop_pattern(s)
+
+    def start_pattern(self, stage):
+        """
+        Start the data pattern for the specified stage or for all stages.
+
+        :param stage: The stage in the signal chain where the pattern is to be started. 
+            Options are 'jesd', 'channel', or 'beamf'. If 'all' is provided, it starts 
+            the pattern on all stages.
+        :type stage: str
+        """
+        stages = ["all", "jesd", "channel", "beamf"]
+        if stage not in stages:
+            raise ValueError(f"stage must be one of: {stages}")
+        if stage == "all":
+            stages = ["jesd", "channel", "beamf"]
+        else:
+            stages = [stage]
+        for s in stages:
+            for i in range(2):
+                self.tpm.tpm_pattern_generator[i].start_pattern(s)
+
 
     # ---------------------------------------
     # Wrapper for index and attribute methods
