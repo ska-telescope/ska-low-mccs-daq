@@ -3128,6 +3128,44 @@ class Tile(TileHealthMonitor):
         self.tpm.test_generator[0].channel_select(inputs & 0xFFFF)
         self.tpm.test_generator[1].channel_select((inputs >> 16) & 0xFFFF)
 
+    # ----------------------------
+    # Wrapper for pattern generator
+    # ----------------------------
+
+    def set_pattern(self, stage, pattern, adders, start, shift=0, zero=0):
+        # print("Setting " + stage + " data pattern")
+        if stage == "channel":
+            pattern_tmp = channelize_pattern(pattern)
+        else:
+            pattern_tmp = pattern
+
+        signal_adder = []
+        for n in range(32):
+            signal_adder += [adders[n]]*4
+
+        for i in range(2):
+            fpga = "fpga1" if i == 0 else "fpga2"
+            self.tpm.tpm_pattern_generator[i].set_pattern(pattern_tmp, stage)
+            self.tpm.tpm_pattern_generator[i].set_signal_adder(signal_adder[64*i:64*(i+1)], stage)
+            self.tpm['%s.pattern_gen.%s_left_shift' % (fpga, stage)] = shift
+            self.tpm['%s.pattern_gen.beamf_left_shift' % fpga] = 4
+            self.tpm['%s.pattern_gen.%s_zero' % (fpga, stage)] = zero
+            self.tpm['%s.pattern_gen.jesd_ramp1_enable' % fpga] = 0x0
+            self.tpm['%s.pattern_gen.jesd_ramp2_enable' % fpga] = 0x0
+        if start:
+            for i in range(2):
+                self.tpm.tpm.tpm_pattern_generator[i].start_pattern(stage)
+
+    def stop_pattern(self, stage):
+        # print("Stopping " + stage + " data pattern")
+        if stage == "all":
+            stages = ["jesd", "channel", "beamf"]
+        else:
+            stages = [stage]
+        for s in stages:
+            for i in range(2):
+                self.tpm.tpm_pattern_generator[i].stop_pattern(s)
+
     # ---------------------------------------
     # Wrapper for index and attribute methods
     # ---------------------------------------
