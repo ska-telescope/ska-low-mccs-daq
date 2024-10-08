@@ -3200,7 +3200,7 @@ class Tile(TileHealthMonitor):
             self.tpm[f'{fpga}.pattern_gen.jesd_ramp2_enable'] = 0x0
         if start:
             for i in range(2):
-                self.tpm.tpm.tpm_pattern_generator[i].start_pattern(stage)
+                self.tpm.tpm_pattern_generator[i].start_pattern(stage)
 
     def stop_pattern(self, stage):
         """

@@ -121,7 +121,7 @@ if __name__ == "__main__":
     # daq.start_beam_data_consumer(callback=data_callback)  # Change start_xxxx_data_consumer with data mode required
 
 
-    tf.stop_pattern(tile, "all")
+    tile.stop_pattern("all")
     tile['fpga1.jesd204_if.regfile_channel_disable'] = 0x0000
     tile['fpga2.jesd204_if.regfile_channel_disable'] = 0x0000
     tile.test_generator_disable_tone(0)

@@ -119,7 +119,7 @@ class TestFlagging():
                         mask = 0xFFFE
                     else:
                         mask = 0xFFFD
-                    tf.set_pattern(tile, "channel", pattern, [0] * 32, True, shift=4, zero=mask)
+                    tile.set_pattern("channel", pattern, [0] * 32, True, shift=4, zero=mask)
 
                     # Set data received to False
                     data_received = False
