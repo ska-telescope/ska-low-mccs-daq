@@ -49,15 +49,21 @@ def plot_directory_fixture() -> str:
 )
 def available_station_fixture(
     available_stations: list[str],
+    true_context: bool,
 ) -> str:
     """
     Return an available station to test against.
 
     :param available_stations: a list of stations available in this
         environment.
+    :param true_context: whether to test against an existing Tango deployment
 
     :return: the station to test against.
     """
+    if not true_context:
+        pytest.skip(
+            "This needs to be run in a true-context against a real DAQ deployment"
+        )
     return available_stations[-1]
 
 
