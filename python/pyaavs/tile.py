@@ -3132,7 +3132,7 @@ class Tile(TileHealthMonitor):
     # Wrapper for pattern generator
     # ----------------------------
 
-    def set_pattern(self, stage, pattern, adders, start, shift=0, zero=0):
+    def set_pattern(self, stage, pattern, adders, start=False, shift=0, zero=0):
         """
         Configure the TPM pattern generator.
 
@@ -3165,28 +3165,15 @@ class Tile(TileHealthMonitor):
             up to 8 antennas and 2 polarizations. The default value is 0.
         :type zero: int
         """
-
-        def _channelize_pattern(pattern):
-            """ Change the frequency channel order to match che channelizer output
-            :param pattern: pattern buffer, frequency channel in increasing order
-            """
-            tmp = [0]*len(pattern)
-            half = int(len(pattern) / 2)
-            for n in range(int(half / 2)):
-                tmp[4*n] = pattern[2*n]
-                tmp[4*n+1] = pattern[2*n+1]
-                tmp[4*n+2] = pattern[-(1+2*n+1)]
-                tmp[4*n+3] = pattern[-(1+2*n)]
-            return tmp
-        
         if len(pattern) > 1024:
             raise ValueError(f"pattern can have at most 1024 entries, supplied {len(pattern)} entries")
         if len(adders) != 32:
             raise ValueError(f"adders must be of length 32, supplied {len(adders)} entries")
         if zero > 65535:
             raise ValueError(f"zero cannot be larger than 65535, supplied {zero}")
+        
         if stage == "channel":
-            pattern_tmp = _channelize_pattern(pattern)
+            pattern_tmp = self.tpm.tpm_pattern_generator.channelize_pattern[0](pattern)
         else:
             pattern_tmp = pattern
 
@@ -3194,15 +3181,13 @@ class Tile(TileHealthMonitor):
         for n in range(32):
             signal_adder += [adders[n]]*4
 
-        for i, patttern_generator in enumerate(self.tpm.tpm_pattern_generator):
-            fpga = f"fpga{i+1}"
-            patttern_generator.set_pattern(pattern_tmp, stage)
-            patttern_generator.set_signal_adder(signal_adder[64*i:64*(i+1)], stage)
-            self.tpm[f'{fpga}.pattern_gen.{stage}_left_shift'] = shift
-            self.tpm[f'{fpga}.pattern_gen.beamf_left_shift'] = 4
-            self.tpm[f'{fpga}.pattern_gen.{stage}_zero'] = zero
-            self.tpm[f'{fpga}.pattern_gen.jesd_ramp1_enable'] = 0x0
-            self.tpm[f'{fpga}.pattern_gen.jesd_ramp2_enable'] = 0x0
+        for i, pattern_generator in enumerate(self.tpm.tpm_pattern_generator):
+            pattern_generator.set_pattern(pattern_tmp, stage)
+            pattern_generator.set_signal_adder(signal_adder[64*i:64*(i+1)], stage)
+            pattern_generator.set_shift(shift, stage)
+            pattern_generator.set_zero(zero, stage)
+            pattern_generator.disable_ramp(stage)
+
         if start:
             for pattern_generator in self.tpm.tpm_pattern_generator:
                 pattern_generator.start_pattern(stage)
