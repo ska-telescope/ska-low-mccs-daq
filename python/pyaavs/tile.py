@@ -3172,14 +3172,7 @@ class Tile(TileHealthMonitor):
         if zero > 65535:
             raise ValueError(f"zero cannot be larger than 65535, supplied {zero}")
         
-        if stage == "channel":
-            pattern_tmp = self.tpm.tpm_pattern_generator.channelize_pattern[0](pattern)
-        else:
-            pattern_tmp = pattern
-
-        signal_adder = []
-        for n in range(32):
-            signal_adder += [adders[n]]*4
+        signal_adder = [adders[n] for n in range(32) for _ in range(4)]
 
         for i, pattern_generator in enumerate(self.tpm.tpm_pattern_generator):
             pattern_generator.set_pattern(pattern_tmp, stage)
