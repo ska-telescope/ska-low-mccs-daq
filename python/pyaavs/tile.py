@@ -806,7 +806,7 @@ class Tile(TileHealthMonitor):
         # self.tpm.adc_power_meter[0].enable_RFI(mask=mask & 0x0000ffff)
         # self.tpm.adc_power_meter[1].enable_RFI(mask=(mask & 0xffff0000) >> 16)
 
-        raise NotImplementedError("enable broadband rfi flagging not yet implemented")
+        raise NotImplementedError("enable broadband rfi flagging is not yet implemented")
 
     @connected
     def disable_broadband_rfi_flagging(self, antennas=range(32)):
@@ -824,13 +824,43 @@ class Tile(TileHealthMonitor):
         # self.tpm.adc_power_meter[0].disable_RFI(mask=mask & 0x0000ffff)
         # self.tpm.adc_power_meter[1].disable_RFI(mask=(mask & 0xffff0000) >> 16)
 
-        raise NotImplementedError("disable broadband rfi flagging not yet implemented")
+        raise NotImplementedError("disable broadband rfi flagging is not yet implemented")
 
     @connected
-    def read_rfi(self, antennas=range(32)):
+    def set_broadband_rfi_factor(self, rfi_factor=1.0):
+        """
+        Sets the rfi factor for broadband rfi detection, the higher the value the less rfi is detected/flagged
+
+        :param rfi_factor: list antennas where rfi will be disabled
+        :type rfi_factor: double
+        """
+
+        rfi_factor_scale = 4096
+
+        rfi_factor_scaled = int(rfi_factor*rfi_factor_scale)
+
+
+        min_rfi_factor = 0
+        max_rfi_factor = 65535/4096
+
+        if rfi_factor > max_rfi_factor:
+            logging.info(f"rfi_factor of {rfi_factor} is greater than max allowed value, setting to {max_rfi_factor}")
+            rfi_factor_scaled = (max_rfi_factor * rfi_factor_scale)
+        elif rfi_factor < min_rfi_factor:
+            logging.info(f"rfi_factor of {rfi_factor} is less than min allowed value, setting to {min_rfi_factor}")
+            rfi_factor_scaled = (min_rfi_factor * rfi_factor_scale)
+
+        # TODO uncomment when implemented in firmware
+        # for fpga in ["fpga1", "fpga2"]:
+        #     self[f"{fpga}.adc_power_meter.rfi_factor"] = rfi_factor_scaled
+
+        raise NotImplementedError("setting rfi factor is not yet implemented")
+
+    @connected
+    def read_broadband_rfi(self, antennas=range(32)):
 
         """
-        Reads out the rfi counters
+        Reads out the broadband rfi counters
 
         :param antennas: list antennas of which rfi counters to read
         :type antennas: list(int)
