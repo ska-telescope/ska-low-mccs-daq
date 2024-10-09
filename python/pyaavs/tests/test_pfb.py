@@ -228,7 +228,7 @@ class TestPfb():
 
         #data_pattern = range(1024)
         pattern = data_pattern
-        tile.set_pattern("jesd", pattern, [0]*4*32, start=True, shift=0)
+        tile.set_pattern("jesd", pattern, [0]*32, start=True, shift=0)
 
         time.sleep(1)
 

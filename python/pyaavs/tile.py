@@ -3165,6 +3165,11 @@ class Tile(TileHealthMonitor):
             up to 8 antennas and 2 polarizations. The default value is 0.
         :type zero: int
         """
+        stages = ["jesd", "channel", "beamf", "all"]
+        if stage not in stages:
+            raise ValueError(f"stage must be one of: {stages}")
+        stages_to_process = ["jesd", "channel", "beamf"] if stage == "all" else [stage]
+
         if len(pattern) > 1024:
             raise ValueError(f"pattern can have at most 1024 entries, supplied {len(pattern)} entries")
         if len(adders) != 32:
@@ -3174,16 +3179,17 @@ class Tile(TileHealthMonitor):
         
         signal_adder = [adders[n] for n in range(32) for _ in range(4)]
 
-        for i, pattern_generator in enumerate(self.tpm.tpm_pattern_generator):
-            pattern_generator.set_pattern(pattern_tmp, stage)
-            pattern_generator.set_signal_adder(signal_adder[64*i:64*(i+1)], stage)
-            pattern_generator.set_shift(shift, stage)
-            pattern_generator.set_zero(zero, stage)
-            pattern_generator.disable_ramp(stage)
+        for s in stages_to_process:
+            for i, pattern_generator in enumerate(self.tpm.tpm_pattern_generator):
+                pattern_generator.set_pattern(pattern, s)
+                pattern_generator.set_signal_adder(signal_adder[64*i:64*(i+1)], s)
+                pattern_generator.set_shift(shift, s)
+                pattern_generator.set_zero(zero, s)
+                pattern_generator.disable_ramp(s)
 
-        if start:
-            for pattern_generator in self.tpm.tpm_pattern_generator:
-                pattern_generator.start_pattern(stage)
+            if start:
+                for pattern_generator in self.tpm.tpm_pattern_generator:
+                    pattern_generator.start_pattern(s)
 
     def stop_pattern(self, stage):
         """
@@ -3194,14 +3200,11 @@ class Tile(TileHealthMonitor):
             the pattern on all stages.
         :type stage: str
         """
-        stages = ["all", "jesd", "channel", "beamf"]
+        stages = ["jesd", "channel", "beamf", "all"]
         if stage not in stages:
             raise ValueError(f"stage must be one of: {stages}")
-        if stage == "all":
-            stages = ["jesd", "channel", "beamf"]
-        else:
-            stages = [stage]
-        for s in stages:
+        stages_to_process = ["jesd", "channel", "beamf"] if stage == "all" else [stage]
+        for s in stages_to_process:
             for pattern_generator in self.tpm.tpm_pattern_generator:
                 pattern_generator.stop_pattern(s)
 
@@ -3214,14 +3217,11 @@ class Tile(TileHealthMonitor):
             the pattern on all stages.
         :type stage: str
         """
-        stages = ["all", "jesd", "channel", "beamf"]
+        stages = ["jesd", "channel", "beamf", "all"]
         if stage not in stages:
             raise ValueError(f"stage must be one of: {stages}")
-        if stage == "all":
-            stages = ["jesd", "channel", "beamf"]
-        else:
-            stages = [stage]
-        for s in stages:
+        stages_to_process = ["jesd", "channel", "beamf"] if stage == "all" else [stage]
+        for s in stages_to_process:
             for pattern_generator in self.tpm.tpm_pattern_generator:
                 pattern_generator.start_pattern(s)
 
