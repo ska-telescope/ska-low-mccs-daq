@@ -3136,6 +3136,11 @@ class Tile(TileHealthMonitor):
         """
         Configure the TPM pattern generator.
 
+        A signal is injected at a given stage during the signal chain, in a time series
+        dictated by the pattern. This pattern is then applied to all antennas and
+        polarisations via the adders. Thus the overall signal is the sum of the pattern
+        and adders for each antenna/polarisation.
+
         :param stage: The stage in the signal chain where the pattern is injected. 
             Options are: 'jesd' (output of ADCs), 'channel' (output of channelizer), 
             or 'beamf' (output of tile beamformer).
@@ -3189,18 +3194,18 @@ class Tile(TileHealthMonitor):
         for n in range(32):
             signal_adder += [adders[n]]*4
 
-        for i in range(2):
+        for i, patttern_generator in enumerate(self.tpm.tpm_pattern_generator):
             fpga = f"fpga{i+1}"
-            self.tpm.tpm_pattern_generator[i].set_pattern(pattern_tmp, stage)
-            self.tpm.tpm_pattern_generator[i].set_signal_adder(signal_adder[64*i:64*(i+1)], stage)
+            patttern_generator.set_pattern(pattern_tmp, stage)
+            patttern_generator.set_signal_adder(signal_adder[64*i:64*(i+1)], stage)
             self.tpm[f'{fpga}.pattern_gen.{stage}_left_shift'] = shift
             self.tpm[f'{fpga}.pattern_gen.beamf_left_shift'] = 4
             self.tpm[f'{fpga}.pattern_gen.{stage}_zero'] = zero
             self.tpm[f'{fpga}.pattern_gen.jesd_ramp1_enable'] = 0x0
             self.tpm[f'{fpga}.pattern_gen.jesd_ramp2_enable'] = 0x0
         if start:
-            for i in range(2):
-                self.tpm.tpm_pattern_generator[i].start_pattern(stage)
+            for pattern_generator in self.tpm.tpm_pattern_generator:
+                pattern_generator.start_pattern(stage)
 
     def stop_pattern(self, stage):
         """
@@ -3219,8 +3224,8 @@ class Tile(TileHealthMonitor):
         else:
             stages = [stage]
         for s in stages:
-            for i in range(2):
-                self.tpm.tpm_pattern_generator[i].stop_pattern(s)
+            for pattern_generator in self.tpm.tpm_pattern_generator:
+                pattern_generator.stop_pattern(s)
 
     def start_pattern(self, stage):
         """
@@ -3239,8 +3244,8 @@ class Tile(TileHealthMonitor):
         else:
             stages = [stage]
         for s in stages:
-            for i in range(2):
-                self.tpm.tpm_pattern_generator[i].start_pattern(s)
+            for pattern_generator in self.tpm.tpm_pattern_generator:
+                pattern_generator.start_pattern(s)
 
 
     # ---------------------------------------
