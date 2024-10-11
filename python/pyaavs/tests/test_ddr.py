@@ -21,6 +21,8 @@ class TestDdr():
         self._test_station = None
 
     def clean_up(self):
+        if self.restart_beamformer:
+            self._test_station.start_beamformer()
         return
 
     def prepare(self, first_addr=0x0, last_addr=0x7FFFFF8, burst_length=0, pause=0,
@@ -42,7 +44,9 @@ class TestDdr():
         self._test_station['fpga1.ddr_simple_test.start'] = 0
         self._test_station['fpga2.ddr_simple_test.start'] = 0
 
+        self.restart_beamformer = False 
         if stop_transmission == 1:
+            self.restart_beamformer = self._test_station.tiles[0].beamformer_is_running()
             tf.stop_all_data_transmission(self._test_station)
 
         # Resetting DSP to get exclusive access to DDR
