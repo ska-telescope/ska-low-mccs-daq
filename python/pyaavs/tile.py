@@ -3128,6 +3128,104 @@ class Tile(TileHealthMonitor):
         self.tpm.test_generator[0].channel_select(inputs & 0xFFFF)
         self.tpm.test_generator[1].channel_select((inputs >> 16) & 0xFFFF)
 
+    # ----------------------------
+    # Wrapper for pattern generator
+    # ----------------------------
+
+    def set_pattern(self, stage, pattern, adders, start=False, shift=0, zero=0):
+        """
+        Configure the TPM pattern generator.
+
+        A signal is injected at a given stage during the signal chain, in a time series
+        dictated by the pattern. This pattern is then applied to all antennas and
+        polarisations via the adders. Thus the overall signal is the sum of the pattern
+        and adders for each antenna/polarisation.
+
+        :param stage: The stage in the signal chain where the pattern is injected. 
+            Options are: 'jesd' (output of ADCs), 'channel' (output of channelizer), 
+            or 'beamf' (output of tile beamformer).
+        :type stage: str
+        :param pattern: The data pattern in time order. This must be a list of integers 
+            with a length between 1 and 1024. The pattern represents values in time order 
+            (not antennas or polarizations).
+        :type pattern: list[int]
+        :param adders: A list of 32 integers that expands the pattern to cover 16 antennas 
+            and 2 polarizations in hardware. This list maps the pattern to the corresponding 
+            signals for the antennas and polarizations.
+        :type adders: list[int]
+        :param start: Boolean flag indicating whether to start the pattern immediately. 
+            If False, the pattern will need to be started manually later.
+        :type start: bool
+        :param shift: Optional bit shift (divides the pattern by 2^shift). This must not 
+            be used in the 'beamf' stage, where it is always overridden to 4. 
+            The default value is 0.
+        :type shift: int
+        :param zero: An integer (0-65535) used as a mask to disable the pattern on specific 
+            antennas and polarizations. The same mask is applied to both FPGAs, supporting 
+            up to 8 antennas and 2 polarizations. The default value is 0.
+        :type zero: int
+        """
+        stages = ["jesd", "channel", "beamf", "all"]
+        if stage not in stages:
+            raise ValueError(f"stage must be one of: {stages}")
+        stages_to_process = ["jesd", "channel", "beamf"] if stage == "all" else [stage]
+
+        if len(pattern) > 1024:
+            raise ValueError(f"pattern can have at most 1024 entries, supplied {len(pattern)} entries")
+        if len(adders) != 32:
+            raise ValueError(f"adders must be of length 32, supplied {len(adders)} entries")
+        if zero > 65535:
+            raise ValueError(f"zero cannot be larger than 65535, supplied {zero}")
+        
+        signal_adder = [adders[n] for n in range(32) for _ in range(4)]
+
+        for s in stages_to_process:
+            for i, pattern_generator in enumerate(self.tpm.tpm_pattern_generator):
+                pattern_generator.set_pattern(pattern, s)
+                pattern_generator.set_signal_adder(signal_adder[64*i:64*(i+1)], s)
+                pattern_generator.set_shift(shift, s)
+                pattern_generator.set_zero(zero, s)
+                pattern_generator.disable_ramp(s)
+
+            if start:
+                for pattern_generator in self.tpm.tpm_pattern_generator:
+                    pattern_generator.start_pattern(s)
+
+    def stop_pattern(self, stage):
+        """
+        Stop the data pattern for the specified stage or for all stages.
+
+        :param stage: The stage in the signal chain where the pattern is to be stopped. 
+            Options are 'jesd', 'channel', or 'beamf'. If 'all' is provided, it stops 
+            the pattern on all stages.
+        :type stage: str
+        """
+        stages = ["jesd", "channel", "beamf", "all"]
+        if stage not in stages:
+            raise ValueError(f"stage must be one of: {stages}")
+        stages_to_process = ["jesd", "channel", "beamf"] if stage == "all" else [stage]
+        for s in stages_to_process:
+            for pattern_generator in self.tpm.tpm_pattern_generator:
+                pattern_generator.stop_pattern(s)
+
+    def start_pattern(self, stage):
+        """
+        Start the data pattern for the specified stage or for all stages.
+
+        :param stage: The stage in the signal chain where the pattern is to be started. 
+            Options are 'jesd', 'channel', or 'beamf'. If 'all' is provided, it starts 
+            the pattern on all stages.
+        :type stage: str
+        """
+        stages = ["jesd", "channel", "beamf", "all"]
+        if stage not in stages:
+            raise ValueError(f"stage must be one of: {stages}")
+        stages_to_process = ["jesd", "channel", "beamf"] if stage == "all" else [stage]
+        for s in stages_to_process:
+            for pattern_generator in self.tpm.tpm_pattern_generator:
+                pattern_generator.start_pattern(s)
+
+
     # ---------------------------------------
     # Wrapper for index and attribute methods
     # ---------------------------------------

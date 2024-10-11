@@ -69,31 +69,6 @@ def channelize_pattern(pattern):
     return tmp
 
 
-def set_pattern(tile, stage, pattern, adders, start, shift=0, zero=0):
-    # print("Setting " + stage + " data pattern")
-    if stage == "channel":
-        pattern_tmp = channelize_pattern(pattern)
-    else:
-        pattern_tmp = pattern
-
-    signal_adder = []
-    for n in range(32):
-        signal_adder += [adders[n]]*4
-
-    for i in range(2):
-        fpga = "fpga1" if i == 0 else "fpga2"
-        tile.tpm.tpm_pattern_generator[i].set_pattern(pattern_tmp, stage)
-        tile.tpm.tpm_pattern_generator[i].set_signal_adder(signal_adder[64*i:64*(i+1)], stage)
-        tile['%s.pattern_gen.%s_left_shift' % (fpga, stage)] = shift
-        tile['%s.pattern_gen.beamf_left_shift' % fpga] = 4
-        tile['%s.pattern_gen.%s_zero' % (fpga, stage)] = zero
-        tile['%s.pattern_gen.jesd_ramp1_enable' % fpga] = 0x0
-        tile['%s.pattern_gen.jesd_ramp2_enable' % fpga] = 0x0
-    if start:
-        for i in range(2):
-            tile.tpm.tpm_pattern_generator[i].start_pattern(stage)
-
-
 def set_station_beam_pattern(station, pattern, start=True, shift=0, zero=0, csp_rounding=0):
     stage = "beamf"
     signal_adder = [0] * 64
@@ -124,17 +99,6 @@ def set_station_beam_pattern(station, pattern, start=True, shift=0, zero=0, csp_
                 tile.tpm.tpm_pattern_generator[i].start_pattern(stage)
 
 
-def stop_pattern(tile, stage):
-    # print("Stopping " + stage + " data pattern")
-    if stage == "all":
-        stages = ["jesd", "channel", "beamf"]
-    else:
-        stages = [stage]
-    for s in stages:
-        for i in range(2):
-            tile.tpm.tpm_pattern_generator[i].stop_pattern(s)
-
-
 def stop_station_pattern(station, stage):
     for tile in station.tiles:
         for i in range(2):
@@ -142,7 +106,7 @@ def stop_station_pattern(station, stage):
 
 
 def disable_test_generator_and_pattern(tile):
-    stop_pattern(tile, "all")
+    tile.stop_pattern("all")
     tile['fpga1.jesd204_if.regfile_channel_disable'] = 0x0
     tile['fpga2.jesd204_if.regfile_channel_disable'] = 0x0
     tile.test_generator_set_tone(0, 0.0, 0.0)
@@ -155,7 +119,7 @@ def disable_test_generator_and_pattern(tile):
 
 
 def set_chennelizer_walking_pattern(tile):
-    set_pattern(tile, "channel", range(1024), [0]*32, True, 0)
+    tile.set_pattern("channel", range(1024), [0]*32, True, 0)
     tile['fpga1.pattern_gen.%s_ctrl.frame_offset_enable' % "channel"] = 1
     tile['fpga2.pattern_gen.%s_ctrl.frame_offset_enable' % "channel"] = 1
     tile['fpga1.pattern_gen.%s_ctrl.frame_offset_adder' % "channel"] = 1

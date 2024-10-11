@@ -154,7 +154,7 @@ class TestAntennaBuffer():
         if beamformer_running:
             dut.stop_beamformer()
 
-        tf.set_pattern(dut, stage="jesd", pattern=range(1024), adders=[0] * 64, start=True)
+        dut.set_pattern(stage="jesd", pattern=range(1024), adders=[0] * 32, start=True)
         ab = dut.tpm.tpm_antenna_buffer[fpga_id]
         if fpga_id == 0:
             fpga = "fpga1"

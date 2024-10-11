@@ -108,7 +108,7 @@ if __name__ == "__main__":
     tile = Tile(ip=conf.tpm_ip, port=conf.port)
     tile.connect()
 
-    tf.stop_pattern(tile, "all")
+    tile.stop_pattern("all")
     tile.test_generator_disable_tone(0)
     tile.test_generator_disable_tone(1)
     tile.test_generator_set_noise(0.2)

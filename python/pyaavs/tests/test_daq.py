@@ -362,7 +362,7 @@ class TestDaq:
 
                 test_adders = list(range(32))
                 for tile in tiles:
-                    tf.set_pattern(tile, "jesd", test_pattern, test_adders, start=True)
+                    tile.set_pattern("jesd", test_pattern, test_adders, start=True)
                 # Send data from station
                 dut.send_raw_data()
 
@@ -394,7 +394,7 @@ class TestDaq:
 
                 test_adders = list(range(32))
                 for tile in tiles:
-                    tf.set_pattern(tile, "jesd", test_pattern, test_adders, start=True)
+                    tile.set_pattern("jesd", test_pattern, test_adders, start=True)
                 # Send data from station
                 dut.send_raw_data_synchronised()
 
@@ -426,7 +426,7 @@ class TestDaq:
 
                 test_adders = range(32)
                 for tile in tiles:
-                    tf.set_pattern(tile, "channel", test_pattern, test_adders, start=True)
+                    tile.set_pattern("channel", test_pattern, test_adders, start=True)
                 # Send data from station
                 dut.send_channelised_data(1024)
 
@@ -458,7 +458,7 @@ class TestDaq:
 
                 test_adders = list(range(16)) + list(range(2, 16 + 2))
                 for tile in tiles:
-                    tf.set_pattern(tile, "beamf", test_pattern, test_adders, start=True)
+                    tile.set_pattern("beamf", test_pattern, test_adders, start=True)
                 time.sleep(1)
                 # Send data from station
                 dut.send_beam_data()
@@ -532,8 +532,8 @@ class TestDaq:
                 channel_test_adders = list(range(32))
                 beam_test_adders = list(range(16)) + list(range(2, 16 + 2))
                 for tile in tiles:
-                    tf.set_pattern(tile, "channel", test_pattern, channel_test_adders, start=True)
-                    tf.set_pattern(tile, "beamf", test_pattern, beam_test_adders, start=True)
+                    tile.set_pattern("channel", test_pattern, channel_test_adders, start=True)
+                    tile.set_pattern("beamf", test_pattern, beam_test_adders, start=True)
 
                 self._logger.info("Sleeping for " + str(channel_integration_length * 1.08e-6 + 0.5) + " seconds...")
                 time.sleep(channel_integration_length * 1.08e-6 + 0.5)

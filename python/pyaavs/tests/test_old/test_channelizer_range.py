@@ -100,7 +100,7 @@ if __name__ == "__main__":
     #
     # beam data
     #
-    tf.stop_pattern(tile, "all")
+    tile.stop_pattern("all")
     tile['fpga1.jesd204_if.regfile_channel_disable'] = 0xFFFF
     tile['fpga2.jesd204_if.regfile_channel_disable'] = 0xFFFF
     tile.test_generator_disable_tone(0)

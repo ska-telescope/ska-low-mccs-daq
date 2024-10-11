@@ -224,11 +224,11 @@ class TestPfb():
 
         tile.set_channeliser_truncation(0)
         tf.set_delay(tile, [0]*32)
-        tf.stop_pattern(tile, "all")
+        tile.stop_pattern("all")
 
         #data_pattern = range(1024)
         pattern = data_pattern
-        tf.set_pattern(tile, "jesd", pattern, [0]*4*32, start=True, shift=0)
+        tile.set_pattern("jesd", pattern, [0]*32, start=True, shift=0)
 
         time.sleep(1)
 
@@ -241,7 +241,7 @@ class TestPfb():
             while not data_received:
                 time.sleep(0.1)
 
-            #tf.stop_pattern(tile, "jesd")
+            #tile.stop_pattern("jesd")
 
             ch, ant, pol, sam = data.shape
             for c in range(ch):
