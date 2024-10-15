@@ -180,7 +180,7 @@ def tile_ready_to_send_to_daq(
     daq_status = json.loads(daq_device.DaqStatus())
 
     tpm_lmc_config = {
-        "mode": "10G",
+        "mode": "1G",
         "destination_ip": daq_status["Receiver IP"][0],
         "destination_port": int(daq_status["Receiver Ports"][0]),
     }
@@ -202,7 +202,6 @@ def daq_device_has_no_running_consumers(
 
     status = json.loads(daq_device.DaqStatus())
     if status["Running Consumers"] != []:
-        daq_device.StopBandpassMonitor()
         daq_device.Stop()  # Stops *all* consumers.
         poll_until_consumers_stopped(daq_device)
 
@@ -231,10 +230,12 @@ def check_capture(
     change_event_callbacks: MockTangoEventCallbackGroup,
     get_hdf5_count: Callable,
     initial_hdf5_count: int,
+    station_name: str,
 ) -> None:
     """
     Confirm Daq has received the correct data.
 
+    :param station_name: the name of the station under test.
     :param change_event_callbacks: a dictionary of callables to be used as
         tango change event callbacks.
     :param initial_hdf5_count: the initial number of hdf5 files in directory.
@@ -243,13 +244,17 @@ def check_capture(
     """
     try:
         change_event_callbacks["data_received_callback"].assert_change_event(
-            ("burst_channel", Anything)
+            ("integrated_channel", Anything)
         )
-    except Exception:  # pylint: disable=broad-exception-caught
-        pytest.xfail(
-            "The TileSimulator will send integrated data "
-            "when instructed to send burst data."
-        )
+    except AssertionError:
+        if station_name == "stfc-ral-software":
+            pytest.xfail(
+                reason=(
+                    "There is a discrepancy between the simulator and hardware."
+                    " the hardware sends burst_channel."
+                )
+            )
+        pytest.fail("No integrated data received.")
     final_hdf5_count = get_hdf5_count()
     assert final_hdf5_count - initial_hdf5_count >= 1
 

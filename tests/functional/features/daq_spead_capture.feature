@@ -33,7 +33,7 @@ Feature: Receiving SPEAD packets.
 
     Examples: modes of interest
       | daq_modes_of_interest   | data_type | no_of_tiles | expected_station  |
-    #  | INTEGRATED_CHANNEL_DATA | channel   | 16          | real-daq-1        | # TODO: TileSimulator is sending wrong data.
+      | INTEGRATED_CHANNEL_DATA | channel   | 16          | real-daq-1        |
       | CHANNEL_DATA            | channel   | 16          | stfc-ral-software |
 
 

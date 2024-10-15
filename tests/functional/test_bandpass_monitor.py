@@ -172,12 +172,11 @@ def tile_ready_to_send_to_daq(
     daq_status = json.loads(daq_device.DaqStatus())
 
     tpm_lmc_config = {
-        "mode": "10G",
+        "mode": "1G",
         "destination_ip": daq_status["Receiver IP"][0],
         "destination_port": daq_status["Receiver Ports"][0],
     }
     tile_device.SetLmcDownload(json.dumps(tpm_lmc_config))
-    tile_device.SetLmcIntegratedDownload(json.dumps(tpm_lmc_config))
 
 
 @given("no consumers are running")
@@ -405,18 +404,19 @@ def tile_send_data(
 
     :param tile_device: A 'tango.DeviceProxy' to the Tile device.
     """
-    tile_device.ConfigureIntegratedChannelData('{"integration_time": 5.0}')
-    # tile_device.SendDataSamples(json.dumps({"data_type": "channel"})) ? this is burst
+    tile_device.SendDataSamples(json.dumps({"data_type": "channel"}))
 
 
 @then("the DAQ reports that it has received integrated channel data")
 def daq_received_data(
     change_event_callbacks: MockTangoEventCallbackGroup,
     tile_device: tango.DeviceProxy,
+    station_name: str,
 ) -> None:
     """
     Confirm Daq has received data.
 
+    :param station_name: the name of the station under test.
     :param change_event_callbacks: a dictionary of callables to be used as
         tango change event callbacks.
     :param tile_device: A 'tango.DeviceProxy' to the Tile device.
@@ -425,11 +425,13 @@ def daq_received_data(
         change_event_callbacks["data_received_callback"].assert_change_event(
             ("integrated_channel", Anything)
         )
-    except Exception:  # pylint: disable=broad-exception-caught
-        pytest.xfail(
-            "The TileSimulator will send integrated data "
-            "when instructed to send burst data."
-        )
+    except AssertionError:
+        if station_name == "stfc-ral-software":
+            pytest.fail(
+                "There seems to be a discrepency between the simulator and hardware."
+                "When testing against hardware the datatype collected is burst_channel"
+            )
+        pytest.fail("No integrated_channel data was received")
     # Stop the data transmission, else it will continue forever.
     tile_device.StopIntegratedData()
 
@@ -438,10 +440,12 @@ def daq_received_data(
 def daq_bandpasses_saved(
     daq_device: tango.DeviceProxy,
     change_event_callbacks: MockTangoEventCallbackGroup,
+    station_name: str,
 ) -> None:
     """
     Confirm the DAQ has stored bandpass data to its attributes.
 
+    :param station_name: the name of the station under test.
     :param daq_device: A 'tango.DeviceProxy' to the Daq device.
     :param change_event_callbacks: a dictionary of callables to be used as
         tango change event callbacks.
@@ -451,9 +455,12 @@ def daq_bandpasses_saved(
         assert np.count_nonzero(daq_device.xPolBandpass) > 0
         change_event_callbacks["daq_yPolBandpass"].assert_change_event(Anything)
         assert np.count_nonzero(daq_device.yPolBandpass) > 0
-    except Exception:  # pylint: disable=broad-exception-caught
-        pytest.xfail(
-            "There is an issue with this stage at RAL."
-            "Caught exception: list index out of range. "
-            "Tile 1 out of bounds! Max tile number: 1"
-        )
+    except AssertionError as e:
+        if station_name == "stfc-ral-software":
+            pytest.xfail(
+                "There is an issue with this stage at RAL."
+                "Caught exception: list index out of range. "
+                "Tile 1 out of bounds! Max tile number: 1"
+                f"Failed with message {e}"
+            )
+        pytest.fail("Bandpass callbacks got no update")
