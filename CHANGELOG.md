@@ -2,7 +2,16 @@
 
 ## unreleased
 
-* []
+## 0.9.0
+
+* [MCCS-2227] support SIGTERM in daq receivers so that Pods terminate gracefully
+* [SKB-524] allow specifying memory limits for receivers
+* [MCCS-2230] ensure that the receiver interface specified in environment variables is used by default
+* [SKB-494] update aavs-system/pydaq to support the new SPEAD format
+
+## 0.8.0
+
+* [MCCS-2141] Update to ska-control-model 1.0.0
 
 ## 0.7.0
 

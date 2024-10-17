@@ -252,25 +252,43 @@ class DaqHandler:
             )
 
     def initialise(
-        self: DaqHandler,
-        config: dict[str, Any],
-        libaavsdaq_filepath: str,
+        self: DaqHandler, config: dict[str, Any], libaavsdaq_filepath: str = ""
     ) -> tuple[ResultCode, str]:  # noqa: E501
         """
         Initialise a new DaqReceiver instance.
 
         :param config: the configuration to apply
-        :param libaavsdaq_filepath: Filepath to a specific libaavsdaq version.
+        :param libaavsdaq_filepath: a .so file to use as the C library
 
         :return: a resultcode, message tuple
         """
-        self.logger.info("Initialising daq.")
-        self.daq_instance = DaqReceiver()
+        self.logger.info("initialise() issued with: %s", config)
+        self._config |= config
 
-        if libaavsdaq_filepath == "":
-            self._custom_libaavsdaq_filepath = None
-        else:
-            self._custom_libaavsdaq_filepath = libaavsdaq_filepath
+        if self._initialised is False:
+            self.logger.debug("Creating DaqReceiver instance.")
+            self.daq_instance = DaqReceiver()
+            if libaavsdaq_filepath == "":
+                self._custom_libaavsdaq_filepath = None
+            else:
+                self._custom_libaavsdaq_filepath = libaavsdaq_filepath
+            try:
+                self.logger.info(
+                    "Configuring before initialising with: %s", self._config
+                )
+                self.daq_instance.populate_configuration(self._config)
+                self.logger.info("Initialising daq.")
+                self.daq_instance.initialise_daq()
+                self._receiver_started = True
+                self._initialised = True
+            # pylint: disable=broad-except
+            except Exception as e:
+                self.logger.error(
+                    "Caught exception in `DaqHandler.initialise`: %s", e
+                )  # noqa: E501
+                return ResultCode.FAILED, f"Caught exception: {e}"
+            self.logger.info("Daq initialised.")
+            return ResultCode.OK, "Daq successfully initialised"
 
         try:
             if config:

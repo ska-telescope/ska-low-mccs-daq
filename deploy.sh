@@ -266,7 +266,7 @@ pushd third_party || exit
 
   # Install DAQ
   if [[ ! -d "aavs-daq" ]]; then
-    git clone https://lessju@bitbucket.org/aavslmc/aavs-daq.git
+    git clone https://gitlab.com/ska-telescope/aavs-daq
 
     pushd aavs-daq || exit
       git reset --hard $AAVS_DAQ_SHA
