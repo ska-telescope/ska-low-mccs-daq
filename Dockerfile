@@ -8,7 +8,7 @@ COPY --chown=daqqer:daqqer ./ /app/
 
 # Setup environment variables
 # When updating AAVS_SYSTEM_TAG/PYFABIL_TAG, also update in pyproject.toml
-ENV AAVS_SYSTEM_SHA=5236e5dbee16350250cb947ae48a7aa8abc27a7c
+ENV AAVS_SYSTEM_SHA=208e99a3bf6f273173b483af0bbe371749670b9e
 ENV PYFABIL_SHA=a4e8cfa45fdac285894c71fc559621747e94c450
 ENV AAVS_DAQ_SHA=7ca4f06a983861a8596a98abe3a3d34fa5f1a1b5
 ENV DEBIAN_FRONTEND=noninteractive

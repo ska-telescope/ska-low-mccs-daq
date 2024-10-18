@@ -17,7 +17,7 @@ url = 'https://pypi.org/simple'
 [tool.poetry.dependencies]
 # When updating this dependency, also update AAVS_SYSTEM_REF in the Dockerfile
 pyfabil = { git = "https://gitlab.com/ska-telescope/pyfabil.git", rev = "44705affebc0bcd689902da58471fb81fad0d779" }
-aavs_system = { git = "https://gitlab.com/ska-telescope/aavs-system.git", rev = "a33209c2c9899bf8b565c99186abbaf7605ad6ee", subdirectory = "python" }
+aavs_system = { git = "https://gitlab.com/ska-telescope/aavs-system.git", rev = "208e99a3bf6f273173b483af0bbe371749670b9e", subdirectory = "python" }
 python = "~3.10"
 future = "^0.18.2"
 numpy = "^1.23.0"
