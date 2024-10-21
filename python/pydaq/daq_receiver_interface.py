@@ -676,7 +676,7 @@ class DaqReceiver:
                                   n_antennas=self._config['nof_antennas'],
                                   n_pols=self._config['nof_polarisations'],
                                   n_samples=self._config['nof_channel_samples'])
-        self._persisters[DaqModes.CHANNEL_DATA] = channel_file
+        self._persisters[DaqModes.CONTINUOUS_CHANNEL_DATA] = channel_file
 
         # Set external callback
         self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] = callback

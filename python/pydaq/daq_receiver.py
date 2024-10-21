@@ -654,7 +654,7 @@ def start_continuous_channel_data_consumer(callback=None):
                               n_antennas=conf['nof_antennas'],
                               n_pols=conf['nof_polarisations'],
                               n_samples=conf['nof_channel_samples'])
-    persisters[DaqModes.CHANNEL_DATA] = channel_file
+    persisters[DaqModes.CONTINUOUS_CHANNEL_DATA] = channel_file
 
     # Set external callback
     external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] = callback
