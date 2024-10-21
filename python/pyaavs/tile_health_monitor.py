@@ -332,6 +332,7 @@ class TileHealthMonitor():
                 self.clear_udp_status(fpga_id=None)
                 self.clear_tile_beamformer_status(fpga_id=None)
                 self.clear_station_beamformer_status(fpga_id=None)
+                self.clear_data_router_status(fpga_id=None)
             elif group == "clocks":
                 self.clear_clock_status(fpga_id=None, clock_name=None)
             elif group == "clock_managers":
@@ -350,6 +351,8 @@ class TileHealthMonitor():
                 self.clear_tile_beamformer_status(fpga_id=None)
             elif group == "station_beamf": 
                 self.clear_station_beamformer_status(fpga_id=None)
+            elif group == "data_router":
+                self.clear_data_router_status(fpga_id=None)
 
     def fpga_gen(self, fpga_id):
         return range(len(self.tpm.tpm_test_firmware)) if fpga_id is None else [fpga_id]
@@ -1114,7 +1117,33 @@ class TileHealthMonitor():
         for core in cores:
             self.tpm.tpm_f2f[core].clear_pll_lock_loss_counter()
         return
+    
+    def check_data_router_status(self, fpga_id=None):
+        """
+        Check data router error flags.
+	
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+        
+        :return: register values
+        :rtype: dict
+        """
+        status = {}
+        for fpga in self.fpga_gen(fpga_id):
+            status[f'FPGA{fpga}'] = self.tpm.tpm_test_firmware[fpga].check_data_router_status()
+        return status
 
+    def clear_data_router_status(self, fpga_id=None):
+        """
+        Reset data router error flags.
+        
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+        """
+        for fpga in self.fpga_gen(fpga_id):
+           self.tpm.tpm_test_firmware[fpga].clear_data_router_status()
+        return
+        
     def check_udp_arp_table_status(self, fpga_id=None, show_result=True):
         """
         Check UDP ARP Table has been populated correctly. This is a non-
@@ -1146,7 +1175,7 @@ class TileHealthMonitor():
                 fpga_resolved_entries.append(resolved_cnt)
                 fpga_unresolved_entries.append(unresolved_cnt)
         return True if all(fpga_resolved_entries) and not any(fpga_unresolved_entries) else False
-
+           
     def check_udp_status(self, fpga_id=None):
         """
         Check for 40G errors.
@@ -1164,7 +1193,7 @@ class TileHealthMonitor():
             if self.active_40g_port[fpga]:  # Ignore errors if 40G QSFP not in use
                 errors.append(self.tpm.tpm_10g_core[fpga].check_errors())
         return not any(errors) # Return True if status OK, all errors False
-    
+           
     def clear_udp_status(self, fpga_id=None):
         """
         Reset 40G error counters.

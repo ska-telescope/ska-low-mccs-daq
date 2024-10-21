@@ -167,6 +167,12 @@ class TestHealthMonitoring():
 
         for n, tile in enumerate(self._test_station.tiles):
             
+            # Bitfiles sbf540 and older do not have data router error flags
+            # check for existance of additional data router registers
+            if not tile.tpm.has_register('fpga1.data_router.control'):
+                self._logger.warning("FPGA Firmware does not support updated data router error flags. Data router checks will be skipped.")
+                MON_POINT_SKIP.append('io.data_router')
+
             # Bitfiles sbf410 and older do not support health monitoring
             # Check for existance of moved pps register
             if not tile.tpm.has_register('fpga1.pps_manager.pps_errors'):
