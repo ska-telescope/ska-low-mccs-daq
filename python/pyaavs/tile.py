@@ -22,13 +22,13 @@ from datetime import datetime
 import sys
 
 
+
 if sys.version_info.minor >= 9:
     from astropy.time import Time as AstropyTime
 from typing import Optional, List
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status, RegisterInfo
 from pyfabil.base.utils import ip2long
-from pyfabil.base.utils import list_bits_to_int
 from pyfabil.boards.tpm import TPM
 
 from pyaavs.tile_health_monitor import TileHealthMonitor
@@ -790,7 +790,7 @@ class Tile(TileHealthMonitor):
         return rms
 
     @connected
-    def enable_broadband_rfi_flagging(self, antennas=range(32)):
+    def enable_broadband_rfi_flagging(self, antennas=range(16)):
         """
         Enables broadband rfi flagging on set antennas
 
@@ -798,66 +798,48 @@ class Tile(TileHealthMonitor):
         :type antennas: list(int)
         """
 
-        if antennas is None:
-            raise AttributeError("antennas must not be None")
+        # Get the list of antennas for each adc_power_meter, and reset the id, so they start from 0
+        fpga_antennas = [None] * 2
+        fpga_antennas[0] = [x for x in antennas if x < 8]
+        fpga_antennas[1] = [x-8 for x in antennas if x > 7]
 
-        # TODO uncomment when implemented in firmware
-        # mask = list_bits_to_int(antennas)
-        # self.tpm.adc_power_meter[0].enable_RFI(mask=mask & 0x0000ffff)
-        # self.tpm.adc_power_meter[1].enable_RFI(mask=(mask & 0xffff0000) >> 16)
-
-        raise NotImplementedError("enable broadband rfi flagging is not yet implemented")
+        for index, adc_power_meter in enumerate(self.tpm.adc_power_meter):
+            adc_power_meter.enable_rfi_flagging(antennas=fpga_antennas[index])
 
     @connected
-    def disable_broadband_rfi_flagging(self, antennas=range(32)):
+    def disable_broadband_rfi_flagging(self, antennas=range(16)):
         """
         Disables rfi detection on set antennas
 
         :param antennas: list antennas where rfi will be disabled
         :type antennas: list(int)
         """
-        if antennas is None:
-            raise AttributeError("antennas must not be None")
 
-        # TODO uncomment when implemented in firmware
-        # mask = list_bits_to_int(antennas)
-        # self.tpm.adc_power_meter[0].disable_RFI(mask=mask & 0x0000ffff)
-        # self.tpm.adc_power_meter[1].disable_RFI(mask=(mask & 0xffff0000) >> 16)
+        # Get the list of antennas for each adc_power_meter, and reset the id, so they start from 0
+        fpga_antennas = [None] * 2
+        fpga_antennas[0] = [x for x in antennas if x < 8]
+        fpga_antennas[1] = [x-8 for x in antennas if x > 7]
 
-        raise NotImplementedError("disable broadband rfi flagging is not yet implemented")
+        for index, adc_power_meter in enumerate(self.tpm.adc_power_meter):
+            adc_power_meter.disable_rfi_flagging(antennas=fpga_antennas[index])
 
     @connected
     def set_broadband_rfi_factor(self, rfi_factor=1.0):
         """
-        Sets the rfi factor for broadband rfi detection, the higher the value the less rfi is detected/flagged
+        Sets the rfi factor for broadband rfi detection, the higher the rfi factor the less rfi is detected/flagged
 
-        :param rfi_factor: list antennas where rfi will be disabled
+        This is because data is flagged if the short term power is greater than
+        the long term power * rfi factor * 32/27
+
+        :param rfi_factor: the sensitivity value for the rfi detection
         :type rfi_factor: double
         """
 
-        rfi_factor_scale = 4096
-
-        rfi_factor_scaled = int(rfi_factor*rfi_factor_scale)
-
-
-        min_rfi_factor = 0
-        max_rfi_factor = 65535/4096
-
-        if rfi_factor > max_rfi_factor:
-            logging.info(f"rfi_factor of {rfi_factor} is greater than max allowed value, setting to {max_rfi_factor}")
-            rfi_factor_scaled = (max_rfi_factor * rfi_factor_scale)
-        elif rfi_factor < min_rfi_factor:
-            logging.info(f"rfi_factor of {rfi_factor} is less than min allowed value, setting to {min_rfi_factor}")
-            rfi_factor_scaled = (min_rfi_factor * rfi_factor_scale)
-
-        # TODO uncomment when implemented in firmware
-        # for fpga in ["fpga1", "fpga2"]:
-        #     self[f"{fpga}.adc_power_meter.rfi_factor"] = rfi_factor_scaled
-
-        raise NotImplementedError("setting rfi factor is not yet implemented")
+        for adc_power_meter in self.tpm.adc_power_meter:
+            adc_power_meter.set_broadband_rfi_factor(rfi_factor)
 
     @connected
-    def read_broadband_rfi(self, antennas=range(32)):
+    def read_broadband_rfi(self, antennas=range(16)):
 
         """
         Reads out the broadband rfi counters
@@ -866,7 +848,7 @@ class Tile(TileHealthMonitor):
         :type antennas: list(int)
 
         :return: rfi counters
-        :rtype: list(int)
+        :rtype: numpy_array[antenna][polarisation]
         """
 
         if antennas is None:
@@ -876,9 +858,15 @@ class Tile(TileHealthMonitor):
         for adc_power_meter in self.tpm.adc_power_meter:
             rfi_data.extend(adc_power_meter.read_RfiData())
 
-        rfi_data_out = []
-        for antenna_num in antennas:
-            rfi_data_out.append(rfi_data[antenna_num])
+        nof_antennas = len(antennas)
+        nof_polarisations = 2
+
+        rfi_data_out = np.zeros((nof_antennas, nof_polarisations))
+
+        for index, antenna_num in enumerate(antennas):
+            rfi_data_out[index][0] = rfi_data[2*antenna_num]
+            rfi_data_out[index][1] = rfi_data[2*antenna_num+1]
+
         return rfi_data_out
 
     @connected
