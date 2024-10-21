@@ -218,7 +218,7 @@ def channel_data_callback(data, timestamp, tile, channel_id, mode='burst'):
             timestamps[DaqModes.CONTINUOUS_CHANNEL_DATA] = timestamp
 
         if conf['continuous_period'] == 0:
-            filename = persisters[DaqModes.CHANNEL_DATA].ingest_data(append=True,
+            filename = persisters[DaqModes.CONTINUOUS_CHANNEL_DATA].ingest_data(append=True,
                                                                      data_ptr=values,
                                                                      timestamp=timestamps[
                                                                          DaqModes.CONTINUOUS_CHANNEL_DATA],
@@ -228,7 +228,7 @@ def channel_data_callback(data, timestamp, tile, channel_id, mode='burst'):
                                                                      channel_id=channel_id,
                                                                      tile_id=tile)
         else:
-            filename = persisters[DaqModes.CHANNEL_DATA].ingest_data(append=False,
+            filename = persisters[DaqModes.CONTINUOUS_CHANNEL_DATA].ingest_data(append=False,
                                                                      data_ptr=values,
                                                                      timestamp=timestamp,
                                                                      sampling_time=sampling_time[
