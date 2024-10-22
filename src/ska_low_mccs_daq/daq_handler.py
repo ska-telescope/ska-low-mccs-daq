@@ -429,11 +429,11 @@ class DaqHandler:
                     )
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
+            if "station_id" in config:
+                self._station_id = config.pop("station_id", -1)
 
             self._config |= config
             self.daq_instance.populate_configuration(self._config)
-            if "station_id" in config:
-                self._station_id = config["station_id"]
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Daq reconfigured"
 
