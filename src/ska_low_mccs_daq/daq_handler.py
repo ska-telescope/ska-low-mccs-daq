@@ -374,6 +374,9 @@ class DaqHandler:
             self.client_queue = queue.SimpleQueue()
             callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
             self.daq_instance.start_daq(converted_modes_to_start, callbacks)
+            self.logger.info("Setting Station ID in metadata.")
+            for persister in self.daq_instance._persisters.values():
+                persister.set_metadata(station_id=self._station_id)
             self.logger.info("Daq listening......")
 
             yield "LISTENING"
