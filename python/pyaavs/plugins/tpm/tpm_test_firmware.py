@@ -295,6 +295,19 @@ class TpmTestFirmware(FirmwareBlock):
                     return
         logging.error("Cannot initialise DDR of " + self._device_name.upper())
 
+    def check_data_router_status(self: TpmTestFirmware) -> int:
+        """Returns value of data router error register."""
+        if not self.board.memory_map.has_register(f'{self._device_name}.data_router.errors'):
+            return None
+        return self.board[f'{self._device_name}.data_router.errors']
+    
+    def clear_data_router_status(self: TpmTestFirmware) -> None:
+        """Reset value of data router errors."""
+        if not self.board.memory_map.has_register(f'{self._device_name}.data_router.errors'):
+            return
+        self.board[f'{self._device_name}.data_router.control.error_rst'] = 1
+        return
+        
     def check_pps_status(self: TpmTestFirmware) -> bool:
         """Check PPS detected and error free"""
         pps_detect = self.board[f'{self._device_name}.pps_manager.pps_detected']

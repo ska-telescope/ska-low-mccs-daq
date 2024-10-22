@@ -302,13 +302,20 @@ class Tile(TileHealthMonitor):
 
     @property
     def active_40g_port(self):
-        # If single 40G not supported by firmware both ports must be used
-        if not self.tpm.has_register("fpga1.dsp_regfile.config_id.is_master"):
+        # Register has been relocated, check for both possibilities
+        if self.has_register("fpga1.dsp_regfile.config_id.is_master"):
+            return [
+                self.tpm["fpga1.dsp_regfile.config_id.is_master"] > 0,
+                self.tpm["fpga2.dsp_regfile.config_id.is_master"] > 0
+            ]
+        elif self.has_register("fpga1.data_router.config.is_master"):
+            return [
+                self.tpm["fpga1.data_router.config.is_master"] > 0,
+                self.tpm["fpga2.data_router.config.is_master"] > 0
+            ]
+        else:
+            # If single 40G not supported by firmware both ports must be used
             return [True, True]
-        return [
-            self.tpm["fpga1.dsp_regfile.config_id.is_master"] > 0,
-            self.tpm["fpga2.dsp_regfile.config_id.is_master"] > 0
-        ]
     
     @property
     def ska_spead_header(self):
@@ -954,8 +961,13 @@ class Tile(TileHealthMonitor):
         NOTE: TPM 1.2 hardware does not support single port operation. Configurion of the
         is_master register will be ignored by the FPGA & both ports will always be used.
         """
-        # If single 40G not supported by firmware both ports must be used
-        if not self.tpm.has_register("fpga1.dsp_regfile.config_id.is_master"):
+        # Register has been relocated, check for both possibilities
+        if self.has_register("fpga1.dsp_regfile.config_id.is_master"):
+            register_location = "dsp_regfile.config_id"
+        elif self.has_register("fpga1.data_router.config.is_master"):
+            register_location = "data_router.config"
+        else:
+            # If single 40G not supported by firmware both ports must be used
             self.logger.warning("TPM firmware does not support different active 40G port configurations. Both 40G ports will be used.")
             return
         if self.tpm_version() == "tpm_v1_2":
@@ -968,8 +980,8 @@ class Tile(TileHealthMonitor):
                     "\n Re-initialise without QSFP transciever detection set to auto to allow hot swapping of TPM 40G ports."
                     )
                 return
-            self["fpga1.dsp_regfile.config_id.is_master"] = 1
-            self["fpga2.dsp_regfile.config_id.is_master"] = 0
+            self[f"fpga1.{register_location}.is_master"] = 1
+            self[f"fpga2.{register_location}.is_master"] = 0
             self.logger.info("TPM in single 40G Port mode! Using only 40G Port 1.")
         elif configuration == "port2-only":
             if self.tpm.tpm_10g_core[1].is_tx_disabled():
@@ -978,8 +990,8 @@ class Tile(TileHealthMonitor):
                     "\n Re-initialise without QSFP transciever detection set to auto to allow hot swapping of TPM 40G ports."
                     )
                 return
-            self["fpga1.dsp_regfile.config_id.is_master"] = 0
-            self["fpga2.dsp_regfile.config_id.is_master"] = 1
+            self[f"fpga1.{register_location}.is_master"] = 0
+            self[f"fpga2.{register_location}.is_master"] = 1
             self.logger.info("TPM in single 40G Port mode! Using only 40G Port 2.")
         elif configuration == "both-ports":
             if self.tpm.tpm_10g_core[0].is_tx_disabled():
@@ -994,8 +1006,8 @@ class Tile(TileHealthMonitor):
                     "\n Re-initialise without QSFP transciever detection set to auto to allow hot swapping of TPM 40G ports."
                     )
                 return
-            self["fpga1.dsp_regfile.config_id.is_master"] = 1
-            self["fpga2.dsp_regfile.config_id.is_master"] = 1
+            self[f"fpga1.{register_location}.is_master"] = 1
+            self[f"fpga2.{register_location}.is_master"] = 1
             self.logger.info("TPM in dual 40G Port mode!")
         else:
             self.logger.error(f"Invalid configuration {configuration} specifie. Options are: port1-only, port2-only, both-ports")
