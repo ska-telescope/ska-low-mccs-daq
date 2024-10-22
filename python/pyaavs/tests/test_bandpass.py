@@ -157,7 +157,7 @@ class TestBandpass:
             time.sleep(0.1)
 
         tf.remove_hdf5_files(temp_dir)
-        for tile in self._test_station.tiles:
+        for n, tile in enumerate(self._test_station.tiles):
             # Revert Integration Time
             self._logger.info(f"Configuring {config_int_time} second integration time for TPM{n}.")
             tile.configure_integrated_channel_data(config_int_time)
