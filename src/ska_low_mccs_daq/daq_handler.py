@@ -380,10 +380,15 @@ class DaqHandler:
                 self.logger.info(f"{persister=}")
                 metadata = persister.get_metadata()
                 self.logger.info(f"BEFORE: {metadata=}")
-                persister.set_metadata(station_id=self._station_id)
-                # raw_file.set_metadata(n_antennas=self._config['nof_antennas'],
-                #               n_pols=self._config['nof_polarisations'],
-                #               n_samples=self._config['nof_raw_samples'])
+                # persister.set_metadata(station_id=self._station_id)
+                # match persister:
+                #     case DaqModes.RAW_DATA:
+                persister.set_metadata(
+                    n_antennas=self._config["nof_antennas"],
+                    n_pols=self._config["nof_polarisations"],
+                    n_samples=self._config["nof_raw_samples"],
+                    station_id=self._station_id,
+                )
                 metadata = persister.get_metadata()
                 self.logger.info(f"AFTER: {metadata=}")
             self.logger.info("Daq listening......")
