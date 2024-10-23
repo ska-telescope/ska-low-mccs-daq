@@ -213,7 +213,7 @@ class DaqHandler:
         self._y_bandpass_plots: queue.Queue = queue.Queue()
         self._rms_plots: queue.Queue = queue.Queue()
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
-        self._station_id: int = -1
+        self._station_id: int = 0
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -430,7 +430,7 @@ class DaqHandler:
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
             if "station_id" in config:
-                self._station_id = config.pop("station_id", -1)
+                self._station_id = config.pop("station_id", 0)
 
             self._config |= config
             self.daq_instance.populate_configuration(self._config)
