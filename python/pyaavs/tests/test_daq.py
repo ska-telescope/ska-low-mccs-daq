@@ -309,9 +309,9 @@ class TestDaq:
 
         if not tr.check_eth(self._station_config, "lmc", 1500, self._logger):
             return 1
-        if not tr.check_eth(self._station_config, "integrated", 1800, self._logger):
-            return 1
-        self._logger.info("Using Ethernet Interface %s" % self._station_config['eth_if'])
+        self.lmc_daq_eth_if = self._station_config['eth_if']['lmc']
+        self.lmc_daq_eth_port = self._station_config['network']['lmc']['lmc_port']
+        self._logger.info(f"Using Ethernet Interface {self.lmc_daq_eth_if} and UDP port {self.lmc_daq_eth_port}")
 
         # Connect to tile (and do whatever is required)
         # tile = Tile(ip=self._tpm_config['single_tpm_config']['ip'], port=self._tpm_config['single_tpm_config']['port'])
@@ -322,8 +322,8 @@ class TestDaq:
 
         # Initialise DAQ. For now, this needs a configuration file with ALL the below configured
         daq_config = {
-            'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
-            'receiver_ports': str(self._station_config['network']['lmc']['lmc_port']),
+            'receiver_interface': self.lmc_daq_eth_if,
+            'receiver_ports': str(self.lmc_daq_eth_port),
             'directory': temp_dir,  # CHANGE THIS if required
             'nof_beam_channels': 384,
             'nof_beam_samples': 42,
@@ -484,10 +484,17 @@ class TestDaq:
             integ_dst_port = self._station_config['network']['lmc']['integrated_data_port']
             if not (self._station_config['network']['lmc']['use_teng'] ^ self._station_config['network']['lmc']['use_teng_integrated']):
                 integ_dst_port = self._station_config['network']['lmc']['lmc_port']
+            
+            if not tr.check_eth(self._station_config, "integrated", 1800, self._logger):
+                return 1
+            self.integrated_daq_eth_if = self._station_config['eth_if']['integrated']
+            self.integrated_daq_eth_port = integ_dst_port
+            self._logger.info(f"Using Ethernet Interface {self.integrated_daq_eth_if} and UDP port {self.integrated_daq_eth_port}")
+            
             daq_config = {}
             daq_config = {
-                'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
-                'receiver_ports': str(integ_dst_port),
+                'receiver_interface': self.integrated_daq_eth_if,
+                'receiver_ports': str(self.integrated_daq_eth_port),
                 'directory': temp_dir,  # CHANGE THIS if required
                 'nof_beam_channels': 384,
                 'nof_beam_samples': 1,

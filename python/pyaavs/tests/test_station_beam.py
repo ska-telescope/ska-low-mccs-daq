@@ -33,7 +33,7 @@ class TestStationBeam():
         self._logger = logger
         self._station_config = station_config
         self._test_station = None
-        self._daq_eth_if = station_config['eth_if']
+        self._daq_eth_if = station_config['eth_if']['csp']
         self._csp_port = station_config['network']['csp_ingest']['dst_port']
         self._total_bandwidth = station_config['test_config']['total_bandwidth']
         self._antennas_per_tile = station_config['test_config']['antennas_per_tile']
@@ -100,7 +100,8 @@ class TestStationBeam():
         # Update channel numbers
         channel_bandwidth = float(self._total_bandwidth) / int(self._pfb_nof_channels)
         nof_channels = int(self._station_config['observation']['bandwidth'] / channel_bandwidth)
-
+	
+        self._logger.info(f"Using Ethernet Interface {self._daq_eth_if} and UDP port {self._csp_port}")
         try:
 
             errors = 0

@@ -130,10 +130,12 @@ class TestAdc():
         nof_tiles = len(tiles)
 
         nof_antennas = self._station_config['test_config']['antennas_per_tile']
-
+        
         if not tr.check_eth(self._station_config, "lmc", 1500, self._logger):
             return 1
-        self._logger.info("Using Ethernet Interface %s" % self._station_config['eth_if'])
+        self.daq_eth_if = self._station_config['eth_if']['lmc']
+        self.daq_eth_port = self._station_config['network']['lmc']['lmc_port']
+        self._logger.info(f"Using Ethernet Interface {self.daq_eth_if} and UDP port {self.daq_eth_port}")
 
         temp_dir = "./temp_daq_test"
         data_received = False
@@ -155,8 +157,8 @@ class TestAdc():
         # Initialise DAQ. For now, this needs a configuration file with ALL the below configured
         # I'll change this to make it nicer
         daq_config = {
-            'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
-            'receiver_ports': str(self._station_config['network']['lmc']['lmc_port']),
+            'receiver_interface': self.daq_eth_if,
+            'receiver_ports': str(self.daq_eth_port),
             'directory': temp_dir,  # CHANGE THIS if required
             'nof_raw_samples': 32768,
             'nof_beam_channels': 384,

@@ -41,16 +41,14 @@ def check_eth(station_config, data_type, mtu, logger=None):
         eth_if = get_eth_if_from_ip(station_config['network']['lmc']['lmc_ip'])
     elif data_type == "integrated":
         eth_if = get_eth_if_from_ip(station_config['network']['lmc']['integrated_data_ip'])
-    if eth_if != station_config['eth_if']:
+    if eth_if != station_config['eth_if'][data_type]:
         if logger is not None:
-            logger.error("Selected DAQ Ethernet Interface %s will not receive %s data packets, "
-                         "they are routed to different IP address!" %
-                         (station_config['eth_if'], data_type.upper()))
+            logger.error(f"Selected DAQ Ethernet Interface {station_config['eth_if'][data_type]} will not "
+                         f"receive {data_type.upper()} data packets, they are routed to different IP address!")
         return False
     if get_eth_if_mtu(eth_if) < mtu:
         if logger is not None:
-            logger.error("Selected DAQ Ethernet Interface %s must have MTU larger than %i bytes!" %
-                        (station_config['eth_if'], mtu))
+            logger.error(f"Selected DAQ Ethernet Interface {eth_if} must have MTU larger than {mtu} bytes!")
         return False
     return True
 
