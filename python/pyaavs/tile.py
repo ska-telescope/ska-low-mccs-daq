@@ -21,6 +21,8 @@ from ipaddress import IPv4Address
 from datetime import datetime 
 import sys
 
+
+
 if sys.version_info.minor >= 9:
     from astropy.time import Time as AstropyTime
 from typing import Optional, List
@@ -786,6 +788,86 @@ class Tile(TileHealthMonitor):
 
         # Re-map values
         return rms
+
+    @connected
+    def enable_broadband_rfi_flagging(self, antennas=range(16)):
+        """
+        Enables broadband rfi flagging on set antennas
+
+        :param antennas: list antennas where broadband rfi flagging will be enabled
+        :type antennas: list(int)
+        """
+
+        # Get the list of antennas for each adc_power_meter, and reset the id, so they start from 0
+        fpga_antennas = [None] * 2
+        fpga_antennas[0] = [x for x in antennas if x < 8]
+        fpga_antennas[1] = [x-8 for x in antennas if x > 7]
+
+        for index, adc_power_meter in enumerate(self.tpm.adc_power_meter):
+            adc_power_meter.enable_rfi_flagging(antennas=fpga_antennas[index])
+
+    @connected
+    def disable_broadband_rfi_flagging(self, antennas=range(16)):
+        """
+        Disables rfi detection on set antennas
+
+        :param antennas: list antennas where rfi will be disabled
+        :type antennas: list(int)
+        """
+
+        # Get the list of antennas for each adc_power_meter, and reset the id, so they start from 0
+        fpga_antennas = [None] * 2
+        fpga_antennas[0] = [x for x in antennas if x < 8]
+        fpga_antennas[1] = [x-8 for x in antennas if x > 7]
+
+        for index, adc_power_meter in enumerate(self.tpm.adc_power_meter):
+            adc_power_meter.disable_rfi_flagging(antennas=fpga_antennas[index])
+
+    @connected
+    def set_broadband_rfi_factor(self, rfi_factor=1.0):
+        """
+        Sets the rfi factor for broadband rfi detection, the higher the rfi factor the less rfi is detected/flagged
+
+        This is because data is flagged if the short term power is greater than
+        the long term power * rfi factor * 32/27
+
+        :param rfi_factor: the sensitivity value for the rfi detection
+        :type rfi_factor: double
+        """
+
+        for adc_power_meter in self.tpm.adc_power_meter:
+            adc_power_meter.set_broadband_rfi_factor(rfi_factor)
+
+    @connected
+    def read_broadband_rfi(self, antennas=range(16)):
+
+        """
+        Reads out the broadband rfi counters
+
+        :param antennas: list antennas of which rfi counters to read
+        :type antennas: list(int)
+
+        :return: rfi counters
+        :rtype: numpy_array[antenna][polarisation]
+        """
+
+        if antennas is None:
+            raise AttributeError("antennas must not be None")
+
+        rfi_data = []
+        for adc_power_meter in self.tpm.adc_power_meter:
+            rfi_data.extend(adc_power_meter.read_RfiData())
+
+        nof_antennas = len(antennas)
+        nof_polarisations = 2
+
+        rfi_data_out = np.zeros((nof_antennas, nof_polarisations))
+
+        for index, antenna_num in enumerate(antennas):
+            rfi_data_out[index][0] = rfi_data[2*antenna_num]
+            rfi_data_out[index][1] = rfi_data[2*antenna_num+1]
+
+        return rfi_data_out
 
     @connected
     def get_fpga0_temperature(self):
