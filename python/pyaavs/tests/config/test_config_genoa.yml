@@ -1,7 +1,0 @@
-# Test configuration parameters
-
-# DAQ Ethernet Interface
-daq_eth_if: "enp2s0"
-
-# Gigabit only test
-gigabit_only: True

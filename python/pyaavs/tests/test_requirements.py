@@ -34,13 +34,17 @@ def get_eth_if_mtu(intf):
 
 
 def check_eth(station_config, data_type, mtu, logger=None):
-    eth_if = ""
     if data_type == "csp":
-        eth_if = get_eth_if_from_ip(station_config['network']['csp_ingest']['dst_ip'])
+        eth_ip = station_config['network']['csp_ingest']['dst_ip']
     elif data_type == "lmc":
-        eth_if = get_eth_if_from_ip(station_config['network']['lmc']['lmc_ip'])
+        eth_ip = station_config['network']['lmc']['lmc_ip']
     elif data_type == "integrated":
-        eth_if = get_eth_if_from_ip(station_config['network']['lmc']['integrated_data_ip'])
+        eth_ip = station_config['network']['lmc']['integrated_data_ip']
+    eth_if = get_eth_if_from_ip(eth_ip)
+    if eth_if is None:
+        logger.error(f"Unable to match {data_type} destination IP address {eth_ip} to an ethernet interface"
+                      "on this machine. Check your configuration!")
+        return False
     if eth_if != station_config['eth_if'][data_type]:
         if logger is not None:
             logger.error(f"Selected DAQ Ethernet Interface {station_config['eth_if'][data_type]} will not "

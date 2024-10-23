@@ -7,7 +7,7 @@ from pyaavs import station
 
 class CiConfig:
     def __init__(self):
-        self.test_config = "config/test_config.yml"
+        self.test_config = None
         self.config = None
 
 

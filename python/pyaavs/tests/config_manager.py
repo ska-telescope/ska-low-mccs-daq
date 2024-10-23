@@ -42,6 +42,12 @@ class ConfigManager():
         eth_if["csp"] = get_eth_if_from_ip(station_config['network']['csp_ingest']['dst_ip'])
         eth_if["lmc"] = get_eth_if_from_ip(station_config['network']['lmc']['lmc_ip'])
         eth_if["integrated"] = get_eth_if_from_ip(station_config['network']['lmc']['integrated_data_ip'])
+        if None in eth_if.values():
+            print("-"*90)
+            print("  ERROR - Unable to match one or more destination IP addresses in station configuration\n"
+                  "  file to ethernet interfaces on this machine. \n"
+                  "  Check your configuration!")
+            print("-"*90)
         return eth_if
     
     def apply_test_configuration(self, command_line_configuration):

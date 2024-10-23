@@ -1,4 +1,0 @@
-# Test configuration parameters
-
-# DAQ Ethernet Interface
-daq_eth_if: "enp65s0np0"
