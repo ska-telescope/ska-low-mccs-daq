@@ -376,7 +376,11 @@ class DaqHandler:
             self.daq_instance.start_daq(converted_modes_to_start, callbacks)
             self.logger.info("Setting Station ID in metadata.")
             for persister in self.daq_instance._persisters.values():
+                # Does this method RESET the metadata?
+                metadata = persister.get_metadata()
+                self.logger.info(f"BEFORE: {metadata=}")
                 persister.set_metadata(station_id=self._station_id)
+                self.logger.info(f"AFTER: {metadata=}")
             self.logger.info("Daq listening......")
 
             yield "LISTENING"
