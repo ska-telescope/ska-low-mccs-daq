@@ -204,6 +204,8 @@ class AAVSFileManager(object):
         self.date_time = date_time
         self.data_mode = data_mode
         self.n_stokes = n_stokes
+        self.station_id = station_id
+        self.channel_id = channel_id
 
     @staticmethod
     def time_range(low, up, leng):
