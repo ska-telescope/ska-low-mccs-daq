@@ -2,13 +2,23 @@ import sys
 import yaml
 import logging
 from pyaavs import station
+from copy import copy
 
 class ConfigManager():
-    def __init__(self, test_config_file="config/test_config.yml"):
-        self.test_config_file = test_config_file
-        fo = open(self.test_config_file, "r+")
-        stream = fo.read()
-        self.config_dict = yaml.safe_load(stream)
+    def __init__(self, test_config_file=None):
+        self.default_config = {
+            "daq_eth_if": None,              # DAQ Ethernet Interface
+            "single_tpm_test_station_idx": 0,  # Single TPM tests will be run on the TPM identified by index within the station
+            "gigabit_only": False,             # Gigabit only test
+            "total_bandwidth": 400e6,          # Total Bandwidth
+            "pfb_nof_channels": 512,           # nof_frequency_channels
+            "antennas_per_tile": 16,           # Number of antennas per tile
+        }
+        self.config_dict = copy(self.default_config)
+        if test_config_file is not None:
+            with open(test_config_file, "r") as yml_file:
+                file_contents = yaml.safe_load(yml_file) or {}
+            self.config_dict.update(file_contents)
 
     def get_test_config_param(self, param):
         if param in self.config_dict.keys():
@@ -45,7 +55,6 @@ class ConfigManager():
 
         station.configuration['station']['program'] = False
         station.configuration['station']['initialise'] = False
-
         station.configuration['single_tpm_config'] = {'ip': tpm_ip, 'port': tpm_port}
         station.configuration['eth_if'] = self.get_test_config_param('daq_eth_if')
         station.configuration['test_config'] = self.config_dict
