@@ -377,9 +377,13 @@ class DaqHandler:
             self.logger.info("Setting Station ID in metadata.")
             for persister in self.daq_instance._persisters.values():
                 # Does this method RESET the metadata?
+                self.logger.info(f"{persister=}")
                 metadata = persister.get_metadata()
                 self.logger.info(f"BEFORE: {metadata=}")
                 persister.set_metadata(station_id=self._station_id)
+                # raw_file.set_metadata(n_antennas=self._config['nof_antennas'],
+                #               n_pols=self._config['nof_polarisations'],
+                #               n_samples=self._config['nof_raw_samples'])
                 metadata = persister.get_metadata()
                 self.logger.info(f"AFTER: {metadata=}")
             self.logger.info("Daq listening......")
