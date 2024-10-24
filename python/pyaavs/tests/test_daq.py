@@ -272,7 +272,7 @@ class TestDaq:
                             return 1
         return 0
 
-    def execute(self, test_type="all", single_tpm_id=0):
+    def execute(self, test_type="all", single_tpm_id=-1):
         global tiles_processed
         global data_received
         global data
@@ -301,7 +301,7 @@ class TestDaq:
                 dut = test_station.tiles[single_tpm_id]
                 tiles = [test_station.tiles[single_tpm_id]]
         else:
-            dut = station
+            dut = test_station
             tiles = test_station.tiles
         nof_tiles = len(tiles)
 
@@ -594,6 +594,8 @@ if __name__ == "__main__":
     parser = tf.add_default_parser_options(parser)
     parser.add_option("--test", action="store", dest="test_type",
                       default="all", help="Test stage [raw, channel, beam, integrated, non-integrated. default: all]")
+    parser.add_option("-t", "--single_tpm_id", action="store", dest="single_tpm_id",
+                      default="-1", help="Run test on a single TPM. TPM identified by index within the station. [default: -1 (entire station)]")
     (conf, args) = parser.parse_args(argv[1:])
 
     config_manager = ConfigManager(conf.test_config)
@@ -618,4 +620,4 @@ if __name__ == "__main__":
     test_logger = logging.getLogger('TEST_DAQ')
 
     test_daq = TestDaq(station_config, test_logger)
-    test_daq.execute(conf.test_type)
+    test_daq.execute(conf.test_type, int(conf.single_tpm_id))

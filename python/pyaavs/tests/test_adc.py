@@ -106,7 +106,7 @@ class TestAdc():
         self._logger.info("Data pattern check OK!")
         return 0
 
-    def execute(self, iterations=4, single_tpm_id=0):
+    def execute(self, iterations=4, single_tpm_id=-1):
         global tiles_processed
         global data_received
         global nof_tiles
@@ -236,7 +236,9 @@ if __name__ == "__main__":
     parser = OptionParser(usage="usage: %station [options]")
     parser = tf.add_default_parser_options(parser)
     parser.add_option("-i", "--iteration", action="store", dest="iteration",
-                      default="16", help="Number of iterations [default: 16, infinite: -1]")
+                      default=4, help="Number of iterations [default: 4, infinite: -1]")
+    parser.add_option("-t", "--single_tpm_id", action="store", dest="single_tpm_id",
+                      default=-1, help="Run test on a single TPM. TPM identified by index within the station. [default: -1 (entire station)]")
     (conf, args) = parser.parse_args(argv[1:])
 
     config_manager = ConfigManager(conf.test_config)
@@ -261,4 +263,4 @@ if __name__ == "__main__":
     test_logger = logging.getLogger('TEST_ADC')
 
     test_adc = TestAdc(station_config, test_logger)
-    test_adc.execute(conf.iteration)
+    test_adc.execute(int(conf.iteration), int(conf.single_tpm_id))
