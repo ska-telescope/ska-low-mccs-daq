@@ -21,7 +21,14 @@ from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 import h5py
 import numpy as np
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
+from pydaq.daq_receiver_interface import (
+    AAVSFileManager,
+    ChannelFormatFileManager,
+    DaqModes,
+    DaqReceiver,
+    FileDAQModes,
+    RawFormatFileManager,
+)
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -165,6 +172,7 @@ class DaqHandler:
         "logging": True,
         "write_to_disk": True,
         "station_config": None,
+        "station_id": 0,
         "max_filesize": None,
         "acquisition_duration": -1,
         "acquisition_start_time": -1,
@@ -213,7 +221,6 @@ class DaqHandler:
         self._y_bandpass_plots: queue.Queue = queue.Queue()
         self._rms_plots: queue.Queue = queue.Queue()
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
-        self._station_id: int = 0
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -374,23 +381,6 @@ class DaqHandler:
             self.client_queue = queue.SimpleQueue()
             callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
             self.daq_instance.start_daq(converted_modes_to_start, callbacks)
-            self.logger.info("Setting Station ID in metadata.")
-            for persister in self.daq_instance._persisters.values():
-                # Does this method RESET the metadata?
-                self.logger.info(f"{persister=}")
-                metadata = persister.get_metadata()
-                self.logger.info(f"BEFORE: {metadata=}")
-                # persister.set_metadata(station_id=self._station_id)
-                # match persister:
-                #     case DaqModes.RAW_DATA:
-                persister.set_metadata(
-                    n_antennas=self._config["nof_antennas"],
-                    n_pols=self._config["nof_polarisations"],
-                    n_samples=self._config["nof_raw_samples"],
-                    station_id=self._station_id,
-                )
-                metadata = persister.get_metadata()
-                self.logger.info(f"AFTER: {metadata=}")
             self.logger.info("Daq listening......")
 
             yield "LISTENING"
@@ -443,8 +433,6 @@ class DaqHandler:
                     )
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
-            if "station_id" in config:
-                self._station_id = config.pop("station_id", 0)
 
             self._config |= config
             self.daq_instance.populate_configuration(self._config)
