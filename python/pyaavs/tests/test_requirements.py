@@ -42,7 +42,7 @@ def check_eth(station_config, data_type, mtu, logger=None):
         eth_ip = station_config['network']['lmc']['integrated_data_ip']
     eth_if = get_eth_if_from_ip(eth_ip)
     if eth_if is None:
-        logger.error(f"Unable to match {data_type} destination IP address {eth_ip} to an ethernet interface"
+        logger.error(f"Unable to match {data_type} destination IP address {eth_ip} to an ethernet interface "
                       "on this machine. Check your configuration!")
         return False
     if eth_if != station_config['eth_if'][data_type]:

@@ -25,15 +25,17 @@ import time
 nof_tiles = 1
 nof_antennas = 16
 tiles_processed = None
+first_tile_index = 0
 
 def data_callback(mode, filepath, tile):
     global data
     global nof_tiles
     global data_received
     global tiles_processed
+    global first_tile_index
 
     if mode == "burst_raw":
-        tiles_processed[tile] = 1
+        tiles_processed[tile - first_tile_index] = 1
         if np.all(tiles_processed >= 1):
             data = np.zeros((nof_tiles * nof_antennas, 2, 32 * 1024), dtype=np.int8)
             raw_file = RawFormatFileManager(root_path=os.path.dirname(filepath))
@@ -41,7 +43,7 @@ def data_callback(mode, filepath, tile):
                 tile_data, timestamps = raw_file.read_data(antennas=range(nof_antennas),
                                                            polarizations=[0, 1],
                                                            n_samples=32 * 1024,
-                                                           tile_id=tile_id)
+                                                           tile_id=tile_id+first_tile_index)
                 data[nof_antennas * tile_id:nof_antennas * (tile_id + 1), :, :] = tile_data
             data_received = True
 
@@ -111,6 +113,7 @@ class TestAdc():
         global data_received
         global nof_tiles
         global nof_antennas
+        global first_tile_index
 
         # Connect to tile (and do whatever is required)
         test_station = station.Station(self._station_config)
@@ -122,9 +125,11 @@ class TestAdc():
                 return 1
             else:
                 self._logger.info("Executing test on tile %d" % single_tpm_id)
+                first_tile_index = single_tpm_id
                 dut = test_station.tiles[single_tpm_id]
                 tiles = [test_station.tiles[single_tpm_id]]
         else:
+            first_tile_index = 0
             dut = test_station
             tiles = test_station.tiles
         nof_tiles = len(tiles)

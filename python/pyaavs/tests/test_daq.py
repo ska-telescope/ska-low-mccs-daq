@@ -26,6 +26,7 @@ beam_int_data = []
 nof_tiles = 1
 nof_antennas_per_tile = 16
 tiles_processed = None
+first_tile_index = 0
 
 
 def integrated_sample_calc(data_re, data_im, integration_length, round_bits, max_width):
@@ -43,6 +44,7 @@ def data_callback(mode, filepath, tile):
     global tiles_processed
     global data_received
     global data
+    global first_tile_index
 
     # If you want to perform some checks in the data here, you will need to use the persisters scrips to read the
     # data. Note that the persister will read the latest file if no specific timestamp is provided
@@ -54,7 +56,7 @@ def data_callback(mode, filepath, tile):
     #                                        polarizations=[0, 1],
     #                                        n_samples=32*1024)
     if mode == "burst_raw":
-        tiles_processed[tile] = 1
+        tiles_processed[tile - first_tile_index] = 1
         if np.all(tiles_processed >= 1):
             data = np.zeros((nof_tiles * nof_antennas_per_tile, 2, 32 * 1024), dtype=np.int8)
             raw_file = RawFormatFileManager(root_path=os.path.dirname(filepath))
@@ -62,7 +64,7 @@ def data_callback(mode, filepath, tile):
                 tile_data, timestamps = raw_file.read_data(antennas=range(nof_antennas_per_tile),
                                                            polarizations=[0, 1],
                                                            n_samples=32 * 1024,
-                                                           tile_id=tile_id)
+                                                           tile_id=tile_id+first_tile_index)
                 data[nof_antennas_per_tile * tile_id:nof_antennas_per_tile * (tile_id + 1), :, :] = tile_data
             data_received = True
 
@@ -73,7 +75,7 @@ def data_callback(mode, filepath, tile):
     #                                            polarizations=[0, 1],
     #                                            n_samples=128)
     if mode == "burst_channel":
-        tiles_processed[tile] = 1
+        tiles_processed[tile - first_tile_index] = 1
         if np.all(tiles_processed >= 1):
             data = np.zeros((512, nof_tiles * nof_antennas_per_tile, 2, 128, 2), dtype=np.int8)
             channel_file = ChannelFormatFileManager(root_path=os.path.dirname(filepath))
@@ -82,7 +84,7 @@ def data_callback(mode, filepath, tile):
                                                                antennas=range(16),
                                                                polarizations=[0, 1],
                                                                n_samples=128,
-                                                               tile_id=tile_id)
+                                                               tile_id=tile_id+first_tile_index)
                 data[:, tile_id * nof_antennas_per_tile: (tile_id + 1) * nof_antennas_per_tile, :, :, 0] = \
                     tile_data['real']
                 data[:, tile_id * nof_antennas_per_tile: (tile_id + 1) * nof_antennas_per_tile, :, :, 1] = \
@@ -90,7 +92,7 @@ def data_callback(mode, filepath, tile):
             data_received = True
 
     if mode == "burst_beam":
-        tiles_processed[tile] = 1
+        tiles_processed[tile - first_tile_index] = 1
         if np.all(tiles_processed >= 1):
             data = np.zeros((nof_tiles, 2, 384, 32, 2), dtype=np.int16)
             beam_file = BeamFormatFileManager(root_path=os.path.dirname(filepath))
@@ -98,7 +100,7 @@ def data_callback(mode, filepath, tile):
                 tile_data, timestamps = beam_file.read_data(channels=range(384), # List of channels to read (not use in raw case)
                                                             polarizations=[0, 1],
                                                             n_samples=32,
-                                                            tile_id=tile_id)
+                                                            tile_id=tile_id+first_tile_index)
                 data[tile_id, :, :, :, 0] = tile_data['real'][:, :, :, 0]
                 data[tile_id, :, :, :, 1] = tile_data['imag'][:, :, :, 0]
             data_received = True
@@ -113,7 +115,7 @@ def integrated_data_callback(mode, filepath, tile):
     global beam_int_data
 
     if mode == "integrated_channel":
-        channel_int_tiles_processed[tile] = 1
+        channel_int_tiles_processed[tile - first_tile_index] = 1
         if np.all(channel_int_tiles_processed >= 1):
             channel_int_data = np.zeros((512, nof_tiles * nof_antennas_per_tile, 2, 1), dtype=np.uint32)
             channel_file = ChannelFormatFileManager(root_path=os.path.dirname(filepath),
@@ -122,13 +124,13 @@ def integrated_data_callback(mode, filepath, tile):
                 tile_data, timestamps = channel_file.read_data(antennas=range(16),
                                                                polarizations=[0, 1],
                                                                n_samples=1,
-                                                               tile_id=tile_id)
+                                                               tile_id=tile_id+first_tile_index)
                 channel_int_data[:, tile_id * nof_antennas_per_tile:
                                     (tile_id + 1) * nof_antennas_per_tile, :, :] = tile_data
             channel_int_data_received = True
 
     if mode == "integrated_beam":
-        beam_int_tiles_processed[tile] = 1
+        beam_int_tiles_processed[tile - first_tile_index] = 1
         if np.all(beam_int_tiles_processed >= 1):
             beam_int_data = np.zeros((2, 384, nof_tiles, 1), dtype=np.uint32)
             beam_file = BeamFormatFileManager(root_path=os.path.dirname(filepath), daq_mode=FileDAQModes.Integrated)
@@ -136,7 +138,7 @@ def integrated_data_callback(mode, filepath, tile):
                 tile_data, timestamps = beam_file.read_data(channels=range(384),
                                                             polarizations=[0, 1],
                                                             n_samples=1,
-                                                            tile_id=tile_id)
+                                                            tile_id=tile_id+first_tile_index)
                 beam_int_data[:, :, tile_id, :] = tile_data[:, :, 0, :]
             beam_int_data_received = True
 
@@ -287,6 +289,8 @@ class TestDaq:
 
         global nof_tiles
         global nof_antennas_per_tile
+        
+        global first_tile_index
 
         # Connect to tile (and do whatever is required)
         test_station = station.Station(self._station_config)
@@ -298,9 +302,11 @@ class TestDaq:
                 return 1
             else:
                 self._logger.info("Executing test on tile %d" % single_tpm_id)
+                first_tile_index = single_tpm_id
                 dut = test_station.tiles[single_tpm_id]
                 tiles = [test_station.tiles[single_tpm_id]]
         else:
+            first_tile_index = 0
             dut = test_station
             tiles = test_station.tiles
         nof_tiles = len(tiles)
