@@ -1133,6 +1133,22 @@ class TileHealthMonitor():
             status[f'FPGA{fpga}'] = self.tpm.tpm_test_firmware[fpga].check_data_router_status()
         return status
 
+    def check_data_router_discard_packets(self, fpga_id=None):
+        """
+        Check data router error number of discarded packets counters.
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: register values
+        :rtype: dict
+        """
+        counters = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counters[f'FPGA{fpga}'] = self.tpm.tpm_test_firmware[fpga].check_data_router_discard_packets()
+
+        return counters
+
     def clear_data_router_status(self, fpga_id=None):
         """
         Reset data router error flags.
