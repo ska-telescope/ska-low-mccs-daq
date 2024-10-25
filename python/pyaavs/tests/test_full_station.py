@@ -213,7 +213,8 @@ class TestFullStation():
     def __init__(self, station_config, logger):
         self._logger = logger
         self._station_config = station_config
-        self._daq_eth_if = station_config['eth_if']
+        self._csp_daq_eth_if = station_config['eth_if']['csp']
+        self._lmc_daq_eth_if = station_config['eth_if']['lmc']
         self._csp_port = station_config['network']['csp_ingest']['dst_port']
         self._lmc_port = station_config['network']['lmc']['lmc_port']
         self._total_bandwidth = station_config['test_config']['total_bandwidth']
@@ -318,7 +319,7 @@ class TestFullStation():
                       "nof_channel_samples": nof_samples,
                       "nof_beam_channels": nof_channels,
                       "nof_station_samples": nof_samples,
-                      "receiver_interface": self._daq_eth_if,
+                      "receiver_interface": self._lmc_daq_eth_if,
                       "receiver_frame_size": 9000}
 
         # Create temporary directory to store DAQ generated files
@@ -326,8 +327,8 @@ class TestFullStation():
         daq_config['directory'] = data_directory
         self._logger.info("Using temporary directory {}".format(data_directory))
 
-        # spead_rx_realtime_inst = spead_rx(self._csp_port, self._daq_eth_if)
-        # spead_rx_offline_inst = spead_rx_offline(self._lmc_port, self._daq_eth_if)
+        # spead_rx_realtime_inst = spead_rx(self._csp_port, self._csp_daq_eth_if)
+        # spead_rx_offline_inst = spead_rx_offline(self._lmc_port, self._lmc_daq_eth_if)
         try:
 
             # initialise_daq(daq_config)
@@ -388,7 +389,8 @@ class TestFullStation():
             self._logger.info("Dummy Acquisition channelised data, channel %d" % channelised_channel)
             self._test_station.send_channelised_data_continuous(channelised_channel, daq_config['nof_channel_samples'])
             time.sleep(2)
-            spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles), self._daq_eth_if)
+            self._logger.info(f"Using Ethernet Interface {self._lmc_daq_eth_if} and UDP port {self._lmc_port}")
+            spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles), self._lmc_daq_eth_if)
             offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
             self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0],
                                                                                offline_beam_power[1],
@@ -414,9 +416,10 @@ class TestFullStation():
                 while saturation:
                     for tile in self._test_station.tiles:
                         tile.set_channeliser_truncation(scale)
-
+		    
+                    self._logger.info(f"Using Ethernet Interface {self._lmc_daq_eth_if} and UDP port {self._lmc_port}")
                     spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles),
-                                                                    self._daq_eth_if)
+                                                                    self._lmc_daq_eth_if)
                     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                     self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0],
                                                                                        offline_beam_power[1],
@@ -439,8 +442,9 @@ class TestFullStation():
 
                     for tile in self._test_station.tiles:
                         tile.set_channeliser_truncation(scale)
+                    self._logger.info(f"Using Ethernet Interface {self._lmc_daq_eth_if} and UDP port {self._lmc_port}")
                     spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles),
-                                                                    self._daq_eth_if)
+                                                                    self._lmc_daq_eth_if)
                     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                     self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0],
                                                                                        offline_beam_power[1],
@@ -451,9 +455,10 @@ class TestFullStation():
                 # scale_low = 0
                 # for tile in self._test_station.tiles:
                 #     tile.set_channeliser_truncation(scale)
-                #
+                #     
+                #     self._logger.info(f"Using Ethernet Interface {self._lmc_daq_eth_if} and UDP port {self._lmc_port}")
                 #     spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles),
-                #                                                     self._daq_eth_if)
+                #                                                     self._lmc_daq_eth_if)
                 #     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                 #     self._logger.info("Offline beamformed channel power: %f %f %d " % (
                 #     offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
@@ -463,7 +468,8 @@ class TestFullStation():
                 ##     for tile in self._test_station.tiles:
                 ##         tile.set_channeliser_truncation(scale)
                 ##     time.sleep(2)
-                ##     spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles), self._daq_eth_if)
+                ##     self._logger.info(f"Using Ethernet Interface {self._lmc_daq_eth_if} and UDP port {self._lmc_port}")
+                ##     spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles), self._lmc_daq_eth_if)
                 ##     offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                 ##     self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
                 ##     del spead_rx_offline_inst
@@ -481,8 +487,9 @@ class TestFullStation():
                 ##         else:
                 ##             scale = scale_new
                 ##     target_power = offline_beam_power[0]
-
-                # spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles), self._daq_eth_if)
+                
+                # self._logger.info(f"Using Ethernet Interface {self._lmc_daq_eth_if} and UDP port {self._lmc_port}")
+                # spead_rx_offline_inst = SpeadRxBeamPowerOffline(self._lmc_port, len(self._test_station.tiles), self._lmc_daq_eth_if)
                 # offline_beam_power = np.asarray(spead_rx_offline_inst.get_power())
                 # self._logger.info("Offline beamformed channel power: %f %f %d " % (offline_beam_power[0], offline_beam_power[1], offline_beam_power[2]))
                 # del spead_rx_offline_inst
@@ -504,7 +511,8 @@ class TestFullStation():
 
                     time.sleep(0.1)
                     self._logger.info("Acquiring realtime beamformed data")
-                    spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(self._csp_port, self._daq_eth_if)
+                    self._logger.info(f"Using Ethernet Interface {self._csp_daq_eth_if} and UDP port {self._csp_port}")
+                    spead_rx_realtime_inst = SpeadRxBeamPowerRealtime(self._csp_port, self._csp_daq_eth_if)
                     realtime_beam_power = np.asarray(spead_rx_realtime_inst.get_power(beamformed_channel))
                     self._logger.info("Realtime beamformed channel power: %f %f %d" % (realtime_beam_power[0],
                                                                                        realtime_beam_power[1],

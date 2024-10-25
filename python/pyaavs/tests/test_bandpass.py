@@ -2,6 +2,7 @@ from pyaavs import station
 from config_manager import ConfigManager
 from time import sleep
 import test_functions as tf
+import test_requirements as tr
 import numpy as np
 import logging
 # Import DAQ and Access Layer libraries
@@ -98,11 +99,17 @@ class TestBandpass:
         integ_dst_port = self._station_config['network']['lmc']['integrated_data_port']
         if not (self._station_config['network']['lmc']['use_teng'] ^ self._station_config['network']['lmc']['use_teng_integrated']):
             integ_dst_port = self._station_config['network']['lmc']['lmc_port']
-            
+        
+        if not tr.check_eth(self._station_config, "integrated", 1500, self._logger):
+            return 1
+        self.daq_eth_if = self._station_config['eth_if']['integrated']
+        self.daq_eth_port = integ_dst_port
+        self._logger.info(f"Using Ethernet Interface {self.daq_eth_if} and UDP port {self.daq_eth_port}")
+        
         # Initialise DAQ.
         daq_config = {
-                'receiver_interface': self._station_config['eth_if'],
-                'receiver_ports': str(integ_dst_port),
+                'receiver_interface': self.daq_eth_if,
+                'receiver_ports': str(self.daq_eth_port),
                 'directory': temp_dir,
                 'nof_beam_channels': 384,
                 'nof_beam_samples': 1,
@@ -150,7 +157,7 @@ class TestBandpass:
             time.sleep(0.1)
 
         tf.remove_hdf5_files(temp_dir)
-        for tile in self._test_station.tiles:
+        for n, tile in enumerate(self._test_station.tiles):
             # Revert Integration Time
             self._logger.info(f"Configuring {config_int_time} second integration time for TPM{n}.")
             tile.configure_integrated_channel_data(config_int_time)

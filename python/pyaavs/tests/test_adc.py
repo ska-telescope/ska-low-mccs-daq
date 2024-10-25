@@ -25,15 +25,17 @@ import time
 nof_tiles = 1
 nof_antennas = 16
 tiles_processed = None
+first_tile_index = 0
 
 def data_callback(mode, filepath, tile):
     global data
     global nof_tiles
     global data_received
     global tiles_processed
+    global first_tile_index
 
     if mode == "burst_raw":
-        tiles_processed[tile] = 1
+        tiles_processed[tile - first_tile_index] = 1
         if np.all(tiles_processed >= 1):
             data = np.zeros((nof_tiles * nof_antennas, 2, 32 * 1024), dtype=np.int8)
             raw_file = RawFormatFileManager(root_path=os.path.dirname(filepath))
@@ -41,7 +43,7 @@ def data_callback(mode, filepath, tile):
                 tile_data, timestamps = raw_file.read_data(antennas=range(nof_antennas),
                                                            polarizations=[0, 1],
                                                            n_samples=32 * 1024,
-                                                           tile_id=tile_id)
+                                                           tile_id=tile_id+first_tile_index)
                 data[nof_antennas * tile_id:nof_antennas * (tile_id + 1), :, :] = tile_data
             data_received = True
 
@@ -106,11 +108,12 @@ class TestAdc():
         self._logger.info("Data pattern check OK!")
         return 0
 
-    def execute(self, iterations=4, single_tpm_id=0):
+    def execute(self, iterations=4, single_tpm_id=-1):
         global tiles_processed
         global data_received
         global nof_tiles
         global nof_antennas
+        global first_tile_index
 
         # Connect to tile (and do whatever is required)
         test_station = station.Station(self._station_config)
@@ -122,24 +125,31 @@ class TestAdc():
                 return 1
             else:
                 self._logger.info("Executing test on tile %d" % single_tpm_id)
+                first_tile_index = single_tpm_id
                 dut = test_station.tiles[single_tpm_id]
                 tiles = [test_station.tiles[single_tpm_id]]
         else:
+            first_tile_index = 0
             dut = test_station
             tiles = test_station.tiles
         nof_tiles = len(tiles)
 
         nof_antennas = self._station_config['test_config']['antennas_per_tile']
-
+        
         if not tr.check_eth(self._station_config, "lmc", 1500, self._logger):
             return 1
-        self._logger.info("Using Ethernet Interface %s" % self._station_config['eth_if'])
+        self.daq_eth_if = self._station_config['eth_if']['lmc']
+        self.daq_eth_port = self._station_config['network']['lmc']['lmc_port']
+        self._logger.info(f"Using Ethernet Interface {self.daq_eth_if} and UDP port {self.daq_eth_port}")
 
         temp_dir = "./temp_daq_test"
         data_received = False
         fixed_pattern = [[191, 254, 16, 17]] * (nof_antennas * nof_tiles)
 
         tf.remove_hdf5_files(temp_dir)
+
+        # Verify tiles have been programmed
+        tr.check_station_communication(dut)
 
         self._logger.debug("Disable test and pattern generators...")
         self._logger.debug("Setting 0 delays...")
@@ -155,8 +165,8 @@ class TestAdc():
         # Initialise DAQ. For now, this needs a configuration file with ALL the below configured
         # I'll change this to make it nicer
         daq_config = {
-            'receiver_interface': self._station_config['eth_if'],  # CHANGE THIS if required
-            'receiver_ports': str(self._station_config['network']['lmc']['lmc_port']),
+            'receiver_interface': self.daq_eth_if,
+            'receiver_ports': str(self.daq_eth_port),
             'directory': temp_dir,  # CHANGE THIS if required
             'nof_raw_samples': 32768,
             'nof_beam_channels': 384,
@@ -234,7 +244,9 @@ if __name__ == "__main__":
     parser = OptionParser(usage="usage: %station [options]")
     parser = tf.add_default_parser_options(parser)
     parser.add_option("-i", "--iteration", action="store", dest="iteration",
-                      default="16", help="Number of iterations [default: 16, infinite: -1]")
+                      default=4, help="Number of iterations [default: 4, infinite: -1]")
+    parser.add_option("-t", "--single_tpm_id", action="store", dest="single_tpm_id",
+                      default=-1, help="Run test on a single TPM. TPM identified by index within the station. [default: -1 (entire station)]")
     (conf, args) = parser.parse_args(argv[1:])
 
     config_manager = ConfigManager(conf.test_config)
@@ -259,4 +271,4 @@ if __name__ == "__main__":
     test_logger = logging.getLogger('TEST_ADC')
 
     test_adc = TestAdc(station_config, test_logger)
-    test_adc.execute(conf.iteration)
+    test_adc.execute(int(conf.iteration), int(conf.single_tpm_id))

@@ -3,16 +3,10 @@ from time import sleep
 
 # TODO: Add method to report which slots are ON or OFF
 
-RAL_SUBRACK_1 = "10.132.0.14"
-RAL_SUBRACK_2 = "10.132.0.34"
-RAL_SUBRACK_3 = "10.132.0.54"
-RAL_SUBRACK_4 = "10.132.0.74"
-# OXFORD_SUBRACK_1 = "10.0.10.64"
-
-S8_SUBRACK_1 = "10.132.0.1"
-S8_SUBRACK_2 = "10.132.0.17"
-S8_SUBRACK_3 = "10.132.0.33"
-S8_SUBRACK_4 = "10.132.0.49"
+_RAL_SUBRACK_1_IP = "10.132.0.14"
+_RAL_SUBRACK_2_IP = "10.132.0.34"
+_RAL_SUBRACK_3_IP = "10.132.0.54"
+_RAL_SUBRACK_4_IP = "10.132.0.74"
 
 class Subrack:
     def __init__(self, ip):
@@ -97,54 +91,44 @@ class Subrack:
         self.power_off_tpm(slot_list)
         self.power_on_tpm(slot_list)
 
-    # So far retry loop does not seem to be required for configuring subrack fans
-    # Can be added if requires as above
     def set_fan_speed(self, speed=80):
         client = self.connect_to_subrack()
         if client:
             for i in range(4):
-                ret = client.execute_command(command="set_fan_mode", parameters=f"{i+1},0")
-                print(f"Subrack Returned: {ret}")
+                while True:
+                    print("Issuing command to subrack...")
+                    ret = client.execute_command(command="set_fan_mode", parameters=f"{i+1},0")
+                    print(f"Subrack Returned: {ret}")
+                    if ret['status'] != 'BUSY':
+                        break
+                    print("Retrying...")
+                    sleep(2)
                 print(f"Subrack Fan {i+1} speed set to MANUAL")
                 sleep(0.5)
-                ret = client.execute_command(command="set_subrack_fan_speed", parameters=f"{i+1},{speed}")
-                print(f"Subrack Returned: {ret}")
+                while True:
+                    print("Issuing command to subrack...")
+                    ret = client.execute_command(command="set_subrack_fan_speed", parameters=f"{i+1},{speed}")
+                    print(f"Subrack Returned: {ret}")
+                    if ret['status'] != 'BUSY':
+                        break
+                    print("Retrying...")
+                    sleep(2)
                 print(f"Subrack Fan {i+1} speed set to {speed}%")
 
 
-# class OxfordSubrack(Subrack):
-#     def __init__(self):
-#        super().__init__(ip=OXFORD_SUBRACK_1)
-
 class RALSubrack1(Subrack):
     def __init__(self):
-        super().__init__(ip=RAL_SUBRACK_1)
+        super().__init__(ip=_RAL_SUBRACK_1_IP)
 
 class RALSubrack2(Subrack):
     def __init__(self):
-        super().__init__(ip=RAL_SUBRACK_2)
+        super().__init__(ip=_RAL_SUBRACK_2_IP)
 
 class RALSubrack3(Subrack):
     def __init__(self):
-        super().__init__(ip=RAL_SUBRACK_3)
+        super().__init__(ip=_RAL_SUBRACK_3_IP)
 
 class RALSubrack4(Subrack):
     def __init__(self):
-        super().__init__(ip=RAL_SUBRACK_4)
+        super().__init__(ip=_RAL_SUBRACK_4_IP)
 
-
-class S8Subrack1(Subrack):
-    def __init__(self):
-       super().__init__(ip=S8_SUBRACK_1)
-
-class S8Subrack2(Subrack):
-    def __init__(self):
-        super().__init__(ip=S8_SUBRACK_2)
-
-class S8Subrack3(Subrack):
-    def __init__(self):
-        super().__init__(ip=S8_SUBRACK_3)
-
-class S8Subrack4(Subrack):
-    def __init__(self):
-        super().__init__(ip=S8_SUBRACK_4)

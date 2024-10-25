@@ -58,7 +58,7 @@ class BeamComparisonObservation():
     def __init__(self, station_config, logger):
         self._logger = logger
         self._station_config = station_config
-        self._daq_eth_if = station_config['eth_if']
+        self._daq_eth_if = station_config['eth_if']['csp']
         self._total_bandwidth = station_config['test_config']['total_bandwidth']
         self._antennas_per_tile = station_config['test_config']['antennas_per_tile']
         self._pfb_nof_channels = station_config['test_config']['pfb_nof_channels']
