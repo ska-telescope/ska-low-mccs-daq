@@ -563,7 +563,7 @@ def start_raw_data_consumer(callback=None):
     raw_file.set_metadata(n_antennas=conf['nof_antennas'],
                           n_pols=conf['nof_polarisations'],
                           n_samples=conf['nof_raw_samples'],
-                          station_id=self._config['station_id'])
+                          station_id=conf['station_id'])
     persisters[DaqModes.RAW_DATA] = raw_file
 
     # Set external callback
@@ -604,7 +604,7 @@ def start_channel_data_consumer(callback=None):
                               n_antennas=conf['nof_antennas'],
                               n_pols=conf['nof_polarisations'],
                               n_samples=conf['nof_channel_samples'],
-                              station_id=self._config['station_id'])
+                              station_id=conf['station_id'])
 
     persisters[DaqModes.CHANNEL_DATA] = channel_file
 
@@ -657,7 +657,7 @@ def start_continuous_channel_data_consumer(callback=None):
                               n_antennas=conf['nof_antennas'],
                               n_pols=conf['nof_polarisations'],
                               n_samples=conf['nof_channel_samples'],
-                              station_id=self._config['station_id'])
+                              station_id=conf['station_id'])
     persisters[DaqModes.CONTINUOUS_CHANNEL_DATA] = channel_file
 
     # Set external callback
@@ -699,7 +699,7 @@ def start_integrated_channel_data_consumer(callback=None):
                               n_antennas=conf['nof_antennas'],
                               n_pols=conf['nof_polarisations'],
                               n_samples=1,
-                              station_id=self._config['station_id'])
+                              station_id=conf['station_id'])
     persisters[DaqModes.INTEGRATED_CHANNEL_DATA] = channel_file
 
     # Set sampling time
@@ -741,7 +741,7 @@ def start_beam_data_consumer(callback=None):
     beam_file.set_metadata(n_chans=conf['nof_beam_channels'],
                            n_pols=conf['nof_polarisations'],
                            n_samples=conf['nof_beam_samples'],
-                           station_id=self._config['station_id'])
+                           station_id=conf['station_id'])
     persisters[DaqModes.BEAM_DATA] = beam_file
 
     # Set sampling time
@@ -785,7 +785,7 @@ def start_integrated_beam_data_consumer(callback=None):
                            n_pols=conf['nof_polarisations'],
                            n_samples=1,
                            n_beams=conf['nof_beams'],
-                           station_id=self._config['station_id'])
+                           station_id=conf['station_id'])
 
     persisters[DaqModes.INTEGRATED_BEAM_DATA] = beam_file
 
@@ -825,7 +825,7 @@ def start_station_beam_data_consumer(callback=None):
     beam_file_mgr.set_metadata(n_chans=conf['nof_beam_channels'],
                                n_pols=conf['nof_polarisations'],
                                n_samples=1,
-                               station_id=self._config['station_id'])
+                               station_id=conf['station_id'])
     persisters[DaqModes.STATION_BEAM_DATA] = beam_file_mgr
 
     # Set sampling time
@@ -872,7 +872,7 @@ def start_correlator(callback=None):
                            n_antennas=conf['nof_tiles'] * conf['nof_antennas'],
                            n_stokes=conf['nof_polarisations'] * conf['nof_polarisations'],
                            n_baselines=nof_baselines,
-                           station_id=self._config['station_id'])
+                           station_id=conf['station_id'])
     persisters[DaqModes.CORRELATOR_DATA] = corr_file
 
     # Set sampling time
@@ -915,7 +915,7 @@ def start_antenna_buffer_data_consumer(callback=None):
     raw_file.set_metadata(n_antennas=conf['nof_antennas'],
                           n_pols=conf['nof_polarisations'],
                           n_samples=conf['nof_raw_samples'],
-                          station_id=self._config['station_id'])
+                          station_id=conf['station_id'])
     persisters[DaqModes.ANTENNA_BUFFER] = raw_file
 
     # Set external callback

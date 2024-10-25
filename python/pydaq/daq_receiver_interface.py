@@ -1701,6 +1701,8 @@ if __name__ == "__main__":
                       help="Observation description, stored in file metadata (default: "")")
     parser.add_option("--station-config", action="store", dest="station_config", default=None,
                       help="Station configuration file, to extract additional metadata (default: None)")
+    parser.add_option("--station_id", action="store", dest="station_id", default=0,
+                      help="Station ID. (default: 0)")
     parser.add_option("--acquisition_duration", "--runtime", "--duration", "--dt", action="store",
                       dest="acquisition_duration", default=-1,
                       help="Duration of data acquisition in seconds [default: %default]", type="int")
