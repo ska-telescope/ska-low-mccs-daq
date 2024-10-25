@@ -430,6 +430,8 @@ class Station(object):
                 self.tiles[0].tpm.tpm_test_firmware[0].station_beamformer_implemented and \
                 self.configuration['station']['start_beamformer']:
                 logging.info("Starting station beamformer")
+                # A sleep for one second is required here for large stations
+                # Otherwise on some network switches packet loss occurs at start of beam
                 time.sleep(1)
                 self.start_beamformer(start_time=0, duration=-1)
 

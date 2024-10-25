@@ -317,8 +317,7 @@ def add_default_parser_options(parser):
     parser.add_option("--config", action="store", dest="config",
                       type="str", default=None, help="Station configuration file [default: None]")
     parser.add_option("--test_config", action="store", dest="test_config",
-                      type="str", default="config/test_config.yml",
-                      help="Test Environment configuration file [default: config/test_config.yml]")
+                      type="str",help="Test Environment configuration file [default: None]")
     parser.add_option("--tpm_port", action="store", dest="tpm_port",
                       default="", help="UDP Port for UCP protocol [default: 10000]")
     parser.add_option("--tpm_ip", action="store", dest="tpm_ip",

@@ -1,6 +1,8 @@
 # Import DAQ and Access Layer libraries
 # import pydaq.daq_receiver as daq
+from pyaavs.station import Station
 from pyaavs.tile import Tile
+from pyfabil.base.definitions import BoardError, LibraryError
 
 
 from datetime import datetime, timedelta
@@ -34,23 +36,25 @@ def get_eth_if_mtu(intf):
 
 
 def check_eth(station_config, data_type, mtu, logger=None):
-    eth_if = ""
     if data_type == "csp":
-        eth_if = get_eth_if_from_ip(station_config['network']['csp_ingest']['dst_ip'])
+        eth_ip = station_config['network']['csp_ingest']['dst_ip']
     elif data_type == "lmc":
-        eth_if = get_eth_if_from_ip(station_config['network']['lmc']['lmc_ip'])
+        eth_ip = station_config['network']['lmc']['lmc_ip']
     elif data_type == "integrated":
-        eth_if = get_eth_if_from_ip(station_config['network']['lmc']['integrated_data_ip'])
-    if eth_if != station_config['eth_if']:
+        eth_ip = station_config['network']['lmc']['integrated_data_ip']
+    eth_if = get_eth_if_from_ip(eth_ip)
+    if eth_if is None:
+        logger.error(f"Unable to match {data_type} destination IP address {eth_ip} to an ethernet interface "
+                      "on this machine. Check your configuration!")
+        return False
+    if eth_if != station_config['eth_if'][data_type]:
         if logger is not None:
-            logger.error("Selected DAQ Ethernet Interface %s will not receive %s data packets, "
-                         "they are routed to different IP address!" %
-                         (station_config['eth_if'], data_type.upper()))
+            logger.error(f"Selected DAQ Ethernet Interface {station_config['eth_if'][data_type]} will not "
+                         f"receive {data_type.upper()} data packets, they are routed to different IP address!")
         return False
     if get_eth_if_mtu(eth_if) < mtu:
         if logger is not None:
-            logger.error("Selected DAQ Ethernet Interface %s must have MTU larger than %i bytes!" %
-                        (station_config['eth_if'], mtu))
+            logger.error(f"Selected DAQ Ethernet Interface {eth_if} must have MTU larger than {mtu} bytes!")
         return False
     return True
 
@@ -80,3 +84,21 @@ def check_40g_test_enabled(station_config):
         return False
     else:
         return True
+
+def check_station_communication(dut):
+    if isinstance(dut, Station):
+        tiles = dut.tiles
+    elif isinstance(dut, Tile):
+        tiles = [dut]
+    else:
+        raise LibraryError(f"Unspported DUT: {type(dut)}")
+    for tile_id, tile in enumerate(tiles):
+        communication_status = tile.check_communication()
+        if not communication_status['CPLD']:
+            raise BoardError(f"Board communication error, unable to communicate with TPM{tile_id} CPLD. Has the TPM been powered off?")
+        if not communication_status['FPGA0'] or not communication_status['FPGA1']:
+            raise BoardError(f"Board communication error, unable to communicate with TPM{tile_id} FPGA. Has the TPM firmware been programmed?") 
+    return True
+      
+
+  

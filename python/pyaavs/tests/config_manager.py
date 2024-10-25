@@ -2,13 +2,24 @@ import sys
 import yaml
 import logging
 from pyaavs import station
+from copy import copy
+from test_requirements import get_eth_if_from_ip
 
 class ConfigManager():
-    def __init__(self, test_config_file="config/test_config.yml"):
-        self.test_config_file = test_config_file
-        fo = open(self.test_config_file, "r+")
-        stream = fo.read()
-        self.config_dict = yaml.safe_load(stream)
+    def __init__(self, test_config_file=None):
+        self.default_config = {
+            "daq_eth_if": None,                # DAQ Ethernet Interface
+            "single_tpm_test_station_idx": 0,  # Single TPM tests will be run on the TPM identified by index within the station
+            "gigabit_only": False,             # Gigabit only test
+            "total_bandwidth": 400e6,          # Total Bandwidth
+            "pfb_nof_channels": 512,           # nof_frequency_channels
+            "antennas_per_tile": 16,           # Number of antennas per tile
+        }
+        self.config_dict = copy(self.default_config)
+        if test_config_file is not None:
+            with open(test_config_file, "r") as yml_file:
+                file_contents = yaml.safe_load(yml_file) or {}
+            self.config_dict.update(file_contents)
 
     def get_test_config_param(self, param):
         if param in self.config_dict.keys():
@@ -26,6 +37,19 @@ class ConfigManager():
             sys.exit(-1)
         return tpm_ip
 
+    def get_station_dst_eth(self, station_config):
+        eth_if = {}
+        eth_if["csp"] = get_eth_if_from_ip(station_config['network']['csp_ingest']['dst_ip'])
+        eth_if["lmc"] = get_eth_if_from_ip(station_config['network']['lmc']['lmc_ip'])
+        eth_if["integrated"] = get_eth_if_from_ip(station_config['network']['lmc']['integrated_data_ip'])
+        if None in eth_if.values():
+            print("-"*90)
+            print("  ERROR - Unable to match one or more destination IP addresses in station configuration\n"
+                  "  file to ethernet interfaces on this machine. \n"
+                  "  Check your configuration!")
+            print("-"*90)
+        return eth_if
+    
     def apply_test_configuration(self, command_line_configuration):
         station.load_configuration_file(command_line_configuration.config)
 
@@ -45,9 +69,14 @@ class ConfigManager():
 
         station.configuration['station']['program'] = False
         station.configuration['station']['initialise'] = False
-
         station.configuration['single_tpm_config'] = {'ip': tpm_ip, 'port': tpm_port}
-        station.configuration['eth_if'] = self.get_test_config_param('daq_eth_if')
         station.configuration['test_config'] = self.config_dict
+        # If interface specified in test_config then use it for all data modes
+        daq_eth_if = self.get_test_config_param('daq_eth_if')
+        if daq_eth_if is not None:
+            station.configuration['eth_if'] = {'csp': daq_eth_if, 'lmc': daq_eth_if, 'integrated': daq_eth_if}
+        # If no interface specified, find the right interface based on the station configuration IPs
+        else:
+            station.configuration['eth_if'] = self.get_station_dst_eth(station.configuration)
 
         return station.configuration

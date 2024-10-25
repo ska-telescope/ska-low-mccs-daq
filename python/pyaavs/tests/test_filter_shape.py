@@ -79,7 +79,7 @@ class TestChannelizer():
         # Initialise DAQ. For now, this needs a configuration file with ALL the below configured
         # I'll change this to make it nicer
         daq_config = {
-                      'receiver_interface': self._tpm_config['eth_if'],  # CHANGE THIS if required
+                      'receiver_interface': self._tpm_config['eth_if']['lmc'],
                       'directory': temp_dir,  # CHANGE THIS if required
                       'nof_beam_channels': 384,
                       'nof_beam_samples': 32,

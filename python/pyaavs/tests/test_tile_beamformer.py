@@ -12,6 +12,7 @@ from pydaq.persisters import *
 
 from sys import stdout
 import test_functions as tf
+import test_requirements as tr
 import numpy as np
 import os.path
 import logging
@@ -78,11 +79,16 @@ class TestTileBeamformer():
         nof_channels = self._nof_channels
 
         gain = 2.0
-        # Initialise DAQ. For now, this needs a configuration file with ALL the below configured
-        # I'll change this to make it nicer
+
+        if not tr.check_eth(self._tpm_config, "lmc", 1500, self._logger):
+            return 1
+        self.daq_eth_if = self._tpm_config['eth_if']['lmc']
+        self.daq_eth_port = self._tpm_config['network']['lmc']['lmc_port']
+        self._logger.info(f"Using Ethernet Interface {self.daq_eth_if} and UDP port {self.daq_eth_port}")
+        
         daq_config = {
-            'receiver_interface': self._tpm_config['eth_if'],  # CHANGE THIS if required
-            'receiver_ports': str(self._tpm_config['network']['lmc']['lmc_port']),
+            'receiver_interface': self.daq_eth_if,
+            'receiver_ports': str(self.daq_eth_port),
             'directory': temp_dir,  # CHANGE THIS if required
             #     'nof_beam_channels': nof_channels,
             #    'nof_beam_channels': 384,

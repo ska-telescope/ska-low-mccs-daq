@@ -229,8 +229,8 @@ create_install
 echo "Created installation directory tree"
 
 # If software directory is not defined in environment, set it
-if [ -z "$AAVS_SOFTWARE_DIRECTORY" ]; then
-  export AAVS_SOFTWARE_DIRECTORY=`pwd`
+if [ ! -n "`cat $VENV_INSTALL/python/bin/activate | grep AAVS_SOFTWARE_DIRECTORY`" ]; then
+  echo "export AAVS_SOFTWARE_DIRECTORY=`pwd`" >> $VENV_INSTALL/python/bin/activate
 fi
 
 
