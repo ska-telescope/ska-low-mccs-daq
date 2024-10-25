@@ -1,6 +1,8 @@
 # Import DAQ and Access Layer libraries
 # import pydaq.daq_receiver as daq
+from pyaavs.station import Station
 from pyaavs.tile import Tile
+from pyfabil.base.definitions import BoardError, LibraryError
 
 
 from datetime import datetime, timedelta
@@ -82,3 +84,21 @@ def check_40g_test_enabled(station_config):
         return False
     else:
         return True
+
+def check_station_communication(dut):
+    if isinstance(dut, Station):
+        tiles = dut.tiles
+    elif isinstance(dut, Tile):
+        tiles = [dut]
+    else:
+        raise LibraryError(f"Unspported DUT: {type(dut)}")
+    for tile_id, tile in enumerate(tiles):
+        communication_status = tile.check_communication()
+        if not communication_status['CPLD']:
+            raise BoardError(f"Board communication error, unable to communicate with TPM{tile_id} CPLD. Has the TPM been powered off?")
+        if not communication_status['FPGA0'] or not communication_status['FPGA1']:
+            raise BoardError(f"Board communication error, unable to communicate with TPM{tile_id} FPGA. Has the TPM firmware been programmed?") 
+    return True
+      
+
+  

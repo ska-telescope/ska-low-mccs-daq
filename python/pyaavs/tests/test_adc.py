@@ -148,6 +148,9 @@ class TestAdc():
 
         tf.remove_hdf5_files(temp_dir)
 
+        # Verify tiles have been programmed
+        tr.check_station_communication(dut)
+
         self._logger.debug("Disable test and pattern generators...")
         self._logger.debug("Setting 0 delays...")
         for tile in tiles:
