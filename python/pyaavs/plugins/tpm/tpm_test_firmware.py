@@ -308,7 +308,7 @@ class TpmTestFirmware(FirmwareBlock):
         self.board[f'{self._device_name}.data_router.control.error_rst'] = 1
         return
 
-    def check_data_router_discard_packets(self: TpmTestFirmware) -> list:
+    def check_data_router_discarded_packets(self: TpmTestFirmware) -> list:
         """Returns value of data router nof discarded packets registers."""
         if not self.board.memory_map.has_register(f'{self._device_name}.data_router.discarded_corrupt_spead_count'):
             return None
