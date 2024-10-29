@@ -19,6 +19,7 @@ import math
 import os
 from ipaddress import IPv4Address
 from datetime import datetime 
+from copy import copy
 import sys
 
 
@@ -178,8 +179,8 @@ class Tile(TileHealthMonitor):
         if not communication_status["CPLD"]:
             raise BoardError(f"Board communication error, unable to get health status. Check communication status and try again.")
         info = {}
-        # Populate Hardware portion as provided by Sanitas
-        info['hardware'] = self.tpm.get_board_info()
+        # Populate Hardware portion as provided in TPM board class
+        info['hardware'] = copy(self.tpm.board_info)
         # Convert EEP information to IPv4Address type
         info['hardware']['ip_address_eep'] = IPv4Address(info['hardware']['ip_address_eep'])
         info['hardware']['netmask_eep'] = IPv4Address(info['hardware']['netmask_eep'])
