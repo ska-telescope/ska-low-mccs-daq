@@ -76,8 +76,8 @@ class TestDdr():
         # Preparing test
         if last_addr == -1:
             for index, tile in enumerate(self._test_station.tiles):
-                if hasattr(tile.tpm, "get_board_info"):
-                    ddr_size = int(tile.tpm.get_board_info()["DDR_SIZE_GB"])
+                if hasattr(tile.tpm, "board_info"):
+                    ddr_size = int(tile.tpm.board_info["DDR_SIZE_GB"])
                 else:
                     ddr_size = 1
 
