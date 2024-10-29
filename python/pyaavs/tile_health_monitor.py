@@ -16,6 +16,7 @@ pyfabil low level software and specific hardware module plugins.
 import time
 from pyfabil.base.definitions import LibraryError, BoardError
 from copy import copy
+from copy import deepcopy
 from functools import reduce
 import operator
 from functools import partial
@@ -289,6 +290,7 @@ class TileHealthMonitor():
             self.logger.warning(f"Not able to communicate with one of more FPGAs. Reduced health status will be returned.")
         health_status = {}
         mon_point_list = self._kwargs_handler(kwargs)
+        clear_method_list = []
         for monitoring_point in mon_point_list:
             lookup = monitoring_point.split('.')
             lookup_entry = self._parse_dict_by_path(self.monitoring_point_lookup_dict, lookup)
@@ -309,11 +311,15 @@ class TileHealthMonitor():
 
                 # Clear select health_status point if defined.
                 if "clear_method" in lookup_entry:
-                    try:
-                        lookup_entry["clear_method"]()
-                    except Exception as e:
-                        self.logger.error(f"Unable to clear monitoring_point {monitoring_point} "
-                                          "Exception : {e}")
+                    clear_method_list.append(lookup_entry["clear_method"])
+
+        for clear_method in clear_method_list:
+            try:
+                clear_method()
+            except Exception as e:
+                self.logger.error(f"Unable to clear monitoring_point {monitoring_point} "
+                                  "Exception : {e}")
+
         return health_status
     
     def clear_health_status(self, group=None):
@@ -1121,17 +1127,21 @@ class TileHealthMonitor():
     def check_data_router_status(self, fpga_id=None):
         """
         Check data router error flags.
-	
+
         :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
         :type fpga_id: integer
         
         :return: register values
         :rtype: dict
         """
-        status = {}
+
+        output_dict = {'status': {}, 'discarded_packets': {}}
+
         for fpga in self.fpga_gen(fpga_id):
-            status[f'FPGA{fpga}'] = self.tpm.tpm_test_firmware[fpga].check_data_router_status()
-        return status
+            output_dict['status'][f'FPGA{fpga}'] = self.tpm.tpm_test_firmware[fpga].check_data_router_status()
+            output_dict['discarded_packets'][f'FPGA{fpga}'] = self.tpm.tpm_test_firmware[fpga].check_data_router_discarded_packets()
+
+        return output_dict
 
     def clear_data_router_status(self, fpga_id=None):
         """

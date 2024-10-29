@@ -227,8 +227,7 @@ def load_tpm_1_6_lookup(obj):
                     'FPGA1': {"method": partial(obj.check_udp_linkup_loss_counter, fpga_id=1, show_result=False), "rate": ["fast"], "group": ["io", "udp_interface"], "exp_value": 0}
                 }
             },
-            'data_router': {"method": obj.check_data_router_status, "rate": ["fast"], "group": ["io", "data_router"], "exp_value": {'FPGA0': 0, 'FPGA1': 0}}
-        },
+            'data_router': {"method": obj.check_data_router_status, "rate": ["fast"], "group": ["io", "data_router"], "exp_value": {'status': {'FPGA0': 0, 'FPGA1': 0}, 'discarded_packets': {'FPGA0': [0, 0], 'FPGA1': [0, 0]}}, "clear_method": obj.clear_data_router_status}},
         'dsp': {
             'tile_beamf': {"method": obj.check_tile_beamformer_status, "rate": ["fast"], "group": ["dsp", "tile_beamf"], "exp_value": True, "clear_method": obj.clear_tile_beamformer_status},
             'station_beamf': {
