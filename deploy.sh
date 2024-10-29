@@ -195,7 +195,7 @@ function create_install() {
     # Create python virtual environment
     # virtualenv -p python3 $AAVS_INSTALL/python
     $PYTHON -m venv $VENV_INSTALL/python
-    
+
     # Add AAVS virtual environment alias to .bashrc, uses default venv
     if [[ ! -n "`cat ~/.bashrc | grep aavs_python`" ]]; then
       echo "alias aavs_python=\"source /opt/aavs/python/bin/activate\"" >> ~/.bashrc
@@ -236,6 +236,10 @@ fi
 
 if [[ ! -n "`cat $VENV_INSTALL/python/bin/activate | grep AAVS_INSTALL`" ]]; then
     echo "export AAVS_INSTALL=$AAVS_INSTALL" >> $VENV_INSTALL/python/bin/activate
+fi
+
+if [[ ! -n "`cat $VENV_INSTALL/python/bin/activate | grep redeploy_aavs_code`" ]]; then
+    echo "alias redeploy_aavs_code=\"pushd \$AAVS_SOFTWARE_DIRECTORY/python; pip install .; popd;\"" >> $VENV_INSTALL/python/bin/activate
 fi
 
 # Start python virtual environment
