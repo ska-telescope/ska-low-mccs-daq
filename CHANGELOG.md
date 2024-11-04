@@ -2,6 +2,10 @@
 
 ## unreleased
 
+## 0.9.1
+
+* [SKB-610] Add StationID as a configuration option.
+
 ## 0.9.0
 
 * [MCCS-2227] support SIGTERM in daq receivers so that Pods terminate gracefully
