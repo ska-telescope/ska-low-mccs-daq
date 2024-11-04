@@ -119,6 +119,7 @@ class DaqReceiver:
                         "logging": True,
                         "write_to_disk": True,
                         "station_config": None,
+                        "station_id": 0,
                         "max_filesize": None,
                         "acquisition_duration": -1,
                         "acquisition_start_time": -1,
@@ -591,7 +592,8 @@ class DaqReceiver:
 
         raw_file.set_metadata(n_antennas=self._config['nof_antennas'],
                               n_pols=self._config['nof_polarisations'],
-                              n_samples=self._config['nof_raw_samples'])
+                              n_samples=self._config['nof_raw_samples'],
+                              station_id=self._config['station_id'])
         self._persisters[DaqModes.RAW_DATA] = raw_file
 
         # Set external callback
@@ -625,7 +627,8 @@ class DaqReceiver:
         channel_file.set_metadata(n_chans=self._config['nof_channels'],
                                   n_antennas=self._config['nof_antennas'],
                                   n_pols=self._config['nof_polarisations'],
-                                  n_samples=self._config['nof_channel_samples'])
+                                  n_samples=self._config['nof_channel_samples'],
+                                  station_id=self._config['station_id'])
 
         self._persisters[DaqModes.CHANNEL_DATA] = channel_file
 
@@ -675,7 +678,8 @@ class DaqReceiver:
         channel_file.set_metadata(n_chans=1,
                                   n_antennas=self._config['nof_antennas'],
                                   n_pols=self._config['nof_polarisations'],
-                                  n_samples=self._config['nof_channel_samples'])
+                                  n_samples=self._config['nof_channel_samples'],
+                                  station_id=self._config['station_id'])
         self._persisters[DaqModes.CONTINUOUS_CHANNEL_DATA] = channel_file
 
         # Set external callback
@@ -711,7 +715,8 @@ class DaqReceiver:
         channel_file.set_metadata(n_chans=self._config['nof_channels'],
                                   n_antennas=self._config['nof_antennas'],
                                   n_pols=self._config['nof_polarisations'],
-                                  n_samples=1)
+                                  n_samples=1,
+                                  station_id=self._config['station_id'])
         self._persisters[DaqModes.INTEGRATED_CHANNEL_DATA] = channel_file
 
         # Set sampling time
@@ -746,7 +751,8 @@ class DaqReceiver:
 
         beam_file.set_metadata(n_chans=self._config['nof_beam_channels'],
                                n_pols=self._config['nof_polarisations'],
-                               n_samples=self._config['nof_beam_samples'])
+                               n_samples=self._config['nof_beam_samples'],
+                               station_id=self._config['station_id'])
         self._persisters[DaqModes.BEAM_DATA] = beam_file
 
         # Set sampling time
@@ -785,7 +791,8 @@ class DaqReceiver:
         beam_file.set_metadata(n_chans=384,
                                n_pols=self._config['nof_polarisations'],
                                n_samples=1,
-                               n_beams=self._config['nof_beams'])
+                               n_beams=self._config['nof_beams'],
+                               station_id=self._config['station_id'])
 
         self._persisters[DaqModes.INTEGRATED_BEAM_DATA] = beam_file
 
@@ -819,7 +826,8 @@ class DaqReceiver:
 
         beam_file_mgr.set_metadata(n_chans=self._config['nof_beam_channels'],
                                    n_pols=self._config['nof_polarisations'],
-                                   n_samples=1)
+                                   n_samples=1,
+                                   station_id=self._config['station_id'])
         self._persisters[DaqModes.STATION_BEAM_DATA] = beam_file_mgr
 
         # Set sampling time
@@ -862,7 +870,8 @@ class DaqReceiver:
                                n_samples=1,
                                n_antennas=self._config['nof_tiles'] * self._config['nof_antennas'],
                                n_stokes=self._config['nof_polarisations'] * self._config['nof_polarisations'],
-                               n_baselines=nof_baselines)
+                               n_baselines=nof_baselines,
+                               station_id=self._config['station_id'])
         self._persisters[DaqModes.CORRELATOR_DATA] = corr_file
 
         # Set sampling time
@@ -898,7 +907,8 @@ class DaqReceiver:
 
         raw_file.set_metadata(n_antennas=self._config['nof_antennas'],
                               n_pols=self._config['nof_polarisations'],
-                              n_samples=self._config['nof_raw_samples'])
+                              n_samples=self._config['nof_raw_samples'],
+                              station_id=self._config['station_id'])
         self._persisters[DaqModes.ANTENNA_BUFFER] = raw_file
 
         # Set external callback
@@ -1691,6 +1701,8 @@ if __name__ == "__main__":
                       help="Observation description, stored in file metadata (default: "")")
     parser.add_option("--station-config", action="store", dest="station_config", default=None,
                       help="Station configuration file, to extract additional metadata (default: None)")
+    parser.add_option("--station_id", action="store", dest="station_id", default=0,
+                      help="Station ID. (default: 0)")
     parser.add_option("--acquisition_duration", "--runtime", "--duration", "--dt", action="store",
                       dest="acquisition_duration", default=-1,
                       help="Duration of data acquisition in seconds [default: %default]", type="int")
