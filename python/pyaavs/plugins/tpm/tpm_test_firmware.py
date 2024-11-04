@@ -307,6 +307,13 @@ class TpmTestFirmware(FirmwareBlock):
             return
         self.board[f'{self._device_name}.data_router.control.error_rst'] = 1
         return
+
+    def check_data_router_discarded_packets(self: TpmTestFirmware) -> list:
+        """Returns value of data router nof discarded packets registers."""
+        if not self.board.memory_map.has_register(f'{self._device_name}.data_router.discarded_corrupt_spead_count'):
+            return None
+        return [self.board[f'{self._device_name}.data_router.discarded_corrupt_spead_count'],
+                self.board[f'{self._device_name}.data_router.discarded_backpressure_spead_count']]
         
     def check_pps_status(self: TpmTestFirmware) -> bool:
         """Check PPS detected and error free"""
