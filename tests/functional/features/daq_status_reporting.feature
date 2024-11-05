@@ -38,24 +38,31 @@ Feature: Daq Status Reporting
         Then consumer_status attribute shows <consumer> as running
 
         Examples: tbl_consumers_up
-            | consumer                  | station_name |
-            | 'RAW_DATA'                | ci-1         |
-            | 'CHANNEL_DATA'            | ci-1         |
-            | 'BEAM_DATA'               | ci-1         |
-            | 'CONTINUOUS_CHANNEL_DATA' | ci-1         |
-            | 'INTEGRATED_BEAM_DATA'    | ci-1         |
-            | 'STATION_BEAM_DATA'       | ci-1         |
-            | 'CORRELATOR_DATA'         | ci-1         |
-            | 'ANTENNA_BUFFER'          | ci-1         |
-            | 'RAW_DATA'                | real-daq-1   |
-            | 'CHANNEL_DATA'            | real-daq-1   |
-            | 'BEAM_DATA'               | real-daq-1   |
-            | 'CONTINUOUS_CHANNEL_DATA' | real-daq-1   |
-            | 'INTEGRATED_BEAM_DATA'    | real-daq-1   |
-            | 'STATION_BEAM_DATA'       | real-daq-1   |
+            | consumer                  | station_name      |
+            | 'RAW_DATA'                | ci-1              |
+            | 'CHANNEL_DATA'            | ci-1              |
+            | 'BEAM_DATA'               | ci-1              |
+            | 'CONTINUOUS_CHANNEL_DATA' | ci-1              |
+            | 'INTEGRATED_BEAM_DATA'    | ci-1              |
+            | 'STATION_BEAM_DATA'       | ci-1              |
+            | 'CORRELATOR_DATA'         | ci-1              |
+            | 'ANTENNA_BUFFER'          | ci-1              |
+            | 'RAW_DATA'                | real-daq-1        |
+            | 'CHANNEL_DATA'            | real-daq-1        |
+            | 'BEAM_DATA'               | real-daq-1        |
+            | 'CONTINUOUS_CHANNEL_DATA' | real-daq-1        |
+            | 'INTEGRATED_BEAM_DATA'    | real-daq-1        |
+            | 'STATION_BEAM_DATA'       | real-daq-1        |
             #        |   'CORRELATOR_DATA'           |            real-daq-1         | # bug MCCS-1810 and needs GPU.
-            | 'ANTENNA_BUFFER'          | real-daq-1   |
-    #       ---------------------------------
+            | 'ANTENNA_BUFFER'          | real-daq-1        |
+            #       ---------------------------------
+            | 'RAW_DATA'                | stfc-ral-software |
+            | 'CHANNEL_DATA'            | stfc-ral-software |
+            | 'BEAM_DATA'               | stfc-ral-software |
+            | 'CONTINUOUS_CHANNEL_DATA' | stfc-ral-software |
+            | 'INTEGRATED_BEAM_DATA'    | stfc-ral-software |
+            | 'STATION_BEAM_DATA'       | stfc-ral-software |
+            | 'ANTENNA_BUFFER'          | stfc-ral-software |
 
     @forked
     Scenario: Consumers Stopping

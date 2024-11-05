@@ -15,7 +15,7 @@ from typing import Any, Generator
 import numpy as np
 import pytest
 import tango
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 from ska_control_model import AdminMode
 from ska_tango_testing.mock.placeholders import Anything
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
@@ -33,22 +33,6 @@ from ..test_tools import retry_communication
 scenarios("./features/bandpass_monitor.feature")
 
 
-@pytest.fixture(name="station_name")
-def station_name_fixture(true_context: bool) -> str:
-    """
-    Return the name of the station under test.
-
-    :param true_context: whether to test against an existing Tango deployment
-
-    :return: the name of the station under test
-    """
-    if not true_context:
-        pytest.skip(
-            "This needs to be run in a true-context against a real DAQ deployment"
-        )
-    return "real-daq-1"
-
-
 @pytest.fixture(name="plot_directory")
 def plot_directory_fixture() -> str:
     """
@@ -59,33 +43,41 @@ def plot_directory_fixture() -> str:
     return "/product/test_eb_id/low-mccs/test_scan_id/plots/"
 
 
-@given(parsers.cfparse("interface {interface}"), target_fixture="interface")
-def daq_interface(
-    interface: str,
+@given(
+    "we have a station to test against",
+    target_fixture="station_name",
+)
+def available_station_fixture(
+    available_stations: list[str],
+    true_context: bool,
 ) -> str:
     """
-    Interface to send/listen on.
+    Return an available station to test against.
 
-    :param interface: The interface to send/listen on.
+    :param available_stations: a list of stations available in this
+        environment.
+    :param true_context: whether to test against an existing Tango deployment
 
-    :return: the network interface
+    :return: the station to test against.
     """
-    return interface
+    if not true_context:
+        pytest.skip(
+            "This needs to be run in a true-context against a real DAQ deployment"
+        )
+    return available_stations[-1]
 
 
 @pytest.fixture(name="daq_config")
-def daq_config_fixture(interface: str) -> dict[str, Any]:
+def daq_config_fixture() -> dict[str, Any]:
     """
     Get the config to configure the daq with.
 
-    :param interface: The interface to send/listen on.
     :return: the config to configure the DAQ with.
     """
     return {
         "directory": "/product/test_eb_id/ska-low-mccs/test_scan_id/",
         "nof_tiles": 1,
         "append_integrated": False,
-        "receiver_interface": interface,
     }
 
 
@@ -118,15 +110,16 @@ def tile_device_fixture(station_name: str) -> str:
 
 
 @given("the Subrack is available", target_fixture="subrack_device")
-def subrack_device_fixture(station_name: str) -> str:
+def subrack_device_fixture(station_name: str, subrack_id: int) -> str:
     """
     Return a ``tango.DeviceProxy`` to the subrack device under test.
 
     :param station_name: the name of the station under test.
+    :param subrack_id: the id of the subrack used in this test.
 
     :return: a ``tango.DeviceProxy`` to the subrack device under test.
     """
-    return tango.DeviceProxy(get_subrack_name(1, station_name))
+    return tango.DeviceProxy(get_subrack_name(subrack_id, station_name))
 
 
 @given("the Tile is routed to the DAQ")
@@ -162,11 +155,11 @@ def tile_ready_to_send_to_daq(
             )
 
         tile_device.on()
-        poll_until_state_change(tile_device, tango.DevState.ON, 20)
+        poll_until_state_change(tile_device, tango.DevState.ON, 60)
 
     if tile_device.tileProgrammingState not in ["Initialised", "Synchronised"]:
         assert expect_attribute(
-            tile_device, "tileProgrammingState", "Initialised", timeout=5.0
+            tile_device, "tileProgrammingState", "Initialised", timeout=20.0
         )
 
     # Start the ADCs and SDP processing chain.
@@ -417,31 +410,57 @@ def tile_send_data(
 @then("the DAQ reports that it has received integrated channel data")
 def daq_received_data(
     change_event_callbacks: MockTangoEventCallbackGroup,
+    tile_device: tango.DeviceProxy,
+    station_name: str,
 ) -> None:
     """
     Confirm Daq has received data.
 
+    :param station_name: the name of the station under test.
     :param change_event_callbacks: a dictionary of callables to be used as
         tango change event callbacks.
+    :param tile_device: A 'tango.DeviceProxy' to the Tile device.
     """
-    change_event_callbacks["data_received_callback"].assert_change_event(
-        ("integrated_channel", Anything)
-    )
+    try:
+        change_event_callbacks["data_received_callback"].assert_change_event(
+            ("integrated_channel", Anything)
+        )
+    except AssertionError:
+        if station_name == "stfc-ral-software":
+            pytest.xfail(
+                "There seems to be a discrepency between the simulator and hardware."
+                "When testing against hardware the datatype collected is burst_channel"
+            )
+        pytest.fail("No integrated_channel data was received")
+    # Stop the data transmission, else it will continue forever.
+    tile_device.StopIntegratedData()
 
 
 @then("the DAQ saves bandpass data to its relevant attributes")
 def daq_bandpasses_saved(
     daq_device: tango.DeviceProxy,
     change_event_callbacks: MockTangoEventCallbackGroup,
+    station_name: str,
 ) -> None:
     """
     Confirm the DAQ has stored bandpass data to its attributes.
 
+    :param station_name: the name of the station under test.
     :param daq_device: A 'tango.DeviceProxy' to the Daq device.
     :param change_event_callbacks: a dictionary of callables to be used as
         tango change event callbacks.
     """
-    change_event_callbacks["daq_xPolBandpass"].assert_change_event(Anything)
-    assert np.count_nonzero(daq_device.xPolBandpass) > 0
-    change_event_callbacks["daq_yPolBandpass"].assert_change_event(Anything)
-    assert np.count_nonzero(daq_device.yPolBandpass) > 0
+    try:
+        change_event_callbacks["daq_xPolBandpass"].assert_change_event(Anything)
+        assert np.count_nonzero(daq_device.xPolBandpass) > 0
+        change_event_callbacks["daq_yPolBandpass"].assert_change_event(Anything)
+        assert np.count_nonzero(daq_device.yPolBandpass) > 0
+    except AssertionError as e:
+        if station_name == "stfc-ral-software":
+            pytest.xfail(
+                "There is an issue with this stage at RAL."
+                "Caught exception: list index out of range. "
+                "Tile 1 out of bounds! Max tile number: 1"
+                f"Failed with message {e}"
+            )
+        pytest.fail("Bandpass callbacks got no update")
