@@ -261,6 +261,8 @@ class TestPatchedDaq:
         #     "_set_consumers_to_start.return_value": ,
         # }
         # mock_component_manager.configure_mock(**configuration)
+        # Currently a check in base classes that causes an exception if attr is present.
+        del mock_component_manager.abort_commands
         return mock_component_manager
 
     @pytest.fixture(name="device_class_under_test")
