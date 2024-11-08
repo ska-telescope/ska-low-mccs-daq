@@ -32,9 +32,9 @@ Feature: Receiving SPEAD packets.
     Then Daq receives data <daq_modes_of_interest>
 
     Examples: modes of interest
-      | daq_modes_of_interest   | data_type | no_of_tiles | expected_station  |
-      | INTEGRATED_CHANNEL_DATA | channel   | 16          | real-daq-1        |
-      | CHANNEL_DATA            | channel   | 16          | stfc-ral-software |
+      | daq_modes_of_interest   | data_type | no_of_tiles | expected_station |
+      | INTEGRATED_CHANNEL_DATA | channel   | 16          | real-daq-1       |
+      | CHANNEL_DATA            | channel   | 16          | ral-software     |
 
 
 

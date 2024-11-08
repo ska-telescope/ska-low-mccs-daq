@@ -13,10 +13,10 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in health state OK
 
         Examples:
-        |     expected_station    |
-        |        ci-1         |
-        |     real-daq-1      |
-        |  stfc-ral-software  |
+            | expected_station |
+            | ci-1             |
+            | real-daq-1       |
+            | ral-software     |
 
 
     Scenario Outline: Turning the DAQ off
@@ -30,10 +30,10 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in health state UNKNOWN
 
         Examples:
-        |      expected_station   |
-        |        ci-1         |
-        |     real-daq-1      |
-        |  stfc-ral-software  |
+            | expected_station |
+            | ci-1             |
+            | real-daq-1       |
+            | ral-software     |
 
     @XTP-21184
     Scenario Outline: Configuring the DAQ to raw data
@@ -48,10 +48,10 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in raw data mode
 
         Examples:
-        |     expected_station    |
-        |        ci-1         |
-        |     real-daq-1      |
-        |  stfc-ral-software  |
+            | expected_station |
+            | ci-1             |
+            | real-daq-1       |
+            | ral-software     |
 
     @XTP-21185
     Scenario Outline: Configuring the DAQ to channelised data
@@ -66,10 +66,10 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in channelised data mode
 
         Examples:
-        |      expected_station   |
-        |        ci-1         |
-        |     real-daq-1      |
-        |  stfc-ral-software  |
+            | expected_station |
+            | ci-1             |
+            | real-daq-1       |
+            | ral-software     |
 
 # @XTP-21186 @xfail
 # Scenario: Applying the calibration values
