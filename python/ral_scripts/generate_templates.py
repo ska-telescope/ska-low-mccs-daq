@@ -21,7 +21,7 @@ def generate_templates(template_name=None, start_fc=None, f_width=None, bitfile_
         "tiles": tiles or ["10.132.0.61", "10.132.0.62"]
     }
 
-    config_dir = Path().cwd().parents[0] / "config"
+    config_dir = Path(__file__).resolve().parents[2] / "config"
     file_loader = FileSystemLoader('/')
     environment = Environment(loader=file_loader)
     for file in Path(f'{config_dir}/templates').iterdir():
