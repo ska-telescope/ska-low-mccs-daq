@@ -346,6 +346,7 @@ if [ -d $DIR ]; then
 fi
 ln -s $PWD/config $DIR
 
+make download-firmware
 
 echo ""
 echo "Installation finished. Please check your .bashrc file and source it to update your environment."

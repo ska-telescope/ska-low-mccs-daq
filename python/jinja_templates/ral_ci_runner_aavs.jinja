@@ -1,0 +1,71 @@
+# Observation-related configuration, specifying the channel region
+# for the station beamformer
+observation:
+    start_frequency_channel: 156.25e6
+    bandwidth: 6.25e6
+
+# Station configuration parameters
+station:
+    id: 0
+    channel_truncation: 5
+    beam_integration_time: 1
+    channel_integration_time: 1
+    beamformer_scaling: 4
+    bitfile: "/opt/aavs-ci-runner/bitfiles/itpm_v1_5_tpm_test_wrap_sbf{{firmware_version}}.bit"
+    equalize_preadu: No
+    pps_delays: [0, 0]
+
+# Network configuration parameters
+network:
+    tile_40g_subnet: "10.130.0.51/25"  # First Tile 40G IP / Subnet
+    active_40g_qsfp: "port1-only"  #"port1-only", "port2-only", "both-ports"
+    lmc:
+        lmc_mac: None
+        lmc_ip:  "10.132.61.2"
+        lmc_port: 6660
+        tpm_cpld_port: 10000
+        use_teng: True
+
+        integrated_data_ip: "10.132.61.2"
+        integrated_data_port: 6660
+        use_teng_integrated: True
+
+    csp_ingest:
+        dst_mac: None
+        dst_ip: "10.132.61.2"
+        dst_port: 6660
+        src_mac: Null
+        src_ip: Null
+        src_port: Null
+
+# List of TPM IPs (or names) which will form station
+tiles:
+# Subrack 1
+#    - "10.132.0.21"
+#    - "10.132.0.22"
+#    - "10.132.0.23"
+#    - "10.132.0.24"
+#    - "10.132.0.25"
+#    - "10.132.0.26"
+#    - "10.132.0.27"
+#    - "10.132.0.28"
+#
+# Subrack 2
+#    - "10.132.0.41"
+#    - "10.132.0.42"
+#    - "10.132.0.43"
+#    - "10.132.0.44"
+#    - "10.132.0.45"
+#    - "10.132.0.46"
+#    - "10.132.0.47"
+#    - "10.132.0.48"
+#
+# Subrack 3
+#    - "10.132.0.61"  # Reserved for CI Pipeline
+#    - "10.132.0.62"  # Reserved for CI Pipeline
+    - "10.132.0.63"
+    - "10.132.0.64"
+#    - "10.132.0.65"
+#    - "10.132.0.66"
+#    - "10.132.0.67"
+#    - "10.132.0.68"
