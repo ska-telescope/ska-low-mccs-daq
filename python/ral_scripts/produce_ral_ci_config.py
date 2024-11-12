@@ -1,5 +1,6 @@
 from generate_templates import generate_templates
 from download_firmware import FirmwareManager
+from oxford_subrack_power_control import RALSubrack3
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -10,6 +11,9 @@ fm = FirmwareManager()
 latest_firmware_version = fm.get_latest_firmware_version().replace(".", "_")
 
 bitfile_path = None
+
+subrack = RALSubrack3()
+subrack.power_cycle_tpm([1, 2])
 
 if args.aavs:
     bitfile_path = f"/opt/aavs-ci-runner/bitfiles/tpm_firmware_{latest_firmware_version}.bit"
