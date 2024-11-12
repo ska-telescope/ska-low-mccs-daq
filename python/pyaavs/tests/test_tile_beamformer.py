@@ -108,8 +108,7 @@ class TestTileBeamformer():
         #
         tf.disable_test_generator_and_pattern(tile)
         tile.set_channeliser_truncation(5)
-        tile['fpga1.jesd204_if.regfile_channel_disable'] = 0xFFFF
-        tile['fpga2.jesd204_if.regfile_channel_disable'] = 0xFFFF
+        tile.disable_all_adcs()
 
         channels = range(int(first_channel), int(last_channel) + 1)
         single_input_data = np.zeros((2, 16), dtype='complex')
