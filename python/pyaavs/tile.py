@@ -3141,6 +3141,20 @@ class Tile(TileHealthMonitor):
             preadu.write_configuration()
 
     # ----------------------------
+    # Wrapper for jesd methods
+    # ----------------------------
+
+    def enable_all_adcs(self):
+        """Enable all lanes on each FPGA"""
+        for jesd in self.tpm.tpm_jesd:
+            jesd.enable_all_lanes()
+
+    def disable_all_adcs(self):
+        """Disable all lanes on each FPGA"""
+        for jesd in self.tpm.tpm_jesd:
+            jesd.disable_all_lanes()
+
+    # ----------------------------
     # Wrapper for test generator
     # ----------------------------
     @connected
