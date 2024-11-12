@@ -278,7 +278,7 @@ class TestTileBeamformer():
                 time.sleep(0.1)
 
             beam_val_corrected_pol0 = tf.get_beam_value(data, 0, c)
-            beam_val_corrected_pol1 = tf.get_beam_value(data, 0, c)
+            beam_val_corrected_pol1 = tf.get_beam_value(data, 1, c)
             self._logger.info(beam_val_corrected_pol0)
             self._logger.info(beam_val_corrected_pol1)
             self._logger.info("Corrected value pol0:")
