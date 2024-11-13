@@ -811,6 +811,37 @@ class Station(object):
         for tile in self.tiles:
             tile.set_multi_channel_dst_ip(dst_ip, destination_id)
 
+    # ------------------------------------------- STATION BEAM FUNCTIONS ---------------------------------------
+    def enable_station_beam_flagging(self):
+        """
+        This enables the transmission of incomplete frames, any packets in the
+        frame that are missing will be substituted for the reserved value
+        (flagged).
+        """
+        last_tile = self.tiles[-1]
+        last_tile.enable_station_beam_flagging()
+
+    def disable_station_beam_flagging(self):
+        """
+        This disables the transmission of incomplete frames, if a frame is not
+        complete, the entire frame will be dropped. No flagging will occur and
+        this will appear as packet loss to CSP.
+        """
+        last_tile = self.tiles[-1]
+        last_tile.disable_station_beam_flagging()
+
+    def check_station_beamformer_discarded_or_flagged_packet_count(self):
+        """
+        Check value of Station Beamformer discarded or flagged packet counter.
+        When station beam flagging disabled, returns a count of packets discarded. Will always be a multiple of 8. 
+        When station beam flagging enabled, returns a count of packets substitued (flagged).
+
+        :return: counter values
+        :rtype: dict
+        """
+        last_tile = self.tiles[-1]
+        return last_tile.check_station_beamformer_discarded_or_flagged_packet_count()
+
     # ------------------------------------------- TEST FUNCTIONS ---------------------------------------
 
     # ------------------------------------------- OVERLOADED FUNCTIONS ---------------------------------------

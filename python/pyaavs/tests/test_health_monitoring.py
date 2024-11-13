@@ -167,6 +167,12 @@ class TestHealthMonitoring():
 
         for n, tile in enumerate(self._test_station.tiles):
             
+            # Bitfiles sbf610 and older do not have station beam discarded or flagged packet counts
+            # check for existance of additional station beam registers
+            if not tile.tpm.has_register('fpga1.beamf_ring.discarded_or_flagged_packet_count'):
+                self._logger.warning("FPGA Firmware does not support updated station beam discarded or flagged packet counters. These checks will be skipped.")
+                MON_POINT_SKIP.append('dsp.station_beamf.discarded_or_flagged_packet_count')
+
             # Bitfiles sbf540 and older do not have data router error flags
             # check for existance of additional data router registers
             if not tile.tpm.has_register('fpga1.data_router.control'):

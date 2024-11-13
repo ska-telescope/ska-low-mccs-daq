@@ -1335,6 +1335,24 @@ class TileHealthMonitor():
             return not any(errors) # Return True if all flags and counters are 0, else False
         return
 
+    def check_station_beamformer_discarded_or_flagged_packet_count(self, fpga_id=None):
+        """
+        NOTE: this is only meaningful for the tile configured as last in the station beam chain.
+        Check value of Station Beamformer discarded or flagged packet counter.
+        When station beam flagging disabled, returns a count of packets discarded. Will always be a multiple of 8. 
+        When station beam flagging enabled, returns a count of packets substitued (flagged).
+
+        :param fpga_id: Specify which FPGA, 0,1, or None for both FPGAs
+        :type fpga_id: integer
+
+        :return: counter values
+        :rtype: dict
+        """
+        counts = {}
+        for fpga in self.fpga_gen(fpga_id):
+            counts[f'FPGA{fpga}'] = self.tpm.station_beamf[fpga].get_discarded_or_flagged_packet_count()
+        return counts # Return dict of counter values
+
     def clear_station_beamformer_status(self, fpga_id=None):
         """
         Clear status of Station Beamformer error flags and counters.
