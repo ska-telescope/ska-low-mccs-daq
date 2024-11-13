@@ -622,6 +622,34 @@ class Tile(TileHealthMonitor):
         return self.tpm.station_beamf[fpga_id].get_channel_table()
 
     @connected
+    def enable_station_beam_flagging(self, fpga_id=None):
+        """
+        This enables the transmission of incomplete frames, any packets in the
+        frame that are missing will be substituted for the reserved value
+        (flagged).
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        for fpga in fpgas:
+            self.tpm.station_beamf[fpga].enable_flagging()
+
+    @connected
+    def disable_station_beam_flagging(self, fpga_id=None):
+        """
+        This disables the transmission of incomplete frames, if a frame is not
+        complete, the entire frame will be dropped. No flagging will occur and
+        this will appear as packet loss to CSP.
+        """
+        if fpga_id is None:
+            fpgas = range(len(self.tpm.tpm_test_firmware))
+        else:
+            fpgas = [fpga_id]
+        for fpga in fpgas:
+            self.tpm.station_beamf[fpga].disable_flagging()
+
+    @connected
     def define_channel_table(self, region_array: List[List[int]], fpga_id: Optional[int] = None):
         """
         Set frequency regions.

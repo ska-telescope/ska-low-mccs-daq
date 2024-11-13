@@ -231,8 +231,9 @@ def load_tpm_1_6_lookup(obj):
         'dsp': {
             'tile_beamf': {"method": obj.check_tile_beamformer_status, "rate": ["fast"], "group": ["dsp", "tile_beamf"], "exp_value": True, "clear_method": obj.clear_tile_beamformer_status},
             'station_beamf': {
-                'status'                : {"method": obj.check_station_beamformer_status, "rate": ["fast"], "group": ["dsp", "station_beamf"], "exp_value": True, "clear_method": obj.clear_station_beamformer_status},
-                'ddr_parity_error_count': {"method": obj.check_ddr_parity_error_counter,  "rate": ["fast"], "group": ["dsp", "station_beamf"], "exp_value": {'FPGA0': 0, 'FPGA1': 0}},
+                'status'                            : {"method": obj.check_station_beamformer_status,                            "rate": ["fast"], "group": ["dsp", "station_beamf"], "exp_value": True, "clear_method": obj.clear_station_beamformer_status},
+                'discarded_or_flagged_packet_count' : {"method": obj.check_station_beamformer_discarded_or_flagged_packet_count, "rate": ["fast"], "group": ["dsp", "station_beamf"], "exp_value": {'FPGA0': 0, 'FPGA1': 0}, "clear_method": obj.clear_station_beamformer_status},
+                'ddr_parity_error_count'            : {"method": obj.check_ddr_parity_error_counter,                             "rate": ["fast"], "group": ["dsp", "station_beamf"], "exp_value": {'FPGA0': 0, 'FPGA1': 0}},
             }
         }
     }
