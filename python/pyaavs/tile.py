@@ -3141,6 +3141,20 @@ class Tile(TileHealthMonitor):
             preadu.write_configuration()
 
     # ----------------------------
+    # Wrapper for jesd methods
+    # ----------------------------
+
+    def enable_all_adcs(self):
+        """Enable all lanes on each FPGA"""
+        for jesd in self.tpm.tpm_jesd:
+            jesd.enable_all_lanes()
+
+    def disable_all_adcs(self):
+        """Disable all lanes on each FPGA"""
+        for jesd in self.tpm.tpm_jesd:
+            jesd.disable_all_lanes()
+
+    # ----------------------------
     # Wrapper for test generator
     # ----------------------------
     @connected
@@ -3222,6 +3236,16 @@ class Tile(TileHealthMonitor):
         """
         self.tpm.test_generator[0].channel_select(inputs & 0xFFFF)
         self.tpm.test_generator[1].channel_select((inputs >> 16) & 0xFFFF)
+
+    def test_generator_set_delay(self, delays):
+        """
+        Set the delays in the test generator.
+
+        :param delays: a 32 long list of floats.
+        :type delays: float
+        """
+        self.tpm.test_generator[0].set_delay(delays[0:15])
+        self.tpm.test_generator[1].set_delay(delays[16:32])
 
     # ----------------------------
     # Wrapper for pattern generator

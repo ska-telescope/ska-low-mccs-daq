@@ -107,8 +107,7 @@ def stop_station_pattern(station, stage):
 
 def disable_test_generator_and_pattern(tile):
     tile.stop_pattern("all")
-    tile['fpga1.jesd204_if.regfile_channel_disable'] = 0x0
-    tile['fpga2.jesd204_if.regfile_channel_disable'] = 0x0
+    tile.enable_all_adcs()
     tile.test_generator_set_tone(0, 0.0, 0.0)
     tile.test_generator_set_tone(1, 0.0, 0.0)
     tile.test_generator_set_noise(0.0)

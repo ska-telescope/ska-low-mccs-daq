@@ -122,8 +122,7 @@ if __name__ == "__main__":
 
 
     tile.stop_pattern("all")
-    tile['fpga1.jesd204_if.regfile_channel_disable'] = 0x0000
-    tile['fpga2.jesd204_if.regfile_channel_disable'] = 0x0000
+    tile.enable_all_adcs()
     tile.test_generator_disable_tone(0)
     tile.test_generator_disable_tone(1)
     tile.test_generator_set_noise(0.0)

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='aavs-system',
-    version='1.4.1',
+    version='1.4.2',
     packages=find_packages(),
     url='https://gitlab.com/ska-telescope/aavs-system',
     license='',

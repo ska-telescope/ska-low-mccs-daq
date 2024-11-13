@@ -108,8 +108,7 @@ class TestTileBeamformer():
         #
         tf.disable_test_generator_and_pattern(tile)
         tile.set_channeliser_truncation(5)
-        tile['fpga1.jesd204_if.regfile_channel_disable'] = 0xFFFF
-        tile['fpga2.jesd204_if.regfile_channel_disable'] = 0xFFFF
+        tile.disable_all_adcs()
 
         channels = range(int(first_channel), int(last_channel) + 1)
         single_input_data = np.zeros((2, 16), dtype='complex')
@@ -279,7 +278,7 @@ class TestTileBeamformer():
                 time.sleep(0.1)
 
             beam_val_corrected_pol0 = tf.get_beam_value(data, 0, c)
-            beam_val_corrected_pol1 = tf.get_beam_value(data, 0, c)
+            beam_val_corrected_pol1 = tf.get_beam_value(data, 1, c)
             self._logger.info(beam_val_corrected_pol0)
             self._logger.info(beam_val_corrected_pol1)
             self._logger.info("Corrected value pol0:")

@@ -94,8 +94,7 @@ class TestChannelizer():
         daq.start_channel_data_consumer(callback=data_callback)
 
         #tf.disable_test_generator_and_pattern(tile)
-        tile['fpga1.jesd204_if.regfile_channel_disable'] = 0xFFFF
-        tile['fpga2.jesd204_if.regfile_channel_disable'] = 0xFFFF
+        tile.disable_all_adcs()
         tile.test_generator_input_select(0xFFFFFFFF)
         tile.test_generator_set_noise(0.01)
         tile.test_generator_set_tone(0, 0.0, 0.0)

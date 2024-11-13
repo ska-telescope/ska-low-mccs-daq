@@ -50,8 +50,7 @@ class TestStationBeam():
         for i, tile in enumerate(self._test_station.tiles):
             tile.set_channeliser_truncation(5)
             tf.disable_test_generator_and_pattern(tile)
-            tile['fpga1.jesd204_if.regfile_channel_disable'] = 0xFFFF
-            tile['fpga2.jesd204_if.regfile_channel_disable'] = 0xFFFF
+            tile.disable_all_adcs()
             self._test_station.tiles[i].test_generator_input_select(0xFFFFFFFF)
         self._test_station.test_generator_set_tone(0, frequency=100e6, ampl=0.0)
         self._test_station.test_generator_set_tone(1, frequency=100e6, ampl=0.0)

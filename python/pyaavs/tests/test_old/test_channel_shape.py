@@ -122,8 +122,7 @@ if __name__ == "__main__":
         frequency_adder = (hi_frequency - lo_frequency) / points
 
     tile.stop_pattern("all")
-    tile['fpga1.jesd204_if.regfile_channel_disable'] = 0xFFFF
-    tile['fpga2.jesd204_if.regfile_channel_disable'] = 0xFFFF
+    tile.disable_all_adcs()
     tile.test_generator_disable_tone(0)
     tile.test_generator_disable_tone(1)
     tile.test_generator_set_noise(0.0)
