@@ -624,6 +624,7 @@ class Tile(TileHealthMonitor):
     @connected
     def enable_station_beam_flagging(self, fpga_id=None):
         """
+        NOTE: this only affects the last tile in the station beam chain.
         This enables the transmission of incomplete frames, any packets in the
         frame that are missing will be substituted for the reserved value
         (flagged).
@@ -638,6 +639,7 @@ class Tile(TileHealthMonitor):
     @connected
     def disable_station_beam_flagging(self, fpga_id=None):
         """
+        NOTE: this only affects the last tile in the station beam chain.
         This disables the transmission of incomplete frames, if a frame is not
         complete, the entire frame will be dropped. No flagging will occur and
         this will appear as packet loss to CSP.
