@@ -3237,6 +3237,16 @@ class Tile(TileHealthMonitor):
         self.tpm.test_generator[0].channel_select(inputs & 0xFFFF)
         self.tpm.test_generator[1].channel_select((inputs >> 16) & 0xFFFF)
 
+    def test_generator_set_delay(self, delays):
+        """
+        Set the delays in the test generator.
+
+        :param delays: a 32 long list of floats.
+        :type delays: float
+        """
+        self.tpm.test_generator[0].set_delay(delays[0:16])
+        self.tpm.test_generator[1].set_delay(delays[16:32])
+
     # ----------------------------
     # Wrapper for pattern generator
     # ----------------------------
