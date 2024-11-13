@@ -107,13 +107,17 @@ class FirmwareManager:
         """
         return tuple(map(int, version.split('.')))
 
-    def download_firmware(self, include_ltx=False):
+    def download_firmware(self, include_ltx=False, nof_downloads=-1):
         """
         Gets the available firmware from the car, and downloads any that aren't already downloaded.
         """
 
         self.get_available_firmware_versions()
-        firmware_to_download_list = self.not_downloaded_firmware_versions
+
+        if nof_downloads < 1 or nof_downloads > len(self.not_downloaded_firmware_versions):
+            firmware_to_download_list = self.not_downloaded_firmware_versions
+        else:
+            firmware_to_download_list = self.not_downloaded_firmware_versions[-nof_downloads:]
 
         for firmware_version in firmware_to_download_list:
             firmware_bitstream_path = Path(str(self.version_to_file(firmware_version)))
@@ -148,7 +152,9 @@ class FirmwareManager:
         shutil.copy(self.temp_path/"tpm_firmware.bit", f"{bitstream_path}")
 
         if include_ltx:
-            shutil.copy(self.temp_path/"tpm_firmware.bit", f"{str(bitstream_path).replace('.bit', '')}.ltx")
+            ltx_file_path = self.temp_path/"tpm_firmware.ltx"
+            if ltx_file_path.exists():
+                shutil.copy(ltx_file_path, f"{str(bitstream_path).replace('.bit', '')}.ltx")
 
         shutil.rmtree(self.temp_path)
 
@@ -168,10 +174,11 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--bitfile_pattern', default='tpm_firmware_*.bit')
     parser.add_argument('-t', '--temp_path', default='temp_firmware')
     parser.add_argument('-l', '--include_ltx', action='store_true')
+    parser.add_argument('-n', '--nof_downloads', default=-1)
 
     args = parser.parse_args()
 
     fm = FirmwareManager(bitfile_location=args.bitfile_location, bitfile_pattern=args.bitfile_pattern,
                          temp_path=args.temp_path, repo_root=args.repo_root)
 
-    fm.download_firmware(include_ltx=args.include_ltx)
+    fm.download_firmware(include_ltx=args.include_ltx, nof_downloads=int(args.nof_downloads))
