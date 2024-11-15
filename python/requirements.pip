@@ -25,6 +25,7 @@ typing_extensions
 netifaces
 jinja2
 requests
+semver
 ska-ser-sphinx-theme; python_version>="3.8.1"
 recommonmark; python_version>="3.8.1"
 astropy; python_version>="3.9"

@@ -17,6 +17,7 @@ function display_help(){
     echo "-a <aavs path> specifies location of installed AAVS (default /opt/aavs), must be absolute"
     echo "-v <venv path> specifies location of 'python' virtualenv folder (default /opt/aavs)"
     echo "-b <pyfabil_branch> specifies pyfabil branch to be installed"
+    echo "-d             specifies the number of FPGA firmware releases downloaded from the SKAO CAR"
     echo "-t <itpm_bios_branch> specifies itpm-bios branch to be installed"
     echo "-c             clean build directories and installed python virtual environment"
     echo "-h             Print this message"
@@ -63,15 +64,17 @@ ACTIVATE_VENV=false
 PRINT_HELP=false
 PYFABIL_BRANCH="master"
 ITPM_BIOS_BRANCH="main"
+FIRMWARE_CAR_DOWNLOAD=-1
 
 # Process command-line arguments
 
-while getopts "Chpcdb:t:v:a:" flag
+while getopts "Chpd:cb:t:v:a:" flag
 do
     case "${flag}" in
         C) COMPILE_CORRELATOR=ON ;;
         h) PRINT_HELP=true ;;
         p) ACTIVATE_VENV=true ;;
+        d) FIRMWARE_CAR_DOWNLOAD=${OPTARG} ;;
         c) CLEAN=true ;;
         b) PYFABIL_BRANCH=${OPTARG} ;;
         t) ITPM_BIOS_BRANCH=${OPTARG} ;;
@@ -346,7 +349,11 @@ if [ -d $DIR ]; then
 fi
 ln -s $PWD/config $DIR
 
-make download-firmware
+if [ $CLEAN == true ]; then
+  make download-firmware download_args="--nof_downloads $FIRMWARE_CAR_DOWNLOAD --clean"
+else
+  make download-firmware download_args="--nof_downloads $FIRMWARE_CAR_DOWNLOAD"
+fi
 
 echo ""
 echo "Installation finished. Please check your .bashrc file and source it to update your environment."

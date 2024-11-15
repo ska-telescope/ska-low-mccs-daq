@@ -3,15 +3,15 @@ from pathlib import Path
 import os
 
 
-def generate_templates(template_name=None, start_fc=None, f_width=None, bitfile_path=None, tile_40g_subnet=None,
-                       dst_ip=None, dst_port=None, tiles=None):
+def generate_templates(bitfile_path, template_name=None, start_fc=None, f_width=None, tile_40g_subnet=None, dst_ip=None,
+                       dst_port=None, tiles=None):
     data = {
         "observation": {
             "start_frequency_channel": start_fc or "156.25e6",
             "bandwidth": f_width or "6.25e6"
         },
         "station": {
-            "bitfile": bitfile_path or "/opt/aavs-ci-runner/bitfiles/itpm_v1_5_tpm_test_wrap_ci.bit"
+            "bitfile": bitfile_path
         },
         "network": {
             "tile_40g_subnet": tile_40g_subnet or "10.130.0.51/25",
@@ -24,9 +24,11 @@ def generate_templates(template_name=None, start_fc=None, f_width=None, bitfile_
     config_dir = Path(__file__).resolve().parents[2] / "config"
     file_loader = FileSystemLoader('/')
     environment = Environment(loader=file_loader)
+    # Iterate through templates dir for all .template files
     for file in Path(f'{config_dir}/templates').iterdir():
-        if template_name is None or template_name == file.name:
-            if file.is_file() and file.name.endswith('.template'):
+        if file.is_file() and file.name.endswith('.template'):
+            # If all templates or specific template found
+            if template_name is None or template_name == file.name:
                 template = environment.get_template(str(file))
                 output_file = file.name.replace('.template', '')
                 with open(Path(config_dir) / output_file, mode="w", encoding="utf-8") as config_yml:
