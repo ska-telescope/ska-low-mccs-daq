@@ -1,4 +1,4 @@
-# type: ignore
+ # type: ignore
 # -*- coding: utf-8 -*-
 #
 # This file is part of the SKA Low MCCS project
@@ -8,7 +8,7 @@
 # Distributed under the terms of the GPL license.
 # See LICENSE.txt for more info.
 """
-Hardware functions for the TPM 1.2 hardware.
+Hardware functions for the TPM hardware.
 """
 import functools
 import logging
@@ -17,19 +17,18 @@ import numpy as np
 import time
 import math
 import os
+import sys
 from ipaddress import IPv4Address
 from datetime import datetime 
 from copy import copy
-import sys
-
-
+from typing import Optional, List
 
 if sys.version_info.minor >= 9:
     from astropy.time import Time as AstropyTime
-from typing import Optional, List
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status, RegisterInfo
 from pyfabil.base.utils import ip2long
+from pyfabil.boards.tpm_generic import TPMGeneric
 from pyfabil.boards.tpm import TPM
 
 from pyaavs.tile_health_monitor import TileHealthMonitor
@@ -91,9 +90,10 @@ class Tile(TileHealthMonitor):
         lmc_port=4660,
         sampling_rate=800e6,
         logger=None,
+        tpm_version=None
     ):
         """
-        Initialise a new Tile12 instance.
+        Iniitalise a new Tile instance.
 
         :param logger: the logger to be used by this Command. If not
                 provided, then a default module logger will be used.
@@ -109,6 +109,13 @@ class Tile(TileHealthMonitor):
         :param sampling_rate: ADC sampling rate
         :type sampling_rate: float
         """
+        if tpm_version is None:
+            _tpm = TPMGeneric()
+            tpm_version = _tpm.get_tpm_version(socket.gethostbyname(ip), port)
+            del _tpm
+        if tpm_version == "tpm_v1_2":
+            raise LibraryError("TPM version no longer supported: tpm_v1_2")
+
         if logger is None:
             self.logger = logging.getLogger("")
         else:
@@ -128,39 +135,40 @@ class Tile(TileHealthMonitor):
 
         self._sampling_rate = sampling_rate
 
-        self.preadu_signal_map = {0: {'preadu_id': 1, 'channel': 14},
-                                  1: {'preadu_id': 1, 'channel': 15},
-                                  2: {'preadu_id': 1, 'channel': 12},
-                                  3: {'preadu_id': 1, 'channel': 13},
-                                  4: {'preadu_id': 1, 'channel': 10},
-                                  5: {'preadu_id': 1, 'channel': 11},
-                                  6: {'preadu_id': 1, 'channel': 8},
-                                  7: {'preadu_id': 1, 'channel': 9},
-                                  8: {'preadu_id': 0, 'channel': 0},
-                                  9: {'preadu_id': 0, 'channel': 1},
-                                  10: {'preadu_id': 0, 'channel': 2},
-                                  11: {'preadu_id': 0, 'channel': 3},
-                                  12: {'preadu_id': 0, 'channel': 4},
-                                  13: {'preadu_id': 0, 'channel': 5},
-                                  14: {'preadu_id': 0, 'channel': 6},
-                                  15: {'preadu_id': 0, 'channel': 7},
-                                  16: {'preadu_id': 1, 'channel': 6},
-                                  17: {'preadu_id': 1, 'channel': 7},
-                                  18: {'preadu_id': 1, 'channel': 4},
-                                  19: {'preadu_id': 1, 'channel': 5},
-                                  20: {'preadu_id': 1, 'channel': 2},
-                                  21: {'preadu_id': 1, 'channel': 3},
-                                  22: {'preadu_id': 1, 'channel': 0},
-                                  23: {'preadu_id': 1, 'channel': 1},
-                                  24: {'preadu_id': 0, 'channel': 8},
-                                  25: {'preadu_id': 0, 'channel': 9},
-                                  26: {'preadu_id': 0, 'channel': 10},
-                                  27: {'preadu_id': 0, 'channel': 11},
-                                  28: {'preadu_id': 0, 'channel': 12},
-                                  29: {'preadu_id': 0, 'channel': 13},
-                                  30: {'preadu_id': 0, 'channel': 14},
-                                  31: {'preadu_id': 0, 'channel': 15}}
-                                  
+        # Preadu signal map
+        self.preadu_signal_map = {0: {'preadu_id': 1, 'channel': 0},
+                                  1: {'preadu_id': 1, 'channel': 1},
+                                  2: {'preadu_id': 1, 'channel': 2},
+                                  3: {'preadu_id': 1, 'channel': 3},
+                                  4: {'preadu_id': 1, 'channel': 4},
+                                  5: {'preadu_id': 1, 'channel': 5},
+                                  6: {'preadu_id': 1, 'channel': 6},
+                                  7: {'preadu_id': 1, 'channel': 7},
+                                  8: {'preadu_id': 0, 'channel': 14},
+                                  9: {'preadu_id': 0, 'channel': 15},
+                                  10: {'preadu_id': 0, 'channel': 12},
+                                  11: {'preadu_id': 0, 'channel': 13},
+                                  12: {'preadu_id': 0, 'channel': 10},
+                                  13: {'preadu_id': 0, 'channel': 11},
+                                  14: {'preadu_id': 0, 'channel': 8},
+                                  15: {'preadu_id': 0, 'channel': 9},
+                                  16: {'preadu_id': 1, 'channel': 8},
+                                  17: {'preadu_id': 1, 'channel': 9},
+                                  18: {'preadu_id': 1, 'channel': 10},
+                                  19: {'preadu_id': 1, 'channel': 11},
+                                  20: {'preadu_id': 1, 'channel': 12},
+                                  21: {'preadu_id': 1, 'channel': 13},
+                                  22: {'preadu_id': 1, 'channel': 14},
+                                  23: {'preadu_id': 1, 'channel': 15},
+                                  24: {'preadu_id': 0, 'channel': 6},
+                                  25: {'preadu_id': 0, 'channel': 7},
+                                  26: {'preadu_id': 0, 'channel': 4},
+                                  27: {'preadu_id': 0, 'channel': 5},
+                                  28: {'preadu_id': 0, 'channel': 2},
+                                  29: {'preadu_id': 0, 'channel': 3},
+                                  30: {'preadu_id': 0, 'channel': 0},
+                                  31: {'preadu_id': 0, 'channel': 1}}
+
         self.init_health_monitoring()
         self.daq_modes_with_timestamp_flag = ["raw_adc_mode", "channelized_mode", "beamformed_mode"]
 
@@ -171,7 +179,7 @@ class Tile(TileHealthMonitor):
         :return: TPM hardware version
         :rtype: string
         """
-        return "tpm_v1_2"
+        return "tpm_v1_6"
 
     @property
     def info(self):
@@ -255,9 +263,8 @@ class Tile(TileHealthMonitor):
         self.tpm = TPM()
 
         # Add plugin directory (load module locally)
-        tf = __import__("pyaavs.plugins.tpm.tpm_test_firmware", fromlist=[None])
+        tf = __import__("pyaavs.plugins.tpm.tpm_fpga_firmware", fromlist=[None])
         self.tpm.add_plugin_directory(os.path.dirname(tf.__file__))
-
         # Connect using tpm object.
         # simulator parameter is used not to load the TPM specific plugins,
         # no actual simulation is performed.
@@ -283,7 +290,7 @@ class Tile(TileHealthMonitor):
         if load_plugin and self.tpm.is_programmed():
             for device in [Device.FPGA_1, Device.FPGA_2]:
                 self.tpm.load_plugin(
-                    "TpmTestFirmware",
+                    "TpmFpgaFirmware",
                     device=device,
                     fsample=self._sampling_rate,
                     dsp_core=dsp_core,
@@ -353,53 +360,19 @@ class Tile(TileHealthMonitor):
         """
         Connect and initialise.
 
-        :param station_id: station ID
-        :type station_id: int
-        :param tile_id: Tile ID in the station
-        :type tile_id: int
-        :param lmc_use_40g: if True use 40G interface to transmit LMC data, otherwise use 1G
-        :type lmc_use_40g: bool
-        :param lmc_dst_ip: destination IP address for LMC data packets
-        :type lmc_dst_ip: str
-        :param lmc_dst_port: destination UDP port for LMC data packets
-        :type lmc_dst_port: int
-        :param lmc_integrated_use_40g: if True use 40G interface to transmit LMC integrated data, otherwise use 1G
-        :type lmc_integrated_use_40g: bool
-        :param src_ip_fpga1: source IP address for FPGA1 40G interface
-        :type src_ip_fpga1: str
-        :param src_ip_fpga2: source IP address for FPGA2 40G interface
-        :type src_ip_fpga2: str
-        :param dst_ip_fpga1: destination IP address for beamformed data from FPGA1 40G interface
-        :type dst_ip_fpga1: str
-        :param dst_ip_fpga2: destination IP address for beamformed data from FPGA2 40G interface
-        :type dst_ip_fpga2: str
-        :param src_port: source UDP port for beamformed data packets
-        :type src_port: int
-        :param dst_port: destination UDP port for beamformed data packets
-        :type dst_port: int
         :param enable_ada: enable adc amplifier, Not present in most TPM versions
         :type enable_ada: bool
+        :param enable_test: setup internal test signal generator instead of ADC
         :param enable_adc: Enable ADC
         :type enable_adc: bool
-        :param enable_test: setup internal test signal generator instead of ADC
         :type enable_test: bool
 
         :param use_internal_pps: use internal PPS generator synchronised across FPGAs
         :type use_internal_pps: bool
-        :param pps_delay: PPS delay correction in 625ps units
-        :type pps_delay: int
-        :param time_delays: time domain delays for 32 inputs
-        :type time_delays: list(int)
-        :param is_first_tile: True if this tile is the first tile in the beamformer chain
-        :type is_first_tile: bool
-        :param is_last_tile: True if this tile is the last tile in the beamformer chain
-        :type is_last_tile: bool
         :param qsfp_detection: "auto" detects QSFP cables automatically,
                                "qsfp1", force QSFP1 cable detected, QSFP2 cable not detected
                                "qsfp2", force QSFP1 cable not detected, QSFP2 cable detected
                                "all", force QSFP1 and QSFP2 cable detected
-                               "flyover_test", force QSFP1 and QSFP2 cable detected and adjust
-                                polarity for board-to-board cable
                                "none", force no cable not detected
         :type qsfp_detection: str
         :param adc_mono_channel_14_bit: Enable ADC mono channel 14bit mode
@@ -409,10 +382,16 @@ class Tile(TileHealthMonitor):
         :param global_start_time: Sets internal TPM start time, used to synchronize to other TPM's
         :type global_start_time: int
         """
+        if use_internal_pps:
+            logging.error("Cannot initialise board - use_internal_pps = True not supported")
+            return
 
         # Connect to board
         self.connect(initialise=True, enable_ada=enable_ada, enable_adc=enable_adc,
                      adc_mono_channel_14_bit=adc_mono_channel_14_bit, adc_mono_channel_sel=adc_mono_channel_sel)
+
+        # Hack to reset MCU
+        # self.tpm[0x30000120] = 0
 
         # Before initialing, check if TPM is programmed
         if not self.tpm.is_programmed():
@@ -420,7 +399,7 @@ class Tile(TileHealthMonitor):
             return
 
         # Disable debug UDP header
-        self['board.regfile.header_config'] = 0x2
+        self["board.regfile.ena_header"] = 0x1
 
         # write PPS delay correction variable into the FPGAs
         if pps_delay < -128 or pps_delay > 127:
@@ -440,12 +419,13 @@ class Tile(TileHealthMonitor):
         self.tpm.set_lmc_ip(self._lmc_ip, self._lmc_port)
 
         # Enable C2C streaming
-        self.tpm["board.regfile.c2c_stream_enable"] = 0x1
+        self.tpm["board.regfile.ena_stream"] = 0x1
+        # self.tpm['board.regfile.ethernet_pause'] = 10000
         self.set_c2c_burst()
         
         # Display Temperature during initialisation
         logging.info(f"Board Temperature - {round(self.get_temperature(), 1)} C")
-        
+
         # Switch off both PREADUs
         for preadu in self.tpm.tpm_preadu:
             preadu.switch_off()
@@ -454,19 +434,20 @@ class Tile(TileHealthMonitor):
         for preadu in self.tpm.tpm_preadu:
             preadu.switch_on()
             time.sleep(1)
-            preadu.select_low_passband()
             preadu.read_configuration()
 
         # Synchronise FPGAs
-        self.sync_fpga_time(use_internal_pps=use_internal_pps)
+        self.sync_fpga_time(use_internal_pps=False)
 
         # Initialize f2f link
-        self.tpm.tpm_f2f[0].initialise_core("fpga2->fpga1")
-        self.tpm.tpm_f2f[1].initialise_core("fpga1->fpga2")
+        for f2f in self.tpm.tpm_f2f:
+            f2f.assert_reset()
+        for f2f in self.tpm.tpm_f2f:
+            f2f.deassert_reset()
 
         # AAVS-only - swap polarisations due to remapping performed by preadu
-        self.tpm["fpga1.jesd204_if.regfile_pol_switch"] = 0b00001111
-        self.tpm["fpga2.jesd204_if.regfile_pol_switch"] = 0b00001111
+        self.tpm["fpga1.jesd204_if.regfile_pol_switch"] = 0b11110000
+        self.tpm["fpga2.jesd204_if.regfile_pol_switch"] = 0b11110000
 
         # Reset test pattern generator
         for _test_generator in self.tpm.test_generator:
@@ -481,6 +462,9 @@ class Tile(TileHealthMonitor):
                 generator.set_tone(0, 72 * self._sampling_rate / 1024, 0.0)
                 generator.enable_prdg(0.4)
                 generator.channel_select(0xFFFF)
+
+        # Configure Active 40G ports
+        self.configure_active_40g_ports(active_40g_ports_setting)
 
         # Set destination and source IP/MAC/ports for 40G cores
         # This will create a loopback between the two FPGAs
@@ -529,9 +513,8 @@ class Tile(TileHealthMonitor):
         self.set_time_delays(time_delays)
 
         # set first/last tile flag
-        if self.tpm.tpm_test_firmware[0].station_beamformer_implemented:
-            for _station_beamf in self.tpm.station_beamf:
-                _station_beamf.set_first_last_tile(is_first_tile, is_last_tile)
+        for _station_beamf in self.tpm.station_beamf:
+            _station_beamf.set_first_last_tile(is_first_tile, is_last_tile)
 
         # Clear Health Monitoring Following Initialisation
         # Clears any false errors detected from bring-up
@@ -569,7 +552,7 @@ class Tile(TileHealthMonitor):
     @connected
     def check_pll_locked(self):
         """
-        Check in if PLL is locked to external reference clock. 
+        Check if PLL is locked to external reference clock.
 
         :return: True if PLL is locked to external reference clock.
         """
@@ -931,11 +914,7 @@ class Tile(TileHealthMonitor):
 
         :return: True when cable is detected
         """
-        qsfp_status = self['board.regfile.pll_10g']
-        if qsfp_id == 0:
-            qsfp_status = (qsfp_status >> 4) & 0x1
-        else:
-            qsfp_status = (qsfp_status >> 6) & 0x1
+        qsfp_status = self.tpm.tpm_qsfp_adapter[qsfp_id].get('ModPrsL')
         if qsfp_status == 0:
             return True
         else:
@@ -1064,6 +1043,7 @@ class Tile(TileHealthMonitor):
 
         return self._40g_configuration
 
+    @connected
     def configure_active_40g_ports(self, configuration):
         """
         Configure which of the two 40G QSFP ports is used.
@@ -1082,9 +1062,6 @@ class Tile(TileHealthMonitor):
         else:
             # If single 40G not supported by firmware both ports must be used
             self.logger.warning("TPM firmware does not support different active 40G port configurations. Both 40G ports will be used.")
-            return
-        if self.tpm_version() == "tpm_v1_2":
-            self.logger.warning("TPM 1.2 does not support different active 40G port configurations. Both 40G ports will be used.")
             return
         if configuration == "port1-only":
             if self.tpm.tpm_10g_core[0].is_tx_disabled():
@@ -1173,12 +1150,7 @@ class Tile(TileHealthMonitor):
                     cable_detected = True
                 elif qsfp_detection == "flyover_test":
                     cable_detected = True
-                    if self.tpm_version() == "tpm_v1_2":
-                        self.logger.warning(
-                            "Forcing QSFP module detection as 'flyover_test' is not supported on TPM 1.2"
-                        )
-                    else:
-                        self.tpm.tpm_test_firmware[n].configure_40g_core_flyover_test()
+                    self.tpm.tpm_test_firmware[n].configure_40g_core_flyover_test()
                 elif qsfp_detection == "auto" and self.is_qsfp_module_plugged(n):
                     cable_detected = True
                 elif n == 0 and qsfp_detection == "qsfp1":
@@ -3097,8 +3069,6 @@ class Tile(TileHealthMonitor):
         assert set(range(len(levels))) == set(self.preadu_signal_map)
 
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
-                preadu.select_low_passband()
             preadu.read_configuration()
 
         for adc_channel, level in enumerate(levels):
@@ -3116,8 +3086,6 @@ class Tile(TileHealthMonitor):
         :return: Attenuation levels corresponding to each ADC channel, in dB.
         """
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
-                preadu.select_low_passband()
             preadu.read_configuration()
 
         levels = []
@@ -3133,8 +3101,6 @@ class Tile(TileHealthMonitor):
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
-                preadu.select_low_passband()
             preadu.read_configuration()
 
         # Get current RMS
@@ -3164,8 +3130,6 @@ class Tile(TileHealthMonitor):
 
         # Get current preadu settings
         for preadu in self.tpm.tpm_preadu:
-            if self.tpm_version() == "tpm_v1_2":
-                preadu.select_low_passband()
             preadu.read_configuration()
             preadu.set_attenuation(attenuation, list(range(16)))
             preadu.write_configuration()
@@ -3465,6 +3429,26 @@ class Tile(TileHealthMonitor):
             raise AttributeError("'Tile' or 'TPM' object have no attribute " + name)
 
     # ------------------- Test methods
+
+    @connected
+    def f2f_aurora_test_start(self):
+        """Start test on Aurora f2f link."""
+        for f2f in self.tpm.tpm_f2f:
+            f2f.start_tx_test()
+        for f2f in self.tpm.tpm_f2f:
+            f2f.start_rx_test()
+
+    @connected
+    def f2f_aurora_test_check(self):
+        """Get test results for Aurora f2f link Tests printed on stdout."""
+        for f2f in self.tpm.tpm_f2f:
+            f2f.get_test_result()
+
+    @connected
+    def f2f_aurora_test_stop(self):
+        """Stop test on Aurora f2f link."""
+        for f2f in self.tpm.tpm_f2f:
+            f2f.stop_test()
 
     @connected
     def start_40g_test(self, single_packet_mode=False, ipg=32):

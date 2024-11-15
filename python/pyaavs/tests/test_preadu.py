@@ -96,70 +96,6 @@ class TestPreadu:
             self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} eep non-volatile memory read/write success!")
         return
 
-    def test_disable_channels(self, preadu, n, preadu_index):
-        preadu.disable_channels()
-        preadu.write_configuration()
-
-        # Set software representation to something else
-        # To ensure tests fail if read_configuration doesn't work
-        preadu.set_attenuation(15)
-
-        # Updates software representation with the preADU attenuation values
-        preadu.read_configuration()
-
-        for index, channel_filter in enumerate(preadu.channel_filters):
-            if preadu.channel_filters[index] != 0x0:
-                self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} disable channels error! Got: {preadu.channel_filters[index]}, expected: 0x0")
-                self.errors += 1
-                return
-            self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} disabled successfully!")
-        return
-
-    def test_low_passband(self, preadu, n, preadu_index):
-        preadu.select_low_passband()
-        preadu.enable_channels()  # writes internal channel filters to the passband
-        preadu.write_configuration()
-
-        # Set software representation to something else
-        # To ensure tests fail if read_configuration doesn't work
-        preadu._passband = 0x0
-        preadu.set_attenuation(15)
-
-        # Updates software representation with the preADU attenuation values
-        preadu.read_configuration()
-
-        for index, channel_filter in enumerate(preadu.channel_filters):
-            received_passband = preadu.get_passband()[index]
-            if received_passband != 0x5:
-                self._logger.error(
-                    f"TPM{n} preADU{preadu_index} channel{index} low passband configuration error! Got: {received_passband}, expected: 0x5")
-                self.errors += 1
-                return
-            self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} low passband configured sucessfully!")
-        return
-    
-    def test_high_passband(self, preadu, n, preadu_index):
-        preadu.select_high_passband()
-        preadu.enable_channels()  # writes internal channel filters to the passband
-        preadu.write_configuration()
-
-        # Set software representation to something else
-        # To ensure tests fail if read_configuration doesn't work
-        preadu._passband = 0x0
-        preadu.set_attenuation(15)
-
-        # Updates software representation with the preADU attenuation values
-        preadu.read_configuration()
-
-        for index, channel_filter in enumerate(preadu.channel_filters):
-            received_passband = preadu.get_passband()[index]
-            if received_passband != 0x3:
-                self._logger.error(f"TPM{n} preADU{preadu_index} channel{index} high passband configuration error! Got: {received_passband}, expected: 0x3")
-                self.errors += 1
-                return
-            self._logger.info(f"TPM{n} preADU{preadu_index} channel{index} high passband configured sucessfully!")
-        return
-
     def execute(self, placeholder=None):
 
         self._test_station = station.Station(self._station_config)
@@ -190,18 +126,8 @@ class TestPreadu:
                     # EEP non-volatile memory read/write test
                     # NOTE:This test has been disabled, not currently needed and not working as expected
                     # self.test_read_write_eep(preadu, n, preadu_index)
-                    # TPM 1.2 only tests
-                    if tile.tpm_version() == "tpm_v1_2":
-                        # Disable channels test
-                        self.test_disable_channels(preadu, n, preadu_index)
-                        # Low passband test
-                        self.test_low_passband(preadu, n, preadu_index)
-                        # High passband test
-                        self.test_high_passband(preadu, n, preadu_index)
-                    # TPM >= 1.6 tests
-                    else:
-                        # Read and write non-integer attenuations test
-                        self.test_read_write_float(preadu, n, preadu_index)
+                    # Read and write non-integer attenuations test
+                    self.test_read_write_float(preadu, n, preadu_index)
 
                 else:  # SKIP test if no preADU is detected
                     self._logger.warning(f"TPM{n} preADU{preadu_index} not detected! Will skip tests for this preADU...")

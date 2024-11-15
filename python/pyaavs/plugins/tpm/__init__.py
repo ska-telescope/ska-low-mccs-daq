@@ -1,1 +1,1 @@
-"""This subpackage contains plugin code for TPMs."""
+"""This subpackage contains code specific to TPM version 1.6."""

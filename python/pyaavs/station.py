@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 from pyaavs.slack import get_slack_instance
-from pyaavs.tile_wrapper import Tile
+from pyaavs.tile import Tile
 from pyfabil import Device
 
 from future.utils import iteritems

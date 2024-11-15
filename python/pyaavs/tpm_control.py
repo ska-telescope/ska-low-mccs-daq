@@ -4,7 +4,7 @@ from sys import exit
 import logging
 import os
 
-from pyaavs.tile_wrapper import Tile
+from pyaavs.tile import Tile
 
 __author__ = 'Alessio Magro'
 

@@ -1,4 +1,4 @@
-from pyaavs.tile_wrapper import Tile
+from pyaavs.tile import Tile
 from pyaavs import station
 from config_manager import ConfigManager
 

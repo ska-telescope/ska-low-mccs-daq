@@ -9,7 +9,7 @@
 #
 # Import DAQ and Access Layer libraries
 import pydaq.daq_receiver as daq
-from pyaavs.tile_wrapper import Tile
+from pyaavs.tile import Tile
 from config_manager import ConfigManager
 
 # Import required persisters
