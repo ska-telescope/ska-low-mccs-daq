@@ -27,9 +27,10 @@ if sys.version_info.minor >= 9:
     from astropy.time import Time as AstropyTime
 
 from pyfabil.base.definitions import Device, LibraryError, BoardError, Status, RegisterInfo
-from pyfabil.base.utils import ip2long
+from pyfabil.base.utils import ip2long, format_data
 from pyfabil.boards.tpm_generic import TPMGeneric
 from pyfabil.boards.tpm import TPM
+from pyfabil.plugins.tpm.antenna_buffer import antenna_buffer_implemented
 
 from pyaavs.tile_health_monitor import TileHealthMonitor
 
@@ -171,6 +172,11 @@ class Tile(TileHealthMonitor):
 
         self.init_health_monitoring()
         self.daq_modes_with_timestamp_flag = ["raw_adc_mode", "channelized_mode", "beamformed_mode"]
+
+        self._antenna_buffer_tile_attribute = {'DDR_capacity': 0,
+                                              'set_up_complete': False,
+                                              'data_capture_complete': False,
+                                              'antenna_buffers': []}
 
     # ---------------------------- Main functions ------------------------------------
     def tpm_version(self):
@@ -2972,6 +2978,126 @@ class Tile(TileHealthMonitor):
         self.stop_channelised_data_continuous()
         # For the unlikely event the other data transmission formats are still going
         self.clear_lmc_data_request()
+
+
+    # --------------------------------------  Antenna Buffer Wrapper Methods ----------------------------------------------
+    @connected
+    @antenna_buffer_implemented
+    def set_up_antenna_buffer(self, mode='SDN', ddr_start_byte_address=512*1024**2, max_ddr_byte_size=None):
+        """ Sets up the Tx mode for AntennaBuffer data, and the DDR start & end address for storing this data"""
+        # Configure the download mode and payload length
+        payload_length = 8192 if mode.upper() == 'SDN' else 1536
+
+        for antenna_buffer in self.tpm.tpm_antenna_buffer:
+            antenna_buffer.set_download(mode=mode, payload_length=payload_length)
+        # Calculate the DDR byte allocated for the antenna buffer:
+        if not max_ddr_byte_size:
+            max_ddr_byte_size = (antenna_buffer._ddr_capacity_gigabyte * 1024**3) - ddr_start_byte_address - 1
+        self.logger.info(f"AntennaBuffer: Setup parameters - Mode={mode}, Payload Length={format_data(payload_length)}, DDR Start Address={format_data(ddr_start_byte_address)}, Max DDR Size={format_data(max_ddr_byte_size)}")
+
+        # Setting the Tile antenna buffer attributes to track the DDR capacity and set-up status
+        self._antenna_buffer_tile_attribute.update({'DDR_capacity':ddr_start_byte_address})
+        self._antenna_buffer_tile_attribute.update({'set_up_complete': True})
+        return
+
+    @connected
+    @antenna_buffer_implemented
+    def start_antenna_buffer(self, antennas, start_time=-1, timestamp_capture_duration=75, continuous_mode=False):
+        """ Writes AntennaBuffer data into DDR. This method will also configure the AntennaBuffer mode (continous writing or non-continous,
+            the Antennas used per FPGA and the timestamp capture duration """
+        c_min_antenna_id = 0
+        c_max_antenna_id = 15
+        antennas_used = []
+
+        # Check that the antenna buffer set up method has been called first
+        if not self._antenna_buffer_tile_attribute.get('set_up_complete'):
+            raise (f"AntennaBuffer ERROR: Please set up the antenna buffer before writing")
+        
+        # Check that an antenna ID has been given for the input antennas
+        if not antennas:
+            raise (f"AntennaBuffer ERROR: Antennas list is empty please give at lease one antenna ID")
+
+        # Check that the antenna IDs are within range 
+        invalid_input = [x for x in antennas if x < c_min_antenna_id or x > c_max_antenna_id]
+        if invalid_input:
+            raise Exception (f"AntennaBuffer ERROR: out of range antenna IDs present {invalid_input}. Please give an antenna ID from 0 to 15")
+
+        # Ensure antennas list has no duplicates
+        antennas = list(dict.fromkeys(antennas))
+
+        # Splitup the antennna IDs into 2 lists, one for each FPGA:
+            # FPGA1 antenna IDs: [0-7]
+            # FPGA2 antenna IDs: [8-15] * Note these IDs will be subtracted by 8 because each FPGA only sees antenna IDs 0-7
+        antennas = [[x for x in antennas if x < c_max_antenna_id/2], [x-8 for x in antennas if x > c_max_antenna_id/2]]
+        self.logger.info (f"Antennas lists of lists = {antennas}")
+
+        # Clear the List that tracks the FPGAs used for the Antenna Buffer operation:
+            # This clearing is done before we store this information to prevent any errors
+            # when the antenna buffer is used multiple times
+        self._antenna_buffer_tile_attribute['antenna_buffers'].clear()
+        self.logger.info (f"ab_list={self._antenna_buffer_tile_attribute['antenna_buffers']}")
+        
+        # FPGA1 used for antenna buffer
+        if antennas[0]:
+            antennas_used.append(antennas[0])
+            self.logger.info (f"AntennaBuffer will be using FPGA 1, antennas = {antennas[0]}")
+            self._antenna_buffer_tile_attribute[\
+                'antenna_buffers'].append(self.tpm.tpm_antenna_buffer[0])
+        # FPGA2 used for antenna buffer
+        if antennas[1]:
+            antennas_used.append(antennas[1])
+            self.logger.info (f"AntennaBuffer will be using FPGA 2, antennas = {antennas[1]}")
+            self._antenna_buffer_tile_attribute[\
+                'antenna_buffers'].append(self.tpm.tpm_antenna_buffer[1])
+
+        self.logger.info (f"AB1={self.tpm.tpm_antenna_buffer[0]}, AB2={self.tpm.tpm_antenna_buffer[1]}")
+
+        # For Each FPGA that is being used for the Antenna Buffer Operation:
+        # Select the antennas, configure the DDR and write Antenna Buffer data in to the DDR
+        for antenna, antenna_buffer in zip(antennas_used, self._antenna_buffer_tile_attribute['antenna_buffers']):
+            if antenna_buffer.ddr_write_busy:
+                raise (f"AntennaBuffer ERROR: Still writing to DDR, wait for observation to end or stop the antenna buffer")
+            
+            self.logger.info(f"antenna{antenna}, antennabuffer = {antenna_buffer}")
+
+            antenna_buffer.select_nof_antenna(antenna)
+
+            # Configuring required Antenna Buffer DDR capacity for a given timestamp duration
+            ddr_write_size = antenna_buffer.configure_nof_ddr_timestamps(self._antenna_buffer_tile_attribute.get('DDR_capacity'), timestamp_capture_duration)
+            # Write Antenna Buffer data to DDR
+            antenna_buffer.write_ddr(start_time= start_time, delay=256, continuous_mode=continuous_mode)
+
+        self._antenna_buffer_tile_attribute.update({'data_capture_complete': True})
+        return ddr_write_size
+
+    @connected
+    @antenna_buffer_implemented
+    def read_antenna_buffer(self):
+        """ Reads AntennaBuffer data from the DDR with the SPEAD header"""
+        # Checks that the Antenna Buffer has been set up and that data has been captured on the DDR
+        if not self._antenna_buffer_tile_attribute.get('set_up_complete'):
+            raise (f"AntennaBuffer ERROR: Please set up the antenna buffer before reading")
+        if not self._antenna_buffer_tile_attribute.get('data_capture_complete'):
+            raise (f"AntennaBuffer ERROR: Please capture antenna buffer data before reading")
+
+        for antenna_buffer in self._antenna_buffer_tile_attribute['antenna_buffers']:
+            # Stop writing to DDR if in contininous mode
+            if antenna_buffer._continuous_mode:
+                antenna_buffer.stop_now()
+            # Wait for DDR to allow read access
+            antenna_buffer.wait_for_ddr_read_access()
+            # Read AntennaBuffer data from DDR
+            antenna_buffer.read_ddr()
+        return
+
+    @connected
+    @antenna_buffer_implemented
+    def stop_antenna_buffer(self):
+        """ Stops the antenna buffer """
+        for antenna_buffer in self.tpm.tpm_antenna_buffer:
+            self.logger.info(f"AntennaBuffer: Stopping for tile {self.get_tile_id()}")
+            antenna_buffer.stop_now() 
+        return
 
     # ---------------------------- Wrapper for multi channel acquisition ------------------------------------
     # -------------------- multichannel_tx is experimental - not needed in MCCS -----------------------------
