@@ -47,6 +47,7 @@ def data_callback(mode, filepath, tile):
 
             raw_file = RawFormatFileManager(root_path=os.path.dirname(filepath), daq_mode=FileDAQModes.Burst)
             data, _ = raw_file.read_data(n_samples=nof_samples)
+            print(f"nof_samples= {nof_samples}, data_shape = {data.shape}")
 
             data_received = True
 
@@ -163,21 +164,36 @@ class TestAntennaBuffer():
         else:
             fpga = "fpga2"
         if use_1g:
-            ab.set_download("1G", 1536)
+            ab.set_download("NSDN", 1536)
             receiver_frame_size = 1664
         else:
-            ab.set_download("10G", 8192)
+            ab.set_download("SDN", 8192)
             receiver_frame_size = 8320
 
-        actual_buffer_byte_size = ab.configure_ddr_buffer(ddr_start_byte_address=start_address,  # DDR buffer base address
-                                                          byte_size=buffer_byte_size)
-        base_addr = dut['%s.antenna_buffer.ddr_write_start_addr' % fpga]
-        self._logger.info("DDR buffer base address is %s" % hex(base_addr))
-        self._logger.info("Actual DDR buffer size is %d bytes" % actual_buffer_byte_size)
+        """ Select antennas for buffering: selecting 2 antennas per fpga """
+        ab.select_nof_antenna([1, 2])
+        print(f"fpga={fpga}, ant1={dut[f'{fpga}.antenna_buffer.input_sel.sel_antenna_id_0']}, ant2={dut[f'{fpga}.antenna_buffer.input_sel.sel_antenna_id_1']}")
+
+        """ Setting the Antenna Buffer DDR start write ADDR and write address length, and DDR write byte length or Timetamps to capture """
+
+        # actual_buffer_byte_size = ab.configure_ddr_write_length(ddr_start_byte_address=start_address,  # DDR buffer base address
+        #                                                   write_byte_size=buffer_byte_size)
+        
+        actual_buffer_byte_size = ab.configure_nof_ddr_timestamps(ddr_start_byte_address=start_address,
+                                                                  nof_timestamp=75)
+
+        # Base Write Address is the start_address/8 so should be 67,108,864
+        base_addr = dut[f'{fpga}.antenna_buffer.ddr_write_start_addr']
+        self._logger.info(f"DDR buffer base address is hex: {hex(base_addr)}")
+        self._logger.info(f"Actual DDR buffer size is {actual_buffer_byte_size} bytes")
         nof_samples = actual_buffer_byte_size // 4  # 2 antennas, 2 pols
 
-        dut['%s.antenna_buffer.input_sel.sel_antenna_id_0' % fpga] = 0x0
-        dut['%s.antenna_buffer.input_sel.sel_antenna_id_1' % fpga] = 0x1
+        print("\n")
+        self._logger.info(f"Nof Antenna= {ab._nof_antenna}, DDR timestampByteSize= {ab._ddr_timestamp_byte_size}, Actual DDR buffer size is {actual_buffer_byte_size} bytes")
+        self._logger.info(f"Nof DDR Frames = {ab._nof_ddr_timestamp}, ")
+        print("\n")
+
+        # Test Pattern Generation
         dut['%s.pattern_gen.jesd_ramp1_enable' % fpga] = 0x5555
         dut['%s.pattern_gen.jesd_ramp2_enable' % fpga] = 0xAAAA
 
@@ -230,6 +246,7 @@ class TestAntennaBuffer():
             #     print(ab.one_shot_buffer_write())
             #     time.sleep(0.2)
 
+            """ Running the antenna buffer """
             ab.one_shot()
 
             # Wait for data to be received
