@@ -39,7 +39,6 @@ __all__ = ["TpmFpgaFirmware"]
 class TpmFpgaFirmware(FirmwareBlock):
     """ TpmFpgaFirmware plugin """
 
-    @firmware({"design": "tpm_test", "major": "1", "minor": ">1"})
     @compatibleboards(BoardMake.TpmBoard)
     @friendlyname("tpm_test_firmware")  # TODO: Maybe one day we can rename this but its a huge refactor
     @maxinstances(2)
