@@ -134,10 +134,10 @@ class TestStationBeam():
                     for n, tile in enumerate(self._test_station.tiles):
                         for i in [0, 1]:
                             ab_inst = tile.tpm.tpm_antenna_buffer[i]
-                            ab_inst.configure_ddr_buffer(
+                            ab_inst.configure_ddr_write_length(
                                 ddr_start_byte_address=antenna_buffer_base_address,  # DDR buffer base address
-                                byte_size=antenna_buffer_length)
-                            ab_inst.buffer_write(continuous_mode=True)
+                                write_byte_size=antenna_buffer_length)
+                            ab_inst.write_ddr(continuous_mode=True)
                 self._logger.info("Antenna buffer write into DDR started.")
 
             iter = 0
