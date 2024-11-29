@@ -47,7 +47,7 @@ def data_callback(mode, filepath, tile):
 
             raw_file = RawFormatFileManager(root_path=os.path.dirname(filepath), daq_mode=FileDAQModes.Burst)
             data, _ = raw_file.read_data(n_samples=nof_samples)
-            print(f"nof_samples= {nof_samples}, data_shape = {data.shape}")
+            print(f"DEBUG:: nof_samples= {nof_samples}, data_shape = {data.shape}")
 
             data_received = True
 
@@ -98,7 +98,7 @@ class TestAntennaBuffer():
         self._logger.info("Data pattern check OK!")
         return 0
 
-    def execute(self, iterations=2, use_1g=0, single_tpm_id=0, fpga_id=1, buffer_byte_size=64*1024*1024, start_address=512*1024*1024):
+    def execute(self, iterations=2, use_1g=0, single_tpm_id=0, fpga_id=1, timestamp_capture_duration=75, start_address=512*1024*1024):
         global tiles_processed
         global data_received
         global nof_tiles
@@ -161,72 +161,51 @@ class TestAntennaBuffer():
 
         dut.set_pattern(stage="jesd", pattern=range(1024), adders=[0] * 32, start=True)
         ab = dut.tpm.tpm_antenna_buffer[fpga_id]
-        # dut.start_antenna_buffer([0])
+
+        # Assign FPGA ID and Antennas IDs to be tested for each FPGA
         if fpga_id == 0:
             fpga = "fpga1"
             antenna_ids = [0, 1]
         else:
             fpga = "fpga2"
             antenna_ids = [8, 9]
+        
+        # Assign the Tx mode
         if use_1g:
-            # ab.set_download("NSDN", 1536)
             tx_mode='NSDN'
             receiver_frame_size = 1664
         else:
-            # ab.set_download("SDN", 8192)
             tx_mode='SDN'
             receiver_frame_size = 8320
 
         """ Select antenna buffer Tx mode which will also assign the payload_length inside the method 
             Configuring the DDR Start Address - Test defualt is 512MiB"""
-        # ab.select_nof_antenna([1, 2])
         dut.set_up_antenna_buffer(mode=tx_mode, 
                                   ddr_start_byte_address=start_address,
                                   max_ddr_byte_size=None
                                  )
 
-        # print(f"fpga={fpga}, ant1={dut[f'{fpga}.antenna_buffer.input_sel.sel_antenna_id_0']}, ant2={dut[f'{fpga}.antenna_buffer.input_sel.sel_antenna_id_1']}")
-
-        """ 
-        Setting the Antenna Buffer DDR start write ADDR and write address length, 
-        and DDR write byte length or Timetamps to capture 
-        These are calling the PyFABIL plugin methods
-        """
-        # actual_buffer_byte_size = ab.configure_ddr_write_length(ddr_start_byte_address=start_address,  # DDR buffer base address
-        #                                                   write_byte_size=buffer_byte_size)
-
-        # actual_buffer_byte_size = ab.configure_nof_ddr_timestamps(ddr_start_byte_address=start_address,
-        #                                                           nof_timestamp=75)
-
         """ Start Antenna Buffer: Select antennas for buffering: selecting 2 antennas - 1 antenna per fpga """
-        # antenna_ids = [0, 1] if fpga_id==0 else [8,9]
         actual_buffer_byte_size = dut.start_antenna_buffer(antennas=antenna_ids,
                                  start_time=-1,
-                                 timestamp_capture_duration=75,
+                                 timestamp_capture_duration=timestamp_capture_duration,
                                  continuous_mode=False
                                 )
-        # Retrive DDR Write Size (in bytes)
-        DDR_attr = dut.tpm.tpm_antenna_buffer[1]._ddr_write_length_byte #ab._ddr_write_length_byte
 
         # Base Write Address is the start_address/8 so should be 67,108,864
         base_addr = dut[f'{fpga}.antenna_buffer.ddr_write_start_addr']
         self._logger.info(f"DDR buffer base address is hex: {hex(base_addr)}")
-        self._logger.info(f"Actual DDR buffer size is {actual_buffer_byte_size} bytes and {DDR_attr}")
+        self._logger.info(f"Actual DDR buffer size is {actual_buffer_byte_size} bytes")
         nof_samples = actual_buffer_byte_size // 4  # 2 antennas, 2 pols
 
-        print(f"fpga={fpga}, ant1={dut[f'{fpga}.antenna_buffer.input_sel.sel_antenna_id_0']}, ant2={dut[f'{fpga}.antenna_buffer.input_sel.sel_antenna_id_1']}")
+        self._logger.debug(f"fpga={fpga}, ant1={dut[f'{fpga}.antenna_buffer.input_sel.sel_antenna_id_0']}, ant2={dut[f'{fpga}.antenna_buffer.input_sel.sel_antenna_id_1']}")
 
-        print("\n")
-        self._logger.info(f"Nof Antenna= {ab._nof_antenna}, DDR timestampByteSize= {ab._ddr_timestamp_byte_size}, Actual DDR buffer size is {actual_buffer_byte_size} bytes")
-        self._logger.info(f"Nof DDR Frames = {ab._nof_ddr_timestamp}, ")
-        print("\n")
+        self._logger.debug(f"Nof Antenna= {ab._nof_antenna}, DDR timestampByteSize= {ab._ddr_timestamp_byte_size}, Actual DDR buffer size is {actual_buffer_byte_size} bytes")
+        self._logger.debug(f"Nof DDR Frames = {ab._nof_ddr_timestamp}, ")
 
         # Test Pattern Generation
         dut['%s.pattern_gen.jesd_ramp1_enable' % fpga] = 0x5555
         dut['%s.pattern_gen.jesd_ramp2_enable' % fpga] = 0xAAAA
-
-        # dut['fpga2.pattern_gen.jesd_ramp1_enable'] = 0x5555
-        # dut['fpga2.pattern_gen.jesd_ramp2_enable'] = 0xAAAA
 
         # calculate actual DAQ buffer size in nof_raw_samples
         total_nof_samples = actual_buffer_byte_size // 4
@@ -271,14 +250,6 @@ class TestAntennaBuffer():
         while k != iter:
 
             data_received = False
-            # Send data from tile
-            # ab.one_shot_buffer_read()
-            # while True:
-            #     print(ab.one_shot_buffer_write())
-            #     time.sleep(0.2)
-
-            """ Running the antenna buffer (both write and read via PyFABIL plugin method)"""
-            # ab.one_shot()
             
             """ Read Antenna Buffer Data from DDR """
             dut.read_antenna_buffer()
