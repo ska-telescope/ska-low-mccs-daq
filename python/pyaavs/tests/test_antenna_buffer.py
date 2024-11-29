@@ -98,7 +98,7 @@ class TestAntennaBuffer():
         self._logger.info("Data pattern check OK!")
         return 0
 
-    def execute(self, iterations=2, use_1g=0, single_tpm_id=0, fpga_id=1, timestamp_capture_duration=75, start_address=512*1024*1024):
+    def execute(self, iterations=2, use_1g=0, single_tpm_id=0, fpga_id=0, timestamp_capture_duration=75, start_address=512*1024*1024):
         global tiles_processed
         global data_received
         global nof_tiles

@@ -174,6 +174,7 @@ class Tile(TileHealthMonitor):
         self.daq_modes_with_timestamp_flag = ["raw_adc_mode", "channelized_mode", "beamformed_mode"]
 
         self._antenna_buffer_tile_attribute = {'DDR_start_address': 0,
+                                              'max_DDR_byte_size' : 0,
                                               'set_up_complete': False,
                                               'data_capture_initiated': False,
                                               'used_fpga_id': []}
@@ -2992,11 +2993,12 @@ class Tile(TileHealthMonitor):
             antenna_buffer.set_download(mode=mode, payload_length=payload_length)
         # Calculate the DDR byte allocated for the antenna buffer:
         if not max_ddr_byte_size:
-            max_ddr_byte_size = (antenna_buffer._ddr_capacity_gigabyte * 1024**3) - ddr_start_byte_address - 1
+            max_ddr_byte_size = (antenna_buffer._ddr_capacity_gigabyte * 1024**3) - ddr_start_byte_address
         self.logger.info(f"AntennaBuffer: Setup parameters - Mode={mode}, Payload Length={format_data(payload_length)}, DDR Start Address={format_data(ddr_start_byte_address)}, Max DDR Size={format_data(max_ddr_byte_size)}")
 
         # Setting the Tile antenna buffer attributes to track the DDR capacity and set-up status
         self._antenna_buffer_tile_attribute.update({'DDR_start_address':ddr_start_byte_address})
+        self._antenna_buffer_tile_attribute.update({'max_DDR_byte_size':max_ddr_byte_size})
         self._antenna_buffer_tile_attribute.update({'set_up_complete': True})
         return
 
@@ -3042,8 +3044,15 @@ class Tile(TileHealthMonitor):
                 
                 # Assigning antenna IDs to the FPGA
                 antenna_buffer.select_nof_antenna(antennas[fpga_id])
-                # Configuring required Antenna Buffer DDR capacity for a given timestamp duration
-                ddr_write_size = antenna_buffer.configure_nof_ddr_timestamps(self._antenna_buffer_tile_attribute.get('DDR_start_address'), timestamp_capture_duration)
+                
+                # If continuous mode is selected, all the availalbe DDR is used and the timestamp capture duration is not required
+                # Because the AntennaBuffer will be continuously writing and rewriting the DDR until the data is read
+                if continuous_mode:
+                    ddr_write_size = antenna_buffer.configure_ddr_write_length(self._antenna_buffer_tile_attribute.get('DDR_start_address'), self._antenna_buffer_tile_attribute.get('max_DDR_byte_size'))
+                else:
+                    # For Non-continuous mode, the amount of DDR used for the AntennaBuffer will be configured
+                    # based on the given timestamp duration
+                    ddr_write_size = antenna_buffer.configure_nof_ddr_timestamps(self._antenna_buffer_tile_attribute.get('DDR_start_address'), timestamp_capture_duration)
                 # Write Antenna Buffer data to DDR
                 antenna_buffer.write_ddr(start_time= start_time, delay=256, continuous_mode=continuous_mode)
 
