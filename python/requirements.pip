@@ -20,7 +20,8 @@ tabulate
 psutil
 pytest
 get_nic
-pyqt5 
+PyQt5-sip==12.15.0
+pyqt5==5.15.11
 typing_extensions
 netifaces
 jinja2
