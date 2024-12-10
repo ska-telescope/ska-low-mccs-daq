@@ -170,10 +170,14 @@ bool AntennaBuffer::processPacket() {
     }
 
     // Calculate number of samples in packet
-    uint32_t packet_samples = (uint32_t) (payload_length - payload_offset) / (nof_included_antennas * nof_pols);
+    // TODO: correct the effective number of antennas if the SPEAD firmware 
+    // packs differently one or two antennas
+    uint8_t nof_effective_antennas = 2;
+    uint32_t packet_samples = (uint32_t) (payload_length - payload_offset) / (nof_effective_antennas * nof_pols);
 
     // Calculate packet time
-    double packet_time = sync_time + (timestamp + packet_counter * packet_samples) * timestamp_scale;
+    const int timestamp_factor = 864 * 256 / 8;    // samples per timestamp unit
+    double packet_time = sync_time + (timestamp * timestamp_factor + packet_counter * packet_samples) * timestamp_scale;
 
     // Assign correct packet index
     auto packet_index = static_cast<uint32_t>(packet_counter % (nof_samples / packet_samples));
