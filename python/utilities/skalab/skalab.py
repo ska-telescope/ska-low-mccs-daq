@@ -7,7 +7,7 @@
 
    Supported Devices are:
 
-      - TPM_1_2 and TPM_1_6
+      - TPM_1_6
       - Subrack with WebServer API
 
 """

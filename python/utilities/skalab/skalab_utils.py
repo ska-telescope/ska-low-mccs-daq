@@ -731,12 +731,9 @@ class MyDaq:
         # Start whichever consumer is required and provide callback
         self.data_received = 0
         #print("Send Raw Data Request...")
-        if self.station.tiles[0].tpm_version() == "tpm_v1_2":
-            self.station.send_raw_data()
-        else:
-            for i in range(self.nof_tiles):
-                self.station.tiles[i].send_raw_data(seconds=0.2)
-            #self.station.send_raw_data()
+        for i in range(self.nof_tiles):
+            self.station.tiles[i].send_raw_data(seconds=0.2)
+        #self.station.send_raw_data()
         while not self.data_received == self.nof_tiles:
             time.sleep(0.1)
         self.get_data()
