@@ -141,7 +141,10 @@ class FirmwareManager:
             firmware_bitstream_path = Path(str(self.version_to_file(firmware_version)))
             self.download_release(firmware_version, firmware_bitstream_path, include_ltx)
 
-        if not firmware_to_download_list:
+
+        if nof_downloads == 0:
+            print("no FPGA firmware releases have been downloaded")
+        elif not firmware_to_download_list:
             print("FPGA Firmware releases are already downloaded")
         else:
             string_firmware_list = [str(ver) for ver in firmware_to_download_list]
