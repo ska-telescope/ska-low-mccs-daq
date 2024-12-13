@@ -324,6 +324,8 @@ class TestDaq:
         # tile.connect()
 
         temp_dir = "./temp_daq_test"
+        tf.remove_hdf5_files(temp_dir)
+
         tiles_processed = np.zeros(nof_tiles)
 
         # Initialise DAQ. For now, this needs a configuration file with ALL the below configured

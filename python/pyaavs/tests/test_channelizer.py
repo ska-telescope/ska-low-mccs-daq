@@ -150,6 +150,7 @@ class TestChannelizer():
                                         self._logger.error("Reference power " + str(ref_power_value))
                                         self._logger.error("Channel value " + str(channel_value))
                                         self._logger.error("Channel power " + str(power_value))
+                                        self.clean_up(tile)
                                         return 1
                                 else:
                                     if abs(ref_power_value - power_value) > 0.2:
@@ -164,6 +165,7 @@ class TestChannelizer():
                                         self._logger.error("Reference power " + str(ref_power_value))
                                         self._logger.error("Channel value " + str(channel_value))
                                         self._logger.error("Channel power " + str(power_value))
+                                        self.clean_up(tile)
                                         return 1
 
                                 if c == channel:
@@ -192,6 +194,7 @@ class TestChannelizer():
                                         self._logger.error("Applied delay steps: " + str(delays[2*a+p]))
                                         self._logger.error("Expected phase delay: " + str(expected_phase_delay))
                                         self._logger.error("Periods delay: " + str(np.modf(applied_delay / (1.0 / frequency))[1]))
+                                        self.clean_up(tile)
                                         return 1
 
 

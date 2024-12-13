@@ -12,7 +12,7 @@ import numpy as np
 from pathlib import Path
 from pyaavs import station
 from pyaavs.station import Station, get_slack_instance
-from pyaavs.tile_wrapper import Tile
+from pyaavs.tile import Tile
 from pyfabil import TPMGeneric
 from pyfabil.base.definitions import LibraryError, BoardError, PluginError, InstrumentError
 import subprocess

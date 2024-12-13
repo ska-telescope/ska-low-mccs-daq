@@ -435,18 +435,13 @@ class TileInitialization(SkalabBase):
                     self.wg.qbutton_station_connect.setText("ONLINE")
                     self.wg.qbutton_station_init.setStyleSheet("background-color: rgb(78, 154, 6);")
                     self.wg.qbutton_station_init1.setStyleSheet("background-color: rgb(78, 154, 6);")
-                    if self.tpm_station.tiles[0].tpm_version() == "tpm_v1_2":
-                        self.rms_remap = [1, 0, 3, 2, 5, 4, 7, 6,
-                                          8, 9, 10, 11, 12, 13, 14, 15,
-                                          17, 16, 19, 18, 21, 20, 23, 22,
-                                          24, 25, 26, 27, 28, 29, 30, 31]
-                    else:
-                        # This must be verified when PYAAVS will be adapted to TPM1.6
-                        # self.rms_remap = [0, 1, 2, 3, 4, 5, 6, 7,
-                        #                   9, 8, 11, 10, 13, 12, 15, 14,
-                        #                   16, 17, 18, 19, 20, 21, 22, 23,
-                        #                   25, 24, 27, 26, 29, 28, 31, 30]
-                        self.rms_remap = np.arange(32)
+
+                    # This must be verified when PYAAVS will be adapted to TPM1.6
+                    # self.rms_remap = [0, 1, 2, 3, 4, 5, 6, 7,
+                    #                   9, 8, 11, 10, 13, 12, 15, 14,
+                    #                   16, 17, 18, 19, 20, 21, 22, 23,
+                    #                   25, 24, 27, 26, 29, 28, 31, 30]
+                    self.rms_remap = np.arange(32)
                     self.station_connected = True
                     self.wg.initbar2.setValue(80)
                     for k in range(len(self.tpm_slot_ip)):
