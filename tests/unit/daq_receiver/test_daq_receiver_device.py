@@ -121,6 +121,7 @@ class TestMccsDaqReceiver:
         """
         # Set adminMode so we can control device.
         device_under_test.adminMode = AdminMode.ONLINE
+        sleep(0.1)
 
         # Configure.
         daq_config = {
@@ -176,6 +177,7 @@ class TestMccsDaqReceiver:
         """
         device_under_test.adminMode = AdminMode.ONLINE
         assert device_under_test.adminMode == AdminMode.ONLINE
+        sleep(0.1)
 
         start_args = json.dumps({"modes_to_start": f"{daq_modes}"})
         [result_code], [response] = device_under_test.Start(start_args)
@@ -594,6 +596,7 @@ class TestPatchedDaq:
         """
         device_under_test.adminMode = AdminMode.ONLINE
         assert device_under_test.adminMode == AdminMode.ONLINE
+        sleep(0.1)
 
         # Call start_bandpass
         bandpass_config = '{"some_key": "some_value"}'
