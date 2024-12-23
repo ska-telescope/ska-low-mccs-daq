@@ -111,6 +111,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 CommunicationStatus.NOT_ESTABLISHED
             )  # noqa: E501
 
+        self._stop_establishing_communication = False
         configuration = json.dumps(self._configuration)
         threading.Thread(
             target=self.establish_communication, args=[configuration]
