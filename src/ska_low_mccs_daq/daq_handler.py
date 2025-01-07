@@ -170,10 +170,7 @@ class DaqHandler:
         "acquisition_duration": -1,
         "acquisition_start_time": -1,
         "description": "",
-        "observation_metadata": {},  # This is populated automatically,
-        "x_bandpass_plots_qsize": -1,
-        "y_bandpass_plots_qsize": -1,
-        "rms_plots_qsize": -1,
+        "observation_metadata": {},  # This is populated automatically
     }
 
     def __init__(
@@ -213,15 +210,9 @@ class DaqHandler:
             str, tuple[list[int], list[float], list[float]]
         ] = {}
         self._plots_to_send: bool = False
-        self._x_bandpass_plots: queue.Queue = queue.Queue(
-            maxsize=(extra_config.get("x_bandpass_plots_qsize", -1))
-        )
-        self._y_bandpass_plots: queue.Queue = queue.Queue(
-            maxsize=(extra_config.get("y_bandpass_plots_qsize", -1))
-        )
-        self._rms_plots: queue.Queue = queue.Queue(
-            maxsize=(extra_config.get("rms_plots_qsize", -1))
-        )
+        self._x_bandpass_plots: queue.Queue = queue.Queue()
+        self._y_bandpass_plots: queue.Queue = queue.Queue()
+        self._rms_plots: queue.Queue = queue.Queue()
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
 
     # Callback called for every data mode.
@@ -1037,19 +1028,11 @@ class DaqHandler:
                     x_data = full_station_data[:, :, X_POL_INDEX].transpose()
                     # Averaged x data (commented out for now)
                     # x_data = x_pol_data.transpose() / x_pol_data_count
-                    try:
-                        self._x_bandpass_plots.put(json.dumps(x_data.tolist()))
-                    except queue.Full:
-                        self._x_bandpass_plots.get()
-                        self._x_bandpass_plots.put(json.dumps(x_data.tolist()))
+                    self._x_bandpass_plots.put(json.dumps(x_data.tolist()))
                     y_data = full_station_data[:, :, Y_POL_INDEX].transpose()
                     # Averaged y data (commented out for now)
                     # y_data = y_pol_data.transpose() / y_pol_data_count
-                    try:
-                        self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
-                    except queue.Full:
-                        self._y_bandpass_plots.get()
-                        self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
+                    self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
                     self.logger.debug("Data queued for transmission.")
 
                     # Reset vars
