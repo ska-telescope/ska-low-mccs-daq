@@ -214,6 +214,9 @@ class DaqHandler:
         self._y_bandpass_plots: queue.Queue = queue.Queue()
         self._rms_plots: queue.Queue = queue.Queue()
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
+        self.bandpass_plotting_thread: threading.Thread = threading.Thread(
+            target=self.generate_bandpass_plots
+        )
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -642,16 +645,17 @@ class DaqHandler:
             observer.start()
 
             # Start plotting thread
-            self.logger.debug("Starting bandpass plotting thread.")
-            bandpass_plotting_thread = threading.Thread(
-                target=self.generate_bandpass_plots,
-                args=(
-                    os.path.join(plot_directory, self._station_name),
-                    self._station_name,
-                    cadence,
-                ),
-            )
-            bandpass_plotting_thread.start()
+            if not self.bandpass_plotting_thread.is_alive():
+                self.logger.debug("Starting bandpass plotting thread")
+                self.bandpass_plotting_thread = threading.Thread(
+                    target=self.generate_bandpass_plots,
+                    args=(
+                        os.path.join(plot_directory, self._station_name),
+                        self._station_name,
+                        cadence,
+                    ),
+                )
+                self.bandpass_plotting_thread.start()
             # Wait for stop, monitoring disk space in the meantime
             max_dir_size = 1000 * 1024 * 1024
 
@@ -744,7 +748,7 @@ class DaqHandler:
             observer.stop()
 
             observer.join()
-            bandpass_plotting_thread.join()
+            self.bandpass_plotting_thread.join()
             # if monitor_rms:
             #     rms.join()
             self._monitoring_bandpass = False
@@ -763,7 +767,7 @@ class DaqHandler:
             self._monitoring_bandpass = False
             self.logger.info(
                 "Bandpass monitoring thread terminated. The Bandpass plots "
-                "will continue to generate"
+                "will continue to generate."
             )
 
     @check_initialisation
