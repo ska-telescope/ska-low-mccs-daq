@@ -102,14 +102,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
         monitoring_thread.start()
 
     def start_bandpass_monitoring_if_status_true(self) -> None:
-        """Start the bandpass monitoring if the Bandpass Monitor is true in daq
-        status."""
+        """Start bandpass monitoring if Bandpass Monitor is true in daq status."""
         try:
             status = json.loads(self.daq_status())
             if status["Bandpass Monitor"] is True:
-                self.start_bandpass_monitor(
-                    json.dumps({"plot_directory": "/tmp"})
-                )
+                self.start_bandpass_monitor(json.dumps({"plot_directory": "/tmp"}))
             return
         except ConnectionError:
             # wait for 2 seconds before retrying
