@@ -90,9 +90,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._set_consumers_to_start(consumers_to_start)
         self._daq_client = DaqClient(daq_address)
         self._skuid_url = skuid_url
-        self._daq_initialisation_retry_frequency = (
-            daq_initialisation_retry_frequency
-        )
+        self._daq_initialisation_retry_frequency = daq_initialisation_retry_frequency
         self._stop_establishing_communication = False
 
         super().__init__(
