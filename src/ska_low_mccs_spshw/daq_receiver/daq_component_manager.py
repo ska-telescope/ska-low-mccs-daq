@@ -14,6 +14,7 @@ import random
 import threading
 from datetime import date
 from pathlib import PurePath
+from time import sleep
 from typing import Any, Callable, Final, Optional
 
 import numpy as np
@@ -47,6 +48,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         communication_state_callback: Callable[[CommunicationStatus], None],
         component_state_callback: Callable[..., None],
         received_data_callback: Callable[[str, str, str], None],
+        daq_initialisation_retry_frequency: int = 5,
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -68,6 +70,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             called when the component state changes
         :param received_data_callback: callback to be called when data is
             received from a tile
+        :param daq_initialisation_retry_frequency: Frequency at which daq
+            initialisation in retried.
         """
         self._power_state_lock = threading.RLock()
         self._power_state: Optional[PowerState] = None
@@ -86,6 +90,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._set_consumers_to_start(consumers_to_start)
         self._daq_client = DaqClient(daq_address)
         self._skuid_url = skuid_url
+        self._daq_initialisation_retry_frequency = daq_initialisation_retry_frequency
+        self._stop_establishing_communication = False
 
         super().__init__(
             logger,
@@ -105,22 +111,37 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 CommunicationStatus.NOT_ESTABLISHED
             )  # noqa: E501
 
-        try:
-            configuration = json.dumps(self._configuration)
+        self._stop_establishing_communication = False
+        configuration = json.dumps(self._configuration)
+        threading.Thread(
+            target=self.establish_communication, args=[configuration]
+        ).start()
 
-            response = self._daq_client.initialise(configuration)
-            self.logger.info(response["message"])
-        except Exception as e:  # pylint: disable=broad-except
-            self.logger.error("Caught exception in start_communicating: %s", e)
-            if self._component_state_callback is not None:
-                self._component_state_callback(fault=True)
+    def establish_communication(self, configuration: str) -> None:
+        """Establish communication with the DaqReceiver components.
 
-        self._update_communication_state(CommunicationStatus.ESTABLISHED)
+        :param configuration: Configuration string for daq initialisation
+        """
+        while not self._stop_establishing_communication:
+            try:
+                response = self._daq_client.initialise(configuration)
+                self.logger.info(response["message"])
+                self._update_communication_state(CommunicationStatus.ESTABLISHED)
+                break
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.error(
+                    "Caught exception in start_communicating: %s. "
+                    + "Retrying in %s secs",
+                    e,
+                    self._daq_initialisation_retry_frequency,
+                )
+                sleep(self._daq_initialisation_retry_frequency)
 
     def stop_communicating(self: DaqComponentManager) -> None:
         """Break off communication with the DaqReceiver components."""
         if self.communication_state == CommunicationStatus.DISABLED:
             return
+        self._stop_establishing_communication = True
         self._update_communication_state(CommunicationStatus.DISABLED)
         self._update_component_state(power=None, fault=None)
 
