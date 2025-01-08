@@ -12,6 +12,7 @@ import json
 import logging
 import random
 import threading
+import time
 from datetime import date
 from pathlib import PurePath
 from typing import Any, Callable, Final, Optional
@@ -95,6 +96,25 @@ class DaqComponentManager(TaskExecutorComponentManager):
             fault=None,
         )
         self._task_executor = TaskExecutor(max_workers=2)
+        monitoring_thread = threading.Thread(
+            target=self.start_bandpass_monitoring_if_status_true
+        )
+        monitoring_thread.start()
+
+    def start_bandpass_monitoring_if_status_true(self) -> None:
+        """Start the bandpass monitoring if the Bandpass Monitor is true in daq
+        status."""
+        try:
+            status = json.loads(self.daq_status())
+            if status["Bandpass Monitor"] is True:
+                self.start_bandpass_monitor(
+                    json.dumps({"plot_directory": "/tmp"})
+                )
+            return
+        except ConnectionError:
+            # wait for 2 seconds before retrying
+            time.sleep(2)
+            self.start_bandpass_monitoring_if_status_true()
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
