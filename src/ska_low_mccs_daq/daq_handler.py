@@ -217,6 +217,7 @@ class DaqHandler:
         self.bandpass_plotting_thread: threading.Thread = threading.Thread(
             target=self.generate_bandpass_plots
         )
+        self._plot_transmission: bool = False
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -524,7 +525,7 @@ class DaqHandler:
         :returns: TaskStatus, Message, None, None, None
         """
         try:
-            if self._monitoring_bandpass:
+            if self._monitoring_bandpass and self._plot_transmission:
                 yield (
                     TaskStatus.REJECTED,
                     "Bandpass monitor is already active.",
@@ -677,6 +678,7 @@ class DaqHandler:
             )
 
             while not self._stop_bandpass:
+                self._plot_transmission = True
                 try:
                     dir_size = sum(
                         os.path.getsize(f)
@@ -752,6 +754,7 @@ class DaqHandler:
             # if monitor_rms:
             #     rms.join()
             self._monitoring_bandpass = False
+            self._plot_transmission = False
 
             self.logger.info("Bandpass monitoring complete.")
             yield (
@@ -764,10 +767,10 @@ class DaqHandler:
         finally:
             observer.stop()
             observer.join()
-            self._monitoring_bandpass = False
+            self._plot_transmission = False
             self.logger.info(
                 "Bandpass monitoring thread terminated. The Bandpass plots "
-                "will continue to generate."
+                "will continue to generate but will not be transmitted."
             )
 
     @check_initialisation
