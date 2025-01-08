@@ -226,7 +226,9 @@ class MccsDaqReceiver(SKABaseDevice):
         default_value="",
     )
     DaqInitRetryFreq = device_property(
-        dtype=int, doc="The retry frequency for DAQ initialization", default_value=5
+        dtype=int,
+        doc="The retry frequency for DAQ initialization in seconds",
+        default_value=5,
     )
 
     # ---------------

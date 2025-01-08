@@ -48,7 +48,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         communication_state_callback: Callable[[CommunicationStatus], None],
         component_state_callback: Callable[..., None],
         received_data_callback: Callable[[str, str, str], None],
-        daq_initialization_retry_frequency: int = 5,
+        daq_initialisation_retry_frequency: int = 5,
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -70,8 +70,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             called when the component state changes
         :param received_data_callback: callback to be called when data is
             received from a tile
-        :param daq_initialization_retry_frequency: Frequency at which daq
-            initialization in retried.
+        :param daq_initialisation_retry_frequency: Frequency at which daq
+            initialisation in retried.
         """
         self._power_state_lock = threading.RLock()
         self._power_state: Optional[PowerState] = None
@@ -90,7 +90,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._set_consumers_to_start(consumers_to_start)
         self._daq_client = DaqClient(daq_address)
         self._skuid_url = skuid_url
-        self._daq_initialization_retry_frequency = daq_initialization_retry_frequency
+        self._daq_initialisation_retry_frequency = (
+            daq_initialisation_retry_frequency
+        )
         self._stop_establishing_communication = False
 
         super().__init__(
@@ -120,7 +122,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def establish_communication(self, configuration: str) -> None:
         """Establish communication with the DaqReceiver components.
 
-        :param configuration: Configuration string for daq initialization
+        :param configuration: Configuration string for daq initialisation
         """
         while not self._stop_establishing_communication:
             try:
@@ -133,9 +135,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     "Caught exception in start_communicating: %s. "
                     + "Retrying in %s secs",
                     e,
-                    self._daq_initialization_retry_frequency,
+                    self._daq_initialisation_retry_frequency,
                 )
-                sleep(self._daq_initialization_retry_frequency)
+                sleep(self._daq_initialisation_retry_frequency)
 
     def stop_communicating(self: DaqComponentManager) -> None:
         """Break off communication with the DaqReceiver components."""
