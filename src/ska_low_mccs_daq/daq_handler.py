@@ -375,8 +375,7 @@ class DaqHandler:
             self._receiver_started = True
 
         try:
-            if not self.client_queue:
-                self.client_queue = queue.SimpleQueue()
+            self.client_queue = queue.SimpleQueue()
             callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
             self.daq_instance.start_daq(converted_modes_to_start, callbacks)
             self.logger.info("Daq listening......")
