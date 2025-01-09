@@ -225,6 +225,11 @@ class MccsDaqReceiver(SKABaseDevice):
         doc="The location of a running SKUID service.",
         default_value="",
     )
+    DaqInitRetryFreq = device_property(
+        dtype=int,
+        doc="The retry frequency for DAQ initialization in seconds",
+        default_value=5,
+    )
 
     # ---------------
     # Initialisation
@@ -323,6 +328,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self._component_communication_state_changed,
             self._component_state_callback,
             self._received_data_callback,
+            self.DaqInitRetryFreq,
         )
 
     def init_command_objects(self: MccsDaqReceiver) -> None:
