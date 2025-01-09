@@ -106,27 +106,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
             target=self.start_daq_if_monitoring_is_active
         )
         start_daq_after_restart_thread.start()
-        start_bandpass_monitoring_after_restart_thread = threading.Thread(
-            target=self.start_bandpass_monitoring_if_status_true
-        )
-        start_bandpass_monitoring_after_restart_thread.start()
-
-    def start_bandpass_monitoring_if_status_true(self) -> None:
-        """Start bandpass monitoring if Bandpass Monitor is true in daq status."""
-        try:
-            self.logger.info("Checking for bandpass monitoring status..")
-            status: dict[str, Any] = json.loads(self.daq_status())
-            self.logger.info("Status check results - %s", status)
-            if status["Bandpass Monitor"] is True:
-                self.start_bandpass_monitor(json.dumps({"plot_directory": "/tmp"}))
-            return
-        except ConnectionError:
-            self.logger.exception("Connection error while checking the status")
-            time.sleep(2)
-            self.start_bandpass_monitoring_if_status_true()
 
     def start_daq_if_monitoring_is_active(self) -> None:
-        """Start Daq thread if bandpass monitoring is active."""
+        """Start Daq thread if bandpass monitoring is active.
+
+        Also start bandpass monitoring thread with directory as tmp.
+        """
         try:
             self.logger.info("Checking for bandpass monitoring status..")
             status: dict[str, Any] = json.loads(self.daq_status())
@@ -134,6 +119,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             if status["Bandpass Monitor"] is True:
                 input_data = self.generate_input_data_from_daq_status(status)
                 self.start_daq(input_data)
+                self.start_bandpass_monitor(json.dumps({"plot_directory": "/tmp"}))
             return
         except ConnectionError:
             self.logger.exception("Connection error while checking the status")
@@ -148,9 +134,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :return: A string containing the modes to start for the DaqHandler.
         """
         running_consumers: list[list[str]] = daq_status["Running Consumers"]
-        modes_to_start = ",".join([data[0] for data in running_consumers])
-        self.logger.info("Input data for start_daq: %s", modes_to_start)
-        return json.dumps({"modes_to_start": modes_to_start})
+        return ",".join([data[0] for data in running_consumers])
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
