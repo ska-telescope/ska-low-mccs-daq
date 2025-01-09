@@ -765,8 +765,6 @@ class DaqHandler:
                 None,
             )
         finally:
-            observer.stop()
-            observer.join()
             self._plot_transmission = False
             self.logger.info(
                 "Bandpass monitoring thread terminated. The Bandpass plots "
