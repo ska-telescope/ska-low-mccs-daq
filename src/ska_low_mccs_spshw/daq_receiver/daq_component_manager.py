@@ -113,7 +113,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def start_bandpass_monitoring_if_status_true(self) -> None:
         """Start bandpass monitoring if Bandpass Monitor is true in daq status."""
         try:
+            self.logger.info("Checking for bandpass monitoring status..")
             status: dict[str, Any] = json.loads(self.daq_status())
+            self.logger.info("Status check results - %s", status)
             if status["Bandpass Monitor"] is True:
                 self.start_bandpass_monitor(json.dumps({"plot_directory": "/tmp"}))
             return
@@ -123,7 +125,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def start_daq_if_monitoring_is_active(self) -> None:
         """Start Daq thread if bandpass monitoring is active."""
         try:
+            self.logger.info("Checking for bandpass monitoring status..")
             status: dict[str, Any] = json.loads(self.daq_status())
+            self.logger.info("Status check results - %s", status)
             if status["Bandpass Monitor"] is True:
                 input_data = self.generate_input_data_from_daq_status(status)
                 self.start_daq(input_data)
@@ -140,6 +144,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         running_consumers: list[list[str]] = daq_status["Running Consumers"]
         modes_to_start = ",".join([data[0] for data in running_consumers])
+        self.logger.info("Input data for start_daq: %s", modes_to_start)
         return json.dumps({"modes_to_start": modes_to_start})
 
     def start_communicating(self: DaqComponentManager) -> None:
