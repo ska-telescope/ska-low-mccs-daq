@@ -12,6 +12,7 @@ import json
 import logging
 import random
 import threading
+import time
 from datetime import date
 from pathlib import PurePath
 from time import sleep
@@ -120,7 +121,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 self.start_bandpass_monitor(json.dumps({"plot_directory": "/tmp"}))
             return
         except ConnectionError:
-            return
+            self.logger.exception("Connection error while checking the status")
+            time.sleep(2)
+            self.start_bandpass_monitoring_if_status_true()
 
     def start_daq_if_monitoring_is_active(self) -> None:
         """Start Daq thread if bandpass monitoring is active."""
@@ -133,7 +136,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 self.start_daq(input_data)
             return
         except ConnectionError:
-            return
+            self.logger.exception("Connection error while checking the status")
+            time.sleep(2)
+            self.start_daq_if_monitoring_is_active()
 
     def generate_input_data_from_daq_status(self, daq_status: dict[str, Any]) -> str:
         """Generate the input data for StartDaq command using DaqStatus.
