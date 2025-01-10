@@ -375,15 +375,15 @@ class DaqHandler:
             self._receiver_started = True
 
         try:
-            if self._monitoring_bandpass is not True:
-                self.client_queue = queue.SimpleQueue()
-                callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
-                self.daq_instance.start_daq(converted_modes_to_start, callbacks)
-                self.logger.info("Daq listening......")
+            self.client_queue = queue.SimpleQueue()
+            callbacks = [self._file_dump_callback] * len(
+                converted_modes_to_start
+            )
+            self.daq_instance.start_daq(converted_modes_to_start, callbacks)
+            self.logger.info("Daq listening......")
 
             yield "LISTENING"
-            if isinstance(self.client_queue, queue.SimpleQueue):
-                yield from iter(self.client_queue.get, None)
+            yield from iter(self.client_queue.get, None)
             yield "STOPPED"
         finally:
             # prevent queue from building up indefinitely
