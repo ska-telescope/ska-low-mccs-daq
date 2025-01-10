@@ -14,6 +14,7 @@ import random
 import threading
 import time
 from datetime import date
+from functools import partial
 from pathlib import PurePath
 from time import sleep
 from typing import Any, Callable, Final, Optional
@@ -102,13 +103,13 @@ class DaqComponentManager(TaskExecutorComponentManager):
             fault=None,
         )
         self._task_executor = TaskExecutor(max_workers=2)
-        start_daq_after_restart_thread = threading.Thread(
-            target=self.start_daq_if_monitoring_is_active,
-            name="start_daq_if_monitoring_is_active",
+        restart_daq_after_restart_thread = threading.Thread(
+            target=self.restart_daq_if_monitoring_is_active,
+            name="restart_daq_if_monitoring_is_active",
         )
-        start_daq_after_restart_thread.start()
+        restart_daq_after_restart_thread.start()
 
-    def start_daq_if_monitoring_is_active(self) -> None:
+    def restart_daq_if_monitoring_is_active(self) -> None:
         """Start Daq thread if bandpass monitoring is active.
 
         Also start bandpass monitoring thread with directory as tmp.
@@ -119,12 +120,38 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.info("Status check results - %s", status)
             if status["Bandpass Monitor"] is True:
                 input_data = self.generate_input_data_from_daq_status(status)
-                self.start_daq(input_data, self.start_daq_completion_callback)
+                self._stop_daq(partial(self.stop_daq_completion_callback, input_data))
             return
         except ConnectionError:
             self.logger.exception("Connection error while checking the status")
             time.sleep(2)
-            self.start_daq_if_monitoring_is_active()
+            self.restart_daq_if_monitoring_is_active()
+        except Exception as exception:
+            self.logger.exception(
+                "Caught an exception while trying to restart Daq: %s", exception
+            )
+
+    def stop_daq_completion_callback(
+        self,
+        input_data: str,
+        status: TaskStatus | None = None,
+        progress: int | None = None,
+        result: JSONData = None,
+        exception: Exception | None = None,
+    ) -> None:
+        """Update stop_daq command status.
+
+        :param input_data: input data for start_daq command
+        :param status: the status of the asynchronous task
+        :param progress: the progress of the asynchronous task
+        :param result: the result of the completed asynchronous task
+        :param exception: any exception caught in the running task
+        """
+        if status == TaskStatus.COMPLETED:
+            self.logger.info("StopDaq command completed. Executing StartDaq.")
+            self.start_daq(input_data, self.start_daq_completion_callback)
+        else:
+            self.logger.error("Execution of StopDaq failed")
 
     def start_daq_completion_callback(
         self,
