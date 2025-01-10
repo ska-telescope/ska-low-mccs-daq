@@ -12,7 +12,6 @@ import json
 import logging
 import random
 import threading
-import time
 from datetime import date
 from functools import partial
 from pathlib import PurePath
@@ -103,11 +102,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             fault=None,
         )
         self._task_executor = TaskExecutor(max_workers=2)
-        restart_daq_after_restart_thread = threading.Thread(
-            target=self.restart_daq_if_monitoring_is_active,
-            name="restart_daq_if_monitoring_is_active",
-        )
-        restart_daq_after_restart_thread.start()
 
     def restart_daq_if_monitoring_is_active(self) -> None:
         """Start Daq thread if bandpass monitoring is active.
@@ -119,16 +113,18 @@ class DaqComponentManager(TaskExecutorComponentManager):
             status: dict[str, Any] = json.loads(self.daq_status())
             self.logger.info("Status check results - %s", status)
             if status["Bandpass Monitor"] is True:
+                # Input data for start_daq command
                 input_data = self.generate_input_data_from_daq_status(status)
                 self._stop_daq(partial(self.stop_daq_completion_callback, input_data))
-            return
-        except ConnectionError:
-            self.logger.exception("Connection error while checking the status")
-            time.sleep(2)
-            self.restart_daq_if_monitoring_is_active()
+        except ConnectionError as connection_error:
+            self.logger.exception(
+                "Connection error while checking the status on Daq: %s",
+                connection_error,
+            )
         except Exception as exception:  # pylint: disable=broad-exception-caught  # XXX
             self.logger.exception(
-                "Caught an exception while trying to restart Daq: %s", exception
+                "Caught an exception while trying to restart bandpass monitoring: %s",
+                exception,
             )
 
     def stop_daq_completion_callback(
@@ -140,6 +136,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         exception: Exception | None = None,
     ) -> None:
         """Update stop_daq command status.
+
+        Executes start_daq command if stop_daq succeedes.
 
         :param input_data: input data for start_daq command
         :param status: the status of the asynchronous task
@@ -161,6 +159,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         exception: Exception | None = None,
     ) -> None:
         """Update start_daq command status.
+
+        Executes start_bandpass_monitor once start_daq is done.
 
         :param status: the status of the asynchronous task
         :param progress: the progress of the asynchronous task
@@ -219,6 +219,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 response = self._daq_client.initialise(configuration)
                 self.logger.info(response["message"])
                 self._update_communication_state(CommunicationStatus.ESTABLISHED)
+                self.restart_daq_if_monitoring_is_active()
                 break
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.error(
