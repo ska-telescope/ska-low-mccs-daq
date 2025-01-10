@@ -524,6 +524,7 @@ class DaqHandler:
         :yields: Taskstatus, Message, bandpass/rms plot(s).
         :returns: TaskStatus, Message, None, None, None
         """
+        observer = Observer()
         try:
             if self._monitoring_bandpass and self._plot_transmission:
                 yield (
@@ -640,7 +641,6 @@ class DaqHandler:
             #     rms.start()
 
             # Start directory monitor
-            observer = Observer()
             data_handler = IntegratedDataHandler(self._station_name)
             observer.schedule(data_handler, data_directory)
             observer.start()
@@ -765,6 +765,9 @@ class DaqHandler:
                 None,
             )
         finally:
+            observer.stop()
+
+            observer.join()
             self._plot_transmission = False
             self.logger.info(
                 "Bandpass monitoring thread terminated. The Bandpass plots "
