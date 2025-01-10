@@ -126,7 +126,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.exception("Connection error while checking the status")
             time.sleep(2)
             self.restart_daq_if_monitoring_is_active()
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught  # XXX
             self.logger.exception(
                 "Caught an exception while trying to restart Daq: %s", exception
             )
