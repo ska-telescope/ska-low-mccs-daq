@@ -382,7 +382,8 @@ class DaqHandler:
                 self.logger.info("Daq listening......")
 
             yield "LISTENING"
-            yield from iter(self.client_queue.get, None)
+            if isinstance(self.client_queue, queue.SimpleQueue):
+                yield from iter(self.client_queue.get, None)
             yield "STOPPED"
         finally:
             # prevent queue from building up indefinitely
