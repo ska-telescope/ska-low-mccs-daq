@@ -636,14 +636,14 @@ class DaqHandler:
             #     )
             #     rms.start()
 
-            # Start directory monitor
-            observer = Observer()
-            data_handler = IntegratedDataHandler(self._station_name)
-            observer.schedule(data_handler, data_directory)
-            observer.start()
-
-            # Start plotting thread
             if not self._monitoring_bandpass:
+                # Start directory monitor
+                observer = Observer()
+                data_handler = IntegratedDataHandler(self._station_name)
+                observer.schedule(data_handler, data_directory)
+                observer.start()
+
+                # Start plotting thread
                 self.logger.debug("Starting bandpass plotting thread")
                 bandpass_plotting_thread = threading.Thread(
                     target=self.generate_bandpass_plots,
@@ -762,9 +762,6 @@ class DaqHandler:
                 None,
             )
         finally:
-            observer.stop()
-
-            observer.join()
             self._plot_transmission = False
             self.logger.info(
                 "Bandpass monitoring thread terminated. The Bandpass plots "
