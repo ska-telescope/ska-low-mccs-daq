@@ -177,10 +177,10 @@ class StandaloneCorrelator(object):
         # Load AAVS DAQ shared library
         _library = None
         library_found = False
-        if 'AAVS_INSTALL' in list(os.environ.keys()):
-            # Check if library is in AAVS directory
-            if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsdaq.so")):
-                _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsdaq.so")
+        if 'DAQ_INSTALL' in list(os.environ.keys()):
+            # Check if library is in install directory
+            if os.path.exists("%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libaavsdaq.so")):
+                _library = "%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libaavsdaq.so")
                 library_found = True
 
         if not library_found:

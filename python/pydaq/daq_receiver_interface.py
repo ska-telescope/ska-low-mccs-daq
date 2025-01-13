@@ -132,8 +132,8 @@ class DaqReceiver:
                         }
 
         # Default AAVS DAQ C++ shared library path
-        aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
-        self._daq_library_path = f"{aavs_install_path}/lib/libaavsdaq.so".encode('ASCII')
+        daq_install_path = os.environ.get("DAQ_INSTALL", "/opt/aavs")
+        self._daq_library_path = f"{daq_install_path}/lib/libaavsdaq.so".encode('ASCII')
 
         # Pointer to shared library objects
         self._daq_library = None
@@ -1362,10 +1362,10 @@ class DaqReceiver:
         # Load AAVS DAQ shared library
         _library = None
         library_found = False
-        if 'AAVS_INSTALL' in list(os.environ.keys()):
-            # Check if library is in AAVS directory
-            if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsstationbeam.so")):
-                _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsstationbeam.so")
+        if 'DAQ_INSTALL' in list(os.environ.keys()):
+            # Check if library is in install directory
+            if os.path.exists("%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libaavsstationbeam.so")):
+                _library = "%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libaavsstationbeam.so")
                 library_found = True
 
         if not library_found:
@@ -1411,10 +1411,10 @@ class DaqReceiver:
         # Load AAVS DAQ shared library
         _library = None
         library_found = False
-        if 'AAVS_INSTALL' in list(os.environ.keys()):
-            # Check if library is in AAVS directory
-            if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so.so")):
-                _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so")
+        if 'DAQ_INSTALL' in list(os.environ.keys()):
+            # Check if library is in install directory
+            if os.path.exists("%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libdaq.so.so")):
+                _library = "%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libdaq.so")
                 library_found = True
 
         if not library_found:
@@ -1469,8 +1469,8 @@ class DaqReceiver:
         if filepath is not None:
             aavsdaq_library = filepath
         else:
-            aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
-            aavsdaq_library = find("libaavsdaq.so", f"{aavs_install_path}/lib")
+            daq_install_path = os.environ.get("DAQ_INSTALL", "/opt/aavs")
+            aavsdaq_library = find("libaavsdaq.so", f"{daq_install_path}/lib")
             if aavsdaq_library is None:
                 aavsdaq_library = find("libaavsdaq.so", "/usr/local/lib")
             if aavsdaq_library is None:

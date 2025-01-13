@@ -103,6 +103,7 @@ if [ "$VENV_INSTALL" == "/opt/aavs" ]; then
     export VENV_INSTALL=$AAVS_INSTALL;
 fi
 
+export DAQ_INSTALL=$AAVS_INSTALL
 
 # Check if printing help
 if [ $PRINT_HELP == true ]; then
@@ -239,6 +240,10 @@ fi
 
 if [[ ! -n "`cat $VENV_INSTALL/python/bin/activate | grep AAVS_INSTALL`" ]]; then
     echo "export AAVS_INSTALL=$AAVS_INSTALL" >> $VENV_INSTALL/python/bin/activate
+fi
+
+if [[ ! -n "`cat $VENV_INSTALL/python/bin/activate | grep DAQ_INSTALL`" ]]; then
+    echo "export DAQ_INSTALL=$DAQ_INSTALL" >> $VENV_INSTALL/python/bin/activate
 fi
 
 if [[ ! -n "`cat $VENV_INSTALL/python/bin/activate | grep redeploy_aavs_code`" ]]; then
