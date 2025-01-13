@@ -12,7 +12,6 @@ from typing import Callable, Union, List, Dict, Any, Optional, Type
 import numpy as np
 import yaml
 
-from pyaavs.logger import root_logger as daq_logger
 from pyaavs.slack import get_slack_instance
 from pydaq.persisters import *
 from pydaq.persisters import aavs_file, complex_8t, complex_16t
@@ -1055,7 +1054,7 @@ class DaqReceiver:
         """ Initialise DAQ library """
 
         # Remove any locks
-        daq_logger.info("Removing locks on files in output directory")
+        logging.info("Removing locks on files in output directory")
         os.system("rm -fr %s/*.lock" % self._config['directory'])
 
         # Initialise AAVS DAQ library
@@ -1307,17 +1306,17 @@ class DaqReceiver:
         message = message.decode()
 
         if level == self.LogLevel.Fatal.value:
-            daq_logger.fatal(message)
+            logging.fatal(message)
             sys.exit()
         elif level == self.LogLevel.Error.value:
-            daq_logger.error(message)
+            logging.error(message)
             sys.exit()
         elif level == self.LogLevel.Warning.value:
-            daq_logger.warning(message)
+            logging.warning(message)
         elif level == self.LogLevel.Info.value:
-            daq_logger.info(message)
+            logging.info(message)
         elif level == self.LogLevel.Debug.value:
-            daq_logger.debug(message)
+            logging.debug(message)
 
     def send_slack_message(self, message: str) -> None:
         """ Send a message of slack

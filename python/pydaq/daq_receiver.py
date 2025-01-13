@@ -19,7 +19,6 @@ import numpy as np
 from pyaavs.slack import get_slack_instance
 from pydaq.interface import *
 from pydaq.persisters import *
-import pyaavs.logger
 
 
 # Define consumer types enum
