@@ -214,9 +214,6 @@ class DaqHandler:
         self._y_bandpass_plots: queue.Queue = queue.Queue()
         self._rms_plots: queue.Queue = queue.Queue()
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
-        self.bandpass_plotting_thread: threading.Thread = threading.Thread(
-            target=self.generate_bandpass_plots
-        )
         self._plot_transmission: bool = False
 
     # Callback called for every data mode.
@@ -524,7 +521,6 @@ class DaqHandler:
         :yields: Taskstatus, Message, bandpass/rms plot(s).
         :returns: TaskStatus, Message, None, None, None
         """
-        observer = Observer()
         try:
             if self._monitoring_bandpass and self._plot_transmission:
                 yield (
@@ -641,14 +637,15 @@ class DaqHandler:
             #     rms.start()
 
             # Start directory monitor
+            observer = Observer()
             data_handler = IntegratedDataHandler(self._station_name)
             observer.schedule(data_handler, data_directory)
             observer.start()
 
             # Start plotting thread
-            if not self.bandpass_plotting_thread.is_alive():
+            if not self._monitoring_bandpass:
                 self.logger.debug("Starting bandpass plotting thread")
-                self.bandpass_plotting_thread = threading.Thread(
+                bandpass_plotting_thread = threading.Thread(
                     target=self.generate_bandpass_plots,
                     args=(
                         os.path.join(plot_directory, self._station_name),
@@ -656,7 +653,7 @@ class DaqHandler:
                         cadence,
                     ),
                 )
-                self.bandpass_plotting_thread.start()
+                bandpass_plotting_thread.start()
             # Wait for stop, monitoring disk space in the meantime
             max_dir_size = 1000 * 1024 * 1024
 
@@ -750,7 +747,7 @@ class DaqHandler:
             observer.stop()
 
             observer.join()
-            self.bandpass_plotting_thread.join()
+            bandpass_plotting_thread.join()
             # if monitor_rms:
             #     rms.join()
             self._monitoring_bandpass = False
