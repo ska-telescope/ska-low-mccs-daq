@@ -1054,7 +1054,8 @@ class DaqHandler:
             try:
                 queue_to_modify.get()
             except queue.Empty:
-                # In case the item from the queue was accessed between the size check and the get
+                # In case the item from the queue was accessed between the size check
+                # and the get
                 pass
         queue_to_modify.put(item)
 
