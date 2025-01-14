@@ -149,7 +149,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.info("StopDaq command completed. Executing StartDaq.")
             self.start_daq(input_data, self.start_daq_completion_callback)
         else:
-            self.logger.error("Execution of StopDaq failed")
+            self.logger.error(
+                "Execution of StopDaq is not complete. Current status is: %s",
+                [status, progress, result, exception],
+            )
 
     def start_daq_completion_callback(
         self,
