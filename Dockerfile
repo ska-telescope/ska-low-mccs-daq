@@ -30,17 +30,17 @@ RUN apt-get update && apt-get install -y \
     libcap2-bin \
     make \
     pkg-config \
-    python3.10 \
-    libpython3.10-dev \
+    python3.11 \
+    libpython3.11-dev \
     python3-distutils \
     sudo \
     tzdata
 
-# Set Python3.10 to preferred version, add folders to PATH, create symlink to python3
-RUN update-alternatives --install /usr/bin/python3 python /usr/bin/python3.10 2
-ENV PATH="/usr/local/lib:/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:${PATH}"
+# Set Python3.11 to preferred version, add folders to PATH, create symlink to python3
+RUN update-alternatives --install /usr/bin/python3 python /usr/bin/python3.11 2
+ENV PATH="/usr/local/lib:/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.11:${PATH}"
 ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
-RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
+RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.11", "/usr/bin/python"]
 
 # Install pip and poetry.
 ENV POETRY_HOME=/opt/poetry
@@ -76,7 +76,7 @@ WORKDIR /app/
 COPY pyproject.toml poetry.lock* ./
 
 RUN poetry config virtualenvs.create false && poetry install --only main
-RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
+RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.11
 RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/
 
