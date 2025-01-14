@@ -25,7 +25,6 @@ from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
 
 __all__ = ["DaqHandler", "main"]
 
@@ -187,13 +186,13 @@ class DaqHandler:
 
         self._config = self.CONFIG_DEFAULTS | extra_config
 
-        self.daq_instance: DaqReceiver = None
+        self.daq_instance: DaqReceiver | None = None
         self._receiver_started: bool = False
         self._initialised: bool = False
         self._stop_bandpass: bool = False
         self._monitoring_bandpass: bool = False
         self.logger = logging.getLogger("daq-server")
-        self.client_queue: queue.SimpleQueue | None = None
+        self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
             "cont_channel": DaqModes.CONTINUOUS_CHANNEL_DATA,
@@ -210,9 +209,9 @@ class DaqHandler:
             str, tuple[list[int], list[float], list[float]]
         ] = {}
         self._plots_to_send: bool = False
-        self._x_bandpass_plots: queue.Queue = queue.Queue()
-        self._y_bandpass_plots: queue.Queue = queue.Queue()
-        self._rms_plots: queue.Queue = queue.Queue()
+        self._y_bandpass_plots: queue.Queue[str] = queue.Queue(maxsize=1)
+        self._x_bandpass_plots: queue.Queue[str] = queue.Queue(maxsize=1)
+        self._rms_plots: queue.Queue[str] = queue.Queue(maxsize=1)
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
         self._plot_transmission: bool = False
 
@@ -288,6 +287,7 @@ class DaqHandler:
         :param metadata: Any additional information.
         """
         if self.client_queue:
+            files_to_plot[self._station_name].append(file_name)
             self.client_queue.put(
                 (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
             )
@@ -637,12 +637,6 @@ class DaqHandler:
             #     rms.start()
 
             if not self._monitoring_bandpass:
-                # Start directory monitor
-                observer = Observer()
-                data_handler = IntegratedDataHandler(self._station_name)
-                observer.schedule(data_handler, data_directory)
-                observer.start()
-
                 # Start plotting thread
                 self.logger.debug("Starting bandpass plotting thread")
                 bandpass_plotting_thread = threading.Thread(
@@ -744,9 +738,6 @@ class DaqHandler:
             # TODO: Need to be able to stop consumers incrementally for this.
             # if auto_handle_daq:
             #     self.stop()
-            observer.stop()
-
-            observer.join()
             bandpass_plotting_thread.join()
             # if monitor_rms:
             #     rms.join()
@@ -1030,11 +1021,15 @@ class DaqHandler:
                     x_data = full_station_data[:, :, X_POL_INDEX].transpose()
                     # Averaged x data (commented out for now)
                     # x_data = x_pol_data.transpose() / x_pol_data_count
-                    self._x_bandpass_plots.put(json.dumps(x_data.tolist()))
+                    self.put_item_in_queue(
+                        self._x_bandpass_plots, json.dumps(x_data.tolist())
+                    )
                     y_data = full_station_data[:, :, Y_POL_INDEX].transpose()
                     # Averaged y data (commented out for now)
                     # y_data = y_pol_data.transpose() / y_pol_data_count
-                    self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
+                    self.put_item_in_queue(
+                        self._y_bandpass_plots, json.dumps(y_data.tolist())
+                    )
                     self.logger.debug("Data queued for transmission.")
 
                     # Reset vars
@@ -1046,6 +1041,22 @@ class DaqHandler:
                     files_received_per_tile = [0] * nof_tiles
 
         self.logger.info("Exiting bandpass plotting loop.")
+
+    def put_item_in_queue(self, queue_to_modify: queue.Queue[str], item: str) -> None:
+        """Put the given item in the given queue.
+
+        Remove an item from queue if needed.
+
+        :param queue_to_modify: Queue to add the item in
+        :param item: Item to add to the queue.
+        """
+        if queue_to_modify.qsize() != 0:
+            try:
+                queue_to_modify.get()
+            except queue.Empty:
+                # In case the item from the queue was accessed between the size check and the get
+                pass
+        queue_to_modify.put(item)
 
     # pylint: disable=broad-except
     def create_plotting_directory(
