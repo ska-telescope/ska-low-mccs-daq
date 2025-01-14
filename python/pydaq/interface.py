@@ -54,9 +54,9 @@ class LogLevel(Enum):
 
 
 # Global store for interface objects
-aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
-aavsdaq_library_path = f"{aavs_install_path}/lib/libaavsdaq.so".encode('ASCII')
-aavsstationbeam_library_path = f"{aavs_install_path}/lib/libaavsstationbeam.so".encode('ASCII')
+daq_install_path = os.environ.get("DAQ_INSTALL", "/opt/aavs")
+aavsdaq_library_path = f"{daq_install_path}/lib/libaavsdaq.so".encode('ASCII')
+aavsstationbeam_library_path = f"{daq_install_path}/lib/libaavsstationbeam.so".encode('ASCII')
 aavsdaq_library = None
 aavsstationbeam_library = None
 
@@ -93,10 +93,10 @@ def initialise_library(filepath=None):
     # Load AAVS DAQ shared library
     _library = None
     library_found = False
-    if 'AAVS_INSTALL' in list(os.environ.keys()):
-        # Check if library is in AAVS directory
-        if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so")):
-            _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so")
+    if 'DAQ_INSTALL' in list(os.environ.keys()):
+        # Check if library is in install directory
+        if os.path.exists("%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libdaq.so")):
+            _library = "%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libdaq.so")
             library_found = True
 
     if not library_found:
@@ -149,8 +149,8 @@ def initialise_library(filepath=None):
     if filepath is not None:
         aavsdaq_library_path = filepath
     else:
-        aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
-        aavsdaq_library_path = find("libaavsdaq.so", f"{aavs_install_path}/lib")
+        daq_install_path = os.environ.get("DAQ_INSTALL", "/opt/aavs")
+        aavsdaq_library_path = find("libaavsdaq.so", f"{daq_install_path}/lib")
         if aavsdaq_library_path is None:
             aavsdaq_library_path = find("libaavsdaq.so", "/usr/local/lib")
         if aavsdaq_library_path is None:
@@ -172,10 +172,10 @@ def initialise_station_beam_library(filepath=None):
     # Load AAVS DAQ shared library
     _library = None
     library_found = False
-    if 'AAVS_INSTALL' in list(os.environ.keys()):
-        # Check if library is in AAVS directory
-        if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsstationbeam.so")):
-            _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsstationbeam.so")
+    if 'DAQ_INSTALL' in list(os.environ.keys()):
+        # Check if library is in install directory
+        if os.path.exists("%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libaavsstationbeam.so")):
+            _library = "%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libaavsstationbeam.so")
             library_found = True
 
     if not library_found:

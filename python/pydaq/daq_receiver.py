@@ -19,7 +19,6 @@ import numpy as np
 from pyaavs.slack import get_slack_instance
 from pydaq.interface import *
 from pydaq.persisters import *
-import pyaavs.logger
 
 
 # Define consumer types enum
@@ -1163,9 +1162,9 @@ def initialise_daq(filepath=None):
         logging.info("Initialising library")
 
     # NOTE: Hardcoded case for 48-element stations in AAVS
-    aavs_install_path = os.environ.get("AAVS_INSTALL_PATH", "/opt/aavs")
+    daq_install_path = os.environ.get("DAQ_INSTALL", "/opt/aavs")
     if conf['nof_tiles'] == 3:
-        initialise_library(f"{aavs_install_path}/lib/libaavsdaq48.so")
+        initialise_library(f"{daq_install_path}/lib/libaavsdaq48.so")
     else:
         initialise_library(filepath)
 

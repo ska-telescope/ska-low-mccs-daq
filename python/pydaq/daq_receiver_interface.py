@@ -12,7 +12,6 @@ from typing import Callable, Union, List, Dict, Any, Optional, Type
 import numpy as np
 import yaml
 
-from pyaavs.logger import root_logger as daq_logger
 from pyaavs.slack import get_slack_instance
 from pydaq.persisters import *
 from pydaq.persisters import aavs_file, complex_8t, complex_16t
@@ -133,8 +132,8 @@ class DaqReceiver:
                         }
 
         # Default AAVS DAQ C++ shared library path
-        aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
-        self._daq_library_path = f"{aavs_install_path}/lib/libaavsdaq.so".encode('ASCII')
+        daq_install_path = os.environ.get("DAQ_INSTALL", "/opt/aavs")
+        self._daq_library_path = f"{daq_install_path}/lib/libaavsdaq.so".encode('ASCII')
 
         # Pointer to shared library objects
         self._daq_library = None
@@ -1055,7 +1054,7 @@ class DaqReceiver:
         """ Initialise DAQ library """
 
         # Remove any locks
-        daq_logger.info("Removing locks on files in output directory")
+        logging.info("Removing locks on files in output directory")
         os.system("rm -fr %s/*.lock" % self._config['directory'])
 
         # Initialise AAVS DAQ library
@@ -1307,17 +1306,17 @@ class DaqReceiver:
         message = message.decode()
 
         if level == self.LogLevel.Fatal.value:
-            daq_logger.fatal(message)
+            logging.fatal(message)
             sys.exit()
         elif level == self.LogLevel.Error.value:
-            daq_logger.error(message)
+            logging.error(message)
             sys.exit()
         elif level == self.LogLevel.Warning.value:
-            daq_logger.warning(message)
+            logging.warning(message)
         elif level == self.LogLevel.Info.value:
-            daq_logger.info(message)
+            logging.info(message)
         elif level == self.LogLevel.Debug.value:
-            daq_logger.debug(message)
+            logging.debug(message)
 
     def send_slack_message(self, message: str) -> None:
         """ Send a message of slack
@@ -1363,10 +1362,10 @@ class DaqReceiver:
         # Load AAVS DAQ shared library
         _library = None
         library_found = False
-        if 'AAVS_INSTALL' in list(os.environ.keys()):
-            # Check if library is in AAVS directory
-            if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsstationbeam.so")):
-                _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libaavsstationbeam.so")
+        if 'DAQ_INSTALL' in list(os.environ.keys()):
+            # Check if library is in install directory
+            if os.path.exists("%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libaavsstationbeam.so")):
+                _library = "%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libaavsstationbeam.so")
                 library_found = True
 
         if not library_found:
@@ -1412,10 +1411,10 @@ class DaqReceiver:
         # Load AAVS DAQ shared library
         _library = None
         library_found = False
-        if 'AAVS_INSTALL' in list(os.environ.keys()):
-            # Check if library is in AAVS directory
-            if os.path.exists("%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so.so")):
-                _library = "%s/lib/%s" % (os.environ['AAVS_INSTALL'], "libdaq.so")
+        if 'DAQ_INSTALL' in list(os.environ.keys()):
+            # Check if library is in install directory
+            if os.path.exists("%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libdaq.so.so")):
+                _library = "%s/lib/%s" % (os.environ['DAQ_INSTALL'], "libdaq.so")
                 library_found = True
 
         if not library_found:
@@ -1470,8 +1469,8 @@ class DaqReceiver:
         if filepath is not None:
             aavsdaq_library = filepath
         else:
-            aavs_install_path = os.environ.get("AAVS_INSTALL", "/opt/aavs")
-            aavsdaq_library = find("libaavsdaq.so", f"{aavs_install_path}/lib")
+            daq_install_path = os.environ.get("DAQ_INSTALL", "/opt/aavs")
+            aavsdaq_library = find("libaavsdaq.so", f"{daq_install_path}/lib")
             if aavsdaq_library is None:
                 aavsdaq_library = find("libaavsdaq.so", "/usr/local/lib")
             if aavsdaq_library is None:
