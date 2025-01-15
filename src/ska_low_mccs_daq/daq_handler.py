@@ -287,7 +287,8 @@ class DaqHandler:
         :param metadata: Any additional information.
         """
         if self.client_queue:
-            files_to_plot[self._station_name].append(file_name)
+            if files_to_plot.get(self._station_name, None):
+                files_to_plot[self._station_name].append(file_name)
             self.client_queue.put(
                 (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
             )
