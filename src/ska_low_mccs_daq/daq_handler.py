@@ -24,7 +24,6 @@ import numpy as np
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
 __all__ = ["DaqHandler", "main"]
 
@@ -34,10 +33,6 @@ Y_POL_INDEX = 1
 Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 
 # pylint: disable = too-many-lines
-
-# Global parameters
-bandwidth = 400.0
-files_to_plot: dict[str, list[str]] = {}
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -214,6 +209,7 @@ class DaqHandler:
         self._rms_plots: queue.Queue[str] = queue.Queue(maxsize=1)
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
         self._plot_transmission: bool = False
+        self._files_to_plot: queue.Queue[str] = queue.Queue()
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -241,6 +237,9 @@ class DaqHandler:
             metadata = self.daq_instance._persisters[daq_mode].get_metadata()
         if additional_info is not None and metadata is not None:
             metadata["additional_info"] = additional_info
+
+        if self._monitoring_bandpass:
+            self._files_to_plot.put(file_name)
 
         self._data_received_callback(
             data_mode=data_mode,
@@ -287,8 +286,6 @@ class DaqHandler:
         :param metadata: Any additional information.
         """
         if self.client_queue:
-            if files_to_plot.get(self._station_name, None):
-                files_to_plot[self._station_name].append(file_name)
             self.client_queue.put(
                 (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
             )
@@ -522,155 +519,153 @@ class DaqHandler:
         :yields: Taskstatus, Message, bandpass/rms plot(s).
         :returns: TaskStatus, Message, None, None, None
         """
-        try:
-            if self._monitoring_bandpass and self._plot_transmission:
-                yield (
-                    TaskStatus.REJECTED,
-                    "Bandpass monitor is already active.",
-                    None,
-                    None,
-                    None,
-                )
-                return
-            self._stop_bandpass = False
-            params: dict[str, Any] = json.loads(argin)
-            try:
-                plot_directory: str = params["plot_directory"]
-            except KeyError:
-                self.logger.error("Param `argin` must have key for `plot_directory`")
-                yield (
-                    TaskStatus.REJECTED,
-                    "Param `argin` must have key for `plot_directory`",
-                    None,
-                    None,
-                    None,
-                )
-                return
-            # monitor_rms: bool = cast(bool, params.get("monitor_rms", False))
-            cadence = cast(int, params.get("cadence", 0))
-            auto_handle_daq = params.get("auto_handle_daq", False)
-            # Convert to bool if we have a string.
-            if not isinstance(auto_handle_daq, bool):
-                # pylint: disable = simplifiable-if-statement
-                if auto_handle_daq == "True":
-                    auto_handle_daq = True
-                else:
-                    auto_handle_daq = False
-
-            # Check DAQ is in the correct state for monitoring bandpasses.
-            # If not, throw an error if we chose not to auto_handle_daq
-            # otherwise configure appropriately.
-            current_config = self.get_configuration()
-            if current_config["append_integrated"]:
-                if not auto_handle_daq:
-                    self.logger.error(
-                        "Current DAQ config is invalid. "
-                        "The `append_integrated` option must be set to false "
-                        "for bandpass monitoring."
-                    )
-                    yield (
-                        TaskStatus.REJECTED,
-                        "Current DAQ config is invalid. "
-                        "The `append_integrated` option must be set to false "
-                        "for bandpass monitoring.",
-                        None,
-                        None,
-                        None,
-                    )
-                    return
-                self.configure({"append_integrated": False})
-
-            # Check correct consumer is running.
-            running_consumers = self.get_status().get("Running Consumers", "")
-
-            if ["INTEGRATED_CHANNEL_DATA", 5] not in running_consumers:
-                if not auto_handle_daq:
-                    self.logger.error(
-                        "INTEGRATED_CHANNEL_DATA consumer must be running "
-                        "before bandpasses can be monitored."
-                        "Running consumers: %s",
-                        running_consumers,
-                    )
-                    yield (
-                        TaskStatus.REJECTED,
-                        "INTEGRATED_CHANNEL_DATA consumer must be running "
-                        "before bandpasses can be monitored.",
-                        None,
-                        None,
-                        None,
-                    )
-                    return
-                # Auto start DAQ.
-                # TODO: Need to be able to start consumers incrementally for this.
-                # result = self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
-                # while "INTEGRATED_CHANNEL_DATA" not in running_consumers:
-                #     tmp+=1
-                #     sleep(2)
-                #     running_consumers = self.get_status().get("Running Consumers")
-                #     if tmp > 5:
-                #         return
-
-            # Create plotting directory structure
-            if not self.create_plotting_directory(plot_directory, self._station_name):
-                self.logger.error(
-                    "Unable to create plotting directory at %s", plot_directory
-                )
-                yield (
-                    TaskStatus.FAILED,
-                    f"Unable to create plotting directory at: {plot_directory}",
-                    None,
-                    None,
-                    None,
-                )
-                return
-
-            data_directory = self.daq_instance._config["directory"]
-            self.logger.info("Using data dir %s", data_directory)
-
-            # # Start rms thread
-            # if monitor_rms:
-            #     self.logger.debug("Starting RMS plotting thread.")
-            #     rms = Process(
-            #         target=self.generate_rms_plots,
-            #         name=f"rms-plotter({self})",
-            #         args=(station_name, os.path.join(plot_directory, station_name)),
-            #     )
-            #     rms.start()
-
-            if not self._monitoring_bandpass:
-                files_to_plot[self._station_name] = []
-
-                # Start plotting thread
-                self.logger.debug("Starting bandpass plotting thread")
-                bandpass_plotting_thread = threading.Thread(
-                    target=self.generate_bandpass_plots,
-                    args=(
-                        os.path.join(plot_directory, self._station_name),
-                        self._station_name,
-                        cadence,
-                    ),
-                )
-                bandpass_plotting_thread.start()
-            # Wait for stop, monitoring disk space in the meantime
-            max_dir_size = 1000 * 1024 * 1024
-
-            self.logger.info("Bandpass monitor active, entering wait loop.")
-            self.logger.info(
-                "Params: plot_directory: %s, auto_handle_daq: %s, cadence: %i",
-                plot_directory,
-                auto_handle_daq,
-                cadence,
-            )
-            self._monitoring_bandpass = True
-
+        if self._monitoring_bandpass and self._plot_transmission:
             yield (
-                TaskStatus.IN_PROGRESS,
-                "Bandpass monitor active",
+                TaskStatus.REJECTED,
+                "Bandpass monitor is already active.",
                 None,
                 None,
                 None,
             )
+            return
+        self._stop_bandpass = False
+        params: dict[str, Any] = json.loads(argin)
+        try:
+            plot_directory: str = params["plot_directory"]
+        except KeyError:
+            self.logger.error("Param `argin` must have key for `plot_directory`")
+            yield (
+                TaskStatus.REJECTED,
+                "Param `argin` must have key for `plot_directory`",
+                None,
+                None,
+                None,
+            )
+            return
+        # monitor_rms: bool = cast(bool, params.get("monitor_rms", False))
+        cadence = cast(int, params.get("cadence", 0))
+        auto_handle_daq = params.get("auto_handle_daq", False)
+        # Convert to bool if we have a string.
+        if not isinstance(auto_handle_daq, bool):
+            # pylint: disable = simplifiable-if-statement
+            if auto_handle_daq == "True":
+                auto_handle_daq = True
+            else:
+                auto_handle_daq = False
 
+        # Check DAQ is in the correct state for monitoring bandpasses.
+        # If not, throw an error if we chose not to auto_handle_daq
+        # otherwise configure appropriately.
+        current_config = self.get_configuration()
+        if current_config["append_integrated"]:
+            if not auto_handle_daq:
+                self.logger.error(
+                    "Current DAQ config is invalid. "
+                    "The `append_integrated` option must be set to false "
+                    "for bandpass monitoring."
+                )
+                yield (
+                    TaskStatus.REJECTED,
+                    "Current DAQ config is invalid. "
+                    "The `append_integrated` option must be set to false "
+                    "for bandpass monitoring.",
+                    None,
+                    None,
+                    None,
+                )
+                return
+            self.configure({"append_integrated": False})
+
+        # Check correct consumer is running.
+        running_consumers = self.get_status().get("Running Consumers", "")
+
+        if ["INTEGRATED_CHANNEL_DATA", 5] not in running_consumers:
+            if not auto_handle_daq:
+                self.logger.error(
+                    "INTEGRATED_CHANNEL_DATA consumer must be running "
+                    "before bandpasses can be monitored."
+                    "Running consumers: %s",
+                    running_consumers,
+                )
+                yield (
+                    TaskStatus.REJECTED,
+                    "INTEGRATED_CHANNEL_DATA consumer must be running "
+                    "before bandpasses can be monitored.",
+                    None,
+                    None,
+                    None,
+                )
+                return
+            # Auto start DAQ.
+            # TODO: Need to be able to start consumers incrementally for this.
+            # result = self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
+            # while "INTEGRATED_CHANNEL_DATA" not in running_consumers:
+            #     tmp+=1
+            #     sleep(2)
+            #     running_consumers = self.get_status().get("Running Consumers")
+            #     if tmp > 5:
+            #         return
+
+        # Create plotting directory structure
+        if not self.create_plotting_directory(plot_directory, self._station_name):
+            self.logger.error(
+                "Unable to create plotting directory at %s", plot_directory
+            )
+            yield (
+                TaskStatus.FAILED,
+                f"Unable to create plotting directory at: {plot_directory}",
+                None,
+                None,
+                None,
+            )
+            return
+
+        data_directory = self.daq_instance._config["directory"]
+        self.logger.info("Using data dir %s", data_directory)
+
+        # # Start rms thread
+        # if monitor_rms:
+        #     self.logger.debug("Starting RMS plotting thread.")
+        #     rms = Process(
+        #         target=self.generate_rms_plots,
+        #         name=f"rms-plotter({self})",
+        #         args=(station_name, os.path.join(plot_directory, station_name)),
+        #     )
+        #     rms.start()
+
+        if not self._monitoring_bandpass:
+            # Start plotting thread
+            self.logger.debug("Starting bandpass plotting thread")
+            bandpass_plotting_thread = threading.Thread(
+                target=self.generate_bandpass_plots,
+                args=(
+                    os.path.join(plot_directory, self._station_name),
+                    self._station_name,
+                    cadence,
+                ),
+            )
+            bandpass_plotting_thread.start()
+        # Wait for stop, monitoring disk space in the meantime
+        max_dir_size = 1000 * 1024 * 1024
+
+        self.logger.info("Bandpass monitor active, entering wait loop.")
+        self.logger.info(
+            "Params: plot_directory: %s, auto_handle_daq: %s, cadence: %i",
+            plot_directory,
+            auto_handle_daq,
+            cadence,
+        )
+        self._monitoring_bandpass = True
+
+        yield (
+            TaskStatus.IN_PROGRESS,
+            "Bandpass monitor active",
+            None,
+            None,
+            None,
+        )
+
+        try:
             while not self._stop_bandpass:
                 self._plot_transmission = True
                 try:
@@ -912,7 +907,6 @@ class DaqHandler:
         :param plotting_directory: Directory to store plots in.
         :param cadence: Time in seconds over which to average bandpass data.
         """
-        global files_to_plot  # pylint: disable=global-variable-not-assigned
         config = self.get_configuration()
         nof_channels = config["nof_channels"]
         nof_antennas_per_tile = config["nof_antennas"]
@@ -936,12 +930,12 @@ class DaqHandler:
         self.logger.info("Entering bandpass plotting loop.")
         while not self._stop_bandpass:
             # Wait for files to be queued. Check every second.
-            if len(files_to_plot[station_name]) == 0:
+            if self._files_to_plot.qsize() == 0:
                 sleep(1)
                 continue
 
             # Get the first item in the list
-            filepath = files_to_plot[station_name].pop(0)
+            filepath = self._files_to_plot.get()
             self.logger.debug("Processing %s", filepath)
 
             # Extract Tile number
@@ -1014,6 +1008,20 @@ class DaqHandler:
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
 
+            def put_item_in_queue(queue_to_modify: queue.Queue[str], item: str) -> None:
+                """Add item in the queue.
+
+                If the queue is full, remove an item before adding a new one.
+
+                :param queue_to_modify: Queue to add the item in
+                :param item: Item to add to the queue.
+                """
+                try:
+                    queue_to_modify.put(item)
+                except queue.Full:
+                    queue_to_modify.get()
+                    queue_to_modify.put(item)
+
             # Assert that we've received the same number (1+) of files per tile.
             if all(files_received_per_tile) and (
                 len(set(files_received_per_tile)) == 1
@@ -1024,13 +1032,13 @@ class DaqHandler:
                     x_data = full_station_data[:, :, X_POL_INDEX].transpose()
                     # Averaged x data (commented out for now)
                     # x_data = x_pol_data.transpose() / x_pol_data_count
-                    self.put_item_in_queue(
+                    put_item_in_queue(
                         self._x_bandpass_plots, json.dumps(x_data.tolist())
                     )
                     y_data = full_station_data[:, :, Y_POL_INDEX].transpose()
                     # Averaged y data (commented out for now)
                     # y_data = y_pol_data.transpose() / y_pol_data_count
-                    self.put_item_in_queue(
+                    put_item_in_queue(
                         self._y_bandpass_plots, json.dumps(y_data.tolist())
                     )
                     self.logger.debug("Data queued for transmission.")
@@ -1044,21 +1052,6 @@ class DaqHandler:
                     files_received_per_tile = [0] * nof_tiles
 
         self.logger.info("Exiting bandpass plotting loop.")
-
-    def put_item_in_queue(self, queue_to_modify: queue.Queue[str], item: str) -> None:
-        """Add item to front of queue and discard tail to ensure length of 1.
-
-        :param queue_to_modify: Queue to add the item in
-        :param item: Item to add to the queue.
-        """
-        if queue_to_modify.qsize() != 0:
-            try:
-                queue_to_modify.get()
-            except queue.Empty:
-                # In case the item from the queue was accessed between the size check
-                # and the get
-                pass
-        queue_to_modify.put(item)
 
     # pylint: disable=broad-except
     def create_plotting_directory(
@@ -1106,38 +1099,6 @@ class DaqHandler:
                 )
                 return False
         return True
-
-
-class IntegratedDataHandler(FileSystemEventHandler):
-    """Detect files created in the data directory and generate plots."""
-
-    def __init__(self: IntegratedDataHandler, station_name: str):
-        """
-        Initialise a new instance.
-
-        :param station_name: Station name
-        """
-        self._station_name = station_name
-        files_to_plot[station_name] = []
-        self.logger = logging.getLogger("daq-server")
-
-    def on_any_event(self: IntegratedDataHandler, event: FileSystemEvent) -> None:
-        """
-        Check every event for newly created files to process.
-
-        :param event: Event to check.
-        """
-        # We are only interested in newly created files
-        global files_to_plot  # pylint: disable=global-variable-not-assigned
-        if event.event_type in ["created"]:
-            # Ignore lock files and other temporary files
-            if not ("channel_integ" in event.src_path and "lock" not in event.src_path):
-                return
-
-            # Add to list
-            sleep(0.1)
-            self.logger.info("Detected %s", event.src_path)
-            files_to_plot[self._station_name].append(event.src_path)
 
 
 def main() -> None:
