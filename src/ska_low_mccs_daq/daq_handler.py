@@ -637,6 +637,8 @@ class DaqHandler:
             #     rms.start()
 
             if not self._monitoring_bandpass:
+                files_to_plot[self._station_name] = []
+
                 # Start plotting thread
                 self.logger.debug("Starting bandpass plotting thread")
                 bandpass_plotting_thread = threading.Thread(
