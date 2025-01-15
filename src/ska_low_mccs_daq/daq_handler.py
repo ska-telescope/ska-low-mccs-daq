@@ -186,7 +186,7 @@ class DaqHandler:
 
         self._config = self.CONFIG_DEFAULTS | extra_config
 
-        self.daq_instance: DaqReceiver | None = None
+        self.daq_instance: DaqReceiver = None
         self._receiver_started: bool = False
         self._initialised: bool = False
         self._stop_bandpass: bool = False
@@ -1043,9 +1043,7 @@ class DaqHandler:
         self.logger.info("Exiting bandpass plotting loop.")
 
     def put_item_in_queue(self, queue_to_modify: queue.Queue[str], item: str) -> None:
-        """Put the given item in the given queue.
-
-        Remove an item from queue if needed.
+        """Add item to front of queue and discard tail to ensure length of 1.
 
         :param queue_to_modify: Queue to add the item in
         :param item: Item to add to the queue.
