@@ -138,9 +138,9 @@ python-test:
 .install-python-3-11: &install-python-3-11
   - export DEBIAN_FRONTEND=noninteractive
   - apt update
-  - apt install -y software-properties-common gnupg dirmngr build-essential libpython3.11-dev python3-distutils
+  - apt install -y software-properties-common gnupg dirmngr
   - add-apt-repository ppa:deadsnakes/ppa
-  - apt install -y python3.11 python3.11-venv git
+  - apt install -y python3.11 python3.11-venv git build-essential libpython3.11-dev python3-distutils
   - python3.11 -m ensurepip
   - python3.11 -m pip install --upgrade pip poetry
   - poetry config virtualenvs.create false
