@@ -476,6 +476,7 @@ class AAVSFileManager(object):
                 metadata_dict["n_stokes"] = self.n_stokes
                 metadata_dict["channel_id"] = self.channel_id
                 metadata_dict["station_id"] = self.station_id
+                metadata_dict["description"] = self.description
                 if self.tsamp is not None:
                     metadata_dict["tsamp"] = self.tsamp
                 # metadata_dict["data_mode"] = str(self.data_mode)
@@ -835,6 +836,9 @@ class AAVSFileManager(object):
 
                         if 'station_id' in list(self.main_dset.attrs.keys()):
                             self.station_id = self.main_dset.attrs['station_id']
+
+                        if 'description' in list(self.main_dset.attrs.keys()):
+                            self.description = self.main_dset.attrs['description']
 
                         self.timestamp = self.main_dset.attrs['timestamp']
                         self.data_type_name = self.main_dset.attrs['data_type']
