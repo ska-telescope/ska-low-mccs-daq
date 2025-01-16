@@ -57,8 +57,9 @@ class TestAntennaBuffer():
         self._logger = logger
         self._station_config = station_config
 
-    def clean_up(self):
+    def clean_up(self, temp_dir):
         daq.stop_daq()
+        tf.remove_hdf5_files(temp_dir)
 
     def check_pattern(self, fpga_id):
 
@@ -268,7 +269,7 @@ class TestAntennaBuffer():
 
         if beamformer_running:
             dut.start_beamformer()
-        self.clean_up()
+        self.clean_up(temp_dir)
         return errors
 
 
