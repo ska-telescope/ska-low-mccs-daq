@@ -16,6 +16,7 @@ import pprint
 import queue
 import re
 import threading
+from collections import deque
 from time import sleep
 from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
@@ -24,8 +25,6 @@ import numpy as np
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
 
 __all__ = ["DaqHandler", "main"]
 
@@ -35,10 +34,6 @@ Y_POL_INDEX = 1
 Wrapped = TypeVar("Wrapped", bound=Callable[..., Any])
 
 # pylint: disable = too-many-lines
-
-# Global parameters
-bandwidth = 400.0
-files_to_plot: dict[str, list[str]] = {}
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -138,7 +133,7 @@ class DaqHandler:
 
     TIME_FORMAT_STRING = "%d/%m/%y %H:%M:%S"
 
-    CONFIG_DEFAULTS = {
+    CONFIG_DEFAULTS: dict[str, Any] = {
         "nof_antennas": 16,
         "nof_channels": 512,
         "nof_beams": 1,
@@ -175,7 +170,7 @@ class DaqHandler:
 
     def __init__(
         self: DaqHandler,
-        **extra_config: str,
+        **extra_config: Any,
     ) -> None:
         """
         Initialise this device.
@@ -193,7 +188,7 @@ class DaqHandler:
         self._stop_bandpass: bool = False
         self._monitoring_bandpass: bool = False
         self.logger = logging.getLogger("daq-server")
-        self.client_queue: queue.SimpleQueue | None = None
+        self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
             "cont_channel": DaqModes.CONTINUOUS_CHANNEL_DATA,
@@ -210,10 +205,12 @@ class DaqHandler:
             str, tuple[list[int], list[float], list[float]]
         ] = {}
         self._plots_to_send: bool = False
-        self._x_bandpass_plots: queue.Queue = queue.Queue()
-        self._y_bandpass_plots: queue.Queue = queue.Queue()
-        self._rms_plots: queue.Queue = queue.Queue()
+        self._y_bandpass_plots: deque[str] = deque(maxlen=1)
+        self._x_bandpass_plots: deque[str] = deque(maxlen=1)
+        self._rms_plots: deque[str] = deque(maxlen=1)
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
+        self._plot_transmission: bool = False
+        self._files_to_plot: queue.Queue[str] = queue.Queue()
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -241,6 +238,9 @@ class DaqHandler:
             metadata = self.daq_instance._persisters[daq_mode].get_metadata()
         if additional_info is not None and metadata is not None:
             metadata["additional_info"] = additional_info
+
+        if self._monitoring_bandpass:
+            self._files_to_plot.put(file_name)
 
         self._data_received_callback(
             data_mode=data_mode,
@@ -520,7 +520,7 @@ class DaqHandler:
         :yields: Taskstatus, Message, bandpass/rms plot(s).
         :returns: TaskStatus, Message, None, None, None
         """
-        if self._monitoring_bandpass:
+        if self._monitoring_bandpass and self._plot_transmission:
             yield (
                 TaskStatus.REJECTED,
                 "Bandpass monitor is already active.",
@@ -634,23 +634,18 @@ class DaqHandler:
         #     )
         #     rms.start()
 
-        # Start directory monitor
-        observer = Observer()
-        data_handler = IntegratedDataHandler(self._station_name)
-        observer.schedule(data_handler, data_directory)
-        observer.start()
-
-        # Start plotting thread
-        self.logger.debug("Starting bandpass plotting thread.")
-        bandpass_plotting_thread = threading.Thread(
-            target=self.generate_bandpass_plots,
-            args=(
-                os.path.join(plot_directory, self._station_name),
-                self._station_name,
-                cadence,
-            ),
-        )
-        bandpass_plotting_thread.start()
+        if not self._monitoring_bandpass:
+            # Start plotting thread
+            self.logger.debug("Starting bandpass plotting thread")
+            bandpass_plotting_thread = threading.Thread(
+                target=self.generate_bandpass_plots,
+                args=(
+                    os.path.join(plot_directory, self._station_name),
+                    self._station_name,
+                    cadence,
+                ),
+            )
+            bandpass_plotting_thread.start()
         # Wait for stop, monitoring disk space in the meantime
         max_dir_size = 1000 * 1024 * 1024
 
@@ -663,83 +658,105 @@ class DaqHandler:
         )
         self._monitoring_bandpass = True
 
-        yield (TaskStatus.IN_PROGRESS, "Bandpass monitor active", None, None, None)
+        yield (
+            TaskStatus.IN_PROGRESS,
+            "Bandpass monitor active",
+            None,
+            None,
+            None,
+        )
 
-        while not self._stop_bandpass:
-            try:
-                dir_size = sum(
-                    os.path.getsize(f)
-                    for f in os.listdir(data_directory)
-                    if os.path.isfile(f)
-                )
-            except FileNotFoundError as e:
-                self.logger.warning("Could not find file: %s", e)
-            if dir_size > max_dir_size:
-                self.logger.error(
-                    "Consuming too much disk space! Stopping bandpass monitor! %i/%i",
-                    dir_size,
-                    max_dir_size,
-                )
-                self._stop_bandpass = True
-                break
+        try:
+            while not self._stop_bandpass:
+                self._plot_transmission = True
+                try:
+                    dir_size = sum(
+                        os.path.getsize(f)
+                        for f in os.listdir(data_directory)
+                        if os.path.isfile(f)
+                    )
+                except FileNotFoundError as e:
+                    self.logger.warning("Could not find file: %s", e)
+                if dir_size > max_dir_size:
+                    self.logger.error(
+                        "Consuming too much disk space! Stopping bandpass monitor! "
+                        "%i/%i",
+                        dir_size,
+                        max_dir_size,
+                    )
+                    self._stop_bandpass = True
+                    break
 
-            try:
-                x_bandpass_plot = self._x_bandpass_plots.get(block=False)
-            except queue.Empty:
-                x_bandpass_plot = None
-            except Exception as e:  # pylint: disable = broad-exception-caught
-                self.logger.error(
-                    "Unexpected exception retrieving x_bandpass_plot: %s", e
-                )
+                try:
+                    x_bandpass_plot = self._x_bandpass_plots.pop()
+                except IndexError:
+                    x_bandpass_plot = None
+                except (Exception) as e:  # pylint: disable = broad-exception-caught
+                    self.logger.error(
+                        "Unexpected exception retrieving x_bandpass_plot: %s",
+                        e,
+                    )
 
-            try:
-                y_bandpass_plot = self._y_bandpass_plots.get(block=False)
-            except queue.Empty:
-                y_bandpass_plot = None
-            except Exception as e:  # pylint: disable = broad-exception-caught
-                self.logger.error(
-                    "Unexpected exception retrieving y_bandpass_plot: %s", e
-                )
+                try:
+                    y_bandpass_plot = self._y_bandpass_plots.pop()
+                except IndexError:
+                    y_bandpass_plot = None
+                except (Exception) as e:  # pylint: disable = broad-exception-caught
+                    self.logger.error(
+                        "Unexpected exception retrieving y_bandpass_plot: %s",
+                        e,
+                    )
 
-            try:
-                rms_plot = self._rms_plots.get(block=False)
-            except queue.Empty:
-                rms_plot = None
-            except Exception as e:  # pylint: disable = broad-exception-caught
-                self.logger.error("Unexpected exception retrieving rms_plot: %s", e)
+                try:
+                    rms_plot = self._rms_plots.pop()
+                except IndexError:
+                    rms_plot = None
+                except (Exception) as e:  # pylint: disable = broad-exception-caught
+                    self.logger.error("Unexpected exception retrieving rms_plot: %s", e)
 
-            if all(
-                plot is None for plot in [x_bandpass_plot, y_bandpass_plot, rms_plot]
-            ):
-                # If we don't have any plots, don't uselessly spam [None]s.
-                pass
-            else:
-                self.logger.debug("Transmitting bandpass data.")
-                yield (
-                    TaskStatus.IN_PROGRESS,
-                    "plot sent",
-                    x_bandpass_plot,
-                    y_bandpass_plot,
-                    rms_plot,
-                )
-                self.logger.debug("Bandpass data transmitted.")
-            sleep(1)  # Plots will never be sent more often than once per second.
+                if all(
+                    plot is None
+                    for plot in [x_bandpass_plot, y_bandpass_plot, rms_plot]
+                ):
+                    # If we don't have any plots, don't uselessly spam [None]s.
+                    pass
+                else:
+                    self.logger.debug("Transmitting bandpass data.")
+                    yield (
+                        TaskStatus.IN_PROGRESS,
+                        "plot sent",
+                        x_bandpass_plot,
+                        y_bandpass_plot,
+                        rms_plot,
+                    )
+                    self.logger.debug("Bandpass data transmitted.")
+                sleep(1)  # Plots will never be sent more often than once per second.
 
-        # Stop and clean up
-        self.logger.info("Waiting for threads and processes to terminate.")
-        # TODO: Need to be able to stop consumers incrementally for this.
-        # if auto_handle_daq:
-        #     self.stop()
-        observer.stop()
+            # Stop and clean up
+            self.logger.info("Waiting for threads and processes to terminate.")
+            # TODO: Need to be able to stop consumers incrementally for this.
+            # if auto_handle_daq:
+            #     self.stop()
+            bandpass_plotting_thread.join()
+            # if monitor_rms:
+            #     rms.join()
+            self._monitoring_bandpass = False
+            self._plot_transmission = False
 
-        observer.join()
-        bandpass_plotting_thread.join()
-        # if monitor_rms:
-        #     rms.join()
-        self._monitoring_bandpass = False
-
-        self.logger.info("Bandpass monitoring complete.")
-        yield (TaskStatus.COMPLETED, "Bandpass monitoring complete.", None, None, None)
+            self.logger.info("Bandpass monitoring complete.")
+            yield (
+                TaskStatus.COMPLETED,
+                "Bandpass monitoring complete.",
+                None,
+                None,
+                None,
+            )
+        finally:
+            self._plot_transmission = False
+            self.logger.info(
+                "Bandpass monitoring thread terminated. The Bandpass plots "
+                "will continue to generate but will not be transmitted."
+            )
 
     @check_initialisation
     def stop_bandpass_monitor(self: DaqHandler) -> tuple[ResultCode, str]:
@@ -891,7 +908,6 @@ class DaqHandler:
         :param plotting_directory: Directory to store plots in.
         :param cadence: Time in seconds over which to average bandpass data.
         """
-        global files_to_plot  # pylint: disable=global-variable-not-assigned
         config = self.get_configuration()
         nof_channels = config["nof_channels"]
         nof_antennas_per_tile = config["nof_antennas"]
@@ -915,12 +931,12 @@ class DaqHandler:
         self.logger.info("Entering bandpass plotting loop.")
         while not self._stop_bandpass:
             # Wait for files to be queued. Check every second.
-            if len(files_to_plot[station_name]) == 0:
+            if self._files_to_plot.qsize() == 0:
                 sleep(1)
                 continue
 
             # Get the first item in the list
-            filepath = files_to_plot[station_name].pop(0)
+            filepath = self._files_to_plot.get()
             self.logger.debug("Processing %s", filepath)
 
             # Extract Tile number
@@ -992,7 +1008,6 @@ class DaqHandler:
             os.unlink(filepath)
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
-
             # Assert that we've received the same number (1+) of files per tile.
             if all(files_received_per_tile) and (
                 len(set(files_received_per_tile)) == 1
@@ -1003,11 +1018,11 @@ class DaqHandler:
                     x_data = full_station_data[:, :, X_POL_INDEX].transpose()
                     # Averaged x data (commented out for now)
                     # x_data = x_pol_data.transpose() / x_pol_data_count
-                    self._x_bandpass_plots.put(json.dumps(x_data.tolist()))
+                    self._x_bandpass_plots.append(json.dumps(x_data.tolist()))
                     y_data = full_station_data[:, :, Y_POL_INDEX].transpose()
                     # Averaged y data (commented out for now)
                     # y_data = y_pol_data.transpose() / y_pol_data_count
-                    self._y_bandpass_plots.put(json.dumps(y_data.tolist()))
+                    self._y_bandpass_plots.append(json.dumps(y_data.tolist()))
                     self.logger.debug("Data queued for transmission.")
 
                     # Reset vars
@@ -1066,38 +1081,6 @@ class DaqHandler:
                 )
                 return False
         return True
-
-
-class IntegratedDataHandler(FileSystemEventHandler):
-    """Detect files created in the data directory and generate plots."""
-
-    def __init__(self: IntegratedDataHandler, station_name: str):
-        """
-        Initialise a new instance.
-
-        :param station_name: Station name
-        """
-        self._station_name = station_name
-        files_to_plot[station_name] = []
-        self.logger = logging.getLogger("daq-server")
-
-    def on_any_event(self: IntegratedDataHandler, event: FileSystemEvent) -> None:
-        """
-        Check every event for newly created files to process.
-
-        :param event: Event to check.
-        """
-        # We are only interested in newly created files
-        global files_to_plot  # pylint: disable=global-variable-not-assigned
-        if event.event_type in ["created"]:
-            # Ignore lock files and other temporary files
-            if not ("channel_integ" in event.src_path and "lock" not in event.src_path):
-                return
-
-            # Add to list
-            sleep(0.1)
-            self.logger.info("Detected %s", event.src_path)
-            files_to_plot[self._station_name].append(event.src_path)
 
 
 def main() -> None:
