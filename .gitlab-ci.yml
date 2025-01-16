@@ -138,7 +138,7 @@ python-test:
 .install-python-3-11: &install-python-3-11
   - export DEBIAN_FRONTEND=noninteractive
   - apt update
-  - apt install -y software-properties-common gnupg dirmngr
+  - apt install -y software-properties-common gnupg dirmngr build-essential libpython3.11-dev python3-distutils
   - add-apt-repository ppa:deadsnakes/ppa
   - apt install -y python3.11 python3.11-venv git
   - python3.11 -m ensurepip
