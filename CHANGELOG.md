@@ -2,6 +2,11 @@
 
 ## unreleased
 
+## 0.9.2
+
+* [SKB-705] DaqHandler to handle DAQ receiver restart gracefully while bandpass monitoring is active
+* [THORN-35] Update CODEOWNERS.
+
 ## 0.9.1
 
 * [SKB-610] Add StationID as a configuration option.
