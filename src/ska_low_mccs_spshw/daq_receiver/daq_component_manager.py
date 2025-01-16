@@ -143,7 +143,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             return ",".join([data[0] for data in running_consumers])
 
         try:
-            self.logger.info("Checking for bandpass monitoring status..")
+            self.logger.info("Checking for Daq status..")
             daq_status: dict[str, Any] = json.loads(self.daq_status())
             self.logger.info("DaqStatus check results - %s", daq_status)
             if len(daq_status["Running Consumers"]) != 0:
