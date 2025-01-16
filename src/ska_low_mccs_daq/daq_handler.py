@@ -16,6 +16,7 @@ import pprint
 import queue
 import re
 import threading
+from collections import deque
 from time import sleep
 from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
@@ -204,9 +205,9 @@ class DaqHandler:
             str, tuple[list[int], list[float], list[float]]
         ] = {}
         self._plots_to_send: bool = False
-        self._y_bandpass_plots: queue.Queue[str] = queue.Queue(maxsize=1)
-        self._x_bandpass_plots: queue.Queue[str] = queue.Queue(maxsize=1)
-        self._rms_plots: queue.Queue[str] = queue.Queue(maxsize=1)
+        self._y_bandpass_plots: deque[str] = deque(maxlen=1)
+        self._x_bandpass_plots: deque[str] = deque(maxlen=1)
+        self._rms_plots: deque[str] = deque(maxlen=1)
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
         self._plot_transmission: bool = False
         self._files_to_plot: queue.Queue[str] = queue.Queue()
@@ -687,8 +688,8 @@ class DaqHandler:
                     break
 
                 try:
-                    x_bandpass_plot = self._x_bandpass_plots.get(block=False)
-                except queue.Empty:
+                    x_bandpass_plot = self._x_bandpass_plots.pop()
+                except IndexError:
                     x_bandpass_plot = None
                 except (Exception) as e:  # pylint: disable = broad-exception-caught
                     self.logger.error(
@@ -697,8 +698,8 @@ class DaqHandler:
                     )
 
                 try:
-                    y_bandpass_plot = self._y_bandpass_plots.get(block=False)
-                except queue.Empty:
+                    y_bandpass_plot = self._y_bandpass_plots.pop()
+                except IndexError:
                     y_bandpass_plot = None
                 except (Exception) as e:  # pylint: disable = broad-exception-caught
                     self.logger.error(
@@ -707,8 +708,8 @@ class DaqHandler:
                     )
 
                 try:
-                    rms_plot = self._rms_plots.get(block=False)
-                except queue.Empty:
+                    rms_plot = self._rms_plots.pop()
+                except IndexError:
                     rms_plot = None
                 except (Exception) as e:  # pylint: disable = broad-exception-caught
                     self.logger.error("Unexpected exception retrieving rms_plot: %s", e)
@@ -1007,21 +1008,6 @@ class DaqHandler:
             os.unlink(filepath)
             # Every `cadence` seconds, plot graph and add the averages
             # to the queue to be sent to the Tango device,
-
-            def put_item_in_queue(queue_to_modify: queue.Queue[str], item: str) -> None:
-                """Add item in the queue.
-
-                If the queue is full, remove an item before adding a new one.
-
-                :param queue_to_modify: Queue to add the item in
-                :param item: Item to add to the queue.
-                """
-                try:
-                    queue_to_modify.put(item)
-                except queue.Full:
-                    queue_to_modify.get()
-                    queue_to_modify.put(item)
-
             # Assert that we've received the same number (1+) of files per tile.
             if all(files_received_per_tile) and (
                 len(set(files_received_per_tile)) == 1
@@ -1032,15 +1018,11 @@ class DaqHandler:
                     x_data = full_station_data[:, :, X_POL_INDEX].transpose()
                     # Averaged x data (commented out for now)
                     # x_data = x_pol_data.transpose() / x_pol_data_count
-                    put_item_in_queue(
-                        self._x_bandpass_plots, json.dumps(x_data.tolist())
-                    )
+                    self._x_bandpass_plots.append(json.dumps(x_data.tolist()))
                     y_data = full_station_data[:, :, Y_POL_INDEX].transpose()
                     # Averaged y data (commented out for now)
                     # y_data = y_pol_data.transpose() / y_pol_data_count
-                    put_item_in_queue(
-                        self._y_bandpass_plots, json.dumps(y_data.tolist())
-                    )
+                    self._y_bandpass_plots.append(json.dumps(y_data.tolist()))
                     self.logger.debug("Data queued for transmission.")
 
                     # Reset vars
