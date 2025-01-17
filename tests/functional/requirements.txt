@@ -4,5 +4,4 @@ pytest-bdd==6.1.1
 pyyaml==6.0
 ska-control-model==1.1.1
 ska-tango-testing==0.7.3
-ska-tango-base==1.2.1
 pytango==10.0.0
