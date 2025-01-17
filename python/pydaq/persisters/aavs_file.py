@@ -476,6 +476,8 @@ class AAVSFileManager(object):
                 metadata_dict["n_stokes"] = self.n_stokes
                 metadata_dict["channel_id"] = self.channel_id
                 metadata_dict["station_id"] = self.station_id
+                if "observation_info" in file_obj:
+                    metadata_dict["observation_info"] = dict(file_obj["observation_info"].attrs)
                 if self.tsamp is not None:
                     metadata_dict["tsamp"] = self.tsamp
                 # metadata_dict["data_mode"] = str(self.data_mode)
