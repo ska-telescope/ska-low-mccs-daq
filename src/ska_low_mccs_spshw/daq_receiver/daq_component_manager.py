@@ -13,6 +13,7 @@ import logging
 import random
 import threading
 from datetime import date
+from functools import partial
 from pathlib import PurePath
 from time import sleep
 from typing import Any, Callable, Final, Optional
@@ -21,7 +22,7 @@ import numpy as np
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
 from ska_low_mccs_daq_interface import DaqClient
 from ska_ser_skuid.client import SkuidClient  # type: ignore
-from ska_tango_base.base import check_communicating
+from ska_tango_base.base import JSONData, TaskCallbackType, check_communicating
 from ska_tango_base.executor import TaskExecutor, TaskExecutorComponentManager
 
 __all__ = ["DaqComponentManager"]
@@ -102,6 +103,100 @@ class DaqComponentManager(TaskExecutorComponentManager):
         )
         self._task_executor = TaskExecutor(max_workers=2)
 
+    def restart_daq_if_active(self) -> None:
+        """Restart daq if consumers are active."""
+
+        def stop_daq_completion_callback(
+            input_data: str,
+            status: TaskStatus | None = None,
+            progress: int | None = None,
+            result: JSONData = None,
+            exception: Exception | None = None,
+        ) -> None:
+            """Update stop_daq command status.
+
+            Executes start_daq command if stop_daq succeedes.
+
+            :param input_data: input data for start_daq command
+            :param status: the status of the asynchronous task
+            :param progress: the progress of the asynchronous task
+            :param result: the result of the completed asynchronous task
+            :param exception: any exception caught in the running task
+            """
+            if status == TaskStatus.COMPLETED:
+                self.logger.info("StopDaq command completed. Executing StartDaq.")
+                self.start_daq(input_data, self.start_daq_completion_callback)
+            else:
+                self.logger.error(
+                    "Execution of StopDaq is not complete. Current status is: %s",
+                    [status, progress, result, exception],
+                )
+
+        def generate_input_data_from_daq_status(daq_status: dict[str, Any]) -> str:
+            """Generate the input data for StartDaq command using DaqStatus.
+
+            :param daq_status: Output of executing the DaqStatus command.
+
+            :return: A string containing the modes to start for the DaqHandler.
+            """
+            running_consumers: list[list[str]] = daq_status["Running Consumers"]
+            return ",".join([data[0] for data in running_consumers])
+
+        try:
+            self.logger.info("Checking for Daq status..")
+            daq_status: dict[str, Any] = json.loads(self.daq_status())
+            self.logger.info("DaqStatus check results - %s", daq_status)
+            if len(daq_status["Running Consumers"]) != 0:
+                # Input data for start_daq command
+                input_data = generate_input_data_from_daq_status(daq_status)
+                self._stop_daq(partial(stop_daq_completion_callback, input_data))
+        except ConnectionError as connection_error:
+            self.logger.exception(
+                "Connection error while checking the status on Daq: %s",
+                connection_error,
+            )
+        except Exception as exception:  # pylint: disable=broad-exception-caught  # XXX
+            self.logger.exception(
+                "Caught an exception while trying to restart bandpass monitoring: %s",
+                exception,
+            )
+
+    def start_daq_completion_callback(
+        self,
+        status: TaskStatus | None = None,
+        progress: int | None = None,
+        result: JSONData = None,
+        exception: Exception | None = None,
+    ) -> None:
+        """Update start_daq command status.
+
+        Executes start_bandpass_monitor once start_daq is done.
+
+        :param status: the status of the asynchronous task
+        :param progress: the progress of the asynchronous task
+        :param result: the result of the completed asynchronous task
+        :param exception: any exception caught in the running task
+        """
+        if status == TaskStatus.COMPLETED:
+            self.logger.info(
+                "StartDaq command completed. Starting bandpass monitoring."
+            )
+            daq_status: dict[str, Any] = json.loads(self.daq_status())
+            self.logger.info("DaqStatus check results - %s", daq_status)
+            if daq_status["Bandpass Monitor"] is True:
+                bandpass_monitor_thread = threading.Thread(
+                    target=self.start_bandpass_monitor,
+                    name="submit_task_for_bandpass_monitoring",
+                    args=[json.dumps({"plot_directory": "/tmp"})],
+                )
+                bandpass_monitor_thread.start()
+        else:
+            self.logger.warning(
+                "The TaskStatus for StartDaq command is not COMPLETED. "
+                "The status information is: %s",
+                [status, progress, result, exception],
+            )
+
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
         if self.communication_state == CommunicationStatus.ESTABLISHED:
@@ -127,6 +222,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 response = self._daq_client.initialise(configuration)
                 self.logger.info(response["message"])
                 self._update_communication_state(CommunicationStatus.ESTABLISHED)
+                self.restart_daq_if_active()
                 break
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.error(
@@ -199,7 +295,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def start_daq(
         self: DaqComponentManager,
         modes_to_start: str,
-        task_callback: Optional[Callable] = None,
+        task_callback: TaskCallbackType | None = None,
     ) -> tuple[TaskStatus, str]:
         """
         Start data acquisition with the current configuration.
@@ -221,7 +317,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def _start_daq(
         self: DaqComponentManager,
         modes_to_start: str,
-        task_callback: Optional[Callable],
+        task_callback: TaskCallbackType | None,
         task_abort_event: Optional[threading.Event] = None,
     ) -> None:
         """
@@ -280,7 +376,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
     @check_communicating
     def stop_daq(
         self: DaqComponentManager,
-        task_callback: Optional[Callable] = None,
+        task_callback: TaskCallbackType | None = None,
     ) -> tuple[TaskStatus, str]:
         """
         Stop data acquisition.
@@ -297,7 +393,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
     @check_communicating
     def _stop_daq(
         self: DaqComponentManager,
-        task_callback: Optional[Callable] = None,
+        task_callback: TaskCallbackType | None = None,
         task_abort_event: Optional[threading.Event] = None,
     ) -> None:
         """
@@ -322,7 +418,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
     @check_communicating
     def daq_status(
         self: DaqComponentManager,
-        task_callback: Optional[Callable] = None,
+        task_callback: TaskCallbackType | None = None,
     ) -> str:
         """
         Provide status information for this MccsDaqReceiver.
@@ -344,7 +440,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def start_bandpass_monitor(
         self: DaqComponentManager,
         argin: str,
-        task_callback: Optional[Callable] = None,
+        task_callback: TaskCallbackType | None = None,
     ) -> tuple[TaskStatus, str]:
         """
         Start monitoring antenna bandpasses.
@@ -423,7 +519,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def _start_bandpass_monitor(
         self: DaqComponentManager,
         argin: str,
-        task_callback: Optional[Callable] = None,
+        task_callback: TaskCallbackType | None = None,
         task_abort_event: Optional[threading.Event] = None,
     ) -> None:
         """
@@ -517,7 +613,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
     @check_communicating
     def stop_bandpass_monitor(
         self: DaqComponentManager,
-        task_callback: Optional[Callable] = None,
+        task_callback: TaskCallbackType | None = None,
     ) -> tuple[ResultCode, str]:
         """
         Stop monitoring antenna bandpasses.
