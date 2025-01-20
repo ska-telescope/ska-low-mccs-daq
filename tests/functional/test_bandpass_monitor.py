@@ -27,8 +27,7 @@ from tests.functional.conftest import (
     verify_bandpass_state,
 )
 from tests.harness import get_daq_name, get_subrack_name, get_tile_name
-
-from ..test_tools import retry_communication
+from tests.test_tools import retry_communication
 
 scenarios("./features/bandpass_monitor.feature")
 
@@ -404,7 +403,7 @@ def tile_send_data(
 
     :param tile_device: A 'tango.DeviceProxy' to the Tile device.
     """
-    tile_device.SendDataSamples(json.dumps({"data_type": "channel"}))
+    tile_device.SendDataSamples(json.dumps({"data_type": "channel", "n_samples": 16}))
 
 
 @then("the DAQ reports that it has received integrated channel data")
