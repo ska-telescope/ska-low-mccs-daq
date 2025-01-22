@@ -148,10 +148,11 @@ class TestDaq:
         self._logger = logger
         self._station_config = station_config
 
-    def clean_up(self, test_station):
+    def clean_up(self, test_station, temp_dir):
         daq.stop_daq()
         for tile in test_station.tiles:
             tf.disable_test_generator_and_pattern(tile)
+        tf.remove_hdf5_files(temp_dir)
 
     def check_raw(self, pattern, adders, data, raw_data_synchronised):
         ant, pol, sam = data.shape
@@ -379,7 +380,7 @@ class TestDaq:
                     time.sleep(0.1)
 
                 if self.check_raw(test_pattern, test_adders, data, raw_data_synchronised) > 0:
-                    self.clean_up(test_station)
+                    self.clean_up(test_station, temp_dir)
                     return 1
 
                 self._logger.info("Raw ADC data iteration %d PASSED!" % (i + 1))
@@ -411,7 +412,7 @@ class TestDaq:
                     time.sleep(0.1)
 
                 if self.check_raw(test_pattern, test_adders, data, raw_data_synchronised) > 0:
-                    self.clean_up(test_station)
+                    self.clean_up(test_station, temp_dir)
                     return 1
 
                 self._logger.info("Raw ADC data synchronized iteration %d PASSED!" % (i + 1))
@@ -443,7 +444,7 @@ class TestDaq:
                     time.sleep(0.1)
 
                 if self.check_channel(test_pattern, test_adders, data) > 0:
-                    self.clean_up(test_station)
+                    self.clean_up(test_station, temp_dir)
                     return 1
 
                 self._logger.info("Channel data iteration %d PASSED!" % (i + 1))
@@ -476,7 +477,7 @@ class TestDaq:
                     time.sleep(0.1)
 
                 if self.check_beam(test_pattern, test_adders, data) > 0:
-                    self.clean_up(test_station)
+                    self.clean_up(test_station, temp_dir)
                     return 1
 
                 self._logger.info("Tile beam data iteration %d PASSED!" % (i + 1))
@@ -575,7 +576,7 @@ class TestDaq:
                                                          channel_round_bits) == 0:
                             self._logger.info("Channel integrated data iteration %d PASSED!" % (i + 1))
                         else:
-                            self.clean_up(test_station)
+                            self.clean_up(test_station, temp_dir)
                             return 1
                     if not beam_done and beam_int_data_received:
                         daq.stop_integrated_beam_data_consumer()
@@ -585,12 +586,12 @@ class TestDaq:
                                                       beamf_round_bits) == 0:
                             self._logger.info("Tile beam integrated data iteration %d PASSED!" % (i + 1))
                         else:
-                            self.clean_up(test_station)
+                            self.clean_up(test_station, temp_dir)
                             return 1
 
                     time.sleep(0.1)
 
-        self.clean_up(test_station)
+        self.clean_up(test_station, temp_dir)
         return 0
 
 

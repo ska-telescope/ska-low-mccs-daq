@@ -49,10 +49,11 @@ class TestChannelizer():
         self._channel_width = float(tpm_config['test_config']['total_bandwidth']) / \
                               tpm_config['test_config']['pfb_nof_channels']
 
-    def clean_up(self, tile):
+    def clean_up(self, tile, temp_dir):
         tf.disable_test_generator_and_pattern(tile)
         daq.stop_daq()
         del tile
+        tf.remove_hdf5_files(temp_dir)
 
     def execute(self, points=1, first_channel=100, last_channel=108):
         global data_received
@@ -150,7 +151,7 @@ class TestChannelizer():
                                         self._logger.error("Reference power " + str(ref_power_value))
                                         self._logger.error("Channel value " + str(channel_value))
                                         self._logger.error("Channel power " + str(power_value))
-                                        self.clean_up(tile)
+                                        self.clean_up(tile, temp_dir)
                                         return 1
                                 else:
                                     if abs(ref_power_value - power_value) > 0.2:
@@ -165,7 +166,7 @@ class TestChannelizer():
                                         self._logger.error("Reference power " + str(ref_power_value))
                                         self._logger.error("Channel value " + str(channel_value))
                                         self._logger.error("Channel power " + str(power_value))
-                                        self.clean_up(tile)
+                                        self.clean_up(tile, temp_dir)
                                         return 1
 
                                 if c == channel:
@@ -194,13 +195,13 @@ class TestChannelizer():
                                         self._logger.error("Applied delay steps: " + str(delays[2*a+p]))
                                         self._logger.error("Expected phase delay: " + str(expected_phase_delay))
                                         self._logger.error("Periods delay: " + str(np.modf(applied_delay / (1.0 / frequency))[1]))
-                                        self.clean_up(tile)
+                                        self.clean_up(tile, temp_dir)
                                         return 1
 
 
             self._logger.info("Channel " + str(channel) + " PASSED!")
 
-        self.clean_up(tile)
+        self.clean_up(tile, temp_dir)
         return 0
 
 if __name__ == "__main__":
