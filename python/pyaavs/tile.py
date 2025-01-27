@@ -3354,7 +3354,7 @@ class Tile(TileHealthMonitor):
         :param delays: a 32 long list of floats.
         :type delays: float
         """
-        self.tpm.test_generator[0].set_delay(delays[0:15])
+        self.tpm.test_generator[0].set_delay(delays[0:16])
         self.tpm.test_generator[1].set_delay(delays[16:32])
 
     # ----------------------------
