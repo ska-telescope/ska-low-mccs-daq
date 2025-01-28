@@ -1094,7 +1094,7 @@ class DaqHandler:
         return self._data_rate
 
     def start_measuring_data_rate(
-        self: DaqHandler, interval: int = 2
+        self: DaqHandler, interval: float = 2.0
     ) -> tuple[ResultCode, str]:
         """
         Start measuring the data rate.
