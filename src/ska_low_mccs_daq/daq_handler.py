@@ -1107,7 +1107,7 @@ class DaqHandler:
 
         def _measure_data_rate(interval: int) -> None:
             while self._measure_data_rate:
-                self.logger.debug("Measuring data rate.")
+                self.logger.error("Measuring data rate.")
                 net = psutil.net_io_counters(pernic=True)
                 t1_sent_bytes = net[self._config["receiver_interface"]].bytes_recv
                 t1 = perf_counter()
