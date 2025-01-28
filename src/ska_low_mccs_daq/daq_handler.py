@@ -1085,7 +1085,7 @@ class DaqHandler:
                 return False
         return True
 
-    def get_data_rate(self: DaqHandler) -> float | None:
+    def get_data_rate(self: DaqHandler) -> float:
         """
         Get the data rate over the receiver interface in Gb/s.
 
