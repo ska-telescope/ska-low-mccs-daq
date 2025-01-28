@@ -213,7 +213,7 @@ class DaqHandler:
         self._plot_transmission: bool = False
         self._files_to_plot: queue.Queue[str] = queue.Queue()
         self._measure_data_rate: bool = False
-        self._data_rate: float | None = None
+        self._data_rate: float = -1.0
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -1120,7 +1120,7 @@ class DaqHandler:
                 nbytes = t2_sent_bytes - t1_sent_bytes
                 data_rate = nbytes / (t2 - t1)
                 self._data_rate = data_rate * 8 / 1e9  # Gb/s
-            self._data_rate = None
+            self._data_rate = -1.0
 
         data_rate_thread = threading.Thread(target=_measure_data_rate, args=[interval])
         data_rate_thread.start()
