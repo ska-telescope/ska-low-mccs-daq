@@ -14,7 +14,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import numpy as np
-import psutil
+import psutil  # type: ignore
 import pytest
 from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import ResultCode, TaskStatus

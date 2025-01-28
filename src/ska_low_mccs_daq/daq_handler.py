@@ -22,7 +22,7 @@ from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 import h5py
 import numpy as np
-import psutil
+import psutil  # type: ignore
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
@@ -1085,8 +1085,7 @@ class DaqHandler:
                 return False
         return True
 
-    @property
-    def data_rate(self: DaqHandler) -> float | None:
+    def get_data_rate(self: DaqHandler) -> float | None:
         """
         Get the data rate over the receiver interface in Gb/s.
 
