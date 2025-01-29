@@ -2627,7 +2627,7 @@ ska-control-model = "^1.0.0"
 type = "git"
 url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface"
 reference = "thorn-12-data-rate-checker"
-resolved_reference = "3093f8d1a7116ef326ce45471962110327ce504c"
+resolved_reference = "83928f30ac381dc883d566a2dead9f57b0ec293f"
 
 [[package]]
 name = "ska-ser-sphinx-theme"
