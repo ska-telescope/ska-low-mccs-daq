@@ -1119,7 +1119,7 @@ class DaqHandler:
                 t2 = perf_counter()
                 nbytes = t2_sent_bytes - t1_sent_bytes
                 data_rate = nbytes / (t2 - t1)
-                self._data_rate = data_rate * 8 / 1e9  # Gb/s
+                self._data_rate = data_rate / 1024**3  # Gb/s
             self._data_rate = -1.0
 
         data_rate_thread = threading.Thread(target=_measure_data_rate, args=[interval])
