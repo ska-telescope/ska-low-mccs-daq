@@ -2,6 +2,10 @@
 
 ## unreleased
 
+## 0.10.0
+
+* [THORN-12] Add methods/attributes to measure data rate over receiver interface.
+
 ## 0.9.2
 
 * [SKB-705] DaqHandler to handle DAQ receiver restart gracefully while bandpass monitoring is active
