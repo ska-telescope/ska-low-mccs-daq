@@ -213,7 +213,7 @@ class DaqHandler:
         self._plot_transmission: bool = False
         self._files_to_plot: queue.Queue[str] = queue.Queue()
         self._measure_data_rate: bool = False
-        self._data_rate: float = -1.0
+        self._data_rate: float | None = None
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -1085,7 +1085,7 @@ class DaqHandler:
                 return False
         return True
 
-    def get_data_rate(self: DaqHandler) -> float:
+    def get_data_rate(self: DaqHandler) -> float | None:
         """
         Get the data rate over the receiver interface in Gb/s.
 
@@ -1103,11 +1103,15 @@ class DaqHandler:
 
         :return: a resultcode, message tuple
         """
+        if self._measure_data_rate:
+            return (ResultCode.REJECTED, "Already measuring data rate.")
+
         self._measure_data_rate = True
 
         def _measure_data_rate(interval: int) -> None:
+            self.logger.info("Starting data rate monitor.")
             while self._measure_data_rate:
-                self.logger.error("Measuring data rate.")
+                self.logger.debug("Measuring data rate...")
                 net = psutil.net_io_counters(pernic=True)
                 t1_sent_bytes = net[self._config["receiver_interface"]].bytes_recv
                 t1 = perf_counter()
@@ -1120,7 +1124,7 @@ class DaqHandler:
                 nbytes = t2_sent_bytes - t1_sent_bytes
                 data_rate = nbytes / (t2 - t1)
                 self._data_rate = data_rate / 1024**3  # Gb/s
-            self._data_rate = -1.0
+            self._data_rate = None
 
         data_rate_thread = threading.Thread(target=_measure_data_rate, args=[interval])
         data_rate_thread.start()

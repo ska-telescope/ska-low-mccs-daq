@@ -405,7 +405,7 @@ class TestDaqHandler:
             *args: Any, **kwargs: Any
         ) -> dict[str, psutil._common.snetio]:
             nonlocal counter
-            counter += 125000000  # 1 Gb/s in bytes per second
+            counter += 1024**3  # 1 Gb/s in bytes per second
             return {
                 mock_interface: psutil._common.snetio(
                     bytes_sent=counter,
