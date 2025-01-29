@@ -2610,7 +2610,7 @@ reference = 'ska-nexus'
 
 [[package]]
 name = "ska-low-mccs-daq-interface"
-version = "0.4.1"
+version = "0.5.0"
 description = "SKA Low MCCS DAQ Interface repository specifies the client-server interface between the DAQ and its monitoring and control component."
 category = "main"
 optional = false
@@ -2627,7 +2627,7 @@ ska-control-model = "^1.0.0"
 type = "git"
 url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface"
 reference = "thorn-12-data-rate-checker"
-resolved_reference = "83928f30ac381dc883d566a2dead9f57b0ec293f"
+resolved_reference = "487922975dbbddbb41ae3204dcf77138ee17e894"
 
 [[package]]
 name = "ska-ser-sphinx-theme"
@@ -3281,4 +3281,4 @@ reference = "PyPI-public"
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.10"
-content-hash = "5acb6b5c6093f03ca3fd678f0bf3f44ce2ba6d9af26f33955c280e6b9987ca33"
+content-hash = "d866ae588be54a19a44638cd48fa2fca088649eaaeaa2a80a5b8ebb47964e0a0"

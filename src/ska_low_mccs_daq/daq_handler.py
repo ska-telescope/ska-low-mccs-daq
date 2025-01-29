@@ -1087,7 +1087,7 @@ class DaqHandler:
 
     def get_data_rate(self: DaqHandler) -> float | None:
         """
-        Get the data rate over the receiver interface in Gb/s.
+        Get the data rate over the receiver network interface in Gb/s.
 
         :return: The data rate in Gb/s, None if not currently monitoring.
         """
@@ -1097,7 +1097,7 @@ class DaqHandler:
         self: DaqHandler, interval: float = 2.0
     ) -> tuple[ResultCode, str]:
         """
-        Start measuring the data rate.
+        Start measuring the data rate over the receiver network interface in Gb/s.
 
         :param interval: The interval in seconds to measure the data rate.
 
@@ -1132,7 +1132,7 @@ class DaqHandler:
 
     def stop_measuring_data_rate(self: DaqHandler) -> tuple[ResultCode, str]:
         """
-        Stop measuring the data rate.
+        Stop measuring the data rate over the receiver network interface.
 
         :return: a resultcode, message tuple
         """
