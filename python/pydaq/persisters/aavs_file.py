@@ -941,7 +941,7 @@ class AAVSFileManager(object):
         return file_obj
 
     @staticmethod
-    def close_file(file_obj):  # mode='w'
+    def close_file(file_obj):
         """
         Closes a file object in use by this manager.
         :param file_obj: The file object to close.
@@ -950,9 +950,15 @@ class AAVSFileManager(object):
         filename = file_obj.filename
         first_full_filename = filename
 
-        lock = FileLock(first_full_filename)
+        mode = file_obj.mode 
+
+        if mode == 'w':
+            lock = FileLock(first_full_filename)
+        
         file_obj.close()
-        lock.release()
+        
+        if mode == 'w':
+            lock.release()
 
     @staticmethod
     def open_file(filename, mode='r'):
@@ -964,8 +970,9 @@ class AAVSFileManager(object):
         """
         first_full_filename = filename
 
-        lock = FileLock(first_full_filename)
-        lock.acquire(timeout=None)
+        if mode == 'w':
+            lock = FileLock(first_full_filename)
+            lock.acquire(timeout=None)
 
         file_obj = h5py.File(filename, mode)
         return file_obj
