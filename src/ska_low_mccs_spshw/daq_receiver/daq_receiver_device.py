@@ -976,29 +976,37 @@ class MccsDaqReceiver(SKABaseDevice):
         # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.StartDataRateMonitorCommand,
+            interval: float,
         ) -> tuple[ResultCode, str]:
             """
             Implement MccsDaqReceiver.StartDataRateMonitor functionality.
 
             Start monitoring the data rate on the receiver interface.
 
+            :param interval: The interval in seconds at which to monitor the data rate.
+
             :return: A tuple containing a return code and a string
                 message indicating status. The message is for
                 information purpose only.
             """
-            return self._component_manager.start_data_rate_monitor()
+            return self._component_manager.start_data_rate_monitor(interval)
 
-    @command(dtype_out="DevVarLongStringArray")
-    def StartDataRateMonitor(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+    @command(dtype_out="DevVarLongStringArray", dtype_in="DevLong")
+    def StartDataRateMonitor(
+        self: MccsDaqReceiver,
+        interval: float,
+    ) -> DevVarLongStringArrayType:
         """
         Start monitoring the data rate on the receiver interface.
+
+        :param interval: The interval in seconds at which to monitor the data rate.
 
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
         """
         handler = self.get_command_object("StartDataRateMonitor")
-        (result_code, message) = handler()
+        (result_code, message) = handler(interval)
         return ([result_code], [message])
 
     @attribute(
