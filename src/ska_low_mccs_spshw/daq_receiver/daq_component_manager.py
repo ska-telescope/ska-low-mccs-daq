@@ -718,3 +718,28 @@ class DaqComponentManager(TaskExecutorComponentManager):
         today = date.today().strftime("%Y%m%d")
         uid = f"eb-local-{today}-{random_seq}"
         return uid
+
+    def start_data_rate_monitor(self: DaqComponentManager) -> tuple[ResultCode, str]:
+        """
+        Start the data rate monitor on the receiver interface.
+
+        :return: a ResultCode and response message
+        """
+        return self._daq_client.start_data_rate_monitor(1)
+
+    def stop_data_rate_monitor(self: DaqComponentManager) -> tuple[ResultCode, str]:
+        """
+        Stop the data rate monitor on the receiver interface.
+
+        :return: a ResultCode and response message
+        """
+        return self._daq_client.stop_data_rate_monitor()
+
+    @property
+    def data_rate(self: DaqComponentManager) -> float | None:
+        """
+        Return the current data rate in Gb/s, or None if not being monitored.
+
+        :return: the current data rate in Gb/s, or None if not being monitored.
+        """
+        return self._daq_client.get_data_rate()
