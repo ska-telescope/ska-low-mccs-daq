@@ -719,6 +719,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         uid = f"eb-local-{today}-{random_seq}"
         return uid
 
+    @check_communicating
     def start_data_rate_monitor(self: DaqComponentManager) -> tuple[ResultCode, str]:
         """
         Start the data rate monitor on the receiver interface.
@@ -727,6 +728,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         return self._daq_client.start_data_rate_monitor(1)
 
+    @check_communicating
     def stop_data_rate_monitor(self: DaqComponentManager) -> tuple[ResultCode, str]:
         """
         Stop the data rate monitor on the receiver interface.
@@ -736,6 +738,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         return self._daq_client.stop_data_rate_monitor()
 
     @property
+    @check_communicating
     def data_rate(self: DaqComponentManager) -> float | None:
         """
         Return the current data rate in Gb/s, or None if not being monitored.
