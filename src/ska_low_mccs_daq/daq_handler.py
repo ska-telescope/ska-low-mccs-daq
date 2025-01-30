@@ -17,11 +17,12 @@ import queue
 import re
 import threading
 from collections import deque
-from time import sleep
+from time import perf_counter, sleep
 from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 import h5py
 import numpy as np
+import psutil  # type: ignore
 from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
@@ -211,6 +212,8 @@ class DaqHandler:
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
         self._plot_transmission: bool = False
         self._files_to_plot: queue.Queue[str] = queue.Queue()
+        self._measure_data_rate: bool = False
+        self._data_rate: float | None = None
 
     # Callback called for every data mode.
     def _file_dump_callback(  # noqa: C901
@@ -691,7 +694,7 @@ class DaqHandler:
                     x_bandpass_plot = self._x_bandpass_plots.pop()
                 except IndexError:
                     x_bandpass_plot = None
-                except (Exception) as e:  # pylint: disable = broad-exception-caught
+                except Exception as e:  # pylint: disable = broad-exception-caught
                     self.logger.error(
                         "Unexpected exception retrieving x_bandpass_plot: %s",
                         e,
@@ -701,7 +704,7 @@ class DaqHandler:
                     y_bandpass_plot = self._y_bandpass_plots.pop()
                 except IndexError:
                     y_bandpass_plot = None
-                except (Exception) as e:  # pylint: disable = broad-exception-caught
+                except Exception as e:  # pylint: disable = broad-exception-caught
                     self.logger.error(
                         "Unexpected exception retrieving y_bandpass_plot: %s",
                         e,
@@ -711,7 +714,7 @@ class DaqHandler:
                     rms_plot = self._rms_plots.pop()
                 except IndexError:
                     rms_plot = None
-                except (Exception) as e:  # pylint: disable = broad-exception-caught
+                except Exception as e:  # pylint: disable = broad-exception-caught
                     self.logger.error("Unexpected exception retrieving rms_plot: %s", e)
 
                 if all(
@@ -1081,6 +1084,60 @@ class DaqHandler:
                 )
                 return False
         return True
+
+    def get_data_rate(self: DaqHandler) -> float | None:
+        """
+        Get the data rate over the receiver network interface in Gb/s.
+
+        :return: The data rate in Gb/s, None if not currently monitoring.
+        """
+        return self._data_rate
+
+    def start_measuring_data_rate(
+        self: DaqHandler, interval: float = 2.0
+    ) -> tuple[ResultCode, str]:
+        """
+        Start measuring the data rate over the receiver network interface in Gb/s.
+
+        :param interval: The interval in seconds to measure the data rate.
+
+        :return: a resultcode, message tuple
+        """
+        if self._measure_data_rate:
+            return (ResultCode.REJECTED, "Already measuring data rate.")
+
+        self._measure_data_rate = True
+
+        def _measure_data_rate(interval: int) -> None:
+            self.logger.info("Starting data rate monitor.")
+            while self._measure_data_rate:
+                self.logger.debug("Measuring data rate...")
+                net = psutil.net_io_counters(pernic=True)
+                t1_sent_bytes = net[self._config["receiver_interface"]].bytes_recv
+                t1 = perf_counter()
+
+                sleep(interval)
+
+                net = psutil.net_io_counters(pernic=True)
+                t2_sent_bytes = net[self._config["receiver_interface"]].bytes_recv
+                t2 = perf_counter()
+                nbytes = t2_sent_bytes - t1_sent_bytes
+                data_rate = nbytes / (t2 - t1)
+                self._data_rate = data_rate / 1024**3  # Gb/s
+            self._data_rate = None
+
+        data_rate_thread = threading.Thread(target=_measure_data_rate, args=[interval])
+        data_rate_thread.start()
+        return (ResultCode.OK, "Data rate measurement started.")
+
+    def stop_measuring_data_rate(self: DaqHandler) -> tuple[ResultCode, str]:
+        """
+        Stop measuring the data rate over the receiver network interface.
+
+        :return: a resultcode, message tuple
+        """
+        self._measure_data_rate = False
+        return (ResultCode.OK, "Data rate measurement stopping.")
 
 
 def main() -> None:
