@@ -1124,6 +1124,7 @@ class DaqHandler:
                 nbytes = t2_sent_bytes - t1_sent_bytes
                 data_rate = nbytes / (t2 - t1)
                 self._data_rate = data_rate / 1024**3  # Gb/s
+            self.logger.info("Stopping data rate monitor.")
             self._data_rate = None
 
         data_rate_thread = threading.Thread(target=_measure_data_rate, args=[interval])
