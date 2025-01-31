@@ -452,6 +452,34 @@ class DaqSimulator:
         """
         return not parent == "invalid_directory"
 
+    def start_measuring_data_rate(
+        self: DaqSimulator, interval: float = 1.0
+    ) -> tuple[ResultCode, str]:
+        """
+        Start the data rate monitor on the receiver interface.
+
+        :param interval: the interval over which to measure the data rate.
+
+        :return: a ResultCode and response message
+        """
+        return (ResultCode.OK, "Data rate monitor started")
+
+    def stop_measuring_data_rate(self: DaqSimulator) -> tuple[ResultCode, str]:
+        """
+        Stop the data rate monitor on the receiver interface.
+
+        :return: a ResultCode and response message
+        """
+        return (ResultCode.OK, "Data rate monitor stopped")
+
+    def get_data_rate(self: DaqSimulator) -> float:
+        """
+        Return the current data rate in Gb/s, or None if not being monitored.
+
+        :return: the current data rate in Gb/s, or None if not being monitored.
+        """
+        return 1.0
+
 
 def main() -> None:
     """Entry point for a gRPC server that fronts a DAQ simulator."""
