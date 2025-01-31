@@ -343,8 +343,6 @@ class MccsDaqReceiver(SKABaseDevice):
             ("DaqStatus", self.DaqStatusCommand),
             ("GetConfiguration", self.GetConfigurationCommand),
             ("StopBandpassMonitor", self.StopBandpassMonitorCommand),
-            ("StartDataRateMonitor", self.StartDataRateMonitorCommand),
-            ("StopDataRateMonitor", self.StopDataRateMonitorCommand),
         ]:
             self.register_command_object(
                 command_name,
@@ -353,6 +351,8 @@ class MccsDaqReceiver(SKABaseDevice):
 
         for command_name, method_name in [
             ("Stop", "stop_daq"),
+            ("StartDataRateMonitor", "start_data_rate_monitor"),
+            ("StopDataRateMonitor", "stop_data_rate_monitor"),
         ]:
             self.register_command_object(
                 command_name,
@@ -911,38 +911,6 @@ class MccsDaqReceiver(SKABaseDevice):
         (result_code, message) = handler()
         return ([result_code], [message])
 
-    class StopDataRateMonitorCommand(FastCommand):
-        """Class for handling the StopDataRateMonitorCommand() command."""
-
-        def __init__(  # type: ignore
-            self: MccsDaqReceiver.StopDataRateMonitorCommand,
-            component_manager: DaqComponentManager,
-            logger: Optional[logging.Logger] = None,
-        ) -> None:
-            """
-            Initialise a new StopDataRateMonitorCommand instance.
-
-            :param component_manager: the device to which this command belongs.
-            :param logger: a logger for this command to use.
-            """
-            self._component_manager = component_manager
-            super().__init__(logger)
-
-        # pylint: disable=arguments-differ
-        def do(  # type: ignore[override]
-            self: MccsDaqReceiver.StopDataRateMonitorCommand,
-        ) -> tuple[ResultCode, str]:
-            """
-            Implement MccsDaqReceiver.StopDataRateMonitor functionality.
-
-            Stop monitoring the data rate on the receiver interface.
-
-            :return: A tuple containing a return code and a string
-                message indicating status. The message is for
-                information purpose only.
-            """
-            return self._component_manager.stop_data_rate_monitor()
-
     @command(dtype_out="DevVarLongStringArray")
     def StopDataRateMonitor(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
         """
@@ -955,41 +923,6 @@ class MccsDaqReceiver(SKABaseDevice):
         handler = self.get_command_object("StopDataRateMonitor")
         (result_code, message) = handler()
         return ([result_code], [message])
-
-    class StartDataRateMonitorCommand(FastCommand):
-        """Class for handling the StartDataRateMonitorCommand() command."""
-
-        def __init__(  # type: ignore
-            self: MccsDaqReceiver.StartDataRateMonitorCommand,
-            component_manager: DaqComponentManager,
-            logger: Optional[logging.Logger] = None,
-        ) -> None:
-            """
-            Initialise a new StartDataRateMonitorCommand instance.
-
-            :param component_manager: the device to which this command belongs.
-            :param logger: a logger for this command to use.
-            """
-            self._component_manager = component_manager
-            super().__init__(logger)
-
-        # pylint: disable=arguments-differ
-        def do(  # type: ignore[override]
-            self: MccsDaqReceiver.StartDataRateMonitorCommand,
-            interval: float,
-        ) -> tuple[ResultCode, str]:
-            """
-            Implement MccsDaqReceiver.StartDataRateMonitor functionality.
-
-            Start monitoring the data rate on the receiver interface.
-
-            :param interval: The interval in seconds at which to monitor the data rate.
-
-            :return: A tuple containing a return code and a string
-                message indicating status. The message is for
-                information purpose only.
-            """
-            return self._component_manager.start_data_rate_monitor(interval)
 
     @command(dtype_out="DevVarLongStringArray", dtype_in="DevLong")
     def StartDataRateMonitor(

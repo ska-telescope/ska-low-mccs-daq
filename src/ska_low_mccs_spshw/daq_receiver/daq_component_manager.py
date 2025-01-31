@@ -721,25 +721,85 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     @check_communicating
     def start_data_rate_monitor(
-        self: DaqComponentManager, interval: float = 2.0
-    ) -> tuple[ResultCode, str]:
+        self: DaqComponentManager,
+        interval: float = 2.0,
+        task_callback: TaskCallbackType | None = None,
+    ) -> tuple[TaskStatus, str]:
         """
         Start the data rate monitor on the receiver interface.
 
         :param interval: The interval in seconds at which to monitor the data rate.
+        :param task_callback: Update task state, defaults to None.
 
-        :return: a ResultCode and response message
+        :return: a task status and response message
         """
-        return self._daq_client.start_data_rate_monitor(interval)
+        return self.submit_task(
+            self._start_data_rate_monitor,
+            args=[interval],
+            task_callback=task_callback,
+        )
 
-    @check_communicating
-    def stop_data_rate_monitor(self: DaqComponentManager) -> tuple[ResultCode, str]:
+    def _start_data_rate_monitor(
+        self: DaqComponentManager,
+        interval: float,
+        task_callback: TaskCallbackType | None = None,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
+        """
+        Start the data rate monitor on the receiver interface.
+
+        :param interval: The interval in seconds at which to monitor the data rate.
+        :param task_callback: Update task state, defaults to None.
+        :param task_abort_event: Check for abort, defaults to None.
+        """
+        if task_callback:
+            task_callback(status=TaskStatus.IN_PROGRESS)
+
+        self._daq_client.start_data_rate_monitor(interval)
+
+        if task_callback:
+            task_callback(
+                status=TaskStatus.COMPLETED,
+                result=(ResultCode.OK, "Data rate monitor started."),
+            )
+
+    def stop_data_rate_monitor(
+        self: DaqComponentManager,
+        task_callback: TaskCallbackType | None = None,
+    ) -> tuple[TaskStatus, str]:
+        """
+        Start the data rate monitor on the receiver interface.
+
+        :param task_callback: Update task state, defaults to None.
+
+        :return: a task status and response message
+        """
+        return self.submit_task(
+            self._stop_data_rate_monitor,
+            task_callback=task_callback,
+        )
+
+    def _stop_data_rate_monitor(
+        self: DaqComponentManager,
+        task_callback: TaskCallbackType | None = None,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
         """
         Stop the data rate monitor on the receiver interface.
 
-        :return: a ResultCode and response message
+        :param task_callback: Update task state, defaults to None.
+        :param task_abort_event: Check for abort, defaults to None.
         """
-        return self._daq_client.stop_data_rate_monitor()
+        if task_callback:
+            task_callback(status=TaskStatus.IN_PROGRESS)
+
+        self._daq_client.stop_data_rate_monitor()
+
+        if task_callback:
+            task_callback(
+                status=TaskStatus.COMPLETED,
+                result=(ResultCode.OK, "Data rate monitor stopped."),
+            )
 
     @property
     @check_communicating
