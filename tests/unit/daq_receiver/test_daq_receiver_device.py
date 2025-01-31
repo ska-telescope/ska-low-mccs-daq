@@ -17,7 +17,7 @@ from typing import Iterator, Type, Union
 import pytest
 import pytest_mock
 import tango
-from ska_control_model import AdminMode, HealthState, ResultCode
+from ska_control_model import AdminMode, HealthState, ResultCode, TaskStatus
 from ska_tango_testing.mock.placeholders import Anything
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tango.server import Device, command
@@ -243,6 +243,14 @@ class TestPatchedDaq:
         mock_component_manager = unittest.mock.Mock()
         mock_component_manager.start_daq.return_value = (ResultCode.OK, "Daq started")
         mock_component_manager.stop_daq.return_value = (ResultCode.OK, "Daq stopped")
+        mock_component_manager.start_data_rate_monitor.return_value = (
+            TaskStatus.QUEUED,
+            "Task queued",
+        )
+        mock_component_manager.stop_data_rate_monitor.return_value = (
+            TaskStatus.QUEUED,
+            "Task queued",
+        )
         mock_component_manager._set_consumers_to_start.return_value = (
             ResultCode.OK,
             "SetConsumers command completed OK",
@@ -609,3 +617,34 @@ class TestPatchedDaq:
         call_args = (
             mock_component_manager.stop_bandpass_monitor.assert_called_once_with()
         )
+
+    def test_start_stop_data_rate_monitor(
+        self: TestPatchedDaq,
+        device_under_test: tango.DeviceProxy,
+        mock_component_manager: unittest.mock.Mock,
+    ) -> None:
+        """
+        Test for StartDataRateMonitor() and StopDataRateMonitor().
+
+        This tests that when we pass an interval to the `StartDataRateMonitor`
+        command that it is successfully passed into the
+        component manager
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param mock_component_manager: a mock component manager that has
+            been patched into the device under test
+        """
+        device_under_test.adminMode = AdminMode.ONLINE
+        assert device_under_test.adminMode == AdminMode.ONLINE
+        sleep(0.1)
+
+        _ = device_under_test.StartDataRateMonitor(1)
+        call_args = mock_component_manager.start_data_rate_monitor.call_args
+        # A bit clunky but it gets padded with command IDs etc.
+        assert call_args[0][0] == 1
+
+        _ = device_under_test.StopDataRateMonitor()
+
+        mock_component_manager.stop_data_rate_monitor.assert_called_once()
