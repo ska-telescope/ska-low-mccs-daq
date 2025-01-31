@@ -646,9 +646,17 @@ class TestDaqComponentManager:
             CommunicationStatus.NOT_ESTABLISHED
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        result, message = daq_component_manager.start_data_rate_monitor()
-        assert result == ResultCode.OK
-        assert message == "Data rate monitor started"
+        result, message = daq_component_manager.start_data_rate_monitor(
+            task_callback=callbacks["task"]
+        )
+        assert result == TaskStatus.QUEUED
+        assert message == "Task queued"
+        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(
+            status=TaskStatus.COMPLETED,
+            result=(ResultCode.OK, "Data rate monitor started."),
+        )
 
     def test_stop_data_rate_monitor(
         self: TestDaqComponentManager,
@@ -669,9 +677,17 @@ class TestDaqComponentManager:
             CommunicationStatus.NOT_ESTABLISHED
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        result, message = daq_component_manager.stop_data_rate_monitor()
-        assert result == ResultCode.OK
-        assert message == "Data rate monitor stopped"
+        result, message = daq_component_manager.stop_data_rate_monitor(
+            task_callback=callbacks["task"]
+        )
+        assert result == TaskStatus.QUEUED
+        assert message == "Task queued"
+        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(
+            status=TaskStatus.COMPLETED,
+            result=(ResultCode.OK, "Data rate monitor stopped."),
+        )
 
     def test_get_data_rate(
         self: TestDaqComponentManager,
