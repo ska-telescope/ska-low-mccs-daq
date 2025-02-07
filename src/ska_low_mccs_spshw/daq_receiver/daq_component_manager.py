@@ -397,7 +397,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: a task status and response message
         """
-        self._started_event.clear()
         return self.submit_task(
             self._stop_daq,
             task_callback=task_callback,
@@ -422,6 +421,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
             task_callback(status=TaskStatus.IN_PROGRESS)
 
         result_code, message = self._daq_client.stop_daq()
+
+        self._started_event.clear()
+
         if task_callback:
             if result_code == ResultCode.OK:
                 task_callback(status=TaskStatus.COMPLETED)
