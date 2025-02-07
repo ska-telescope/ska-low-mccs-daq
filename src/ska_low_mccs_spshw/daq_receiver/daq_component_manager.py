@@ -75,6 +75,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             initialisation in retried.
         """
         self._power_state_lock = threading.RLock()
+        self._started_event = threading.Event()
         self._power_state: Optional[PowerState] = None
         self._faulty: Optional[bool] = None
         self._consumers_to_start: str = "Daqmodes.INTEGRATED_CHANNEL_DATA"
@@ -308,6 +309,17 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: a task status and response message
         """
+        if self._started_event.is_set():
+            if task_callback:
+                task_callback(
+                    status=TaskStatus.REJECTED,
+                    result=(
+                        ResultCode.REJECTED,
+                        "DAQ already started, call Stop() first.",
+                    ),
+                )
+            return TaskStatus.REJECTED, "DAQ already started, call Stop() first."
+        self._started_event.set()
         return self.submit_task(
             self._start_daq,
             args=[modes_to_start],
@@ -385,6 +397,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: a task status and response message
         """
+        self._started_event.clear()
         return self.submit_task(
             self._stop_daq,
             task_callback=task_callback,
