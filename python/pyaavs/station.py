@@ -145,6 +145,11 @@ def initialise_tile(params):
     if config['network']['tile_40g_subnet'] is not None:
         next_tile_number = tile_number + 1
         ip_intf_40g = IPv4Interface(config['network']['tile_40g_subnet'])
+        # Raise an error if "/32" network is specified
+        # This will also raise an error if no netmask is specified as "/32" is the default for IPv4Interface
+        if ip_intf_40g.network.prefixlen == 32:
+            logging.error(f"Specified 'tile_40g_subnet' is Invalid: {config['network']['tile_40g_subnet']}. Did you forget the subnet mask?")
+            return False
         first_40g_ip = ip_intf_40g.ip
         netmask_40g = ip_intf_40g.network.netmask
         gateway_ip_40g = ip_intf_40g.network.broadcast_address - 1
