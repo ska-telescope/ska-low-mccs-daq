@@ -55,6 +55,10 @@
             "type": "integer",
             "minimum": 1
           },
+          "dedicated_bandpass": {
+            "type": "boolean",
+            "default": false
+          },
           "expose_data_service": {
             "type": "boolean",
             "default": false

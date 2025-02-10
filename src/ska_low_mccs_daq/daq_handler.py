@@ -515,7 +515,6 @@ class DaqHandler:
                 be automatically reconfigured, started and stopped during this
                 process if necessary.
                 Optional. Default False.
-                [DEPRECATED - To be removed.]
 
             * cadence: Number of seconds over which to average data.
                 Optional. Default 0 (returns snapshots).
@@ -602,13 +601,16 @@ class DaqHandler:
                 return
             # Auto start DAQ.
             # TODO: Need to be able to start consumers incrementally for this.
-            # result = self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
-            # while "INTEGRATED_CHANNEL_DATA" not in running_consumers:
-            #     tmp+=1
-            #     sleep(2)
-            #     running_consumers = self.get_status().get("Running Consumers")
-            #     if tmp > 5:
-            #         return
+            _ = self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
+            running_consumers = self.get_status().get("Running Consumers")
+            tmp = 0
+            while "INTEGRATED_CHANNEL_DATA" not in running_consumers:
+                tmp += 1
+                sleep(2)
+                running_consumers = self.get_status().get("Running Consumers")
+                if tmp > 5:
+                    self.logger.error("Bandpass monitoring failed to auto-start.")
+                    return
 
         # Create plotting directory structure
         if not self.create_plotting_directory(plot_directory, self._station_name):
