@@ -15,7 +15,8 @@ from typing import Any, Optional, Union
 
 import numpy as np
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
-from ska_tango_base.base import BaseComponentManager, SKABaseDevice
+from ska_low_mccs_common import MccsBaseDevice
+from ska_tango_base.base import BaseComponentManager
 from ska_tango_base.commands import (
     CommandTrackerProtocol,
     DeviceInitCommand,
@@ -180,7 +181,7 @@ class _StartBandpassMonitorCommand(SubmittedSlowCommand):
 
 
 # pylint: disable = too-many-instance-attributes
-class MccsDaqReceiver(SKABaseDevice):
+class MccsDaqReceiver(MccsBaseDevice):
     """An implementation of a MccsDaqReceiver Tango device."""
 
     # -----------------
