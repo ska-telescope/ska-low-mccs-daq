@@ -28,6 +28,7 @@ from tests.functional.conftest import (
     poll_until_command_result,
     poll_until_consumers_running,
     poll_until_consumers_stopped,
+    verify_bandpass_state,
 )
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
@@ -265,6 +266,36 @@ class TestPatchedDaq:
         )
         mock_component_manager.max_queued_tasks = 0
         mock_component_manager.max_executing_tasks = 1
+        mock_component_manager._dedicated_bandpass_daq = False
+        mock_component_manager.daq_status.side_effect = [
+            json.dumps(
+                {
+                    "Daq Health": [HealthState.OK.name, HealthState.OK.value],
+                    "Running Consumers": [[]],
+                    "Receiver Interface": "lo",
+                    "Receiver IP": ["123.456.789.000"],
+                    "Bandpass Monitor": False,
+                }
+            ),
+            json.dumps(
+                {
+                    "Daq Health": [HealthState.OK.name, HealthState.OK.value],
+                    "Running Consumers": [["INTEGRATED_CHANNEL_DATA", 5]],
+                    "Receiver Interface": "lo",
+                    "Receiver IP": ["123.456.789.000"],
+                    "Bandpass Monitor": False,
+                }
+            ),
+            json.dumps(
+                {
+                    "Daq Health": [HealthState.OK.name, HealthState.OK.value],
+                    "Running Consumers": [["INTEGRATED_CHANNEL_DATA", 5]],
+                    "Receiver Interface": "lo",
+                    "Receiver IP": ["123.456.789.000"],
+                    "Bandpass Monitor": True,
+                }
+            ),
+        ]
         # configuration = {
         #     "start_daq.return_value": ,
         #     "stop_daq.return_value": ,
@@ -315,6 +346,18 @@ class TestPatchedDaq:
                 :param input_data: the input data to the callback in json form.
                 """
                 self._received_data_callback(*input_data)
+
+            @command(dtype_in="DevBoolean")
+            def SetBandpassDaq(self: _PatchedDaqReceiver, value: bool) -> None:
+                """
+                Set the bandpass DAQ.
+
+                :param value: the value to set the bandpass DAQ to.
+                """
+                self.BandpassDaq = value
+                assert self.BandpassDaq == value
+                self.component_manager._dedicated_bandpass_daq = value
+                assert self.component_manager._dedicated_bandpass_daq == value
 
         return _PatchedDaqReceiver
 
@@ -648,3 +691,31 @@ class TestPatchedDaq:
         _ = device_under_test.StopDataRateMonitor()
 
         mock_component_manager.stop_data_rate_monitor.assert_called_once()
+
+    def test_auto_start_bandpass_device(
+        self: TestPatchedDaq,
+        device_under_test: tango.DeviceProxy,
+        mock_component_manager: unittest.mock.Mock,
+    ) -> None:
+        """
+        Test for StartBandpassMonitor().
+
+        Tests that when a Daq device is marked as a bandpass daq that it
+        automatically starts bandpass monitoring. Weak test.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param mock_component_manager: a mock component manager that has
+            been patched into the device under test
+        """
+        device_under_test.SetBandpassDaq(True)
+        device_under_test.adminMode = AdminMode.ONLINE
+        assert device_under_test.adminMode == AdminMode.ONLINE
+        # Wait for integrated channel consumer to start.
+        poll_until_consumers_running(
+            device_under_test,
+            [str(DaqModes.INTEGRATED_CHANNEL_DATA).rsplit(".", maxsplit=1)[-1]],
+        )
+        # Wait for bandpass monitor to start.
+        verify_bandpass_state(device_under_test, True)

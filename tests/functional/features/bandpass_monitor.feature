@@ -37,3 +37,9 @@ Feature: Test bandpass monitor
         Then the DAQ reports that it has received integrated channel data
         And the DAQ saves bandpass data to its relevant attributes
 
+    Scenario: Auto-start bandpass monitoring
+        Given a bandpass DAQ device
+        When the bandpass DAQ is set ONLINE
+        Then the bandpass DAQ is started with the integrated channel data consumer
+        And the bandpass DAQ has the bandpass monitor running
+

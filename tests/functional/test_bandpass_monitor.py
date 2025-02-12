@@ -22,6 +22,7 @@ from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.functional.conftest import (
     expect_attribute,
+    poll_until_consumers_running,
     poll_until_consumers_stopped,
     poll_until_state_change,
     verify_bandpass_state,
@@ -94,6 +95,36 @@ def daq_device_fixture(station_name: str) -> tango.DeviceProxy:
         daq_device.adminMode = AdminMode.ONLINE
     poll_until_state_change(daq_device, tango.DevState.ON)
     return daq_device
+
+
+@given("a bandpass DAQ device", target_fixture="bandpass_daq_device")
+def daq_device_off_fixture(station_name: str) -> tango.DeviceProxy:
+    """
+    Return a ``tango.DeviceProxy`` to the DAQ device under test.
+
+    :param station_name: the name of the station under test.
+
+    :return: a ``tango.DeviceProxy`` to the DAQ device under test.
+    """
+    daq_device = tango.DeviceProxy(get_daq_name(station_name + "-bandpass"))
+    return daq_device
+
+
+@when("the bandpass DAQ is set ONLINE", target_fixture="daq_device_online")
+def set_daq_device_online_fixture(
+    bandpass_daq_device: tango.DeviceProxy,
+) -> tango.DeviceProxy:
+    """
+    Set the daq device online.
+
+    :param bandpass_daq_device: A 'tango.DeviceProxy' to the OFFLINE Daq device.
+    :return: a ``tango.DeviceProxy`` to the DAQ device under test.
+    """
+    if not bandpass_daq_device.adminMode == AdminMode.OFFLINE:
+        bandpass_daq_device.adminMode = AdminMode.OFFLINE
+    bandpass_daq_device.adminMode = AdminMode.ONLINE
+    poll_until_state_change(bandpass_daq_device, tango.DevState.ON)
+    return bandpass_daq_device
 
 
 @given("the Tile is available", target_fixture="tile_device")
@@ -310,6 +341,33 @@ def daq_integrated_channel_running(
         time.sleep(1)
         time_elapsed += 1
     assert ["INTEGRATED_CHANNEL_DATA", 5] in consumers
+
+
+@then("the bandpass DAQ is started with the integrated channel data consumer")
+def check_daq_integrated_channel_running(
+    bandpass_daq_device: tango.DeviceProxy,
+) -> None:
+    """
+    Check the Daq device has integrated channel data consumer running.
+
+    :param bandpass_daq_device: A 'tango.DeviceProxy' to the Daq device.
+    """
+    poll_until_consumers_running(
+        bandpass_daq_device,
+        ["DaqModes.INTEGRATED_CHANNEL_DATA".rsplit(".", maxsplit=1)[-1]],
+    )
+
+
+@then("the bandpass DAQ has the bandpass monitor running")
+def bandpass_daq_bandpass_monitor_running(
+    bandpass_daq_device: tango.DeviceProxy,
+) -> None:
+    """
+    Check the bandpass monitor is running.
+
+    :param bandpass_daq_device: A 'tango.DeviceProxy' to the Daq device.
+    """
+    verify_bandpass_state(bandpass_daq_device, True)
 
 
 @given("the bandpass monitor is running")
