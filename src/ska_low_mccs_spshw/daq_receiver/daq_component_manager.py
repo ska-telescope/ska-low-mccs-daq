@@ -50,6 +50,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         component_state_callback: Callable[..., None],
         received_data_callback: Callable[[str, str, str], None],
         daq_initialisation_retry_frequency: int = 5,
+        dedicated_bandpass_daq: bool = False,
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -73,6 +74,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
             received from a tile
         :param daq_initialisation_retry_frequency: Frequency at which daq
             initialisation in retried.
+        :param dedicated_bandpass_daq: Flag indicating whether this DaqReceiver
+            is dedicated exclusively to monitoring bandpasses. If true then
+            this DaqReceiver will attempt to automatically monitor bandpasses.
         """
         self._power_state_lock = threading.RLock()
         self._started_event = threading.Event()
@@ -81,6 +85,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._consumers_to_start: str = "Daqmodes.INTEGRATED_CHANNEL_DATA"
         self._receiver_started: bool = False
         self._daq_id = str(daq_id).zfill(3)
+        self._dedicated_bandpass_daq = dedicated_bandpass_daq
         self._configuration = {}
         if receiver_interface:
             self._configuration["receiver_interface"] = receiver_interface
@@ -104,7 +109,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         )
         self._task_executor = TaskExecutor(max_workers=2)
 
-    def restart_daq_if_active(self) -> None:
+    def restart_daq_if_active(self: DaqComponentManager) -> None:
         """Restart daq if consumers are active."""
 
         def stop_daq_completion_callback(
@@ -116,7 +121,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         ) -> None:
             """Update stop_daq command status.
 
-            Executes start_daq command if stop_daq succeedes.
+            Executes start_daq command if stop_daq succeeds.
 
             :param input_data: input data for start_daq command
             :param status: the status of the asynchronous task
@@ -163,7 +168,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             )
 
     def start_daq_completion_callback(
-        self,
+        self: DaqComponentManager,
         status: TaskStatus | None = None,
         progress: int | None = None,
         result: JSONData = None,
@@ -213,7 +218,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             target=self.establish_communication, args=[configuration]
         ).start()
 
-    def establish_communication(self, configuration: str) -> None:
+    def establish_communication(self: DaqComponentManager, configuration: str) -> None:
         """Establish communication with the DaqReceiver components.
 
         :param configuration: Configuration string for daq initialisation
@@ -223,7 +228,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 response = self._daq_client.initialise(configuration)
                 self.logger.info(response["message"])
                 self._update_communication_state(CommunicationStatus.ESTABLISHED)
-                self.restart_daq_if_active()
+                if not self._dedicated_bandpass_daq:
+                    # This causes bandpass monitoring to start, stop and start again
+                    # if used in conjunction with the dedicated bandpass daq flag
+                    # as comms becoming established triggers bandpass monitoring.
+                    self.restart_daq_if_active()
                 break
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.error(

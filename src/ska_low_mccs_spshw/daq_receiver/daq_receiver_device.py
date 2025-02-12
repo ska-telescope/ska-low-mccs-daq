@@ -11,6 +11,7 @@ from __future__ import annotations  # allow forward references in type hints
 
 import json
 import logging
+import time
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -230,6 +231,11 @@ class MccsDaqReceiver(SKABaseDevice):
         doc="The retry frequency for DAQ initialization in seconds",
         default_value=5,
     )
+    BandpassDaq = device_property(
+        dtype=bool,
+        doc="Whether this DaqReceiver is a dedicated bandpass monitor.",
+        default_value=False,
+    )
 
     # ---------------
     # Initialisation
@@ -288,6 +294,8 @@ class MccsDaqReceiver(SKABaseDevice):
             f"\tDaqId: {self.DaqId}\n"
             f"\tConsumersToStart: {self.ConsumersToStart}\n"
             f"\tSkuidUrl: {self.SkuidUrl}\n"
+            f"\tDaqInitRetryFreq: {self.DaqInitRetryFreq}\n"
+            f"\tBandpassDaq: {self.BandpassDaq}\n"
         )
         self.logger.info(
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
@@ -330,6 +338,7 @@ class MccsDaqReceiver(SKABaseDevice):
             self._component_state_callback,
             self._received_data_callback,
             self.DaqInitRetryFreq,
+            self.BandpassDaq,
         )
 
     def init_command_objects(self: MccsDaqReceiver) -> None:
@@ -436,6 +445,66 @@ class MccsDaqReceiver(SKABaseDevice):
         self._health_model.update_state(
             communicating=(communication_state == CommunicationStatus.ESTABLISHED)
         )
+        if communication_state == CommunicationStatus.ESTABLISHED:
+            # Start bandpasses automatically here if required.
+            self._ensure_bandpass_running()
+
+    def _ensure_bandpass_running(self: MccsDaqReceiver) -> None:
+        """
+        Get the bandpass monitor running if it isn't already.
+
+        This method is called when the component manager establishes communication
+        successfully.
+        It starts the INTEGRATED DATA consumer and starts the bandpass monitor with
+        `auto_handle_daq=True`.
+        This side handles starting the correct consumer, the daq side handles any
+        reconfiguration.
+        """
+        if not self.BandpassDaq:
+            return
+        if json.loads(self.DaqStatus()).get("Bandpass Monitor"):
+            return
+
+        def _wait_for_status(status: str, value: str) -> None:
+            """
+            Wait for Daq to achieve a certain status.
+
+            Intended as a helper to wait for a consumer or bandpass monitor to start.
+
+            :param status: The Daq status category to check.
+            :param value: The expected value of the status.
+            """
+            daq_status = str(json.loads(self.DaqStatus())[status])
+            retry_count = 0
+            while value not in daq_status:
+                retry_count += 1
+                time.sleep(retry_count)
+                daq_status = str(json.loads(self.DaqStatus())[status])
+                if retry_count > 5:
+                    self.logger.error(
+                        f"Failed to find {value} in DaqStatus[{status}]: {daq_status=}."
+                    )
+                    return
+            self.logger.debug(f"Found {value} in DaqStatus[{status}]: {daq_status=}.")
+
+        # start bandpass monitor
+        self.logger.info(
+            "Auto starting INTEGRATED DATA consumer for bandpass monitoring."
+        )
+        self.Start(json.dumps({"modes_to_start": "INTEGRATED_CHANNEL_DATA"}))
+        _wait_for_status(
+            status="Running Consumers", value=str(["INTEGRATED_CHANNEL_DATA", 5])
+        )
+
+        bandpass_args = json.dumps(
+            {
+                "plot_directory": json.loads(self.GetConfiguration())["directory"],
+                "auto_handle_daq": True,
+            }
+        )
+        self.logger.info("Auto starting bandpass monitor with args: %s.", bandpass_args)
+        self.StartBandpassMonitor(bandpass_args)
+        _wait_for_status(status="Bandpass Monitor", value="True")
 
     def _component_state_callback(
         self: MccsDaqReceiver,
@@ -594,6 +663,7 @@ class MccsDaqReceiver(SKABaseDevice):
             - Receiver Interface: "Interface Name": str
             - Receiver Ports: [Port_List]: list[int]
             - Receiver IP: "IP_Address": str
+            - Bandpass Monitor: [Bandpass Monitor Running: bool]
 
         :return: A json string containing the status of this DaqReceiver.
 
