@@ -2,6 +2,8 @@
 
 ## unreleased
 
+* [THORN-27] Update schemas for new Daq property.
+
 ## 0.10.0
 
 * [THORN-12] Add methods/attributes to measure data rate over receiver interface.
