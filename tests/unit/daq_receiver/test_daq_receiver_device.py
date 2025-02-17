@@ -103,6 +103,7 @@ class TestMccsDaqReceiver:
         daq_interface: str,
         daq_ports: list[int],
         daq_ip: str,
+        change_event_callbacks: MockTangoEventCallbackGroup,
     ) -> None:
         """
         Test for DaqStatus.
@@ -119,10 +120,19 @@ class TestMccsDaqReceiver:
         :param device_under_test: fixture that provides a
             :py:class:`tango.DeviceProxy` to the device under test, in a
             :py:class:`tango.test_context.DeviceTestContext`.
+        :param change_event_callbacks: group of Tango change event callbacks
+            with asynchony support.
         """
         # Set adminMode so we can control device.
         device_under_test.adminMode = AdminMode.ONLINE
-        sleep(0.1)
+        device_under_test.subscribe_event(
+            "state",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["state"],
+        )
+        change_event_callbacks["state"].assert_change_event(
+            tango.DevState.ON, consume_nonmatches=True, lookahead=5
+        )
 
         # Configure.
         daq_config = {
@@ -163,6 +173,7 @@ class TestMccsDaqReceiver:
         self: TestMccsDaqReceiver,
         device_under_test: tango.DeviceProxy,
         daq_modes: str,
+        change_event_callbacks: MockTangoEventCallbackGroup,
     ) -> None:
         """
         Test for Start().
@@ -175,10 +186,19 @@ class TestMccsDaqReceiver:
             :py:class:`tango.DeviceProxy` to the device under test, in a
             :py:class:`tango.test_context.DeviceTestContext`.
         :param daq_modes: The DAQ consumers to start.
+        :param change_event_callbacks: group of Tango change event
+            callback with asynchrony support
         """
         device_under_test.adminMode = AdminMode.ONLINE
         assert device_under_test.adminMode == AdminMode.ONLINE
-        sleep(0.1)
+        device_under_test.subscribe_event(
+            "state",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["state"],
+        )
+        change_event_callbacks["state"].assert_change_event(
+            tango.DevState.ON, consume_nonmatches=True, lookahead=5
+        )
 
         start_args = json.dumps({"modes_to_start": f"{daq_modes}"})
         [result_code], [response] = device_under_test.Start(start_args)

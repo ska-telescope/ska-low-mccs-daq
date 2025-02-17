@@ -49,6 +49,8 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
     return MockTangoEventCallbackGroup(
         "healthState",
         "dataReceivedResult",
+        "state",
+        timeout=15.0,
         # TODO: Add more event types here as the tests grow
     )
 
