@@ -98,7 +98,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._daq_client = DaqClient(daq_address)
         self._skuid_url = skuid_url
         self._daq_initialisation_retry_frequency = daq_initialisation_retry_frequency
-        self._stop_establishing_communication = False
+        # True initially to prevent bandpass monitoring starting before adminMode is set
+        self._stop_establishing_communication = True
+        threading.Thread(
+            target=self.establish_communication, args=[json.dumps(self._configuration)]
+        ).start()
 
         super().__init__(
             logger,
@@ -190,12 +194,13 @@ class DaqComponentManager(TaskExecutorComponentManager):
             daq_status: dict[str, Any] = json.loads(self.daq_status())
             self.logger.info("DaqStatus check results - %s", daq_status)
             if daq_status["Bandpass Monitor"] is True:
-                bandpass_monitor_thread = threading.Thread(
-                    target=self.start_bandpass_monitor,
-                    name="submit_task_for_bandpass_monitoring",
-                    args=[json.dumps({"plot_directory": "/tmp"})],
-                )
-                bandpass_monitor_thread.start()
+                # bandpass_monitor_thread = threading.Thread(
+                #     target=self.start_bandpass_monitor,
+                #     name="submit_task_for_bandpass_monitoring",
+                #     args=[json.dumps({"plot_directory": "/tmp"})],
+                # )
+                # bandpass_monitor_thread.start()
+                self.start_bandpass_monitor(json.dumps({"plot_directory": "/tmp"}))
         else:
             self.logger.warning(
                 "The TaskStatus for StartDaq command is not COMPLETED. "
@@ -213,34 +218,45 @@ class DaqComponentManager(TaskExecutorComponentManager):
             )  # noqa: E501
 
         self._stop_establishing_communication = False
-        configuration = json.dumps(self._configuration)
-        threading.Thread(
-            target=self.establish_communication, args=[configuration]
-        ).start()
+
+    def _reinitialise(self: DaqComponentManager) -> None:
+        """Reinitialise communications with daq-server."""
+        self._update_communication_state(
+            CommunicationStatus.NOT_ESTABLISHED
+        )  # noqa: E501
 
     def establish_communication(self: DaqComponentManager, configuration: str) -> None:
         """Establish communication with the DaqReceiver components.
 
+        Runs an endless thread to continually try to establish comms while
+        the device is ONLINE.
+
         :param configuration: Configuration string for daq initialisation
         """
-        while not self._stop_establishing_communication:
-            try:
-                response = self._daq_client.initialise(configuration)
-                self.logger.info(response["message"])
-                self._update_communication_state(CommunicationStatus.ESTABLISHED)
-                if not self._dedicated_bandpass_daq:
-                    # This causes bandpass monitoring to start, stop and start again
-                    # if used in conjunction with the dedicated bandpass daq flag
-                    # as comms becoming established triggers bandpass monitoring.
-                    self.restart_daq_if_active()
-                break
-            except Exception as e:  # pylint: disable=broad-except
-                self.logger.error(
-                    "Caught exception in start_communicating: %s. "
-                    + "Retrying in %s secs",
-                    e,
-                    self._daq_initialisation_retry_frequency,
-                )
+        while True:
+            while not self._stop_establishing_communication:
+                if self._communication_state != CommunicationStatus.ESTABLISHED:
+                    try:
+                        response = self._daq_client.initialise(configuration)
+                        self.logger.info(response["message"])
+                        self._update_communication_state(
+                            CommunicationStatus.ESTABLISHED
+                        )
+                        if not self._dedicated_bandpass_daq:
+                            # This causes bandpass monitoring to start/stop/start
+                            # if used in conjunction with the dedicated bandpass daq
+                            # flag as comms becoming established/disabled
+                            # enables/disables bandpass monitoring.
+                            self.restart_daq_if_active()
+                    except Exception as e:  # pylint: disable=broad-except
+                        self.logger.error(
+                            "Caught exception in start_communicating: %s. "
+                            + "Retrying in %s secs",
+                            e,
+                            self._daq_initialisation_retry_frequency,
+                        )
+                sleep(self._daq_initialisation_retry_frequency)
+            while self._stop_establishing_communication:
                 sleep(self._daq_initialisation_retry_frequency)
 
     def stop_communicating(self: DaqComponentManager) -> None:
@@ -355,8 +371,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: none
         """
-        if task_callback:
-            task_callback(status=TaskStatus.IN_PROGRESS)
         # Check data directory is in correct format, if not then reconfigure.
         # This delays the start call by a lot if SKUID isn't there.
         if not self._data_directory_format_adr55_compliant():
@@ -428,11 +442,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.logger.debug("Entering stop_daq")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
-
         result_code, message = self._daq_client.stop_daq()
-
         self._started_event.clear()
-
         if task_callback:
             if result_code == ResultCode.OK:
                 task_callback(status=TaskStatus.COMPLETED)
@@ -450,14 +461,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param task_callback: Update task state, defaults to None
         :return: a task status and response message
         """
-        self.logger.debug("Entering daq_status")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
 
         status = self._daq_client.get_status()
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
-        self.logger.debug(f"Exiting daq_status with: {status}")
         return status
 
     @check_communicating
@@ -575,8 +584,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         config = self.get_configuration()
         nof_channels = int(config["nof_channels"])
 
-        if task_callback:
-            task_callback(status=TaskStatus.QUEUED)
         try:
             for response in self._daq_client.start_bandpass_monitor(argin):
                 x_bandpass_plot: np.ndarray | None = None
@@ -587,7 +594,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 )
                 if task_callback is not None:
                     task_callback(
-                        status=TaskStatus(response["result_code"]),
                         result=response["message"],
                     )
 
