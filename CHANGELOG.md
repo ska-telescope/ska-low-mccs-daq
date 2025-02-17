@@ -2,6 +2,10 @@
 
 ## unreleased
 
+## 1.0.0
+
+* [THORN-17] 1.0.0 release - all MCCS repos
+
 ## 0.10.0
 
 * [THORN-12] Add methods/attributes to measure data rate over receiver interface.
