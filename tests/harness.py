@@ -305,6 +305,7 @@ class SpsTangoTestHarness:
             SubrackPort=port,
             UpdateRate=update_rate,
             LoggingLevelDefault=logging_level,
+            ParentTRL=get_sps_station_name(self._station_label),
         )
 
     def add_mock_subrack_device(
@@ -354,6 +355,7 @@ class SpsTangoTestHarness:
             TpmIp="10.0.10.201",
             TpmCpldPort=10000,
             TpmVersion="tpm_v1_6",
+            ParentTRL=get_sps_station_name(self._station_label),
         )
 
     def add_mock_tile_device(
@@ -470,6 +472,7 @@ class SpsTangoTestHarness:
             Port=port,
             ConsumersToStart=consumers_to_start,
             LoggingLevelDefault=logging_level,
+            ParentTRL=get_sps_station_name(self._station_label),
         )
 
     def __enter__(
