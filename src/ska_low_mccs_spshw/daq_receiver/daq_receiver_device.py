@@ -11,15 +11,9 @@ from __future__ import annotations  # allow forward references in type hints
 
 import json
 import logging
-import threading
-import time
 from typing import Any, Optional, Union
 
 import numpy as np
-
-# This is introducing gRPC as a dependency here where really we want to be
-# agnostic to the underlying implementation.
-from grpc._channel import _InactiveRpcError as InactiveRPCError  # type: ignore
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
 from ska_low_mccs_common import MccsBaseDevice
 from ska_tango_base.base import BaseComponentManager
@@ -270,8 +264,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._y_bandpass_plot: np.ndarray
         self._rms_plot: np.ndarray
         self._skuid_url: str
-        self._bandpass_thread: threading.Thread
-        self._bandpass_keepalive: bool
 
     def init_device(self: MccsDaqReceiver) -> None:
         """
@@ -326,9 +318,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._rms_plot = np.zeros(shape=(256, 512), dtype=float)
         self.set_change_event("healthState", True, False)
         self.set_archive_event("healthState", True, False)
-        self._bandpass_keepalive = False
-        self._bandpass_thread = threading.Thread(target=self._ensure_bandpass_running)
-        self._bandpass_thread.start()
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
         """
@@ -456,141 +445,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._health_model.update_state(
             communicating=(communication_state == CommunicationStatus.ESTABLISHED)
         )
-        if self.BandpassDaq:
-            if communication_state == CommunicationStatus.ESTABLISHED:
-                self._bandpass_keepalive = True
-            elif communication_state == CommunicationStatus.DISABLED:
-                self._bandpass_keepalive = False
-
-    def _is_integrated_channel_consumer_running(self: MccsDaqReceiver) -> bool:
-        """
-        Check if the INTEGRATED_CHANNEL_DATA consumer is running.
-
-        :return: True if the consumer is running, False otherwise.
-        """
-        return bool(
-            str(["INTEGRATED_CHANNEL_DATA", 5])
-            in str(json.loads(self.DaqStatus()).get("Running Consumers"))
-        )
-
-    def _is_bandpass_monitor_running(self: MccsDaqReceiver) -> bool:
-        """
-        Check if the bandpass monitor is running.
-
-        :return: True if the bandpass monitor is running, False otherwise.
-        """
-        return bool(json.loads(self.DaqStatus()).get("Bandpass Monitor"))
-
-    def _ensure_bandpass_running(self: MccsDaqReceiver) -> None:
-        """Check the bandpass monitor state periodically and correct it if needed."""
-        while True:
-            self.logger.debug("Keeping bandpass monitoring active.")
-            while self._bandpass_keepalive:
-                try:
-                    if not all(
-                        [
-                            self._is_bandpass_monitor_running(),
-                            self._is_integrated_channel_consumer_running(),
-                        ]
-                    ):
-                        self.logger.warning(
-                            "Problem detected in bandpass monitor, fixing..."
-                        )
-                        self._get_bandpass_running()
-                    for _ in range(20):
-                        time.sleep(1)
-                        if not self._bandpass_keepalive:
-                            break
-
-                # TODO: Refactor this to catch general communication errors.
-                # Probably want daq-interface to translate gRPC exceptions to more
-                # general ones that we can catch here.
-                except InactiveRPCError:
-                    # This try/except block should be refactored into a decorator.
-                    # This will make Daq more resilient to the Chaos Monkey.
-                    self.logger.warning(
-                        "Unable to communicate with DaqServer. Reinitialising."
-                    )
-                    # If the server pod crashed with a consumer running we need to
-                    # clear this manually as stop_daq won't be callable.
-                    self.component_manager._started_event.clear()
-                    self.component_manager._reinitialise()
-                    start_time = time.time()
-                    while (
-                        self.component_manager.communication_state
-                        != CommunicationStatus.ESTABLISHED
-                    ):  # If we don't wait for comms we'll get more errors.
-                        self.logger.debug(
-                            "Waiting for communication to re-establish..."
-                        )
-                        time.sleep(2)
-                        if time.time() - start_time > 60:  # Quit if it takes too long.
-                            self.logger.error(
-                                "Failed to re-establish communication after 60 seconds."
-                            )
-                            break
-
-            self.logger.debug("Bandpass monitoring no longer being kept active.")
-            while not self._bandpass_keepalive:
-                time.sleep(1)
-
-    def _get_bandpass_running(self: MccsDaqReceiver) -> None:
-        """
-        Get the bandpass monitor running if it isn't already.
-
-        This method is called when the bandpass monitoring thread detects that either
-        the consumer has stopped or the bandpass monitor itself has stopped.
-        It starts the INTEGRATED DATA consumer and starts the bandpass monitor with
-        `auto_handle_daq=True`.
-        This device-side handles starting the correct consumer, the daq-server side
-        handles any reconfiguration.
-        """
-
-        def _wait_for_status(status: str, value: str) -> None:
-            """
-            Wait for Daq to achieve a certain status.
-
-            Intended as a helper to wait for a consumer or bandpass monitor to start.
-            Linear increase to retry time.
-
-            :param status: The Daq status category to check.
-            :param value: The expected value of the status.
-            """
-            daq_status = str(json.loads(self.DaqStatus())[status])
-            retry_count = 0
-            while value not in daq_status:
-                retry_count += 1
-                time.sleep(retry_count)
-                daq_status = str(json.loads(self.DaqStatus())[status])
-                if retry_count > 5:
-                    self.logger.error(
-                        f"Failed to find {value} in DaqStatus[{status}]: {daq_status=}."
-                    )
-                    return
-            self.logger.debug(f"Found {value} in DaqStatus[{status}]: {daq_status=}.")
-
-        if not self._is_integrated_channel_consumer_running():
-            # start consumer
-            self.logger.info(
-                "Auto starting INTEGRATED DATA consumer for bandpass monitoring."
-            )
-            self.Start(json.dumps({"modes_to_start": "INTEGRATED_CHANNEL_DATA"}))
-            _wait_for_status(
-                status="Running Consumers", value=str(["INTEGRATED_CHANNEL_DATA", 5])
-            )
-
-        if not self._is_bandpass_monitor_running():
-            bandpass_args = json.dumps(
-                {
-                    "plot_directory": json.loads(self.GetConfiguration())["directory"],
-                    "auto_handle_daq": True,
-                }
-            )
-            self.logger.info(
-                "Auto starting bandpass monitor with args: %s.", bandpass_args
-            )
-            self.StartBandpassMonitor(bandpass_args)
-            _wait_for_status(status="Bandpass Monitor", value="True")
 
     def _component_state_callback(
         self: MccsDaqReceiver,

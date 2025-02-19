@@ -12,6 +12,7 @@ import json
 import logging
 import random
 import threading
+import time
 from datetime import date
 from functools import partial
 from pathlib import PurePath
@@ -19,6 +20,10 @@ from time import sleep
 from typing import Any, Callable, Final, Optional
 
 import numpy as np
+
+# This is introducing gRPC as a dependency here where really we want to be
+# agnostic to the underlying implementation.
+from grpc._channel import _InactiveRpcError as InactiveRPCError  # type: ignore
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
 from ska_low_mccs_daq_interface import DaqClient
 from ska_ser_skuid.client import SkuidClient  # type: ignore
@@ -111,7 +116,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             power=None,
             fault=None,
         )
-        self._task_executor = TaskExecutor(max_workers=2)
+        # We've bumped this to 3 workers to allow for the bandpass monitoring.
+        self._task_executor = TaskExecutor(max_workers=3)
 
     def restart_daq_if_active(self: DaqComponentManager) -> None:
         """Restart daq if consumers are active."""
@@ -236,28 +242,146 @@ class DaqComponentManager(TaskExecutorComponentManager):
         while True:
             while not self._stop_establishing_communication:
                 if self._communication_state != CommunicationStatus.ESTABLISHED:
-                    try:
-                        response = self._daq_client.initialise(configuration)
-                        self.logger.info(response["message"])
-                        self._update_communication_state(
-                            CommunicationStatus.ESTABLISHED
-                        )
-                        if not self._dedicated_bandpass_daq:
-                            # This causes bandpass monitoring to start/stop/start
-                            # if used in conjunction with the dedicated bandpass daq
-                            # flag as comms becoming established/disabled
-                            # enables/disables bandpass monitoring.
-                            self.restart_daq_if_active()
-                    except Exception as e:  # pylint: disable=broad-except
-                        self.logger.error(
-                            "Caught exception in start_communicating: %s. "
-                            + "Retrying in %s secs",
-                            e,
-                            self._daq_initialisation_retry_frequency,
-                        )
+                    self._reestablish_communication(configuration)
+                    # Give comms a moment to establish before checking again
+                    sleep(2)
+                    continue
+                if self._dedicated_bandpass_daq:
+                    self._check_bandpass_monitor()
                 sleep(self._daq_initialisation_retry_frequency)
             while self._stop_establishing_communication:
                 sleep(self._daq_initialisation_retry_frequency)
+
+    def _check_bandpass_monitor(self: DaqComponentManager) -> None:
+        """Check bandpass monitor status and get running if necessary."""
+        try:
+            if not all(
+                [
+                    self._is_bandpass_monitor_running(),
+                    self._is_integrated_channel_consumer_running(),
+                ]
+            ):
+                self.logger.warning("Problem detected in bandpass monitor, fixing...")
+                self._get_bandpass_running()
+        # TODO: Refactor this to catch general communication errors.
+        # Probably want daq-interface to translate gRPC exceptions to more
+        # general ones that we can catch here.
+        except InactiveRPCError:
+            # This try/except block should be refactored into a decorator.
+            # This will make Daq more resilient to the Chaos Monkey.
+            self.logger.warning("Unable to communicate with DaqServer. Reinitialising.")
+            # If the server pod crashed with a consumer running we need to
+            # clear this manually as stop_daq won't be callable.
+            self._started_event.clear()
+            self._reinitialise()
+            start_time = time.time()
+            while (
+                self._communication_state != CommunicationStatus.ESTABLISHED
+            ):  # If we don't wait for comms we'll get more errors.
+                self.logger.debug("Waiting for communication to re-establish...")
+                time.sleep(2)
+                if time.time() - start_time > 60:  # Quit if it takes too long.
+                    self.logger.error(
+                        "Failed to re-establish communication after 60 seconds."
+                    )
+                    break
+
+    def _get_bandpass_running(self: DaqComponentManager) -> None:
+        """
+        Get the bandpass monitor running if it isn't already.
+
+        This method is called when the monitoring thread detects that either
+        the consumer has stopped or the bandpass monitor itself has stopped.
+        It starts the INTEGRATED DATA consumer and starts the bandpass monitor with
+        `auto_handle_daq=True`.
+        This device-side handles starting the correct consumer, the daq-server side
+        handles any reconfiguration.
+        """
+
+        def _wait_for_status(status: str, value: str) -> None:
+            """
+            Wait for Daq to achieve a certain status.
+
+            Intended as a helper to wait for a consumer or bandpass monitor to start.
+            Linear increase to retry time.
+
+            :param status: The Daq status category to check.
+            :param value: The expected value of the status.
+            """
+            daq_status = str(json.loads(self.daq_status())[status])
+            retry_count = 0
+            while value not in daq_status:
+                retry_count += 1
+                sleep(retry_count)
+                daq_status = str(json.loads(self.daq_status())[status])
+                if retry_count > 5:
+                    self.logger.error(
+                        f"Failed to find {value} in DaqStatus[{status}]: {daq_status=}."
+                    )
+                    return
+            self.logger.debug(f"Found {value} in DaqStatus[{status}]: {daq_status=}.")
+
+        if not self._is_integrated_channel_consumer_running():
+            # start consumer
+            self.logger.info(
+                "Auto starting INTEGRATED DATA consumer for bandpass monitoring."
+            )
+            self.start_daq(modes_to_start="INTEGRATED_CHANNEL_DATA")
+            _wait_for_status(
+                status="Running Consumers", value=str(["INTEGRATED_CHANNEL_DATA", 5])
+            )
+
+        if not self._is_bandpass_monitor_running():
+            bandpass_args = json.dumps(
+                {
+                    "plot_directory": self.get_configuration()["directory"],
+                    "auto_handle_daq": True,
+                }
+            )
+            self.logger.info(
+                "Auto starting bandpass monitor with args: %s.", bandpass_args
+            )
+            self.start_bandpass_monitor(bandpass_args)
+            _wait_for_status(status="Bandpass Monitor", value="True")
+
+    def _is_integrated_channel_consumer_running(self: DaqComponentManager) -> bool:
+        """
+        Check if the INTEGRATED_CHANNEL_DATA consumer is running.
+
+        :return: True if the consumer is running, False otherwise.
+        """
+        return bool(
+            str(["INTEGRATED_CHANNEL_DATA", 5])
+            in str(json.loads(self.daq_status()).get("Running Consumers"))
+        )
+
+    def _is_bandpass_monitor_running(self: DaqComponentManager) -> bool:
+        """
+        Check if the bandpass monitor is running.
+
+        :return: True if the bandpass monitor is running, False otherwise.
+        """
+        return bool(json.loads(self.daq_status()).get("Bandpass Monitor"))
+
+    def _reestablish_communication(
+        self: DaqComponentManager, configuration: str
+    ) -> None:
+        try:
+            response = self._daq_client.initialise(configuration)
+            self.logger.info(response["message"])
+            self._update_communication_state(CommunicationStatus.ESTABLISHED)
+            if not self._dedicated_bandpass_daq:
+                # This causes bandpass monitoring to start/stop/start
+                # if used in conjunction with the dedicated bandpass daq
+                # flag as comms becoming established/disabled
+                # enables/disables bandpass monitoring.
+                self.restart_daq_if_active()
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error(
+                "Caught exception in start_communicating: %s. " + "Retrying in %s secs",
+                e,
+                self._daq_initialisation_retry_frequency,
+            )
 
     def stop_communicating(self: DaqComponentManager) -> None:
         """Break off communication with the DaqReceiver components."""
