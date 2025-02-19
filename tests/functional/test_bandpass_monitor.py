@@ -106,11 +106,10 @@ def daq_device_off_fixture(station_name: str) -> tango.DeviceProxy:
 
     :return: a ``tango.DeviceProxy`` to the DAQ device under test.
     """
-    daq_device = tango.DeviceProxy(get_daq_name(station_name + "-bandpass"))
-    return daq_device
+    return tango.DeviceProxy(get_daq_name(station_name + "-bandpass"))
 
 
-@when("the bandpass DAQ is set ONLINE", target_fixture="daq_device_online")
+@when("the bandpass DAQ is set ONLINE", target_fixture="bandpass_daq_device")
 def set_daq_device_online_fixture(
     bandpass_daq_device: tango.DeviceProxy,
 ) -> tango.DeviceProxy:
