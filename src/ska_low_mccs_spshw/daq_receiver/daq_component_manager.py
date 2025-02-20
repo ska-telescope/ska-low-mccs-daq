@@ -12,7 +12,6 @@ import json
 import logging
 import random
 import threading
-import time
 from datetime import date
 from functools import partial
 from pathlib import PurePath
@@ -231,6 +230,30 @@ class DaqComponentManager(TaskExecutorComponentManager):
             CommunicationStatus.NOT_ESTABLISHED
         )  # noqa: E501
 
+    def _check_comms(self: DaqComponentManager) -> dict[str, Any] | None:
+        """
+        Make a call to the backend and catch comms errors so we can reconnect.
+
+        Status was chosen for convenience as the result will be used anyway
+        if we're connected.
+
+        :return: The current status of the DaqReceiver if no comms errors.
+        """
+        try:
+            return json.loads(self.daq_status())
+        # TODO: Refactor this to catch general communication errors.
+        # Probably want daq-interface to translate gRPC exceptions to more
+        # general ones that we can catch here.
+        except (InactiveRPCError, ConnectionError):
+            # This try/except block should be refactored into a decorator.
+            # This will make Daq more resilient to the Chaos Monkey.
+            self.logger.warning("Unable to communicate with DaqServer. Reinitialising.")
+            # If the server pod crashed with a consumer running we need to
+            # clear this manually as stop_daq won't be callable.
+            # Worst case scenario the user is prompted to call StopDaq manually.
+            self._started_event.clear()
+            return None
+
     def establish_communication(self: DaqComponentManager, configuration: str) -> None:
         """Establish communication with the DaqReceiver components.
 
@@ -241,50 +264,34 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         while True:
             while not self._stop_establishing_communication:
-                if self._communication_state != CommunicationStatus.ESTABLISHED:
+                current_status = self._check_comms()
+                if current_status is None:
+                    # current_status == None if comms dropped.
                     self._reestablish_communication(configuration)
                     # Give comms a moment to establish before checking again
                     sleep(2)
                     continue
                 if self._dedicated_bandpass_daq:
-                    self._check_bandpass_monitor()
+                    self._check_bandpass_monitor(current_status)
                 sleep(self._daq_initialisation_retry_frequency)
             while self._stop_establishing_communication:
                 sleep(self._daq_initialisation_retry_frequency)
 
-    def _check_bandpass_monitor(self: DaqComponentManager) -> None:
-        """Check bandpass monitor status and get running if necessary."""
-        try:
-            if not all(
-                [
-                    self._is_bandpass_monitor_running(),
-                    self._is_integrated_channel_consumer_running(),
-                ]
-            ):
-                self.logger.warning("Problem detected in bandpass monitor, fixing...")
-                self._get_bandpass_running()
-        # TODO: Refactor this to catch general communication errors.
-        # Probably want daq-interface to translate gRPC exceptions to more
-        # general ones that we can catch here.
-        except InactiveRPCError:
-            # This try/except block should be refactored into a decorator.
-            # This will make Daq more resilient to the Chaos Monkey.
-            self.logger.warning("Unable to communicate with DaqServer. Reinitialising.")
-            # If the server pod crashed with a consumer running we need to
-            # clear this manually as stop_daq won't be callable.
-            self._started_event.clear()
-            self._reinitialise()
-            start_time = time.time()
-            while (
-                self._communication_state != CommunicationStatus.ESTABLISHED
-            ):  # If we don't wait for comms we'll get more errors.
-                self.logger.debug("Waiting for communication to re-establish...")
-                time.sleep(2)
-                if time.time() - start_time > 60:  # Quit if it takes too long.
-                    self.logger.error(
-                        "Failed to re-establish communication after 60 seconds."
-                    )
-                    break
+    def _check_bandpass_monitor(
+        self: DaqComponentManager, status: dict[str, Any]
+    ) -> None:
+        """Check bandpass monitor status and get running if necessary.
+
+        :param status: The current status of the DaqReceiver.
+        """
+        if not all(
+            [
+                self._is_bandpass_monitor_running(status),
+                self._is_integrated_channel_consumer_running(status),
+            ]
+        ):
+            self.logger.warning("Problem detected in bandpass monitor, fixing...")
+            self._get_bandpass_running()
 
     def _get_bandpass_running(self: DaqComponentManager) -> None:
         """
@@ -344,23 +351,38 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.start_bandpass_monitor(bandpass_args)
             _wait_for_status(status="Bandpass Monitor", value="True")
 
-    def _is_integrated_channel_consumer_running(self: DaqComponentManager) -> bool:
+    def _is_integrated_channel_consumer_running(
+        self: DaqComponentManager, status: dict[str, Any] | None = None
+    ) -> bool:
         """
         Check if the INTEGRATED_CHANNEL_DATA consumer is running.
 
+        :param status: An optional status dictionary to check.
+
         :return: True if the consumer is running, False otherwise.
         """
+        if status is not None:
+            return bool(
+                str(["INTEGRATED_CHANNEL_DATA", 5])
+                in str(status.get("Running Consumers"))
+            )
         return bool(
             str(["INTEGRATED_CHANNEL_DATA", 5])
             in str(json.loads(self.daq_status()).get("Running Consumers"))
         )
 
-    def _is_bandpass_monitor_running(self: DaqComponentManager) -> bool:
+    def _is_bandpass_monitor_running(
+        self: DaqComponentManager, status: dict[str, Any] | None = None
+    ) -> bool:
         """
         Check if the bandpass monitor is running.
 
+        :param status: An optional status dictionary to check.
+
         :return: True if the bandpass monitor is running, False otherwise.
         """
+        if status is not None:
+            return bool(status.get("Bandpass Monitor"))
         return bool(json.loads(self.daq_status()).get("Bandpass Monitor"))
 
     def _reestablish_communication(
