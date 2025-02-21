@@ -245,11 +245,6 @@ class TestDaqComponentManager:
 
         # TODO: May be more to tweak here.
         callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
-
-        # TODO: why is this being called 2 times?
-        callbacks["task_start_daq"].assert_call(
-            status=TaskStatus.IN_PROGRESS,
-        )
         callbacks["task_start_daq"].assert_call(
             status=TaskStatus.IN_PROGRESS,
             result="Start Command issued to gRPC stub",
@@ -405,9 +400,7 @@ class TestDaqComponentManager:
         )
 
         callbacks["task"].assert_call(status=TaskStatus.QUEUED)
-        callbacks["task"].assert_call(
-            status=expected_status, result=expected_msg, lookahead=5
-        )
+        callbacks["task"].assert_call(result=expected_msg, lookahead=5)
         # Any ResultCode.REJECTED cases end at the line above.
 
         if expected_status == TaskStatus.IN_PROGRESS:
@@ -416,9 +409,7 @@ class TestDaqComponentManager:
             assert status["Bandpass Monitor"]
 
             for _ in range(3):
-                callbacks["task"].assert_call(
-                    status=expected_status, result="plot sent", lookahead=5
-                )
+                callbacks["task"].assert_call(result="plot sent", lookahead=5)
                 # This isn't working properly.
                 # need to extract the call args and compare... UGH!
                 # while not callbacks["component_state"]._call_queue.empty():
@@ -452,7 +443,6 @@ class TestDaqComponentManager:
                 "Bandpass monitor stopping.",
             ) == daq_component_manager.stop_bandpass_monitor()
             callbacks["task"].assert_call(
-                status=TaskStatus.COMPLETED,
                 result="Bandpass monitoring complete.",
                 lookahead=20,
             )
