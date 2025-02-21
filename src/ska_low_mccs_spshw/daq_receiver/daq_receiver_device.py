@@ -231,6 +231,11 @@ class MccsDaqReceiver(MccsBaseDevice):
         doc="The retry frequency for DAQ initialization in seconds",
         default_value=5,
     )
+    BandpassDaq = device_property(
+        dtype=bool,
+        doc="Whether this DaqReceiver is a dedicated bandpass monitor.",
+        default_value=False,
+    )
 
     # ---------------
     # Initialisation
@@ -289,6 +294,8 @@ class MccsDaqReceiver(MccsBaseDevice):
             f"\tDaqId: {self.DaqId}\n"
             f"\tConsumersToStart: {self.ConsumersToStart}\n"
             f"\tSkuidUrl: {self.SkuidUrl}\n"
+            f"\tDaqInitRetryFreq: {self.DaqInitRetryFreq}\n"
+            f"\tBandpassDaq: {self.BandpassDaq}\n"
         )
         self.logger.info(
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
@@ -331,6 +338,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._component_state_callback,
             self._received_data_callback,
             self.DaqInitRetryFreq,
+            self.BandpassDaq,
         )
 
     def init_command_objects(self: MccsDaqReceiver) -> None:
@@ -595,6 +603,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             - Receiver Interface: "Interface Name": str
             - Receiver Ports: [Port_List]: list[int]
             - Receiver IP: "IP_Address": str
+            - Bandpass Monitor: [Bandpass Monitor Running: bool]
 
         :return: A json string containing the status of this DaqReceiver.
 
