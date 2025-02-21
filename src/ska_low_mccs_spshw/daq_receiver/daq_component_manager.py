@@ -224,12 +224,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         self._stop_establishing_communication = False
 
-    def _reinitialise(self: DaqComponentManager) -> None:
-        """Reinitialise communications with daq-server."""
-        self._update_communication_state(
-            CommunicationStatus.NOT_ESTABLISHED
-        )  # noqa: E501
-
     def _check_comms(self: DaqComponentManager) -> dict[str, Any] | None:
         """
         Make a call to the backend and catch comms errors so we can reconnect.
