@@ -1319,6 +1319,8 @@ sampling_time = {key: 0 for key in DaqModes}
 
 # Script main entry point
 if __name__ == "__main__":
+    # When running as a script, this import is required
+    import pyaavs.logger
 
     # Use OptionParse to get command-line arguments
     from optparse import OptionParser

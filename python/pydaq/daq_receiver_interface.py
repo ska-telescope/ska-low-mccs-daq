@@ -697,6 +697,7 @@ class DaqReceiver:
                   "nof_tiles": self._config['nof_tiles'],
                   "nof_pols": self._config['nof_polarisations'],
                   "bitwidth": self._config['integrated_channel_bitwidth'],
+                  'sampling_time': 1.0 / self._config['sampling_rate'],
                   "max_packet_size": self._config['receiver_frame_size']}
 
         # Start channel data consumer
@@ -1574,6 +1575,8 @@ class DaqReceiver:
 
 # Script main entry point
 if __name__ == "__main__":
+    # When running as a script, this import is required
+    import pyaavs.logger
 
     # Use OptionParse to get command-line arguments
     from optparse import OptionParser
