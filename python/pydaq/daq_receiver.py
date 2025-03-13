@@ -681,6 +681,7 @@ def start_integrated_channel_data_consumer(callback=None):
               "nof_tiles": conf['nof_tiles'],
               "nof_pols": conf['nof_polarisations'],
               "bitwidth": conf['integrated_channel_bitwidth'],
+              'sampling_time': 1.0 / conf['sampling_rate'],
               "max_packet_size": conf['receiver_frame_size']}
 
     # Start channel data consumer
@@ -1318,6 +1319,8 @@ sampling_time = {key: 0 for key in DaqModes}
 
 # Script main entry point
 if __name__ == "__main__":
+    # When running as a script, this import is required
+    import pyaavs.logger
 
     # Use OptionParse to get command-line arguments
     from optparse import OptionParser
