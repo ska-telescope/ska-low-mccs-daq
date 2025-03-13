@@ -305,6 +305,7 @@ private:
     uint16_t nof_channels = 0;        // Number of channels
     uint32_t nof_samples = 0;         // Number of time samples
     uint16_t bitwidth = 16;           // Sample bitwidth
+    double sampling_time = 1.08e-6;   // Sampling time
 
 };
 

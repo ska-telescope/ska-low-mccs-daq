@@ -538,6 +538,7 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
     if (!(key_in_json(configuration, "nof_tiles")) &&
         (key_in_json(configuration, "nof_channels")) &&
         (key_in_json(configuration, "nof_antennas")) &&
+        (key_in_json(configuration, "sampling_time")) &&
         (key_in_json(configuration, "nof_pols")) &&
         (key_in_json(configuration, "bitwidth")) &&
         (key_in_json(configuration, "max_packet_size"))) {
@@ -551,9 +552,10 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
     nof_tiles    = configuration["nof_tiles"];
     nof_antennas = configuration["nof_antennas"];
     nof_pols     = configuration["nof_pols"];
-    nof_samples  = 1;
     bitwidth     = configuration["bitwidth"];
+    sampling_time = configuration["sampling_time"];
     packet_size  = configuration["max_packet_size"];
+    nof_samples  = 1;
 
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t) 1024);
@@ -703,7 +705,7 @@ bool IntegratedChannelisedData::processPacket()
             (nof_included_antennas * nof_pols * samples_in_packet * bitwidth / 8));
 
     // TEMPORARY: Timestamp_scale may disappear, so it's hardcoded for now
-    double packet_time = sync_time + timestamp * 1.08e-6;
+    double packet_time = sync_time + timestamp * sampling_time;
 
     // Check if we processed all the sample
     auto total_packets = (nof_antennas / nof_included_antennas) *
