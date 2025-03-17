@@ -262,7 +262,7 @@ class DaqReceiver:
             if DaqModes.CONTINUOUS_CHANNEL_DATA not in list(self._timestamps.keys()):
                 self._timestamps[DaqModes.CONTINUOUS_CHANNEL_DATA] = timestamp
 
-            persister = self._persisters[DaqModes.CHANNEL_DATA]
+            persister = self._persisters[DaqModes.CONTINUOUS_CHANNEL_DATA]
 
             if self._config['continuous_period'] == 0:
                 filename = persister.ingest_data(append=True,
