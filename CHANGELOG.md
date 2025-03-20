@@ -2,6 +2,10 @@
 
 ## unreleased
 
+## 1.0.1
+
+* [SKB-799] Pull fix in aavs system to DAQ
+
 ## 1.0.0
 
 * [THORN-17] 1.0.0 release - all MCCS repos
