@@ -4,9 +4,20 @@
         "dockerfile": "../Dockerfile",
         "context": ".."
     },
-    "runArgs": ["--cap-add=NET_RAW","--cap-add=IPC_LOCK","--cap-add=SYS_NICE", "--cap-add=SYS_ADMIN"],
-    "portsAttributes": {"4660": {"label": "DAQ Port"}},
-    "forwardPorts": [4660],
+    "runArgs": [
+        "--cap-add=NET_RAW",
+        "--cap-add=IPC_LOCK",
+        "--cap-add=SYS_NICE",
+        "--cap-add=SYS_ADMIN"
+    ],
+    "portsAttributes": {
+        "4660": {
+            "label": "DAQ Port"
+        }
+    },
+    "forwardPorts": [
+        4660
+    ],
     "customizations": {
         "vscode": {
             "settings": {

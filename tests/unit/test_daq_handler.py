@@ -14,6 +14,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import numpy as np
+import psutil  # type: ignore
 import pytest
 from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import ResultCode, TaskStatus
@@ -79,18 +80,28 @@ class TestDaqHandler:
         daqrx._persisters = persisters
         return daqrx
 
+    @pytest.fixture(name="mock_interface")
+    def mock_interface_fixture(self: TestDaqHandler) -> str:
+        """
+        Fixture to get a mock interface for the DaqHandler.
+
+        :return: a mock interface.
+        """
+        return "sdn1"
+
     @pytest.fixture(name="daq_handler")
     def daq_handler_fixture(
-        self: TestDaqHandler, mock_daq_receiver: Mock
+        self: TestDaqHandler, mock_daq_receiver: Mock, mock_interface: str
     ) -> DaqHandler:
         """
         Fixture to get a DaqHandler instance.
 
         :param mock_daq_receiver: a mock DaqReceiver.
+        :param mock_interface: a mock interface for the DaqHandler.
 
         :return: a DaqHandler.
         """
-        daq_handler = DaqHandler()
+        daq_handler = DaqHandler(receiver_interface=mock_interface)
         daq_handler.daq_instance = mock_daq_receiver
         return daq_handler
 
@@ -459,3 +470,72 @@ class TestDaqHandler:
         assert ("correlator", "correlator_file_name") == file_callback_result[0:2]
         extra_info = file_callback_result[2]
         assert json.loads(extra_info) == file_metadata
+
+    @pytest.fixture(autouse=True)
+    def mock_psutil_methods(
+        self: TestDaqHandler,
+        monkeypatch: pytest.MonkeyPatch,
+        mock_interface: str,
+    ) -> None:
+        """
+        Fixture to mock psutil methods for network I/O.
+
+        :param monkeypatch: pytest's monkeypatch fixture.
+        :param mock_interface: the mock interface to use.
+        """
+        counter = 0
+
+        def mock_net_io_counters(
+            *args: Any, **kwargs: Any
+        ) -> dict[str, psutil._common.snetio]:
+            nonlocal counter
+            counter += 1024**3  # 1 Gb/s in bytes per second
+            return {
+                mock_interface: psutil._common.snetio(
+                    bytes_sent=counter,
+                    bytes_recv=counter,
+                    packets_sent=0,
+                    packets_recv=0,
+                    errin=0,
+                    errout=0,
+                    dropin=0,
+                    dropout=0,
+                )
+            }
+
+        monkeypatch.setattr(psutil, "net_io_counters", mock_net_io_counters)
+
+    def test_start_measuring_data_rate(
+        self: TestDaqHandler, daq_handler: DaqHandler
+    ) -> None:
+        """
+        Test for starting data rate measurement.
+
+        :param daq_handler: the DaqHandler instance to use.
+        """
+        interval = 1  # seconds
+        result_code, message = daq_handler.start_measuring_data_rate(interval=interval)
+        assert result_code == ResultCode.OK
+        assert message == "Data rate measurement started."
+        assert daq_handler._measure_data_rate is True
+        time.sleep(interval + 0.5)
+        assert daq_handler._data_rate == pytest.approx(1, rel=1e-2)
+        time.sleep(interval + 0.5)
+        assert daq_handler._data_rate == pytest.approx(1, rel=1e-2)
+
+    def test_stop_measuring_data_rate(
+        self: TestDaqHandler, daq_handler: DaqHandler
+    ) -> None:
+        """
+        Test for stopping data rate measurement.
+
+        :param daq_handler: the DaqHandler instance to use.
+        """
+        interval = 1  # seconds
+        daq_handler.start_measuring_data_rate(interval=interval)
+        result_code, message = daq_handler.stop_measuring_data_rate()
+        assert result_code == ResultCode.OK
+        assert message == "Data rate measurement stopping."
+        assert daq_handler._measure_data_rate is False
+        time.sleep(interval + 0.5)
+        assert daq_handler._data_rate is None
