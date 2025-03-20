@@ -180,7 +180,6 @@ class DaqHandler:
         :param extra_config: keyword args providing extra configuration.
         """
         print("Initialising DAQ handler with extra config:")
-        pprint.pprint(extra_config)
 
         self._config = self.CONFIG_DEFAULTS | extra_config
 
@@ -219,6 +218,7 @@ class DaqHandler:
         self._data_rate: float | None = None
 
     # Callback called for every data mode.
+    # pylint: disable = too-many-branches
     def _file_dump_callback(  # noqa: C901
         self: DaqHandler,
         data_mode: str,
