@@ -339,28 +339,9 @@ class DaqHandler:
             self.logger.info("Daq initialised.")
             return ResultCode.OK, "Daq successfully initialised"
 
-        try:
-            if config:
-                for k, v in list(config.items()):
-                    self._config[k] = v
-            self.logger.info(f"Initialising with: {self._config=}")
-            if self._config:
-                self.daq_instance.populate_configuration(self._config)
-
-            # Check configuration.
-            self.logger.debug("Checking config.")
-            self.logger.debug(f"{self.daq_instance.get_configuration()}")
-
-            self.daq_instance.initialise_daq(filepath=self._custom_libaavsdaq_filepath)
-            self._receiver_started = True
-            self._initialised = True
-        except Exception as e:  # pylint: disable=broad-except
-            self.logger.error(
-                "Caught exception in `DaqHandler.initialise`: %s", e
-            )  # noqa: E501
-            return ResultCode.FAILED, f"Caught exception: {e}"
-        self.logger.info("Daq initialised.")
-        return ResultCode.OK, "Daq successfully initialised"
+        # else
+        self.logger.info("Daq already initialised")
+        return ResultCode.REJECTED, "Daq already initialised"
 
     @property
     def initialised(self) -> bool:
@@ -476,9 +457,7 @@ class DaqHandler:
                     )
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
-            if config:
-                for k, v in list(config.items()):
-                    self._config[k] = v
+            self._config |= config
             self.daq_instance.populate_configuration(self._config)
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Daq reconfigured"
@@ -1194,8 +1173,14 @@ def main() -> None:
 
     Create and start a server.
     """
+    handler = DaqHandler(
+        receiver_interface=os.environ["DAQ_RECEIVER_INTERFACE"],
+        receiver_ip=os.environ["DAQ_RECEIVER_IP"],
+        receiver_ports=os.environ["DAQ_RECEIVER_PORTS"],
+    )
     port = os.getenv("DAQ_GRPC_PORT", default="50051")
-    run_server_forever(DaqHandler(), int(port))
+
+    run_server_forever(handler, int(port))
 
 
 if __name__ == "__main__":
