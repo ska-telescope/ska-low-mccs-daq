@@ -181,6 +181,7 @@ class DaqHandler:
         print("Initialising DAQ handler with extra config:")
         pprint.pprint(extra_config)
 
+        self._load_balancer_ip = extra_config.pop("LB_IP", None)
         self._config = self.CONFIG_DEFAULTS | extra_config
 
         self.daq_instance: DaqReceiver = None
@@ -475,7 +476,7 @@ class DaqHandler:
         # 3. Get Receiver Interface, Ports and IP (and later `Uptime`)
         receiver_interface = self.daq_instance._config["receiver_interface"]
         receiver_ports = self.daq_instance._config["receiver_ports"]
-        receiver_ip = self.daq_instance._config["receiver_ip"]
+        receiver_ip = self._load_balancer_ip or self.daq_instance._config["receiver_ip"]
         # 4. Compose into some format and return.
         return {
             "Running Consumers": running_consumer_list,
@@ -1150,6 +1151,7 @@ def main() -> None:
         receiver_interface=os.environ["DAQ_RECEIVER_INTERFACE"],
         receiver_ip=os.environ["DAQ_RECEIVER_IP"],
         receiver_ports=os.environ["DAQ_RECEIVER_PORTS"],
+        external_ip=os.getenv("LB_IP", None),
     )
     port = os.getenv("DAQ_GRPC_PORT", default="50051")
 
