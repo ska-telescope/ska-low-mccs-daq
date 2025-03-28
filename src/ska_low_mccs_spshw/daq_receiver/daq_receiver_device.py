@@ -237,6 +237,12 @@ class MccsDaqReceiver(MccsBaseDevice):
         default_value=False,
     )
 
+    NumberOfTiles = device_property(
+        dtype=int,
+        doc="The number of tiles this DaqReceiver is monitoring.",
+        default_value=1,
+    )
+
     # ---------------
     # Initialisation
     # ---------------
@@ -296,6 +302,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             f"\tSkuidUrl: {self.SkuidUrl}\n"
             f"\tDaqInitRetryFreq: {self.DaqInitRetryFreq}\n"
             f"\tBandpassDaq: {self.BandpassDaq}\n"
+            f"\tNumberOfTiles: {self.NumberOfTiles}\n"
         )
         self.logger.info(
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
@@ -332,6 +339,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             self.ReceiverPorts,
             f"{self.Host}:{self.Port}",
             self.ConsumersToStart,
+            self.NumberOfTiles,
             self.SkuidUrl,
             self.logger,
             self._component_communication_state_changed,
