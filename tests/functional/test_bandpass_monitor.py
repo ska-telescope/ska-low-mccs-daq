@@ -27,7 +27,7 @@ from tests.functional.conftest import (
     poll_until_state_change,
     verify_bandpass_state,
 )
-from tests.harness import get_daq_name, get_subrack_name, get_tile_name
+from tests.harness import get_lmc_daq_name, get_subrack_name, get_tile_name
 from tests.test_tools import retry_communication
 
 scenarios("./features/bandpass_monitor.feature")
@@ -90,7 +90,7 @@ def daq_device_fixture(station_name: str) -> tango.DeviceProxy:
 
     :return: a ``tango.DeviceProxy`` to the DAQ device under test.
     """
-    daq_device = tango.DeviceProxy(get_daq_name(station_name))
+    daq_device = tango.DeviceProxy(get_lmc_daq_name(station_name))
     if daq_device.adminMode != AdminMode.ONLINE:
         daq_device.adminMode = AdminMode.ONLINE
     poll_until_state_change(daq_device, tango.DevState.ON)
@@ -106,7 +106,7 @@ def daq_device_off_fixture(station_name: str) -> tango.DeviceProxy:
 
     :return: a ``tango.DeviceProxy`` to the DAQ device under test.
     """
-    return tango.DeviceProxy(get_daq_name(station_name + "-bandpass"))
+    return tango.DeviceProxy(get_lmc_daq_name(station_name + "-bandpass"))
 
 
 @when("the bandpass DAQ is set ONLINE", target_fixture="bandpass_daq_device")

@@ -24,7 +24,7 @@ from tests.functional.conftest import (
     poll_until_consumers_stopped,
     poll_until_state_change,
 )
-from tests.harness import get_daq_name, get_subrack_name, get_tile_name
+from tests.harness import get_lmc_daq_name, get_subrack_name, get_tile_name
 
 from ..test_tools import retry_communication
 
@@ -65,7 +65,7 @@ def daq_device_fixture(station_name: str) -> tango.DeviceProxy:
 
     :return: a ``tango.DeviceProxy`` to the DAQ device under test.
     """
-    return tango.DeviceProxy(get_daq_name(station_name))
+    return tango.DeviceProxy(get_lmc_daq_name(station_name))
 
 
 @given("the Tile is available", target_fixture="tile_device")
