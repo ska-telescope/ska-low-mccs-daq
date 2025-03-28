@@ -2,9 +2,13 @@ environments:
   minikube:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?d080035350b5133f7ff3cbbdd8264776ca57756e#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?8b22bdfea49539b010ca235fee2044a5af869cd7#tmdata/minikube
         datasets:
-        - minikube.yaml
+        - platform.yaml
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?8b22bdfea49539b010ca235fee2044a5af869cd7#tmdata/ci_simulated_stations
+        datasets:
+        - stations/ci-1.yaml
+        - stations/ci-2.yaml
       config_files:
       - values/values-minikube.yaml
       datacentre: minikube
