@@ -90,7 +90,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._receiver_started: bool = False
         self._daq_id = str(daq_id).zfill(3)
         self._dedicated_bandpass_daq = dedicated_bandpass_daq
-        self._configuration = {}
+        self._configuration: dict[str, Any] = {"nof_tiles": 8}
         if receiver_interface:
             self._configuration["receiver_interface"] = receiver_interface
         if receiver_ip:
