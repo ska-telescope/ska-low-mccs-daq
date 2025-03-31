@@ -181,7 +181,7 @@ class DaqHandler:
         print("Initialising DAQ handler with extra config:")
         pprint.pprint(extra_config)
 
-        self._load_balancer_ip = extra_config.pop("LB_IP", None)
+        self._load_balancer_ip = extra_config.pop("external_ip", None)
         self._config = self.CONFIG_DEFAULTS | extra_config
 
         self.daq_instance: DaqReceiver = None
