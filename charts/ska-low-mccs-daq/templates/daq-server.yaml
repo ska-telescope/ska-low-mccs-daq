@@ -38,6 +38,12 @@ metadata:
   name: {{$slug}}-data
   labels:
     component: {{$slug}}
+{{- if $spec.expose_data_service}}
+{{- with $spec.address_pool }}
+  annotations:
+    metallb.universe.tf/address-pool: {{.}}
+{{- end}}
+{{- end}}
 spec:
 {{- if $spec.expose_data_service}}
   type: LoadBalancer
