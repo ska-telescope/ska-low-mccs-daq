@@ -1153,7 +1153,7 @@ def main() -> None:
         receiver_interface=os.environ["DAQ_RECEIVER_INTERFACE"],
         receiver_ip=os.environ["DAQ_RECEIVER_IP"],
         receiver_ports=os.environ["DAQ_RECEIVER_PORTS"],
-        external_ip=os.getenv("LB_IP", None),
+        external_ip=os.getenv("EXTERNAL_IP", None),
     )
     port = os.getenv("DAQ_GRPC_PORT", default="50051")
 

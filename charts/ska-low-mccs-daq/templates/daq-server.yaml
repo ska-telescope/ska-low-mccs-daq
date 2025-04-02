@@ -132,7 +132,7 @@ spec:
             done
 
             echo "ERROR: Timed out waiting for LB IP." >&2
-            exit 1
+            exit 0
 {{- end }}
       containers:
       - command:
