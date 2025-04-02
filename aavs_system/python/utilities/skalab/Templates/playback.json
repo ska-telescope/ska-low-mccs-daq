@@ -1,0 +1,43 @@
+{
+    "Base": {
+        "app": {
+            "desc": "Application Name",
+            "type": "string",
+            "value": "Playback"
+        },
+        "path": {
+            "desc": "Local settings Path",
+            "type": "path",
+            "value": "~/.skalab/"
+        },
+        "profile": {
+            "desc": "Profile Name",
+            "type": "string",
+            "value": "Default"
+        }
+    },
+    "Playback": {
+        "data_path": {
+            "desc": "Default Data Path",
+            "type": "path",
+            "value": "~/.skalab/data/"
+        },
+        "station_file": {
+            "desc": "The Station Configuration File",
+            "type": "file",
+            "value": "/opt/aavs/config/aavs2.yml"
+        }
+    },
+    "Log": {
+        "path": {
+            "desc": "Playback Log Directory",
+            "type": "path",
+            "value": "~/.skalab/log"
+        },
+        "n_entries": {
+            "desc": "Number of the maximum entries that will be shown in the log QTextEdit Widget, managed as FIFO",
+            "type": "int",
+            "value": "100"
+        }
+    }
+}

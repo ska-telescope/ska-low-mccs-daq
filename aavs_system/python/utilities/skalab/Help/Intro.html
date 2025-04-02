@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">
+<html><head><meta name="qrichtext" content="1" /><style type="text/css">
+p, li { white-space: pre-wrap; }
+</style></head><body style=" font-family:'Ubuntu'; font-size:11pt; font-weight:400; font-style:normal;">
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;"><span style="font-family: 'ubuntu'; font-size: 22pt; font-weight: 600; font-style: italic; color: #070068;">SK</span><span style="font-family: 'ubuntu'; font-size: 22pt; font-weight: 600; font-style: italic; color: #a50068;">AL</span><span style="font-family: 'ubuntu'; font-size: 22pt; font-weight: 600; font-style: italic; color: #070068;">AB</span></p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; font-size: 14pt; font-weight: 600; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">The idea of the SKA in LAB project (<span style="font-style: italic;">SKALAB</span>) is to provide quick access to SKA-Low devices in the lab without the use of complex software frameworks, but, it uses the same communication interfaces to ensure compatibility over time.</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">In a very preliminary version, was born in 2016 when the prototyping of the first TPM (Tile Processing Module) just ended and the first collection of python scripts were available. The first GUI was just a wrapper of low level functions (access-layer) providing basic functionality for programming FPGAs, initializing the board, acquiring ADC data, and monitoring power consumption and temperatures.</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">With the implementation of the 2 Aperture Array Verification Systems (AAVS) and the lessons learned, the GUI started to include other features such as: station status checks, antenna spectra monitoring, levels equalization, antenna mapping, but also, an environment able to plot the recorded quantities in order to do some basic data analysys.</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">Then, with the new TPM design and the TPM Subrack&nbsp;it started to provide also easy acces to the Subrack Management Board (SMB).</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">Now SKALAB is a macro container that allows to use stand alone modules initialized by using custom user profiles. Modules are shown in a Tab Widget, each module provides the HELP page as user manual.</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;"><span style="font-weight: 600;">SkaLab</span></p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">Load a User Profile to customize the application.</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;"><span style="font-weight: 600;">Station</span></p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">Program and Initialize TPM by using a Station configuration file.</p>
+<p><span style="font-weight: 600;">SubRack<br /></span>The SubRack Monitor and Control</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;"><span style="font-weight: 600;">Live Monitor</span></p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">Connect to a Station, Monitor and Control TPMs and Display Live Data.</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;"><span style="font-weight: 600;">PlayBack</span></p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">Recall, Plot and Analyze saved data.</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;"><span style="font-size: 14pt; font-weight: 600;">Profiles</span></p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; font-weight: 600; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">Both SKALAB and modules have their own profile files.</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">Profiles will be stored in the user path <span style="font-style: italic;">(~/.skalab/&lt;PROFILENAME&gt;/&lt;MODULENAME&gt;.ini)</span> and will not be lost after software updates. The predefined profiles (<span style="font-style: italic;">"Default"</span>) will be automatically generated and the user can modify [SAVE] or create new configurations [SAVE AS...] by modifying the current profile within SKALAB or within each module.</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; font-weight: 600; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">Several profiles can be saved to easy recall [LOAD] the set of configurations used like: configuration file, axis preferences, spectral resolution, view mode (spectra, spectrogram, power, selected polarization). Obsolete profiles may be deleted [DELETE].</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">SKALAB has also a main initialization file stored in <span style="font-style: italic;">"~ / .skalab/skalab.ini" </span> that is used to remember [AUTOSAVE] the settings when the application is closed, and to automatically load [AUTOLOAD] that configuration.</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;"><span style="font-weight: 600;">Autosave on Exit</span></p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">if checked the last used setup will be saved in the current profile without asking for confirmation.</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;"><span style="font-weight: 600;">AutoLoad on Program Start</span></p>
+<p style="-qt-block-indent: 0; text-indent: 0px; margin: 0px;">if checked when the program starts the last profile used will be loaded.</p>
+<p style="-qt-paragraph-type: empty; -qt-block-indent: 0; text-indent: 0px; margin: 0px;">&nbsp;</p>
+</body></html>
