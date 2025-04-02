@@ -123,7 +123,7 @@ spec:
               IP="$(kubectl get svc {{$slug}}-data -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
               if [ -n "$IP" ]; then
                 echo "Found LB IP: $IP"
-                echo -n "$IP" > /tmp/lb-ip
+                echo -n "$IP" > /tmp/external-ip
                 exit 0
               fi
 
@@ -140,7 +140,7 @@ spec:
         - -c
         - |
 {{- if $spec.expose_data_service}}
-          export LB_IP=$(cat /tmp/lb-ip)
+          export EXTERNAL_IP=$(cat /tmp/external-ip)
 {{- end }}
           exec MccsDaqServer
         name: {{$slug}}-server
