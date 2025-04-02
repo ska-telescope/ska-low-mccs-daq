@@ -59,7 +59,7 @@ export VENV_INSTALL=/opt/aavs
 
 # Installation options
 CLEAN=false
-COMPILE_CORRELATOR=OFF
+COMPILE_CORRELATOR=ON
 ACTIVATE_VENV=false
 PRINT_HELP=false
 PYFABIL_BRANCH="master"
@@ -261,7 +261,7 @@ pip install ipython
 
 # Give python interpreter required capabilities for accessing raw sockets and kernel space
 PYTHON_BINARY=`readlink -f $VENV_INSTALL/python/bin/python`
-sudo setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep $PYTHON_BINARY || exit
+# sudo setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep $PYTHON_BINARY || exit
 
 # Create a temporary setup directory and cd into it
 if [[ ! -d "third_party" ]]; then
@@ -276,6 +276,10 @@ pushd third_party || exit
   # Install DAQ
   if [[ ! -d "aavs-daq" ]]; then
     git clone https://lessju@bitbucket.org/aavslmc/aavs-daq.git
+
+    pushd aavs-daq || exit
+      git reset --hard $AAVS_DAQ_SHA
+    popd
 
     pushd aavs-daq/src || exit
       if [[ ! -d build ]]; then

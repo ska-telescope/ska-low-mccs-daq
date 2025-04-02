@@ -8,7 +8,7 @@ COPY --chown=daqqer:daqqer ./ /app/
 
 # Setup environment variables
 # When updating AAVS_SYSTEM_TAG, also update in pyproject.toml
-ENV AAVS_SYSTEM_TAG=1.4.1
+# ENV AAVS_SYSTEM_TAG=1.4.1
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
@@ -60,13 +60,16 @@ WORKDIR /app/xGPU/src/
 RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
 # Install AAVS DAQ
-RUN git clone --branch $AAVS_SYSTEM_TAG https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
+# RUN git clone --branch $AAVS_SYSTEM_TAG https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
+WORKDIR /app/
+RUN mkdir /app/aavs-system/
+COPY aavs_system/. /app/aavs-system/
 WORKDIR /app/aavs-system
 
 # Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
-COPY deploy.sh /app/aavs-system/
+# COPY deploy.sh /app/aavs-system/
 # Copy CMakeLists.txt with corrected library name.
-COPY CMakeLists.txt /app/aavs-system/src/
+# COPY CMakeLists.txt /app/aavs-system/src/
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 
 # Expose the DAQ port to UDP traffic.

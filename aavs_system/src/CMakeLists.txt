@@ -57,7 +57,7 @@ add_library(aavsdaq SHARED ${AAVS_FILES})
 # Compile AAVSDAQ library
 if (WITH_CORRELATOR)
     # Link required libraries
-    target_link_libraries(aavsdaq daq xgpu_aavs ${CMAKE_THREAD_LIBS_INIT})
+    target_link_libraries(aavsdaq daq xgpu ${CMAKE_THREAD_LIBS_INIT})
 
     if (WITH_SMALL_STATION)
         # Compile a different library using xgpu for 48 antennas
