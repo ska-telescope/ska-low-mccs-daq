@@ -859,7 +859,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 return uid
             except Exception as e:  # pylint: disable=broad-except
                 # Usually when SKUID isn't available.
-                self.logger.warn(
+                self.logger.warning(
                     "Could not retrieve scan_id from SKUID: %s. "
                     "Using a locally produced scan_id.",
                     e,
@@ -881,7 +881,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 return uid
             except Exception as e:  # pylint: disable=broad-except
                 # Usually when SKUID isn't available.
-                self.logger.warn(
+                self.logger.warning(
                     "Could not retrieve eb_id from SKUID: %s. "
                     "Using a locally produced eb_id.",
                     e,

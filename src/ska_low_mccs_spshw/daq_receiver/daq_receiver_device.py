@@ -518,7 +518,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         :param file_name: the name of the file that the data was saved to
         :param metadata: the metadata for the data received
         """
-        self.logger.info(
+        self.logger.debug(
             "Data of type %s has been written to file %s", data_mode, file_name
         )
         try:
