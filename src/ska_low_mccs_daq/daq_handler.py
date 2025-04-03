@@ -184,7 +184,7 @@ class DaqHandler:
 
         self._config = self.CONFIG_DEFAULTS | extra_config
 
-        self.daq_instance: DaqReceiver = None
+        self.daq_instance: DaqReceiver | None = None
         self._receiver_started: bool = False
         self._initialised: bool = False
         self._stop_bandpass: bool = False
@@ -232,6 +232,7 @@ class DaqHandler:
         :param file_name: The filename written
         :param additional_info: Any additional information/metadata.
         """
+        assert self.daq_instance is not None
         # Callbacks to call for all data modes.
         daq_mode = self._data_mode_mapping[data_mode]
         if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
@@ -361,6 +362,7 @@ class DaqHandler:
 
         :raises ValueError: if an invalid DaqMode is supplied
         """
+        assert self.daq_instance is not None
         try:
             # Convert string representation to DaqModes
             converted_modes_to_start: list[DaqModes] = convert_daq_modes(
@@ -394,6 +396,7 @@ class DaqHandler:
 
         :return: a resultcode, message tuple
         """
+        assert self.daq_instance is not None
         self.logger.info("Stopping daq.....")
         self.daq_instance.stop_daq()
         self._receiver_started = False
@@ -413,6 +416,7 @@ class DaqHandler:
         :return: a resultcode, message tuple
         """
         self.logger.info("Configuring daq with: %s", config)
+        assert self.daq_instance is not None
         try:
             if not config:
                 self.logger.error(
@@ -450,6 +454,7 @@ class DaqHandler:
 
         :return: a configuration dictionary.
         """
+        assert self.daq_instance is not None
         return self.daq_instance.get_configuration()
 
     @check_initialisation
@@ -466,6 +471,7 @@ class DaqHandler:
 
         :return: A json string containing the status of this DaqReceiver.
         """
+        assert self.daq_instance is not None
         # 2. Get consumer list, filter by `running`
         full_consumer_list = self.daq_instance._running_consumers.items()
         running_consumer_list = [
@@ -524,6 +530,7 @@ class DaqHandler:
         :yields: Taskstatus, Message, bandpass/rms plot(s).
         :returns: TaskStatus, Message, None, None, None
         """
+        assert self.daq_instance is not None
         if self._monitoring_bandpass and self._plot_transmission:
             yield (
                 TaskStatus.REJECTED,

@@ -32,8 +32,13 @@ PYTHON_LINE_LENGTH = 88
 PYTHON_TEST_FILE = tests
 PYTHON_VARS_AFTER_PYTEST = --forked
 
+PYTHON_SWITCHES_FOR_BLACK = --exclude=src/ska_low_mccs_daq/aavs_system
+PYTHON_SWITCHES_FOR_ISORT = --skip-glob=src/ska_low_mccs_daq/aavs_system
+PYTHON_SWITCHES_FOR_PYLINT = --ignore-paths=src/ska_low_mccs_daq/aavs_system
+PYTHON_SWITCHES_FOR_FLAKE8 = --exclude=src/ska_low_mccs_daq/aavs_system
+
 python-post-lint:
-	mypy --config-file mypy.ini src/ tests
+	mypy --exclude src/ska_low_mccs_daq/aavs_system/ --config-file mypy.ini src/ tests
 
 .PHONY: python-post-lint
 
