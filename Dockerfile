@@ -60,7 +60,8 @@ RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 # Install AAVS DAQ
 WORKDIR /app/
 RUN mkdir /app/aavs-system/
-COPY aavs_system/. /app/aavs-system/
+COPY /src/ska_low_mccs_daq/aavs_system/. /app/aavs-system/
+#COPY aavs_system/. /app/aavs-system/
 WORKDIR /app/aavs-system
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 
