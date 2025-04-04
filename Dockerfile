@@ -12,6 +12,7 @@ ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 ENV TZ="United_Kingdom/London"
 ENV CUDA_ARCH="sm_80"
+ENV LC_ALL="en_US.UTF-8"
 
 # Add required packages and python repo.
 RUN rm /etc/apt/sources.list.d/cuda.list && apt-get update && apt-get install -y \
@@ -58,10 +59,8 @@ WORKDIR /app/xGPU/src/
 RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
 # Install AAVS DAQ
-WORKDIR /app/
 RUN mkdir /app/aavs-system/
 COPY /src/ska_low_mccs_daq/aavs_system/. /app/aavs-system/
-#COPY aavs_system/. /app/aavs-system/
 WORKDIR /app/aavs-system
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 
