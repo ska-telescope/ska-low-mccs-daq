@@ -1,8 +1,8 @@
-from builtins import str
-from builtins import range
+from builtins import range, str
+
 import numpy
 
-from pydaq.persisters.aavs_file import *
+from .aavs_file import *
 
 
 class ChannelFormatFileManager(AAVSFileManager):
@@ -10,7 +10,13 @@ class ChannelFormatFileManager(AAVSFileManager):
     A subclass of AAVSFileManager for Channel files. Inherits all behaviour and implements abstract functionality.
     """
 
-    def __init__(self, root_path=None, daq_mode=None, data_type='complex', observation_metadata=None):
+    def __init__(
+        self,
+        root_path=None,
+        daq_mode=None,
+        data_type="complex",
+        observation_metadata=None,
+    ):
         """
         Constructor for Channel file manager.
         :param root_path: Directory where all file operations will take place.
@@ -18,11 +24,13 @@ class ChannelFormatFileManager(AAVSFileManager):
         :param data_type: The data type for all data in this file set/sequence.
         :param observation_metadata: A dictionary with observation related metadata which will be stored in the file
         """
-        super(ChannelFormatFileManager, self).__init__(root_path=root_path,
-                                                       file_type=FileTypes.Channel,
-                                                       daq_mode=daq_mode,
-                                                       data_type=data_type,
-                                                       observation_metadata=observation_metadata)
+        super(ChannelFormatFileManager, self).__init__(
+            root_path=root_path,
+            file_type=FileTypes.Channel,
+            daq_mode=daq_mode,
+            data_type=data_type,
+            observation_metadata=observation_metadata,
+        )
 
     def configure(self, file_obj):
         """
@@ -31,10 +39,10 @@ class ChannelFormatFileManager(AAVSFileManager):
         :param file_obj: The file object to be configured.
         :return:
         """
-        n_pols = self.main_dset.attrs['n_pols']
-        n_antennas = self.main_dset.attrs['n_antennas']
-        n_samp = self.main_dset.attrs['n_samples']
-        n_chans = self.main_dset.attrs['n_chans']
+        n_pols = self.main_dset.attrs["n_pols"]
+        n_antennas = self.main_dset.attrs["n_antennas"]
+        n_samp = self.main_dset.attrs["n_samples"]
+        n_chans = self.main_dset.attrs["n_chans"]
         chan_group = file_obj.create_group("chan_")
 
         if n_samp == 1:
@@ -42,18 +50,38 @@ class ChannelFormatFileManager(AAVSFileManager):
         else:
             self.resize_factor = n_samp
 
-        chan_group.create_dataset("data", (0, n_chans * n_pols * n_antennas),
-                                  chunks=(self.resize_factor, n_chans * n_pols * n_antennas),
-                                  dtype=self.data_type, maxshape=(None, n_chans * n_pols * n_antennas))
+        chan_group.create_dataset(
+            "data",
+            (0, n_chans * n_pols * n_antennas),
+            chunks=(self.resize_factor, n_chans * n_pols * n_antennas),
+            dtype=self.data_type,
+            maxshape=(None, n_chans * n_pols * n_antennas),
+        )
 
         timestamp_grp = file_obj.create_group("sample_timestamps")
-        timestamp_grp.create_dataset("data", (0, 1), chunks=(self.resize_factor, 1),
-                                     dtype=numpy.float64, maxshape=(None, 1))
+        timestamp_grp.create_dataset(
+            "data",
+            (0, 1),
+            chunks=(self.resize_factor, 1),
+            dtype=numpy.float64,
+            maxshape=(None, 1),
+        )
 
         file_obj.flush()
 
-    def read_data(self, timestamp=None, tile_id=0, channels=None, antennas=None, polarizations=None, n_samples=None,
-                  sample_offset=None, start_ts=None, end_ts=None, **kwargs):
+    def read_data(
+        self,
+        timestamp=None,
+        tile_id=0,
+        channels=None,
+        antennas=None,
+        polarizations=None,
+        n_samples=None,
+        sample_offset=None,
+        start_ts=None,
+        end_ts=None,
+        **kwargs
+    ):
         """
         Method to read data from a channel data file for a given query. Queries can be done based on sample indexes,
         or timestamps.
@@ -95,41 +123,59 @@ class ChannelFormatFileManager(AAVSFileManager):
 
         result = []
         if not sample_based_read:
-            result = self.get_file_partition_indexes_to_read_given_ts(timestamp=timestamp,
-                                                                      tile_id=tile_id,
-                                                                      query_ts_start=start_ts,
-                                                                      query_ts_end=end_ts)
+            result = self.get_file_partition_indexes_to_read_given_ts(
+                timestamp=timestamp,
+                tile_id=tile_id,
+                query_ts_start=start_ts,
+                query_ts_end=end_ts,
+            )
 
         if sample_based_read:
-            result = self.get_file_partition_indexes_to_read_given_samples(timestamp=timestamp,
-                                                                           tile_id=tile_id,
-                                                                           query_samples_read=n_samples,
-                                                                           query_sample_offset=sample_offset)
+            result = self.get_file_partition_indexes_to_read_given_samples(
+                timestamp=timestamp,
+                tile_id=tile_id,
+                query_samples_read=n_samples,
+                query_sample_offset=sample_offset,
+            )
 
         concat_cnt = 0
         for part in result:
             partition = part["partition"]
             indexes = part["indexes"]
-            partition_data, partition_timestamps = self._read_data(timestamp=timestamp,
-                                                                   tile_id=tile_id,
-                                                                   channels=channels,
-                                                                   antennas=antennas,
-                                                                   polarizations=polarizations,
-                                                                   n_samples=indexes[1] - indexes[0],
-                                                                   sample_offset=indexes[0],
-                                                                   partition_id=partition)
+            partition_data, partition_timestamps = self._read_data(
+                timestamp=timestamp,
+                tile_id=tile_id,
+                channels=channels,
+                antennas=antennas,
+                polarizations=polarizations,
+                n_samples=indexes[1] - indexes[0],
+                sample_offset=indexes[0],
+                partition_id=partition,
+            )
             if concat_cnt < 1:
                 output_buffer = partition_data
                 timestamp_buffer = partition_timestamps
                 concat_cnt += 1
             else:
                 output_buffer = numpy.concatenate((output_buffer, partition_data), 3)
-                timestamp_buffer = numpy.concatenate((timestamp_buffer, partition_timestamps), 0)
+                timestamp_buffer = numpy.concatenate(
+                    (timestamp_buffer, partition_timestamps), 0
+                )
 
         return output_buffer, timestamp_buffer
 
-    def _read_data(self, timestamp=None, tile_id=0, channels=None, antennas=None, polarizations=None, n_samples=0,
-                   sample_offset=0, partition_id=None, **kwargs):
+    def _read_data(
+        self,
+        timestamp=None,
+        tile_id=0,
+        channels=None,
+        antennas=None,
+        polarizations=None,
+        n_samples=0,
+        sample_offset=0,
+        partition_id=None,
+        **kwargs
+    ):
         """
         A helper for the read_data() method. This method performs a read operation based on a sample offset and a
         requested number of samples to be read. If the read_data() method has been called with start and end timestamps
@@ -156,7 +202,9 @@ class ChannelFormatFileManager(AAVSFileManager):
             polarizations = list(range(0, metadata_dict["n_pols"]))
 
         try:
-            file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, partition=partition_id, mode='r')
+            file_obj = self.load_file(
+                timestamp=timestamp, tile_id=tile_id, partition=partition_id, mode="r"
+            )
             if file_obj is not None:
                 if not file_obj["root"]:
                     logging.error("File root compromised.")
@@ -169,7 +217,10 @@ class ChannelFormatFileManager(AAVSFileManager):
             logging.error("Can't load file for data reading: {}".format(e))
             raise
 
-        output_buffer = numpy.zeros([len(channels), len(antennas), len(polarizations), n_samples], dtype=self.data_type)
+        output_buffer = numpy.zeros(
+            [len(channels), len(antennas), len(polarizations), n_samples],
+            dtype=self.data_type,
+        )
         timestamp_buffer = numpy.zeros([n_samples, 1], dtype=float)
 
         data_flushed = False
@@ -185,17 +236,32 @@ class ChannelFormatFileManager(AAVSFileManager):
                     for channel in channels:
                         for antenna in antennas:
                             for pol in polarizations:
-                                list_of_indices.append((channel * (self.n_antennas * self.n_pols)) + (
-                                    antenna * self.n_pols) + pol)
+                                list_of_indices.append(
+                                    (channel * (self.n_antennas * self.n_pols))
+                                    + (antenna * self.n_pols)
+                                    + pol
+                                )
 
                     try:
-                        temp_buffer = dset[sample_offset:n_samples + sample_offset, list_of_indices]
+                        temp_buffer = dset[
+                            sample_offset : n_samples + sample_offset, list_of_indices
+                        ]
                         if sample_offset + n_samples > nof_items:
-                            temp_buffer = numpy.pad(temp_buffer, ((0, n_samples - nof_items), (0, 0)),
-                                                    mode='constant', constant_values=0)
+                            temp_buffer = numpy.pad(
+                                temp_buffer,
+                                ((0, n_samples - nof_items), (0, 0)),
+                                mode="constant",
+                                constant_values=0,
+                            )
 
-                        output_buffer = temp_buffer.reshape((n_samples, len(channels),
-                                                             len(antennas), len(polarizations)))
+                        output_buffer = temp_buffer.reshape(
+                            (
+                                n_samples,
+                                len(channels),
+                                len(antennas),
+                                len(polarizations),
+                            )
+                        )
 
                         output_buffer = numpy.transpose(output_buffer, (3, 1, 2, 0))
                         output_buffer = numpy.transpose(output_buffer, (1, 0, 2, 3))
@@ -209,12 +275,16 @@ class ChannelFormatFileManager(AAVSFileManager):
                         else:
                             timestamp_grp = file_obj["sample_timestamps"]
                             dset = timestamp_grp["data"]
-                            timestamp_buffer[:] = dset[sample_offset:sample_offset + n_samples]
+                            timestamp_buffer[:] = dset[
+                                sample_offset : sample_offset + n_samples
+                            ]
                         data_flushed = True
 
                     except Exception as e:
                         logging.error(str(e))
-                        logging.info("Can't read data - are you requesting data at an index that does not exist?")
+                        logging.info(
+                            "Can't read data - are you requesting data at an index that does not exist?"
+                        )
                         data_flushed = True
                         output_buffer = []
                         timestamp_buffer = []
@@ -227,8 +297,17 @@ class ChannelFormatFileManager(AAVSFileManager):
         self.close_file(file_obj)
         return output_buffer, timestamp_buffer
 
-    def _write_data(self, data_ptr=None, timestamp=None, buffer_timestamp=None, sampling_time=None, tile_id=0,
-                   partition_id=0, timestamp_pad=0, **kwargs):
+    def _write_data(
+        self,
+        data_ptr=None,
+        timestamp=None,
+        buffer_timestamp=None,
+        sampling_time=None,
+        tile_id=0,
+        partition_id=0,
+        timestamp_pad=0,
+        **kwargs
+    ):
         """
         Method to write data to a channel file.
         :param data_ptr: A data array.
@@ -242,19 +321,23 @@ class ChannelFormatFileManager(AAVSFileManager):
         :param kwargs: dictionary of keyword arguments
         :return:
         """
-        file_obj = self.create_file(timestamp=timestamp, tile_id=tile_id, partition_id=partition_id)
+        file_obj = self.create_file(
+            timestamp=timestamp, tile_id=tile_id, partition_id=partition_id
+        )
         file_obj.flush()
 
-        n_pols = self.main_dset.attrs['n_pols']
-        n_antennas = self.main_dset.attrs['n_antennas']
-        n_samp = self.main_dset.attrs['n_samples']
-        n_blocks = self.main_dset.attrs['n_blocks']
-        n_chans = self.main_dset.attrs['n_chans']
+        n_pols = self.main_dset.attrs["n_pols"]
+        n_antennas = self.main_dset.attrs["n_antennas"]
+        n_samp = self.main_dset.attrs["n_samples"]
+        n_blocks = self.main_dset.attrs["n_blocks"]
+        n_chans = self.main_dset.attrs["n_chans"]
         # collected_data = numpy.empty((n_samp, n_chans * n_pols * n_antennas), dtype=self.data_type)
 
-        self.main_dset.attrs['tsamp'] = sampling_time
-        self.main_dset.attrs['timestamp'] = timestamp
-        self.main_dset.attrs['date_time'] = AAVSFileManager._get_date_time(timestamp=timestamp)
+        self.main_dset.attrs["tsamp"] = sampling_time
+        self.main_dset.attrs["timestamp"] = timestamp
+        self.main_dset.attrs["date_time"] = AAVSFileManager._get_date_time(
+            timestamp=timestamp
+        )
         channel_grp = file_obj["chan_"]
         dset = channel_grp["data"]
 
@@ -275,11 +358,15 @@ class ChannelFormatFileManager(AAVSFileManager):
         padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
         if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
+            padded_timestamp = (
+                padded_timestamp - timestamp
+            )  # since it has already been added for append by the timestap_pad value
 
         sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
         if sampling_time not in [0, None]:
-            sample_timestamps = self.time_range(low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp)
+            sample_timestamps = self.time_range(
+                low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp
+            )
             sample_timestamps += padded_timestamp
             sample_timestamps = sample_timestamps.tolist()
 
@@ -287,16 +374,18 @@ class ChannelFormatFileManager(AAVSFileManager):
         dset = timestamp_grp["data"]
         ds_last_size = n_blocks * n_samp
         if dset.shape[0] < (n_blocks + 1) * n_samp:
-            dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
-        dset[ds_last_size:ds_last_size + n_samp, 0] = sample_timestamps
+            dset.resize(
+                dset.shape[0] + self.resize_factor, axis=0
+            )  # resize to fit new data
+        dset[ds_last_size : ds_last_size + n_samp, 0] = sample_timestamps
 
         # set new number of written blocks
         n_blocks += 1
-        self.main_dset.attrs['n_blocks'] = n_blocks
+        self.main_dset.attrs["n_blocks"] = n_blocks
 
         # set new final timestamp in file
-        self.main_dset.attrs['ts_start'] = sample_timestamps[0]
-        self.main_dset.attrs['ts_end'] = sample_timestamps[-1]
+        self.main_dset.attrs["ts_start"] = sample_timestamps[0]
+        self.main_dset.attrs["ts_end"] = sample_timestamps[-1]
 
         file_obj.flush()
         filename = file_obj.filename
@@ -304,8 +393,16 @@ class ChannelFormatFileManager(AAVSFileManager):
 
         return filename
 
-    def _append_data(self, data_ptr=None, timestamp=None, sampling_time=None, buffer_timestamp=None, tile_id=0,
-                     timestamp_pad=0, **kwargs):
+    def _append_data(
+        self,
+        data_ptr=None,
+        timestamp=None,
+        sampling_time=None,
+        buffer_timestamp=None,
+        tile_id=0,
+        timestamp_pad=0,
+        **kwargs
+    ):
         """
         Method to append data to a channel file.
         :param data_ptr: A data array.
@@ -321,37 +418,40 @@ class ChannelFormatFileManager(AAVSFileManager):
         file_obj = None
         # noinspection PyBroadException
         try:
-            file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, mode='r+')
+            file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, mode="r+")
         except:
             logging.error("Error opening file in append mode")
 
         if file_obj is None:
             file_obj = self.create_file(timestamp=timestamp, tile_id=tile_id)
 
-        n_pols = self.main_dset.attrs['n_pols']
-        n_antennas = self.main_dset.attrs['n_antennas']
-        n_samp = self.main_dset.attrs['n_samples']
-        n_blocks = self.main_dset.attrs['n_blocks']
-        n_chans = self.main_dset.attrs['n_chans']
+        n_pols = self.main_dset.attrs["n_pols"]
+        n_antennas = self.main_dset.attrs["n_antennas"]
+        n_samp = self.main_dset.attrs["n_samples"]
+        n_blocks = self.main_dset.attrs["n_blocks"]
+        n_chans = self.main_dset.attrs["n_chans"]
 
         # collected_data = numpy.empty((n_samp, n_chans * n_pols * n_antennas), dtype=self.data_type)
 
-
-        self.main_dset.attrs['timestamp'] = timestamp
-        self.main_dset.attrs['date_time'] = AAVSFileManager._get_date_time(timestamp=timestamp)
+        self.main_dset.attrs["timestamp"] = timestamp
+        self.main_dset.attrs["date_time"] = AAVSFileManager._get_date_time(
+            timestamp=timestamp
+        )
         channel_grp = file_obj["chan_"]
         dset = channel_grp["data"]
 
         ds_last_size = n_blocks * n_samp
         if dset.shape[0] < (n_blocks + 1) * n_samp:
-            dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
+            dset.resize(
+                dset.shape[0] + self.resize_factor, axis=0
+            )  # resize to fit new data
 
         # Pre-format data
         data_ptr = numpy.reshape(data_ptr, (n_chans, n_samp, n_antennas * n_pols))
         data_ptr = numpy.transpose(data_ptr, (1, 0, 2))
         data_ptr = numpy.reshape(data_ptr, (n_samp, n_chans * n_antennas * n_pols))
 
-        dset[ds_last_size: ds_last_size + n_samp, :] = data_ptr
+        dset[ds_last_size : ds_last_size + n_samp, :] = data_ptr
 
         # adding timestamp per sample
         if buffer_timestamp is not None:
@@ -362,11 +462,15 @@ class ChannelFormatFileManager(AAVSFileManager):
         padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
         if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
+            padded_timestamp = (
+                padded_timestamp - timestamp
+            )  # since it has already been added for append by the timestap_pad value
 
         sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
         if sampling_time not in [0, None]:
-            sample_timestamps = self.time_range(low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp)
+            sample_timestamps = self.time_range(
+                low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp
+            )
             sample_timestamps += padded_timestamp
             sample_timestamps = sample_timestamps.tolist()
 
@@ -374,16 +478,18 @@ class ChannelFormatFileManager(AAVSFileManager):
         dset = timestamp_grp["data"]
         ds_last_size = n_blocks * n_samp
         if dset.shape[0] < (n_blocks + 1) * n_samp:
-            dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
+            dset.resize(
+                dset.shape[0] + self.resize_factor, axis=0
+            )  # resize to fit new data
 
-        dset[ds_last_size:ds_last_size + n_samp, 0] = sample_timestamps
+        dset[ds_last_size : ds_last_size + n_samp, 0] = sample_timestamps
 
         # set new number of written blocks
         n_blocks += 1
-        self.main_dset.attrs['n_blocks'] = n_blocks
+        self.main_dset.attrs["n_blocks"] = n_blocks
 
         # set new final timestamp in file
-        self.main_dset.attrs['ts_end'] = sample_timestamps[-1]
+        self.main_dset.attrs["ts_end"] = sample_timestamps[-1]
 
         file_obj.flush()
         filename = file_obj.filename

@@ -1,17 +1,25 @@
-from builtins import str
-from builtins import range
-from pydaq.persisters.aavs_file import *
-from matplotlib import pyplot as plt
-import time
-import numpy
 import logging
+import time
+from builtins import range, str
+
+import numpy
+from matplotlib import pyplot as plt
+
+from .aavs_file import *
 
 
 class BeamFormatFileManager(AAVSFileManager):
     """
     A subclass of AAVSFileManager for Beamformed files. Inherits all behaviour and implements abstract functionality.
     """
-    def __init__(self, root_path=None, daq_mode=None, data_type='complex16', observation_metadata=None):
+
+    def __init__(
+        self,
+        root_path=None,
+        daq_mode=None,
+        data_type="complex16",
+        observation_metadata=None,
+    ):
         """
         Constructor for Beamformed file manager.
         :param root_path: Directory where all file operations will take place.
@@ -19,11 +27,13 @@ class BeamFormatFileManager(AAVSFileManager):
         :param data_type: The data type for all data in this file set/sequence.
         :param observation_metadata: A dictionary with observation related metadata which will be stored in the file
         """
-        super(BeamFormatFileManager, self).__init__(root_path=root_path,
-                                                    file_type=FileTypes.Beamformed,
-                                                    daq_mode=daq_mode,
-                                                    data_type=data_type,
-                                                    observation_metadata=observation_metadata)
+        super(BeamFormatFileManager, self).__init__(
+            root_path=root_path,
+            file_type=FileTypes.Beamformed,
+            daq_mode=daq_mode,
+            data_type=data_type,
+            observation_metadata=observation_metadata,
+        )
 
     def configure(self, file_obj):
         """
@@ -32,10 +42,10 @@ class BeamFormatFileManager(AAVSFileManager):
         :param file_obj: The file object to be configured.
         :return:
         """
-        n_pols = self.main_dset.attrs['n_pols']
-        n_samp = self.main_dset.attrs['n_samples']
-        n_chans = self.main_dset.attrs['n_chans']
-        n_beams = self.main_dset.attrs['n_beams']
+        n_pols = self.main_dset.attrs["n_pols"]
+        n_samp = self.main_dset.attrs["n_samples"]
+        n_chans = self.main_dset.attrs["n_chans"]
+        n_beams = self.main_dset.attrs["n_beams"]
 
         if n_samp == 1:
             self.resize_factor = 1024
@@ -43,18 +53,41 @@ class BeamFormatFileManager(AAVSFileManager):
             self.resize_factor = n_samp
 
         for polarization in AAVSFileManager.range_array(0, n_pols):
-            polarization_grp = file_obj.create_group("polarization_" + str(polarization))
-            polarization_grp.create_dataset("data", (0, n_chans, n_beams), chunks=(self.resize_factor, 1, 1),
-                                            dtype=self.data_type, maxshape=(None, n_chans, n_beams))
+            polarization_grp = file_obj.create_group(
+                "polarization_" + str(polarization)
+            )
+            polarization_grp.create_dataset(
+                "data",
+                (0, n_chans, n_beams),
+                chunks=(self.resize_factor, 1, 1),
+                dtype=self.data_type,
+                maxshape=(None, n_chans, n_beams),
+            )
 
         timestamp_grp = file_obj.create_group("sample_timestamps")
-        timestamp_grp.create_dataset("data", (0, 1), chunks=(self.resize_factor, 1),
-                                     dtype=numpy.float64, maxshape=(None, 1))
+        timestamp_grp.create_dataset(
+            "data",
+            (0, 1),
+            chunks=(self.resize_factor, 1),
+            dtype=numpy.float64,
+            maxshape=(None, 1),
+        )
 
         file_obj.flush()
 
-    def read_data(self, timestamp=None, tile_id=0, channels=None, antennas=None, polarizations=None, beams=None,
-                  n_samples=None, sample_offset=None, start_ts=None, end_ts=None):
+    def read_data(
+        self,
+        timestamp=None,
+        tile_id=0,
+        channels=None,
+        antennas=None,
+        polarizations=None,
+        beams=None,
+        n_samples=None,
+        sample_offset=None,
+        start_ts=None,
+        end_ts=None,
+    ):
         """
         Method to read data from a beamformed data file for a given query. Queries can be done based on sample indexes,
         or timestamps.
@@ -99,41 +132,59 @@ class BeamFormatFileManager(AAVSFileManager):
 
         result = []
         if not sample_based_read:
-            result = self.get_file_partition_indexes_to_read_given_ts(timestamp=timestamp,
-                                                             tile_id=tile_id,
-                                                             query_ts_start=start_ts,
-                                                             query_ts_end=end_ts)
+            result = self.get_file_partition_indexes_to_read_given_ts(
+                timestamp=timestamp,
+                tile_id=tile_id,
+                query_ts_start=start_ts,
+                query_ts_end=end_ts,
+            )
 
         if sample_based_read:
-            result = self.get_file_partition_indexes_to_read_given_samples(timestamp=timestamp,
-                                                                           tile_id=tile_id,
-                                                                           query_samples_read=n_samples,
-                                                                           query_sample_offset=sample_offset)
+            result = self.get_file_partition_indexes_to_read_given_samples(
+                timestamp=timestamp,
+                tile_id=tile_id,
+                query_samples_read=n_samples,
+                query_sample_offset=sample_offset,
+            )
 
         concat_cnt = 0
         for part in result:
             partition = part["partition"]
             indexes = part["indexes"]
-            partition_data, partition_timestamps = self._read_data(timestamp=timestamp,
-                                                                   tile_id=tile_id,
-                                                                   channels=channels,
-                                                                   polarizations=polarizations,
-                                                                   beams=beams,
-                                                                   n_samples=indexes[1] - indexes[0],
-                                                                   sample_offset=indexes[0],
-                                                                   partition_id=partition)
+            partition_data, partition_timestamps = self._read_data(
+                timestamp=timestamp,
+                tile_id=tile_id,
+                channels=channels,
+                polarizations=polarizations,
+                beams=beams,
+                n_samples=indexes[1] - indexes[0],
+                sample_offset=indexes[0],
+                partition_id=partition,
+            )
             if concat_cnt < 1:
                 output_buffer = partition_data
                 timestamp_buffer = partition_timestamps
                 concat_cnt += 1
             else:
                 output_buffer = numpy.concatenate((output_buffer, partition_data), 2)
-                timestamp_buffer = numpy.concatenate((timestamp_buffer, partition_timestamps), 0)
+                timestamp_buffer = numpy.concatenate(
+                    (timestamp_buffer, partition_timestamps), 0
+                )
 
         return output_buffer, timestamp_buffer
 
-    def _read_data(self, timestamp=0, beam_id=0, tile_id=0, channels=None, polarizations=None, n_samples=0,
-                  beams = None, sample_offset=0, partition_id=None):
+    def _read_data(
+        self,
+        timestamp=0,
+        beam_id=0,
+        tile_id=0,
+        channels=None,
+        polarizations=None,
+        n_samples=0,
+        beams=None,
+        sample_offset=0,
+        partition_id=None,
+    ):
         """
         A helper for the read_data() method. This method performs a read operation based on a sample offset and a
         requested number of samples to be read. If the read_data() method has been called with start and end timestamps
@@ -160,7 +211,9 @@ class BeamFormatFileManager(AAVSFileManager):
             beams = list(range(0, metadata_dict["n_beams"]))
 
         try:
-            file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, partition=partition_id, mode='r')
+            file_obj = self.load_file(
+                timestamp=timestamp, tile_id=tile_id, partition=partition_id, mode="r"
+            )
             if file_obj is not None:
                 temp_dset = file_obj["root"]
             else:
@@ -171,7 +224,10 @@ class BeamFormatFileManager(AAVSFileManager):
             logging.error("Can't load file for data reading: ", e.message)
             raise
 
-        output_buffer = numpy.zeros([len(polarizations), len(channels), n_samples, len(beams)], dtype=self.data_type)
+        output_buffer = numpy.zeros(
+            [len(polarizations), len(channels), n_samples, len(beams)],
+            dtype=self.data_type,
+        )
         timestamp_buffer = numpy.zeros([n_samples, 1], dtype=float)
 
         data_flushed = False
@@ -184,23 +240,37 @@ class BeamFormatFileManager(AAVSFileManager):
                     current_polarization = polarizations[polarization_idx]
                     polarization_name = "/polarization_" + str(current_polarization)
                     if polarization_name in file_groups_names:
-                        polarization_grp = file_obj["polarization_" + str(current_polarization)]
+                        polarization_grp = file_obj[
+                            "polarization_" + str(current_polarization)
+                        ]
                         if polarization_grp["data"].name == polarization_name + "/data":
                             dset = polarization_grp["data"]
                             dset_rows = dset.shape[0]
                             dset_columns = dset.shape[1]
                             dset_depth = dset.shape[2]
                             nof_items = dset_rows
-                            if (dset_columns == temp_dset.attrs["n_chans"]) and \
-                                    (dset_rows >= temp_dset.attrs["n_samples"]):
-                                for channel_idx in AAVSFileManager.range_array(0, len(channels)):
+                            if (dset_columns == temp_dset.attrs["n_chans"]) and (
+                                dset_rows >= temp_dset.attrs["n_samples"]
+                            ):
+                                for channel_idx in AAVSFileManager.range_array(
+                                    0, len(channels)
+                                ):
                                     current_channel = channels[channel_idx]
                                     if sample_offset + n_samples > nof_items:
-                                        output_buffer[polarization_idx, channel_idx, 0:nof_items, :] = \
-                                            dset[0:nof_items, current_channel, beams]
+                                        output_buffer[
+                                            polarization_idx,
+                                            channel_idx,
+                                            0:nof_items,
+                                            :,
+                                        ] = dset[0:nof_items, current_channel, beams]
                                     else:
-                                        output_buffer[polarization_idx, channel_idx, :, :] = \
-                                            dset[sample_offset:sample_offset + n_samples, current_channel, beams]
+                                        output_buffer[
+                                            polarization_idx, channel_idx, :, :
+                                        ] = dset[
+                                            sample_offset : sample_offset + n_samples,
+                                            current_channel,
+                                            beams,
+                                        ]
                 # extracting timestamps
                 if sample_offset + n_samples > nof_items:
                     timestamp_grp = file_obj["sample_timestamps"]
@@ -209,12 +279,16 @@ class BeamFormatFileManager(AAVSFileManager):
                 else:
                     timestamp_grp = file_obj["sample_timestamps"]
                     dset = timestamp_grp["data"]
-                    timestamp_buffer[:] = dset[sample_offset:sample_offset + n_samples]
+                    timestamp_buffer[:] = dset[
+                        sample_offset : sample_offset + n_samples
+                    ]
 
                 data_flushed = True
             except Exception as e:
                 logging.error(str(e))
-                logging.info("Can't read data - are you requesting data at an index that does not exist?")
+                logging.info(
+                    "Can't read data - are you requesting data at an index that does not exist?"
+                )
                 data_flushed = True
                 output_buffer = []
                 timestamp_buffer = []
@@ -222,8 +296,16 @@ class BeamFormatFileManager(AAVSFileManager):
         self.close_file(file_obj)
         return output_buffer, timestamp_buffer
 
-    def _write_data(self, timestamp=None, buffer_timestamp=None, data_ptr=None, sampling_time=None, tile_id=None,
-                    partition_id=0, timestamp_pad=0):
+    def _write_data(
+        self,
+        timestamp=None,
+        buffer_timestamp=None,
+        data_ptr=None,
+        sampling_time=None,
+        tile_id=None,
+        partition_id=0,
+        timestamp_pad=0,
+    ):
         """
         Method to write data to a beamformed file.
         :param data_ptr: A data array.
@@ -236,15 +318,17 @@ class BeamFormatFileManager(AAVSFileManager):
         :param timestamp_pad: Padded timestamp from the end of previous partitions in the file batch.
         :return:
         """
-        file_obj = self.create_file(timestamp=timestamp, tile_id=tile_id, partition_id=partition_id)
+        file_obj = self.create_file(
+            timestamp=timestamp, tile_id=tile_id, partition_id=partition_id
+        )
         file_obj.flush()
 
-        n_pols = self.main_dset.attrs['n_pols']
-        n_samp = self.main_dset.attrs['n_samples']
-        n_blocks = self.main_dset.attrs['n_blocks']
-        n_chans = self.main_dset.attrs['n_chans']
-        n_beams = self.main_dset.attrs['n_beams']
-        self.main_dset.attrs['timestamp'] = timestamp
+        n_pols = self.main_dset.attrs["n_pols"]
+        n_samp = self.main_dset.attrs["n_samples"]
+        n_blocks = self.main_dset.attrs["n_blocks"]
+        n_chans = self.main_dset.attrs["n_chans"]
+        n_beams = self.main_dset.attrs["n_beams"]
+        self.main_dset.attrs["timestamp"] = timestamp
         for polarization in AAVSFileManager.range_array(0, n_pols):
             polarization_grp = file_obj["polarization_" + str(polarization)]
             dset = polarization_grp["data"]
@@ -259,7 +343,7 @@ class BeamFormatFileManager(AAVSFileManager):
             # dset[:, :] = pol_data
 
             # Pre-format data
-            pol_start_idx = (polarization * n_chans * n_samp * n_beams)
+            pol_start_idx = polarization * n_chans * n_samp * n_beams
             pol_end_idx = (polarization + 1) * n_chans * n_samp * n_beams
             pol_data = data_ptr[pol_start_idx:pol_end_idx]
             pol_data = numpy.reshape(pol_data, (n_samp, n_chans, n_beams))
@@ -274,11 +358,15 @@ class BeamFormatFileManager(AAVSFileManager):
         padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
         if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp # since it has already been added for append by the timestap_pad value
+            padded_timestamp = (
+                padded_timestamp - timestamp
+            )  # since it has already been added for append by the timestap_pad value
 
         sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
         if sampling_time not in [0, None]:
-            sample_timestamps = self.time_range(low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp)
+            sample_timestamps = self.time_range(
+                low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp
+            )
             sample_timestamps = sample_timestamps + padded_timestamp
             sample_timestamps = sample_timestamps.tolist()
 
@@ -286,17 +374,19 @@ class BeamFormatFileManager(AAVSFileManager):
         dset = timestamp_grp["data"]
         ds_last_size = n_blocks * n_samp
         if dset.shape[0] < (n_blocks + 1) * n_samp:
-            dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
+            dset.resize(
+                dset.shape[0] + self.resize_factor, axis=0
+            )  # resize to fit new data
 
-        dset[ds_last_size:ds_last_size + n_samp, 0] = sample_timestamps
+        dset[ds_last_size : ds_last_size + n_samp, 0] = sample_timestamps
 
         # set new number of written blocks
         n_blocks += 1
-        self.main_dset.attrs['n_blocks'] = n_blocks
+        self.main_dset.attrs["n_blocks"] = n_blocks
 
         # set new final timestamp in file
-        self.main_dset.attrs['ts_start'] = sample_timestamps[0]
-        self.main_dset.attrs['ts_end'] = sample_timestamps[-1]
+        self.main_dset.attrs["ts_start"] = sample_timestamps[0]
+        self.main_dset.attrs["ts_end"] = sample_timestamps[-1]
 
         file_obj.flush()
         filename = file_obj.filename
@@ -304,8 +394,15 @@ class BeamFormatFileManager(AAVSFileManager):
 
         return filename
 
-    def _append_data(self, timestamp=None, data_ptr=None, sampling_time=None, buffer_timestamp=0, tile_id=0,
-                     timestamp_pad=0):
+    def _append_data(
+        self,
+        timestamp=None,
+        data_ptr=None,
+        sampling_time=None,
+        buffer_timestamp=0,
+        tile_id=0,
+        timestamp_pad=0,
+    ):
         """
         Method to append data to a beamformed file.
         :param data_ptr: A data array.
@@ -320,26 +417,28 @@ class BeamFormatFileManager(AAVSFileManager):
         file_obj = None
         # noinspection PyBroadException
         try:
-            file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, mode='r+')
+            file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, mode="r+")
         except:
             logging.error("Error opening file in append mode")
 
         if file_obj is None:
             file_obj = self.create_file(timestamp=timestamp, tile_id=tile_id)
 
-        n_pols = self.main_dset.attrs['n_pols']
-        n_samp = self.main_dset.attrs['n_samples']
-        n_blocks = self.main_dset.attrs['n_blocks']
-        n_chans = self.main_dset.attrs['n_chans']
-        n_beams = self.main_dset.attrs['n_beams']
-        self.main_dset.attrs['timestamp'] = timestamp
+        n_pols = self.main_dset.attrs["n_pols"]
+        n_samp = self.main_dset.attrs["n_samples"]
+        n_blocks = self.main_dset.attrs["n_blocks"]
+        n_chans = self.main_dset.attrs["n_chans"]
+        n_beams = self.main_dset.attrs["n_beams"]
+        self.main_dset.attrs["timestamp"] = timestamp
         for polarization in AAVSFileManager.range_array(0, n_pols):
             polarization_grp = file_obj["polarization_" + str(polarization)]
             dset = polarization_grp["data"]
 
             ds_last_size = n_blocks * n_samp
             if dset.shape[0] < (n_blocks + 1) * n_samp:
-                dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
+                dset.resize(
+                    dset.shape[0] + self.resize_factor, axis=0
+                )  # resize to fit new data
 
             # # Pre-format data
             # pol_start_idx = (polarization * n_chans * n_samp)
@@ -349,11 +448,11 @@ class BeamFormatFileManager(AAVSFileManager):
             # dset[ds_last_size: ds_last_size + n_samp, :] = pol_data
 
             # Pre-format data
-            pol_start_idx = (polarization * n_chans * n_samp * n_beams)
+            pol_start_idx = polarization * n_chans * n_samp * n_beams
             pol_end_idx = (polarization + 1) * n_chans * n_samp * n_beams
             pol_data = data_ptr[pol_start_idx:pol_end_idx]
             pol_data = numpy.reshape(pol_data, (n_samp, n_chans, n_beams))
-            dset[ds_last_size: ds_last_size + n_samp, :, :] = pol_data
+            dset[ds_last_size : ds_last_size + n_samp, :, :] = pol_data
 
         # adding timestamp per sample
         if buffer_timestamp is not None:
@@ -364,11 +463,15 @@ class BeamFormatFileManager(AAVSFileManager):
         padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
         if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp # since it has already been added for append by the timestap_pad value
+            padded_timestamp = (
+                padded_timestamp - timestamp
+            )  # since it has already been added for append by the timestap_pad value
 
         sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
         if sampling_time not in [0, None]:
-            sample_timestamps = self.time_range(low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp)
+            sample_timestamps = self.time_range(
+                low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp
+            )
             sample_timestamps = sample_timestamps + padded_timestamp
             sample_timestamps = sample_timestamps.tolist()
 
@@ -376,16 +479,18 @@ class BeamFormatFileManager(AAVSFileManager):
         dset = timestamp_grp["data"]
         ds_last_size = n_blocks * n_samp
         if dset.shape[0] < (n_blocks + 1) * n_samp:
-            dset.resize(dset.shape[0] + self.resize_factor, axis=0)  # resize to fit new data
+            dset.resize(
+                dset.shape[0] + self.resize_factor, axis=0
+            )  # resize to fit new data
 
-        dset[ds_last_size:ds_last_size + n_samp, 0] = sample_timestamps
+        dset[ds_last_size : ds_last_size + n_samp, 0] = sample_timestamps
 
         # set new number of written blocks
         n_blocks += 1
-        self.main_dset.attrs['n_blocks'] = n_blocks
+        self.main_dset.attrs["n_blocks"] = n_blocks
 
         # set new final timestamp in file
-        self.main_dset.attrs['ts_end'] = sample_timestamps[-1]
+        self.main_dset.attrs["ts_end"] = sample_timestamps[-1]
 
         file_obj.flush()
         filename = file_obj.filename

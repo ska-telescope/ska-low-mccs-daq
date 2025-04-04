@@ -1,6 +1,6 @@
-from builtins import str
-from builtins import range
-from pydaq.persisters.aavs_file import *
+from builtins import range, str
+
+from .aavs_file import *
 
 
 class CorrelationFormatFileManager(AAVSFileManager):
@@ -9,7 +9,13 @@ class CorrelationFormatFileManager(AAVSFileManager):
     abstract functionality.
     """
 
-    def __init__(self, root_path=None, daq_mode=None, data_type='complex64', observation_metadata=None):
+    def __init__(
+        self,
+        root_path=None,
+        daq_mode=None,
+        data_type="complex64",
+        observation_metadata=None,
+    ):
         """
         Constructor for Correlation file manager.
         :param root_path: Directory where all file operations will take place.
@@ -17,11 +23,13 @@ class CorrelationFormatFileManager(AAVSFileManager):
         :param data_type: The data type for all data in this file set/sequence.
         :param observation_metadata: A dictionary with observation related metadata which will be stored in the file
         """
-        super(CorrelationFormatFileManager, self).__init__(root_path=root_path,
-                                                           file_type=FileTypes.Correlation,
-                                                           daq_mode=daq_mode,
-                                                           data_type=data_type,
-                                                           observation_metadata=observation_metadata)
+        super(CorrelationFormatFileManager, self).__init__(
+            root_path=root_path,
+            file_type=FileTypes.Correlation,
+            daq_mode=daq_mode,
+            data_type=data_type,
+            observation_metadata=observation_metadata,
+        )
 
     def configure(self, file_obj):
         """
@@ -30,10 +38,10 @@ class CorrelationFormatFileManager(AAVSFileManager):
         :param file_obj: The file object to be configured.
         :return:
         """
-        n_baselines = self.main_dset.attrs['n_baselines']
-        n_stokes = self.main_dset.attrs['n_stokes']
-        n_chans = self.main_dset.attrs['n_chans']
-        n_samp = self.main_dset.attrs['n_samples']  # should always be 1
+        n_baselines = self.main_dset.attrs["n_baselines"]
+        n_stokes = self.main_dset.attrs["n_stokes"]
+        n_chans = self.main_dset.attrs["n_chans"]
+        n_samp = self.main_dset.attrs["n_samples"]  # should always be 1
 
         if n_samp == 1:
             self.resize_factor = 1
@@ -41,20 +49,38 @@ class CorrelationFormatFileManager(AAVSFileManager):
             self.resize_factor = 128
 
         corr_group = file_obj.create_group("correlation_matrix")
-        corr_group.create_dataset("data", (0, n_chans, n_baselines, n_stokes),
-                                  dtype=self.data_type,
-                                  chunks=(1, n_chans, n_baselines, n_stokes),
-                                  maxshape=(None, n_chans, n_baselines, n_stokes))
+        corr_group.create_dataset(
+            "data",
+            (0, n_chans, n_baselines, n_stokes),
+            dtype=self.data_type,
+            chunks=(1, n_chans, n_baselines, n_stokes),
+            maxshape=(None, n_chans, n_baselines, n_stokes),
+        )
 
         timestamp_grp = file_obj.create_group("sample_timestamps")
-        timestamp_grp.create_dataset("data", (0, 1), chunks=(self.n_samples, 1),
-                                     dtype=numpy.float64, maxshape=(None, 1))
+        timestamp_grp.create_dataset(
+            "data",
+            (0, 1),
+            chunks=(self.n_samples, 1),
+            dtype=numpy.float64,
+            maxshape=(None, 1),
+        )
 
         file_obj.flush()
 
-    def read_data(self, timestamp=None, channel_id=None, channels=None, antennas=None, polarizations=None,
-                  n_samples=None,
-                  sample_offset=None, start_ts=None, end_ts=None, **kwargs):
+    def read_data(
+        self,
+        timestamp=None,
+        channel_id=None,
+        channels=None,
+        antennas=None,
+        polarizations=None,
+        n_samples=None,
+        sample_offset=None,
+        start_ts=None,
+        end_ts=None,
+        **kwargs
+    ):
         """
         Method to read data from a correlation matrix data file for a given query.
         Queries can be done based on sample indexes, or timestamps.
@@ -113,45 +139,70 @@ class CorrelationFormatFileManager(AAVSFileManager):
 
             partition_index_list = []
             if not sample_based_read:
-                partition_index_list = self.get_file_partition_indexes_to_read_given_ts(timestamp=timestamp,
-                                                                                        tile_id=channel_id,
-                                                                                        query_ts_start=start_ts,
-                                                                                        query_ts_end=end_ts)
+                partition_index_list = self.get_file_partition_indexes_to_read_given_ts(
+                    timestamp=timestamp,
+                    tile_id=channel_id,
+                    query_ts_start=start_ts,
+                    query_ts_end=end_ts,
+                )
 
             if sample_based_read:
-                partition_index_list = self.get_file_partition_indexes_to_read_given_samples(timestamp=timestamp,
-                                                                                             tile_id=channel_id,
-                                                                                             query_samples_read=n_samples,
-                                                                                             query_sample_offset=sample_offset)
+                partition_index_list = (
+                    self.get_file_partition_indexes_to_read_given_samples(
+                        timestamp=timestamp,
+                        tile_id=channel_id,
+                        query_samples_read=n_samples,
+                        query_sample_offset=sample_offset,
+                    )
+                )
 
             concat_cnt = 0
             for part in partition_index_list:
                 partition = part["partition"]
                 indexes = part["indexes"]
-                partition_data, partition_timestamps = self._read_data(timestamp=timestamp,
-                                                                       channel_id=channel_id,
-                                                                       channels=channels,
-                                                                       antennas=antennas,
-                                                                       polarizations=polarizations,
-                                                                       n_samples=indexes[1] - indexes[0],
-                                                                       sample_offset=indexes[0],
-                                                                       partition_id=partition,
-                                                                       **options)
+                partition_data, partition_timestamps = self._read_data(
+                    timestamp=timestamp,
+                    channel_id=channel_id,
+                    channels=channels,
+                    antennas=antennas,
+                    polarizations=polarizations,
+                    n_samples=indexes[1] - indexes[0],
+                    sample_offset=indexes[0],
+                    partition_id=partition,
+                    **options
+                )
 
                 if concat_cnt < 1:
                     output_buffer = partition_data
                     timestamp_buffer = partition_timestamps
                     concat_cnt += 1
                 else:
-                    output_buffer = numpy.concatenate((output_buffer, partition_data), 3)
-                    timestamp_buffer = numpy.concatenate((timestamp_buffer, partition_timestamps), 0)
+                    output_buffer = numpy.concatenate(
+                        (output_buffer, partition_data), 3
+                    )
+                    timestamp_buffer = numpy.concatenate(
+                        (timestamp_buffer, partition_timestamps), 0
+                    )
 
-            output_buffer = numpy.reshape(output_buffer, (n_samples, self.n_baselines, self.n_stokes, len(channels)))
+            output_buffer = numpy.reshape(
+                output_buffer,
+                (n_samples, self.n_baselines, self.n_stokes, len(channels)),
+            )
 
         return output_buffer, timestamp_buffer
 
-    def _read_data(self, timestamp=None, channel_id=None, channels=None, antennas=None, polarizations=None, n_samples=0,
-                   sample_offset=0, partition_id=None, **kwargs):
+    def _read_data(
+        self,
+        timestamp=None,
+        channel_id=None,
+        channels=None,
+        antennas=None,
+        polarizations=None,
+        n_samples=0,
+        sample_offset=0,
+        partition_id=None,
+        **kwargs
+    ):
         """
         A helper for the read_data() method. This method performs a read operation based on a sample offset and a
         requested number of samples to be read. If the read_data() method has been called with start and end timestamps
@@ -180,7 +231,12 @@ class CorrelationFormatFileManager(AAVSFileManager):
             channels = list(range(0, metadata_dict["n_chans"]))
 
         try:
-            file_obj = self.load_file(timestamp=timestamp, tile_id=channel_id, partition=partition_id, mode='r')
+            file_obj = self.load_file(
+                timestamp=timestamp,
+                tile_id=channel_id,
+                partition=partition_id,
+                mode="r",
+            )
             if file_obj is not None:
                 if file_obj["root"]:
                     logging.info("File root intact.")
@@ -194,7 +250,10 @@ class CorrelationFormatFileManager(AAVSFileManager):
             logging.error("Can't load file for data reading: {}".format(e))
             raise
 
-        output_buffer = numpy.zeros([n_samples, len(channels), len(baselines), len(stokes)], dtype=self.data_type)
+        output_buffer = numpy.zeros(
+            [n_samples, len(channels), len(baselines), len(stokes)],
+            dtype=self.data_type,
+        )
         timestamp_buffer = numpy.zeros([n_samples, 1], dtype=float)
 
         data_flushed = False
@@ -206,7 +265,9 @@ class CorrelationFormatFileManager(AAVSFileManager):
                     dset = correl_group["data"]
                     nof_items = self.n_samples
                     try:
-                        temp_buffer = dset[sample_offset:sample_offset+n_samples, :, :, :]
+                        temp_buffer = dset[
+                            sample_offset : sample_offset + n_samples, :, :, :
+                        ]
                         temp_buffer = temp_buffer[:, channels]
                         temp_buffer = temp_buffer[:, :, baselines]
                         output_buffer = temp_buffer[:, :, :, stokes]
@@ -220,18 +281,24 @@ class CorrelationFormatFileManager(AAVSFileManager):
                         else:
                             timestamp_grp = file_obj["sample_timestamps"]
                             dset = timestamp_grp["data"]
-                            timestamp_buffer[:] = dset[sample_offset:sample_offset + n_samples]
+                            timestamp_buffer[:] = dset[
+                                sample_offset : sample_offset + n_samples
+                            ]
 
                         data_flushed = True
                     except Exception as e:
                         logging.error(str(e))
-                        logging.info("Can't read data - are you requesting data at an index that does not exist?")
+                        logging.info(
+                            "Can't read data - are you requesting data at an index that does not exist?"
+                        )
                         data_flushed = True
                         output_buffer = []
 
             except Exception as e:
                 logging.error(str(e))
-                logging.info("Can't read data - are you requesting data at an index that does not exist?")
+                logging.info(
+                    "Can't read data - are you requesting data at an index that does not exist?"
+                )
                 data_flushed = True
                 output_buffer = []
                 timestamp_buffer = []
@@ -240,8 +307,17 @@ class CorrelationFormatFileManager(AAVSFileManager):
 
         return output_buffer, timestamp_buffer
 
-    def _write_data(self, data_ptr=None, timestamp=None, buffer_timestamp=None, sampling_time=None, channel_id=0,
-                    partition_id=0, timestamp_pad=0, **kwargs):
+    def _write_data(
+        self,
+        data_ptr=None,
+        timestamp=None,
+        buffer_timestamp=None,
+        sampling_time=None,
+        channel_id=0,
+        partition_id=0,
+        timestamp_pad=0,
+        **kwargs
+    ):
         """
         Method to write data to a correlation matrix file.
         :param data_ptr: A data array.
@@ -255,19 +331,23 @@ class CorrelationFormatFileManager(AAVSFileManager):
         :param kwargs: dictionary of keyword arguments
         :return: Filename of the file that has been written
         """
-        file_obj = self.create_file(timestamp=timestamp, tile_id=channel_id, partition_id=partition_id)
+        file_obj = self.create_file(
+            timestamp=timestamp, tile_id=channel_id, partition_id=partition_id
+        )
 
         file_obj.flush()
         filename = file_obj.filename
 
-        n_chans = self.main_dset.attrs['n_chans']
-        n_baselines = self.main_dset.attrs['n_baselines']
-        n_stokes = self.main_dset.attrs['n_stokes']
-        n_samp = self.main_dset.attrs['n_samples']  # should always be 1
-        n_blocks = self.main_dset.attrs['n_blocks']
+        n_chans = self.main_dset.attrs["n_chans"]
+        n_baselines = self.main_dset.attrs["n_baselines"]
+        n_stokes = self.main_dset.attrs["n_stokes"]
+        n_samp = self.main_dset.attrs["n_samples"]  # should always be 1
+        n_blocks = self.main_dset.attrs["n_blocks"]
 
-        self.main_dset.attrs['timestamp'] = timestamp
-        self.main_dset.attrs['date_time'] = AAVSFileManager._get_date_time(timestamp=timestamp)
+        self.main_dset.attrs["timestamp"] = timestamp
+        self.main_dset.attrs["date_time"] = AAVSFileManager._get_date_time(
+            timestamp=timestamp
+        )
         corr_group = file_obj["correlation_matrix"]
         dset = corr_group["data"]
         dset.resize(n_samp, axis=0)  # resize for only one fit
@@ -285,11 +365,15 @@ class CorrelationFormatFileManager(AAVSFileManager):
         padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
         if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
+            padded_timestamp = (
+                padded_timestamp - timestamp
+            )  # since it has already been added for append by the timestap_pad value
 
         sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
         if sampling_time not in [0, None]:
-            sample_timestamps = self.time_range(low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp)
+            sample_timestamps = self.time_range(
+                low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp
+            )
             sample_timestamps += padded_timestamp
             sample_timestamps = sample_timestamps.tolist()
 
@@ -297,20 +381,31 @@ class CorrelationFormatFileManager(AAVSFileManager):
         dset = timestamp_grp["data"]
         ds_last_size = n_blocks * n_samp
         if dset.shape[0] < (n_blocks + 1) * n_samp:
-            dset.resize(dset.shape[0] + self.n_samples, axis=0)  # resize to fit new data
-        dset[ds_last_size:ds_last_size + n_samp, 0] = sample_timestamps
+            dset.resize(
+                dset.shape[0] + self.n_samples, axis=0
+            )  # resize to fit new data
+        dset[ds_last_size : ds_last_size + n_samp, 0] = sample_timestamps
 
         # set new number of written blocks
         n_blocks += 1
-        self.main_dset.attrs['n_blocks'] = n_blocks
+        self.main_dset.attrs["n_blocks"] = n_blocks
 
         file_obj.flush()
         self.close_file(file_obj)
 
         return filename
 
-    def _append_data(self, data_ptr=None, timestamp=None, buffer_timestamp=None, sampling_time=None, channel_id=0,
-                     partition_id=0, timestamp_pad=0, **kwargs):
+    def _append_data(
+        self,
+        data_ptr=None,
+        timestamp=None,
+        buffer_timestamp=None,
+        sampling_time=None,
+        channel_id=0,
+        partition_id=0,
+        timestamp_pad=0,
+        **kwargs
+    ):
         """
         Method to append data to a correlation matrix file - raises a NotImplementedError since there is no append
         mode for correlation matrix files
@@ -327,23 +422,29 @@ class CorrelationFormatFileManager(AAVSFileManager):
         """
         file_obj = None
         try:
-            file_obj = self.load_file(timestamp=timestamp, tile_id=channel_id, mode='r+')
+            file_obj = self.load_file(
+                timestamp=timestamp, tile_id=channel_id, mode="r+"
+            )
         except:
             logging.error("Error opening file in append mode")
 
         if file_obj is None:
-            file_obj = self.create_file(timestamp=timestamp, tile_id=channel_id, partition_id=partition_id)
+            file_obj = self.create_file(
+                timestamp=timestamp, tile_id=channel_id, partition_id=partition_id
+            )
 
         filename = file_obj.filename
 
-        n_chans = self.main_dset.attrs['n_chans']
-        n_baselines = self.main_dset.attrs['n_baselines']
-        n_stokes = self.main_dset.attrs['n_stokes']
-        n_samp = self.main_dset.attrs['n_samples']  # should always be 1
-        n_blocks = self.main_dset.attrs['n_blocks']
+        n_chans = self.main_dset.attrs["n_chans"]
+        n_baselines = self.main_dset.attrs["n_baselines"]
+        n_stokes = self.main_dset.attrs["n_stokes"]
+        n_samp = self.main_dset.attrs["n_samples"]  # should always be 1
+        n_blocks = self.main_dset.attrs["n_blocks"]
 
-        self.main_dset.attrs['timestamp'] = timestamp
-        self.main_dset.attrs['date_time'] = AAVSFileManager._get_date_time(timestamp=timestamp)
+        self.main_dset.attrs["timestamp"] = timestamp
+        self.main_dset.attrs["date_time"] = AAVSFileManager._get_date_time(
+            timestamp=timestamp
+        )
         corr_group = file_obj["correlation_matrix"]
         dset = corr_group["data"]
 
@@ -353,7 +454,7 @@ class CorrelationFormatFileManager(AAVSFileManager):
 
         # Copy data
         data_ptr = numpy.reshape(data_ptr, (n_chans, n_baselines, n_stokes))
-        dset[ds_last_size: ds_last_size + n_samp, :, :, :] = data_ptr
+        dset[ds_last_size : ds_last_size + n_samp, :, :, :] = data_ptr
 
         # adding timestamp per sample
         if buffer_timestamp is not None:
@@ -364,11 +465,15 @@ class CorrelationFormatFileManager(AAVSFileManager):
         padded_timestamp += timestamp_pad  # add timestamp pad from previous partitions
 
         if timestamp_pad > 0:
-            padded_timestamp = padded_timestamp - timestamp  # since it has already been added for append by the timestap_pad value
+            padded_timestamp = (
+                padded_timestamp - timestamp
+            )  # since it has already been added for append by the timestap_pad value
 
         sample_timestamps = numpy.zeros((n_samp, 1), dtype=float)
         if sampling_time not in [0, None]:
-            sample_timestamps = self.time_range(low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp)
+            sample_timestamps = self.time_range(
+                low=0, up=sampling_time * n_samp - sampling_time, leng=n_samp
+            )
             sample_timestamps += padded_timestamp
             sample_timestamps = sample_timestamps.tolist()
 
@@ -376,13 +481,15 @@ class CorrelationFormatFileManager(AAVSFileManager):
         dset = timestamp_grp["data"]
         ds_last_size = n_blocks * n_samp
         if dset.shape[0] < (n_blocks + 1) * n_samp:
-            dset.resize(dset.shape[0] + self.n_samples, axis=0)  # resize to fit new data
+            dset.resize(
+                dset.shape[0] + self.n_samples, axis=0
+            )  # resize to fit new data
 
-        dset[ds_last_size:ds_last_size + n_samp, 0] = sample_timestamps
+        dset[ds_last_size : ds_last_size + n_samp, 0] = sample_timestamps
 
         # set new number of written blocks
         n_blocks += 1
-        self.main_dset.attrs['n_blocks'] = n_blocks
+        self.main_dset.attrs["n_blocks"] = n_blocks
 
         file_obj.flush()
         self.close_file(file_obj)

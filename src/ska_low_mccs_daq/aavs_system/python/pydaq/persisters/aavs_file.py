@@ -1,26 +1,26 @@
 from __future__ import division
-from builtins import next
-from builtins import str
-from builtins import range
-from builtins import object
-from past.utils import old_div
+
 import datetime
-import h5py
 import fnmatch
+import logging
 import math
+import ntpath
 import os
 import sys
 import time
-import logging
 from abc import abstractmethod
-import ntpath
+from builtins import next, object, range, str
 
+import h5py
 from lockfile import FileLock
-from pydaq.persisters.definitions import *
+from past.utils import old_div
+
+from .definitions import *
 
 
 class PlotTypes(Enum):
-    """" An enumerated type for all the supported plot types """
+    """ " An enumerated type for all the supported plot types"""
+
     RealPart = 1
     ImagPart = 2
     Magnitude = 3
@@ -30,7 +30,7 @@ class PlotTypes(Enum):
 
 
 class AAVSFileManager(object):
-    """ A superclass for all DAQ persister operations. This class acts primarily as a file manager for AAVS data
+    """A superclass for all DAQ persister operations. This class acts primarily as a file manager for AAVS data
     files. For instance, creation, closing, opening of files (HDF5), management of partitions of the same file,
     integrity checks on files, creation and updating of metadata, as well as real-time monitoring of a DAQ directory
      for real-time plotting functionality. This class also contains method signatures for read/write/plot operations
@@ -40,7 +40,14 @@ class AAVSFileManager(object):
     # following an append operation, the next append operation will be placed in a new partition.
     FILE_SIZE_GIGABYTES = 4.0  # 0.1GB
 
-    def __init__(self, root_path=None, file_type=None, daq_mode=None, data_type=None, observation_metadata=None):
+    def __init__(
+        self,
+        root_path=None,
+        file_type=None,
+        daq_mode=None,
+        data_type=None,
+        observation_metadata=None,
+    ):
         """
         Constructor for the AAVSFileManager
         :param root_path: Directory where all file operations will take place.
@@ -52,7 +59,7 @@ class AAVSFileManager(object):
 
         # check root path and set default if no path is provided
         if root_path is None:
-            self.root_path = '.'
+            self.root_path = "."
         else:
             self.root_path = root_path
 
@@ -64,7 +71,7 @@ class AAVSFileManager(object):
         # check data type and set default if no type is provided
         if data_type is None:
             self.data_type = complex_8t
-            self.data_type_name = b'complex'
+            self.data_type_name = b"complex"
         elif data_type in list(DATA_TYPE_MAP.keys()):
             self.data_type = DATA_TYPE_MAP[data_type]
             self.data_type_name = data_type
@@ -114,8 +121,19 @@ class AAVSFileManager(object):
         pass
 
     @abstractmethod
-    def read_data(self, timestamp=0, tile_id=0, channels=None, antennas=None, polarizations=None, n_samples=0,
-                  sample_offset=0, start_ts=None, end_ts=None, **kwargs):
+    def read_data(
+        self,
+        timestamp=0,
+        tile_id=0,
+        channels=None,
+        antennas=None,
+        polarizations=None,
+        n_samples=0,
+        sample_offset=0,
+        start_ts=None,
+        end_ts=None,
+        **kwargs
+    ):
         """
         Abstract method to read data from a file for a given query. To be implemented by all subclasses. Queries can be
         done based on sample indexes, or timestamps.
@@ -135,8 +153,16 @@ class AAVSFileManager(object):
         pass
 
     @abstractmethod
-    def _append_data(self, data_ptr=None, timestamp=None, sampling_time=None, buffer_timestamp=None, tile_id=0,
-                     timestamp_pad=0, **kwargs):
+    def _append_data(
+        self,
+        data_ptr=None,
+        timestamp=None,
+        sampling_time=None,
+        buffer_timestamp=None,
+        tile_id=0,
+        timestamp_pad=0,
+        **kwargs
+    ):
         """
         Abstract method to append data to a file. To be implemented by all subclasses.
         :param data_ptr: A data array.
@@ -152,8 +178,17 @@ class AAVSFileManager(object):
         pass
 
     @abstractmethod
-    def _write_data(self, data_ptr=None, timestamp=None, buffer_timestamp=None, sampling_time=None, tile_id=0,
-                    partition_id=0, timestamp_pad=0, **kwargs):
+    def _write_data(
+        self,
+        data_ptr=None,
+        timestamp=None,
+        buffer_timestamp=None,
+        sampling_time=None,
+        tile_id=0,
+        partition_id=0,
+        timestamp_pad=0,
+        **kwargs
+    ):
         """
         Abstract method to write data to a file. To be implemented by all subclasses.
         :param data_ptr: A data array.
@@ -170,10 +205,22 @@ class AAVSFileManager(object):
         pass
 
     # TODO: Clean up redundant/unused properties.
-    def set_metadata(self, n_antennas=16, n_pols=2, n_beams=1, n_chans=512,
-                     n_samples=0, n_baselines=0, n_stokes=4, channel_id=0, station_id=0, n_blocks=0, timestamp=0,
-                     date_time="",
-                     data_mode=""):
+    def set_metadata(
+        self,
+        n_antennas=16,
+        n_pols=2,
+        n_beams=1,
+        n_chans=512,
+        n_samples=0,
+        n_baselines=0,
+        n_stokes=4,
+        channel_id=0,
+        station_id=0,
+        n_blocks=0,
+        timestamp=0,
+        date_time="",
+        data_mode="",
+    ):
         """
         A method that has to be called soon after any AAVS File Manager object is created, to let us know what config
         to be used in all subsequent operations.
@@ -271,7 +318,7 @@ class AAVSFileManager(object):
         :param date_time_string: A date/time string of the form %Y%m%d_seconds
         :return: A UNIX timestamp (seconds)
         """
-        time_parts = date_time_string.split('_')
+        time_parts = date_time_string.split("_")
         d = datetime.datetime.strptime(time_parts[0], "%Y%m%d")  # "%d/%m/%Y %H:%M:%S"
         timestamp = time.mktime(d.timetuple())
         timestamp += int(time_parts[1])
@@ -292,9 +339,11 @@ class AAVSFileManager(object):
         minutes = datetime_object.minute
         seconds = datetime_object.second
         full_seconds = seconds + (minutes * 60) + (hours * 60 * 60)
-        full_seconds_formatted = format(full_seconds, '05')
-        base_date_string = datetime.datetime.utcfromtimestamp(timestamp).strftime('%Y%m%d')
-        full_date_string = base_date_string + '_' + full_seconds_formatted
+        full_seconds_formatted = format(full_seconds, "05")
+        base_date_string = datetime.datetime.utcfromtimestamp(timestamp).strftime(
+            "%Y%m%d"
+        )
+        full_date_string = base_date_string + "_" + full_seconds_formatted
         return full_date_string
 
     @staticmethod
@@ -310,8 +359,17 @@ class AAVSFileManager(object):
         elif sys.version_info.major == 3:
             return list(range(start_idx, end_idx))
 
-    def ingest_data(self, data_ptr=None, timestamp=None, append=False, sampling_time=0,
-                    buffer_timestamp=None, tile_id=0, beam_id=0, **kwargs):
+    def ingest_data(
+        self,
+        data_ptr=None,
+        timestamp=None,
+        append=False,
+        sampling_time=0,
+        buffer_timestamp=None,
+        tile_id=0,
+        beam_id=0,
+        **kwargs
+    ):
         """
         Data ingestion operation for writing/appending.
         :param data_ptr: A data array.
@@ -326,14 +384,14 @@ class AAVSFileManager(object):
         """
 
         # for correlator files
-        if 'channel_id' in list(kwargs.keys()):
+        if "channel_id" in list(kwargs.keys()):
             if kwargs["channel_id"] is not None:
                 self.channel_id = kwargs["channel_id"]
                 if self.type == FileTypes.Correlation:
                     tile_id = self.channel_id
 
         # for stationbeam files
-        if 'station_id' in list(kwargs.keys()):
+        if "station_id" in list(kwargs.keys()):
             if kwargs["station_id"] is not None:
                 tile_id = kwargs["station_id"]
                 self.station_id = kwargs["station_id"]
@@ -343,7 +401,9 @@ class AAVSFileManager(object):
         if append:
             n_parts = self.file_partitions(timestamp=timestamp, tile_id=tile_id)
             if n_parts > 0:
-                final_timestamp = self.file_final_timestamp(timestamp=timestamp, tile_id=tile_id, partition=n_parts - 1)
+                final_timestamp = self.file_final_timestamp(
+                    timestamp=timestamp, tile_id=tile_id, partition=n_parts - 1
+                )
             else:
                 final_timestamp = 0.0
         else:
@@ -358,34 +418,42 @@ class AAVSFileManager(object):
         current_size = self.file_size(timestamp=timestamp, tile_id=tile_id)
         if current_size < self.FILE_SIZE_GIGABYTES:
             if append:
-                return self._append_data(data_ptr=data_ptr,
-                                         timestamp=timestamp,
-                                         sampling_time=sampling_time,
-                                         buffer_timestamp=buffer_timestamp,
-                                         tile_id=tile_id,
-                                         timestamp_pad=timestamp_pad,
-                                         **kwargs)
+                return self._append_data(
+                    data_ptr=data_ptr,
+                    timestamp=timestamp,
+                    sampling_time=sampling_time,
+                    buffer_timestamp=buffer_timestamp,
+                    tile_id=tile_id,
+                    timestamp_pad=timestamp_pad,
+                    **kwargs
+                )
             else:
-                return self._write_data(data_ptr=data_ptr,
-                                        timestamp=timestamp,
-                                        buffer_timestamp=buffer_timestamp,
-                                        sampling_time=sampling_time,
-                                        tile_id=tile_id,
-                                        partition_id=0,
-                                        timestamp_pad=timestamp_pad,
-                                        **kwargs)
+                return self._write_data(
+                    data_ptr=data_ptr,
+                    timestamp=timestamp,
+                    buffer_timestamp=buffer_timestamp,
+                    sampling_time=sampling_time,
+                    tile_id=tile_id,
+                    partition_id=0,
+                    timestamp_pad=timestamp_pad,
+                    **kwargs
+                )
         else:
             last_partition = self.file_partitions(timestamp=timestamp, tile_id=tile_id)
-            final_timestamp = self.file_final_timestamp(timestamp=timestamp, tile_id=tile_id)
+            final_timestamp = self.file_final_timestamp(
+                timestamp=timestamp, tile_id=tile_id
+            )
             new_partition = last_partition + 1
-            return self._write_data(data_ptr=data_ptr,
-                                    timestamp=timestamp,
-                                    buffer_timestamp=buffer_timestamp,
-                                    sampling_time=sampling_time,
-                                    tile_id=tile_id,
-                                    partition_id=new_partition,
-                                    timestamp_pad=final_timestamp + sampling_time,
-                                    **kwargs)
+            return self._write_data(
+                data_ptr=data_ptr,
+                timestamp=timestamp,
+                buffer_timestamp=buffer_timestamp,
+                sampling_time=sampling_time,
+                tile_id=tile_id,
+                partition_id=new_partition,
+                timestamp_pad=final_timestamp + sampling_time,
+                **kwargs
+            )
 
     @staticmethod
     def check_root_integrity(file_obj):
@@ -397,7 +465,7 @@ class AAVSFileManager(object):
         integrity = True
         # noinspection PyBroadException
         try:
-            file_obj.require_dataset("root", shape=(1,), dtype='float16', exact=True)
+            file_obj.require_dataset("root", shape=(1,), dtype="float16", exact=True)
             file_dset = file_obj.get("root", default=None)
             if file_dset is not None:
                 attrs_found = list(file_dset.attrs.items())
@@ -455,7 +523,7 @@ class AAVSFileManager(object):
         :return: A metadata dictionary.
         """
 
-        file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, mode='r')
+        file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, mode="r")
         metadata_dict = {}
         if file_obj:
             # noinspection PyBroadException
@@ -477,7 +545,9 @@ class AAVSFileManager(object):
                 metadata_dict["channel_id"] = self.channel_id
                 metadata_dict["station_id"] = self.station_id
                 if "observation_info" in file_obj:
-                    metadata_dict["observation_info"] = dict(file_obj["observation_info"].attrs)
+                    metadata_dict["observation_info"] = dict(
+                        file_obj["observation_info"].attrs
+                    )
                 if self.tsamp is not None:
                     metadata_dict["tsamp"] = self.tsamp
                 # metadata_dict["data_mode"] = str(self.data_mode)
@@ -498,7 +568,9 @@ class AAVSFileManager(object):
         used.
         :return:
         """
-        file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, mode='r', partition=partition)
+        file_obj = self.load_file(
+            timestamp=timestamp, tile_id=tile_id, mode="r", partition=partition
+        )
         if file_obj is not None:
             ts_end = self.ts_end
             self.close_file(file_obj=file_obj)
@@ -523,7 +595,7 @@ class AAVSFileManager(object):
             date_time = self._get_date_time(timestamp=timestamp)
 
         if tile_id is None:
-            tile_id_str = ''
+            tile_id_str = ""
         else:
             tile_id_str = str(tile_id)
 
@@ -531,19 +603,26 @@ class AAVSFileManager(object):
         if date_time is not None:
             files = next(os.walk(self.root_path))[2]
             for file_obj in files:
-                if file_obj.startswith(filename_prefix + filename_mode_prefix + tile_id_str + "_" + str(
-                        date_time) + "_") and file_obj.endswith(".hdf5"):
+                if file_obj.startswith(
+                    filename_prefix
+                    + filename_mode_prefix
+                    + tile_id_str
+                    + "_"
+                    + str(date_time)
+                    + "_"
+                ) and file_obj.endswith(".hdf5"):
                     matched_files.append(os.path.join(self.root_path, file_obj))
         else:
             files = next(os.walk(self.root_path))[2]
             for file_obj in files:
-                if file_obj.startswith(filename_prefix + filename_mode_prefix + tile_id_str) \
-                        and file_obj.endswith(".hdf5"):
+                if file_obj.startswith(
+                    filename_prefix + filename_mode_prefix + tile_id_str
+                ) and file_obj.endswith(".hdf5"):
                     file_obj_filename = ntpath.basename(file_obj)
                     if len(filename_mode_prefix) > 0:
-                        file_tile = file_obj_filename.split('_')[2]
+                        file_tile = file_obj_filename.split("_")[2]
                     else:
-                        file_tile = file_obj_filename.split('_')[1]
+                        file_tile = file_obj_filename.split("_")[1]
                     if int(file_tile) == tile_id:
                         matched_files.append(os.path.join(self.root_path, file_obj))
 
@@ -554,11 +633,11 @@ class AAVSFileManager(object):
             for file_obj in matched_files:
                 file_obj_filename = ntpath.basename(file_obj)
                 if len(filename_mode_prefix) > 0:
-                    file_time1 = file_obj_filename.split('_')[3]
-                    file_time2 = file_obj_filename.split('_')[4]
+                    file_time1 = file_obj_filename.split("_")[3]
+                    file_time2 = file_obj_filename.split("_")[4]
                 else:
-                    file_time1 = file_obj_filename.split('_')[2]
-                    file_time2 = file_obj_filename.split('_')[3]
+                    file_time1 = file_obj_filename.split("_")[2]
+                    file_time2 = file_obj_filename.split("_")[3]
                 file_time_str = file_time1 + file_time2
                 file_time = int(file_time_str)
                 if file_time > latest_file_time:
@@ -568,11 +647,11 @@ class AAVSFileManager(object):
         for file_obj in matched_files:
             file_obj_filename = ntpath.basename(file_obj)
             if len(filename_mode_prefix) > 0:
-                file_time1 = file_obj_filename.split('_')[3]
-                file_time2 = file_obj_filename.split('_')[4]
+                file_time1 = file_obj_filename.split("_")[3]
+                file_time2 = file_obj_filename.split("_")[4]
             else:
-                file_time1 = file_obj_filename.split('_')[2]
-                file_time2 = file_obj_filename.split('_')[3]
+                file_time1 = file_obj_filename.split("_")[2]
+                file_time2 = file_obj_filename.split("_")[3]
             file_time_str = file_time1 + file_time2
             file_time = int(file_time_str)
             if file_time == latest_file_time:
@@ -582,9 +661,9 @@ class AAVSFileManager(object):
         for file_obj in filtered_matched_files:
             file_obj_filename = ntpath.basename(file_obj)
             if len(filename_mode_prefix) > 0:
-                file_partition = file_obj_filename.split('_')[5]
+                file_partition = file_obj_filename.split("_")[5]
             else:
-                file_partition = file_obj_filename.split('_')[4]
+                file_partition = file_obj_filename.split("_")[4]
             file_partition = file_partition.replace(".hdf5", "")
             if int(file_partition) > largest_partition_id:
                 largest_partition_id = int(file_partition)
@@ -621,8 +700,9 @@ class AAVSFileManager(object):
 
         return total_samples
 
-    def get_file_partition_indexes_to_read_given_samples(self, timestamp=None, tile_id=0, query_samples_read=0,
-                                                         query_sample_offset=0):
+    def get_file_partition_indexes_to_read_given_samples(
+        self, timestamp=None, tile_id=0, query_samples_read=0, query_sample_offset=0
+    ):
         """
         Returns an array of the form: [{"partition":partition,"indexes":[partition_start_idx,partition_end_idx]}]
         which contains the indexes range of which partitions need to be included when reading from a set of files
@@ -635,14 +715,17 @@ class AAVSFileManager(object):
         """
 
         # get total samples
-        total_samples_in_all_files = self.get_total_samples_in_all_partitions(timestamp=timestamp, tile_id=tile_id)
+        total_samples_in_all_files = self.get_total_samples_in_all_partitions(
+            timestamp=timestamp, tile_id=tile_id
+        )
 
         if query_sample_offset < 0:  # if reading from the back
             query_sample_offset = total_samples_in_all_files + query_sample_offset
 
         if query_sample_offset + query_samples_read > total_samples_in_all_files:
             query_samples_read = query_samples_read - (
-                        (query_sample_offset + query_samples_read) - total_samples_in_all_files)
+                (query_sample_offset + query_samples_read) - total_samples_in_all_files
+            )
 
         # Get number of partitions
         nof_partitions = self.file_partitions(timestamp=timestamp, tile_id=tile_id) + 1
@@ -653,7 +736,9 @@ class AAVSFileManager(object):
 
         # Get partition number given file offset
         start_partition = old_div(query_sample_offset, samples_per_partition)
-        end_partition = old_div((query_sample_offset + query_samples_read), (samples_per_partition + 1))
+        end_partition = old_div(
+            (query_sample_offset + query_samples_read), (samples_per_partition + 1)
+        )
 
         # Check whether partitions exist
         if end_partition >= nof_partitions or start_partition >= nof_partitions:
@@ -665,7 +750,9 @@ class AAVSFileManager(object):
             self.close_file(file_obj=file_obj)
         else:
             self.close_file(file_obj=file_obj)
-            file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, partition=end_partition)
+            file_obj = self.load_file(
+                timestamp=timestamp, tile_id=tile_id, partition=end_partition
+            )
             samples_in_last_partition = self.n_samples * self.n_blocks
             self.close_file(file_obj=file_obj)
 
@@ -681,7 +768,9 @@ class AAVSFileManager(object):
             samples_passed = samples_per_partition * end_partition
         else:
             samples_passed = 0
-        end_idx_in_end_partition = query_sample_offset + query_samples_read - samples_passed
+        end_idx_in_end_partition = (
+            query_sample_offset + query_samples_read - samples_passed
+        )
 
         # if we ask for too many samples from last partition, truncate end index
         if end_idx_in_end_partition > samples_in_last_partition:
@@ -689,21 +778,35 @@ class AAVSFileManager(object):
 
         # set up partition list
         if start_partition == end_partition:
-            return [{"partition": start_partition, "indexes": [start_idx_in_start_partition, end_idx_in_end_partition]}]
+            return [
+                {
+                    "partition": start_partition,
+                    "indexes": [start_idx_in_start_partition, end_idx_in_end_partition],
+                }
+            ]
 
         partition_list = [
-            {"partition": start_partition, "indexes": [start_idx_in_start_partition, samples_per_partition]}]
+            {
+                "partition": start_partition,
+                "indexes": [start_idx_in_start_partition, samples_per_partition],
+            }
+        ]
 
         for mid_partition in range(start_partition + 1, end_partition):
             partition_list.append(
-                {"partition": start_partition, "indexes": [0, samples_per_partition]})
+                {"partition": start_partition, "indexes": [0, samples_per_partition]}
+            )
 
         if end_partition != start_partition and end_idx_in_end_partition != 0:
-            partition_list.append({"partition": end_partition, "indexes": [0, end_idx_in_end_partition]})
+            partition_list.append(
+                {"partition": end_partition, "indexes": [0, end_idx_in_end_partition]}
+            )
 
         return partition_list
 
-    def get_file_partition_indexes_to_read_given_ts(self, timestamp=None, tile_id=0, query_ts_start=0, query_ts_end=0):
+    def get_file_partition_indexes_to_read_given_ts(
+        self, timestamp=None, tile_id=0, query_ts_start=0, query_ts_end=0
+    ):
         """
         Returns an array of the form: [{"partition":partition,"indexes":[partition_start_idx,partition_end_idx]}]
         which contains the indexes range of which partitions need to be included when reading from a set of files
@@ -719,8 +822,12 @@ class AAVSFileManager(object):
         partition_list = []
 
         for partition in range(0, max_partition + 1):
-            file_obj = self.load_file(timestamp=timestamp, tile_id=tile_id, partition=partition)
-            if self.ts_start <= query_ts_end:  # we need it, so find indexes where timestamp window matches
+            file_obj = self.load_file(
+                timestamp=timestamp, tile_id=tile_id, partition=partition
+            )
+            if (
+                self.ts_start <= query_ts_end
+            ):  # we need it, so find indexes where timestamp window matches
                 nof_items = self.n_samples * self.n_blocks
                 timestamp_buffer = numpy.empty((nof_items, 1))
                 timestamp_grp = file_obj["sample_timestamps"]
@@ -729,21 +836,30 @@ class AAVSFileManager(object):
 
                 # noinspection PyBroadException
                 try:
-                    partition_start_idx = numpy.where(timestamp_buffer >= query_ts_start)[0][0]
+                    partition_start_idx = numpy.where(
+                        timestamp_buffer >= query_ts_start
+                    )[0][0]
                     # noinspection PyBroadException
                     try:
-                        partition_end_idx = (numpy.where(timestamp_buffer > query_ts_end)[0][0]) - 1
+                        partition_end_idx = (
+                            numpy.where(timestamp_buffer > query_ts_end)[0][0]
+                        ) - 1
                     except:
                         # no index, so we take all of the rest of this partition
                         partition_end_idx = timestamp_buffer.size - 1
 
-                    partition_list.append({"partition": partition, "indexes": [partition_start_idx, partition_end_idx]})
+                    partition_list.append(
+                        {
+                            "partition": partition,
+                            "indexes": [partition_start_idx, partition_end_idx],
+                        }
+                    )
                 except:
                     pass
             self.close_file(file_obj=file_obj)
         return partition_list
 
-    def load_file(self, timestamp=None, tile_id=0, mode='r', partition=None):
+    def load_file(self, timestamp=None, tile_id=0, mode="r", partition=None):
         """
         Loads a file for a particular timestamp, tile id, load mode, and particular partition.
         :param timestamp: The base timestamp for a file batch (this timestamp is part of the resolved file name that
@@ -769,26 +885,35 @@ class AAVSFileManager(object):
             date_time = self._get_date_time(timestamp=timestamp)
 
         if tile_id is None:
-            tile_id_str = ''
+            tile_id_str = ""
         else:
             tile_id_str = str(tile_id)
 
         if date_time is not None:
-            full_filename = os.path.join(self.root_path,
-                                         filename_prefix + filename_mode_prefix + tile_id_str + "_" + str(
-                                             date_time) + "_" + str(load_partition) + ".hdf5")
+            full_filename = os.path.join(
+                self.root_path,
+                filename_prefix
+                + filename_mode_prefix
+                + tile_id_str
+                + "_"
+                + str(date_time)
+                + "_"
+                + str(load_partition)
+                + ".hdf5",
+            )
 
         if date_time is None:
             matched_files = []
             files = next(os.walk(self.root_path))[2]
             for file_obj in files:
-                if file_obj.startswith(filename_prefix + filename_mode_prefix) and \
-                        file_obj.endswith('_' + str(load_partition) + ".hdf5"):
+                if file_obj.startswith(
+                    filename_prefix + filename_mode_prefix
+                ) and file_obj.endswith("_" + str(load_partition) + ".hdf5"):
                     file_obj_filename = ntpath.basename(file_obj)
                     if len(filename_mode_prefix) > 0:
-                        file_tile = file_obj_filename.split('_')[2]
+                        file_tile = file_obj_filename.split("_")[2]
                     else:
-                        file_tile = file_obj_filename.split('_')[1]
+                        file_tile = file_obj_filename.split("_")[1]
                     if int(file_tile) == tile_id:
                         matched_files.append(os.path.join(self.root_path, file_obj))
 
@@ -798,18 +923,20 @@ class AAVSFileManager(object):
                 for file_obj in matched_files:
                     file_obj_filename = ntpath.basename(file_obj)
                     if len(filename_mode_prefix) > 0:
-                        file_time1 = file_obj_filename.split('_')[3]
-                        file_time2 = file_obj_filename.split('_')[4]
+                        file_time1 = file_obj_filename.split("_")[3]
+                        file_time2 = file_obj_filename.split("_")[4]
                     else:
-                        file_time1 = file_obj_filename.split('_')[2]
-                        file_time2 = file_obj_filename.split('_')[3]
+                        file_time1 = file_obj_filename.split("_")[2]
+                        file_time2 = file_obj_filename.split("_")[3]
                     file_time_str = file_time1 + file_time2
                     file_time = int(file_time_str)
                     if file_time > latest_file_time:
                         latest_file_time = file_time
                         full_filename = file_obj
             else:
-                logging.error("No file matching arguments were found. Check data directory")
+                logging.error(
+                    "No file matching arguments were found. Check data directory"
+                )
                 return None
 
         if full_filename is not None:
@@ -819,27 +946,27 @@ class AAVSFileManager(object):
                     file_obj = self.open_file(generic_full_filename, mode=mode)
                     if AAVSFileManager.check_root_integrity(file_obj):
                         self.main_dset = file_obj["root"]
-                        self.n_antennas = self.main_dset.attrs['n_antennas']
-                        self.n_pols = self.main_dset.attrs['n_pols']
-                        self.n_beams = self.main_dset.attrs['n_beams']
-                        self.tile_id = self.main_dset.attrs['tile_id']
-                        self.n_chans = self.main_dset.attrs['n_chans']
-                        self.n_samples = self.main_dset.attrs['n_samples']
-                        self.n_blocks = self.main_dset.attrs['n_blocks']
-                        self.date_time = self.main_dset.attrs['date_time']
-                        self.ts_start = self.main_dset.attrs['ts_start']
-                        self.ts_end = self.main_dset.attrs['ts_end']
-                        self.n_baselines = self.main_dset.attrs['n_baselines']
-                        self.n_stokes = self.main_dset.attrs['n_stokes']
-                        self.channel_id = self.main_dset.attrs['channel_id']
-                        if 'nsamp' in list(self.main_dset.attrs.keys()):
-                            self.nsamp = self.main_dset.attrs['nsamp']
+                        self.n_antennas = self.main_dset.attrs["n_antennas"]
+                        self.n_pols = self.main_dset.attrs["n_pols"]
+                        self.n_beams = self.main_dset.attrs["n_beams"]
+                        self.tile_id = self.main_dset.attrs["tile_id"]
+                        self.n_chans = self.main_dset.attrs["n_chans"]
+                        self.n_samples = self.main_dset.attrs["n_samples"]
+                        self.n_blocks = self.main_dset.attrs["n_blocks"]
+                        self.date_time = self.main_dset.attrs["date_time"]
+                        self.ts_start = self.main_dset.attrs["ts_start"]
+                        self.ts_end = self.main_dset.attrs["ts_end"]
+                        self.n_baselines = self.main_dset.attrs["n_baselines"]
+                        self.n_stokes = self.main_dset.attrs["n_stokes"]
+                        self.channel_id = self.main_dset.attrs["channel_id"]
+                        if "nsamp" in list(self.main_dset.attrs.keys()):
+                            self.nsamp = self.main_dset.attrs["nsamp"]
 
-                        if 'station_id' in list(self.main_dset.attrs.keys()):
-                            self.station_id = self.main_dset.attrs['station_id']
+                        if "station_id" in list(self.main_dset.attrs.keys()):
+                            self.station_id = self.main_dset.attrs["station_id"]
 
-                        self.timestamp = self.main_dset.attrs['timestamp']
-                        self.data_type_name = self.main_dset.attrs['data_type']
+                        self.timestamp = self.main_dset.attrs["timestamp"]
+                        self.data_type_name = self.main_dset.attrs["data_type"]
                         self.data_type = DATA_TYPE_MAP[self.data_type_name]
 
                         if self.n_samples == 1:
@@ -857,7 +984,9 @@ class AAVSFileManager(object):
 
                         return file_obj
                     else:
-                        logging.error("File root integrity check failed, can't load file.")
+                        logging.error(
+                            "File root integrity check failed, can't load file."
+                        )
                         return None
                 except Exception as e:
                     logging.error(str(e))
@@ -886,50 +1015,81 @@ class AAVSFileManager(object):
             date_time = self._get_date_time(timestamp=timestamp)
 
         if tile_id is None:
-            tile_id_str = ''
+            tile_id_str = ""
         else:
             tile_id_str = str(tile_id)
 
-        full_filename = os.path.join(self.root_path, filename_prefix + filename_mode_prefix + tile_id_str + "_" +
-                                     date_time + "_" + str(partition_id) + ".hdf5")
+        full_filename = os.path.join(
+            self.root_path,
+            filename_prefix
+            + filename_mode_prefix
+            + tile_id_str
+            + "_"
+            + date_time
+            + "_"
+            + str(partition_id)
+            + ".hdf5",
+        )
 
         # Check if file exists, delete if it does (we want to create here!)
         for file_obj in os.listdir(os.path.join(self.root_path)):
-            if fnmatch.fnmatch(file_obj, os.path.join(self.root_path, filename_prefix + filename_mode_prefix +
-                                                                      tile_id_str + "_" + date_time + "_" + str(
-                partition_id) + ".hdf5")):
+            if fnmatch.fnmatch(
+                file_obj,
+                os.path.join(
+                    self.root_path,
+                    filename_prefix
+                    + filename_mode_prefix
+                    + tile_id_str
+                    + "_"
+                    + date_time
+                    + "_"
+                    + str(partition_id)
+                    + ".hdf5",
+                ),
+            ):
                 os.remove(file_obj)
 
-        first_full_filename = os.path.join(self.root_path, filename_prefix + filename_mode_prefix + tile_id_str +
-                                           "_" + date_time + "_" + str(partition_id) + ".hdf5")
+        first_full_filename = os.path.join(
+            self.root_path,
+            filename_prefix
+            + filename_mode_prefix
+            + tile_id_str
+            + "_"
+            + date_time
+            + "_"
+            + str(partition_id)
+            + ".hdf5",
+        )
 
-        file_obj = self.open_file(full_filename, 'w')
+        file_obj = self.open_file(full_filename, "w")
         os.chmod(first_full_filename, 0o776)
 
         # Create dataset with data content metadata
-        self.main_dset = file_obj.create_dataset("root", (1,), chunks=True, dtype='float16')
+        self.main_dset = file_obj.create_dataset(
+            "root", (1,), chunks=True, dtype="float16"
+        )
         self.n_blocks = 0
 
-        self.main_dset.attrs['timestamp'] = timestamp
-        self.main_dset.attrs['date_time'] = date_time
-        self.main_dset.attrs['n_antennas'] = self.n_antennas
-        self.main_dset.attrs['n_pols'] = self.n_pols
-        self.main_dset.attrs['n_beams'] = self.n_beams
-        self.main_dset.attrs['tile_id'] = tile_id if tile_id is not None else -1
-        self.main_dset.attrs['n_chans'] = self.n_chans
-        self.main_dset.attrs['n_samples'] = self.n_samples
-        self.main_dset.attrs['n_blocks'] = 0
-        self.main_dset.attrs['type'] = self.type.value
-        self.main_dset.attrs['data_type'] = self.data_type_name
-        self.main_dset.attrs['data_mode'] = self.data_mode
-        self.main_dset.attrs['ts_start'] = timestamp
-        self.main_dset.attrs['ts_end'] = timestamp
-        self.main_dset.attrs['n_baselines'] = self.n_baselines
-        self.main_dset.attrs['n_stokes'] = self.n_stokes
-        self.main_dset.attrs['channel_id'] = self.channel_id
-        self.main_dset.attrs['station_id'] = self.station_id
+        self.main_dset.attrs["timestamp"] = timestamp
+        self.main_dset.attrs["date_time"] = date_time
+        self.main_dset.attrs["n_antennas"] = self.n_antennas
+        self.main_dset.attrs["n_pols"] = self.n_pols
+        self.main_dset.attrs["n_beams"] = self.n_beams
+        self.main_dset.attrs["tile_id"] = tile_id if tile_id is not None else -1
+        self.main_dset.attrs["n_chans"] = self.n_chans
+        self.main_dset.attrs["n_samples"] = self.n_samples
+        self.main_dset.attrs["n_blocks"] = 0
+        self.main_dset.attrs["type"] = self.type.value
+        self.main_dset.attrs["data_type"] = self.data_type_name
+        self.main_dset.attrs["data_mode"] = self.data_mode
+        self.main_dset.attrs["ts_start"] = timestamp
+        self.main_dset.attrs["ts_end"] = timestamp
+        self.main_dset.attrs["n_baselines"] = self.n_baselines
+        self.main_dset.attrs["n_stokes"] = self.n_stokes
+        self.main_dset.attrs["channel_id"] = self.channel_id
+        self.main_dset.attrs["station_id"] = self.station_id
         if self.tsamp is not None:
-            self.main_dset.attrs['tsamp'] = self.tsamp
+            self.main_dset.attrs["tsamp"] = self.tsamp
 
         # Create dataset with observation related meta data
         if self.observation_metadata is not None:
@@ -950,18 +1110,18 @@ class AAVSFileManager(object):
         filename = file_obj.filename
         first_full_filename = filename
 
-        mode = file_obj.mode 
+        mode = file_obj.mode
 
-        if mode == 'w':
+        if mode == "w":
             lock = FileLock(first_full_filename)
-        
+
         file_obj.close()
-        
-        if mode == 'w':
+
+        if mode == "w":
             lock.release()
 
     @staticmethod
-    def open_file(filename, mode='r'):
+    def open_file(filename, mode="r"):
         """
         This file manager will open a file in a specific mode.
         :param filename: Filename (full path) of file to be opened.
@@ -970,7 +1130,7 @@ class AAVSFileManager(object):
         """
         first_full_filename = filename
 
-        if mode == 'w':
+        if mode == "w":
             lock = FileLock(first_full_filename)
             lock.acquire(timeout=None)
 
