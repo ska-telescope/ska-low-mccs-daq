@@ -1550,35 +1550,6 @@ class DaqReceiver:
         self._config["observation_metadata"] = metadata
 
     # ------------------------------------ HELPER FUNCTIONS ----------------------------------
-    # TODO: No longer needed?
-    # @staticmethod
-    # def _get_station_information(station_config: str) -> Dict[str, Any]:
-    #     """If a station configuration file is provided, connect to
-    #     station and get required information"""
-
-    #     # Dictionary containing required metadata
-    #     metadata = {"firmware_version": 0, "station_config": ""}
-
-    #     # Grab file content as string and save it as metadata
-    #     with open(station_config) as station_config_file:
-    #         metadata["station_config"] = station_config_file.read()
-
-    #     try:
-    #         from pyaavs import station
-
-    #         # Load station configuration file
-    #         station.load_configuration_file(station_config)
-
-    #         # Create station
-    #         aavs_station = station.Station(station.configuration)
-    #         aavs_station.connect()
-
-    #         # Get firmware version
-    #         metadata["firmware_version"] = aavs_station[0x0][0]
-    #     except Exception as e:
-    #         logging.warning("Could not get station information. Skipping. {}".format(e))
-
-    #     return metadata
 
     @staticmethod
     def _get_software_version() -> int:

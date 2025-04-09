@@ -339,12 +339,12 @@ fi
 ln -s $PWD/python/pydaq/daq_receiver.py $FILE
 chmod u+x $FILE
 
-FILE=$AAVS_BIN/station.py
-if [ -e $FILE ]; then
-  sudo rm $FILE
-fi
-ln -s $PWD/python/pyaavs/station.py $FILE
-chmod u+x $FILE
+# FILE=$AAVS_BIN/station.py
+# if [ -e $FILE ]; then
+#   sudo rm $FILE
+# fi
+# ln -s $PWD/python/pyaavs/station.py $FILE
+# chmod u+x $FILE
 
 DIR=$AAVS_INSTALL/bitfiles
 if [ -d $DIR ]; then

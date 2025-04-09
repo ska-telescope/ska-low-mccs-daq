@@ -1425,36 +1425,6 @@ def stop_daq():
         logging.info("Stopped DAQ")
 
 
-# TODO: No longer needed?
-# def get_station_information(station_config):
-#     """If a station configuration file is provided, connect to
-#     station and get required information"""
-
-#     # Dictionary containing required metadata
-#     metadata = {"firmware_version": 0, "station_config": ""}
-
-#     # Grab file content as string and save it as metadata
-#     with open(station_config) as f:
-#         metadata["station_config"] = f.read()
-
-#     try:
-#         from pyaavs import station
-
-#         # Load station configuration file
-#         station.load_configuration_file(station_config)
-
-#         # Create station
-#         aavs_station = station.Station(station.configuration)
-#         aavs_station.connect()
-
-#         # Get firmware version
-#         metadata["firmware_version"] = aavs_station[0x0][0]
-#     except Exception as e:
-#         logging.warning("Could not get station information. Skipping. {}".format(e))
-
-#     return metadata
-
-
 def get_software_version():
     """Get current software version. This will get the latest git commit hash"""
     try:
