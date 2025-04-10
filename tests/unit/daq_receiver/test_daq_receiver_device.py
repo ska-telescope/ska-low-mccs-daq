@@ -18,7 +18,7 @@ import pytest
 import pytest_mock
 import tango
 from ska_control_model import AdminMode, HealthState, ResultCode, TaskStatus
-from ska_low_mccs_daq.aavs_system.python.pydaq.daq_receiver import DaqModes
+from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
 from ska_tango_testing.mock.placeholders import Anything
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tango.server import Device, command

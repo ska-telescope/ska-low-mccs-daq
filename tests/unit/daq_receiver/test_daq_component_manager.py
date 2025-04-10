@@ -14,7 +14,7 @@ import time
 import numpy as np
 import pytest
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
-from ska_low_mccs_daq.aavs_system.python.pydaq.daq_receiver import DaqModes
+from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
 from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_spshw.daq_receiver import DaqComponentManager
