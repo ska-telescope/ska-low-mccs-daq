@@ -19,7 +19,7 @@ import pytest
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.client import DaqClient
 
-from ska_low_mccs_daq.aavs_system.python.pydaq.daq_receiver_interface import DaqModes
+from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes
 from ska_low_mccs_daq.daq_handler import DaqHandler
 
 
