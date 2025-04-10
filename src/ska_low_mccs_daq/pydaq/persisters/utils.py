@@ -1,17 +1,19 @@
-from builtins import str
-from builtins import range
-import math
 import datetime
+import math
 import time
+from builtins import range, str
+
 import numpy as np
 
 # Data type map
-FILE_NAME_MAP = {b'type': 0,
-                 b'mode': 1,
-                 b'objectid': 2,
-                 b'time1': 3,
-                 b'time2': 4,
-                 b'partition': 5}
+FILE_NAME_MAP = {
+    b"type": 0,
+    b"mode": 1,
+    b"objectid": 2,
+    b"time1": 3,
+    b"time2": 4,
+    b"partition": 5,
+}
 
 
 def complex_imaginary(value):
@@ -95,9 +97,9 @@ def get_date_time(timestamp=None):
     minutes = datetime_object.minute
     seconds = datetime_object.second
     full_seconds = seconds + (minutes * 60) + (hours * 60 * 60)
-    full_seconds_formatted = format(full_seconds, '05')
-    base_date_string = datetime.datetime.fromtimestamp(timestamp).strftime('%Y%m%d')
-    full_date_string = base_date_string + '_' + str(full_seconds_formatted)
+    full_seconds_formatted = format(full_seconds, "05")
+    base_date_string = datetime.datetime.fromtimestamp(timestamp).strftime("%Y%m%d")
+    full_date_string = base_date_string + "_" + str(full_seconds_formatted)
     return str(full_date_string)
 
 
@@ -107,7 +109,7 @@ def get_timestamp(date_time_string):
     :param date_time_string: A date/time string of the form %Y%m%d_seconds
     :return: A UNIX timestamp (seconds)
     """
-    time_parts = date_time_string.split('_')
+    time_parts = date_time_string.split("_")
     d = datetime.datetime.strptime(time_parts[0], "%Y%m%d")  # "%d/%m/%Y %H:%M:%S"
     timestamp = time.mktime(d.timetuple())
     timestamp += int(time_parts[1])
