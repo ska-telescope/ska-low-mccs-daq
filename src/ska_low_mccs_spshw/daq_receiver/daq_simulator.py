@@ -19,7 +19,7 @@ from typing import Any, Callable, Iterator, TypeVar, cast
 
 import numpy as np
 from ska_control_model import ResultCode, TaskStatus
-from ska_low_mccs_daq.aavs_system.python.pydaq.daq_receiver import DaqModes
+from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
 from ska_low_mccs_daq_interface import run_server_forever
 
 __all__ = ["DaqSimulator"]
