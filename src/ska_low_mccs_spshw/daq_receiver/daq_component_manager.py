@@ -387,13 +387,13 @@ class DaqComponentManager(TaskExecutorComponentManager):
         try:
             response = self._daq_client.initialise(configuration)
             self.logger.info(response["message"])
-            self._update_communication_state(CommunicationStatus.ESTABLISHED)
             if not self._dedicated_bandpass_daq:
                 # This causes bandpass monitoring to start/stop/start
                 # if used in conjunction with the dedicated bandpass daq
                 # flag as comms becoming established/disabled
                 # enables/disables bandpass monitoring.
                 self.restart_daq_if_active()
+            self._update_communication_state(CommunicationStatus.ESTABLISHED)
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error(
                 "Caught exception in start_communicating: %s. " + "Retrying in %s secs",
