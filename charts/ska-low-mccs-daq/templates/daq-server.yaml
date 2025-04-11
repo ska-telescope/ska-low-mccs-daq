@@ -38,6 +38,12 @@ metadata:
   name: {{$slug}}-data
   labels:
     component: {{$slug}}
+{{- if $spec.expose_data_service}}
+{{- with $spec.address_pool }}
+  annotations:
+    metallb.universe.tf/address-pool: {{.}}
+{{- end}}
+{{- end}}
 spec:
 {{- if $spec.expose_data_service}}
   type: LoadBalancer
@@ -49,6 +55,34 @@ spec:
   selector:
     component: {{$slug}}-server
 ---
+{{- if $spec.expose_data_service}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{$slug}}-serviceaccount
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{$slug}}-service-reader
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["services"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{$slug}}-binding
+subjects:
+  - kind: ServiceAccount
+    name: {{$slug}}-serviceaccount
+roleRef:
+  kind: Role
+  name: {{$slug}}-service-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+{{- end}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -73,9 +107,42 @@ spec:
 {{- if $spec.nvidia_gpu}}
       runtimeClassName: nvidia
 {{- end }}
+{{- if $spec.expose_data_service}}
+      serviceAccountName: {{$slug}}-serviceaccount
+      initContainers:
+      - name: get-load-balancer-ip
+        image: bitnami/kubectl:latest
+        volumeMounts:
+          - name: lb-ip-volume
+            mountPath: /tmp
+        command:
+          - sh
+          - -c
+          - |
+            for i in $(seq 1 30); do
+              IP="$(kubectl get svc {{$slug}}-data -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+              if [ -n "$IP" ]; then
+                echo "Found LB IP: $IP"
+                echo -n "$IP" > /tmp/external-ip
+                exit 0
+              fi
+
+              echo "No LB IP yet (attempt $i). Sleeping 1s..."
+              sleep 1
+            done
+
+            echo "ERROR: Timed out waiting for LB IP." >&2
+            exit 0
+{{- end }}
       containers:
       - command:
-        - MccsDaqServer
+        - sh
+        - -c
+        - |
+{{- if $spec.expose_data_service}}
+          export EXTERNAL_IP=$(cat /tmp/external-ip)
+{{- end }}
+          exec MccsDaqServer
         name: {{$slug}}-server
 {{- with $image}}
         image: {{.registry}}/{{.name}}:{{.tag | default $.Chart.AppVersion}}
@@ -108,12 +175,21 @@ spec:
         volumeMounts:
         - name: daq-mount
           mountPath: /product # ADR-55 requires this name
+{{- if $spec.expose_data_service}}
+        - name: lb-ip-volume
+          mountPath: /tmp
+{{- end }}
       volumes:
       - name: daq-mount
 {{- if hasKey $spec "storage"}}
         persistentVolumeClaim:
           claimName: {{$spec.storage}}
 {{- else}}
+        emptyDir:
+          medium: Memory
+{{- end }}
+{{ if $spec.expose_data_service }}
+      - name: lb-ip-volume
         emptyDir:
           medium: Memory
 {{- end }}

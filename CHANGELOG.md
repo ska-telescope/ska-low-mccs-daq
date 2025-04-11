@@ -1,6 +1,8 @@
 # Version History
 
-## unreleased
+## 1.0.2
+
+* [THORN-97] Expose LoadBalancer IP through DaqStatus if loadbalancer is present
 
 ## 1.0.1
 
