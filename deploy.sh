@@ -99,9 +99,6 @@ fi
 
 pushd third_party || exit
 
-  # Install PyFABIL
-  #pip install git+https://gitlab.com/ska-telescope/pyfabil.git@$PYFABIL_BRANCH --force-reinstall
-
   # Install DAQ
   if [[ ! -d "aavs-daq" ]]; then
     git clone https://lessju@bitbucket.org/aavslmc/aavs-daq.git

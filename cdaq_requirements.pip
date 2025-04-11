@@ -14,7 +14,6 @@ matplotlib
 scipy
 mongoengine
 pymongo
-slacker
 singleton_decorator
 tabulate
 psutil
