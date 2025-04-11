@@ -16,7 +16,7 @@ url = 'https://pypi.org/simple'
 
 [tool.poetry.dependencies]
 pyfabil = { git = "https://gitlab.com/ska-telescope/pyfabil.git", tag = "2.1.0" }
-python = "~3.10"
+python = "^3.10"
 future = "^0.18.2"
 numpy = "^1.23.0"
 PyYAML = "^6.0"
