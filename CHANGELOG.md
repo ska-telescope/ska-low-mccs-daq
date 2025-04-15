@@ -1,5 +1,9 @@
 # Version History
 
+## 2.0.1
+
+* [SKB-827] Fixed a memory leak in StationData.cpp. The DoubleBuffer was cleaning up the incorrect number of buffers.
+
 ## 2.0.0
 
 * [THORN-110] Pull aavs-system code in to its new home. We now don't clone aavs-system and instead use the copied code when building the image. Changes should be transparent to users. Relax python version requirements.
