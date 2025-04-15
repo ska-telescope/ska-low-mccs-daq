@@ -108,6 +108,7 @@ def daq_component_manager_fixture(
         "",
         test_context.get_daq_server_address(daq_id),
         "",
+        1,
         skuid_url,
         logger,
         callbacks["communication_state"],
