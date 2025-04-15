@@ -48,6 +48,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         receiver_ports: str,
         daq_address: str,
         consumers_to_start: str,
+        nof_tiles: int,
         skuid_url: str,
         logger: logging.Logger,
         communication_state_callback: Callable[[CommunicationStatus], None],
@@ -67,6 +68,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             This is dependent on the communication mechanism used.
             For gRPC, this is the channel.
         :param consumers_to_start: The default consumers to be started.
+        :param nof_tiles: The number of tiles this DAQ will receive data from.
         :param skuid_url: The address at which a SKUID service is running.
         :param logger: the logger to be used by this object.
         :param communication_state_callback: callback to be
@@ -90,7 +92,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._receiver_started: bool = False
         self._daq_id = str(daq_id).zfill(3)
         self._dedicated_bandpass_daq = dedicated_bandpass_daq
-        self._configuration = {}
+        self._configuration: dict[str, Any] = {"nof_tiles": nof_tiles}
         if receiver_interface:
             self._configuration["receiver_interface"] = receiver_interface
         if receiver_ip:
@@ -385,13 +387,13 @@ class DaqComponentManager(TaskExecutorComponentManager):
         try:
             response = self._daq_client.initialise(configuration)
             self.logger.info(response["message"])
-            self._update_communication_state(CommunicationStatus.ESTABLISHED)
             if not self._dedicated_bandpass_daq:
                 # This causes bandpass monitoring to start/stop/start
                 # if used in conjunction with the dedicated bandpass daq
                 # flag as comms becoming established/disabled
                 # enables/disables bandpass monitoring.
                 self.restart_daq_if_active()
+            self._update_communication_state(CommunicationStatus.ESTABLISHED)
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error(
                 "Caught exception in start_communicating: %s. " + "Retrying in %s secs",
@@ -857,7 +859,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 return uid
             except Exception as e:  # pylint: disable=broad-except
                 # Usually when SKUID isn't available.
-                self.logger.warn(
+                self.logger.warning(
                     "Could not retrieve scan_id from SKUID: %s. "
                     "Using a locally produced scan_id.",
                     e,
@@ -879,7 +881,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 return uid
             except Exception as e:  # pylint: disable=broad-except
                 # Usually when SKUID isn't available.
-                self.logger.warn(
+                self.logger.warning(
                     "Could not retrieve eb_id from SKUID: %s. "
                     "Using a locally produced eb_id.",
                     e,
