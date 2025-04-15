@@ -16,11 +16,11 @@ from unittest.mock import Mock
 import numpy as np
 import psutil  # type: ignore
 import pytest
-from pydaq.daq_receiver_interface import DaqModes
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.client import DaqClient
 
 from ska_low_mccs_daq.daq_handler import DaqHandler
+from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes
 
 
 class TestDaqHandler:

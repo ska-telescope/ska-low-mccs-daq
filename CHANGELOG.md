@@ -4,6 +4,10 @@
 
 * [THORN-97] Expose LoadBalancer IP through DaqStatus if loadbalancer is present
 
+## 1.0.2
+
+* [THORN-110] Pull aavs-system code in to its new home. We now don't clone aavs-system and instead use the copied code when building the image. Changes should be transparent to users. Relax python version requirements.
+
 ## 1.0.1
 
 * [SKB-799] Pull fix in aavs system to DAQ
