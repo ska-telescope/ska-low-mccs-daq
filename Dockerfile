@@ -63,7 +63,6 @@ RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 RUN mkdir /app/aavs-system/ && mkdir /app/aavs-system/pydaq && mkdir /app/aavs-system/cdaq
 COPY /src/ska_low_mccs_daq/pydaq  /app/aavs-system/pydaq/
 COPY /src/ska_low_mccs_daq/cdaq /app/aavs-system/cdaq/
-#COPY /src/ska_low_mccs_daq/cdaq_requirements.pip /app/aavs-system/
 COPY deploy.sh cdaq_requirements.pip /app/aavs-system/
 WORKDIR /app/aavs-system
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]

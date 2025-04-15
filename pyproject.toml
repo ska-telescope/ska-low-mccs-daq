@@ -82,6 +82,7 @@ source = ["src"]
 
 [tool.coverage.run]
 data_file = ".coverage/.coverage"
+omit = ["src/ska_low_mccs_daq/cdaq/*", "src/ska_low_mccs_daq/pydaq/*"]
 branch = true
 source = ["ska_low_mccs_daq"]
 
