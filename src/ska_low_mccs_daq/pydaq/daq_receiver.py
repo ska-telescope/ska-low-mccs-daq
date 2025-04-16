@@ -14,8 +14,8 @@ from enum import IntEnum
 import numpy as np
 import yaml
 
-from .interface import *
-from .persisters import *
+from ska_low_mccs_daq.pydaq.interface import *
+from ska_low_mccs_daq.pydaq.persisters import *
 
 
 # Define consumer types enum
