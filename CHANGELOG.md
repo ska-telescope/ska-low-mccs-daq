@@ -1,5 +1,10 @@
 # Version History
 
+## 2.0.1
+
+* [JANUS-142] Fixed imports in daq_plotter and daq_receiver required for CLI usage
+* [SPRTS-260] Fixed issue with pydaq not locking hdf5 files introduced in bug fix AAVS-System release 2.1.4
+
 ## 2.0.0
 
 * [THORN-110] Pull aavs-system code in to its new home. We now don't clone aavs-system and instead use the copied code when building the image. Changes should be transparent to users. Relax python version requirements.
