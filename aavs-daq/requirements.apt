@@ -1,0 +1,15 @@
+g++
+cmake
+git
+python-setuptools
+python-dev
+python-pip
+pkg-config
+libhdf5-dev
+libpng-dev
+libfreetype6-dev
+libnuma-dev
+subversion
+python-tk
+hdfview
+cython
