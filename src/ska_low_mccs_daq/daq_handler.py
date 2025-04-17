@@ -192,6 +192,7 @@ class DaqHandler:
         self._monitoring_bandpass: bool = False
         self.logger = logging.getLogger("daq-server")
         self.logger.setLevel("DEBUG")
+        logging.basicConfig(level="DEBUG")
         self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
