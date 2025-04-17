@@ -262,13 +262,13 @@ StationDoubleBuffer::StationDoubleBuffer(uint16_t nof_channels, uint32_t nof_sam
         nof_channels(nof_channels), nof_samples(nof_samples), nof_pols(nof_pols), nof_buffers(nbuffers)
 {
     // Make sure that nof_buffers is a power of 2
-    nbuffers = (uint8_t) pow(2, ceil(log2(nbuffers)));
+    nof_buffers = (uint8_t) pow(2, ceil(log2(nof_buffers)));
 
     // Allocate the double buffer
-    allocate_aligned((void **) &double_buffer, (size_t) CACHE_ALIGNMENT, nbuffers * sizeof(StationBuffer));
+    allocate_aligned((void **) &double_buffer, (size_t) CACHE_ALIGNMENT, nof_buffers * sizeof(StationBuffer));
 
     // Initialise and allocate buffers in each struct instance
-    for(unsigned i = 0; i < nbuffers; i++)
+    for(unsigned i = 0; i < nof_buffers; i++)
     {
         double_buffer[i].ref_time     = 0;
         double_buffer[i].ready        = false;
