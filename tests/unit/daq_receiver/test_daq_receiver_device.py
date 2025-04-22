@@ -18,12 +18,13 @@ import pytest
 import pytest_mock
 import tango
 from ska_control_model import AdminMode, HealthState, ResultCode, TaskStatus
+from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
 from ska_tango_testing.mock.placeholders import Anything
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tango.server import Device, command
 
 from ska_low_mccs_spshw import MccsDaqReceiver
-from ska_low_mccs_spshw.daq_receiver.daq_simulator import DaqModes, convert_daq_modes
+from ska_low_mccs_spshw.daq_receiver.daq_simulator import convert_daq_modes
 from tests.functional.conftest import (
     poll_until_command_result,
     poll_until_consumers_running,
