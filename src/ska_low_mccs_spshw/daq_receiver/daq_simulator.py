@@ -15,11 +15,11 @@ import functools
 import json
 import os
 import time
-from enum import IntEnum
 from typing import Any, Callable, Iterator, TypeVar, cast
 
 import numpy as np
 from ska_control_model import ResultCode, TaskStatus
+from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
 from ska_low_mccs_daq_interface import run_server_forever
 
 __all__ = ["DaqSimulator"]
@@ -73,22 +73,6 @@ def check_initialisation(func: Wrapped) -> Wrapped:
         return func(self, *args, **kwargs)
 
     return cast(Wrapped, _wrapper)
-
-
-# TODO: Redefined for now, to avoid having to import from pydaq.
-# This really should not be exposed through the control interface at all.
-class DaqModes(IntEnum):
-    """Data acquisition modes."""
-
-    RAW_DATA = 0
-    CHANNEL_DATA = 1
-    BEAM_DATA = 2
-    CONTINUOUS_CHANNEL_DATA = 3
-    INTEGRATED_BEAM_DATA = 4
-    INTEGRATED_CHANNEL_DATA = 5
-    STATION_BEAM_DATA = 6
-    CORRELATOR_DATA = 7
-    ANTENNA_BUFFER = 8
 
 
 def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
