@@ -58,7 +58,7 @@ def get_tile_name(tile_id: int, station_label: str | None = None) -> str:
     return f"low-mccs/tile/{station_label or DEFAULT_STATION_LABEL}-tpm{tile_id:02}"
 
 
-def get_daq_name(station_label: str | None = None) -> str:
+def get_lmc_daq_name(station_label: str | None = None) -> str:
     """
     Construct the DAQ Tango device name from its ID number.
 
@@ -68,6 +68,18 @@ def get_daq_name(station_label: str | None = None) -> str:
     :return: the DAQ Tango device name
     """
     return f"low-mccs/daqreceiver/{station_label or DEFAULT_STATION_LABEL}"
+
+
+def get_bandpass_daq_name(station_label: str | None = None) -> str:
+    """
+    Construct the DAQ Tango device name from its ID number.
+
+    :param station_label: name of the station under test.
+        Defaults to None, in which case the module default is used.
+
+    :return: the DAQ Tango device name
+    """
+    return f"low-mccs/daqreceiver/{station_label or DEFAULT_STATION_LABEL}-bandpass"
 
 
 class SpsTangoTestHarnessContext:
@@ -144,7 +156,7 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the DAQ receiver Tango device.
         """
-        device_name = get_daq_name(self._station_label)
+        device_name = get_lmc_daq_name(self._station_label)
         device_proxy = self._tango_context.get_device(device_name)
 
         # TODO: This should simply be
@@ -200,7 +212,8 @@ class SpsTangoTestHarness:
         sdn_gateway: str = "10.0.0.254",
         subrack_ids: Iterable[int] = range(1, 3),
         tile_ids: Iterable[int] = range(1, 17),
-        daq_trl: str = "",
+        lmc_daq_trl: str = "",
+        bandpass_daq_trl: str = "",
         logging_level: int = int(LoggingLevel.DEBUG),
         device_class: type[Device] | str = "ska_low_mccs_spshw.SpsStation",
     ) -> None:
@@ -214,7 +227,8 @@ class SpsTangoTestHarness:
         :param sdn_gateway: the IP address of the SDN gateway
         :param subrack_ids: IDs of the subracks in this station.
         :param tile_ids: IDS of the tiles in this station.
-        :param daq_trl: TRL of this Station's DAQ.
+        :param lmc_daq_trl: TRL of this Station's LMC DAQ.
+        :param bandpass_daq_trl: TRL of this Station's Bandpass DAQ.
         :param logging_level: the Tango device's default logging level.
         :param device_class: The device class to use.
             This may be used to override the usual device class,
@@ -224,7 +238,8 @@ class SpsTangoTestHarness:
             get_sps_station_name(self._station_label),
             device_class,
             StationId=1,
-            DaqTRL=daq_trl,
+            LMCDaqTRL=lmc_daq_trl,
+            BandpassDaqTRL=bandpass_daq_trl,
             TileFQDNs=[
                 get_tile_name(tile_id, station_label=self._station_label)
                 for tile_id in tile_ids
@@ -373,17 +388,34 @@ class SpsTangoTestHarness:
             get_tile_name(tile_id, station_label=self._station_label), mock
         )
 
-    def add_mock_daq_device(
+    def add_mock_lmc_daq_device(
         self: SpsTangoTestHarness,
         mock: unittest.mock.Mock,
+        bandpass: bool = False,
     ) -> None:
         """
         Add a mock daq Tango device to this test harness.
 
         :param mock: the mock to be used as a mock daq device.
+        :param bandpass: whether this is a bandpass DAQ.
         """
         self._tango_test_harness.add_mock_device(
-            get_daq_name(self._station_label), mock
+            get_lmc_daq_name(self._station_label), mock
+        )
+
+    def add_mock_bandpass_daq_device(
+        self: SpsTangoTestHarness,
+        mock: unittest.mock.Mock,
+        bandpass: bool = False,
+    ) -> None:
+        """
+        Add a mock daq Tango device to this test harness.
+
+        :param mock: the mock to be used as a mock daq device.
+        :param bandpass: whether this is a bandpass DAQ.
+        """
+        self._tango_test_harness.add_mock_device(
+            get_bandpass_daq_name(self._station_label), mock
         )
 
     def set_daq_instance(
@@ -391,7 +423,7 @@ class SpsTangoTestHarness:
         daq_instance: DaqServerBackendProtocol | None = None,
         receiver_interface: str = "eth0",
         receiver_ip: str = "172.17.0.230",
-        receiver_ports: str | None = None,
+        receiver_ports: int = 4660,
     ) -> None:
         """
         And a DAQ instance to the test harness.
@@ -413,9 +445,6 @@ class SpsTangoTestHarness:
         # pylint: disable-next=import-outside-toplevel
         from ska_low_mccs_spshw.daq_receiver.daq_simulator import DaqSimulator
 
-        if receiver_ports is None:
-            receiver_ports = "[4660]"
-
         if daq_instance is None:
             daq_instance = DaqSimulator(
                 receiver_interface=receiver_interface,
@@ -428,7 +457,7 @@ class SpsTangoTestHarness:
             server_context(daq_instance, 0),
         )
 
-    def set_daq_device(  # pylint: disable=too-many-arguments
+    def set_lmc_daq_device(  # pylint: disable=too-many-arguments
         self: SpsTangoTestHarness,
         daq_id: int,
         address: tuple[str, int] | None,
@@ -465,7 +494,54 @@ class SpsTangoTestHarness:
             (host, port) = address
 
         self._tango_test_harness.add_device(
-            get_daq_name(self._station_label),
+            get_lmc_daq_name(self._station_label),
+            device_class,
+            DaqId=daq_id,
+            Host=host,
+            Port=port,
+            ConsumersToStart=consumers_to_start,
+            LoggingLevelDefault=logging_level,
+            ParentTRL=get_sps_station_name(self._station_label),
+        )
+
+    def set_bandpass_daq_device(  # pylint: disable=too-many-arguments
+        self: SpsTangoTestHarness,
+        daq_id: int,
+        address: tuple[str, int] | None,
+        consumers_to_start: list[str] | None = None,
+        logging_level: int = int(LoggingLevel.DEBUG),
+        device_class: type[Device] | str = "ska_low_mccs_spshw.MccsDaqReceiver",
+    ) -> None:
+        """
+        Add a DAQ Tango device to the test harness.
+
+        :param daq_id: An ID number for the DAQ.
+        :param address: address of the DAQ instance
+            to be monitored and controlled by this Tango device.
+            It is a tuple of hostname or IP address, and port.
+        :param consumers_to_start: list of consumers to start.
+        :param logging_level: the Tango device's default logging level.
+        :param device_class: The device class to use.
+            This may be used to override the usual device class,
+            for example with a patched subclass.
+        """
+        port: Callable[[dict[str, Any]], int] | int  # for the type checker
+
+        if consumers_to_start is None:
+            consumers_to_start = ["DaqModes.INTEGRATED_CHANNEL_DATA"]
+
+        if address is None:
+            server_id = "daq"
+            host = "localhost"
+
+            def port(context: dict[str, Any]) -> int:
+                return context[server_id]
+
+        else:
+            (host, port) = address
+
+        self._tango_test_harness.add_device(
+            get_bandpass_daq_name(self._station_label),
             device_class,
             DaqId=daq_id,
             Host=host,

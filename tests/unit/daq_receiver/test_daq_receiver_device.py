@@ -399,7 +399,7 @@ class TestPatchedDaq:
         """
         test_harness = SpsTangoTestHarness()
         test_harness.set_daq_instance()
-        test_harness.set_daq_device(
+        test_harness.set_lmc_daq_device(
             daq_id, address=None, device_class=device_class_under_test
         )  # dynamically get DAQ address
         with test_harness as test_context:
