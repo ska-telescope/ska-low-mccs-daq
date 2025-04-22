@@ -112,7 +112,7 @@ class DaqSimulator:
 
     def __init__(
         self: DaqSimulator,
-        **extra_config: str,
+        **extra_config: str | int,
     ):
         """
         Initialise this device.
@@ -288,7 +288,7 @@ class DaqSimulator:
         return {
             "Running Consumers": running_consumers,
             "Receiver Interface": self._config.get("receiver_interface", 0),
-            "Receiver Ports": self._config.get("receiver_ports", ""),
+            "Receiver Ports": [self._config.get("receiver_ports", 4660)],
             "Receiver IP": [self._config.get("receiver_ip", "")],
             "Bandpass Monitor": self._monitoring_bandpass,
         }
