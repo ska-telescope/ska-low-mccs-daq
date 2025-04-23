@@ -1691,7 +1691,7 @@ class DaqReceiver:
         if "DAQ_INSTALL" in list(os.environ.keys()):
             # Check if library is in install directory
             if os.path.exists(
-                "%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so.so")
+                "%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so")
             ):
                 _library = "%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so")
                 library_found = True
