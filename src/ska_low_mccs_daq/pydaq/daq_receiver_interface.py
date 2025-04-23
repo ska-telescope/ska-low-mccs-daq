@@ -7,6 +7,7 @@ import struct
 import threading
 from ctypes.util import find_library
 from enum import IntEnum
+from git import Repo
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
@@ -1555,19 +1556,8 @@ class DaqReceiver:
     def _get_software_version() -> int:
         """Get current software version. This will get the latest git commit hash"""
         try:
-
-            if "AAVS_SOFTWARE_DIRECTORY" not in os.environ:
-                logging.error(
-                    "AAVS_SOFTWARE_DIRECTORY not defined, cannot write software version"
-                )
-                return 0x0
-
-            path = os.path.expanduser(os.environ["AAVS_SOFTWARE_DIRECTORY"])
-
-            import git
-
-            repo = git.Repo(path)
-            return repo.head.object.hexsha
+            repo = Repo(search_parent_directories=True)
+            return repo.head.commit.hexsha
         except Exception:
             logging.warning("Could not get software git hash. Skipping")
             return 0
