@@ -1,5 +1,9 @@
 # Version History
 
+## 2.0.2
+
+* [JANUS-146] Fix Error Message "AAVS_SOFTWARE_DIRECTORY not defined"
+
 ## 2.0.1
 
 * [JANUS-142] Fixed imports in daq_plotter and daq_receiver required for CLI usage

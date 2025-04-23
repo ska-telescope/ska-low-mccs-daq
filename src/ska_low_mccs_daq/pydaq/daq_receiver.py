@@ -8,6 +8,7 @@ import socket
 import struct
 import threading
 import time
+from git import Repo
 from builtins import input
 from enum import IntEnum
 
@@ -1427,20 +1428,11 @@ def stop_daq():
 
 def get_software_version():
     """Get current software version. This will get the latest git commit hash"""
+
     try:
+        repo = Repo(search_parent_directories=True)
+        return repo.head.commit.hexsha
 
-        if "AAVS_SOFTWARE_DIRECTORY" not in os.environ:
-            logging.error(
-                "AAVS_SOFTWARE_DIRECTORY not defined, cannot write software version"
-            )
-            return 0x0
-
-        path = os.path.expanduser(os.environ["AAVS_SOFTWARE_DIRECTORY"])
-
-        import git
-
-        repo = git.Repo(path)
-        return repo.head.object.hexsha
     except Exception as e:
         logging.warning("Could not get software git hash. Skipping")
         return 0
