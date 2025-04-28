@@ -150,10 +150,16 @@ class DaqHandler:
         "nof_beam_samples": 42,
         "nof_beam_channels": 384,
         "nof_station_samples": 262144,
+        "integrated_channel_bitwidth": 16,
+        "continuous_channel_bitwidth": 16,
+        "persist_all_buffers": True,
         "append_integrated": True,
         "sampling_time": 1.1325,
         "sampling_rate": (800e6 / 2.0) * (32.0 / 27.0) / 512.0,
         "oversampling_factor": 32.0 / 27.0,
+        "receiver_ports": "4660",
+        "receiver_interface": "eth0",
+        "receiver_ip": "",
         "receiver_frame_size": 8500,
         "receiver_frames_per_block": 32,
         "receiver_nof_blocks": 256,
@@ -166,7 +172,12 @@ class DaqHandler:
         "max_filesize": None,
         "acquisition_duration": -1,
         "acquisition_start_time": -1,
+        "station_beam_source": "",
+        "station_beam_start_channel": 0,
+        "station_beam_dada": False,
+        "station_beam_individual_channels": False,
         "description": "",
+        "daq_library": None,
         "observation_metadata": {},  # This is populated automatically
     }
 
@@ -318,6 +329,7 @@ class DaqHandler:
                 self.logger.info(
                     "Configuring before initialising with: %s", self._config
                 )
+                print(f"Configuring before initialising with: {self._config}")
                 self.daq_instance.populate_configuration(self._config)
                 self.logger.info("Initialising daq.")
                 self.daq_instance.initialise_daq()
@@ -417,6 +429,7 @@ class DaqHandler:
         :return: a resultcode, message tuple
         """
         self.logger.info("Configuring daq with: %s", config)
+        print(f"Configuring daq with: {config}")
         assert self.daq_instance is not None
         try:
             if not config:
@@ -444,6 +457,7 @@ class DaqHandler:
         # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(f"Caught exception in DaqHandler.configure: {e}")
+            print(f"Caught exception in DaqHandler.configure: {e}")
             return ResultCode.FAILED, f"Caught exception: {e}"
 
     @check_initialisation
