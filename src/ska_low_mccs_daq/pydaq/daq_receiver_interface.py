@@ -7,6 +7,7 @@ import struct
 import threading
 from ctypes.util import find_library
 from enum import IntEnum
+from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
@@ -14,6 +15,8 @@ import yaml
 
 from .persisters import *
 from .persisters import aavs_file, complex_8t, complex_16t
+
+print = partial(print, flush=True)
 
 
 # Define consumer type Enums
@@ -1472,7 +1475,8 @@ class DaqReceiver:
     def populate_configuration(self, configuration: Dict[str, Any]) -> None:
         """Generate instance configuration object
         :param configuration: Configuration parameters"""
-
+        print(f"IN CONFIG WITH NEW CONFIG: {configuration=}")
+        print(f"IN CONFIG WITH CURRENT CONFIG: {self._config=}")
         # Check whether configuration object is a dictionary
         import optparse
 
@@ -1490,7 +1494,7 @@ class DaqReceiver:
         # Apply configuration
         for k, v in list(configuration.items()):
             self._config[k] = v
-
+        print(f"IN CONFIG WITH COMBINED CONFIG: {self._config=}")
         # Check if data directory exists
         if not os.path.exists(self._config["directory"]):
             if self._config["logging"]:
