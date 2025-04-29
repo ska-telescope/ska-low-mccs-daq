@@ -1,5 +1,9 @@
 # Version History
 
+## 2.0.3
+
+* [JANUS-153] Fix to typo in daq_receiver_interface
+
 ## 2.0.2
 
 * [JANUS-146] Fix Error Message "AAVS_SOFTWARE_DIRECTORY not defined"
