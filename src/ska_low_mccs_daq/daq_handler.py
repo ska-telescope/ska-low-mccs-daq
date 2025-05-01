@@ -429,9 +429,8 @@ class DaqHandler:
         :return: a resultcode, message tuple
         """
         self.logger.info("Configuring daq with: %s", config)
-        print(f"Configuring daq with: {config}")
-        assert self.daq_instance is not None
         try:
+            assert self.daq_instance is not None
             if not config:
                 self.logger.error(
                     "Daq was not reconfigured, no config data supplied."
@@ -457,7 +456,6 @@ class DaqHandler:
         # pylint: disable=broad-except
         except Exception as e:
             self.logger.error(f"Caught exception in DaqHandler.configure: {e}")
-            print(f"Caught exception in DaqHandler.configure: {e}")
             return ResultCode.FAILED, f"Caught exception: {e}"
 
     @check_initialisation
