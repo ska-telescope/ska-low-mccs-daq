@@ -45,6 +45,15 @@ def get_subrack_name(subrack_id: int, station_label: str | None = None) -> str:
     return f"low-mccs/subrack/{station_label or DEFAULT_STATION_LABEL}-sr{subrack_id}"
 
 
+def get_pdu_name() -> str:
+    """
+    Construct the pdu Tango device name .
+
+    :return: the pdu Tango device name
+    """
+    return "low-mccs/pdu/ci-1"
+
+
 def get_tile_name(tile_id: int, station_label: str | None = None) -> str:
     """
     Construct the tile Tango device name from its ID number.
@@ -318,6 +327,7 @@ class SpsTangoTestHarness:
             device_class,
             SubrackIp=host,
             SubrackPort=port,
+            PduTrl=get_pdu_name(),
             UpdateRate=update_rate,
             LoggingLevelDefault=logging_level,
             ParentTRL=get_sps_station_name(self._station_label),
