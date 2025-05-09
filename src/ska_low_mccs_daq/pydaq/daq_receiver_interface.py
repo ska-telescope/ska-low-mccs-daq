@@ -1585,10 +1585,8 @@ class DaqReceiver:
 
         if level == self.LogLevel.Fatal.value:
             logging.fatal(message)
-            sys.exit()
         elif level == self.LogLevel.Error.value:
             logging.error(message)
-            sys.exit()
         elif level == self.LogLevel.Warning.value:
             logging.warning(message)
         elif level == self.LogLevel.Info.value:

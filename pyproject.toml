@@ -23,7 +23,6 @@ ska-control-model = "^1.0.0"
 # ska-low-mccs-daq-interface = "^1.0.0"
 ska-low-mccs-daq-interface = {git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface/", branch="skb-854"}
 singleton-decorator = "1.0.0"
-# slacker = "0.14.0"
 h5py = "^3.12.1"
 lockfile = "0.12.2"
 matplotlib = "^3.9.2"
