@@ -1112,12 +1112,12 @@ class AAVSFileManager(object):
 
         mode = file_obj.mode
 
-        if mode == "w":
+        if mode != "r":
             lock = FileLock(first_full_filename)
 
         file_obj.close()
 
-        if mode == "w":
+        if mode != "r":
             lock.release()
 
     @staticmethod
@@ -1130,7 +1130,7 @@ class AAVSFileManager(object):
         """
         first_full_filename = filename
 
-        if mode == "w":
+        if mode != "r":
             lock = FileLock(first_full_filename)
             lock.acquire(timeout=None)
 

@@ -7,16 +7,14 @@ import struct
 import threading
 from ctypes.util import find_library
 from enum import IntEnum
-from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
 import yaml
+from git import Repo
 
 from .persisters import *
 from .persisters import aavs_file, complex_8t, complex_16t
-
-print = partial(print, flush=True)
 
 
 # Define consumer type Enums
@@ -1475,8 +1473,6 @@ class DaqReceiver:
     def populate_configuration(self, configuration: Dict[str, Any]) -> None:
         """Generate instance configuration object
         :param configuration: Configuration parameters"""
-        print(f"IN CONFIG WITH NEW CONFIG: {configuration=}")
-        print(f"IN CONFIG WITH CURRENT CONFIG: {self._config=}")
         # Check whether configuration object is a dictionary
         import optparse
 
@@ -1494,7 +1490,6 @@ class DaqReceiver:
         # Apply configuration
         for k, v in list(configuration.items()):
             self._config[k] = v
-        print(f"IN CONFIG WITH COMBINED CONFIG: {self._config=}")
         # Check if data directory exists
         if not os.path.exists(self._config["directory"]):
             if self._config["logging"]:
@@ -1559,19 +1554,8 @@ class DaqReceiver:
     def _get_software_version() -> int:
         """Get current software version. This will get the latest git commit hash"""
         try:
-
-            if "AAVS_SOFTWARE_DIRECTORY" not in os.environ:
-                logging.error(
-                    "AAVS_SOFTWARE_DIRECTORY not defined, cannot write software version"
-                )
-                return 0x0
-
-            path = os.path.expanduser(os.environ["AAVS_SOFTWARE_DIRECTORY"])
-
-            import git
-
-            repo = git.Repo(path)
-            return repo.head.object.hexsha
+            repo = Repo(search_parent_directories=True)
+            return repo.head.commit.hexsha
         except Exception:
             logging.warning("Could not get software git hash. Skipping")
             return 0
@@ -1704,9 +1688,7 @@ class DaqReceiver:
         library_found = False
         if "DAQ_INSTALL" in list(os.environ.keys()):
             # Check if library is in install directory
-            if os.path.exists(
-                "%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so.so")
-            ):
+            if os.path.exists("%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so")):
                 _library = "%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so")
                 library_found = True
 
