@@ -1,5 +1,9 @@
 # Version History
 
+## 2.0.4
+
+* [THORN-160] Re-add methods that were omitted during the repo reshuffle.
+
 ## 2.0.3
 
 * [JANUS-153] Fix to typo in daq_receiver_interface
