@@ -151,9 +151,7 @@ class SpsTangoTestHarnessContext:
 
         :returns: a proxy to the tile Tango device.
         """
-        return self._tango_context.get_device(
-            get_pdu_name()
-        )
+        return self._tango_context.get_device(get_pdu_name())
 
     def get_tile_device(
         self: SpsTangoTestHarnessContext, tile_id: int
@@ -364,7 +362,6 @@ class SpsTangoTestHarness:
             This may be used to override the usual device class,
             for example with a patched subclass.
         """
-
         self._tango_test_harness.add_device(
             get_pdu_name(),
             device_class,
