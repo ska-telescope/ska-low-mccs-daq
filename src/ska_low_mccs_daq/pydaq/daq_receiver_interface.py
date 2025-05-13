@@ -1553,6 +1553,20 @@ class DaqReceiver:
     # ------------------------------------ HELPER FUNCTIONS ----------------------------------
 
     @staticmethod
+    def _get_station_information(station_config):
+        """If a station configuration file is provided, connect to
+        station and get required information"""
+
+        # Dictionary containing required metadata
+        logging.warning("Firmware version metadata is not available in standalone mode.")
+        metadata = {"firmware_version": 0, "station_config": ""}
+
+        # Grab file content as string and save it as metadata
+        with open(station_config) as f:
+            metadata["station_config"] = f.read()
+        return metadata
+
+    @staticmethod
     def _get_software_version() -> int:
         """Get current software version. This will get the latest git commit hash"""
         try:
