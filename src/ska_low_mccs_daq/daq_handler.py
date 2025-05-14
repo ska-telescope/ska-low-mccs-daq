@@ -193,7 +193,7 @@ class DaqHandler:
         print("Initialising DAQ handler with extra config:")
         pprint.pprint(extra_config)
 
-        self._external_ip_override = extra_config.pop("external_ip", None)
+        self._external_ip_override = extra_config.get("external_ip", None)
         self._config = self.CONFIG_DEFAULTS | extra_config
 
         self.daq_instance: DaqReceiver | None = None
