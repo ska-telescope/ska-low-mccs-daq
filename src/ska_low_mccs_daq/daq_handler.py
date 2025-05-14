@@ -191,7 +191,8 @@ class DaqHandler:
         :param extra_config: keyword args providing extra configuration.
         """
         self._external_ip_override = extra_config.pop("external_ip", None)
-        extra_config.update(receiver_ip=self._external_ip_override)
+        if self._external_ip_override:
+            extra_config.update(receiver_ip=self._external_ip_override)
         print("Initialising DAQ handler with extra config:")
         pprint.pprint(extra_config)
         self._config = self.CONFIG_DEFAULTS | extra_config
