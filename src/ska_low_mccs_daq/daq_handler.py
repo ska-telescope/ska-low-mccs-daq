@@ -414,7 +414,7 @@ class DaqHandler:
         assert self.daq_instance is not None
         self.logger.info("Stopping daq.....")
         print("Stopping daq", flush=True)
-        time.sleep(5)
+        time.sleep(0.5)
         self.daq_instance.stop_daq()
         self._receiver_started = False
         if self.client_queue:
