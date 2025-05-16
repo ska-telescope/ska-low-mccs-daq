@@ -16,6 +16,7 @@ import pprint
 import queue
 import re
 import threading
+import time
 from collections import deque
 from time import perf_counter, sleep
 from typing import Any, Callable, Iterator, Optional, TypeVar, cast
@@ -412,6 +413,8 @@ class DaqHandler:
         """
         assert self.daq_instance is not None
         self.logger.info("Stopping daq.....")
+        print("Stopping daq", flush=True)
+        time.sleep(5)
         self.daq_instance.stop_daq()
         self._receiver_started = False
         if self.client_queue:
