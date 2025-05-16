@@ -16,7 +16,6 @@ import pprint
 import queue
 import re
 import threading
-import time
 from collections import deque
 from time import perf_counter, sleep
 from typing import Any, Callable, Iterator, Optional, TypeVar, cast
