@@ -304,6 +304,7 @@ class DaqHandler:
         :param file_name: The filename written
         :param metadata: Any additional information.
         """
+        print(f"Received {data_mode} data!")
         if self.client_queue:
             self.client_queue.put(
                 (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
