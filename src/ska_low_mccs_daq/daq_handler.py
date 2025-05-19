@@ -306,6 +306,7 @@ class DaqHandler:
         """
         print(f"Received {data_mode} data!", flush=True)
         if self.client_queue:
+            print(f"Client queue length: {self.client_queue.qsize()}", flush=True)
             self.client_queue.put(
                 (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
             )
