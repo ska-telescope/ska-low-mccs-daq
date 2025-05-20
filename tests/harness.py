@@ -45,13 +45,13 @@ def get_subrack_name(subrack_id: int, station_label: str | None = None) -> str:
     return f"low-mccs/subrack/{station_label or DEFAULT_STATION_LABEL}-sr{subrack_id}"
 
 
-# def get_pdu_name() -> str:
-#     """
-#     Construct the pdu Tango device name .
-#
-#     :return: The pdu Tango device name.
-#     """
-#     return "low-mccs/pdu/ci-1"
+def get_pdu_name() -> str:
+    """
+    Construct the pdu Tango device name .
+
+    :return: The pdu Tango device name.
+    """
+    return "low-mccs/pdu/ci-1"
 
 
 def get_tile_name(tile_id: int, station_label: str | None = None) -> str:
@@ -143,15 +143,15 @@ class SpsTangoTestHarnessContext:
         """
         return self._tango_context.get_context(f"subrack_{subrack_id}")
 
-    #     def get_pdu_device(
-    #         self: SpsTangoTestHarnessContext,
-    #     ) -> tango.DeviceProxy:
-    #         """
-    #         Get a pdu Tango device.
-    #
-    #         :returns: a proxy to the tile Tango device.
-    #         """
-    #         return self._tango_context.get_device(get_pdu_name())
+    def get_pdu_device(
+        self: SpsTangoTestHarnessContext,
+    ) -> tango.DeviceProxy:
+        """
+        Get a pdu Tango device.
+
+        :returns: a proxy to the tile Tango device.
+        """
+        return self._tango_context.get_device(get_pdu_name())
 
     def get_tile_device(
         self: SpsTangoTestHarnessContext, tile_id: int
@@ -337,39 +337,39 @@ class SpsTangoTestHarness:
             device_class,
             SubrackIp=host,
             SubrackPort=port,
-            #            PduTrl=get_pdu_name(),
+            PduTrl=get_pdu_name(),
             UpdateRate=update_rate,
             LoggingLevelDefault=logging_level,
             ParentTRL=get_sps_station_name(self._station_label),
         )
 
-    #     def add_pdu_device(  # pylint: disable=too-many-arguments
-    #         self: SpsTangoTestHarness,
-    #         model: str,
-    #         host: str,
-    #         v2_community: str,
-    #         logging_level: int = int(LoggingLevel.DEBUG),
-    #         device_class: type[Device] | str = "ska_low_mccs_spshw.MccsPdu",
-    #     ) -> None:
-    #         """
-    #         Add a pdu Tango device to the test harness.
-    #
-    #         :param model: The type of pdu device.
-    #         :param host: the host address of the pdu
-    #         :param v2_community: type of v2_community
-    #         :param logging_level: the Tango device's default logging level.
-    #         :param device_class: The device class to use.
-    #             This may be used to override the usual device class,
-    #             for example with a patched subclass.
-    #         """
-    #         self._tango_test_harness.add_device(
-    #             get_pdu_name(),
-    #             device_class,
-    #             Model=model,
-    #             Host=host,
-    #             V2Community=v2_community,
-    #             LoggingLevelDefault=logging_level,
-    #         )
+    def add_pdu_device(  # pylint: disable=too-many-arguments
+        self: SpsTangoTestHarness,
+        model: str,
+        host: str,
+        v2_community: str,
+        logging_level: int = int(LoggingLevel.DEBUG),
+        device_class: type[Device] | str = "ska_low_mccs_spshw.MccsPdu",
+    ) -> None:
+        """
+        Add a pdu Tango device to the test harness.
+
+        :param model: The type of pdu device.
+        :param host: the host address of the pdu
+        :param v2_community: type of v2_community
+        :param logging_level: the Tango device's default logging level.
+        :param device_class: The device class to use.
+            This may be used to override the usual device class,
+            for example with a patched subclass.
+        """
+        self._tango_test_harness.add_device(
+            get_pdu_name(),
+            device_class,
+            Model=model,
+            Host=host,
+            V2Community=v2_community,
+            LoggingLevelDefault=logging_level,
+        )
 
     def add_mock_subrack_device(
         self: SpsTangoTestHarness,
