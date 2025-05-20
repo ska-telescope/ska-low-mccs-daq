@@ -1,3 +1,7 @@
+
+display: ":0"
+xauthority: "~/.Xauthority"
+
 system: SW-infrastructure
 subsystem: low-mccs-daq
 telescope: SKA-low
@@ -5,8 +9,17 @@ telescope: SKA-low
 labels:
   app: ska-low-mccs-daq
 
+dsconfig:
+  image:
+    registry: artefact.skao.int
+    image: ska-tango-images-tango-dsconfig
+    tag: 1.5.1
+    pullPolicy: IfNotPresent
+
 global:
-  minikube: false
+  minikube: true
+  tango_host: databaseds-tango-base:10000
+  cluster_domain: cluster.local
 
 storage: {}
 #   daq-data:
@@ -34,23 +47,54 @@ receiver_egresses: {}
 image:
   registry: artefact.skao.int
   name: ska-low-mccs-daq
-  tag: ~ # defaults to chart's appVersion when empty
+  tag: 2.0.4 # defaults to chart's appVersion when empty
   pullPolicy: IfNotPresent
 
-resources:
-  requests:
-    cpu: 20m
-    memory: 12G
+ska-tango-devices:
+  domain: low
+  subsystem: mccs
+  labels:
+    app: ska-low-mccs-daq
 
-livenessProbe:
-  initialDelaySeconds: 0
-  periodSeconds: 10
-  timeoutSeconds: 3
-  successThreshold: 1
-  failureThreshold: 3
-readinessProbe:
-  initialDelaySeconds: 0
-  periodSeconds: 10
-  timeoutSeconds: 3
-  successThreshold: 1
-  failureThreshold: 3
+  # deviceDefaults:
+  #   MccsTile:
+  #     TpmCpldPort: 10000
+  #     TpmVersion: tpm_v1_6
+  #     AntennasPerTile: 16
+  #     PollRate: 0.2
+
+  # devices:
+  #   MccsTile:
+  #     low-mccs/tile/s8-1-tpm01:
+  #       SubrackFQDN: low-mccs/subrack/s8-1-1
+  #       SubrackBay: 1
+  #       TileId: 1
+  #       StationId: 345
+  #       TpmIp: 10.132.0.8
+
+  deviceServerTypes:
+    daq:
+      metadata:
+        component: daq
+      image:
+        registry: artefact.skao.int
+        name: ska-low-mccs-daq
+        tag: 2.0.4-dirty
+        pullPolicy: IfNotPresent
+      command: daq
+      resources:
+        requests:
+          cpu: 20m
+          memory: 50Mi
+      livenessProbe:
+        initialDelaySeconds: 0
+        periodSeconds: 10
+        timeoutSeconds: 3
+        successThreshold: 1
+        failureThreshold: 3
+      readinessProbe:
+        initialDelaySeconds: 0
+        periodSeconds: 10
+        timeoutSeconds: 3
+        successThreshold: 1
+        failureThreshold: 3

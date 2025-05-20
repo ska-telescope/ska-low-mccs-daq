@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#  -*- coding: utf-8 -*
 #
 # This file is part of the SKA Low MCCS project
 #
@@ -15,10 +15,39 @@ for, amongst other things, monitoring and control of LFAA.
 __version__ = "2.0.4"
 __version_info__ = (
     "ska-low-mccs-daq",
-    "2.0.4",
-    "This package implements SKA Low's MCCS's DAQ Receiver.",
+    __version__,
+    "This package implements SKA Low's MCCS DAQ subsystem.",
 )
 
-__all__ = ["DaqHandler"]
+__all__ = [
+    "MccsDaqReceiver",
+    "version",
+    "main",
+]
 
-from .daq_handler import DaqHandler
+import tango.server
+
+from .daq_receiver import MccsDaqReceiver
+from .version import version_info
+
+__version__ = version_info["version"]
+
+def main(*args: str, **kwargs: str) -> int:  # pragma: no cover
+    """
+    Entry point for module.
+
+    :param args: positional arguments
+    :param kwargs: named arguments
+
+    :return: exit code
+    """
+    print("RUNNING SERVER")
+    return tango.server.run(
+        classes=(MccsDaqReceiver,),
+        args=args or None,
+        **kwargs
+    )
+
+
+if __name__ == "__main__":
+    print(__version__)
