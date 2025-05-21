@@ -304,9 +304,7 @@ class DaqHandler:
         :param file_name: The filename written
         :param metadata: Any additional information.
         """
-        print(f"Received {data_mode} data!", flush=True)
         if self.client_queue:
-            print(f"Client queue length: {self.client_queue.qsize()}", flush=True)
             self.client_queue.put(
                 (data_mode, file_name, json.dumps(metadata, cls=NumpyEncoder))
             )
@@ -332,7 +330,6 @@ class DaqHandler:
                 self.logger.info(
                     "Configuring before initialising with: %s", self._config
                 )
-                print(f"Configuring before initialising with: {self._config}")
                 self.daq_instance.populate_configuration(self._config)
                 self.logger.info("Initialising daq.")
                 self.daq_instance.initialise_daq()
@@ -414,7 +411,6 @@ class DaqHandler:
         """
         assert self.daq_instance is not None
         self.logger.info("Stopping daq.....")
-        print("Stopping daq", flush=True)
         self.daq_instance.stop_daq()
         self._receiver_started = False
         if self.client_queue:
@@ -744,26 +740,32 @@ class DaqHandler:
                 except Exception as e:  # pylint: disable = broad-exception-caught
                     self.logger.error("Unexpected exception retrieving rms_plot: %s", e)
 
-                if all(
-                    plot is None
-                    for plot in [x_bandpass_plot, y_bandpass_plot, rms_plot]
-                ):
-                    # If we don't have any plots, don't uselessly spam [None]s.
-                    pass
-                else:
-                    self.logger.debug("Transmitting bandpass data.")
-                    yield (
-                        TaskStatus.IN_PROGRESS,
-                        "plot sent",
-                        x_bandpass_plot,
-                        y_bandpass_plot,
-                        rms_plot,
+                try:
+                    if all(
+                        plot is None
+                        for plot in [x_bandpass_plot, y_bandpass_plot, rms_plot]
+                    ):
+                        # If we don't have any plots, don't uselessly spam [None]s.
+                        pass
+                    else:
+                        self.logger.debug("Transmitting bandpass data.")
+                        yield (
+                            TaskStatus.IN_PROGRESS,
+                            "plot sent",
+                            x_bandpass_plot,
+                            y_bandpass_plot,
+                            rms_plot,
+                        )
+                        self.logger.debug("Bandpass data transmitted.")
+                except Exception as e:  # pylint: disable = broad-exception-caught
+                    self.logger.error(
+                        "Unexpected exception transmitting bandpass data: %s", e
                     )
-                    self.logger.debug("Bandpass data transmitted.")
                 sleep(1)  # Plots will never be sent more often than once per second.
 
             # Stop and clean up
             self.logger.info("Waiting for threads and processes to terminate.")
+            print("Waiting for threads and processes to terminate.", flush=True)
             # TODO: Need to be able to stop consumers incrementally for this.
             # if auto_handle_daq:
             #     self.stop()
@@ -771,6 +773,7 @@ class DaqHandler:
             # if monitor_rms:
             #     rms.join()
             self._monitoring_bandpass = False
+            print(f"Bandpass monitor state: {self._monitoring_bandpass=}", flush=True)
             self._plot_transmission = False
 
             self.logger.info("Bandpass monitoring complete.")
@@ -801,6 +804,7 @@ class DaqHandler:
         if self._stop_bandpass:
             self.logger.info("Bandpass monitor already stopping.")
             return (ResultCode.REJECTED, "Bandpass monitor already stopping.")
+        print("IN STOP BANDPASS MONITOR", flush=True)
         self._stop_bandpass = True
         self.logger.info("Bandpass monitor stopping.")
         return (ResultCode.OK, "Bandpass monitor stopping.")
