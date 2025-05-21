@@ -659,7 +659,7 @@ class DaqHandler:
         #         args=(station_name, os.path.join(plot_directory, station_name)),
         #     )
         #     rms.start()
-
+        print(f"IN START BANDPASS: {self._monitoring_bandpass=}")
         if not self._monitoring_bandpass:
             # Start plotting thread
             self.logger.debug("Starting bandpass plotting thread")
