@@ -109,8 +109,12 @@ class DaqSimulator:
     """An implementation of a DaqSimulator device."""
 
     bandpass_dir = os.path.dirname(__file__)
-    X_POL_BANDPASS_DATA = np.loadtxt(os.path.join(bandpass_dir, "x_pol_bandpass.txt"), delimiter=",").transpose()
-    Y_POL_BANDPASS_DATA = np.loadtxt(os.path.join(bandpass_dir, "y_pol_bandpass.txt"), delimiter=",").transpose()
+    X_POL_BANDPASS_DATA = np.loadtxt(
+        os.path.join(bandpass_dir, "x_pol_bandpass.txt"), delimiter=","
+    ).transpose()
+    Y_POL_BANDPASS_DATA = np.loadtxt(
+        os.path.join(bandpass_dir, "y_pol_bandpass.txt"), delimiter=","
+    ).transpose()
 
     def __init__(
         self: DaqSimulator,

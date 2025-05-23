@@ -584,7 +584,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.logger.debug("Entering stop_daq")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
-        result_code, message = self._daq_client.stop()
+        result_code, _ = self._daq_client.stop()
         self._started_event.clear()
         if task_callback:
             if result_code == ResultCode.OK:
