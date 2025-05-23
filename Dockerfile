@@ -5,7 +5,7 @@
 # I've taken this from ska-tango-examples
 # but hopefully a better solution will be found.
 FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.5.13 AS tools
-FROM artefact.skao.int/ska-build-cuda:0.1.0
+FROM registry.gitlab.com/ska-telescope/ska-base-images/ska-build-cuda-11:0.1.0-dev.caeef7591
 
 # TODO: Unsatisfactory; see comment above
 COPY --from=tools /usr/local/bin/retry /usr/local/bin/retry
