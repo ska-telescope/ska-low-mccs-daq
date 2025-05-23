@@ -32,6 +32,7 @@ from .version import version_info
 
 __version__ = version_info["version"]
 
+
 def main(*args: str, **kwargs: str) -> int:  # pragma: no cover
     """
     Entry point for module.
@@ -41,12 +42,7 @@ def main(*args: str, **kwargs: str) -> int:  # pragma: no cover
 
     :return: exit code
     """
-    print("RUNNING SERVER")
-    return tango.server.run(
-        classes=(MccsDaqReceiver,),
-        args=args or None,
-        **kwargs
-    )
+    return tango.server.run(classes=(MccsDaqReceiver,), args=args or None, **kwargs)
 
 
 if __name__ == "__main__":
