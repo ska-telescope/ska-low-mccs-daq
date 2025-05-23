@@ -86,6 +86,15 @@ ska-tango-devices:
         requests:
           cpu: 20m
           memory: 50Mi
+      securityContext:
+        capabilities:
+          add:
+          - NET_RAW
+          - IPC_LOCK
+          - SYS_NICE
+          - SYS_ADMIN
+          - KILL
+          - SYS_TIME
       livenessProbe:
         initialDelaySeconds: 0
         periodSeconds: 10
