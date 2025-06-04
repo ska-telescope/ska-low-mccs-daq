@@ -668,8 +668,8 @@ class DaqReceiver:
 
         if self._config["logging"]:
             logging.info(
-                "Received station beam data, nof packets: {}, nof saturations: {}".format(
-                    nof_packets, nof_saturations
+                "Received station beam data (filename: {}, time taken: {:.2f} seconds)".format(
+                    filename, time.time() - t1
                 )
             )
 
