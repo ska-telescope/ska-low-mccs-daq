@@ -617,6 +617,15 @@ class DaqReceiver:
         :param nof_packets: Number of packets received for this buffer
         :param nof_saturations: Number of saturated samples whilst acquiring buffer"""
 
+        t1 = time.time()
+
+        if self._config["logging"]:
+            logging.info(
+                "Received station beam data (nof saturations: {}, nof_packets: {})".format(
+                    nof_saturations, nof_packets
+                )
+            )
+
         if not self._config["write_to_disk"]:
             return
 
@@ -659,8 +668,8 @@ class DaqReceiver:
 
         if self._config["logging"]:
             logging.info(
-                "Received station beam data (nof saturations: {}, nof_packets: {})".format(
-                    nof_saturations, nof_packets
+                "Received station beam data, nof packets: {}, nof saturations: {}".format(
+                    nof_packets, nof_saturations
                 )
             )
 
