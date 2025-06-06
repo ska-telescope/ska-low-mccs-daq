@@ -338,8 +338,8 @@ void StationDoubleBuffer::write_data(uint16_t channel_id, uint32_t samples, uint
         uint64_t current_index = this -> double_buffer[this->producer].index;
 
         // Check if packet's counter is beyond next buffer as well, and if so ignore
-        if (packet_counter > current_index + (nof_samples / samples) * 2)
-            return;
+        // if (packet_counter > current_index + (nof_samples / samples) * 2)
+        //     return;
 
         // We have skipped buffer borders, mark buffer before previous one as ready and switch to next one
         int local_producer = (this->producer < 2) ? (this -> producer - 2) + this->nof_buffers : (this -> producer - 2);

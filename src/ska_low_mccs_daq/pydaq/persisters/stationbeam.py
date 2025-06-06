@@ -436,17 +436,17 @@ class StationBeamFormatFileManager(AAVSFileManager):
         :param timestamp_pad: Padded timestamp from the end of previous partitions in the file batch.
         :return:
         """
-        # file_obj = None
-        # # noinspection PyBroadException
-        # try:
-        #     file_obj = self.load_file(
-        #         timestamp=timestamp, tile_id=station_id, mode="r+"
-        #     )
-        # except:
-        #     logging.error("Error opening file in append mode")
+        file_obj = None
+        # noinspection PyBroadException
+        try:
+            file_obj = self.load_file(
+                timestamp=timestamp, tile_id=station_id, mode="r+"
+            )
+        except:
+            logging.error("Error opening file in append mode")
 
-        # if file_obj is None:
-        file_obj = self.create_file(timestamp=timestamp, tile_id=station_id)
+        if file_obj is None:
+            file_obj = self.create_file(timestamp=timestamp, tile_id=station_id)
 
         n_pols = self.main_dset.attrs["n_pols"]
         n_samp = self.main_dset.attrs["n_samples"]
