@@ -117,6 +117,7 @@ python-test:
     - mkdir /opt/aavs
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
     - cp -R ${CI_PROJECT_DIR}/aavs/lib/libxgpu.so /usr/local/lib/
+    - ls -lR /opt/aavs
   script:
     - make python-test;
   artifacts:
