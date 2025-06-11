@@ -25,6 +25,7 @@ ENV TZ="United_Kingdom/London"
 ENV CUDA_ARCH="sm_80"
 ENV LC_ALL="en_US.UTF-8"
 ENV AAVS_DAQ_SHA=7ca4f06a983861a8596a98abe3a3d34fa5f1a1b5
+ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
 
 # Install necessary packages for compiling and installing DAQ and prerequisites.
 RUN apt-get update && apt-get install -y \
