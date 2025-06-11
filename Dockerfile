@@ -66,3 +66,5 @@ RUN poetry install
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/
+
+WORKDIR /app/
