@@ -144,6 +144,7 @@ class DaqReceiver:
         # Default AAVS DAQ C++ shared library path
         daq_install_path = os.environ.get("DAQ_INSTALL", "/opt/aavs")
         self._daq_library_path = f"{daq_install_path}/lib/libaavsdaq.so".encode("ASCII")
+        logging.error(f"{self._daq_library_path=}")
 
         # Pointer to shared library objects
         self._daq_library = None
@@ -1719,6 +1720,8 @@ class DaqReceiver:
 
         if _library is None:
             raise Exception("AAVS DAQ library not found")
+
+        logging.error(f"{_library=}")
 
         # Load library
         self._daq_library = ctypes.CDLL(_library)
