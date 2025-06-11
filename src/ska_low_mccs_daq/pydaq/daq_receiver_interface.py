@@ -7,11 +7,11 @@ import struct
 import threading
 from ctypes.util import find_library
 from enum import IntEnum
-from git import Repo
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
 import yaml
+from git import Repo
 
 from .persisters import *
 from .persisters import aavs_file, complex_8t, complex_16t
@@ -1559,7 +1559,9 @@ class DaqReceiver:
         station and get required information"""
 
         # Dictionary containing required metadata
-        logging.warning("Firmware version metadata is not available in standalone mode.")
+        logging.warning(
+            "Firmware version metadata is not available in standalone mode."
+        )
         metadata = {"firmware_version": 0, "station_config": ""}
 
         # Grab file content as string and save it as metadata
@@ -1705,9 +1707,7 @@ class DaqReceiver:
         library_found = False
         if "DAQ_INSTALL" in list(os.environ.keys()):
             # Check if library is in install directory
-            if os.path.exists(
-                "%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so")
-            ):
+            if os.path.exists("%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so")):
                 _library = "%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so")
                 library_found = True
 
@@ -1725,6 +1725,8 @@ class DaqReceiver:
 
         # Load library
         self._daq_library = ctypes.CDLL(_library)
+
+        logging.error(f"{self._daq_library=}")
 
         # Define attachLogger
         self._daq_library.attachLogger.argtypes = [self.LOGGER_CALLBACK]
@@ -1850,6 +1852,7 @@ class DaqReceiver:
         # Load consumer
         res = self._daq_library.loadConsumer(self._daq_library_path, consumer)
         if res != self.Result.Success.value:
+            logging.error("FAILED HERE 1")
             return self.Result.Failure
 
         # Generate JSON from configuration and initialise consumer
@@ -1857,11 +1860,13 @@ class DaqReceiver:
             consumer, json.dumps(configuration).encode()
         )
         if res != self.Result.Success.value:
+            logging.error("FAILED HERE 2")
             return self.Result.Failure
 
         # Start consumer
         res = self._daq_library.startConsumer(consumer, callback)
         if res != self.Result.Success.value:
+            logging.error("FAILED HERE 3")
             return self.Result.Failure
 
         return self.Result.Success
