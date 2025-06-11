@@ -62,7 +62,5 @@
                 "ryanluker.vscode-coverage-gutters"
             ]
         }
-    },
-    "postCreateCommand": "poetry config virtualenvs.create false && poetry install",
-    "remoteUser": "root"
+    }
 }
