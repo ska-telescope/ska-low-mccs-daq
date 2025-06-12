@@ -97,7 +97,7 @@ ska-tango-devices:
       image:
         registry: artefact.skao.int
         name: ska-low-mccs-daq
-        tag: 2.0.4-dirty
+        tag: 2.0.4
         pullPolicy: IfNotPresent
       command: daq
       resources:
