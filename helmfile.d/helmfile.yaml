@@ -180,6 +180,7 @@ releases:
       - .deploy/helmfile.d/templates/globals.yaml.gotmpl
       - .deploy/helmfile.d/templates/helm-values.yaml.gotmpl
       - .deploy/helmfile.d/templates/daq/daqs.yaml.gotmpl
+      - .deploy/helmfile.d/templates/daq/daqrxs.yaml.gotmpl
 
 {{- $_tango_host_provided := dig "platform" "cluster" "services" "tango-base" "tango-host" "" .Values}}
 {{- $tango_host_provided := dig "overrides" "cluster" "services" "tango-base" "tango-host" $_tango_host_provided .Values}}
