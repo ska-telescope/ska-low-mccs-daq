@@ -102,7 +102,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._configuration["receiver_ports"] = receiver_ports
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
-        self._daq_client = DaqHandler(**self._configuration)
+        self._daq_client = DaqHandler(logger, **self._configuration)
         self._skuid_url = skuid_url
         self._daq_initialisation_retry_frequency = daq_initialisation_retry_frequency
         # True initially to prevent bandpass monitoring starting before adminMode is set
@@ -738,31 +738,26 @@ class DaqComponentManager(TaskExecutorComponentManager):
                         result=response[1],
                     )
 
-                if "x_bandpass_plot" in response:
-                    if response[2] is not None:
-                        # Reconstruct the numpy array.
-                        x_bandpass_plot = self._get_data_from_response(
-                            response[2], nof_channels
-                        )
-                        if x_bandpass_plot is not None:
-                            call_callback = True
+                if response[2] is not None:
+                    # Reconstruct the numpy array.
+                    x_bandpass_plot = self._get_data_from_response(
+                        response[2], nof_channels
+                    )
+                    if x_bandpass_plot is not None:
+                        call_callback = True
 
-                if "y_bandpass_plot" in response:
-                    if response[3] is not None:
-                        # Reconstruct the numpy array.
-                        y_bandpass_plot = self._get_data_from_response(
-                            response[3], nof_channels
-                        )
-                        if y_bandpass_plot is not None:
-                            call_callback = True
+                if response[3] is not None:
+                    # Reconstruct the numpy array.
+                    y_bandpass_plot = self._get_data_from_response(
+                        response[3], nof_channels
+                    )
+                    if y_bandpass_plot is not None:
+                        call_callback = True
 
-                if "rms_plot" in response:
-                    if response[4] is not None:
-                        rms_plot = self._get_data_from_response(
-                            response[4], nof_channels
-                        )
-                        if rms_plot is not None:
-                            call_callback = True
+                if response[4] is not None:
+                    rms_plot = self._get_data_from_response(response[4], nof_channels)
+                    if rms_plot is not None:
+                        call_callback = True
 
                 if call_callback:
                     if self._component_state_callback is not None:
