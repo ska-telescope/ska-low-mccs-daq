@@ -309,7 +309,6 @@ class DaqHandler:
         :return: a resultcode, message tuple
         """
         self.logger.info("initialise() issued with: %s", config)
-        self._config |= config
 
         if self._initialised is False:
             self.logger.debug("Creating DaqReceiver instance.")
@@ -319,6 +318,7 @@ class DaqHandler:
                     "Configuring before initialising with: %s", self._config
                 )
                 self.daq_instance.populate_configuration(self._config)
+                self._config |= config
                 self.logger.info("Initialising daq.")
                 self.daq_instance.initialise_daq()
                 self._receiver_started = True
@@ -436,8 +436,8 @@ class DaqHandler:
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
 
-            self._config |= config
             self.daq_instance.populate_configuration(self._config)
+            self._config |= config
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Daq reconfigured"
 
