@@ -1483,10 +1483,12 @@ class DaqReceiver:
             raise Exception("Configuration parameters must be a dictionary")
 
         # Check if invalid parameters were passed in
-        if len(set(configuration.keys()) - (set(self._config.keys()))) != 0:
+        invalid_keys = set(configuration.keys()) - (set(self._config.keys()))
+        if len(invalid_keys) != 0:
+            message = f"Invalid configuration. Keys {invalid_keys} not supported."
             if self._config["logging"]:
-                logging.warning("Invalid configuration")
-            raise Exception("Invalid configuration")
+                logging.warning(message)
+            raise Exception(message)
 
         # Apply configuration
         for k, v in list(configuration.items()):
