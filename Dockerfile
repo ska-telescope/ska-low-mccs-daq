@@ -5,6 +5,8 @@
 # I've taken this from ska-tango-examples
 # but hopefully a better solution will be found.
 FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.5.13 AS tools
+
+# For now pulling from the gitlab registry
 FROM registry.gitlab.com/ska-telescope/ska-base-images/ska-build-cuda-11:0.1.0-dev.caeef7591
 
 # TODO: Unsatisfactory; see comment above
@@ -23,6 +25,7 @@ ENV TZ="United_Kingdom/London"
 ENV CUDA_ARCH="sm_80"
 ENV LC_ALL="en_US.UTF-8"
 ENV AAVS_DAQ_SHA=7ca4f06a983861a8596a98abe3a3d34fa5f1a1b5
+ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
 
 # Install necessary packages for compiling and installing DAQ and prerequisites.
 RUN apt-get update && apt-get install -y \
@@ -61,6 +64,8 @@ RUN poetry install --no-root
 
 COPY src ./
 RUN poetry install
-# RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
+RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/
+
+WORKDIR /app/

@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-170] Update Dockerfile to support a Tango device too. It remains backward compatible with the two-pod-daq.
+
 ## 2.0.4
 
 * [THORN-160] Re-add methods that were omitted during the repo reshuffle.

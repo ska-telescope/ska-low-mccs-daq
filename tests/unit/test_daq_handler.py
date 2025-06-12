@@ -109,7 +109,7 @@ class TestDaqHandler:
         ("args", "expected_status", "expected_msg"),
         (
             (
-                "",
+                "RAW_DATA",
                 TaskStatus.COMPLETED,
                 "Daq has been started and is listening",
             ),  # noqa: E501
