@@ -1430,7 +1430,7 @@ class DaqReceiver:
 
             # Running in antenna buffer mode
             if DaqModes.ANTENNA_BUFFER == mode:
-                self._start_antenna_buffer_data_consumer()
+                self._start_antenna_buffer_data_consumer(callbacks[i])
 
             # Running in acquire station beam mode
             if DaqModes.RAW_STATION_BEAM == mode:
