@@ -2601,7 +2601,7 @@ ska-control-model = "^1.0.0"
 type = "git"
 url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-daq-interface/"
 reference = "thorn-215"
-resolved_reference = "db635bd64b7181f0f8b6c3b9378001a8b236a6d6"
+resolved_reference = "b117298df3b5f4355e8d42b120acb2d62ad93e00"
 
 [[package]]
 name = "ska-ser-sphinx-theme"
