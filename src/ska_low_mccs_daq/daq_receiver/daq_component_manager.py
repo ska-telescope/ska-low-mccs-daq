@@ -690,7 +690,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     # pylint: disable = too-many-branches
     @check_communicating
-    def _start_bandpass_monitor(
+    def _start_bandpass_monitor(  # noqa: C901
         self: DaqComponentManager,
         argin: str,
         task_callback: TaskCallbackType | None = None,

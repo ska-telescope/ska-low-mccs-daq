@@ -341,17 +341,8 @@ class DaqSimulator:
 
         self._stop_bandpass = False
         params: dict[str, Any] = json.loads(argin)
-        try:
-            plot_directory: str = params["plot_directory"]
-        except KeyError:
-            yield (
-                TaskStatus.REJECTED,
-                "Param `argin` must have key for `plot_directory`",
-                None,
-                None,
-                None,
-            )
-            return
+        plot_directory: str = params["plot_directory"]
+
         auto_handle_daq: bool = cast(bool, params.get("auto_handle_daq", False))
         if self._config["append_integrated"]:
             if not auto_handle_daq:
