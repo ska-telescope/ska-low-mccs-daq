@@ -15,3 +15,4 @@ rst-directives = uml
 per-file-ignores = 
     # N802 = PEP8 lowercase function name -- conflicts with Tango conventions
     src/ska_low_mccs_daq/daq_receiver/daq_receiver_device.py: N802
+    tests/unit/daq_receiver/test_daq_receiver_device.py: N802

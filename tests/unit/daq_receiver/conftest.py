@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Iterator
 
 import numpy as np
@@ -16,7 +17,7 @@ import pytest
 from ska_tango_testing.mock import MockCallableGroup
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
-from ska_low_mccs_spshw.daq_receiver import DaqComponentManager
+from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
 
@@ -75,7 +76,6 @@ def test_context_fixture(daq_id: int) -> Iterator[SpsTangoTestHarnessContext]:
     :yields: a test harness context.
     """
     test_harness = SpsTangoTestHarness()
-    test_harness.set_daq_instance()
     test_harness.set_lmc_daq_device(daq_id, address=None)  # dynamically get DAQ address
     with test_harness as test_context:
         yield test_context
@@ -106,7 +106,6 @@ def daq_component_manager_fixture(
         "",
         "",
         "",
-        test_context.get_daq_server_address(daq_id),
         "",
         1,
         skuid_url,
@@ -114,6 +113,7 @@ def daq_component_manager_fixture(
         callbacks["communication_state"],
         callbacks["component_state"],
         callbacks["received_data"],
+        test_mode=True,
     )
 
 
@@ -124,7 +124,10 @@ def x_pol_bandpass_test_data_fixture() -> np.ndarray:
 
     :return: A NumPy array of simulated x-pol bandpass data.
     """
-    return np.loadtxt("./x_pol_bandpass.txt", delimiter=",").transpose()
+    bandpass_dir = os.path.dirname(__file__)
+    return np.loadtxt(
+        os.path.join(bandpass_dir, "x_pol_bandpass.txt"), delimiter=","
+    ).transpose()
 
 
 @pytest.fixture(name="y_pol_bandpass_test_data")
@@ -134,4 +137,7 @@ def y_pol_bandpass_test_data_fixture() -> np.ndarray:
 
     :return: A NumPy array of simulated y-pol bandpass data.
     """
-    return np.loadtxt("./y_pol_bandpass.txt", delimiter=",").transpose()
+    bandpass_dir = os.path.dirname(__file__)
+    return np.loadtxt(
+        os.path.join(bandpass_dir, "y_pol_bandpass.txt"), delimiter=","
+    ).transpose()

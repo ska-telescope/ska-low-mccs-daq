@@ -245,8 +245,6 @@ def functional_test_context_generator_fixture(
         harness = SpsTangoTestHarness(station_label)
 
         if not true_context:
-            harness.add_subrack_device(subrack_id, subrack_address)
-            harness.set_daq_instance()
             harness.set_lmc_daq_device(
                 daq_id,
                 address=None,  # dynamically get address of DAQ instance
@@ -349,10 +347,6 @@ def functional_test_context_fixture(
     harness = SpsTangoTestHarness(station_label)
 
     if not true_context:
-        harness.add_subrack_device(subrack_id, subrack_address)
-        harness.add_tile_device(1)
-        harness.set_sps_station_device(subrack_ids=range(1, 2), tile_ids=range(1, 2))
-        harness.set_daq_instance()
         harness.set_lmc_daq_device(
             daq_id,
             address=None,  # dynamically get address of DAQ instance

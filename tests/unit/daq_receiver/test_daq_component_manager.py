@@ -14,11 +14,11 @@ import time
 import numpy as np
 import pytest
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
-from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
 from ska_tango_testing.mock import MockCallableGroup
 
-from ska_low_mccs_spshw.daq_receiver import DaqComponentManager
-from ska_low_mccs_spshw.daq_receiver.daq_simulator import convert_daq_modes
+from ska_low_mccs_daq.daq_receiver import DaqComponentManager
+from ska_low_mccs_daq.daq_receiver.daq_simulator import convert_daq_modes
+from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
 
 
 class TestDaqComponentManager:
@@ -187,7 +187,7 @@ class TestDaqComponentManager:
     @pytest.mark.parametrize(
         "daq_modes",
         (
-            "DaqModes.RAW_DATA",
+            "RAW_DATA",
             "DaqModes.CHANNEL_DATA",
             "DaqModes.BEAM_DATA",
             "DaqModes.CONTINUOUS_CHANNEL_DATA",
@@ -248,11 +248,10 @@ class TestDaqComponentManager:
         callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task_start_daq"].assert_call(
             status=TaskStatus.IN_PROGRESS,
-            result="Start Command issued to gRPC stub",
         )
         callbacks["task_start_daq"].assert_call(
             status=TaskStatus.COMPLETED,
-            result="Daq has been started and is listening",
+            result="Listening",
         )
         callbacks["received_data"].assert_call(
             "data_type", "file_name", "json_serialised_metadata_dict"
@@ -342,11 +341,6 @@ class TestDaqComponentManager:
                 TaskStatus.FAILED,
                 "Unable to create plotting directory at: invalid_directory",
             ),  # Note: The plot directory for this test must be "invalid_directory"
-            (
-                "{}",
-                TaskStatus.REJECTED,
-                "Param `argin` must have key for `plot_directory`",
-            ),
             (
                 '{"plot_directory": "/app/plot/", "auto_handle_daq": "True"}',
                 TaskStatus.IN_PROGRESS,
