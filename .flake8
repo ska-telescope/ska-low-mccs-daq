@@ -6,8 +6,8 @@ enable = DAR104
 # E203 and W503 conflict with black
 ignore = E203,W503
 
-# this should be 10 and needs addressing
-max-complexity = 21
+# this should be 10 and needs addressing, start_bandpass_monitor has complexity 14
+max-complexity = 14
 
 docstring-style = sphinx
 rst-roles = py:attr, py:class, py:const, py:exc, py:func, py:meth, py:mod
