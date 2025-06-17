@@ -13,6 +13,18 @@ from ska_low_mccs_daq_interface.server import server_context
 
 from ska_low_mccs_daq.daq_handler import DaqHandler
 
+def pytest_itemcollected(item: pytest.Item) -> None:
+    """
+    Modify a test after it has been collected by pytest.
+
+    This pytest hook implementation adds the "forked" custom mark to all
+    tests that use the ``test_context`` fixture, causing them to be
+    sandboxed in their own process.
+
+    :param item: the collected test for which this hook is called
+    """
+    if "test_context" in item.fixturenames:  # type: ignore[attr-defined]
+        item.add_marker("forked")
 
 @pytest.fixture(name="daq_address")
 def daq_address_fixture() -> Iterator[str]:
