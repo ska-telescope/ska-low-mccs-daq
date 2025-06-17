@@ -19,8 +19,9 @@ from typing import Any, Callable, Iterator, TypeVar, cast
 
 import numpy as np
 from ska_control_model import ResultCode, TaskStatus
-from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
 from ska_low_mccs_daq_interface import run_server_forever
+
+from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
 
 __all__ = ["DaqSimulator"]
 
@@ -107,8 +108,13 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
 class DaqSimulator:
     """An implementation of a DaqSimulator device."""
 
-    X_POL_BANDPASS_DATA = np.loadtxt("x_pol_bandpass.txt", delimiter=",").transpose()
-    Y_POL_BANDPASS_DATA = np.loadtxt("y_pol_bandpass.txt", delimiter=",").transpose()
+    bandpass_dir = os.path.dirname(__file__)
+    X_POL_BANDPASS_DATA = np.loadtxt(
+        os.path.join(bandpass_dir, "x_pol_bandpass.txt"), delimiter=","
+    ).transpose()
+    Y_POL_BANDPASS_DATA = np.loadtxt(
+        os.path.join(bandpass_dir, "y_pol_bandpass.txt"), delimiter=","
+    ).transpose()
 
     def __init__(
         self: DaqSimulator,

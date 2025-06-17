@@ -2,10 +2,10 @@ environments:
   minikube:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?8b22bdfea49539b010ca235fee2044a5af869cd7#tmdata/minikube
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?7728994278aa03849fda4d092c1fd4797a5f02e6#tmdata/minikube
         datasets:
         - platform.yaml
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?8b22bdfea49539b010ca235fee2044a5af869cd7#tmdata/ci_simulated_stations
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?7728994278aa03849fda4d092c1fd4797a5f02e6#tmdata/ci_simulated_stations
         datasets:
         - stations/ci-1.yaml
         - stations/ci-2.yaml
@@ -162,7 +162,15 @@ environments:
 
 ---
 
-repositories: []
+repositories:
+  - name: skao
+    url: https://artefact.skao.int/repository/helm-internal
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
+  - name: jupyterhub
+    url: https://jupyterhub.github.io/helm-chart
+  - name: ska-tango-devices
+    url: https://gitlab.com/api/v4/projects/66823602/packages/helm/dev
 
 releases:
   - name: ska-low-mccs-daq
@@ -170,5 +178,80 @@ releases:
     chart: ../charts/ska-low-mccs-daq
     values:
       - .deploy/helmfile.d/templates/globals.yaml.gotmpl
-      - .deploy/helmfile.d/templates/daq/daqrxs.yaml.gotmpl
       - .deploy/helmfile.d/templates/helm-values.yaml.gotmpl
+      - .deploy/helmfile.d/templates/daq/daqs.yaml.gotmpl
+      - .deploy/helmfile.d/templates/daq/daqrxs.yaml.gotmpl
+
+{{- $_tango_host_provided := dig "platform" "cluster" "services" "tango-base" "tango-host" "" .Values}}
+{{- $tango_host_provided := dig "overrides" "cluster" "services" "tango-base" "tango-host" $_tango_host_provided .Values}}
+{{- if not $tango_host_provided}}
+  - name: ska-tango-base
+    namespace: {{.Namespace | default "ska-low-mccs"}}
+    chart: skao/ska-tango-base
+    version: ~0.4.7
+    values:
+      - .deploy/helmfile.d/templates/globals.yaml.gotmpl
+{{- end}}
+
+{{- $_skuid_provided := dig "platform" "cluster" "services" "skuid" "url" "" .Values}}
+{{- $skuid_provided := dig "overrides" "cluster" "services" "skuid" "url" $_skuid_provided .Values}}
+{{- if not $skuid_provided}}
+  - name: ska-ser-skuid
+    namespace: {{.Namespace | default "ska-low-mccs"}}
+    chart: skao/ska-ser-skuid
+    version: ~3.3.3
+    values:
+      - .deploy/helmfile.d/templates/skuid.yaml
+{{- end}}
+
+{{- $_jupyterhub_provided := dig "platform" "cluster" "services" "jupyterhub" false .Values}}
+{{- $jupyterhub_provided := dig "overrides" "cluster" "services" "jupyterhub" $_jupyterhub_provided .Values}}
+{{- if not $jupyterhub_provided}}
+  - name: jupyterhub
+    namespace: {{.Namespace | default "ska-low-mccs"}}
+    chart: jupyterhub/jupyterhub
+    version: 3.1.0
+    values:
+      - .deploy/helmfile.d/templates/jupyterhub.yaml
+{{- end}}
+
+{{- $_taranta_platform_provided := dig "platform" "cluster" "services" "taranta-platform" false .Values}}
+{{- $taranta_platform_provided := dig "overrides" "cluster" "services" "taranta-platform" $_taranta_platform_provided .Values}}
+{{- if not $taranta_platform_provided}}
+  - name: taranta-dashboard
+    namespace: {{.Namespace | default "ska-low-mccs"}}
+    chart: skao/ska-tango-taranta-dashboard
+    version: 1.4.1  # TODO: pinning for now because 1.4.2 is breaking
+    values:
+      - ingress:
+          enabled: true
+          hostname: "*"
+  - name: taranta-dashboard-pvc
+    namespace: {{.Namespace | default "ska-low-mccs"}}
+    chart: skao/ska-tango-taranta-dashboard-pvc
+    version: 1.4.1  # TODO: pinning for now because 1.4.2 is breaking
+  - name: taranta-auth
+    namespace: {{.Namespace | default "ska-low-mccs"}}
+    chart: skao/ska-tango-taranta-auth
+    version: ~0.1.6
+    values:
+      - ingress:
+          enabled: true
+          hostname: "*"
+{{- end}}
+
+  - name: taranta
+    namespace: {{.Namespace | default "ska-low-mccs"}}
+    chart: skao/ska-tango-taranta
+    version: ~2.5.1
+    values:
+      - .deploy/helmfile.d/templates/taranta.yaml
+
+  - name: tangogql
+    namespace: {{.Namespace | default "ska-low-mccs"}}
+    chart: skao/ska-tango-tangogql
+    version: ~1.3.10
+    values:
+      - .deploy/helmfile.d/templates/globals.yaml.gotmpl
+      - ska-tango-base:
+          enabled: false

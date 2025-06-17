@@ -24,10 +24,11 @@ import numpy as np
 # agnostic to the underlying implementation.
 from grpc._channel import _InactiveRpcError as InactiveRPCError  # type: ignore
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
-from ska_low_mccs_daq_interface import DaqClient
 from ska_ser_skuid.client import SkuidClient  # type: ignore
 from ska_tango_base.base import JSONData, TaskCallbackType, check_communicating
 from ska_tango_base.executor import TaskExecutor, TaskExecutorComponentManager
+
+from ..daq_handler import DaqHandler
 
 __all__ = ["DaqComponentManager"]
 SUBSYSTEM_SLUG = "ska-low-mccs"
@@ -101,7 +102,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._configuration["receiver_ports"] = receiver_ports
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
-        self._daq_client = DaqClient(daq_address)
+        self._daq_client = DaqHandler(logger, **self._configuration)
         self._skuid_url = skuid_url
         self._daq_initialisation_retry_frequency = daq_initialisation_retry_frequency
         # True initially to prevent bandpass monitoring starting before adminMode is set
@@ -385,8 +386,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self: DaqComponentManager, configuration: str
     ) -> None:
         try:
-            response = self._daq_client.initialise(configuration)
-            self.logger.info(response["message"])
+            response = self._daq_client.initialise(json.loads(configuration))
+            self.logger.info(response[1])
             if not self._dedicated_bandpass_daq:
                 # This causes bandpass monitoring to start/stop/start
                 # if used in conjunction with the dedicated bandpass daq
@@ -452,7 +453,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             information purpose only.
         """
         self.logger.info("Configuring DAQ receiver.")
-        result_code, message = self._daq_client.configure_daq(daq_config)
+        result_code, message = self._daq_client.configure(json.loads(daq_config))
         if result_code == ResultCode.OK:
             self.logger.info("DAQ receiver configuration complete.")
         else:
@@ -523,25 +524,24 @@ class DaqComponentManager(TaskExecutorComponentManager):
             )
         try:
             modes_to_start = modes_to_start or self._consumers_to_start
-            for response in self._daq_client.start_daq(modes_to_start):
-                if task_callback:
-                    if "status" in response:
-                        task_callback(
-                            status=response["status"],
-                            result=response["message"],
+            for response in self._daq_client.start(modes_to_start):
+                match response:
+                    case "LISTENING":
+                        if task_callback:
+                            if "status" in response:
+                                task_callback(
+                                    status=TaskStatus.COMPLETED,
+                                    result="Listening",
+                                )
+                    case (files_written, data_types_received, metadata):
+                        self.logger.info(
+                            f"File: {files_written}, Type: {data_types_received}"
                         )
-                if "files" in response:
-                    files_written = response["files"]
-                    data_types_received = response["types"]
-                    metadata = response["extras"]
-                    self.logger.info(
-                        f"File: {files_written}, Type: {data_types_received}"
-                    )
-                    self._received_data_callback(
-                        data_types_received,
-                        files_written,
-                        metadata,
-                    )
+                        self._received_data_callback(
+                            data_types_received,
+                            files_written,
+                            metadata,
+                        )
         except Exception as e:  # pylint: disable=broad-exception-caught  # XXX
             if task_callback:
                 task_callback(
@@ -584,7 +584,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.logger.debug("Entering stop_daq")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
-        result_code, message = self._daq_client.stop_daq()
+        result_code, _ = self._daq_client.stop()
         self._started_event.clear()
         if task_callback:
             if result_code == ResultCode.OK:
@@ -609,7 +609,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         status = self._daq_client.get_status()
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
-        return status
+        return json.dumps(status)
 
     @check_communicating
     def start_bandpass_monitor(
@@ -675,18 +675,17 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def _get_data_from_response(
         self: DaqComponentManager,
-        response: dict[str, Any],
-        data_to_extract: str,
+        data: str,
         nof_channels: int,
     ) -> np.ndarray | None:
         extracted_data = None
         try:
             extracted_data = self._to_shape(
-                self._to_db(np.array(json.loads(response[data_to_extract][0]))),
+                self._to_db(np.array(json.loads(data))),
                 (self.NOF_ANTS_PER_STATION, nof_channels),
             )  # .reshape((self.NOF_ANTS_PER_STATION, nof_channels))
         except ValueError as e:
-            self.logger.error(f"Caught mismatch in {data_to_extract} shape: {e}")
+            self.logger.error(f"Caught mismatch in {data} shape: {e}")
         return extracted_data
 
     # pylint: disable = too-many-branches
@@ -736,34 +735,29 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 )
                 if task_callback is not None:
                     task_callback(
-                        result=response["message"],
+                        result=response[1],
                     )
 
-                if "x_bandpass_plot" in response:
-                    if response["x_bandpass_plot"] != [None]:
-                        # Reconstruct the numpy array.
-                        x_bandpass_plot = self._get_data_from_response(
-                            response, "x_bandpass_plot", nof_channels
-                        )
-                        if x_bandpass_plot is not None:
-                            call_callback = True
+                if response[2] is not None:
+                    # Reconstruct the numpy array.
+                    x_bandpass_plot = self._get_data_from_response(
+                        response[2], nof_channels
+                    )
+                    if x_bandpass_plot is not None:
+                        call_callback = True
 
-                if "y_bandpass_plot" in response:
-                    if response["y_bandpass_plot"] != [None]:
-                        # Reconstruct the numpy array.
-                        y_bandpass_plot = self._get_data_from_response(
-                            response, "y_bandpass_plot", nof_channels
-                        )
-                        if y_bandpass_plot is not None:
-                            call_callback = True
+                if response[3] is not None:
+                    # Reconstruct the numpy array.
+                    y_bandpass_plot = self._get_data_from_response(
+                        response[3], nof_channels
+                    )
+                    if y_bandpass_plot is not None:
+                        call_callback = True
 
-                if "rms_plot" in response:
-                    if response["rms_plot"] != [None]:
-                        rms_plot = self._get_data_from_response(
-                            response, "rms_plot", nof_channels
-                        )
-                        if rms_plot is not None:
-                            call_callback = True
+                if response[4] is not None:
+                    rms_plot = self._get_data_from_response(response[4], nof_channels)
+                    if rms_plot is not None:
+                        call_callback = True
 
                 if call_callback:
                     if self._component_state_callback is not None:
@@ -927,7 +921,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
 
-        self._daq_client.start_data_rate_monitor(interval)
+        self._daq_client.start_measuring_data_rate(interval)
 
         if task_callback:
             task_callback(
@@ -965,7 +959,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
 
-        self._daq_client.stop_data_rate_monitor()
+        self._daq_client.stop_measuring_data_rate()
 
         if task_callback:
             task_callback(
