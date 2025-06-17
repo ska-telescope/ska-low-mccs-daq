@@ -9,6 +9,13 @@ FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.5.13 AS tools
 # For now pulling from the gitlab registry
 FROM registry.gitlab.com/ska-telescope/ska-base-images/ska-build-cuda-11:0.1.0-dev.caeef7591
 
+# Create non-root user
+RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
+RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
+    chmod 0440 /etc/sudoers.d/daqqer
+
+COPY --chown=daqqer:daqqer ./ /app/
+
 # TODO: Unsatisfactory; see comment above
 COPY --from=tools /usr/local/bin/retry /usr/local/bin/retry
 COPY --from=tools /usr/local/bin/wait-for-it.sh /usr/local/bin/wait-for-it.sh
@@ -68,4 +75,11 @@ RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/
 RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/
 
+# Ensure root doesn't own things it shouldn't
+RUN chown daqqer:daqqer /product/ -R
+RUN chown daqqer:daqqer /app/ -R
+RUN chown daqqer:daqqer /opt/ -R
+
 WORKDIR /app/
+
+USER daqqer

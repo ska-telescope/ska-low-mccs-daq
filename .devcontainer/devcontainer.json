@@ -62,5 +62,6 @@
                 "ryanluker.vscode-coverage-gutters"
             ]
         }
-    }
+    },
+    "postStartCommand": "sudo chown -R daqqer:daqqer /opt/aavs"
 }
