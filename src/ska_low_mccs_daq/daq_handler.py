@@ -172,11 +172,13 @@ class DaqHandler:
 
     def __init__(
         self: DaqHandler,
+        logger: Optional[logging.Logger] = None,
         **extra_config: Any,
     ) -> None:
         """
         Initialise this device.
 
+        :param logger: the logger for this device to use.
         :param extra_config: keyword args providing extra configuration.
         """
         print("Initialising DAQ handler with extra config:")
@@ -190,7 +192,10 @@ class DaqHandler:
         self._initialised: bool = False
         self._stop_bandpass: bool = False
         self._monitoring_bandpass: bool = False
-        self.logger = logging.getLogger("daq-server")
+        if logger is not None:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger("daq-server")
         self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,

@@ -16,6 +16,10 @@ url = 'https://pypi.org/simple'
 
 [tool.poetry.dependencies]
 python = "^3.10"
+pytango = "^10.0.0"
+ska-tango-base = "^1.3.2"
+ska-low-mccs-common = "^1.4.0"
+ska-ser-skuid = "^3.3.3"
 future = "^0.18.2"
 numpy = "^1.23.0"
 PyYAML = "^6.0"
@@ -60,6 +64,10 @@ Sphinx = "^6.2.1"
 PyYAML = "^6.0"
 sphinx-autodoc-typehints = "^1.19"
 ska-ser-sphinx-theme = "^0.1.1"
+ska-ser-skuid = "^3.3.3"
+ska-tango-base = "^1.3.2"
+ska-low-mccs-common = "^1.4.0"
+pytango = "^10.0.0"
 sphinxcontrib-plantuml = "^0.25"
 ska-control-model = "^1.0.0"
 ska-low-mccs-daq-interface = "^1.0.0"
@@ -71,7 +79,9 @@ watchdog = "^3.0.0"
 GitPython = "^3.1.44"
 
 [tool.poetry.scripts]
+daq = "ska_low_mccs_daq:main"
 MccsDaqServer = "ska_low_mccs_daq.daq_handler:main"
+MccsDaqReceiver = "ska_low_mccs_daq.daq_receiver.daq_receiver_device:main"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"
