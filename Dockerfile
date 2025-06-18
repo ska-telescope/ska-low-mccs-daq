@@ -76,9 +76,11 @@ RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/
 
 # Ensure root doesn't own things it shouldn't
+# There should be a way to avoid this, but it works for now.
 RUN chown daqqer:daqqer /product/ -R
 RUN chown daqqer:daqqer /app/ -R
 RUN chown daqqer:daqqer /opt/ -R
+RUN chown daqqer:daqqer /src/ -R
 
 WORKDIR /app/
 
