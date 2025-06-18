@@ -212,7 +212,6 @@ class DaqSimulator:
         :yield: a status update.
         """
         self._modes = convert_daq_modes(modes_to_start)
-        print("HEREHRHERHEHR")
         yield "LISTENING"
 
         def received_file_buffer() -> Any:
