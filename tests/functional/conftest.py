@@ -20,11 +20,7 @@ import pytest
 import tango
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
-from tests.harness import (
-    DEFAULT_STATION_LABEL,
-    SpsTangoTestHarness,
-    SpsTangoTestHarnessContext,
-)
+from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
 
 # TODO: https://github.com/pytest-dev/pytest-forked/issues/67
@@ -63,111 +59,6 @@ def pytest_addoption(
     )
 
 
-@pytest.fixture(name="sps_devices_trl_exported")
-def sps_devices_trl_exported_fixture(
-    exported_tiles: list[str],
-    exported_subracks: list[str],
-    exported_stations: list[str],
-    exported_daqs: list[str],
-    exported_pdus: list[str],
-) -> list[tango.DeviceProxy]:
-    """
-    Fixture containing the trl for all sps devices.
-
-    :param exported_tiles: A list containing the ``tango.DeviceProxy``
-        of the exported tiles. Or Empty list if no devices exported.
-    :param exported_subracks: A list containing the ``tango.DeviceProxy``
-        of the exported subracks. Or Empty list if no devices exported.
-    :param exported_stations: A list containing the ``tango.DeviceProxy``
-        of the exported stations. Or Empty list if no devices exported.
-    :param exported_daqs: A list containing the ``tango.DeviceProxy``
-         of the exported daqs. Or Empty list if no devices exported.
-    :param exported_pdus: A list containing the ``tango.DeviceProxy``
-         of the exported pdus. Or Empty list if no devices exported.
-
-    :returns: A list of trl strings.
-    """
-    return (
-        exported_tiles
-        + exported_subracks
-        + exported_stations
-        + exported_daqs
-        + exported_pdus
-    )
-
-
-@pytest.fixture(name="exported_tiles")
-def exported_tiles_fixture(true_context: bool) -> list[tango.DeviceProxy]:
-    """
-    Return the name of the tiles under test.
-
-    :param true_context: whether to test against an existing Tango deployment
-
-    :return: A list containing the ``tango.DeviceProxy`` of the exported tiles.
-        Or Empty list if no devices exported.
-    """
-    if true_context:
-        return [
-            tango.DeviceProxy(trl)
-            for trl in tango.Database().get_device_exported("low-mccs/tile/*")
-        ]
-    return []
-
-
-@pytest.fixture(name="exported_pdus")
-def exported_pdus_fixture(true_context: bool) -> list[tango.DeviceProxy]:
-    """
-    Return the name of the pdus under test.
-
-    :param true_context: whether to test against an existing Tango deployment
-
-    :return: A list containing the ``tango.DeviceProxy`` of the exported PDU'.
-        Or Empty list if no devices exported.
-    """
-    if true_context:
-        return [
-            tango.DeviceProxy(trl)
-            for trl in tango.Database().get_device_exported("low-mccs/pdu/*")
-        ]
-    return []
-
-
-@pytest.fixture(name="exported_subracks")
-def exported_subracks_fixture(true_context: bool) -> list[tango.DeviceProxy]:
-    """
-    Return the trls of the subracks under test.
-
-    :param true_context: whether to test against an existing Tango deployment
-
-    :return: A list containing the ``tango.DeviceProxy`` of the exported subracks.
-        Or Empty list if no devices exported.
-    """
-    if true_context:
-        return [
-            tango.DeviceProxy(trl)
-            for trl in tango.Database().get_device_exported("low-mccs/subrack/*")
-        ]
-    return []
-
-
-@pytest.fixture(name="exported_stations")
-def exported_stations_fixture(true_context: bool) -> list[tango.DeviceProxy]:
-    """
-    Return the trls of the stations under test.
-
-    :param true_context: whether to test against an existing Tango deployment
-
-    :return: A list containing the ``tango.DeviceProxy`` of the exported stations.
-        Or Empty list if no devices exported.
-    """
-    if true_context:
-        return [
-            tango.DeviceProxy(trl)
-            for trl in tango.Database().get_device_exported("low-mccs/spsstation/*")
-        ]
-    return []
-
-
 @pytest.fixture(name="exported_daqs")
 def exported_daq_fixture(true_context: bool) -> list[tango.DeviceProxy]:
     """
@@ -186,46 +77,9 @@ def exported_daq_fixture(true_context: bool) -> list[tango.DeviceProxy]:
     return []
 
 
-@pytest.fixture(name="available_stations")
-def available_stations_fixture(true_context: bool) -> list[str]:
-    """
-    Return the name of the station under test.
-
-    :param true_context: whether to test against an existing Tango deployment
-
-    :return: the name of the station under test
-    """
-    if true_context:
-        db = tango.Database()
-        stations = db.get_device_exported("low-mccs/spsstation/*")
-        return [
-            str(station).rsplit("low-mccs/spsstation/", maxsplit=1)[-1]
-            for station in stations
-        ]
-    return [DEFAULT_STATION_LABEL]
-
-
-@pytest.fixture(name="available_tiles")
-def available_tiles_fixture(true_context: bool) -> list[str]:
-    """
-    Return the name of the tiles under test.
-
-    :param true_context: whether to test against an existing Tango deployment
-
-    :return: the name of the station under test
-    """
-    if true_context:
-        db = tango.Database()
-        tiles = db.get_device_exported("low-mccs/tile/*")
-        return [str(tile).rsplit("low-mccs/tile/", maxsplit=1)[-1] for tile in tiles]
-    return [DEFAULT_STATION_LABEL]
-
-
 @pytest.fixture(name="functional_test_context_generator", scope="module")
 def functional_test_context_generator_fixture(
     true_context: bool,
-    subrack_id: int,
-    subrack_address: tuple[str, int] | None,
     daq_id: int,
 ) -> Callable:
     """
@@ -233,9 +87,6 @@ def functional_test_context_generator_fixture(
 
     :param true_context: whether to test against an existing Tango
         deployment
-    :param subrack_id: ID of the subrack Tango device.
-    :param subrack_address: the address of a subrack server if one is
-        already running; otherwise None.
     :param daq_id: the ID of the daq receiver
 
     :return: a callable to generate context containing the devices under test
@@ -292,27 +143,6 @@ def hw_context_fixture(request: pytest.FixtureRequest) -> bool:
     return request.config.getoption("--hw-deployment")
 
 
-@pytest.fixture(name="subrack_address", scope="module")
-def subrack_address_fixture() -> tuple[str, int] | None:
-    """
-    Return the address of a subrack.
-
-    If a real hardware subrack is present, or there is a pre-existing
-    simulator, then this fixture returns the subrack address as a
-    (hostname, port) tuple. If there is no pre-existing subrack server,
-    then this fixture returns None, indicating that the test harness
-    should stand up a subrack simulator server itself.
-
-    :return: the address of a subrack, or None if a subrack server is
-        not yet running.
-    """
-    address_var = "SUBRACK_ADDRESS"
-    if address_var in os.environ:
-        [host, port_str] = os.environ[address_var].split(":")
-        return host, int(port_str)
-    return None
-
-
 @pytest.fixture(name="station_label", scope="module")
 def station_label_fixture() -> str | None:
     """
@@ -327,8 +157,6 @@ def station_label_fixture() -> str | None:
 def functional_test_context_fixture(
     true_context: bool,
     station_label: str | None,
-    subrack_id: int,
-    subrack_address: tuple[str, int] | None,
     daq_id: int,
 ) -> Iterator[SpsTangoTestHarnessContext]:
     """
@@ -337,9 +165,6 @@ def functional_test_context_fixture(
     :param true_context: whether to test against an existing Tango
         deployment
     :param station_label: name of the station under test.
-    :param subrack_id: ID of the subrack Tango device.
-    :param subrack_address: the address of a subrack server if one is
-        already running; otherwise None.
     :param daq_id: the ID of the daq receiver
 
     :yields: a Tango context containing the devices under test
@@ -365,20 +190,12 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
         callbacks.
     """
     return MockTangoEventCallbackGroup(
-        "pdu_state",
-        "subrack_state",
-        "subrack_fan_mode",
-        "subrack_fan_speeds",
-        "subrack_fan_speeds_percent",
-        "subrack_tpm_power_state",
-        "subrack_tpm_present",
         "daq_state",
         "daq_long_running_command_status",
         "daq_long_running_command_result",
         "daq_xPolBandpass",
         "daq_yPolBandpass",
         "data_received_callback",
-        "tile_adminMode",
         "device_state",
         "device_adminmode",
         timeout=30.0,

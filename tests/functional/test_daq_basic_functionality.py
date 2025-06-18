@@ -35,7 +35,6 @@ scenarios("./features/daq_basic_functionality.feature")
 )
 def running_context_fixture(
     functional_test_context_generator: Callable,
-    available_stations: list[str],
     expected_station: str,
 ) -> Iterator[SpsTangoTestHarnessContext]:
     """
@@ -43,17 +42,10 @@ def running_context_fixture(
 
     :param functional_test_context_generator: a callable to generate
         a context.
-    :param available_stations: a list of station available in the
-        context this test is running.
     :param expected_station: the name of the station to test against.
 
     :yield: the DAQ receiver device
     """
-    if expected_station not in available_stations:
-        pytest.skip(
-            f"This test is designed for station {expected_station}. "
-            f"This is not one of the {available_stations=}."
-        )
     yield from functional_test_context_generator(expected_station)
 
 
