@@ -236,11 +236,15 @@ class MccsDaqReceiver(MccsBaseDevice):
         doc="Whether this DaqReceiver is a dedicated bandpass monitor.",
         default_value=False,
     )
-
     NumberOfTiles = device_property(
         dtype=int,
         doc="The number of tiles this DaqReceiver is monitoring.",
         default_value=1,
+    )
+    SimulationMode = device_property(
+        dtype=bool,
+        doc="Whether DaqReceiver should use a simulator backend.",
+        default_value=False,
     )
 
     # ---------------
@@ -337,7 +341,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             self.ReceiverInterface,
             self.ReceiverIp,
             self.ReceiverPorts,
-            f"{self.Host}:{self.Port}",
             self.ConsumersToStart,
             self.NumberOfTiles,
             self.SkuidUrl,
@@ -347,6 +350,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._received_data_callback,
             self.DaqInitRetryFreq,
             self.BandpassDaq,
+            self.SimulationMode,
         )
 
     def init_command_objects(self: MccsDaqReceiver) -> None:

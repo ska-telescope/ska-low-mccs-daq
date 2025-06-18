@@ -150,6 +150,7 @@ class DaqSimulator:
             "receiver_frames_per_block": 32,
             "receiver_nof_blocks": 256,
             "receiver_nof_threads": 1,
+            "receiver_ports": ["4660"],
             "directory": ".",
             "logging": True,
             "write_to_disk": True,
@@ -220,8 +221,8 @@ class DaqSimulator:
             :yield: metadata about file.
             """
             yield (
-                "data_type",
                 "file_name",
+                "data_type",
                 "json_serialised_metadata_dict",
             )
 

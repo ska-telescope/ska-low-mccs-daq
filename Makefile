@@ -30,7 +30,7 @@ include .make/python.mk
 
 PYTHON_LINE_LENGTH = 88
 PYTHON_TEST_FILE = tests
-PYTHON_VARS_AFTER_PYTEST = --forked
+PYTHON_VARS_AFTER_PYTEST = --forked -n 16
 
 PYTHON_SWITCHES_FOR_BLACK = --exclude=src/ska_low_mccs_daq/pydaq
 PYTHON_SWITCHES_FOR_ISORT = --skip-glob=src/ska_low_mccs_daq/pydaq

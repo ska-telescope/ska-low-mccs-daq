@@ -65,6 +65,11 @@ RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 WORKDIR /src
 
 # Expose the DAQ port to UDP traffic.
+ENV POETRY_HOME=/opt/poetry
+RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | gosu root python3 - --yes
+RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
+    ln -sfn /opt/poetry/bin/poetry /usr/local/bin/poetry
+
 EXPOSE 4660/udp
 COPY README.md pyproject.toml poetry.lock* ./
 RUN poetry install --no-root
@@ -76,9 +81,11 @@ RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/
 
 # Ensure root doesn't own things it shouldn't
+# There should be a way to avoid this, but it works for now.
 RUN chown daqqer:daqqer /product/ -R
 RUN chown daqqer:daqqer /app/ -R
 RUN chown daqqer:daqqer /opt/ -R
+RUN chown daqqer:daqqer /src/ -R
 
 WORKDIR /app/
 

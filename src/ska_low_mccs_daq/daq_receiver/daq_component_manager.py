@@ -29,6 +29,7 @@ from ska_tango_base.base import JSONData, TaskCallbackType, check_communicating
 from ska_tango_base.executor import TaskExecutor, TaskExecutorComponentManager
 
 from ..daq_handler import DaqHandler
+from .daq_simulator import DaqSimulator
 
 __all__ = ["DaqComponentManager"]
 SUBSYSTEM_SLUG = "ska-low-mccs"
@@ -47,7 +48,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         receiver_interface: str,
         receiver_ip: str,
         receiver_ports: str,
-        daq_address: str,
         consumers_to_start: str,
         nof_tiles: int,
         skuid_url: str,
@@ -57,6 +57,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         received_data_callback: Callable[[str, str, str], None],
         daq_initialisation_retry_frequency: int = 5,
         dedicated_bandpass_daq: bool = False,
+        simulation_mode: bool = False,
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -65,9 +66,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param receiver_interface: The interface this DaqReceiver is to watch.
         :param receiver_ip: The IP address of this DaqReceiver.
         :param receiver_ports: The port this DaqReceiver is to watch.
-        :param daq_address: the address of the DAQ receiver.
-            This is dependent on the communication mechanism used.
-            For gRPC, this is the channel.
         :param consumers_to_start: The default consumers to be started.
         :param nof_tiles: The number of tiles this DAQ will receive data from.
         :param skuid_url: The address at which a SKUID service is running.
@@ -84,6 +82,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param dedicated_bandpass_daq: Flag indicating whether this DaqReceiver
             is dedicated exclusively to monitoring bandpasses. If true then
             this DaqReceiver will attempt to automatically monitor bandpasses.
+        :param simulation_mode: whether or not to use a simulated backend.
         """
         self._power_state_lock = threading.RLock()
         self._started_event = threading.Event()
@@ -102,7 +101,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._configuration["receiver_ports"] = receiver_ports
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
-        self._daq_client = DaqHandler(logger, **self._configuration)
+        self._daq_client: DaqHandler | DaqSimulator
+        if simulation_mode:
+            self._daq_client = DaqSimulator(**self._configuration)
+        else:
+            self._daq_client = DaqHandler(logger, **self._configuration)
+        logger.info(f"DAQ backend in simulation mode: {simulation_mode}")
         self._skuid_url = skuid_url
         self._daq_initialisation_retry_frequency = daq_initialisation_retry_frequency
         # True initially to prevent bandpass monitoring starting before adminMode is set
@@ -514,6 +518,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: none
         """
+        if task_callback:
+            task_callback(status=TaskStatus.IN_PROGRESS)
         # Check data directory is in correct format, if not then reconfigure.
         # This delays the start call by a lot if SKUID isn't there.
         if not self._data_directory_format_adr55_compliant():
@@ -528,11 +534,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 match response:
                     case "LISTENING":
                         if task_callback:
-                            if "status" in response:
-                                task_callback(
-                                    status=TaskStatus.COMPLETED,
-                                    result="Listening",
-                                )
+                            task_callback(
+                                status=TaskStatus.COMPLETED,
+                                result="Listening",
+                            )
                     case (files_written, data_types_received, metadata):
                         self.logger.info(
                             f"File: {files_written}, Type: {data_types_received}"
@@ -688,7 +693,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.error(f"Caught mismatch in {data} shape: {e}")
         return extracted_data
 
-    # pylint: disable = too-many-branches
     @check_communicating
     def _start_bandpass_monitor(  # noqa: C901
         self: DaqComponentManager,

@@ -63,5 +63,6 @@
             ]
         }
     },
+    "postCreateCommand": "sudo poetry config virtualenvs.create false && sudo poetry install",
     "postStartCommand": "sudo chown -R daqqer:daqqer /opt/aavs"
 }
