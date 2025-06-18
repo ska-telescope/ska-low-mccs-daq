@@ -1,0 +1,21 @@
+
+platform:
+  stations:
+    ci-1:
+      status: integrated
+      id: 1
+      sps:
+        daq:
+          calibration:
+            simulated: true
+          bandpass:
+            simulated: true
+        tpms:
+          tpm01:
+            id: 0
+            simulated: true
+            host: 10.0.10.201
+            port: 10000
+            version: tpm_v1_6
+            subrack: sr1
+            subrack_slot: 1

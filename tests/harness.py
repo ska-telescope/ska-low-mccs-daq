@@ -171,7 +171,7 @@ class SpsTangoTestHarness:
             Host=host,
             ConsumersToStart=consumers_to_start,
             LoggingLevelDefault=logging_level,
-            TestMode=True,
+            SimulationMode=True,
         )
 
     def set_bandpass_daq_device(  # pylint: disable=too-many-arguments
@@ -211,7 +211,7 @@ class SpsTangoTestHarness:
             Host=host,
             ConsumersToStart=consumers_to_start,
             LoggingLevelDefault=logging_level,
-            TestMode=True,
+            SimulationMode=True,
         )
 
     def __enter__(

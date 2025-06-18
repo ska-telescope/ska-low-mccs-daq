@@ -16,7 +16,6 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
             | expected_station  |
             | ci-1              |
             | real-daq-1        |
-            | stfc-ral-software |
 
 
     Scenario Outline: Turning the DAQ off
@@ -33,7 +32,6 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
             | expected_station  |
             | ci-1              |
             | real-daq-1        |
-            | stfc-ral-software |
 
     @XTP-21184
     Scenario Outline: Configuring the DAQ to raw data
@@ -51,7 +49,6 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
             | expected_station  |
             | ci-1              |
             | real-daq-1        |
-            | stfc-ral-software |
 
     @XTP-21185
     Scenario Outline: Configuring the DAQ to channelised data
@@ -69,7 +66,6 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
             | expected_station  |
             | ci-1              |
             | real-daq-1        |
-            | stfc-ral-software |
 
 # @XTP-21186 @xfail
 # Scenario: Applying the calibration values

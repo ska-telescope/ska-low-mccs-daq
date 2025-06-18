@@ -56,7 +56,13 @@ include .make/oci.mk
 ###############################################
 K8S_USE_HELMFILE = true
 K8S_HELMFILE = helmfile.d/helmfile.yaml
+
+ifdef CI_COMMIT_SHORT_SHA
+K8S_HELMFILE_ENV ?= stfc-ci
+else
 K8S_HELMFILE_ENV ?= minikube
+endif
+
 
 include .make/k8s.mk
 

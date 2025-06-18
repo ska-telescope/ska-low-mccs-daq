@@ -241,7 +241,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         doc="The number of tiles this DaqReceiver is monitoring.",
         default_value=1,
     )
-    TestMode = device_property(
+    SimulationMode = device_property(
         dtype=bool,
         doc="Whether DaqReceiver should use a simulator backend.",
         default_value=False,
@@ -307,6 +307,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             f"\tDaqInitRetryFreq: {self.DaqInitRetryFreq}\n"
             f"\tBandpassDaq: {self.BandpassDaq}\n"
             f"\tNumberOfTiles: {self.NumberOfTiles}\n"
+            f"\tSimulationMode: {self.SimulationMode}"
         )
         self.logger.info(
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
@@ -350,7 +351,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._received_data_callback,
             self.DaqInitRetryFreq,
             self.BandpassDaq,
-            self.TestMode,
+            self.SimulationMode,
         )
 
     def init_command_objects(self: MccsDaqReceiver) -> None:
