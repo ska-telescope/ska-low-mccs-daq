@@ -57,7 +57,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         received_data_callback: Callable[[str, str, str], None],
         daq_initialisation_retry_frequency: int = 5,
         dedicated_bandpass_daq: bool = False,
-        test_mode: bool = False,
+        simulation_mode: bool = False,
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -82,7 +82,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param dedicated_bandpass_daq: Flag indicating whether this DaqReceiver
             is dedicated exclusively to monitoring bandpasses. If true then
             this DaqReceiver will attempt to automatically monitor bandpasses.
-        :param test_mode: whether or not to use a simulated backend.
+        :param simulation_mode: whether or not to use a simulated backend.
         """
         self._power_state_lock = threading.RLock()
         self._started_event = threading.Event()
@@ -102,11 +102,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
         self._daq_client: DaqHandler | DaqSimulator
-        if test_mode:
-            logger.error("MAKING SIMULARTOR")
+        if simulation_mode:
             self._daq_client = DaqSimulator(**self._configuration)
         else:
             self._daq_client = DaqHandler(logger, **self._configuration)
+        logger.info(f"DAQ backend in simulation mode: {simulation_mode}")
         self._skuid_url = skuid_url
         self._daq_initialisation_retry_frequency = daq_initialisation_retry_frequency
         # True initially to prevent bandpass monitoring starting before adminMode is set

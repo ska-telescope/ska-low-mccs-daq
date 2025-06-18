@@ -113,7 +113,7 @@ def daq_component_manager_fixture(
         callbacks["communication_state"],
         callbacks["component_state"],
         callbacks["received_data"],
-        test_mode=True,
+        simulation_mode=True,
     )
 
 
