@@ -2,7 +2,6 @@
 platform:
   stations:
     real-daq-1:
-      status: integrated
       id: 1
       sps:
         tpms:
