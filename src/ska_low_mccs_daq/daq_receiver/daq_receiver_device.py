@@ -226,11 +226,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         doc="The location of a running SKUID service.",
         default_value="",
     )
-    DaqInitRetryFreq = device_property(
-        dtype=int,
-        doc="The retry frequency for DAQ initialization in seconds",
-        default_value=5,
-    )
     BandpassDaq = device_property(
         dtype=bool,
         doc="Whether this DaqReceiver is a dedicated bandpass monitor.",
@@ -304,7 +299,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             f"\tDaqId: {self.DaqId}\n"
             f"\tConsumersToStart: {self.ConsumersToStart}\n"
             f"\tSkuidUrl: {self.SkuidUrl}\n"
-            f"\tDaqInitRetryFreq: {self.DaqInitRetryFreq}\n"
             f"\tBandpassDaq: {self.BandpassDaq}\n"
             f"\tNumberOfTiles: {self.NumberOfTiles}\n"
             f"\tSimulationMode: {self.SimulationMode}"
@@ -349,7 +343,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._component_communication_state_changed,
             self._component_state_callback,
             self._received_data_callback,
-            self.DaqInitRetryFreq,
             self.BandpassDaq,
             self.SimulationMode,
         )
