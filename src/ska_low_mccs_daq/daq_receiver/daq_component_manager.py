@@ -5,11 +5,13 @@
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
+# pylint: disable=too-many-lines
 """This module implements component management for DaqReceivers."""
 from __future__ import annotations
 
 import json
 import logging
+import os
 import random
 import threading
 from datetime import date
@@ -18,6 +20,7 @@ from pathlib import PurePath
 from time import sleep
 from typing import Any, Callable, Final, Optional
 
+import kubernetes  # type: ignore
 import numpy as np
 
 # This is introducing gRPC as a dependency here where really we want to be
@@ -41,7 +44,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     NOF_ANTS_PER_STATION: Final = 256
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments, too-many-locals
     def __init__(
         self: DaqComponentManager,
         daq_id: int,
@@ -84,6 +87,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
             this DaqReceiver will attempt to automatically monitor bandpasses.
         :param simulation_mode: whether or not to use a simulated backend.
         """
+        ip = None
+        if dedicated_bandpass_daq:
+            ip = self.get_external_ip(logger)
         self._power_state_lock = threading.RLock()
         self._started_event = threading.Event()
         self._power_state: Optional[PowerState] = None
@@ -105,7 +111,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if simulation_mode:
             self._daq_client = DaqSimulator(**self._configuration)
         else:
-            self._daq_client = DaqHandler(logger, **self._configuration)
+            self._daq_client = DaqHandler(
+                logger, ip if ip else None, **self._configuration
+            )
         logger.info(f"DAQ backend in simulation mode: {simulation_mode}")
         self._skuid_url = skuid_url
         self._daq_initialisation_retry_frequency = daq_initialisation_retry_frequency
@@ -124,6 +132,33 @@ class DaqComponentManager(TaskExecutorComponentManager):
         )
         # We've bumped this to 3 workers to allow for the bandpass monitoring.
         self._task_executor = TaskExecutor(max_workers=3)
+
+    def get_external_ip(self, logger: logging.Logger) -> str:
+        """
+        Get the IP of the serivice which exposes this device.
+
+        This is exceptionally ugly code, however we are not allowed initcontainers
+        in ska-tango-util. Anyhow this should be deleted once SP-5187 is finished,
+        then we don't need to use the 1G, so we don't need to attach a loadbalancer
+        to the bandpass DAQ so we don't need to grab the IP of that loadbalancer here.
+
+        :param logger: passing in the logger as we haven't yet run super().__init__().
+
+        :return: the ip of the loadbalancer service.
+        """
+        kubernetes.config.load_incluster_config()
+        core_v1_api = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient())
+        server_hostname = os.getenv("TANGO_SERVER_PUBLISH_HOSTNAME")
+        device_hostname = os.getenv("HOSTNAME")
+        if not server_hostname or not device_hostname:
+            logger.error("Couldn't get external IP automatically.")
+            return ""
+        namespace = server_hostname.split(".")[1]
+        name = device_hostname.rsplit("-", 1)[0]
+        svc = core_v1_api.read_namespaced_service(name=name, namespace=namespace)
+        ip = svc.status.load_balancer.ingress[0].ip
+        logger.info(f"Got external IP: {ip}")
+        return ip
 
     def restart_daq_if_active(self: DaqComponentManager) -> None:
         """Restart daq if consumers are active."""

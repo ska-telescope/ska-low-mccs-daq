@@ -173,18 +173,22 @@ class DaqHandler:
     def __init__(
         self: DaqHandler,
         logger: Optional[logging.Logger] = None,
+        external_ip: Optional[str] = None,
         **extra_config: Any,
     ) -> None:
         """
         Initialise this device.
 
         :param logger: the logger for this device to use.
+        :param external_ip: the IP of the service which exposes this device.
         :param extra_config: keyword args providing extra configuration.
         """
         print("Initialising DAQ handler with extra config:")
         pprint.pprint(extra_config)
 
-        self._external_ip_override = extra_config.pop("external_ip", None)
+        self._external_ip_override = (
+            external_ip if external_ip else extra_config.pop("external_ip", None)
+        )
         self._config = self.CONFIG_DEFAULTS | extra_config
 
         self.daq_instance: DaqReceiver | None = None
