@@ -1430,7 +1430,7 @@ class DaqReceiver:
 
             # Running in antenna buffer mode
             if DaqModes.ANTENNA_BUFFER == mode:
-                self._start_antenna_buffer_data_consumer()
+                self._start_antenna_buffer_data_consumer(callbacks[i])
 
             # Running in acquire station beam mode
             if DaqModes.RAW_STATION_BEAM == mode:
@@ -1483,10 +1483,12 @@ class DaqReceiver:
             raise Exception("Configuration parameters must be a dictionary")
 
         # Check if invalid parameters were passed in
-        if len(set(configuration.keys()) - (set(self._config.keys()))) != 0:
+        invalid_keys = set(configuration.keys()) - (set(self._config.keys()))
+        if len(invalid_keys) != 0:
+            message = f"Invalid configuration. Keys {invalid_keys} not supported."
             if self._config["logging"]:
-                logging.warning("Invalid configuration")
-            raise Exception("Invalid configuration")
+                logging.warning(message)
+            raise Exception(message)
 
         # Apply configuration
         for k, v in list(configuration.items()):
@@ -1580,6 +1582,7 @@ class DaqReceiver:
 
     def get_configuration(self) -> Dict[str, Any]:
         """Return configuration dictionary"""
+        logging.warning(f"the config is {self._config}")
         return self._config
 
     @staticmethod

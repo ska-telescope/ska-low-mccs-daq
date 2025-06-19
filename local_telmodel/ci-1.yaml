@@ -2,7 +2,6 @@
 platform:
   stations:
     ci-1:
-      status: integrated
       id: 1
       sps:
         daq:
