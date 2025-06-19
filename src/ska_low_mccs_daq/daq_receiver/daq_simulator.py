@@ -15,13 +15,12 @@ import functools
 import json
 import os
 import time
-from typing import Any, Callable, Iterator, TypeVar, cast
+from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 import numpy as np
 from ska_control_model import ResultCode, TaskStatus
-from ska_low_mccs_daq_interface import run_server_forever
 
-from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
+from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes
 
 __all__ = ["DaqSimulator"]
 
@@ -105,6 +104,23 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     return []
 
 
+class PersisterSimulator:
+    """An implementation of a PersisterSimulator."""
+
+    def get_metadata(
+        self, timestamp: Optional[str] = None, tile_id: Optional[str] = None
+    ) -> dict:
+        """
+        Return some dummy metadata.
+
+        :param timestamp: The base timestamp for a file batch.
+        :param tile_id: The tile identifier for a file batch.
+
+        :returns: some dummy metadata
+        """
+        return {"some": "metadata"}
+
+
 class DaqSimulator:
     """An implementation of a DaqSimulator device."""
 
@@ -163,11 +179,16 @@ class DaqSimulator:
         } | extra_config
 
         self._modes: list[DaqModes] = []
+        self._persisters: dict[DaqModes, PersisterSimulator] = {}
+        self._running_consumers: dict[DaqModes, bool] = {}
 
         self._stop_bandpass: bool = False
         self._monitoring_bandpass: bool = False
 
-    def initialise(
+    def _data_callback(self) -> None:
+        pass
+
+    def initialise_daq(
         self: DaqSimulator,
         config: dict[str, Any],
         libaavsdaq_filepath: str = "",
@@ -196,48 +217,33 @@ class DaqSimulator:
         return self._initialised
 
     @check_initialisation
-    def start(
-        self: DaqSimulator,
-        modes_to_start: str,
-    ) -> Iterator[str | tuple[str, str, str]]:
+    def start_daq(
+        self: DaqSimulator, modes_to_start: list[DaqModes], callbacks: list[Callable]
+    ) -> tuple[ResultCode, str]:
         """
         Start data acquisition with the current configuration.
 
-        A infinite streaming loop will be started until told to stop.
-        This will notify the client of state changes and metadata
-        of files written to disk, e.g. `data_type`.`file_name`.
+        :param modes_to_start: modes to start.
+        :param callbacks: callbacks for the data modes.
 
-        :param modes_to_start: string listing the modes to start.
-
-        :yield: a status update.
+        :return: a result code and status.
         """
-        self._modes = convert_daq_modes(modes_to_start)
-        yield "LISTENING"
-
-        def received_file_buffer() -> Any:
-            """
-            DAQ has written a file.
-
-            :yield: metadata about file.
-            """
-            yield (
-                "file_name",
-                "data_type",
-                "json_serialised_metadata_dict",
-            )
-
-        yield from received_file_buffer()
-        # yield somethin' else
-        yield "STOPPED"
+        self._modes = modes_to_start
+        for mode in modes_to_start:
+            self._persisters[mode] = PersisterSimulator()
+            self._running_consumers[mode] = True
+        return (ResultCode.OK, "DAQ started.")
 
     @check_initialisation
-    def stop(self: DaqSimulator) -> tuple[ResultCode, str]:
+    def stop_daq(self: DaqSimulator) -> tuple[ResultCode, str]:
         """
         Stop data acquisition.
 
         :return: a resultcode, message tuple
         """
         self._modes = []
+        self._persisters = {}
+        self._running_consumers = {}
         return ResultCode.OK, "Daq stopped"
 
     @check_initialisation
@@ -370,7 +376,7 @@ class DaqSimulator:
                     None,
                 )
                 return
-            self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
+            self.start_daq([DaqModes.INTEGRATED_CHANNEL_DATA], [self._data_callback])
 
         station_name = "simulated_station_name"
 
@@ -399,7 +405,7 @@ class DaqSimulator:
             time.sleep(3)
 
         if auto_handle_daq:
-            self.stop()
+            self.stop_daq()
         self._monitoring_bandpass = False
 
         yield (TaskStatus.COMPLETED, "Bandpass monitoring complete.", None, None, None)
@@ -461,19 +467,3 @@ class DaqSimulator:
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
         return 1.0
-
-
-def main() -> None:
-    """Entry point for a gRPC server that fronts a DAQ simulator."""
-    daq_simulator = DaqSimulator(
-        receiver_interface=os.environ["DAQ_RECEIVER_INTERFACE"],
-        receiver_ip=os.environ["DAQ_RECEIVER_IP"],
-        receiver_ports=os.environ["DAQ_RECEIVER_PORTS"],
-    )
-    port = int(os.getenv("DAQ_GRPC_PORT", "50051"))
-
-    run_server_forever(daq_simulator, port)
-
-
-if __name__ == "__main__":
-    main()
