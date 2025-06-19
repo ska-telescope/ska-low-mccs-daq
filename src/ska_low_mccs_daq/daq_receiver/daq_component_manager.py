@@ -5,7 +5,6 @@
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
-# pylint: disable=too-many-lines
 """This module implements component management for DaqReceivers."""
 from __future__ import annotations
 
@@ -28,7 +27,7 @@ import numpy as np
 from grpc._channel import _InactiveRpcError as InactiveRPCError  # type: ignore
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
 from ska_ser_skuid.client import SkuidClient  # type: ignore
-from ska_tango_base.base import JSONData, TaskCallbackType, check_communicating
+from ska_tango_base.base import TaskCallbackType, check_communicating
 from ska_tango_base.executor import TaskExecutor, TaskExecutorComponentManager
 
 from ..daq_handler import DaqHandler
@@ -58,7 +57,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         communication_state_callback: Callable[[CommunicationStatus], None],
         component_state_callback: Callable[..., None],
         received_data_callback: Callable[[str, str, str], None],
-        daq_initialisation_retry_frequency: int = 5,
         dedicated_bandpass_daq: bool = False,
         simulation_mode: bool = False,
     ) -> None:
@@ -80,8 +78,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             called when the component state changes
         :param received_data_callback: callback to be called when data is
             received from a tile
-        :param daq_initialisation_retry_frequency: Frequency at which daq
-            initialisation in retried.
         :param dedicated_bandpass_daq: Flag indicating whether this DaqReceiver
             is dedicated exclusively to monitoring bandpasses. If true then
             this DaqReceiver will attempt to automatically monitor bandpasses.
@@ -116,12 +112,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             )
         logger.info(f"DAQ backend in simulation mode: {simulation_mode}")
         self._skuid_url = skuid_url
-        self._daq_initialisation_retry_frequency = daq_initialisation_retry_frequency
-        # True initially to prevent bandpass monitoring starting before adminMode is set
-        self._stop_establishing_communication = True
-        threading.Thread(
-            target=self.establish_communication, args=[json.dumps(self._configuration)]
-        ).start()
+        self._measure_data_rate: bool = False
+        self._data_rate: float | None = None
 
         super().__init__(
             logger,
@@ -160,173 +152,15 @@ class DaqComponentManager(TaskExecutorComponentManager):
         logger.info(f"Got external IP: {ip}")
         return ip
 
-    def restart_daq_if_active(self: DaqComponentManager) -> None:
-        """Restart daq if consumers are active."""
-
-        def stop_daq_completion_callback(
-            input_data: str,
-            status: TaskStatus | None = None,
-            progress: int | None = None,
-            result: JSONData = None,
-            exception: Exception | None = None,
-        ) -> None:
-            """Update stop_daq command status.
-
-            Executes start_daq command if stop_daq succeeds.
-
-            :param input_data: input data for start_daq command
-            :param status: the status of the asynchronous task
-            :param progress: the progress of the asynchronous task
-            :param result: the result of the completed asynchronous task
-            :param exception: any exception caught in the running task
-            """
-            if status == TaskStatus.COMPLETED:
-                self.logger.info("StopDaq command completed. Executing StartDaq.")
-                self.start_daq(input_data, self.start_daq_completion_callback)
-            else:
-                self.logger.error(
-                    "Execution of StopDaq is not complete. Current status is: %s",
-                    [status, progress, result, exception],
-                )
-
-        def generate_input_data_from_daq_status(daq_status: dict[str, Any]) -> str:
-            """Generate the input data for StartDaq command using DaqStatus.
-
-            :param daq_status: Output of executing the DaqStatus command.
-
-            :return: A string containing the modes to start for the DaqHandler.
-            """
-            running_consumers: list[list[str]] = daq_status["Running Consumers"]
-            return ",".join([data[0] for data in running_consumers])
-
-        try:
-            self.logger.info("Checking for Daq status..")
-            daq_status: dict[str, Any] = json.loads(self.daq_status())
-            self.logger.info("DaqStatus check results - %s", daq_status)
-            if len(daq_status["Running Consumers"]) != 0:
-                # Input data for start_daq command
-                input_data = generate_input_data_from_daq_status(daq_status)
-                self._stop_daq(partial(stop_daq_completion_callback, input_data))
-        except ConnectionError as connection_error:
-            self.logger.exception(
-                "Connection error while checking the status on Daq: %s",
-                connection_error,
-            )
-        except Exception as exception:  # pylint: disable=broad-exception-caught  # XXX
-            self.logger.exception(
-                "Caught an exception while trying to restart bandpass monitoring: %s",
-                exception,
-            )
-
-    def start_daq_completion_callback(
-        self: DaqComponentManager,
-        status: TaskStatus | None = None,
-        progress: int | None = None,
-        result: JSONData = None,
-        exception: Exception | None = None,
-    ) -> None:
-        """Update start_daq command status.
-
-        Executes start_bandpass_monitor once start_daq is done.
-
-        :param status: the status of the asynchronous task
-        :param progress: the progress of the asynchronous task
-        :param result: the result of the completed asynchronous task
-        :param exception: any exception caught in the running task
-        """
-        if status == TaskStatus.COMPLETED:
-            self.logger.info(
-                "StartDaq command completed. Starting bandpass monitoring."
-            )
-            daq_status: dict[str, Any] = json.loads(self.daq_status())
-            self.logger.info("DaqStatus check results - %s", daq_status)
-            if daq_status["Bandpass Monitor"] is True:
-                # bandpass_monitor_thread = threading.Thread(
-                #     target=self.start_bandpass_monitor,
-                #     name="submit_task_for_bandpass_monitoring",
-                #     args=[json.dumps({"plot_directory": "/tmp"})],
-                # )
-                # bandpass_monitor_thread.start()
-                self.start_bandpass_monitor(json.dumps({"plot_directory": "/tmp"}))
-        else:
-            self.logger.warning(
-                "The TaskStatus for StartDaq command is not COMPLETED. "
-                "The status information is: %s",
-                [status, progress, result, exception],
-            )
-
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
         if self.communication_state == CommunicationStatus.ESTABLISHED:
             return
         if self.communication_state == CommunicationStatus.DISABLED:
-            self._update_communication_state(
-                CommunicationStatus.NOT_ESTABLISHED
-            )  # noqa: E501
-
-        self._stop_establishing_communication = False
-
-    def _check_comms(self: DaqComponentManager) -> dict[str, Any] | None:
-        """
-        Make a call to the backend and catch comms errors so we can reconnect.
-
-        Status was chosen for convenience as the result will be used anyway
-        if we're connected.
-
-        :return: The current status of the DaqReceiver if no comms errors.
-        """
-        try:
-            return json.loads(self.daq_status())
-        # TODO: Refactor this to catch general communication errors.
-        # Probably want daq-interface to translate gRPC exceptions to more
-        # general ones that we can catch here.
-        except (InactiveRPCError, ConnectionError):
-            # This try/except block should be refactored into a decorator.
-            # This will make Daq more resilient to the Chaos Monkey.
-            self.logger.warning("Unable to communicate with DaqServer. Reinitialising.")
-            # If the server pod crashed with a consumer running we need to
-            # clear this manually as stop_daq won't be callable.
-            # Worst case scenario the user is prompted to call StopDaq manually.
-            self._started_event.clear()
-            return None
-
-    def establish_communication(self: DaqComponentManager, configuration: str) -> None:
-        """Establish communication with the DaqReceiver components.
-
-        Runs an endless thread to continually try to establish comms while
-        the device is ONLINE.
-
-        :param configuration: Configuration string for daq initialisation
-        """
-        while True:
-            while not self._stop_establishing_communication:
-                current_status = self._check_comms()
-                if current_status is None:
-                    # current_status == None if comms dropped.
-                    self._reestablish_communication(configuration)
-                    # Give comms a moment to establish before checking again
-                    sleep(2)
-                    continue
-                if self._dedicated_bandpass_daq:
-                    self._check_bandpass_monitor(current_status)
-                sleep(self._daq_initialisation_retry_frequency)
-            while self._stop_establishing_communication:
-                sleep(self._daq_initialisation_retry_frequency)
-
-    def _check_bandpass_monitor(
-        self: DaqComponentManager, status: dict[str, Any]
-    ) -> None:
-        """Check bandpass monitor status and get running if necessary.
-
-        :param status: The current status of the DaqReceiver.
-        """
-        if not all(
-            [
-                self._is_bandpass_monitor_running(status),
-                self._is_integrated_channel_consumer_running(status),
-            ]
-        ):
-            self.logger.warning("Problem detected in bandpass monitor, fixing...")
+            self._update_communication_state(CommunicationStatus.NOT_ESTABLISHED)
+        self._daq_client.initialise(self._configuration)
+        self._update_communication_state(CommunicationStatus.ESTABLISHED)
+        if self._dedicated_bandpass_daq:
             self._get_bandpass_running()
 
     def _get_bandpass_running(self: DaqComponentManager) -> None:
@@ -421,31 +255,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
             return bool(status.get("Bandpass Monitor"))
         return bool(json.loads(self.daq_status()).get("Bandpass Monitor"))
 
-    def _reestablish_communication(
-        self: DaqComponentManager, configuration: str
-    ) -> None:
-        try:
-            response = self._daq_client.initialise(json.loads(configuration))
-            self.logger.info(response[1])
-            if not self._dedicated_bandpass_daq:
-                # This causes bandpass monitoring to start/stop/start
-                # if used in conjunction with the dedicated bandpass daq
-                # flag as comms becoming established/disabled
-                # enables/disables bandpass monitoring.
-                self.restart_daq_if_active()
-            self._update_communication_state(CommunicationStatus.ESTABLISHED)
-        except Exception as e:  # pylint: disable=broad-except
-            self.logger.error(
-                "Caught exception in start_communicating: %s. " + "Retrying in %s secs",
-                e,
-                self._daq_initialisation_retry_frequency,
-            )
-
     def stop_communicating(self: DaqComponentManager) -> None:
         """Break off communication with the DaqReceiver components."""
         if self.communication_state == CommunicationStatus.DISABLED:
             return
-        self._stop_establishing_communication = True
         self._update_communication_state(CommunicationStatus.DISABLED)
         self._update_component_state(power=None, fault=None)
 
