@@ -14,23 +14,20 @@ import os
 import random
 import threading
 from datetime import date
-from functools import partial
 from pathlib import PurePath
-from time import sleep
+from time import perf_counter, sleep
 from typing import Any, Callable, Final, Optional
 
 import kubernetes  # type: ignore
 import numpy as np
-
-# This is introducing gRPC as a dependency here where really we want to be
-# agnostic to the underlying implementation.
-from grpc._channel import _InactiveRpcError as InactiveRPCError  # type: ignore
+import psutil
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
 from ska_ser_skuid.client import SkuidClient  # type: ignore
 from ska_tango_base.base import TaskCallbackType, check_communicating
 from ska_tango_base.executor import TaskExecutor, TaskExecutorComponentManager
 
 from ..daq_handler import DaqHandler
+from ..pydaq.daq_receiver_interface import DaqReceiver
 from .daq_simulator import DaqSimulator
 
 __all__ = ["DaqComponentManager"]
@@ -43,7 +40,44 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     NOF_ANTS_PER_STATION: Final = 256
 
-    # pylint: disable=too-many-arguments, too-many-locals
+    TIME_FORMAT_STRING = "%d/%m/%y %H:%M:%S"
+
+    CONFIG_DEFAULTS: dict[str, Any] = {
+        "nof_antennas": 16,
+        "nof_channels": 512,
+        "nof_beams": 1,
+        "nof_polarisations": 2,
+        "nof_tiles": 1,
+        "nof_raw_samples": 32768,
+        "raw_rms_threshold": -1,
+        "nof_channel_samples": 1024,
+        "nof_correlator_samples": 1835008,
+        "nof_correlator_channels": 1,
+        "continuous_period": 0,
+        "nof_beam_samples": 42,
+        "nof_beam_channels": 384,
+        "nof_station_samples": 262144,
+        "append_integrated": True,
+        "sampling_time": 1.1325,
+        "sampling_rate": (800e6 / 2.0) * (32.0 / 27.0) / 512.0,
+        "oversampling_factor": 32.0 / 27.0,
+        "receiver_frame_size": 8500,
+        "receiver_frames_per_block": 32,
+        "receiver_nof_blocks": 256,
+        "receiver_nof_threads": 1,
+        "directory": ".",
+        "logging": True,
+        "write_to_disk": True,
+        "station_config": None,
+        "station_id": 0,
+        "max_filesize": None,
+        "acquisition_duration": -1,
+        "acquisition_start_time": -1,
+        "description": "",
+        "observation_metadata": {},  # This is populated automatically
+    }
+
+    # pylint: disable=too-many-arguments
     def __init__(
         self: DaqComponentManager,
         daq_id: int,
@@ -101,15 +135,14 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._configuration["receiver_ip"] = receiver_ip
         if receiver_ports:
             self._configuration["receiver_ports"] = receiver_ports
+        self._configuration |= self.CONFIG_DEFAULTS
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
-        self._daq_client: DaqHandler | DaqSimulator
+        self._daq_client: DaqReceiver | DaqSimulator
         if simulation_mode:
             self._daq_client = DaqSimulator(**self._configuration)
         else:
-            self._daq_client = DaqHandler(
-                logger, ip if ip else None, **self._configuration
-            )
+            self._daq_client = DaqReceiver()
         logger.info(f"DAQ backend in simulation mode: {simulation_mode}")
         self._skuid_url = skuid_url
         self._measure_data_rate: bool = False
@@ -742,82 +775,59 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self: DaqComponentManager,
         interval: float = 2.0,
         task_callback: TaskCallbackType | None = None,
-    ) -> tuple[TaskStatus, str]:
+    ) -> tuple[ResultCode, str]:
         """
         Start the data rate monitor on the receiver interface.
 
         :param interval: The interval in seconds at which to monitor the data rate.
         :param task_callback: Update task state, defaults to None.
 
-        :return: a task status and response message
+        :return: a result code and response message
         """
-        return self.submit_task(
-            self._start_data_rate_monitor,
-            args=[interval],
-            task_callback=task_callback,
-        )
+        if self._measure_data_rate:
+            return (ResultCode.REJECTED, "Already measuring data rate.")
 
-    def _start_data_rate_monitor(
-        self: DaqComponentManager,
-        interval: float,
-        task_callback: TaskCallbackType | None = None,
-        task_abort_event: Optional[threading.Event] = None,
-    ) -> None:
-        """
-        Start the data rate monitor on the receiver interface.
+        self._measure_data_rate = True
 
-        :param interval: The interval in seconds at which to monitor the data rate.
-        :param task_callback: Update task state, defaults to None.
-        :param task_abort_event: Check for abort, defaults to None.
-        """
-        if task_callback:
-            task_callback(status=TaskStatus.IN_PROGRESS)
+        def _measure_data_rate(interval: int) -> None:
+            self.logger.info("Starting data rate monitor.")
+            while self._measure_data_rate:
+                self.logger.debug("Measuring data rate...")
+                net = psutil.net_io_counters(pernic=True)
+                t1_sent_bytes = net[
+                    self._configuration["receiver_interface"]
+                ].bytes_recv
+                t1 = perf_counter()
 
-        self._daq_client.start_measuring_data_rate(interval)
+                sleep(interval)
 
-        if task_callback:
-            task_callback(
-                status=TaskStatus.COMPLETED,
-                result=(ResultCode.OK, "Data rate monitor started."),
-            )
+                net = psutil.net_io_counters(pernic=True)
+                t2_sent_bytes = net[
+                    self._configuration["receiver_interface"]
+                ].bytes_recv
+                t2 = perf_counter()
+                nbytes = t2_sent_bytes - t1_sent_bytes
+                data_rate = nbytes / (t2 - t1)
+                self._data_rate = data_rate / 1024**3  # Gb/s
+            self._data_rate = None
+
+        data_rate_thread = threading.Thread(target=_measure_data_rate, args=[interval])
+        data_rate_thread.start()
+        return (ResultCode.OK, "Data rate measurement started.")
 
     def stop_data_rate_monitor(
         self: DaqComponentManager,
         task_callback: TaskCallbackType | None = None,
-    ) -> tuple[TaskStatus, str]:
+    ) -> tuple[ResultCode, str]:
         """
         Start the data rate monitor on the receiver interface.
 
         :param task_callback: Update task state, defaults to None.
 
-        :return: a task status and response message
+        :return: a result code and response message
         """
-        return self.submit_task(
-            self._stop_data_rate_monitor,
-            task_callback=task_callback,
-        )
-
-    def _stop_data_rate_monitor(
-        self: DaqComponentManager,
-        task_callback: TaskCallbackType | None = None,
-        task_abort_event: Optional[threading.Event] = None,
-    ) -> None:
-        """
-        Stop the data rate monitor on the receiver interface.
-
-        :param task_callback: Update task state, defaults to None.
-        :param task_abort_event: Check for abort, defaults to None.
-        """
-        if task_callback:
-            task_callback(status=TaskStatus.IN_PROGRESS)
-
-        self._daq_client.stop_measuring_data_rate()
-
-        if task_callback:
-            task_callback(
-                status=TaskStatus.COMPLETED,
-                result=(ResultCode.OK, "Data rate monitor stopped."),
-            )
+        self._measure_data_rate = False
+        return (ResultCode.OK, "Data rate measurement stopping.")
 
     @property
     @check_communicating
@@ -827,4 +837,4 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
-        return self._daq_client.get_data_rate()
+        return self._data_rate
