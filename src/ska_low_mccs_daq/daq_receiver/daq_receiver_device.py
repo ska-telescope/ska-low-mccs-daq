@@ -307,6 +307,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             f"\tDaqInitRetryFreq: {self.DaqInitRetryFreq}\n"
             f"\tBandpassDaq: {self.BandpassDaq}\n"
             f"\tNumberOfTiles: {self.NumberOfTiles}\n"
+            f"\tSimulationMode: {self.SimulationMode}"
         )
         self.logger.info(
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties

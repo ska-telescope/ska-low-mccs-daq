@@ -5,13 +5,25 @@ environments:
       - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?7728994278aa03849fda4d092c1fd4797a5f02e6#tmdata/minikube
         datasets:
         - platform.yaml
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?7728994278aa03849fda4d092c1fd4797a5f02e6#tmdata/ci_simulated_stations
+      - source: ../../../../local_telmodel
         datasets:
-        - stations/ci-1.yaml
-        - stations/ci-2.yaml
-      config_files:
+        - ci-1.yaml
+        - real-daq-1.yaml
+    - config_files:
       - values/values-minikube.yaml
       datacentre: minikube
+  stfc-ci:
+    values:
+    - telmodel:
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?7728994278aa03849fda4d092c1fd4797a5f02e6#tmdata/stfc-cloud
+        datasets:
+        - platform.yaml
+      - source: ../../../../local_telmodel
+        datasets:
+        - ci-1.yaml
+        - real-daq-1.yaml
+    - config_files:
+      - values/values-ci.yaml
   aa0.5-production:
     values:
     - telmodel:
