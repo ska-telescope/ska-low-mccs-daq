@@ -87,6 +87,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             this DaqReceiver will attempt to automatically monitor bandpasses.
         :param simulation_mode: whether or not to use a simulated backend.
         """
+        ip = None
         if dedicated_bandpass_daq:
             ip = self.get_external_ip(logger)
         self._power_state_lock = threading.RLock()
