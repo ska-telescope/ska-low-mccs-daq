@@ -42,6 +42,20 @@ X_POL_INDEX = 0
 Y_POL_INDEX = 1
 
 
+class NumpyEncoder(json.JSONEncoder):
+    """Converts numpy types to JSON."""
+
+    # pylint: disable=arguments-renamed
+    def default(self: NumpyEncoder, obj: Any) -> Any:
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+
+
 def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     """
     Convert a string representation of DaqModes into a list of DaqModes.
@@ -173,7 +187,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._configuration["receiver_ip"] = receiver_ip
         if receiver_ports:
             self._configuration["receiver_ports"] = receiver_ports
-        self._configuration |= self.CONFIG_DEFAULTS
+        self._configuration = self.CONFIG_DEFAULTS | self._configuration
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
         self._daq_client: DaqReceiver | DaqSimulator
@@ -227,19 +241,26 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: the ip of the loadbalancer service.
         """
-        kubernetes.config.load_incluster_config()
-        core_v1_api = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient())
-        server_hostname = os.getenv("TANGO_SERVER_PUBLISH_HOSTNAME")
-        device_hostname = os.getenv("HOSTNAME")
-        if not server_hostname or not device_hostname:
-            logger.error("Couldn't get external IP automatically.")
+        try:
+            kubernetes.config.load_incluster_config()
+            core_v1_api = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient())
+            server_hostname = os.getenv("TANGO_SERVER_PUBLISH_HOSTNAME")
+            device_hostname = os.getenv("HOSTNAME")
+            if not server_hostname or not device_hostname:
+                logger.error("Couldn't get external IP automatically.")
+                return ""
+            namespace = server_hostname.split(".")[1]
+            name = device_hostname.rsplit("-", 1)[0]
+            svc = core_v1_api.read_namespaced_service(name=name, namespace=namespace)
+            ip = svc.status.load_balancer.ingress[0].ip
+            logger.info(f"Got external IP: {ip}")
+            return ip
+        except Exception as e:  # pylint: disable=broad-except
+            logger.error(
+                "Failed to retried loadbalancer IP, "
+                f"likely there is no loadbalancer service: {e}"
+            )
             return ""
-        namespace = server_hostname.split(".")[1]
-        name = device_hostname.rsplit("-", 1)[0]
-        svc = core_v1_api.read_namespaced_service(name=name, namespace=namespace)
-        ip = svc.status.load_balancer.ingress[0].ip
-        logger.info(f"Got external IP: {ip}")
-        return ip
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
@@ -490,7 +511,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._received_data_callback(
             file_name,
             data_mode,
-            json.dumps(metadata),
+            json.dumps(metadata, cls=NumpyEncoder),
         )
 
         # Call additional callbacks per data mode if needed.
@@ -810,7 +831,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 self.logger.error("Exception: %s", e)
                 return
             try:
-                data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
+                data = self._to_db(
+                    data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
+                )
             except ValueError as ve:
                 self.logger.error("ValueError caught reshaping data, skipping: %s", ve)
                 return
