@@ -81,6 +81,17 @@ def test_context_fixture(daq_id: int) -> Iterator[SpsTangoTestHarnessContext]:
         yield test_context
 
 
+@pytest.fixture(name="mock_interface")
+def mock_interface_fixture() -> str:
+    """
+    Fixture to get a mock interface for the DaqHandler.
+
+    :return: a mock interface.
+    """
+    return "sdn1"
+
+
+# pylint: disable=too-many-arguments
 @pytest.fixture(name="daq_component_manager")
 def daq_component_manager_fixture(
     test_context: SpsTangoTestHarnessContext,
@@ -88,6 +99,7 @@ def daq_component_manager_fixture(
     skuid_url: str,
     logger: logging.Logger,
     callbacks: MockCallableGroup,
+    mock_interface: str,
 ) -> DaqComponentManager:
     """
     Return a daq receiver component manager.
@@ -98,12 +110,13 @@ def daq_component_manager_fixture(
     :param logger: the logger to be used by this object.
     :param callbacks: a dictionary from which callbacks with asynchrony
         support can be accessed.
+    :param mock_interface: the mock interface to use for the DAQ handler.
 
     :return: a daq component manager
     """
     return DaqComponentManager(
         daq_id,
-        "",
+        mock_interface,
         "",
         "",
         "",

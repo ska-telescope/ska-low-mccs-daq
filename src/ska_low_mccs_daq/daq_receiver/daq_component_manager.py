@@ -5,6 +5,7 @@
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
+# pylint: disable=too-many-lines
 """This module implements component management for DaqReceivers."""
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ from collections import deque
 from datetime import date
 from pathlib import PurePath
 from time import perf_counter, sleep
-from typing import Any, Callable, Final, Iterator, Optional, cast
+from typing import Any, Callable, Final, Optional
 
 import h5py
 import kubernetes  # type: ignore
@@ -162,6 +163,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._faulty: Optional[bool] = None
         self._consumers_to_start: str = "Daqmodes.INTEGRATED_CHANNEL_DATA"
         self._receiver_started: bool = False
+        self._initialised = False
         self._daq_id = str(daq_id).zfill(3)
         self._dedicated_bandpass_daq = dedicated_bandpass_daq
         self._configuration: dict[str, Any] = {"nof_tiles": nof_tiles}
@@ -260,7 +262,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: a resultcode, message tuple
         """
-        merged_config = self._config | config
+        merged_config = self._configuration | config
         self.logger.info("initialise() issued with: %s", merged_config)
 
         if self._initialised is False:
@@ -271,10 +273,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 self._daq_client = DaqReceiver()
             try:
                 self.logger.info(
-                    "Configuring before initialising with: %s", self._config
+                    "Configuring before initialising with: %s", self._configuration
                 )
                 self._daq_client.populate_configuration(merged_config)
-                self._config = merged_config
+                self._configuration = merged_config
                 self.logger.info("Initialising daq.")
                 self._daq_client.initialise_daq()
                 self._receiver_started = True
@@ -338,16 +340,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             )
 
         if not self._is_bandpass_monitor_running():
-            bandpass_args = json.dumps(
-                {
-                    "plot_directory": self.get_configuration()["directory"],
-                    "auto_handle_daq": True,
-                }
-            )
-            self.logger.info(
-                "Auto starting bandpass monitor with args: %s.", bandpass_args
-            )
-            self.start_bandpass_monitor(bandpass_args)
+            self.logger.info("Auto starting bandpass monitor.")
+            self.start_bandpass_monitor()
             _wait_for_status(status="Bandpass Monitor", value="True")
 
     def _is_integrated_channel_consumer_running(
@@ -452,9 +446,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     )
                     os.makedirs(daq_config["directory"])
                     self.logger.info(f'directory {daq_config["directory"]} created!')
-            merged_config = self._config | daq_config
+            merged_config = self._configuration | daq_config
             self._daq_client.populate_configuration(merged_config)
-            self._config = merged_config
+            self._configuration = merged_config
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Daq reconfigured"
 
@@ -524,23 +518,57 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if data_mode == "correlator":
             pass
 
+    @check_communicating
     def start_daq(
         self: DaqComponentManager,
         modes_to_start: str,
-    ) -> tuple[ResultCode, str]:
+        task_callback: TaskCallbackType | None = None,
+    ) -> tuple[TaskStatus, str]:
         """
         Start data acquisition with the current configuration.
 
-        A infinite streaming loop will be started until told to stop.
-        This will notify the client of state changes and metadata
-        of files written to disk, e.g. `data_type`.`file_name`.
+        Extracts the required consumers from configuration and starts
+        them.
 
-        :param modes_to_start: string listing the modes to start.
+        :param modes_to_start: A comma separated string of daq modes.
+        :param task_callback: Update task state, defaults to None
 
-        :returns: a result code and message.
-
-        :raises ValueError: if an invalid DaqMode is supplied
+        :return: a task status and response message
         """
+        if self._started_event.is_set():
+            if task_callback:
+                task_callback(
+                    status=TaskStatus.REJECTED,
+                    result=(
+                        ResultCode.REJECTED,
+                        "DAQ already started, call Stop() first.",
+                    ),
+                )
+            return TaskStatus.REJECTED, "DAQ already started, call Stop() first."
+        self._started_event.set()
+        return self.submit_task(
+            self._start_daq,
+            args=[modes_to_start],
+            task_callback=task_callback,
+        )
+
+    def _start_daq(
+        self: DaqComponentManager,
+        modes_to_start: str,
+        task_callback: TaskCallbackType | None,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
+        """
+        Start DAQ.
+
+        :param modes_to_start: A comma separated string of daq modes.
+        :param task_callback: Update task state, defaults to None
+        :param task_abort_event: Check for abort, defaults to None
+
+        :raises ValueError: If an invalid DaqMode is supplied.
+        """
+        if task_callback:
+            task_callback(status=TaskStatus.IN_PROGRESS)
         # Check data directory is in correct format, if not then reconfigure.
         # This delays the start call by a lot if SKUID isn't there.
         if not self._data_directory_format_adr55_compliant():
@@ -558,18 +586,26 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
             raise
 
+        if not self._receiver_started:
+            self._daq_client.initialise_daq()
+            self._receiver_started = True
+
         self.client_queue = queue.SimpleQueue()
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
         self._daq_client.start_daq(converted_modes_to_start, callbacks)
         self.logger.info("Daq listening......")
 
-        return (ResultCode.OK, f"DAQ started for {modes_to_start}")
+        if task_callback:
+            task_callback(
+                status=TaskStatus.COMPLETED,
+                result=(ResultCode.OK, "Daq started"),
+            )
 
     @check_communicating
     def stop_daq(
         self: DaqComponentManager,
         task_callback: TaskCallbackType | None = None,
-    ) -> tuple[ResultCode, str]:
+    ) -> tuple[TaskStatus, str]:
         """
         Stop data acquisition.
 
@@ -577,12 +613,33 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: a task status and response message
         """
-        self.logger.info("Stopping daq.....")
+        return self.submit_task(
+            self._stop_daq,
+            task_callback=task_callback,
+        )
+
+    @check_communicating
+    def _stop_daq(
+        self: DaqComponentManager,
+        task_callback: TaskCallbackType | None = None,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
+        """
+        Stop data acquisition.
+
+        Stops the DAQ receiver and all running consumers.
+
+        :param task_callback: Update task state, defaults to None
+        :param task_abort_event: Check for abort, defaults to None
+        """
+        self.logger.debug("Entering stop_daq")
+        if task_callback:
+            task_callback(status=TaskStatus.IN_PROGRESS)
         self._daq_client.stop_daq()
         self._receiver_started = False
-        if self.client_queue:
-            self.client_queue.put(None)
-        return ResultCode.OK, "Daq stopped"
+        self._started_event.clear()
+        if task_callback:
+            task_callback(status=TaskStatus.COMPLETED)
 
     @check_communicating
     def get_status(self: DaqComponentManager) -> dict[str, Any]:
@@ -626,10 +683,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             "Bandpass Monitor": self._monitoring_bandpass,
         }
 
-    @check_communicating
     def start_bandpass_monitor(
         self: DaqComponentManager,
-        argin: str,
         task_callback: TaskCallbackType | None = None,
     ) -> tuple[TaskStatus, str]:
         """
@@ -638,32 +693,43 @@ class DaqComponentManager(TaskExecutorComponentManager):
         The MccsDaqReceiver will begin monitoring antenna bandpasses
             and producing plots of the spectra.
 
-        :param argin: A json string with keywords
-            - plot_directory
-            Directory in which to store bandpass plots.
-            - monitor_rms
-            Whether or not to additionally produce RMS plots.
-            Default: False.
-            - auto_handle_daq
-            Whether DAQ should be automatically reconfigured,
-            started and stopped without user action if necessary.
-            This set to False means we expect DAQ to already
-            be properly configured and listening for traffic
-            and DAQ will not be stopped when `StopBandpassMonitor`
-            is called.
-            Default: False.
-            - cadence
-            The time in seconds over which to average bandpass data.
-            Default: 0 returns snapshots.
         :param task_callback: Update task state, defaults to None
 
-        :return: a task status and response message
+        :return: a Taskstatus and response message
         """
+        if self._monitoring_bandpass:
+            self.logger.info("Bandpass monitor already started.")
+            return (TaskStatus.REJECTED, "Bandpass monitor already started.")
+        self.logger.info("Starting bandpass monitor.")
         return self.submit_task(
             self._start_bandpass_monitor,
-            args=[argin],
             task_callback=task_callback,
         )
+
+    @check_communicating
+    def _start_bandpass_monitor(
+        self: DaqComponentManager,
+        task_callback: TaskCallbackType | None = None,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
+        """
+        Start monitoring antenna bandpasses.
+
+        The MccsDaqReceiver will begin monitoring antenna bandpasses
+            and producing plots of the spectra.
+
+        :param task_callback: Update task state, defaults to None
+        :param task_abort_event: Check for abort, defaults to None
+
+        """
+        if task_callback:
+            task_callback(status=TaskStatus.IN_PROGRESS)
+        self._monitoring_bandpass = True
+        if task_callback:
+            task_callback(
+                status=TaskStatus.COMPLETED,
+                result=(ResultCode.OK, "Bandpass monitor active"),
+            )
 
     def _to_db(self: DaqComponentManager, data: np.ndarray) -> np.ndarray:
         np.seterr(divide="ignore")
@@ -688,517 +754,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             mode="constant",
         )
 
-    def _get_data_from_response(
-        self: DaqComponentManager,
-        data: str,
-        nof_channels: int,
-    ) -> np.ndarray | None:
-        extracted_data = None
-        try:
-            extracted_data = self._to_shape(
-                self._to_db(np.array(json.loads(data))),
-                (self.NOF_ANTS_PER_STATION, nof_channels),
-            )  # .reshape((self.NOF_ANTS_PER_STATION, nof_channels))
-        except ValueError as e:
-            self.logger.error(f"Caught mismatch in {data} shape: {e}")
-        return extracted_data
-
-    @check_communicating
-    def _start_bandpass_monitor(  # noqa: C901
-        self: DaqComponentManager,
-        argin: str,
-        task_callback: TaskCallbackType | None = None,
-        task_abort_event: Optional[threading.Event] = None,
-    ) -> None:
-        """
-        Start monitoring antenna bandpasses.
-
-        The MccsDaqReceiver will begin monitoring antenna bandpasses
-            and producing plots of the spectra.
-
-        :param argin: A json string with keywords
-            - plot_directory
-            Directory in which to store bandpass plots.
-            - monitor_rms
-            Whether or not to additionally produce RMS plots.
-            Default: False.
-            - auto_handle_daq
-            Whether DAQ should be automatically reconfigured,
-            started and stopped without user action if necessary.
-            This set to False means we expect DAQ to already
-            be properly configured and listening for traffic
-            and DAQ will not be stopped when `StopBandpassMonitor`
-            is called.
-            Default: False.
-            - cadence
-            The time in seconds over which to average bandpass data.
-            Default: 0 returns snapshots.
-        :param task_callback: Update task state, defaults to None
-        :param task_abort_event: Check for abort, defaults to None
-        """
-        config = self.get_configuration()
-        nof_channels = int(config["nof_channels"])
-
-        try:
-            for response in self.monitor_bandpasses(argin):
-                x_bandpass_plot: np.ndarray | None = None
-                y_bandpass_plot: np.ndarray | None = None
-                rms_plot = None
-                call_callback: bool = (
-                    False  # Only call the callback if we have something to say.
-                )
-                if task_callback is not None:
-                    task_callback(
-                        result=response[1],
-                    )
-
-                if response[2] is not None:
-                    # Reconstruct the numpy array.
-                    x_bandpass_plot = self._get_data_from_response(
-                        response[2], nof_channels
-                    )
-                    if x_bandpass_plot is not None:
-                        call_callback = True
-
-                if response[3] is not None:
-                    # Reconstruct the numpy array.
-                    y_bandpass_plot = self._get_data_from_response(
-                        response[3], nof_channels
-                    )
-                    if y_bandpass_plot is not None:
-                        call_callback = True
-
-                if response[4] is not None:
-                    rms_plot = self._get_data_from_response(response[4], nof_channels)
-                    if rms_plot is not None:
-                        call_callback = True
-
-                if call_callback:
-                    if self._component_state_callback is not None:
-                        self._component_state_callback(
-                            x_bandpass_plot=x_bandpass_plot,
-                            y_bandpass_plot=y_bandpass_plot,
-                            rms_plot=rms_plot,
-                        )
-
-        except Exception as e:  # pylint: disable=broad-exception-caught  # XXX
-            self.logger.error("Caught exception in bandpass monitor: %s", e)
-            if task_callback:
-                task_callback(
-                    status=TaskStatus.FAILED,
-                    result=f"Exception: {e}",
-                )
-            return
-
-    def monitor_bandpasses(  # noqa: C901
-        self: DaqComponentManager,
-        argin: str,
-    ) -> Iterator[tuple[TaskStatus, str, str | None, str | None, str | None]]:
-        """
-        Begin monitoring antenna bandpasses.
-
-        :param argin: A dict of arguments to pass to `start_bandpass_monitor` command.
-
-            * plot_directory: Plotting directory.
-                Mandatory.
-
-            * monitor_rms: Flag to enable or disable RMS monitoring.
-                Optional. Default False.
-                [DEPRECATED - To be removed.]
-
-            * auto_handle_daq: Flag to indicate whether the DaqReceiver should
-                be automatically reconfigured, started and stopped during this
-                process if necessary.
-                Optional. Default False.
-                [DEPRECATED - To be removed.]
-
-            * cadence: Number of seconds over which to average data.
-                Optional. Default 0 (returns snapshots).
-
-        :yields: Taskstatus, Message, bandpass/rms plot(s).
-        :returns: TaskStatus, Message, None, None, None
-        """
-        if self._monitoring_bandpass and self._plot_transmission:
-            yield (
-                TaskStatus.REJECTED,
-                "Bandpass monitor is already active.",
-                None,
-                None,
-                None,
-            )
-            return
-        self._stop_bandpass = False
-        params: dict[str, Any] = json.loads(argin)
-        try:
-            plot_directory: str = params["plot_directory"]
-        except KeyError:
-            self.logger.error("Param `argin` must have key for `plot_directory`")
-            yield (
-                TaskStatus.REJECTED,
-                "Param `argin` must have key for `plot_directory`",
-                None,
-                None,
-                None,
-            )
-            return
-        # monitor_rms: bool = cast(bool, params.get("monitor_rms", False))
-        cadence = cast(int, params.get("cadence", 0))
-        auto_handle_daq = params.get("auto_handle_daq", False)
-        # Convert to bool if we have a string.
-        if not isinstance(auto_handle_daq, bool):
-            # pylint: disable = simplifiable-if-statement
-            if auto_handle_daq == "True":
-                auto_handle_daq = True
-            else:
-                auto_handle_daq = False
-
-        # Check DAQ is in the correct state for monitoring bandpasses.
-        # If not, throw an error if we chose not to auto_handle_daq
-        # otherwise configure appropriately.
-        current_config = self.get_configuration()
-        if current_config["append_integrated"]:
-            if not auto_handle_daq:
-                self.logger.error(
-                    "Current DAQ config is invalid. "
-                    "The `append_integrated` option must be set to false "
-                    "for bandpass monitoring."
-                )
-                yield (
-                    TaskStatus.REJECTED,
-                    "Current DAQ config is invalid. "
-                    "The `append_integrated` option must be set to false "
-                    "for bandpass monitoring.",
-                    None,
-                    None,
-                    None,
-                )
-                return
-            self._daq_client.configure({"append_integrated": False})
-
-        # Check correct consumer is running.
-        running_consumers = self.get_status().get("Running Consumers", "")
-
-        if ["INTEGRATED_CHANNEL_DATA", 5] not in running_consumers:
-            if not auto_handle_daq:
-                self.logger.error(
-                    "INTEGRATED_CHANNEL_DATA consumer must be running "
-                    "before bandpasses can be monitored."
-                    "Running consumers: %s",
-                    running_consumers,
-                )
-                yield (
-                    TaskStatus.REJECTED,
-                    "INTEGRATED_CHANNEL_DATA consumer must be running "
-                    "before bandpasses can be monitored.",
-                    None,
-                    None,
-                    None,
-                )
-                return
-            # Auto start DAQ.
-            # TODO: Need to be able to start consumers incrementally for this.
-            # result = self.start(modes_to_start="INTEGRATED_CHANNEL_DATA")
-            # while "INTEGRATED_CHANNEL_DATA" not in running_consumers:
-            self.logger.error(
-                "Unable to create plotting directory at %s", plot_directory
-            )
-            yield (
-                TaskStatus.FAILED,
-                f"Unable to create plotting directory at: {plot_directory}",
-                None,
-                None,
-                None,
-            )
-            return
-
-        data_directory = self._daq_client._config["directory"]
-        self.logger.info("Using data dir %s", data_directory)
-
-        # # Start rms thread
-        # if monitor_rms:
-        #     self.logger.debug("Starting RMS plotting thread.")
-        #     rms = Process(
-        #         target=self.generate_rms_plots,
-        #         name=f"rms-plotter({self})",
-        #         args=(station_name, os.path.join(plot_directory, station_name)),
-        #     )
-        #     rms.start()
-
-        if not self._monitoring_bandpass:
-            # Start plotting thread
-            self.logger.debug("Starting bandpass plotting thread")
-            bandpass_plotting_thread = threading.Thread(
-                target=self.generate_bandpass_plots,
-                args=(
-                    os.path.join(plot_directory, self._station_name),
-                    self._station_name,
-                    cadence,
-                ),
-            )
-            bandpass_plotting_thread.start()
-        # Wait for stop, monitoring disk space in the meantime
-        max_dir_size = 1000 * 1024 * 1024
-
-        self.logger.info("Bandpass monitor active, entering wait loop.")
-        self.logger.info(
-            "Params: plot_directory: %s, auto_handle_daq: %s, cadence: %i",
-            plot_directory,
-            auto_handle_daq,
-            cadence,
-        )
-        self._monitoring_bandpass = True
-
-        yield (
-            TaskStatus.IN_PROGRESS,
-            "Bandpass monitor active",
-            None,
-            None,
-            None,
-        )
-
-        try:
-            while not self._stop_bandpass:
-                self._plot_transmission = True
-                try:
-                    dir_size = sum(
-                        os.path.getsize(f)
-                        for f in os.listdir(data_directory)
-                        if os.path.isfile(f)
-                    )
-                except FileNotFoundError as e:
-                    self.logger.warning("Could not find file: %s", e)
-                if dir_size > max_dir_size:
-                    self.logger.error(
-                        "Consuming too much disk space! Stopping bandpass monitor! "
-                        "%i/%i",
-                        dir_size,
-                        max_dir_size,
-                    )
-                    self._stop_bandpass = True
-                    break
-
-                try:
-                    x_bandpass_plot = self._x_bandpass_plots.pop()
-                except IndexError:
-                    x_bandpass_plot = None
-                except Exception as e:  # pylint: disable = broad-exception-caught
-                    self.logger.error(
-                        "Unexpected exception retrieving x_bandpass_plot: %s",
-                        e,
-                    )
-
-                try:
-                    y_bandpass_plot = self._y_bandpass_plots.pop()
-                except IndexError:
-                    y_bandpass_plot = None
-                except Exception as e:  # pylint: disable = broad-exception-caught
-                    self.logger.error(
-                        "Unexpected exception retrieving y_bandpass_plot: %s",
-                        e,
-                    )
-
-                try:
-                    rms_plot = self._rms_plots.pop()
-                except IndexError:
-                    rms_plot = None
-                except Exception as e:  # pylint: disable = broad-exception-caught
-                    self.logger.error("Unexpected exception retrieving rms_plot: %s", e)
-
-                if all(
-                    plot is None
-                    for plot in [x_bandpass_plot, y_bandpass_plot, rms_plot]
-                ):
-                    # If we don't have any plots, don't uselessly spam [None]s.
-                    pass
-                else:
-                    self.logger.debug("Transmitting bandpass data.")
-                    yield (
-                        TaskStatus.IN_PROGRESS,
-                        "plot sent",
-                        x_bandpass_plot,
-                        y_bandpass_plot,
-                        rms_plot,
-                    )
-                    self.logger.debug("Bandpass data transmitted.")
-                sleep(1)  # Plots will never be sent more often than once per second.
-
-            # Stop and clean up
-            self.logger.info("Waiting for threads and processes to terminate.")
-            # TODO: Need to be able to stop consumers incrementally for this.
-            # if auto_handle_daq:
-            #     self.stop()
-            bandpass_plotting_thread.join()
-            # if monitor_rms:
-            #     rms.join()
-            self._monitoring_bandpass = False
-            self._plot_transmission = False
-
-            self.logger.info("Bandpass monitoring complete.")
-            yield (
-                TaskStatus.COMPLETED,
-                "Bandpass monitoring complete.",
-                None,
-                None,
-                None,
-            )
-        finally:
-            self._plot_transmission = False
-            self.logger.info(
-                "Bandpass monitoring thread terminated. The Bandpass plots "
-                "will continue to generate but will not be transmitted."
-            )
-        # Create plotting directory structure
-        if not self.create_plotting_directory(plot_directory, self._station_name):
-            self.logger.error(
-                "Unable to create plotting directory at %s", plot_directory
-            )
-            yield (
-                TaskStatus.FAILED,
-                f"Unable to create plotting directory at: {plot_directory}",
-                None,
-                None,
-                None,
-            )
-            return
-
-        data_directory = self._daq_client._config["directory"]
-        self.logger.info("Using data dir %s", data_directory)
-
-        # # Start rms thread
-        # if monitor_rms:
-        #     self.logger.debug("Starting RMS plotting thread.")
-        #     rms = Process(
-        #         target=self.generate_rms_plots,
-        #         name=f"rms-plotter({self})",
-        #         args=(station_name, os.path.join(plot_directory, station_name)),
-        #     )
-        #     rms.start()
-
-        if not self._monitoring_bandpass:
-            # Start plotting thread
-            self.logger.debug("Starting bandpass plotting thread")
-            bandpass_plotting_thread = threading.Thread(
-                target=self.generate_bandpass_plots,
-                args=(
-                    os.path.join(plot_directory, self._station_name),
-                    self._station_name,
-                    cadence,
-                ),
-            )
-            bandpass_plotting_thread.start()
-        # Wait for stop, monitoring disk space in the meantime
-        max_dir_size = 1000 * 1024 * 1024
-
-        self.logger.info("Bandpass monitor active, entering wait loop.")
-        self.logger.info(
-            "Params: plot_directory: %s, auto_handle_daq: %s, cadence: %i",
-            plot_directory,
-            auto_handle_daq,
-            cadence,
-        )
-        self._monitoring_bandpass = True
-
-        yield (
-            TaskStatus.IN_PROGRESS,
-            "Bandpass monitor active",
-            None,
-            None,
-            None,
-        )
-
-        try:
-            while not self._stop_bandpass:
-                self._plot_transmission = True
-                try:
-                    dir_size = sum(
-                        os.path.getsize(f)
-                        for f in os.listdir(data_directory)
-                        if os.path.isfile(f)
-                    )
-                except FileNotFoundError as e:
-                    self.logger.warning("Could not find file: %s", e)
-                if dir_size > max_dir_size:
-                    self.logger.error(
-                        "Consuming too much disk space! Stopping bandpass monitor! "
-                        "%i/%i",
-                        dir_size,
-                        max_dir_size,
-                    )
-                    self._stop_bandpass = True
-                    break
-
-                try:
-                    x_bandpass_plot = self._x_bandpass_plots.pop()
-                except IndexError:
-                    x_bandpass_plot = None
-                except Exception as e:  # pylint: disable = broad-exception-caught
-                    self.logger.error(
-                        "Unexpected exception retrieving x_bandpass_plot: %s",
-                        e,
-                    )
-
-                try:
-                    y_bandpass_plot = self._y_bandpass_plots.pop()
-                except IndexError:
-                    y_bandpass_plot = None
-                except Exception as e:  # pylint: disable = broad-exception-caught
-                    self.logger.error(
-                        "Unexpected exception retrieving y_bandpass_plot: %s",
-                        e,
-                    )
-
-                try:
-                    rms_plot = self._rms_plots.pop()
-                except IndexError:
-                    rms_plot = None
-                except Exception as e:  # pylint: disable = broad-exception-caught
-                    self.logger.error("Unexpected exception retrieving rms_plot: %s", e)
-
-                if all(
-                    plot is None
-                    for plot in [x_bandpass_plot, y_bandpass_plot, rms_plot]
-                ):
-                    # If we don't have any plots, don't uselessly spam [None]s.
-                    pass
-                else:
-                    self.logger.debug("Transmitting bandpass data.")
-                    yield (
-                        TaskStatus.IN_PROGRESS,
-                        "plot sent",
-                        x_bandpass_plot,
-                        y_bandpass_plot,
-                        rms_plot,
-                    )
-                    self.logger.debug("Bandpass data transmitted.")
-                sleep(1)  # Plots will never be sent more often than once per second.
-
-            # Stop and clean up
-            self.logger.info("Waiting for threads and processes to terminate.")
-            # TODO: Need to be able to stop consumers incrementally for this.
-            # if auto_handle_daq:
-            #     self.stop()
-            bandpass_plotting_thread.join()
-            # if monitor_rms:
-            #     rms.join()
-            self._monitoring_bandpass = False
-            self._plot_transmission = False
-
-            self.logger.info("Bandpass monitoring complete.")
-            yield (
-                TaskStatus.COMPLETED,
-                "Bandpass monitoring complete.",
-                None,
-                None,
-                None,
-            )
-        finally:
-            self._plot_transmission = False
-            self.logger.info(
-                "Bandpass monitoring thread terminated. The Bandpass plots "
-                "will continue to generate but will not be transmitted."
-            )
-
-    # pylint: disable = too-many-locals
+    # pylint: disable = too-many-locals, too-many-branches, too-many-statements
     def generate_bandpass_plots(  # noqa: C901
         self: DaqComponentManager, filepath: str
     ) -> None:
@@ -1296,17 +852,15 @@ class DaqComponentManager(TaskExecutorComponentManager):
         # to the queue to be sent to the Tango device,
         # Assert that we've received the same number (1+) of files per tile.
         if all(files_received_per_tile) and (len(set(files_received_per_tile)) == 1):
-            self.logger.debug("Queueing data for transmission")
             assert isinstance(full_station_data, np.ndarray)
             x_data = full_station_data[:, :, X_POL_INDEX].transpose()
             # Averaged x data (commented out for now)
             # x_data = x_pol_data.transpose() / x_pol_data_count
-            self._x_bandpass_plots.append(json.dumps(x_data.tolist()))
             y_data = full_station_data[:, :, Y_POL_INDEX].transpose()
             # Averaged y data (commented out for now)
             # y_data = y_pol_data.transpose() / y_pol_data_count
-            self._y_bandpass_plots.append(json.dumps(y_data.tolist()))
-            self.logger.debug("Data queued for transmission.")
+            self._update_component_state(x_bandpass_plot=x_data, y_bandpass_plot=y_data)
+            self.logger.debug("Bandpasses transmitted.")
 
             # Reset vars
             x_pol_data = None
@@ -1334,10 +888,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if not self._monitoring_bandpass:
             self.logger.info("Cannot stop bandpass monitor before it has started.")
             return (ResultCode.REJECTED, "Bandpass monitor not yet started.")
-        if self._stop_bandpass:
-            self.logger.info("Bandpass monitor already stopping.")
-            return (ResultCode.REJECTED, "Bandpass monitor already stopping.")
-        self._stop_bandpass = True
+        self._monitoring_bandpass = False
         self.logger.info("Bandpass monitor stopping.")
         return (ResultCode.OK, "Bandpass monitor stopping.")
 

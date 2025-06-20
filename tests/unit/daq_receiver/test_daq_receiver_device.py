@@ -288,34 +288,28 @@ class TestPatchedDaq:
         mock_component_manager.max_queued_tasks = 0
         mock_component_manager.max_executing_tasks = 1
         mock_component_manager._dedicated_bandpass_daq = False
-        mock_component_manager.daq_status.side_effect = [
-            json.dumps(
-                {
-                    "Daq Health": [HealthState.OK.name, HealthState.OK.value],
-                    "Running Consumers": [[]],
-                    "Receiver Interface": "lo",
-                    "Receiver IP": ["123.456.789.000"],
-                    "Bandpass Monitor": False,
-                }
-            ),
-            json.dumps(
-                {
-                    "Daq Health": [HealthState.OK.name, HealthState.OK.value],
-                    "Running Consumers": [["INTEGRATED_CHANNEL_DATA", 5]],
-                    "Receiver Interface": "lo",
-                    "Receiver IP": ["123.456.789.000"],
-                    "Bandpass Monitor": False,
-                }
-            ),
-            json.dumps(
-                {
-                    "Daq Health": [HealthState.OK.name, HealthState.OK.value],
-                    "Running Consumers": [["INTEGRATED_CHANNEL_DATA", 5]],
-                    "Receiver Interface": "lo",
-                    "Receiver IP": ["123.456.789.000"],
-                    "Bandpass Monitor": True,
-                }
-            ),
+        mock_component_manager.get_status.side_effect = [
+            {
+                "Daq Health": [HealthState.OK.name, HealthState.OK.value],
+                "Running Consumers": [[]],
+                "Receiver Interface": "lo",
+                "Receiver IP": ["123.456.789.000"],
+                "Bandpass Monitor": False,
+            },
+            {
+                "Daq Health": [HealthState.OK.name, HealthState.OK.value],
+                "Running Consumers": [["INTEGRATED_CHANNEL_DATA", 5]],
+                "Receiver Interface": "lo",
+                "Receiver IP": ["123.456.789.000"],
+                "Bandpass Monitor": False,
+            },
+            {
+                "Daq Health": [HealthState.OK.name, HealthState.OK.value],
+                "Running Consumers": [["INTEGRATED_CHANNEL_DATA", 5]],
+                "Receiver Interface": "lo",
+                "Receiver IP": ["123.456.789.000"],
+                "Bandpass Monitor": True,
+            },
         ]
         # configuration = {
         #     "start_daq.return_value": ,

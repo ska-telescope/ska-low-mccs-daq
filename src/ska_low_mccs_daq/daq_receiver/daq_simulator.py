@@ -104,6 +104,7 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     return []
 
 
+# pylint: disable=too-few-public-methods
 class PersisterSimulator:
     """An implementation of a PersisterSimulator."""
 
@@ -167,6 +168,8 @@ class DaqSimulator:
             "receiver_nof_blocks": 256,
             "receiver_nof_threads": 1,
             "receiver_ports": ["4660"],
+            "receiver_interface": "eth0",
+            "receiver_ip": "0.0.0.0",
             "directory": ".",
             "logging": True,
             "write_to_disk": True,
@@ -190,22 +193,33 @@ class DaqSimulator:
 
     def initialise_daq(
         self: DaqSimulator,
-        config: dict[str, Any],
         libaavsdaq_filepath: str = "",
     ) -> tuple[ResultCode, str]:
         """
         Initialise a new DaqReceiver instance.
 
-        :param config: the configuration to apply
         :param libaavsdaq_filepath: Filepath to a custom version of libaavsdaq.so
 
         :return: a resultcode, message tuple
         """
         if self._initialised:
             return ResultCode.REJECTED, "Daq already initialised"
-        self._config.update(config)
         self._initialised = True
         return ResultCode.OK, "Daq successfully initialised"
+
+    def populate_configuration(
+        self: DaqSimulator,
+        config: dict[str, Any],
+    ) -> tuple[ResultCode, str]:
+        """
+        Initialise a new DaqReceiver instance.
+
+        :param config: the configuration to apply
+
+        :return: a resultcode, message tuple
+        """
+        self._config.update(config)
+        return ResultCode.OK, "Daq successfully configured"
 
     @property
     def initialised(self: DaqSimulator) -> bool:

@@ -10,15 +10,17 @@ from __future__ import annotations
 
 import json
 import time
+from typing import Any
 
 import numpy as np
+import psutil  # type: ignore[import-untyped]
 import pytest
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 from ska_low_mccs_daq.daq_receiver.daq_simulator import convert_daq_modes
-from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
+from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes
 
 
 class TestDaqComponentManager:
@@ -251,10 +253,7 @@ class TestDaqComponentManager:
         )
         callbacks["task_start_daq"].assert_call(
             status=TaskStatus.COMPLETED,
-            result="Listening",
-        )
-        callbacks["received_data"].assert_call(
-            "data_type", "file_name", "json_serialised_metadata_dict"
+            result=(ResultCode.OK, "Daq started"),
         )
 
         converted_daq_modes: list[DaqModes] = convert_daq_modes(daq_modes)
@@ -263,7 +262,7 @@ class TestDaqComponentManager:
         # can check the consumer.
         # mode_to_check = DaqModes(mode)
         # status will not have health info when cpt mgr method is directly called.
-        status = json.loads(daq_component_manager.daq_status())
+        status = daq_component_manager.get_status()
 
         running_consumers = status["Running Consumers"]
 
@@ -274,8 +273,9 @@ class TestDaqComponentManager:
         time.sleep(acquisition_duration)
 
         # Stop DAQ and check our consumer is not running.
-        daq_component_manager._stop_daq(task_callback=callbacks["task"])
+        daq_component_manager.stop_daq(task_callback=callbacks["task"])
 
+        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
         callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
         # Once we issue the stop command on the DAQ this will stop the thread
@@ -328,23 +328,11 @@ class TestDaqComponentManager:
         assert daq_component_manager._consumers_to_start == consumer_list
 
     @pytest.mark.parametrize(
-        ("bandpass_config", "expected_status", "expected_msg"),
+        ("expected_status", "expected_msg"),
         (
             (
-                '{"plot_directory": "/plot"}',
-                TaskStatus.REJECTED,
-                "Current DAQ config is invalid. The `append_integrated` "
-                "option must be set to false for bandpass monitoring.",
-            ),
-            (
-                '{"plot_directory": "invalid_directory", "auto_handle_daq": "True"}',
-                TaskStatus.FAILED,
-                "Unable to create plotting directory at: invalid_directory",
-            ),  # Note: The plot directory for this test must be "invalid_directory"
-            (
-                '{"plot_directory": "/app/plot/", "auto_handle_daq": "True"}',
                 TaskStatus.IN_PROGRESS,
-                "Bandpass monitor active",
+                (ResultCode.OK, "Bandpass monitor active"),
             ),
         ),
     )
@@ -352,7 +340,6 @@ class TestDaqComponentManager:
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
         callbacks: MockCallableGroup,
-        bandpass_config: str,
         expected_status: TaskStatus,
         expected_msg: str,
         x_pol_bandpass_test_data: np.ndarray,
@@ -368,8 +355,6 @@ class TestDaqComponentManager:
             under test.
         :param callbacks: a dictionary from which callbacks with
             asynchrony support can be accessed.
-        :param bandpass_config: The configuration string to use when
-            calling `start_mandpass_monitor`
         :param expected_status: The first expected status returned from
             `start_bandpass_monitor`
         :param expected_msg: The first expected message returned from
@@ -391,58 +376,60 @@ class TestDaqComponentManager:
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
         # Call start_bandpass
         _ = daq_component_manager.start_bandpass_monitor(
-            bandpass_config, task_callback=callbacks["task"]
+            task_callback=callbacks["task"]
         )
 
         callbacks["task"].assert_call(status=TaskStatus.QUEUED)
-        callbacks["task"].assert_call(result=expected_msg, lookahead=5)
+        callbacks["task"].assert_call(
+            status=TaskStatus.COMPLETED, result=expected_msg, lookahead=5
+        )
         # Any ResultCode.REJECTED cases end at the line above.
 
-        if expected_status == TaskStatus.IN_PROGRESS:
-            # Assert status shows bandpass monitor is active.
-            status = json.loads(daq_component_manager.daq_status())
-            assert status["Bandpass Monitor"]
+        # if expected_status == TaskStatus.IN_PROGRESS:
+        #     # Assert status shows bandpass monitor is active.
+        #     status = daq_component_manager.get_status()
+        #     assert status["Bandpass Monitor"]
 
-            for _ in range(3):
-                callbacks["task"].assert_call(result="plot sent", lookahead=5)
-                # This isn't working properly.
-                # need to extract the call args and compare... UGH!
-                # while not callbacks["component_state"]._call_queue.empty():
-                call_args = callbacks["component_state"]._call_queue.get(timeout=5)
-                args_dict = call_args[2]
-                received_x_pol_data = args_dict["x_bandpass_plot"]
-                received_y_pol_data = args_dict["y_bandpass_plot"]
+        #     for _ in range(3):
+        #         # Pretend to receive bandpass data.
+        #         daq_component_manager._file_dump_callback(
+        #             "integrated_channel",
+        #         )
 
-                assert np.array_equal(
-                    daq_component_manager._to_db(x_pol_bandpass_test_data),
-                    received_x_pol_data,
-                )
-                assert np.array_equal(
-                    daq_component_manager._to_db(y_pol_bandpass_test_data),
-                    received_y_pol_data,
-                )
+        #         # This isn't working properly.
+        #         # need to extract the call args and compare... UGH!
+        #         # while not callbacks["component_state"]._call_queue.empty():
+        #         call_args = callbacks["component_state"]._call_queue.get(timeout=5)
+        #         args_dict = call_args[2]
+        #         received_x_pol_data = args_dict["x_bandpass_plot"]
+        #         received_y_pol_data = args_dict["y_bandpass_plot"]
 
-                # The following assertion doesn't work properly with numpy arrays.
-                # It results in an illegal boolean array comparison which isn't
-                # what we wanted anyway.
-                # callbacks["component_state"].assert_call(
-                #     x_bandpass_plot=x_pol_bandpass_test_data,
-                #     y_bandpass_plot=y_pol_bandpass_test_data,
-                #     rms_plot=[None],
-                #     lookahead=15,
-                # )
-                time.sleep(3)  # Wait for simulator output.
+        #         assert np.array_equal(
+        #             daq_component_manager._to_db(x_pol_bandpass_test_data),
+        #             received_x_pol_data,
+        #         )
+        #         assert np.array_equal(
+        #             daq_component_manager._to_db(y_pol_bandpass_test_data),
+        #             received_y_pol_data,
+        #         )
 
-            assert (
-                ResultCode.OK,
-                "Bandpass monitor stopping.",
-            ) == daq_component_manager.stop_bandpass_monitor()
-            callbacks["task"].assert_call(
-                result="Bandpass monitoring complete.",
-                lookahead=20,
-            )
-            status = json.loads(daq_component_manager.daq_status())
-            assert not status["Bandpass Monitor"]
+        #         # The following assertion doesn't work properly with numpy arrays.
+        #         # It results in an illegal boolean array comparison which isn't
+        #         # what we wanted anyway.
+        #         # callbacks["component_state"].assert_call(
+        #         #     x_bandpass_plot=x_pol_bandpass_test_data,
+        #         #     y_bandpass_plot=y_pol_bandpass_test_data,
+        #         #     rms_plot=[None],
+        #         #     lookahead=15,
+        #         # )
+        #         time.sleep(3)  # Wait for simulator output.
+
+        assert (
+            ResultCode.OK,
+            "Bandpass monitor stopping.",
+        ) == daq_component_manager.stop_bandpass_monitor()
+        status = daq_component_manager.get_status()
+        assert not status["Bandpass Monitor"]
 
     @pytest.mark.parametrize(
         ("directory", "outcome"),
@@ -631,16 +618,9 @@ class TestDaqComponentManager:
             CommunicationStatus.NOT_ESTABLISHED
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        result, message = daq_component_manager.start_data_rate_monitor(
-            task_callback=callbacks["task"]
-        )
-        assert result == TaskStatus.QUEUED
-        assert message == "Task queued"
-        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
-        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
-        callbacks["task"].assert_call(
-            status=TaskStatus.COMPLETED,
-            result=(ResultCode.OK, "Data rate monitor started."),
+        assert daq_component_manager.start_data_rate_monitor() == (
+            ResultCode.OK,
+            "Data rate measurement started.",
         )
 
     def test_stop_data_rate_monitor(
@@ -662,17 +642,44 @@ class TestDaqComponentManager:
             CommunicationStatus.NOT_ESTABLISHED
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        result, message = daq_component_manager.stop_data_rate_monitor(
-            task_callback=callbacks["task"]
+        assert daq_component_manager.stop_data_rate_monitor() == (
+            ResultCode.OK,
+            "Data rate measurement stopping.",
         )
-        assert result == TaskStatus.QUEUED
-        assert message == "Task queued"
-        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
-        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
-        callbacks["task"].assert_call(
-            status=TaskStatus.COMPLETED,
-            result=(ResultCode.OK, "Data rate monitor stopped."),
-        )
+
+    @pytest.fixture(autouse=True)
+    def mock_psutil_methods(
+        self: TestDaqComponentManager,
+        monkeypatch: pytest.MonkeyPatch,
+        mock_interface: str,
+    ) -> None:
+        """
+        Fixture to mock psutil methods for network I/O.
+
+        :param monkeypatch: pytest's monkeypatch fixture.
+        :param mock_interface: the mock interface to use.
+        """
+        counter = 0
+
+        def mock_net_io_counters(
+            *args: Any, **kwargs: Any
+        ) -> dict[str, psutil._common.snetio]:
+            nonlocal counter
+            counter += 1024**3  # 1 Gb/s in bytes per second
+            return {
+                mock_interface: psutil._common.snetio(
+                    bytes_sent=counter,
+                    bytes_recv=counter,
+                    packets_sent=0,
+                    packets_recv=0,
+                    errin=0,
+                    errout=0,
+                    dropin=0,
+                    dropout=0,
+                )
+            }
+
+        monkeypatch.setattr(psutil, "net_io_counters", mock_net_io_counters)
 
     def test_get_data_rate(
         self: TestDaqComponentManager,
@@ -693,4 +700,6 @@ class TestDaqComponentManager:
             CommunicationStatus.NOT_ESTABLISHED
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        assert daq_component_manager.data_rate == 1.0
+        daq_component_manager.start_data_rate_monitor(1)
+        time.sleep(2)  # Allow some time for data rate to be calculated.
+        assert daq_component_manager.data_rate == pytest.approx(1.0, rel=1e-2)

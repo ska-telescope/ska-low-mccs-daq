@@ -584,7 +584,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param component_manager: the device to which this command belongs.
             :param logger: a logger for this command to use.
             """
-            self._component_manager = component_manager
+            self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
         # pylint: disable=arguments-differ
@@ -596,7 +596,7 @@ class MccsDaqReceiver(MccsBaseDevice):
 
             :return: The status of this Daq device.
             """
-            return self._component_manager.daq_status()
+            return json.dumps(self._component_manager.get_status())
 
     @command(dtype_out="DevString")
     def DaqStatus(self: MccsDaqReceiver) -> str:
@@ -690,7 +690,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param component_manager: the device to which this command belongs.
             :param logger: a logger for this command to use.
             """
-            self._component_manager = component_manager
+            self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
         # pylint: disable=arguments-differ
@@ -768,7 +768,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param component_manager: the device to which this command belongs.
             :param logger: a logger for this command to use.
             """
-            self._component_manager = component_manager
+            self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
         # pylint: disable=arguments-differ
@@ -797,7 +797,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param component_manager: the device to which this command belongs.
             :param logger: a logger for this command to use.
             """
-            self._component_manager = component_manager
+            self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
         # pylint: disable=arguments-differ
@@ -890,7 +890,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param component_manager: the device to which this command belongs.
             :param logger: a logger for this command to use.
             """
-            self._component_manager = component_manager
+            self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
         # pylint: disable=arguments-differ
