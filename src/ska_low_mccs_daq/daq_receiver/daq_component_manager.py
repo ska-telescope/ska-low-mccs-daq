@@ -9,7 +9,6 @@
 """This module implements component management for DaqReceivers."""
 from __future__ import annotations
 
-import datetime
 import json
 import logging
 import os
@@ -40,6 +39,20 @@ SUBSYSTEM_SLUG = "ska-low-mccs"
 
 X_POL_INDEX = 0
 Y_POL_INDEX = 1
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """Converts numpy types to JSON."""
+
+    # pylint: disable=arguments-renamed
+    def default(self: NumpyEncoder, obj: Any) -> Any:
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 
 def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
@@ -173,7 +186,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._configuration["receiver_ip"] = receiver_ip
         if receiver_ports:
             self._configuration["receiver_ports"] = receiver_ports
-        self._configuration |= self.CONFIG_DEFAULTS
+        self._configuration = self.CONFIG_DEFAULTS | self._configuration
         self._received_data_callback = received_data_callback
         self._set_consumers_to_start(consumers_to_start)
         self._daq_client: DaqReceiver | DaqSimulator
@@ -191,6 +204,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
         self._y_bandpass_plots: deque[str] = deque(maxlen=1)
         self._x_bandpass_plots: deque[str] = deque(maxlen=1)
+        self._full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=float)
+        self._files_received_per_tile: list[int] = [0] * nof_tiles
 
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
@@ -227,19 +242,26 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: the ip of the loadbalancer service.
         """
-        kubernetes.config.load_incluster_config()
-        core_v1_api = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient())
-        server_hostname = os.getenv("TANGO_SERVER_PUBLISH_HOSTNAME")
-        device_hostname = os.getenv("HOSTNAME")
-        if not server_hostname or not device_hostname:
-            logger.error("Couldn't get external IP automatically.")
+        try:
+            kubernetes.config.load_incluster_config()
+            core_v1_api = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient())
+            server_hostname = os.getenv("TANGO_SERVER_PUBLISH_HOSTNAME")
+            device_hostname = os.getenv("HOSTNAME")
+            if not server_hostname or not device_hostname:
+                logger.error("Couldn't get external IP automatically.")
+                return ""
+            namespace = server_hostname.split(".")[1]
+            name = device_hostname.rsplit("-", 1)[0]
+            svc = core_v1_api.read_namespaced_service(name=name, namespace=namespace)
+            ip = svc.status.load_balancer.ingress[0].ip
+            logger.info(f"Got external IP: {ip}")
+            return ip
+        except Exception as e:  # pylint: disable=broad-except
+            logger.error(
+                "Failed to retried loadbalancer IP, "
+                f"likely there is no loadbalancer service: {e}"
+            )
             return ""
-        namespace = server_hostname.split(".")[1]
-        name = device_hostname.rsplit("-", 1)[0]
-        svc = core_v1_api.read_namespaced_service(name=name, namespace=namespace)
-        ip = svc.status.load_balancer.ingress[0].ip
-        logger.info(f"Got external IP: {ip}")
-        return ip
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
@@ -341,6 +363,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         if not self._is_bandpass_monitor_running():
             self.logger.info("Auto starting bandpass monitor.")
+            self.configure_daq(json.dumps({"append_integrated": False}))
             self.start_bandpass_monitor()
             _wait_for_status(status="Bandpass Monitor", value="True")
 
@@ -490,7 +513,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._received_data_callback(
             file_name,
             data_mode,
-            json.dumps(metadata),
+            json.dumps(metadata, cls=NumpyEncoder),
         )
 
         # Call additional callbacks per data mode if needed.
@@ -769,14 +792,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
         nof_pols = int(config["nof_polarisations"])
         nof_tiles = int(config["nof_tiles"])
 
-        x_pol_data: np.ndarray | None = None
-        x_pol_data_count: int = 0
-        y_pol_data: np.ndarray | None = None
-        y_pol_data_count: int = 0
-        # The shape is reversed as DAQ reads the data this way around.
-        full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=int)
-        files_received_per_tile: list[int] = [0] * nof_tiles
-        interval_start = None
+        # x_pol_data: np.ndarray | None = None
+        # x_pol_data_count: int = 0
+        # y_pol_data: np.ndarray | None = None
+        # y_pol_data_count: int = 0
 
         _filename_expression = re.compile(
             r"channel_integ_(?P<tile>\d+)_(?P<timestamp>\d+_\d+)_0.hdf5"
@@ -792,12 +811,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
             tile_number = int(parts.groupdict()["tile"])
         if tile_number is not None:
             try:
-                files_received_per_tile[tile_number] += 1
+                self._files_received_per_tile[tile_number] += 1
             except IndexError as e:
                 self.logger.error(
                     f"Caught exception: {e}. "
                     f"Tile {tile_number} out of bounds! "
-                    f"Max tile number: {len(files_received_per_tile)}"
+                    f"Max tile number: {len(self._files_received_per_tile)}"
                 )
 
         # Open newly create HDF5 file
@@ -810,7 +829,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 self.logger.error("Exception: %s", e)
                 return
             try:
-                data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
+                data = self._to_db(
+                    data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
+                )
             except ValueError as ve:
                 self.logger.error("ValueError caught reshaping data, skipping: %s", ve)
                 return
@@ -819,56 +840,61 @@ class DaqComponentManager(TaskExecutorComponentManager):
         # full_station_data is made of blocks of data per TPM in TPM order.
         # Each block of TPM data is in port order.
         start_index = nof_antennas_per_tile * tile_number
-        full_station_data[
+        self._full_station_data[
             :, start_index : start_index + nof_antennas_per_tile, :
         ] = data
 
-        present = datetime.datetime.now()
-        if interval_start is None:
-            interval_start = present
+        # present = datetime.datetime.now()
+        # if interval_start is None:
+        #     interval_start = present
 
         # TODO: This block is currently useless. Get averaging back in.
         # Loop over polarisations (separate plots)
-        for pol in range(nof_pols):
-            # Assign first data point or maintain sum of all data.
-            # Divide by _pol_data_count to calculate the moving average on-demand.
-            if pol == X_POL_INDEX:
-                if x_pol_data is None:
-                    x_pol_data_count = 1
-                    x_pol_data = full_station_data[:, :, pol]
-                else:
-                    x_pol_data_count += 1
-                    x_pol_data = x_pol_data + full_station_data[:, :, pol]
-            elif pol == Y_POL_INDEX:
-                if y_pol_data is None:
-                    y_pol_data_count = 1
-                    y_pol_data = full_station_data[:, :, pol]
-                else:
-                    y_pol_data_count += 1
-                    y_pol_data = y_pol_data + full_station_data[:, :, pol]
+        # for pol in range(nof_pols):
+        #     # Assign first data point or maintain sum of all data.
+        #     # Divide by _pol_data_count to calculate the moving average on-demand.
+        #     if pol == X_POL_INDEX:
+        #         if x_pol_data is None:
+        #             x_pol_data_count = 1
+        #             x_pol_data = full_station_data[:, :, pol]
+        #         else:
+        #             x_pol_data_count += 1
+        #             x_pol_data = x_pol_data + full_station_data[:, :, pol]
+        #     elif pol == Y_POL_INDEX:
+        #         if y_pol_data is None:
+        #             y_pol_data_count = 1
+        #             y_pol_data = full_station_data[:, :, pol]
+        #         else:
+        #             y_pol_data_count += 1
+        #             y_pol_data = y_pol_data + full_station_data[:, :, pol]
 
         # Delete read file.
         os.unlink(filepath)
         # to the queue to be sent to the Tango device,
         # Assert that we've received the same number (1+) of files per tile.
-        if all(files_received_per_tile) and (len(set(files_received_per_tile)) == 1):
-            assert isinstance(full_station_data, np.ndarray)
-            x_data = full_station_data[:, :, X_POL_INDEX].transpose()
+        if all(self._files_received_per_tile) and (
+            len(set(self._files_received_per_tile)) == 1
+        ):
+            x_data = self._full_station_data[:, :, X_POL_INDEX].transpose()
             # Averaged x data (commented out for now)
             # x_data = x_pol_data.transpose() / x_pol_data_count
-            y_data = full_station_data[:, :, Y_POL_INDEX].transpose()
+            y_data = self._full_station_data[:, :, Y_POL_INDEX].transpose()
             # Averaged y data (commented out for now)
             # y_data = y_pol_data.transpose() / y_pol_data_count
-            self._update_component_state(x_bandpass_plot=x_data, y_bandpass_plot=y_data)
+            if self._component_state_callback is not None:
+                self._component_state_callback(
+                    x_bandpass_plot=x_data, y_bandpass_plot=y_data
+                )
             self.logger.debug("Bandpasses transmitted.")
 
             # Reset vars
-            x_pol_data = None
-            x_pol_data_count = 0
-            y_pol_data = None
-            y_pol_data_count = 0
-            interval_start = None
-            files_received_per_tile = [0] * nof_tiles
+            # x_pol_data = None
+            # x_pol_data_count = 0
+            # y_pol_data = None
+            # y_pol_data_count = 0
+            # interval_start = None
+            self._files_received_per_tile = [0] * nof_tiles
+            self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
 
     @check_communicating
     def stop_bandpass_monitor(

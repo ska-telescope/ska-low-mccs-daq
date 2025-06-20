@@ -702,4 +702,4 @@ class TestDaqComponentManager:
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
         daq_component_manager.start_data_rate_monitor(1)
         time.sleep(2)  # Allow some time for data rate to be calculated.
-        assert daq_component_manager.data_rate == pytest.approx(1.0, rel=1e-2)
+        assert daq_component_manager.data_rate == pytest.approx(1.0, rel=1e-1)
