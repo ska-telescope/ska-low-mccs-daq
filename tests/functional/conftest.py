@@ -77,7 +77,7 @@ def exported_daq_fixture(true_context: bool) -> list[tango.DeviceProxy]:
     return []
 
 
-@pytest.fixture(name="functional_test_context_generator", scope="module")
+@pytest.fixture(name="functional_test_context_generator")
 def functional_test_context_generator_fixture(
     true_context: bool,
     daq_id: int,
@@ -153,7 +153,7 @@ def station_label_fixture() -> str | None:
     return os.environ.get("STATION_LABEL")
 
 
-@pytest.fixture(name="functional_test_context", scope="module")
+@pytest.fixture(name="functional_test_context")
 def functional_test_context_fixture(
     true_context: bool,
     station_label: str | None,
@@ -181,7 +181,7 @@ def functional_test_context_fixture(
         yield context
 
 
-@pytest.fixture(name="change_event_callbacks", scope="module")
+@pytest.fixture(name="change_event_callbacks")
 def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
     """
     Return a dictionary of callables to be used as Tango change event callbacks.

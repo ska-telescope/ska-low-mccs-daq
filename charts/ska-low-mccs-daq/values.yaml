@@ -110,6 +110,8 @@ ska-tango-devices:
           - SYS_ADMIN
           - KILL
           - SYS_TIME
+      podSecurityContext:
+        fsGroup: 1000
       livenessProbe:
         initialDelaySeconds: 0
         periodSeconds: 10

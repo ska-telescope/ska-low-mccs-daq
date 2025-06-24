@@ -226,11 +226,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         doc="The location of a running SKUID service.",
         default_value="",
     )
-    DaqInitRetryFreq = device_property(
-        dtype=int,
-        doc="The retry frequency for DAQ initialization in seconds",
-        default_value=5,
-    )
     BandpassDaq = device_property(
         dtype=bool,
         doc="Whether this DaqReceiver is a dedicated bandpass monitor.",
@@ -304,7 +299,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             f"\tDaqId: {self.DaqId}\n"
             f"\tConsumersToStart: {self.ConsumersToStart}\n"
             f"\tSkuidUrl: {self.SkuidUrl}\n"
-            f"\tDaqInitRetryFreq: {self.DaqInitRetryFreq}\n"
             f"\tBandpassDaq: {self.BandpassDaq}\n"
             f"\tNumberOfTiles: {self.NumberOfTiles}\n"
             f"\tSimulationMode: {self.SimulationMode}"
@@ -349,7 +343,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._component_communication_state_changed,
             self._component_state_callback,
             self._received_data_callback,
-            self.DaqInitRetryFreq,
             self.BandpassDaq,
             self.SimulationMode,
         )
@@ -591,7 +584,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param component_manager: the device to which this command belongs.
             :param logger: a logger for this command to use.
             """
-            self._component_manager = component_manager
+            self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
         # pylint: disable=arguments-differ
@@ -603,7 +596,7 @@ class MccsDaqReceiver(MccsBaseDevice):
 
             :return: The status of this Daq device.
             """
-            return self._component_manager.daq_status()
+            return json.dumps(self._component_manager.get_status())
 
     @command(dtype_out="DevString")
     def DaqStatus(self: MccsDaqReceiver) -> str:
@@ -697,7 +690,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param component_manager: the device to which this command belongs.
             :param logger: a logger for this command to use.
             """
-            self._component_manager = component_manager
+            self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
         # pylint: disable=arguments-differ
@@ -775,7 +768,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param component_manager: the device to which this command belongs.
             :param logger: a logger for this command to use.
             """
-            self._component_manager = component_manager
+            self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
         # pylint: disable=arguments-differ
@@ -804,7 +797,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param component_manager: the device to which this command belongs.
             :param logger: a logger for this command to use.
             """
-            self._component_manager = component_manager
+            self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
         # pylint: disable=arguments-differ
@@ -897,7 +890,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param component_manager: the device to which this command belongs.
             :param logger: a logger for this command to use.
             """
-            self._component_manager = component_manager
+            self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
         # pylint: disable=arguments-differ

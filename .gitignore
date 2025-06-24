@@ -64,3 +64,6 @@ docs/src/_build
 # DAQ related files
 aavs.log*
 *.hdf5
+
+# Keep hdf5s used for testing
+!tests/data/integrated-data/*.hdf5
