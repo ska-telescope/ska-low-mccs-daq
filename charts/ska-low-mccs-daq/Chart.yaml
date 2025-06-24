@@ -6,7 +6,7 @@ appVersion: 2.0.4
 icon: https://www.skatelescope.org/wp-content/uploads/2016/07/09545_NEW_LOGO_2014.png
 dependencies:
   - name: ska-tango-devices
-    # version: 0.4.0
-    # repository: https://artefact.skao.int/repository/helm-internal
-    version: 0.4.0-dev.c5fbd95a6
-    repository: https://gitlab.com/api/v4/projects/66823602/packages/helm/dev
+    version: 0.5.0
+    repository: https://artefact.skao.int/repository/helm-internal
+    # version: 0.4.0-dev.c5fbd95a6
+    # repository: https://gitlab.com/api/v4/projects/66823602/packages/helm/dev
