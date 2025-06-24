@@ -745,6 +745,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
+        self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
+        self._files_received_per_tile = [0] * self._nof_tiles
         self.configure_daq(
             json.dumps({"append_integrated": False, "nof_tiles": self._nof_tiles})
         )
