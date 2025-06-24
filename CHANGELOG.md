@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-174] Update DaqComponentManager to talk to DaqReceiver. (DaqComponentManager -> DaqHandler -> DaqReceiver is now DaqComponentManager -> DaqRecevier)
+
 ## 2.1.0
 
 * [THORN-217] Add method for fetching loadbalancer IP
