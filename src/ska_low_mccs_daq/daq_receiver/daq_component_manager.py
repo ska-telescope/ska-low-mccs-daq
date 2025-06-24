@@ -507,14 +507,14 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if additional_info is not None and metadata is not None:
             metadata["additional_info"] = additional_info
 
-        if self._monitoring_bandpass:
-            self.generate_bandpass_plots(file_name)
-
         self._received_data_callback(
             file_name,
             data_mode,
             json.dumps(metadata, cls=NumpyEncoder),
         )
+
+        if self._monitoring_bandpass:
+            self.generate_bandpass_plots(file_name)
 
         # Call additional callbacks per data mode if needed.
         if data_mode == "read_raw_data":

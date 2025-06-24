@@ -9,7 +9,10 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import time
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -17,10 +20,13 @@ import psutil  # type: ignore[import-untyped]
 import pytest
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
+from ska_tango_testing.mock.placeholders import Anything
 
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 from ska_low_mccs_daq.daq_receiver.daq_simulator import convert_daq_modes
 from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes
+
+NOF_ANTENNAS_PER_TILE = 16
 
 
 class TestDaqComponentManager:
@@ -327,23 +333,11 @@ class TestDaqComponentManager:
         daq_component_manager._set_consumers_to_start(consumer_list)
         assert daq_component_manager._consumers_to_start == consumer_list
 
-    @pytest.mark.parametrize(
-        ("expected_status", "expected_msg"),
-        (
-            (
-                TaskStatus.IN_PROGRESS,
-                (ResultCode.OK, "Bandpass monitor active"),
-            ),
-        ),
-    )
     def test_start_stop_bandpass_monitor(  # pylint: disable = too-many-arguments
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
         callbacks: MockCallableGroup,
-        expected_status: TaskStatus,
-        expected_msg: str,
-        x_pol_bandpass_test_data: np.ndarray,
-        y_pol_bandpass_test_data: np.ndarray,
+        nof_tiles: int,
     ) -> None:
         """
         Test for start_bandpass_monitor().
@@ -355,25 +349,24 @@ class TestDaqComponentManager:
             under test.
         :param callbacks: a dictionary from which callbacks with
             asynchrony support can be accessed.
-        :param expected_status: The first expected status returned from
-            `start_bandpass_monitor`
-        :param expected_msg: The first expected message returned from
-            `start_bandpass_monitor`
-        :param x_pol_bandpass_test_data: A NumPy array of simulated x-pol bandpass data.
-        :param y_pol_bandpass_test_data: A NumPy array of simulated y-pol bandpass data.
+        :param nof_tiles: number of tiles the DAQ was configure with.
         """
-        # Pad test data with zeros to match attr shape.
-        x_pol_bandpass_test_data = daq_component_manager._to_shape(
-            x_pol_bandpass_test_data, (256, 512)
-        )
-        y_pol_bandpass_test_data = daq_component_manager._to_shape(
-            y_pol_bandpass_test_data, (256, 512)
-        )
         daq_component_manager.start_communicating()
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        daq_component_manager.start_daq(
+            "INTEGRATED_CHANNEL_DATA",
+            task_callback=callbacks["task"],
+        )
+        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(
+            status=TaskStatus.COMPLETED,
+            result=(ResultCode.OK, "Daq started"),
+        )
+
         # Call start_bandpass
         _ = daq_component_manager.start_bandpass_monitor(
             task_callback=callbacks["task"]
@@ -381,48 +374,49 @@ class TestDaqComponentManager:
 
         callbacks["task"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task"].assert_call(
-            status=TaskStatus.COMPLETED, result=expected_msg, lookahead=5
+            status=TaskStatus.COMPLETED,
+            result=(ResultCode.OK, "Bandpass monitor active"),
+            lookahead=5,
         )
-        # Any ResultCode.REJECTED cases end at the line above.
 
-        # if expected_status == TaskStatus.IN_PROGRESS:
-        #     # Assert status shows bandpass monitor is active.
-        #     status = daq_component_manager.get_status()
-        #     assert status["Bandpass Monitor"]
+        src_dir = Path(__file__).parent.parent.parent / "data" / "integrated-data"
+        dst_dir = src_dir.parent / "bandpass-data"
+        dst_dir.mkdir(exist_ok=True)
 
-        #     for _ in range(3):
-        #         # Pretend to receive bandpass data.
-        #         daq_component_manager._file_dump_callback(
-        #             "integrated_channel",
-        #         )
+        # Assert status shows bandpass monitor is active.
+        status = daq_component_manager.get_status()
+        assert status["Bandpass Monitor"]
 
-        #         # This isn't working properly.
-        #         # need to extract the call args and compare... UGH!
-        #         # while not callbacks["component_state"]._call_queue.empty():
-        #         call_args = callbacks["component_state"]._call_queue.get(timeout=5)
-        #         args_dict = call_args[2]
-        #         received_x_pol_data = args_dict["x_bandpass_plot"]
-        #         received_y_pol_data = args_dict["y_bandpass_plot"]
+        expected_data = np.zeros((256, 512))
+        for i in range(nof_tiles * NOF_ANTENNAS_PER_TILE):
+            expected_data[i][0] = 3.01  # DC signal
+            expected_data[i][128] = 36  # Test generator on at 100Mhz
+            expected_data[i][256] = 36  # Test generator on at 200Mhz
 
-        #         assert np.array_equal(
-        #             daq_component_manager._to_db(x_pol_bandpass_test_data),
-        #             received_x_pol_data,
-        #         )
-        #         assert np.array_equal(
-        #             daq_component_manager._to_db(y_pol_bandpass_test_data),
-        #             received_y_pol_data,
-        #         )
+        for _ in range(3):
+            # Pretend to receive bandpass data.
+            for file in src_dir.glob("*.hdf5"):
+                shutil.copy(file, dst_dir / file.name)
 
-        #         # The following assertion doesn't work properly with numpy arrays.
-        #         # It results in an illegal boolean array comparison which isn't
-        #         # what we wanted anyway.
-        #         # callbacks["component_state"].assert_call(
-        #         #     x_bandpass_plot=x_pol_bandpass_test_data,
-        #         #     y_bandpass_plot=y_pol_bandpass_test_data,
-        #         #     rms_plot=[None],
-        #         #     lookahead=15,
-        #         # )
-        #         time.sleep(3)  # Wait for simulator output.
+            assert len(os.listdir(dst_dir)) == nof_tiles
+            for file in dst_dir.glob("*.hdf5"):
+                daq_component_manager._file_dump_callback(
+                    "integrated_channel", str(file)
+                )
+
+            for _ in range(8):
+                callbacks["received_data"].assert_call(
+                    Anything, "integrated_channel", Anything
+                )
+
+            call_args = callbacks["component_state"]._call_queue.get(timeout=5)
+            args_dict = call_args[2]
+            received_x_pol_data = args_dict["x_bandpass_plot"]
+            received_y_pol_data = args_dict["y_bandpass_plot"]
+
+            np.testing.assert_allclose(received_x_pol_data, expected_data, rtol=1e-1)
+            np.testing.assert_allclose(received_y_pol_data, expected_data, rtol=1e-1)
+            assert len(os.listdir(dst_dir)) == 0
 
         assert (
             ResultCode.OK,

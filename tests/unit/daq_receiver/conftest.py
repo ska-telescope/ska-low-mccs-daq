@@ -91,6 +91,19 @@ def mock_interface_fixture() -> str:
     return "sdn1"
 
 
+@pytest.fixture(name="nof_tiles")
+def nof_tiles_fixture() -> int:
+    """
+    Fixture to get number of tiles to hand to the DaqComponentManager.
+
+    This is set to 8 as we use a set of 8 integrated files generated at RAL
+    from 8 TPMs.
+
+    :return: number of tiles.
+    """
+    return 8
+
+
 # pylint: disable=too-many-arguments
 @pytest.fixture(name="daq_component_manager")
 def daq_component_manager_fixture(
@@ -100,6 +113,7 @@ def daq_component_manager_fixture(
     logger: logging.Logger,
     callbacks: MockCallableGroup,
     mock_interface: str,
+    nof_tiles: int,
 ) -> DaqComponentManager:
     """
     Return a daq receiver component manager.
@@ -111,6 +125,7 @@ def daq_component_manager_fixture(
     :param callbacks: a dictionary from which callbacks with asynchrony
         support can be accessed.
     :param mock_interface: the mock interface to use for the DAQ handler.
+    :param nof_tiles: number of tiles to configure the DAQ with.
 
     :return: a daq component manager
     """
@@ -120,7 +135,7 @@ def daq_component_manager_fixture(
         "",
         "",
         "",
-        1,
+        nof_tiles,
         skuid_url,
         logger,
         callbacks["communication_state"],
