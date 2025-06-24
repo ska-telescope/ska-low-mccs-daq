@@ -364,7 +364,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         if not self._is_bandpass_monitor_running():
             self.logger.info("Auto starting bandpass monitor.")
-            self.configure_daq(json.dumps({"append_integrated": False}))
+            self.configure_daq(
+                json.dumps({"append_integrated": False, "nof_tiles": self._nof_tiles})
+            )
             self.start_bandpass_monitor()
             _wait_for_status(status="Bandpass Monitor", value="True")
 
@@ -747,9 +749,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             task_callback(status=TaskStatus.IN_PROGRESS)
         self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
         self._files_received_per_tile = [0] * self._nof_tiles
-        self.configure_daq(
-            json.dumps({"append_integrated": False, "nof_tiles": self._nof_tiles})
-        )
         self._monitoring_bandpass = True
         if task_callback:
             task_callback(
