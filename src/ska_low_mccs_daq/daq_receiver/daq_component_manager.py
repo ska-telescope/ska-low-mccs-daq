@@ -180,6 +180,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._daq_id = str(daq_id).zfill(3)
         self._dedicated_bandpass_daq = dedicated_bandpass_daq
         self._configuration: dict[str, Any] = {"nof_tiles": nof_tiles}
+        self._nof_tiles = nof_tiles
         if receiver_interface:
             self._configuration["receiver_interface"] = receiver_interface
         if receiver_ip:
@@ -258,7 +259,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             return ip
         except Exception as e:  # pylint: disable=broad-except
             logger.error(
-                "Failed to retried loadbalancer IP, "
+                "Failed to retrieve loadbalancer IP, "
                 f"likely there is no loadbalancer service: {e}"
             )
             return ""
@@ -290,7 +291,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if self._initialised is False:
             self.logger.debug("Creating DaqReceiver instance.")
             if self._simulation_mode:
-                self._daq_client = DaqSimulator()
+                self._daq_client = DaqSimulator(**self._configuration)
             else:
                 self._daq_client = DaqReceiver()
             try:
@@ -513,9 +514,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             json.dumps(metadata, cls=NumpyEncoder),
         )
 
-        if self._monitoring_bandpass:
-            self.generate_bandpass_plots(file_name)
-
         # Call additional callbacks per data mode if needed.
         if data_mode == "read_raw_data":
             pass
@@ -535,8 +533,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if data_mode == "continuous_channel":
             pass
 
-        if data_mode == "integrated_channel":
-            pass
+        if data_mode == "integrated_channel" and self._monitoring_bandpass:
+            self.generate_bandpass_plots(file_name)
 
         if data_mode == "correlator":
             pass
@@ -747,6 +745,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
+        self.configure_daq(
+            json.dumps({"append_integrated": False, "nof_tiles": self._nof_tiles})
+        )
         self._monitoring_bandpass = True
         if task_callback:
             task_callback(
