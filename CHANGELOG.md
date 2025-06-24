@@ -1,7 +1,8 @@
 # Version History
 
-## Unreleased
+## 2.1.0
 
+* [THORN-217] Add method for fetching loadbalancer IP
 * [THORN-170] Update Dockerfile to support a Tango device too. It remains backward compatible with the two-pod-daq.
 * [THORN-215] Update configuration after writing.
 * [THORN-171] Copy the DAQ tango device into ska-low-mccs-daq.
