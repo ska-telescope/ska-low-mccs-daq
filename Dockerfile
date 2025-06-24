@@ -6,8 +6,7 @@
 # but hopefully a better solution will be found.
 FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.5.13 AS tools
 
-# For now pulling from the gitlab registry
-FROM registry.gitlab.com/ska-telescope/ska-base-images/ska-build-cuda-11:0.1.0-dev.caeef7591
+FROM artefact.skao.int/ska-build-cuda-11:0.1.1
 
 # Create non-root user
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
