@@ -207,6 +207,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._x_bandpass_plots: deque[str] = deque(maxlen=1)
         self._full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=float)
         self._files_received_per_tile: list[int] = [0] * nof_tiles
+        self._event_queue: queue.Queue[tuple[str, float]] = queue.Queue()
+        threading.Thread(target=self._event_loop, name="EventLoop").start()
 
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
@@ -489,6 +491,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         data_mode: str,
         file_name: str,
         additional_info: Optional[str] = None,
+        **attributes: float,
     ) -> None:
         """
         Call a callback for specific data mode.
@@ -498,6 +501,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param data_mode: The DAQ data type written
         :param file_name: The filename written
         :param additional_info: Any additional information/metadata.
+        :param attributes: any attributes to update the value for.
         """
         # Callbacks to call for all data modes.
         daq_mode = self._data_mode_mapping[data_mode]
@@ -515,6 +519,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
             data_mode,
             json.dumps(metadata, cls=NumpyEncoder),
         )
+
+        for attribute_name, attribute_value in attributes.items():
+            self._attribute_callback(attribute_name, attribute_value)
 
         # Call additional callbacks per data mode if needed.
         if data_mode == "read_raw_data":
@@ -1080,3 +1087,26 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
         return self._data_rate
+
+    def _event_loop(self: DaqComponentManager) -> None:
+        """Event loop for handling attribute updated from DAQ."""
+        while True:
+            try:
+                attribute_name, attribute_value = self._event_queue.get()
+                if self._component_state_callback is not None:
+                    self._component_state_callback(
+                        attribute_name=attribute_name, attribute_value=attribute_value
+                    )
+            except Exception:  # pylint: disable=broad-exception-caught
+                self.logger.warning("Caught exception in event loop.", exc_info=True)
+
+    def _attribute_callback(
+        self: DaqComponentManager, attribute_name: str, attribute_value: float
+    ) -> None:
+        """
+        Record changes in attributes from DAQ.
+
+        :param attribute_name: name of the attribute.
+        :param attribute_value: value of the attribute.
+        """
+        self._event_queue.put((attribute_name, attribute_value))

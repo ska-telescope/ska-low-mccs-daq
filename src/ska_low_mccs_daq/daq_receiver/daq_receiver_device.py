@@ -34,6 +34,18 @@ __all__ = ["MccsDaqReceiver", "main"]
 DevVarLongStringArrayType = tuple[list[ResultCode], list[Optional[str]]]
 
 
+def snake_to_camel(s: str) -> str:
+    """
+    Convert snake_case to camelCase.
+
+    :param s: string to convert.
+
+    :returns: s in camelCase.
+    """
+    parts = s.split("_")
+    return parts[0] + "".join(word.capitalize() for word in parts[1:])
+
+
 class _StartDaqCommand(SubmittedSlowCommand):
     """
     Class for handling the Start command.
@@ -268,6 +280,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._x_bandpass_plot: np.ndarray
         self._y_bandpass_plot: np.ndarray
         self._rms_plot: np.ndarray
+        self._nof_saturations: int
         self._skuid_url: str
 
     def init_device(self: MccsDaqReceiver) -> None:
@@ -419,6 +432,8 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("yPolBandpass", True, False)
             self._device.set_change_event("rmsPlot", True, False)
             self._device.set_archive_event("rmsPlot", True, False)
+            self._device.set_change_event("nofSaturations", True, False)
+            self._device.set_archive_event("nofSaturations", True, False)
 
             return (ResultCode.OK, "Init command completed OK")
 
@@ -452,7 +467,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             communicating=(communication_state == CommunicationStatus.ESTABLISHED)
         )
 
-    def _component_state_callback(
+    def _component_state_callback(  # noqa: C901
         self: MccsDaqReceiver,
         fault: Optional[bool] = None,
         x_bandpass_plot: Optional[np.ndarray] = None,
@@ -500,6 +515,19 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._rms_plot = rms_plot
             self.push_change_event("rmsPlot", rms_plot)
             self.push_archive_event("rmsPlot", rms_plot)
+
+        if kwargs is not None:
+            for attribute_name, attribute_value in kwargs.items():
+                internal_attr = f"_{attribute_name}"
+                if not hasattr(self, internal_attr):
+                    self.logger.warning(
+                        f"Received event for {attribute_name}, "
+                        "this has no Tango attribute, ignoring."
+                    )
+                    continue
+                setattr(self, internal_attr, attribute_value)
+                self.push_change_event(snake_to_camel(attribute_name), attribute_value)
+                self.push_archive_event(snake_to_camel(attribute_name), attribute_value)
 
     def _received_data_callback(
         self: MccsDaqReceiver,
@@ -1028,6 +1056,15 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
         return self.component_manager.data_rate
+
+    @attribute(dtype="DevLong")
+    def nofSaturations(self: MccsDaqReceiver) -> int:
+        """
+        Return the nof saturations of the last station beam consumer integration.
+
+        :return: the nof saturations of the last station beam consumer integration.
+        """
+        return int(self._nof_saturations)
 
 
 # ----------
