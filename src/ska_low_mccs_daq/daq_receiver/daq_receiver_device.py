@@ -192,7 +192,7 @@ class _StartBandpassMonitorCommand(SubmittedSlowCommand):
         return super().do(argin)
 
 
-# pylint: disable = too-many-instance-attributes
+# pylint: disable = too-many-instance-attributes, too-many-public-methods
 class MccsDaqReceiver(MccsBaseDevice):
     """An implementation of a MccsDaqReceiver Tango device."""
 
@@ -281,6 +281,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._y_bandpass_plot: np.ndarray
         self._rms_plot: np.ndarray
         self._nof_saturations: int
+        self._nof_packets: int
+        self._data_rate: float
+        self._receive_rate: float
+        self._drop_rate: float
         self._skuid_url: str
 
     def init_device(self: MccsDaqReceiver) -> None:
@@ -335,6 +339,11 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._x_bandpass_plot = np.zeros(shape=(256, 512), dtype=float)
         self._y_bandpass_plot = np.zeros(shape=(256, 512), dtype=float)
         self._rms_plot = np.zeros(shape=(256, 512), dtype=float)
+        self._nof_saturations = 0
+        self._nof_packets = 0
+        self._receive_rate = 0
+        self._drop_rate = 0
+        self._data_rate = 0
         self.set_change_event("healthState", True, False)
         self.set_archive_event("healthState", True, False)
 
@@ -434,6 +443,14 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("rmsPlot", True, False)
             self._device.set_change_event("nofSaturations", True, False)
             self._device.set_archive_event("nofSaturations", True, False)
+            self._device.set_change_event("nofPackets", True, False)
+            self._device.set_archive_event("nofPackets", True, False)
+            self._device.set_change_event("dataRate", True, False)
+            self._device.set_archive_event("dataRate", True, False)
+            self._device.set_change_event("receiveRate", True, False)
+            self._device.set_archive_event("receiveRate", True, False)
+            self._device.set_change_event("dropRate", True, False)
+            self._device.set_archive_event("dropRate", True, False)
 
             return (ResultCode.OK, "Init command completed OK")
 
@@ -467,12 +484,14 @@ class MccsDaqReceiver(MccsBaseDevice):
             communicating=(communication_state == CommunicationStatus.ESTABLISHED)
         )
 
+    # pylint: disable=too-many-arguments
     def _component_state_callback(  # noqa: C901
         self: MccsDaqReceiver,
         fault: Optional[bool] = None,
         x_bandpass_plot: Optional[np.ndarray] = None,
         y_bandpass_plot: Optional[np.ndarray] = None,
         rms_plot: Optional[np.ndarray] = None,
+        reset_consumer_attributes: Optional[bool] = None,
         **kwargs: Optional[Any],
     ) -> None:
         """
@@ -485,6 +504,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         :param x_bandpass_plot: A filepath for a bandpass plot.
         :param y_bandpass_plot: A filepath for a bandpass plot.
         :param rms_plot: A filepath for an rms plot.
+        :param reset_consumer_attributes: whether to reset consumer attributes to 0.
         :param kwargs: Other state changes of device.
         """
         if fault:
@@ -516,6 +536,9 @@ class MccsDaqReceiver(MccsBaseDevice):
             self.push_change_event("rmsPlot", rms_plot)
             self.push_archive_event("rmsPlot", rms_plot)
 
+        if reset_consumer_attributes:
+            self._reset_consumer_attributes()
+
         if kwargs is not None:
             for attribute_name, attribute_value in kwargs.items():
                 internal_attr = f"_{attribute_name}"
@@ -528,6 +551,15 @@ class MccsDaqReceiver(MccsBaseDevice):
                 setattr(self, internal_attr, attribute_value)
                 self.push_change_event(snake_to_camel(attribute_name), attribute_value)
                 self.push_archive_event(snake_to_camel(attribute_name), attribute_value)
+
+    def _reset_consumer_attributes(self) -> None:
+        self._nof_saturations = 0
+        self.push_change_event("nofSaturations", 0)
+        self.push_archive_event("nofSaturations", 0)
+
+        self._nof_packets = 0
+        self.push_change_event("nofPackets", 0)
+        self.push_archive_event("nofPackets", 0)
 
     def _received_data_callback(
         self: MccsDaqReceiver,
@@ -1048,15 +1080,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return self._health_model.health_report
 
-    @attribute(dtype="DevFloat")
-    def dataRate(self: MccsDaqReceiver) -> float | None:
-        """
-        Return the current data rate in Gb/s, or None if not being monitored.
-
-        :return: the current data rate in Gb/s, or None if not being monitored.
-        """
-        return self.component_manager.data_rate
-
     @attribute(dtype="DevLong")
     def nofSaturations(self: MccsDaqReceiver) -> int:
         """
@@ -1065,6 +1088,42 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the nof saturations of the last station beam consumer integration.
         """
         return int(self._nof_saturations)
+
+    @attribute(dtype="DevLong")
+    def nofPackets(self: MccsDaqReceiver) -> int:
+        """
+        Return the nof packets of the last station beam consumer integration.
+
+        :return: the nof packets of the last station beam consumer integration.
+        """
+        return int(self._nof_packets)
+
+    @attribute(dtype="DevFloat")
+    def dataRate(self: MccsDaqReceiver) -> float | None:
+        """
+        Return the current data rate in Gb/s, or None if not being monitored.
+
+        :return: the current data rate in Gb/s, or None if not being monitored.
+        """
+        return self._data_rate
+
+    @attribute(dtype="DevFloat")
+    def receiveRate(self: MccsDaqReceiver) -> float | None:
+        """
+        Return the current data rate in Gb/s, or None if not being monitored.
+
+        :return: the current data rate in Gb/s, or None if not being monitored.
+        """
+        return self._receive_rate
+
+    @attribute(dtype="DevFloat")
+    def dropRate(self: MccsDaqReceiver) -> float | None:
+        """
+        Return the current data rate in Gb/s, or None if not being monitored.
+
+        :return: the current data rate in Gb/s, or None if not being monitored.
+        """
+        return self._drop_rate
 
 
 # ----------
