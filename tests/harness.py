@@ -138,6 +138,7 @@ class SpsTangoTestHarness:
         self: SpsTangoTestHarness,
         daq_id: int,
         address: tuple[str, int] | None,
+        receiver_interface: str | None = None,
         consumers_to_start: list[str] | None = None,
         logging_level: int = int(LoggingLevel.DEBUG),
         device_class: type[Device] | str = "ska_low_mccs_daq.MccsDaqReceiver",
@@ -149,6 +150,8 @@ class SpsTangoTestHarness:
         :param address: address of the DAQ instance
             to be monitored and controlled by this Tango device.
             It is a tuple of hostname or IP address, and port.
+        :param receiver_interface: The interface on which the DAQ receiver
+            is listening for traffic.
         :param consumers_to_start: list of consumers to start.
         :param logging_level: the Tango device's default logging level.
         :param device_class: The device class to use.
@@ -168,6 +171,7 @@ class SpsTangoTestHarness:
             get_lmc_daq_name(self._station_label),
             device_class,
             DaqId=daq_id,
+            ReceiverInterface=receiver_interface,
             Host=host,
             ConsumersToStart=consumers_to_start,
             LoggingLevelDefault=logging_level,
