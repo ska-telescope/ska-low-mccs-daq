@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 2.1.1
+
+* [THORN-220] Add cleanup for component manager.
 * [THORN-174] Update DaqComponentManager to talk to DaqReceiver. (DaqComponentManager -> DaqHandler -> DaqReceiver is now DaqComponentManager -> DaqRecevier)
 
 ## 2.1.0

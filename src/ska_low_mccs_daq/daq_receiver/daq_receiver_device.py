@@ -307,6 +307,11 @@ class MccsDaqReceiver(MccsBaseDevice):
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
         )
 
+    def delete_device(self) -> None:
+        """Delete the device."""
+        self.component_manager._task_executor._executor.shutdown()
+        super().delete_device()
+
     def _init_state_model(self: MccsDaqReceiver) -> None:
         """Initialise the state model."""
         super()._init_state_model()
