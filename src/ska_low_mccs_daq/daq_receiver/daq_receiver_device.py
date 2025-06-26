@@ -393,6 +393,15 @@ class MccsDaqReceiver(MccsBaseDevice):
                 ),
             )
 
+    def delete_device(self: MccsDaqReceiver) -> None:
+        """Stop the consumers when deleting the device."""
+        if (
+            self.component_manager.communication_state
+            == CommunicationStatus.ESTABLISHED
+        ):
+            self.component_manager._stop_daq()
+        super().delete_device()
+
     class InitCommand(DeviceInitCommand):
         """Implements device initialisation for the MccsDaqReceiver device."""
 
