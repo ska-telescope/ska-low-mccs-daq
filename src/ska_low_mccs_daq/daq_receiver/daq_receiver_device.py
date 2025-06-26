@@ -399,7 +399,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             self.component_manager.communication_state
             == CommunicationStatus.ESTABLISHED
         ):
-            self.component_manager.stop_daq()
+            self.component_manager._stop_daq()
         super().delete_device()
 
     class InitCommand(DeviceInitCommand):
