@@ -3088,7 +3088,7 @@ reference = "ska-nexus"
 
 [[package]]
 name = "ska-low-mccs-common"
-version = "2.0.3"
+version = "2.0.4"
 description = "The Monitoring, Control and Calibration Subsystem (MCCS) of the SKA Low telescope"
 optional = false
 python-versions = "^3.10"
@@ -3115,7 +3115,7 @@ transitions = "^0.9.0"
 type = "git"
 url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-common/"
 reference = "thorn-220-2"
-resolved_reference = "ab95b2a29b4a1ffb5a684ea297d38fc2bd323f18"
+resolved_reference = "065a378fb2fc7b9fefc0ede88803b922e8b31551"
 
 [[package]]
 name = "ska-low-mccs-daq-interface"

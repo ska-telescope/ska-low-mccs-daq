@@ -779,7 +779,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             mode="constant",
         )
 
-    # pylint: disable = too-many-locals, too-many-branches, too-many-statements
+    # pylint: disable = too-many-locals
     def generate_bandpass_plots(  # noqa: C901
         self: DaqComponentManager, filepath: str
     ) -> None:
