@@ -310,6 +310,11 @@ class MccsDaqReceiver(MccsBaseDevice):
     def delete_device(self: MccsDaqReceiver) -> None:
         """Delete the device."""
         self.component_manager._task_executor._executor.shutdown()
+        if (
+            self.component_manager.communication_state
+            == CommunicationStatus.ESTABLISHED
+        ):
+            self.component_manager._stop_daq()
         super().delete_device()
 
     def _init_state_model(self: MccsDaqReceiver) -> None:

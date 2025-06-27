@@ -1,6 +1,6 @@
 # Version History
 
-## Unreleased
+## 3.0.0-rc1
 
 ## 2.1.1
 
