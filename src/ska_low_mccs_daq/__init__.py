@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#  -*- coding: utf-8 -*
 #
 # This file is part of the SKA Low MCCS project
 #
@@ -12,13 +12,38 @@ The Monitoring Control and Calibration (MCCS) subsystem is responsible
 for, amongst other things, monitoring and control of LFAA.
 """
 
-__version__ = "0.6.1"
+__version__ = "3.0.0-rc1"
 __version_info__ = (
     "ska-low-mccs-daq",
-    "0.6.1",
-    "This package implements SKA Low's MCCS's DAQ Receiver.",
+    __version__,
+    "This package implements SKA Low's MCCS DAQ subsystem.",
 )
 
-__all__ = ["DaqHandler"]
+__all__ = [
+    "MccsDaqReceiver",
+    "version",
+    "main",
+]
 
-from .daq_handler import DaqHandler
+import tango.server
+
+from .daq_receiver import MccsDaqReceiver
+from .version import version_info
+
+__version__ = version_info["version"]
+
+
+def main(*args: str, **kwargs: str) -> int:  # pragma: no cover
+    """
+    Entry point for module.
+
+    :param args: positional arguments
+    :param kwargs: named arguments
+
+    :return: exit code
+    """
+    return tango.server.run(classes=(MccsDaqReceiver,), args=args or None, **kwargs)
+
+
+if __name__ == "__main__":
+    print(__version__)

@@ -172,17 +172,23 @@ class DaqHandler:
 
     def __init__(
         self: DaqHandler,
+        logger: Optional[logging.Logger] = None,
+        external_ip: Optional[str] = None,
         **extra_config: Any,
     ) -> None:
         """
         Initialise this device.
 
+        :param logger: the logger for this device to use.
+        :param external_ip: the IP of the service which exposes this device.
         :param extra_config: keyword args providing extra configuration.
         """
         print("Initialising DAQ handler with extra config:")
         pprint.pprint(extra_config)
 
-        self._external_ip_override = extra_config.pop("external_ip", None)
+        self._external_ip_override = (
+            external_ip if external_ip else extra_config.pop("external_ip", None)
+        )
         self._config = self.CONFIG_DEFAULTS | extra_config
 
         self.daq_instance: DaqReceiver | None = None
@@ -190,7 +196,10 @@ class DaqHandler:
         self._initialised: bool = False
         self._stop_bandpass: bool = False
         self._monitoring_bandpass: bool = False
-        self.logger = logging.getLogger("daq-server")
+        if logger is not None:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger("daq-server")
         self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
@@ -308,8 +317,8 @@ class DaqHandler:
 
         :return: a resultcode, message tuple
         """
-        self.logger.info("initialise() issued with: %s", config)
-        self._config |= config
+        merged_config = self._config | config
+        self.logger.info("initialise() issued with: %s", merged_config)
 
         if self._initialised is False:
             self.logger.debug("Creating DaqReceiver instance.")
@@ -318,7 +327,8 @@ class DaqHandler:
                 self.logger.info(
                     "Configuring before initialising with: %s", self._config
                 )
-                self.daq_instance.populate_configuration(self._config)
+                self.daq_instance.populate_configuration(merged_config)
+                self._config = merged_config
                 self.logger.info("Initialising daq.")
                 self.daq_instance.initialise_daq()
                 self._receiver_started = True
@@ -435,9 +445,9 @@ class DaqHandler:
                     )
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
-
-            self._config |= config
-            self.daq_instance.populate_configuration(self._config)
+            merged_config = self._config | config
+            self.daq_instance.populate_configuration(merged_config)
+            self._config = merged_config
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Daq reconfigured"
 

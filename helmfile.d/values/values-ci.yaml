@@ -1,0 +1,17 @@
+platform:
+  array:
+    stations:
+      ci-1:
+        id: 1
+        sps: {}
+
+platform:
+  stations:
+    ci-1:
+      sps:
+        daq:
+          two-pod-daq: false
+    real-daq-1:
+      sps:
+        daq:
+          two-pod-daq: false

@@ -17,7 +17,6 @@ import numpy as np
 import psutil  # type: ignore
 import pytest
 from ska_control_model import ResultCode, TaskStatus
-from ska_low_mccs_daq_interface.client import DaqClient
 
 from ska_low_mccs_daq.daq_handler import DaqHandler
 from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes
@@ -109,7 +108,7 @@ class TestDaqHandler:
         ("args", "expected_status", "expected_msg"),
         (
             (
-                "",
+                "RAW_DATA",
                 TaskStatus.COMPLETED,
                 "Daq has been started and is listening",
             ),  # noqa: E501
@@ -125,7 +124,6 @@ class TestDaqHandler:
     )
     def test_daq_server_start_stop_daq(
         self: TestDaqHandler,
-        daq_address: str,
         args: str,
         expected_status: ResultCode,
         expected_msg: str,
@@ -133,27 +131,20 @@ class TestDaqHandler:
         """
         Test for DAQ server start and stop.
 
-        :param daq_address: The address of the DAQ server.
         :param args: The argument with which to call `StartDaq`.
         :param expected_status: The expected task status expected
             from `StartDaq`.
         :param expected_msg: The message expected from `StartDaq`.
         """
-        daq_client = DaqClient(daq_address)
-        assert daq_client.initialise("{}") == {
-            "message": "Daq successfully initialised"
-        }
+        daq_client = DaqHandler()
+        assert daq_client.initialise({}) == (
+            ResultCode.OK,
+            "Daq successfully initialised",
+        )
 
-        responses = daq_client.start_daq(args)
+        responses = daq_client.start(args)
 
-        assert next(responses) == {
-            "status": TaskStatus.IN_PROGRESS,
-            "message": "Start Command issued to gRPC stub",
-        }
-        assert next(responses) == {
-            "status": expected_status,
-            "message": expected_msg,
-        }
+        assert next(responses) == "LISTENING"
 
         # If we were actually sending data for the DAQ to acquire,
         # then here we could do something like
@@ -163,7 +154,7 @@ class TestDaqHandler:
         # with pytest.raises(StopIteration):
         #     _ = next(responses)
 
-        assert daq_client.stop_daq() == (ResultCode.OK, "Daq stopped")
+        assert daq_client.stop() == (ResultCode.OK, "Daq stopped")
 
     @pytest.mark.parametrize(
         ("daq_config", "expected_rc", "expected_msg"),
@@ -184,7 +175,6 @@ class TestDaqHandler:
     )
     def test_daq_server_configuration(
         self: TestDaqHandler,
-        daq_address: str,
         daq_config: dict[str, Any],
         expected_rc: ResultCode,
         expected_msg: str,
@@ -192,15 +182,15 @@ class TestDaqHandler:
         """
         Test for DAQ server configuration.
 
-        :param daq_address: The address of the DAQ server.
         :param daq_config: The configuration to apply.
         :param expected_rc: The result code expected from `Configure`.
         :param expected_msg: The message expected from `Configure`.
         """
-        daq_client = DaqClient(daq_address)
-        assert daq_client.initialise("{}") == {
-            "message": "Daq successfully initialised"
-        }
+        daq_client = DaqHandler()
+        assert daq_client.initialise({}) == (
+            ResultCode.OK,
+            "Daq successfully initialised",
+        )
 
         initial_config = daq_client.get_configuration()
         if daq_config != "":
@@ -208,7 +198,7 @@ class TestDaqHandler:
                 if k in initial_config:
                     assert initial_config[k] != v
 
-        assert daq_client.configure_daq(json.dumps(daq_config)) == (
+        assert daq_client.configure(daq_config) == (
             expected_rc,
             expected_msg,
         )
@@ -233,40 +223,39 @@ class TestDaqHandler:
                 TaskStatus.REJECTED,
                 "Current DAQ config is invalid. The `append_integrated` "
                 "option must be set to false for bandpass monitoring.",
-                [None],
-                [None],
-                [None],
+                None,
+                None,
+                None,
             ),
             (
                 "{}",
                 TaskStatus.REJECTED,
                 "Param `argin` must have key for `plot_directory`",
-                [None],
-                [None],
-                [None],
+                None,
+                None,
+                None,
             ),
             (
                 '{"plot_directory": "/app/plot/", "auto_handle_daq": "False"}',
                 TaskStatus.REJECTED,
                 "INTEGRATED_CHANNEL_DATA consumer must be running before"
                 " bandpasses can be monitored.",
-                [None],
-                [None],
-                [None],
+                None,
+                None,
+                None,
             ),
             (
                 '{"plot_directory": "/app/plot/", "auto_handle_daq": "False"}',
                 TaskStatus.IN_PROGRESS,
                 "Bandpass monitor active",
-                [None],
-                [None],
-                [None],
+                None,
+                None,
+                None,
             ),
         ),
     )
     def test_start_stop_bandpass_monitor(  # pylint: disable=too-many-arguments
         self: TestDaqHandler,
-        daq_address: str,
         bandpass_config: str,
         expected_result: TaskStatus,
         expected_msg: str,
@@ -277,7 +266,6 @@ class TestDaqHandler:
         """
         Test for starting and stopping the bandpass monitor.
 
-        :param daq_address: The address of the DAQ server.
         :param bandpass_config: The configuration string to apply.
         :param expected_result: The expected first TaskStatus
         :param expected_msg: The expected first response.
@@ -292,10 +280,11 @@ class TestDaqHandler:
             "y_bandpass_plot": expected_y_bandpass_plot,
             "rms_plot": expected_rms_plot,
         }
-        daq_client = DaqClient(daq_address)
-        assert daq_client.initialise("{}") == {
-            "message": "Daq successfully initialised"
-        }
+        daq_client = DaqHandler()
+        assert daq_client.initialise({}) == (
+            ResultCode.OK,
+            "Daq successfully initialised",
+        )
 
         # Check stopping before starting.
         assert daq_client.stop_bandpass_monitor() == (
@@ -305,41 +294,30 @@ class TestDaqHandler:
 
         # Manually reconfigure to test consumer later.
         if json.loads(bandpass_config).get("auto_handle_daq") == "False":
-            daq_client.configure_daq(json.dumps({"append_integrated": False}))
+            daq_client.configure({"append_integrated": False})
 
         # # Start the consumer for the happy path test.
         if expected_result == TaskStatus.IN_PROGRESS:
-            start_result = daq_client.start_daq("INTEGRATED_CHANNEL_DATA")
-            assert next(start_result) == {
-                "status": TaskStatus.IN_PROGRESS,
-                "message": "Start Command issued to gRPC stub",
-            }
-            assert next(start_result) == {
-                "status": TaskStatus.COMPLETED,
-                "message": "Daq has been started and is listening",
-            }
+            start_result = daq_client.start("INTEGRATED_CHANNEL_DATA")
+            assert next(start_result) == "LISTENING"
             # Wait for the consumer to start.
-            stat = json.loads(daq_client.get_status())
+            stat = daq_client.get_status()
             max_retries = 5
             tries = 0
 
-            while ["INTEGRATED_CHANNEL_DATA", 5] not in stat.get("Running Consumers"):
+            while ["INTEGRATED_CHANNEL_DATA", 5] not in stat["Running Consumers"]:
                 if tries > max_retries:
                     pytest.fail("Could not start INTEGRATED_CHANNEL_DATA consumer.")
                 tries += 1
                 time.sleep(tries)
-                stat = json.loads(daq_client.get_status())
+                stat = daq_client.get_status()
 
         actual_result = daq_client.start_bandpass_monitor(bandpass_config)
 
-        assert next(actual_result) == {
-            "result_code": TaskStatus.IN_PROGRESS,
-            "message": "StartBandpassMonitor command issued to gRPC stub",
-        }
         # This sleep is legitimately here so we can detect
         # incorrect/out of order responses.
         time.sleep(1)
-        assert next(actual_result) == expected_dict
+        assert next(actual_result) == tuple(expected_dict.values())
 
         # Happy path has to be stopped and has an extra response.
         # Unhappy paths won't have started and skip this block.
@@ -349,14 +327,14 @@ class TestDaqHandler:
                 "Bandpass monitor stopping.",
             ) == daq_client.stop_bandpass_monitor()
 
-            assert next(actual_result) == {
-                "result_code": TaskStatus.COMPLETED,
-                "message": "Bandpass monitoring complete.",
-                "x_bandpass_plot": [None],
-                "y_bandpass_plot": [None],
-                "rms_plot": [None],
-            }
-            daq_client.stop_daq()
+            assert next(actual_result) == (
+                TaskStatus.COMPLETED,
+                "Bandpass monitoring complete.",
+                None,
+                None,
+                None,
+            )
+            daq_client.stop()
 
     def test_access_file_metadata(
         self: TestDaqHandler, daq_handler: DaqHandler, file_metadata: dict

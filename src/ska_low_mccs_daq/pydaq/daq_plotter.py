@@ -2,8 +2,12 @@
 import logging
 import os
 
-from .plotters import *
-from .plotters.utils import PlotTypes, get_parameters_from_filename, process_timestamp
+from ska_low_mccs_daq.pydaq.plotters import *
+from ska_low_mccs_daq.pydaq.plotters.utils import (
+    PlotTypes,
+    get_parameters_from_filename,
+    process_timestamp,
+)
 
 __author__ = "Alessio Magro"
 

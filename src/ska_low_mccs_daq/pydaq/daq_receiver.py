@@ -13,9 +13,10 @@ from enum import IntEnum
 
 import numpy as np
 import yaml
+from git import Repo
 
-from .interface import *
-from .persisters import *
+from ska_low_mccs_daq.pydaq.interface import *
+from ska_low_mccs_daq.pydaq.persisters import *
 
 
 # Define consumer types enum
@@ -1425,22 +1426,27 @@ def stop_daq():
         logging.info("Stopped DAQ")
 
 
+def get_station_information(station_config):
+    """If a station configuration file is provided, connect to
+    station and get required information"""
+
+    # Dictionary containing required metadata
+    logging.warning("Firmware version metadata is not available in standalone mode.")
+    metadata = {"firmware_version": 0, "station_config": ""}
+
+    # Grab file content as string and save it as metadata
+    with open(station_config) as f:
+        metadata["station_config"] = f.read()
+    return metadata
+
+
 def get_software_version():
     """Get current software version. This will get the latest git commit hash"""
+
     try:
+        repo = Repo(search_parent_directories=True)
+        return repo.head.commit.hexsha
 
-        if "AAVS_SOFTWARE_DIRECTORY" not in os.environ:
-            logging.error(
-                "AAVS_SOFTWARE_DIRECTORY not defined, cannot write software version"
-            )
-            return 0x0
-
-        path = os.path.expanduser(os.environ["AAVS_SOFTWARE_DIRECTORY"])
-
-        import git
-
-        repo = git.Repo(path)
-        return repo.head.object.hexsha
     except Exception as e:
         logging.warning("Could not get software git hash. Skipping")
         return 0

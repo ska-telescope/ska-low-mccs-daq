@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
 import yaml
+from git import Repo
 
 from .persisters import *
 from .persisters import aavs_file, complex_8t, complex_16t
@@ -1429,7 +1430,7 @@ class DaqReceiver:
 
             # Running in antenna buffer mode
             if DaqModes.ANTENNA_BUFFER == mode:
-                self._start_antenna_buffer_data_consumer()
+                self._start_antenna_buffer_data_consumer(callbacks[i])
 
             # Running in acquire station beam mode
             if DaqModes.RAW_STATION_BEAM == mode:
@@ -1482,10 +1483,12 @@ class DaqReceiver:
             raise Exception("Configuration parameters must be a dictionary")
 
         # Check if invalid parameters were passed in
-        if len(set(configuration.keys()) - (set(self._config.keys()))) != 0:
+        invalid_keys = set(configuration.keys()) - (set(self._config.keys()))
+        if len(invalid_keys) != 0:
+            message = f"Invalid configuration. Keys {invalid_keys} not supported."
             if self._config["logging"]:
-                logging.warning("Invalid configuration")
-            raise Exception("Invalid configuration")
+                logging.warning(message)
+            raise Exception(message)
 
         # Apply configuration
         for k, v in list(configuration.items()):
@@ -1552,28 +1555,34 @@ class DaqReceiver:
     # ------------------------------------ HELPER FUNCTIONS ----------------------------------
 
     @staticmethod
+    def _get_station_information(station_config):
+        """If a station configuration file is provided, connect to
+        station and get required information"""
+
+        # Dictionary containing required metadata
+        logging.warning(
+            "Firmware version metadata is not available in standalone mode."
+        )
+        metadata = {"firmware_version": 0, "station_config": ""}
+
+        # Grab file content as string and save it as metadata
+        with open(station_config) as f:
+            metadata["station_config"] = f.read()
+        return metadata
+
+    @staticmethod
     def _get_software_version() -> int:
         """Get current software version. This will get the latest git commit hash"""
         try:
-
-            if "AAVS_SOFTWARE_DIRECTORY" not in os.environ:
-                logging.error(
-                    "AAVS_SOFTWARE_DIRECTORY not defined, cannot write software version"
-                )
-                return 0x0
-
-            path = os.path.expanduser(os.environ["AAVS_SOFTWARE_DIRECTORY"])
-
-            import git
-
-            repo = git.Repo(path)
-            return repo.head.object.hexsha
+            repo = Repo(search_parent_directories=True)
+            return repo.head.commit.hexsha
         except Exception:
             logging.warning("Could not get software git hash. Skipping")
             return 0
 
     def get_configuration(self) -> Dict[str, Any]:
         """Return configuration dictionary"""
+        logging.warning(f"the config is {self._config}")
         return self._config
 
     @staticmethod
@@ -1700,9 +1709,7 @@ class DaqReceiver:
         library_found = False
         if "DAQ_INSTALL" in list(os.environ.keys()):
             # Check if library is in install directory
-            if os.path.exists(
-                "%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so.so")
-            ):
+            if os.path.exists("%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so")):
                 _library = "%s/lib/%s" % (os.environ["DAQ_INSTALL"], "libdaq.so")
                 library_found = True
 

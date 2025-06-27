@@ -49,6 +49,10 @@ include:
   - project: 'ska-telescope/templates-repository'
     file: 'gitlab-ci/includes/helm-chart.gitlab-ci.yml'
 
+  # k8s
+  - project: 'ska-telescope/templates-repository'
+    file: 'gitlab-ci/includes/k8s.gitlab-ci.yml'
+
 
 oci-image-build:
   stage: build
@@ -62,8 +66,8 @@ oci-image-build:
     - source .release
     - docker run --name daq-build-container "${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_PROJECT_NAME}:${release}-dev.c${CI_COMMIT_SHORT_SHA}" sleep 10
     - docker start daq-build-container
-    - '(docker exec daq-build-container sh -c "env | grep -i lib") >> build.env'
-    - '(docker exec daq-build-container sh -c "env | grep -i path") >> build.env'
+    - '(docker exec --user root daq-build-container sh -c "env | grep -i lib") >> build.env'
+    - '(docker exec --user root daq-build-container sh -c "env | grep -i path") >> build.env'
     - docker cp -a daq-build-container:/opt/aavs ${CI_PROJECT_DIR}/aavs
     - docker cp -a daq-build-container:/usr/local/lib/libxgpu.so ${CI_PROJECT_DIR}/aavs/lib
     - docker stop daq-build-container
@@ -117,6 +121,7 @@ python-test:
     - mkdir /opt/aavs
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
     - cp -R ${CI_PROJECT_DIR}/aavs/lib/libxgpu.so /usr/local/lib/
+    - ls -lR /opt/aavs
   script:
     - make python-test;
   artifacts:

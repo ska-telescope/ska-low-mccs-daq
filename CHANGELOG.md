@@ -1,8 +1,36 @@
 # Version History
 
-## 2.0.1
+## 3.0.0-rc2
 
 * [SKB-827] Fixed a memory leak in StationData.cpp. The DoubleBuffer was cleaning up the incorrect number of buffers.
+
+## 3.0.0-rc1
+
+* [THORN-174] Update DaqComponentManager to talk to DaqReceiver. (DaqComponentManager -> DaqHandler -> DaqReceiver is now DaqComponentManager -> DaqRecevier)
+
+## 2.1.0
+
+* [THORN-217] Add method for fetching loadbalancer IP
+* [THORN-170] Update Dockerfile to support a Tango device too. It remains backward compatible with the two-pod-daq.
+* [THORN-215] Update configuration after writing.
+* [THORN-171] Copy the DAQ tango device into ska-low-mccs-daq.
+
+## 2.0.4
+
+* [THORN-160] Re-add methods that were omitted during the repo reshuffle.
+
+## 2.0.3
+
+* [JANUS-153] Fix to typo in daq_receiver_interface
+
+## 2.0.2
+
+* [JANUS-146] Fix Error Message "AAVS_SOFTWARE_DIRECTORY not defined"
+
+## 2.0.1
+
+* [JANUS-142] Fixed imports in daq_plotter and daq_receiver required for CLI usage
+* [SPRTS-260] Fixed issue with pydaq not locking hdf5 files introduced in bug fix AAVS-System release 2.1.4
 
 ## 2.0.0
 
