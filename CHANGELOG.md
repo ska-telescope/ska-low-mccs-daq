@@ -3,6 +3,7 @@
 ## 3.0.0-rc2
 
 * [SKB-827] Fixed a memory leak in StationData.cpp. The DoubleBuffer was cleaning up the incorrect number of buffers.
+* [SKB-827] Updated aavs-daq reference for fixes to the ringbuffer.
 
 ## 3.0.0-rc1
 
