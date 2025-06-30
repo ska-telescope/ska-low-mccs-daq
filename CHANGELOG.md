@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-180] Expose DaqStatus as attributes
+
 ## 3.0.0-rc1
 
 * [THORN-174] Update DaqComponentManager to talk to DaqReceiver. (DaqComponentManager -> DaqHandler -> DaqReceiver is now DaqComponentManager -> DaqRecevier)
