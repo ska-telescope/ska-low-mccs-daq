@@ -324,6 +324,16 @@ class MccsDaqReceiver(MccsBaseDevice):
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
         )
 
+    def delete_device(self: MccsDaqReceiver) -> None:
+        """Delete the device."""
+        self.component_manager._task_executor._executor.shutdown()
+        if (
+            self.component_manager.communication_state
+            == CommunicationStatus.ESTABLISHED
+        ):
+            self.component_manager._stop_daq()
+        super().delete_device()
+
     def _init_state_model(self: MccsDaqReceiver) -> None:
         """Initialise the state model."""
         super()._init_state_model()
@@ -414,15 +424,6 @@ class MccsDaqReceiver(MccsBaseDevice):
                     logger=self.logger,
                 ),
             )
-
-    def delete_device(self: MccsDaqReceiver) -> None:
-        """Stop the consumers when deleting the device."""
-        if (
-            self.component_manager.communication_state
-            == CommunicationStatus.ESTABLISHED
-        ):
-            self.component_manager._stop_daq()
-        super().delete_device()
 
     class InitCommand(DeviceInitCommand):
         """Implements device initialisation for the MccsDaqReceiver device."""

@@ -331,7 +331,7 @@ class TestDaqComponentManager:
         daq_component_manager._set_consumers_to_start(consumer_list)
         assert daq_component_manager._consumers_to_start == consumer_list
 
-    def test_start_stop_bandpass_monitor(  # pylint: disable = too-many-arguments
+    def test_start_stop_bandpass_monitor(
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
         callbacks: MockCallableGroup,
