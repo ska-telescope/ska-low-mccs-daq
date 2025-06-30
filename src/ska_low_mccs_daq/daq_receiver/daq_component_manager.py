@@ -207,6 +207,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._x_bandpass_plots: deque[str] = deque(maxlen=1)
         self._full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=float)
         self._files_received_per_tile: list[int] = [0] * nof_tiles
+        self._event_queue: queue.Queue[tuple[str, float]] = queue.Queue()
+        threading.Thread(target=self._event_loop, name="EventLoop").start()
 
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
@@ -229,6 +231,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         )
         # We've bumped this to 3 workers to allow for the bandpass monitoring.
         self._task_executor = TaskExecutor(max_workers=3)
+        self.start_data_rate_monitor(1)
 
     def get_external_ip(self, logger: logging.Logger) -> str:
         """
@@ -489,6 +492,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         data_mode: str,
         file_name: str,
         additional_info: Optional[str] = None,
+        **attributes: float,
     ) -> None:
         """
         Call a callback for specific data mode.
@@ -498,6 +502,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param data_mode: The DAQ data type written
         :param file_name: The filename written
         :param additional_info: Any additional information/metadata.
+        :param attributes: any attributes to update the value for.
         """
         # Callbacks to call for all data modes.
         daq_mode = self._data_mode_mapping[data_mode]
@@ -515,6 +520,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
             data_mode,
             json.dumps(metadata, cls=NumpyEncoder),
         )
+
+        for attribute_name, attribute_value in attributes.items():
+            self._attribute_callback(attribute_name, attribute_value)
 
         # Call additional callbacks per data mode if needed.
         if data_mode == "read_raw_data":
@@ -661,6 +669,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._daq_client.stop_daq()
         self._receiver_started = False
         self._started_event.clear()
+        if self._component_state_callback:
+            self._component_state_callback(reset_consumer_attributes=True)
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
 
@@ -779,7 +789,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             mode="constant",
         )
 
-    # pylint: disable = too-many-locals, too-many-branches, too-many-statements
+    # pylint: disable = too-many-locals
     def generate_bandpass_plots(  # noqa: C901
         self: DaqComponentManager, filepath: str
     ) -> None:
@@ -1012,7 +1022,15 @@ class DaqComponentManager(TaskExecutorComponentManager):
         uid = f"eb-local-{today}-{random_seq}"
         return uid
 
-    @check_communicating
+    def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
+        net = psutil.net_io_counters(pernic=True)
+        interface_stats = net[self._configuration["receiver_interface"]]
+        return (
+            interface_stats.bytes_recv,
+            interface_stats.packets_recv,
+            interface_stats.dropin,
+        )
+
     def start_data_rate_monitor(
         self: DaqComponentManager,
         interval: float = 2.0,
@@ -1032,28 +1050,42 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._measure_data_rate = True
 
         def _measure_data_rate(interval: int) -> None:
-            self.logger.info("Starting data rate monitor.")
+            self.logger.info("Starting net IO sampling.")
             while self._measure_data_rate:
-                self.logger.debug("Measuring data rate...")
-                net = psutil.net_io_counters(pernic=True)
-                t1_sent_bytes = net[
-                    self._configuration["receiver_interface"]
-                ].bytes_recv
-                t1 = perf_counter()
+                try:
+                    (
+                        t1_bytes_received,
+                        t1_packets_received,
+                        t1_packets_dropped,
+                    ) = self.__take_network_snapshot()
+                    t1 = perf_counter()
 
-                sleep(interval)
+                    sleep(interval)
 
-                net = psutil.net_io_counters(pernic=True)
-                t2_sent_bytes = net[
-                    self._configuration["receiver_interface"]
-                ].bytes_recv
-                t2 = perf_counter()
-                nbytes = t2_sent_bytes - t1_sent_bytes
-                data_rate = nbytes / (t2 - t1)
-                self._data_rate = data_rate / 1024**3  # Gb/s
-            self._data_rate = None
+                    (
+                        t2_bytes_received,
+                        t2_packets_received,
+                        t2_packets_dropped,
+                    ) = self.__take_network_snapshot()
+                    t2 = perf_counter()
+                    bytes_received = t2_bytes_received - t1_bytes_received
+                    packets_received = t2_packets_received - t1_packets_received
+                    packets_dropped = t2_packets_dropped - t1_packets_dropped
+                    data_rate = bytes_received / (t2 - t1)
+                    receive_rate = packets_received / (t2 - t1)
+                    drop_rate = packets_dropped / (t2 - t1)
+                    self._attribute_callback("data_rate", data_rate / 1024**3)
+                    self._attribute_callback("receive_rate", receive_rate)
+                    self._attribute_callback("drop_rate", drop_rate)
+                except Exception:  # pylint: disable=broad-exception-caught
+                    self.logger.error(
+                        "Caught error in data rate monitor.", exc_info=True
+                    )
+            self.logger.info("Stopped net IO sampling.")
 
-        data_rate_thread = threading.Thread(target=_measure_data_rate, args=[interval])
+        data_rate_thread = threading.Thread(
+            target=_measure_data_rate, args=[interval], name="DataRateMonitor"
+        )
         data_rate_thread.start()
         return (ResultCode.OK, "Data rate measurement started.")
 
@@ -1071,12 +1103,23 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._measure_data_rate = False
         return (ResultCode.OK, "Data rate measurement stopping.")
 
-    @property
-    @check_communicating
-    def data_rate(self: DaqComponentManager) -> float | None:
-        """
-        Return the current data rate in Gb/s, or None if not being monitored.
+    def _event_loop(self: DaqComponentManager) -> None:
+        """Event loop for handling attribute updated from DAQ."""
+        while True:
+            try:
+                attribute_name, attribute_value = self._event_queue.get()
+                if self._component_state_callback is not None:
+                    self._component_state_callback(**{attribute_name: attribute_value})
+            except Exception:  # pylint: disable=broad-exception-caught
+                self.logger.warning("Caught exception in event loop.", exc_info=True)
 
-        :return: the current data rate in Gb/s, or None if not being monitored.
+    def _attribute_callback(
+        self: DaqComponentManager, attribute_name: str, attribute_value: float
+    ) -> None:
         """
-        return self._data_rate
+        Record changes in attributes from DAQ.
+
+        :param attribute_name: name of the attribute.
+        :param attribute_value: value of the attribute.
+        """
+        self._event_queue.put((attribute_name, attribute_value))

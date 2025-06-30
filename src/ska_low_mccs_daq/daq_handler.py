@@ -232,6 +232,7 @@ class DaqHandler:
         data_mode: str,
         file_name: str,
         additional_info: Optional[str] = None,
+        **attributes: float,
     ) -> None:
         """
         Call a callback for specific data mode.
@@ -241,6 +242,7 @@ class DaqHandler:
         :param data_mode: The DAQ data type written
         :param file_name: The filename written
         :param additional_info: Any additional information/metadata.
+        :param attributes: any attributes to update the value for.
         """
         assert self.daq_instance is not None
         # Callbacks to call for all data modes.
