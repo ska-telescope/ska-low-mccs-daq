@@ -3088,34 +3088,35 @@ reference = "ska-nexus"
 
 [[package]]
 name = "ska-low-mccs-common"
-version = "2.0.4"
+version = "3.0.0"
 description = "The Monitoring, Control and Calibration Subsystem (MCCS) of the SKA Low telescope"
 optional = false
-python-versions = "^3.10"
-files = []
-develop = false
+python-versions = ">=3.10,<4.0"
+files = [
+    {file = "ska_low_mccs_common-3.0.0-py3-none-any.whl", hash = "sha256:488dbf86a96864400e0d9b4af0255957fdc3ca41d768768af8a0da6ffbf77fc9"},
+    {file = "ska_low_mccs_common-3.0.0.tar.gz", hash = "sha256:b9f5798050fdf493a6db0c19f1a4cb8eb6137b2082217f4d40d11e390f35a96f"},
+]
 
 [package.dependencies]
 attrs = ">=24.2.0"
-backoff = "^2.2.1"
-jsonschema = "^4.21.1"
-jsonschema-specifications = "~2023.03.6"
-numpy = "^1.26.4"
+backoff = ">=2.2.1,<3.0.0"
+jsonschema = ">=4.21.1,<5.0.0"
+jsonschema-specifications = ">=2023.03.6,<2023.4.0"
+numpy = ">=1.26.4,<2.0.0"
 pytango = ">=9.5.1,<11.0.0"
-PyYAML = "^6.0.1"
-referencing = "~0.28.4"
-requests = "^2.31.0"
-ska-control-model = "^1.0.0"
-ska-ser-logging = "^0.4.2"
-ska-tango-base = "^1.3.2"
-ska-tango-testing = "^0"
-transitions = "^0.9.0"
+PyYAML = ">=6.0.1,<7.0.0"
+referencing = ">=0.28.4,<0.29.0"
+requests = ">=2.31.0,<3.0.0"
+ska-control-model = ">=1.0.0,<2.0.0"
+ska-ser-logging = ">=0.4.2,<0.5.0"
+ska-tango-base = ">=1.3.2,<2.0.0"
+ska-tango-testing = ">=0,<1"
+transitions = ">=0.9.0,<0.10.0"
 
 [package.source]
-type = "git"
-url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-common/"
-reference = "thorn-220-2"
-resolved_reference = "065a378fb2fc7b9fefc0ede88803b922e8b31551"
+type = "legacy"
+url = "https://artefact.skao.int/repository/pypi-internal/simple"
+reference = "ska-nexus"
 
 [[package]]
 name = "ska-low-mccs-daq-interface"
@@ -3856,4 +3857,4 @@ reference = "PyPI-public"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "607021ccc965e189e6baff3deb44173f0b151f7ed2030b74e18fa3f4ab596440"
+content-hash = "70c204ed4ea9505707fd1087c4870a669de7524480baaed2ae227632f11a8e7d"

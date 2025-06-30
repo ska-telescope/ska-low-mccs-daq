@@ -1,10 +1,11 @@
 # Version History
 
-## 3.0.0-rc1
-
-## 2.1.1
+## 3.0.0-rc2
 
 * [THORN-220] Add cleanup for component manager.
+
+## 3.0.0-rc1
+
 * [THORN-174] Update DaqComponentManager to talk to DaqReceiver. (DaqComponentManager -> DaqHandler -> DaqReceiver is now DaqComponentManager -> DaqRecevier)
 
 ## 2.1.0
