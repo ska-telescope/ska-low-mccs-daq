@@ -1022,6 +1022,15 @@ class DaqComponentManager(TaskExecutorComponentManager):
         uid = f"eb-local-{today}-{random_seq}"
         return uid
 
+    def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
+        net = psutil.net_io_counters(pernic=True)
+        interface_stats = net[self._configuration["receiver_interface"]]
+        return (
+            interface_stats.bytes_recv,
+            interface_stats.packets_recv,
+            interface_stats.dropin,
+        )
+
     def start_data_rate_monitor(
         self: DaqComponentManager,
         interval: float = 2.0,
@@ -1041,23 +1050,23 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._measure_data_rate = True
 
         def _measure_data_rate(interval: int) -> None:
-            self.logger.info("Starting data rate monitor.")
+            self.logger.info("Starting net IO sampling.")
             while self._measure_data_rate:
                 try:
-                    net = psutil.net_io_counters(pernic=True)
-                    interface_stats = net[self._configuration["receiver_interface"]]
-                    t1_bytes_received = interface_stats.bytes_recv
-                    t1_packets_received = interface_stats.packets_recv
-                    t1_packets_dropped = interface_stats.dropin
+                    (
+                        t1_bytes_received,
+                        t1_packets_received,
+                        t1_packets_dropped,
+                    ) = self.__take_network_snapshot()
                     t1 = perf_counter()
 
                     sleep(interval)
 
-                    net = psutil.net_io_counters(pernic=True)
-                    interface_stats = net[self._configuration["receiver_interface"]]
-                    t2_bytes_received = interface_stats.bytes_recv
-                    t2_packets_received = interface_stats.packets_recv
-                    t2_packets_dropped = interface_stats.dropin
+                    (
+                        t2_bytes_received,
+                        t2_packets_received,
+                        t2_packets_dropped,
+                    ) = self.__take_network_snapshot()
                     t2 = perf_counter()
                     bytes_received = t2_bytes_received - t1_bytes_received
                     packets_received = t2_packets_received - t1_packets_received
@@ -1072,6 +1081,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     self.logger.error(
                         "Caught error in data rate monitor.", exc_info=True
                     )
+            self.logger.info("Stopped net IO sampling.")
 
         data_rate_thread = threading.Thread(
             target=_measure_data_rate, args=[interval], name="DataRateMonitor"
