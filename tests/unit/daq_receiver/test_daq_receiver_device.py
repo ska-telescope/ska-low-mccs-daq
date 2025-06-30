@@ -166,11 +166,6 @@ class TestMccsDaqReceiver:
         # Check the IP is what we chose.
         assert status["Receiver IP"] == [daq_ip]
 
-        assert device_under_test.daqHealth == (
-            HealthState.OK.name,
-            str(HealthState.OK.value),
-        )
-
         for i, consumer in enumerate(expected_consumers):
             assert device_under_test.runningConsumers[i] == (
                 consumer.name,

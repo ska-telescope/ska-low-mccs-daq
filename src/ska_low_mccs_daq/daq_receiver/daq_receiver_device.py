@@ -972,21 +972,6 @@ class MccsDaqReceiver(MccsBaseDevice):
     # ----------
 
     @attribute(
-        dtype=("DevString",),
-        max_dim_x=2,
-    )
-    def daqHealth(
-        self: MccsDaqReceiver,
-    ) -> tuple[str, str]:
-        """
-        Get the daq Health state and value.
-
-        :return: [HealthState.name: str, HealthState.value: str]
-        """
-        health_state = (self._health_state.name, str(self._health_state.value))
-        return health_state
-
-    @attribute(
         dtype=(("DevString",),),
         max_dim_x=2,
         max_dim_y=2,
@@ -1018,7 +1003,7 @@ class MccsDaqReceiver(MccsBaseDevice):
 
         :return: [Port_List]: list[int]
         """
-        return self.component_manager.get_receiver_ports
+        return [int(port) for port in self.component_manager.get_receiver_ports]
 
     @attribute(dtype="DevString")
     def receiverIP(self: MccsDaqReceiver) -> str:
