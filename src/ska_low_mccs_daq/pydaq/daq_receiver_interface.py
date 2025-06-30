@@ -654,7 +654,10 @@ class DaqReceiver:
         # Call external callback
         if self._external_callbacks[DaqModes.STATION_BEAM_DATA] is not None:
             self._external_callbacks[DaqModes.STATION_BEAM_DATA](
-                "station", filename, nof_packets * 256
+                "station",
+                filename,
+                nof_packets=nof_packets,
+                nof_saturations=nof_saturations,
             )
 
         if self._config["logging"]:

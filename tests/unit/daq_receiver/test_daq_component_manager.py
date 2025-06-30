@@ -13,10 +13,8 @@ import os
 import shutil
 import time
 from pathlib import Path
-from typing import Any
 
 import numpy as np
-import psutil  # type: ignore[import-untyped]
 import pytest
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
@@ -593,30 +591,6 @@ class TestDaqComponentManager:
 
         assert len(unique_ids) == unique_id_count
 
-    def test_start_data_rate_monitor(
-        self: TestDaqComponentManager,
-        daq_component_manager: DaqComponentManager,
-        callbacks: MockCallableGroup,
-    ) -> None:
-        """
-        Test that we can start the data rate monitor on the DAQ server.
-
-        :param daq_component_manager: the daq receiver component manager
-            under test.
-        :param callbacks: a dictionary from which callbacks with
-            asynchrony support can be accessed.
-        """
-        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
-        daq_component_manager.start_communicating()
-        callbacks["communication_state"].assert_call(
-            CommunicationStatus.NOT_ESTABLISHED
-        )
-        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        assert daq_component_manager.start_data_rate_monitor() == (
-            ResultCode.OK,
-            "Data rate measurement started.",
-        )
-
     def test_stop_data_rate_monitor(
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
@@ -641,47 +615,13 @@ class TestDaqComponentManager:
             "Data rate measurement stopping.",
         )
 
-    @pytest.fixture(autouse=True)
-    def mock_psutil_methods(
-        self: TestDaqComponentManager,
-        monkeypatch: pytest.MonkeyPatch,
-        mock_interface: str,
-    ) -> None:
-        """
-        Fixture to mock psutil methods for network I/O.
-
-        :param monkeypatch: pytest's monkeypatch fixture.
-        :param mock_interface: the mock interface to use.
-        """
-        counter = 0
-
-        def mock_net_io_counters(
-            *args: Any, **kwargs: Any
-        ) -> dict[str, psutil._common.snetio]:
-            nonlocal counter
-            counter += 1024**3  # 1 Gb/s in bytes per second
-            return {
-                mock_interface: psutil._common.snetio(
-                    bytes_sent=counter,
-                    bytes_recv=counter,
-                    packets_sent=0,
-                    packets_recv=0,
-                    errin=0,
-                    errout=0,
-                    dropin=0,
-                    dropout=0,
-                )
-            }
-
-        monkeypatch.setattr(psutil, "net_io_counters", mock_net_io_counters)
-
-    def test_get_data_rate(
+    def test_attribute_callback(
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
         callbacks: MockCallableGroup,
     ) -> None:
         """
-        Test that we can get the data rate from the DAQ server.
+        Test the attribute callback.
 
         :param daq_component_manager: the daq receiver component manager
             under test.
@@ -694,6 +634,11 @@ class TestDaqComponentManager:
             CommunicationStatus.NOT_ESTABLISHED
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        daq_component_manager.start_data_rate_monitor(1)
-        time.sleep(2)  # Allow some time for data rate to be calculated.
-        assert daq_component_manager.data_rate == pytest.approx(1.0, rel=1e-1)
+        daq_component_manager._start_daq(
+            "STATION_BEAM_DATA", task_callback=callbacks["task"]
+        )
+        daq_component_manager._file_dump_callback(
+            "station", "some/existing/file", nof_packets=49152, nof_saturations=53
+        )
+        callbacks["component_state"].assert_call(nof_packets=49152)
+        callbacks["component_state"].assert_call(nof_saturations=53)

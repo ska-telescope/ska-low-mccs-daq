@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Iterator
+from typing import Any, Iterator
 
 import numpy as np
+import psutil  # type: ignore[import-untyped]
 import pytest
 from ska_tango_testing.mock import MockCallableGroup
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
@@ -67,16 +68,22 @@ def skuid_url_fixture() -> str:
 
 
 @pytest.fixture(name="test_context")
-def test_context_fixture(daq_id: int) -> Iterator[SpsTangoTestHarnessContext]:
+def test_context_fixture(
+    daq_id: int,
+    mock_interface: str,
+) -> Iterator[SpsTangoTestHarnessContext]:
     """
     Yield a tango harness against which to run tests of the deployment.
 
     :param daq_id: the ID number of the DAQ receiver.
+    :param mock_interface: the mock interface to use for the DAQ handler.
 
     :yields: a test harness context.
     """
     test_harness = SpsTangoTestHarness()
-    test_harness.set_lmc_daq_device(daq_id, address=None)  # dynamically get DAQ address
+    test_harness.set_lmc_daq_device(
+        daq_id, address=None, receiver_interface=mock_interface
+    )  # dynamically get DAQ address
     with test_harness as test_context:
         yield test_context
 
@@ -169,3 +176,37 @@ def y_pol_bandpass_test_data_fixture() -> np.ndarray:
     return np.loadtxt(
         os.path.join(bandpass_dir, "y_pol_bandpass.txt"), delimiter=","
     ).transpose()
+
+
+@pytest.fixture(autouse=True)
+def mock_psutil_methods(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_interface: str,
+) -> None:
+    """
+    Fixture to mock psutil methods for network I/O.
+
+    :param monkeypatch: pytest's monkeypatch fixture.
+    :param mock_interface: the mock interface to use.
+    """
+    counter = 0
+
+    def mock_net_io_counters(
+        *args: Any, **kwargs: Any
+    ) -> dict[str, psutil._common.snetio]:
+        nonlocal counter
+        counter += 1024**3  # 1 Gb/s in bytes per second
+        return {
+            mock_interface: psutil._common.snetio(
+                bytes_sent=counter,
+                bytes_recv=counter,
+                packets_sent=0,
+                packets_recv=0,
+                errin=0,
+                errout=0,
+                dropin=0,
+                dropout=0,
+            )
+        }
+
+    monkeypatch.setattr(psutil, "net_io_counters", mock_net_io_counters)
