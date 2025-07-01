@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-180] Expose DaqStatus as attributes
+
 ## 3.0.0-rc2
 
 * [THORN-220] Add cleanup for component manager.
