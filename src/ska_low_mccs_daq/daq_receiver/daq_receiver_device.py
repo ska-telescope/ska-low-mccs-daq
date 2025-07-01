@@ -34,6 +34,18 @@ __all__ = ["MccsDaqReceiver", "main"]
 DevVarLongStringArrayType = tuple[list[ResultCode], list[Optional[str]]]
 
 
+def snake_to_camel(s: str) -> str:
+    """
+    Convert snake_case to camelCase.
+
+    :param s: string to convert.
+
+    :returns: s in camelCase.
+    """
+    parts = s.split("_")
+    return parts[0] + "".join(word.capitalize() for word in parts[1:])
+
+
 class _StartDaqCommand(SubmittedSlowCommand):
     """
     Class for handling the Start command.
@@ -268,6 +280,11 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._x_bandpass_plot: np.ndarray
         self._y_bandpass_plot: np.ndarray
         self._rms_plot: np.ndarray
+        self._nof_saturations: int
+        self._nof_packets: int
+        self._data_rate: float
+        self._receive_rate: float
+        self._drop_rate: float
         self._skuid_url: str
 
     def init_device(self: MccsDaqReceiver) -> None:
@@ -307,6 +324,16 @@ class MccsDaqReceiver(MccsBaseDevice):
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
         )
 
+    def delete_device(self: MccsDaqReceiver) -> None:
+        """Delete the device."""
+        self.component_manager._task_executor._executor.shutdown()
+        if (
+            self.component_manager.communication_state
+            == CommunicationStatus.ESTABLISHED
+        ):
+            self.component_manager._stop_daq()
+        super().delete_device()
+
     def _init_state_model(self: MccsDaqReceiver) -> None:
         """Initialise the state model."""
         super()._init_state_model()
@@ -322,6 +349,11 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._x_bandpass_plot = np.zeros(shape=(256, 512), dtype=float)
         self._y_bandpass_plot = np.zeros(shape=(256, 512), dtype=float)
         self._rms_plot = np.zeros(shape=(256, 512), dtype=float)
+        self._nof_saturations = 0
+        self._nof_packets = 0
+        self._receive_rate = 0
+        self._drop_rate = 0
+        self._data_rate = 0
         self.set_change_event("healthState", True, False)
         self.set_archive_event("healthState", True, False)
 
@@ -393,15 +425,6 @@ class MccsDaqReceiver(MccsBaseDevice):
                 ),
             )
 
-    def delete_device(self: MccsDaqReceiver) -> None:
-        """Stop the consumers when deleting the device."""
-        if (
-            self.component_manager.communication_state
-            == CommunicationStatus.ESTABLISHED
-        ):
-            self.component_manager._stop_daq()
-        super().delete_device()
-
     class InitCommand(DeviceInitCommand):
         """Implements device initialisation for the MccsDaqReceiver device."""
 
@@ -428,6 +451,16 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("yPolBandpass", True, False)
             self._device.set_change_event("rmsPlot", True, False)
             self._device.set_archive_event("rmsPlot", True, False)
+            self._device.set_change_event("nofSaturations", True, False)
+            self._device.set_archive_event("nofSaturations", True, False)
+            self._device.set_change_event("nofPackets", True, False)
+            self._device.set_archive_event("nofPackets", True, False)
+            self._device.set_change_event("dataRate", True, False)
+            self._device.set_archive_event("dataRate", True, False)
+            self._device.set_change_event("receiveRate", True, False)
+            self._device.set_archive_event("receiveRate", True, False)
+            self._device.set_change_event("dropRate", True, False)
+            self._device.set_archive_event("dropRate", True, False)
 
             return (ResultCode.OK, "Init command completed OK")
 
@@ -461,12 +494,14 @@ class MccsDaqReceiver(MccsBaseDevice):
             communicating=(communication_state == CommunicationStatus.ESTABLISHED)
         )
 
-    def _component_state_callback(
+    # pylint: disable=too-many-arguments
+    def _component_state_callback(  # noqa: C901
         self: MccsDaqReceiver,
         fault: Optional[bool] = None,
         x_bandpass_plot: Optional[np.ndarray] = None,
         y_bandpass_plot: Optional[np.ndarray] = None,
         rms_plot: Optional[np.ndarray] = None,
+        reset_consumer_attributes: Optional[bool] = None,
         **kwargs: Optional[Any],
     ) -> None:
         """
@@ -479,6 +514,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         :param x_bandpass_plot: A filepath for a bandpass plot.
         :param y_bandpass_plot: A filepath for a bandpass plot.
         :param rms_plot: A filepath for an rms plot.
+        :param reset_consumer_attributes: whether to reset consumer attributes to 0.
         :param kwargs: Other state changes of device.
         """
         if fault:
@@ -509,6 +545,31 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._rms_plot = rms_plot
             self.push_change_event("rmsPlot", rms_plot)
             self.push_archive_event("rmsPlot", rms_plot)
+
+        if reset_consumer_attributes:
+            self._reset_consumer_attributes()
+
+        if kwargs is not None:
+            for attribute_name, attribute_value in kwargs.items():
+                internal_attr = f"_{attribute_name}"
+                if not hasattr(self, internal_attr):
+                    self.logger.warning(
+                        f"Received event for {attribute_name}, "
+                        "this has no Tango attribute, ignoring."
+                    )
+                    continue
+                setattr(self, internal_attr, attribute_value)
+                self.push_change_event(snake_to_camel(attribute_name), attribute_value)
+                self.push_archive_event(snake_to_camel(attribute_name), attribute_value)
+
+    def _reset_consumer_attributes(self) -> None:
+        self._nof_saturations = 0
+        self.push_change_event("nofSaturations", 0)
+        self.push_archive_event("nofSaturations", 0)
+
+        self._nof_packets = 0
+        self.push_change_event("nofPackets", 0)
+        self.push_archive_event("nofPackets", 0)
 
     def _received_data_callback(
         self: MccsDaqReceiver,
@@ -1085,6 +1146,24 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return self._health_model.health_report
 
+    @attribute(dtype="DevLong")
+    def nofSaturations(self: MccsDaqReceiver) -> int:
+        """
+        Return the nof saturations of the last station beam consumer integration.
+
+        :return: the nof saturations of the last station beam consumer integration.
+        """
+        return int(self._nof_saturations)
+
+    @attribute(dtype="DevLong")
+    def nofPackets(self: MccsDaqReceiver) -> int:
+        """
+        Return the nof packets of the last station beam consumer integration.
+
+        :return: the nof packets of the last station beam consumer integration.
+        """
+        return int(self._nof_packets)
+
     @attribute(dtype="DevFloat")
     def dataRate(self: MccsDaqReceiver) -> float | None:
         """
@@ -1092,7 +1171,25 @@ class MccsDaqReceiver(MccsBaseDevice):
 
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
-        return self.component_manager.data_rate
+        return self._data_rate
+
+    @attribute(dtype="DevFloat")
+    def receiveRate(self: MccsDaqReceiver) -> float | None:
+        """
+        Return the current data rate in Gb/s, or None if not being monitored.
+
+        :return: the current data rate in Gb/s, or None if not being monitored.
+        """
+        return self._receive_rate
+
+    @attribute(dtype="DevFloat")
+    def dropRate(self: MccsDaqReceiver) -> float | None:
+        """
+        Return the current data rate in Gb/s, or None if not being monitored.
+
+        :return: the current data rate in Gb/s, or None if not being monitored.
+        """
+        return self._drop_rate
 
 
 # ----------

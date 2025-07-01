@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import gc
 import json
+import time
 import unittest.mock
 from time import sleep
 from typing import Iterator, Type, Union
@@ -251,6 +252,33 @@ class TestMccsDaqReceiver:
         assert "Stop" == cmd_id.split("_")[-1]
         poll_until_command_result(device_under_test, cmd_id, "COMPLETED")
         poll_until_consumers_stopped(device_under_test)
+
+    def test_get_data_rate(
+        self: TestMccsDaqReceiver,
+        device_under_test: tango.DeviceProxy,
+        change_event_callbacks: MockTangoEventCallbackGroup,
+    ) -> None:
+        """
+        Test that we can get the data rate from the DAQ server.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param change_event_callbacks: group of Tango change event
+            callback with asynchrony support
+        """
+        device_under_test.adminMode = AdminMode.ONLINE
+        assert device_under_test.adminMode == AdminMode.ONLINE
+        device_under_test.subscribe_event(
+            "state",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["state"],
+        )
+        change_event_callbacks["state"].assert_change_event(
+            tango.DevState.ON, consume_nonmatches=True, lookahead=5
+        )
+        time.sleep(2)  # Allow some time for data rate to be calculated.
+        assert device_under_test.dataRate == pytest.approx(1.0, rel=1e-1)
 
 
 class TestPatchedDaq:
