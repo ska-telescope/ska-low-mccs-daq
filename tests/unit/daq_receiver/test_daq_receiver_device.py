@@ -167,6 +167,20 @@ class TestMccsDaqReceiver:
         # Check the IP is what we chose.
         assert status["Receiver IP"] == [daq_ip]
 
+        for i, consumer in enumerate(expected_consumers):
+            assert device_under_test.runningConsumers[i] == (
+                consumer.name,
+                str(consumer.value),
+            )
+
+        assert device_under_test.interfaceName == daq_interface
+
+        assert all(device_under_test.receiverPorts == daq_config["receiver_ports"])
+
+        assert device_under_test.receiverIP == daq_ip
+
+        assert device_under_test.isBandpassMonitorRunning is not None
+
     @pytest.mark.parametrize(
         "daq_modes",
         ("DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA", "1, 2, 0"),

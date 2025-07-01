@@ -1028,6 +1028,62 @@ class MccsDaqReceiver(MccsBaseDevice):
         (result_code, message) = handler(interval)
         return ([result_code], [message])
 
+    # ----------
+    # Attributes
+    # ----------
+
+    @attribute(
+        dtype=(("DevString",),),
+        max_dim_x=2,
+        max_dim_y=2,
+    )
+    def runningConsumers(self: MccsDaqReceiver) -> list[tuple[str, str]]:
+        """
+        Get the daq Health state and value.
+
+        :return: [(DaqMode.name: str, DaqMode.value: str)]
+        """
+        return [(c[0], str(c[1])) for c in self.component_manager.get_running_consumers]
+
+    @attribute(dtype="DevString")
+    def interfaceName(self: MccsDaqReceiver) -> str:
+        """
+        Get the Reciever Interface Name.
+
+        :return: "Interface Name"
+        """
+        return self.component_manager.get_receiver_interface
+
+    @attribute(
+        dtype=("DevShort",),
+        max_dim_x=10,
+    )
+    def receiverPorts(self: MccsDaqReceiver) -> list:
+        """
+        Get the Reciever Interface Name.
+
+        :return: [Port_List]: list[int]
+        """
+        return [int(port) for port in self.component_manager.get_receiver_ports]
+
+    @attribute(dtype="DevString")
+    def receiverIP(self: MccsDaqReceiver) -> str:
+        """
+        Get the Reciever Interface IP address.
+
+        :return: IP_Address
+        """
+        return self.component_manager.get_receiver_ip
+
+    @attribute(dtype="DevBoolean")
+    def isBandpassMonitorRunning(self: MccsDaqReceiver) -> bool:
+        """
+        Get the Reciever Interface Name.
+
+        :return: Bandpass Monitor State
+        """
+        return self.component_manager._monitoring_bandpass
+
     @attribute(
         dtype=("str",),
         max_dim_x=2,  # Always the last result (unique_id, JSON-encoded result)

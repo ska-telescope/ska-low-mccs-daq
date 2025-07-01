@@ -716,6 +716,54 @@ class DaqComponentManager(TaskExecutorComponentManager):
             "Bandpass Monitor": self._monitoring_bandpass,
         }
 
+    @property
+    @check_communicating
+    def get_running_consumers(self: DaqComponentManager) -> list:
+        """
+        Provide a list of the status consumers.
+
+        :return: A list of running consumers in the format:
+            [[Consumer Name, Consumer Value (int)],]
+        """
+        full_consumer_list = self._daq_client._running_consumers.items()
+        running_consumer_list = [
+            [consumer.name, consumer.value]
+            for consumer, running in full_consumer_list
+            if running
+        ]
+        return running_consumer_list
+
+    @property
+    @check_communicating
+    def get_receiver_interface(self: DaqComponentManager) -> str:
+        """
+        Return the receiver interface as string.
+
+        :return: "Interface Name"
+        """
+        return str(self._daq_client._config["receiver_interface"])
+
+    @property
+    @check_communicating
+    def get_receiver_ports(self: DaqComponentManager) -> Any:
+        """
+        Provide a list of ports used by the receiver.
+
+        :return: ["port number"]
+        """
+        return self._daq_client._config["receiver_ports"]
+
+    @property
+    @check_communicating
+    def get_receiver_ip(self: DaqComponentManager) -> str:
+        """Read the receiver IP address and save it.
+
+        :return: receiver ip as string
+        """
+        return self._external_ip_override or str(
+            self._daq_client._config["receiver_ip"]
+        )
+
     def start_bandpass_monitor(
         self: DaqComponentManager,
         task_callback: TaskCallbackType | None = None,
