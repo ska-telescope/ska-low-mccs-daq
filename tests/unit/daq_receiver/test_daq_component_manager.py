@@ -642,3 +642,15 @@ class TestDaqComponentManager:
         )
         callbacks["component_state"].assert_call(nof_packets=49152)
         callbacks["component_state"].assert_call(nof_saturations=53)
+
+    def test_get_version(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+    ) -> None:
+        """
+        Test that the daq version returned is correct.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        """
+        assert daq_component_manager.library_version == "libaavsdaq.so"
