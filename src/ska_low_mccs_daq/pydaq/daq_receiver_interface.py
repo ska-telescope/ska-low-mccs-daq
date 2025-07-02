@@ -56,7 +56,7 @@ class DaqReceiver:
         _fields_ = [
             ("tile", ctypes.c_int16),
             ("cont_channel_id", ctypes.c_int32),
-            ("nof_packets", ctypes.c_uint64),
+            ("nof_packets", ctypes.c_uint32),
         ]
 
     class DataType(Enum):
