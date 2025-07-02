@@ -28,8 +28,7 @@ ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 ENV TZ="United_Kingdom/London"
 ENV CUDA_ARCH="sm_80"
 ENV LC_ALL="en_US.UTF-8"
-# This is from an unmerged PR, this will be updated when the PR is merged.
-ENV AAVS_DAQ_SHA=17e45c4cb6a078fa1ac145612f001c9cedbc66c2
+ENV AAVS_DAQ_SHA=b15aa05064be2c2d5995d7b64dac822d9c7ed77c
 
 ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
 
