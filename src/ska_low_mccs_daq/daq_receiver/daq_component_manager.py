@@ -764,6 +764,20 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._daq_client._config["receiver_ip"]
         )
 
+    @property
+    def library_version(self: DaqComponentManager) -> str:
+        """
+        Get the current library version used.
+
+        :return: the version as a string of form 'major.minor.patch' .
+        """
+        version = str("none")
+        if self._daq_client._daq_library_path is not None:
+            lib_path = self._daq_client._daq_library_path.decode()
+            # split the path and grab the filename
+            version = lib_path.split("/")[-1]
+        return version
+
     def start_bandpass_monitor(
         self: DaqComponentManager,
         task_callback: TaskCallbackType | None = None,

@@ -1191,6 +1191,15 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return self._drop_rate
 
+    @attribute(dtype="DevString")
+    def daqLibraryVersion(self: MccsDaqReceiver) -> str:
+        """
+        Get the current library version used.
+
+        :return: the verision as a string of form 'major.minor.patch' .
+        """
+        return self.component_manager.library_version
+
 
 # ----------
 # Run server
