@@ -8,7 +8,6 @@
 """This module contains the tests of the daq component manager."""
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import time
@@ -99,7 +98,7 @@ class TestDaqComponentManager:
             "nof_tiles": 55,
             "nof_channels": 1234,
         }
-        daq_component_manager.configure_daq(json.dumps(non_standard_config))
+        daq_component_manager.configure_daq(**non_standard_config)
 
         # 3. Assert config was applied.
         daq_config_dict = daq_component_manager.get_configuration()
@@ -239,7 +238,7 @@ class TestDaqComponentManager:
             "acquisition_duration": acquisition_duration,
             "directory": ".",
         }
-        daq_component_manager.configure_daq(json.dumps(daq_config))
+        daq_component_manager.configure_daq(**daq_config)
 
         # Start DAQ and check our consumer is running.
         # Need exactly 1 callback per consumer started or None. Cast for Mypy.
@@ -469,14 +468,14 @@ class TestDaqComponentManager:
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
 
         config = {"directory": directory}
-        daq_component_manager.configure_daq(json.dumps(config))
+        daq_component_manager.configure_daq(**config)
 
         assert outcome == daq_component_manager._data_directory_format_adr55_compliant()
 
         # If we're off the happy path then reconfigure.
         if not outcome:
             re_config = {"directory": daq_component_manager._construct_adr55_filepath()}
-            daq_component_manager.configure_daq(json.dumps(re_config))
+            daq_component_manager.configure_daq(**re_config)
             time.sleep(1)
             assert daq_component_manager._data_directory_format_adr55_compliant()
 
@@ -514,9 +513,7 @@ class TestDaqComponentManager:
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
 
         existing_directory = "some/file/path"
-        daq_component_manager.configure_daq(
-            json.dumps({"directory": existing_directory})
-        )
+        daq_component_manager.configure_daq(**{"directory": existing_directory})
         assert (
             daq_component_manager.get_configuration()["directory"] == existing_directory
         )

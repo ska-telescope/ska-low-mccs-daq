@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* [THORN-215] Add json validation to MccsDaq configure command.
 * [THORN-180] Expose DaqStatus as attributes
 
 ## 3.0.0-rc2
