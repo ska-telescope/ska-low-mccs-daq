@@ -1206,7 +1206,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
         return self._drop_rate
-    
+
     @attribute(dtype="DevDouble")
     def RingbufferOccupancy(self: MccsDaqReceiver) -> float:
         """

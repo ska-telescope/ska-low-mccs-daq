@@ -232,13 +232,17 @@ class DaqSimulator:
 
     @check_initialisation
     def start_daq(
-        self: DaqSimulator, modes_to_start: list[DaqModes], callbacks: list[Callable]
+        self: DaqSimulator,
+        modes_to_start: list[DaqModes],
+        callbacks: list[Callable],
+        diagnostic_callback: Callable,
     ) -> tuple[ResultCode, str]:
         """
         Start data acquisition with the current configuration.
 
         :param modes_to_start: modes to start.
         :param callbacks: callbacks for the data modes.
+        :param diagnostic_callback: callback for diagnostic attributes.
 
         :return: a result code and status.
         """
@@ -390,7 +394,11 @@ class DaqSimulator:
                     None,
                 )
                 return
-            self.start_daq([DaqModes.INTEGRATED_CHANNEL_DATA], [self._data_callback])
+            self.start_daq(
+                [DaqModes.INTEGRATED_CHANNEL_DATA],
+                [self._data_callback],
+                self._data_callback,
+            )
 
         station_name = "simulated_station_name"
 
