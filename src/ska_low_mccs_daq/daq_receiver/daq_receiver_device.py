@@ -928,9 +928,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         return ([result_code], [message])
 
     @command(dtype_out="DevVarLongStringArray")
-    def StartBandpassMonitor(
-        self: MccsDaqReceiver, argin: str
-    ) -> DevVarLongStringArrayType:
+    def StartBandpassMonitor(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
         """
         Start monitoring antenna bandpasses.
 
@@ -959,7 +957,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             information purpose only.
         """
         handler = self.get_command_object("StartBandpassMonitor")
-        (result_code, message) = handler(argin=argin)
+        (result_code, message) = handler()
         return ([result_code], [message])
 
     class StopBandpassMonitorCommand(FastCommand):
