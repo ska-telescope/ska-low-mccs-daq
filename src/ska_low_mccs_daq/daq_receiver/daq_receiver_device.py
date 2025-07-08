@@ -927,7 +927,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         (result_code, message) = handler(argin)
         return ([result_code], [message])
 
-    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    @command(dtype_out="DevVarLongStringArray")
     def StartBandpassMonitor(
         self: MccsDaqReceiver, argin: str
     ) -> DevVarLongStringArrayType:
