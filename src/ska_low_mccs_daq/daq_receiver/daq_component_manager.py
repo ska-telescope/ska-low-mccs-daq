@@ -368,7 +368,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if not self._is_bandpass_monitor_running():
             self.logger.info("Auto starting bandpass monitor.")
             self.configure_daq(
-                json.dumps({"append_integrated": False, "nof_tiles": self._nof_tiles})
+                **{"append_integrated": False, "nof_tiles": self._nof_tiles}
             )
             self.start_bandpass_monitor("")  # TODO: Tidy this up
             _wait_for_status(status="Bandpass Monitor", value="True")
@@ -445,18 +445,17 @@ class DaqComponentManager(TaskExecutorComponentManager):
     @check_communicating
     def configure_daq(
         self: DaqComponentManager,
-        config: str,
+        **daq_config: Any,
     ) -> tuple[ResultCode, str]:
         """
         Apply a configuration to the DaqReceiver.
 
-        :param config: A json containing configuration settings.
+        :param daq_config: Validated kwargs containing configuration settings.
 
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
         """
-        daq_config = json.loads(config)
         self.logger.info("Configuring daq with: %s", daq_config)
         try:
             if not daq_config:
@@ -616,7 +615,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         # This delays the start call by a lot if SKUID isn't there.
         if not self._data_directory_format_adr55_compliant():
             config = {"directory": self._construct_adr55_filepath()}
-            self.configure_daq(json.dumps(config))
+            self.configure_daq(**config)
             self.logger.info(
                 "Data directory automatically reconfigured to: %s", config["directory"]
             )
