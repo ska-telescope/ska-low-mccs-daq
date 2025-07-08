@@ -426,6 +426,42 @@ inline void StationDoubleBuffer::process_data(int producer_index, uint16_t chann
         this->double_buffer[producer_index].ref_time = timestamp;
 }
 
+// inline void StationDoubleBuffer::process_data(int producer_index, uint16_t channel, uint32_t samples,
+//                                               uint16_t *data_ptr, double timestamp)
+// {
+//     // Process data
+//     auto *ptr = reinterpret_cast<complex8_t *>(data_ptr);
+//     double *buffer_x = this->double_buffer[producer_index].integrators;
+//     double *buffer_y = this->double_buffer[producer_index].integrators + nof_channels;
+
+//     for(unsigned i = 0; i < samples; i++)
+//     {
+//         complex8_t x = *ptr++;
+//         complex8_t y = *ptr++;
+
+//         // Check if this samples is saturated, and if so exclude it from integration
+//         if (get_abs(x.real) >= 127 || get_abs(x.imag) >= 127 || get_abs(y.real) >= 127 || get_abs(y.imag) >= 127)
+//             this->double_buffer[producer_index].nof_saturations++;
+
+//         // Otherwise add to integrator and increase number of associated samples
+//         else {
+//             buffer_x[channel] += static_cast<double>(x.real * x.real + x.imag * x.imag);
+//             buffer_y[channel] += static_cast<double>(y.real * y.real + y.imag * y.imag);
+
+//             // Update number of samples in the current buffer
+//             this -> double_buffer[producer_index].read_samples[channel] += 1;
+//         }
+//     }
+
+//     // Update number of packets
+//     this->double_buffer[producer_index].nof_packets++;
+
+//     // Update timings
+//     if (this->double_buffer[producer_index].ref_time > timestamp || this->double_buffer[producer_index].ref_time == 0)
+//         this->double_buffer[producer_index].ref_time = timestamp;
+// }
+
+
 // Read buffer
 StationBuffer* StationDoubleBuffer::read_buffer()
 {

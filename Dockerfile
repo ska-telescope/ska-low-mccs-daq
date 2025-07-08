@@ -58,7 +58,9 @@ WORKDIR /app/xGPU/src/
 RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
 # Install AAVS DAQ
-RUN mkdir /app/aavs-system/ && mkdir /app/aavs-system/pydaq && mkdir /app/aavs-system/cdaq
+
+RUN mkdir /app/aavs-system/ && mkdir /app/aavs-system/pydaq && mkdir /app/aavs-system/cdaq && mkdir /app/aavs-system/third_party
+COPY --chown=daqqer:daqqer /aavs-daq /app/aavs-system/third_party/aavs-daq/
 COPY --chown=daqqer:daqqer /src/ska_low_mccs_daq/pydaq  /app/aavs-system/pydaq/
 COPY --chown=daqqer:daqqer /src/ska_low_mccs_daq/cdaq /app/aavs-system/cdaq/
 COPY --chown=daqqer:daqqer deploy.sh cdaq_requirements.pip /app/aavs-system/

@@ -99,13 +99,13 @@ fi
 
 pushd third_party || exit
 
-  # Install DAQ
-  if [[ ! -d "aavs-daq" ]]; then
-    git clone https://lessju@bitbucket.org/aavslmc/aavs-daq.git
+  # # Install DAQ
+  # if [[ ! -d "aavs-daq" ]]; then
+  #   git clone https://lessju@bitbucket.org/aavslmc/aavs-daq.git
 
-    pushd aavs-daq || exit
-      git reset --hard $AAVS_DAQ_SHA
-    popd
+  #   pushd aavs-daq || exit
+  #     git reset --hard $AAVS_DAQ_SHA
+  #   popd
 
     pushd aavs-daq/src || exit
       if [[ ! -d build ]]; then
@@ -117,7 +117,7 @@ pushd third_party || exit
         make -B -j8 install || exit
       popd
     popd
-  fi
+  # fi
 popd
 
 # Install C++ src
