@@ -11,7 +11,8 @@ from __future__ import annotations  # allow forward references in type hints
 
 import json
 import logging
-from typing import Any, Optional, Union
+from importlib import resources
+from typing import Any, Final, Optional, Union
 
 import numpy as np
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
@@ -21,6 +22,7 @@ from ska_tango_base.commands import (
     CommandTrackerProtocol,
     DeviceInitCommand,
     FastCommand,
+    JsonValidator,
     SubmittedSlowCommand,
 )
 from tango.server import attribute, command, device_property
@@ -285,8 +287,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._data_rate: float
         self._receive_rate: float
         self._drop_rate: float
-        self._ringbuffer_occupancy: float
-        self._lost_pushes: int
         self._skuid_url: str
 
     def init_device(self: MccsDaqReceiver) -> None:
@@ -356,8 +356,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._receive_rate = 0
         self._drop_rate = 0
         self._data_rate = 0
-        self._ringbuffer_occupancy = 0.0
-        self._lost_pushes = 0
         self.set_change_event("healthState", True, False)
         self.set_archive_event("healthState", True, False)
 
@@ -465,10 +463,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("receiveRate", True, False)
             self._device.set_change_event("dropRate", True, False)
             self._device.set_archive_event("dropRate", True, False)
-            self._device.set_change_event("ringbufferOccupancy", True, False)
-            self._device.set_archive_event("ringbufferOccupancy", True, False)
-            self._device.set_change_event("lostPushes", True, False)
-            self._device.set_archive_event("lostPushes", True, False)
 
             return (ResultCode.OK, "Init command completed OK")
 
@@ -578,14 +572,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._nof_packets = 0
         self.push_change_event("nofPackets", 0)
         self.push_archive_event("nofPackets", 0)
-
-        self._ringbuffer_occupancy = 0.0
-        self.push_change_event("ringbufferOccupancy", 0.0)
-        self.push_archive_event("ringbufferOccupancy", 0.0)
-
-        self._lost_pushes = 0
-        self.push_change_event("lostPushes", 0)
-        self.push_archive_event("lostPushes", 0)
 
     def _received_data_callback(
         self: MccsDaqReceiver,
@@ -763,7 +749,20 @@ class MccsDaqReceiver(MccsBaseDevice):
         return ([result_code], [message])
 
     class ConfigureCommand(FastCommand):
-        """Class for handling the Configure(argin) command."""
+        # pylint: disable=line-too-long
+        """
+        Class for handling the Configure(argin) command.
+
+        .. literalinclude:: /../../src/ska_low_mccs_daq/schemas/daq/MccsDaq_Configure.json
+           :language: json
+        """  # noqa: E501,RST303
+
+        SCHEMA: Final = json.loads(
+            resources.read_text(
+                "ska_low_mccs_daq.schemas.daq",
+                "MccsDaq_Configure.json",
+            )
+        )
 
         def __init__(  # type: ignore
             self: MccsDaqReceiver.ConfigureCommand,
@@ -777,23 +776,25 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param logger: a logger for this command to use.
             """
             self._component_manager: DaqComponentManager = component_manager
-            super().__init__(logger)
+            validator = JsonValidator("Configure", self.SCHEMA, logger)
+            super().__init__(logger, validator)
 
-        # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
-            self: MccsDaqReceiver.ConfigureCommand,
-            argin: str,
+            self: MccsDaqReceiver.ConfigureCommand, *args: Any, **kwargs: Any
         ) -> tuple[ResultCode, str]:
             """
             Implement MccsDaqReceiver.ConfigureCommand command functionality.
 
-            :param argin: A configuration dictionary.
+            :param args: Positional arguments. This should be empty and
+                is provided for type hinting purposes only.
+            :param kwargs: keyword arguments unpacked from the JSON
+                argument to the command.
 
             :return: A tuple containing a return code and a string
                 message indicating status. The message is for
                 information purpose only.
             """
-            self._component_manager.configure_daq(argin)
+            self._component_manager.configure_daq(**kwargs)
             return (ResultCode.OK, "Configure command completed OK")
 
     # Args in might want to be changed depending on how we choose to
@@ -927,20 +928,39 @@ class MccsDaqReceiver(MccsBaseDevice):
         (result_code, message) = handler(argin)
         return ([result_code], [message])
 
-    @command(dtype_out="DevVarLongStringArray")
-    def StartBandpassMonitor(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    def StartBandpassMonitor(
+        self: MccsDaqReceiver, argin: str
+    ) -> DevVarLongStringArrayType:
         """
         Start monitoring antenna bandpasses.
 
         The MccsDaqReceiver will begin monitoring antenna bandpasses
             and producing plots of the spectra.
 
+        :param argin: A json dictionary with keywords.
+            - plot_directory
+            Directory in which to store bandpass plots.
+            - monitor_rms
+            Whether or not to additionally produce RMS plots.
+            Default: False.
+            - auto_handle_daq
+            Whether DAQ should be automatically reconfigured,
+            started and stopped without user action if necessary.
+            This set to False means we expect DAQ to already
+            be properly configured and listening for traffic
+            and DAQ will not be stopped when `StopBandpassMonitor`
+            is called.
+            Default: False.
+            - cadence
+            The time in seconds over which to average bandpass data.
+            Default: 0 returns snapshots.
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
         """
         handler = self.get_command_object("StartBandpassMonitor")
-        (result_code, message) = handler()
+        (result_code, message) = handler(argin=argin)
         return ([result_code], [message])
 
     class StopBandpassMonitorCommand(FastCommand):
@@ -1187,24 +1207,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
         return self._drop_rate
-
-    @attribute(dtype="DevDouble")
-    def RingbufferOccupancy(self: MccsDaqReceiver) -> float:
-        """
-        Return the current ringbuffer occupancy in percent.
-
-        :return: the current ringbuffer occupancy in percent.
-        """
-        return self._ringbuffer_occupancy
-
-    @attribute(dtype="DevULong64")
-    def LostPushes(self: MccsDaqReceiver) -> int:
-        """
-        Return the number of lost pushes to the ringbuffer.
-
-        :return: the number of lost pushes to the ringbuffer.
-        """
-        return self._lost_pushes
 
 
 # ----------

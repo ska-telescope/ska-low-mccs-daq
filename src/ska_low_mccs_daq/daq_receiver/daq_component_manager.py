@@ -370,7 +370,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.configure_daq(
                 json.dumps({"append_integrated": False, "nof_tiles": self._nof_tiles})
             )
-            self.start_bandpass_monitor()
+            self.start_bandpass_monitor("")  # TODO: Tidy this up
             _wait_for_status(status="Bandpass Monitor", value="True")
 
     def _is_integrated_channel_consumer_running(
@@ -780,6 +780,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def start_bandpass_monitor(
         self: DaqComponentManager,
+        argin: str,
         task_callback: TaskCallbackType | None = None,
     ) -> tuple[TaskStatus, str]:
         """
@@ -788,6 +789,23 @@ class DaqComponentManager(TaskExecutorComponentManager):
         The MccsDaqReceiver will begin monitoring antenna bandpasses
             and producing plots of the spectra.
 
+        :param argin: A json string with keywords
+            - plot_directory
+            Directory in which to store bandpass plots.
+            - monitor_rms
+            Whether or not to additionally produce RMS plots.
+            Default: False.
+            - auto_handle_daq
+            Whether DAQ should be automatically reconfigured,
+            started and stopped without user action if necessary.
+            This set to False means we expect DAQ to already
+            be properly configured and listening for traffic
+            and DAQ will not be stopped when `StopBandpassMonitor`
+            is called.
+            Default: False.
+            - cadence
+            The time in seconds over which to average bandpass data.
+            Default: 0 returns snapshots.
         :param task_callback: Update task state, defaults to None
 
         :return: a Taskstatus and response message
@@ -798,12 +816,14 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.logger.info("Starting bandpass monitor.")
         return self.submit_task(
             self._start_bandpass_monitor,
+            args=[argin],
             task_callback=task_callback,
         )
 
     @check_communicating
     def _start_bandpass_monitor(
         self: DaqComponentManager,
+        argin: str,
         task_callback: TaskCallbackType | None = None,
         task_abort_event: Optional[threading.Event] = None,
     ) -> None:
@@ -813,6 +833,23 @@ class DaqComponentManager(TaskExecutorComponentManager):
         The MccsDaqReceiver will begin monitoring antenna bandpasses
             and producing plots of the spectra.
 
+        :param argin: A json string with keywords
+            - plot_directory
+            Directory in which to store bandpass plots.
+            - monitor_rms
+            Whether or not to additionally produce RMS plots.
+            Default: False.
+            - auto_handle_daq
+            Whether DAQ should be automatically reconfigured,
+            started and stopped without user action if necessary.
+            This set to False means we expect DAQ to already
+            be properly configured and listening for traffic
+            and DAQ will not be stopped when `StopBandpassMonitor`
+            is called.
+            Default: False.
+            - cadence
+            The time in seconds over which to average bandpass data.
+            Default: 0 returns snapshots.
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Check for abort, defaults to None
 

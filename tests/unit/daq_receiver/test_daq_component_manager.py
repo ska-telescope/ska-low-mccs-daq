@@ -367,7 +367,7 @@ class TestDaqComponentManager:
 
         # Call start_bandpass
         _ = daq_component_manager.start_bandpass_monitor(
-            task_callback=callbacks["task"]
+            "", task_callback=callbacks["task"]
         )
 
         callbacks["task"].assert_call(status=TaskStatus.QUEUED)
