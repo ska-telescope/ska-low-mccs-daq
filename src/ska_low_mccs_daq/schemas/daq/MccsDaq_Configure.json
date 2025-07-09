@@ -1,0 +1,255 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "MccsDaq Configure schema",
+    "type": "object",
+    "properties": {
+        "nof_antennas": {
+            "type": "integer",
+            "default": 16,
+            "description": "Number of antennas per tile."
+        },
+        "nof_channels": {
+            "type": "integer",
+            "default": 512,
+            "description": "Number of channels"
+        },
+        "nof_beams": {
+            "type": "integer",
+            "default": 1,
+            "description": "Number of beams"
+        },
+        "nof_polarisations": {
+            "type": "integer",
+            "default": 2,
+            "description": "Number of polarisations"
+        },
+        "nof_tiles": {
+            "type": "integer",
+            "default": 1,
+            "description": "Number of tiles in the station"
+        },
+        "nof_raw_samples": {
+            "type": "integer",
+            "default": 32768,
+            "description": "Number of raw antennas samples per buffer (requires different firmware to change)"
+        },
+        "raw_rms_threshold": {
+            "type": "integer",
+            "default": -1,
+            "description": "Only save raw data if RMS exceeds provided threshold; -1 disables thresholding"
+        },
+        "nof_channel_samples": {
+            "type": "integer",
+            "default": 1024,
+            "description": "Number of channelised spectra per buffer"
+        },
+        "nof_correlator_samples": {
+            "type": "integer",
+            "default": 1835008,
+            "description": "Number of channel samples for correlation per buffer"
+        },
+        "nof_correlator_channels": {
+            "type": "integer",
+            "default": 1,
+            "description": "Number of channels to channelise into before correlation; used only in correlator mode"
+        },
+        "continuous_period": {
+            "type": "integer",
+            "default": 0,
+            "description": "Seconds between successive dumps of continuous channel data; 0 means dump everything"
+        },
+        "nof_beam_samples": {
+            "type": "integer",
+            "default": 42,
+            "description": "Number of beam samples per buffer (requires different firmware to change)"
+        },
+        "nof_beam_channels": {
+            "type": "integer",
+            "default": 384,
+            "description": "Number of channels in beam data"
+        },
+        "nof_station_samples": {
+            "type": "integer",
+            "default": 262144,
+            "description": "Number of station beam samples per buffer"
+        },
+        "integrated_channel_bitwidth": {
+            "type": "integer",
+            "default": 16,
+            "description": "Bit width of integrated channel data"
+        },
+        "continuous_channel_bitwidth": {
+            "type": "integer",
+            "default": 16,
+            "description": "Bit width of continuous channel data"
+        },
+        "append_integrated": {
+            "type": "boolean",
+            "default": true,
+            "description": "Append integrated data in the same file"
+        },
+        "persist_all_buffers": {
+            "type": "boolean",
+            "default": false,
+            "description": "Persist all buffers. When false, we ignore the first 3 received buffers for continuous channel data"
+        },
+        "sampling_time": {
+            "type": "number",
+            "default": 1.1325,
+            "description": "Sampling time in seconds. Time per sample."
+        },
+        "sampling_rate": {
+            "type": "number",
+            "default": 925925.925926,
+            "description": "FPGA sampling rate"
+        },
+        "oversampling_factor": {
+            "type": "number",
+            "default": 1.1851851851851851,
+            "description": "Oversampling factor [default: 32/27]"
+        },
+        "receiver_ports": {
+            "oneOf": [
+                {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "pattern": "^[0-9]+$"
+                        },
+                        {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 65535
+                        }
+                    ],
+                    "description": "A single UDP port as a string or integer"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^[0-9]+$"
+                            },
+                            {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 65535
+                            }
+                        ]
+                    },
+                    "description": "A list of UDP ports as strings or integers"
+                }
+            ],
+            "default": "4660",
+            "description": "UDP port(s) to listen on; can be a single string or integer, or an array of them"
+        },
+        "receiver_interface": {
+            "type": "string",
+            "default": "eth0",
+            "description": "Receiver interface"
+        },
+        "receiver_ip": {
+            "type": "string",
+            "default": "",
+            "description": "IP to bind to in case of multiple virtual interfaces"
+        },
+        "receiver_frame_size": {
+            "type": "integer",
+            "default": 8500,
+            "description": "Receiver frame size"
+        },
+        "receiver_frames_per_block": {
+            "type": "integer",
+            "default": 32,
+            "description": "Receiver frames per block"
+        },
+        "receiver_nof_blocks": {
+            "type": "integer",
+            "default": 256,
+            "description": "Receiver number of blocks"
+        },
+        "receiver_nof_threads": {
+            "type": "integer",
+            "default": 1,
+            "description": "Receiver number of threads"
+        },
+        "description": {
+            "type": "string",
+            "default": "",
+            "description": "Observation description patched into observation_metadata"
+        },
+        "station_config": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "default": null,
+            "description": "Station configuration file to extract additional metadata"
+        },
+        "station_id": {
+            "type": "integer",
+            "description": "Station ID"
+        },
+        "max_filesize": {
+            "type": [
+                "number",
+                "null"
+            ],
+            "default": null,
+            "description": "Maximum file size in GB; set 0 to save each data set to a separate HDF5 file"
+        },
+        "acquisition_duration": {
+            "type": "integer",
+            "default": -1,
+            "description": "Duration of data acquisition in seconds"
+        },
+        "acquisition_start_time": {
+            "type": "integer",
+            "default": -1,
+            "description": "Specify acquisition start time; only for continuous channelised data"
+        },
+        "station_beam_source": {
+            "type": "string",
+            "default": "",
+            "description": "Station beam observed source"
+        },
+        "station_beam_start_channel": {
+            "type": "integer",
+            "default": 0,
+            "description": "Start channel ID for raw station beam"
+        },
+        "station_beam_dada": {
+            "type": "boolean",
+            "default": false,
+            "description": "Save raw station beam data as DADA files"
+        },
+        "station_beam_individual_channels": {
+            "type": "boolean",
+            "default": false,
+            "description": "Store raw station beam channels individually"
+        },
+        "logging": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable or disable logging"
+        },
+        "write_to_disk": {
+            "type": "boolean",
+            "default": true,
+            "description": "Write files to disk"
+        },
+        "observation_metadata": {
+            "type": "object",
+            "description": "Metadata related to the observation; accepts arbitrary key-value pairs",
+            "default": {},
+            "additionalProperties": true
+        },
+        "directory": {
+            "type": "string",
+            "default": ".",
+            "description": "Directory where data is saved"
+        }
+    }
+}

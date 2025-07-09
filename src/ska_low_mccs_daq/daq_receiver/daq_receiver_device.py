@@ -11,7 +11,8 @@ from __future__ import annotations  # allow forward references in type hints
 
 import json
 import logging
-from typing import Any, Optional, Union
+from importlib import resources
+from typing import Any, Final, Optional, Union
 
 import numpy as np
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
@@ -21,6 +22,7 @@ from ska_tango_base.commands import (
     CommandTrackerProtocol,
     DeviceInitCommand,
     FastCommand,
+    JsonValidator,
     SubmittedSlowCommand,
 )
 from tango.server import attribute, command, device_property
@@ -747,7 +749,20 @@ class MccsDaqReceiver(MccsBaseDevice):
         return ([result_code], [message])
 
     class ConfigureCommand(FastCommand):
-        """Class for handling the Configure(argin) command."""
+        # pylint: disable=line-too-long
+        """
+        Class for handling the Configure(argin) command.
+
+        .. literalinclude:: /../../src/ska_low_mccs_daq/schemas/daq/MccsDaq_Configure.json
+           :language: json
+        """  # noqa: E501,RST303
+
+        SCHEMA: Final = json.loads(
+            resources.read_text(
+                "ska_low_mccs_daq.schemas.daq",
+                "MccsDaq_Configure.json",
+            )
+        )
 
         def __init__(  # type: ignore
             self: MccsDaqReceiver.ConfigureCommand,
@@ -761,23 +776,25 @@ class MccsDaqReceiver(MccsBaseDevice):
             :param logger: a logger for this command to use.
             """
             self._component_manager: DaqComponentManager = component_manager
-            super().__init__(logger)
+            validator = JsonValidator("Configure", self.SCHEMA, logger)
+            super().__init__(logger, validator)
 
-        # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
-            self: MccsDaqReceiver.ConfigureCommand,
-            argin: str,
+            self: MccsDaqReceiver.ConfigureCommand, *args: Any, **kwargs: Any
         ) -> tuple[ResultCode, str]:
             """
             Implement MccsDaqReceiver.ConfigureCommand command functionality.
 
-            :param argin: A configuration dictionary.
+            :param args: Positional arguments. This should be empty and
+                is provided for type hinting purposes only.
+            :param kwargs: keyword arguments unpacked from the JSON
+                argument to the command.
 
             :return: A tuple containing a return code and a string
                 message indicating status. The message is for
                 information purpose only.
             """
-            self._component_manager.configure_daq(argin)
+            self._component_manager.configure_daq(**kwargs)
             return (ResultCode.OK, "Configure command completed OK")
 
     # Args in might want to be changed depending on how we choose to
