@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HDF5 File Analyzer
+HDF5 File Analyzer.
 
 A command-line script to recursively analyze HDF5 files and print group names
 and data samples.
@@ -149,8 +149,8 @@ def analyze_hdf5_file(
     except OSError as e:
         print(f"Error opening file '{filename}': {e}")
         return False
-    # pylint: disable=broad-exception-caught
-    except Exception as e:
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Unexpected error: {e}")
         return False
 
