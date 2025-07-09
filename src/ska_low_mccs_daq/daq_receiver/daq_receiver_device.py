@@ -243,7 +243,7 @@ class MccsDaqReceiver(MccsBaseDevice):
     BandpassDaq = device_property(
         dtype=bool,
         doc="Whether this DaqReceiver is a dedicated bandpass monitor.",
-        default_value=False,
+        default_value=True,
     )
     NumberOfTiles = device_property(
         dtype=int,

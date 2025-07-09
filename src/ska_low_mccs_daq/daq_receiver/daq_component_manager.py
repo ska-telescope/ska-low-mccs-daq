@@ -141,7 +141,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         communication_state_callback: Callable[[CommunicationStatus], None],
         component_state_callback: Callable[..., None],
         received_data_callback: Callable[[str, str, str], None],
-        dedicated_bandpass_daq: bool = True,
+        dedicated_bandpass_daq: bool = False,
         simulation_mode: bool = False,
     ) -> None:
         """
