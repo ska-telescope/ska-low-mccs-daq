@@ -6,10 +6,6 @@ platform:
         sps: {}
 
 platform:
-  cluster:
-    domain: cluster.local
-
-platform:
   stations:
     ci-1:
       sps:
