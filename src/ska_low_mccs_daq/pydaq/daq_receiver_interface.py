@@ -58,7 +58,7 @@ class DaqReceiver:
             ("cont_channel_id", ctypes.c_int32),
             ("nof_packets", ctypes.c_uint32),
         ]
-    
+
     class Diagnostic(ctypes.Structure):
         """Diagnostic structure definition"""
 
@@ -108,9 +108,7 @@ class DaqReceiver:
         ctypes.POINTER(ctypes.c_void_p),
     )
 
-    DIAGNOSTIC_CALLBACK = ctypes.CFUNCTYPE(
-        None, ctypes.POINTER(ctypes.c_void_p)
-    )
+    DIAGNOSTIC_CALLBACK = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_void_p))
 
     # Define logging callback wrapper
     LOGGER_CALLBACK = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p)
@@ -212,7 +210,9 @@ class DaqReceiver:
         self._daq_logging_function = self.LOGGER_CALLBACK(self._logging_callback)
 
         # Pointer to diagnostic function forwarded by low-level DAQ
-        self._daq_diagnostic_callback = self.DIAGNOSTIC_CALLBACK(self._diagnostic_callback)
+        self._daq_diagnostic_callback = self.DIAGNOSTIC_CALLBACK(
+            self._diagnostic_callback
+        )
 
         # Keep track of which data consumers are running
         self._running_consumers = {}
@@ -423,6 +423,7 @@ class DaqReceiver:
                     append=True,
                     data_ptr=values,
                     timestamp=self._timestamps[DaqModes.INTEGRATED_CHANNEL_DATA],
+                    sampling_time=self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA],
                     buffer_timestamp=timestamp,
                     tile_id=tile,
                 )
@@ -1852,7 +1853,11 @@ class DaqReceiver:
         self._daq_library.initialiseConsumer.restype = ctypes.c_int
 
         # Define startConsumer function
-        self._daq_library.startConsumer.argtypes = [ctypes.c_char_p, self.DATA_CALLBACK, self.DIAGNOSTIC_CALLBACK]
+        self._daq_library.startConsumer.argtypes = [
+            ctypes.c_char_p,
+            self.DATA_CALLBACK,
+            self.DIAGNOSTIC_CALLBACK,
+        ]
         self._daq_library.startConsumer.restype = ctypes.c_int
 
         # Define startConsumer function
@@ -1955,9 +1960,13 @@ class DaqReceiver:
 
         # Start consumer
         if dynamic_callback:
-            res = self._daq_library.startConsumerDynamic(consumer, callback, self._daq_diagnostic_callback)
+            res = self._daq_library.startConsumerDynamic(
+                consumer, callback, self._daq_diagnostic_callback
+            )
         else:
-            res = self._daq_library.startConsumer(consumer, callback, self._daq_diagnostic_callback)
+            res = self._daq_library.startConsumer(
+                consumer, callback, self._daq_diagnostic_callback
+            )
         if res != self.Result.Success.value:
             return self.Result.Failure
 
