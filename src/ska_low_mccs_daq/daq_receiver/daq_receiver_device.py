@@ -154,7 +154,6 @@ class _StartBandpassMonitorCommand(SubmittedSlowCommand):
             logger=logger,
         )
 
-    # pylint: disable = arguments-differ
     def do(  # type: ignore[override]
         self: _StartBandpassMonitorCommand,
         *args: Any,
