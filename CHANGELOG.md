@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* [THORN-229] Fix StartBandpassMonitor internal command interface, reinstate necessary configuration checks.
 * [THORN-215] Add json validation to MccsDaq configure command.
 * [THORN-180] Expose DaqStatus as attributes
 
