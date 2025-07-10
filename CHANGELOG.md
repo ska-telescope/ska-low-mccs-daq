@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* [SKB-490] Fix timestamps being all zeroes for integrated channel data by adding sampling time to ingest data call.
 * [THORN-215] Add json validation to MccsDaq configure command.
 * [THORN-180] Expose DaqStatus as attributes
 
