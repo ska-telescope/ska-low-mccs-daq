@@ -8,5 +8,3 @@ dependencies:
   - name: ska-tango-devices
     version: 0.6.0
     repository: https://artefact.skao.int/repository/helm-internal
-    # version: 0.6.0-dev.c3eb4c232
-    # repository: https://gitlab.com/api/v4/projects/66823602/packages/helm/dev

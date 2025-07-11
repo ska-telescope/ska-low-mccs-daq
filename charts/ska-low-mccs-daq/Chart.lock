@@ -3,4 +3,4 @@ dependencies:
   repository: https://artefact.skao.int/repository/helm-internal
   version: 0.6.0
 digest: sha256:130888bb8b8b5991e87b8c9cb24953a392bafd676543bedacab6c6f7fc085240
-generated: "2025-06-26T11:21:19.835733772+01:00"
+generated: "2025-07-11T15:28:17.397352+01:00"
