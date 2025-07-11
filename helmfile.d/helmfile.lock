@@ -8,7 +8,7 @@ dependencies:
   version: 3.3.3
 - name: ska-tango-base
   repository: https://artefact.skao.int/repository/helm-internal
-  version: 0.4.19
+  version: 0.4.22
 - name: ska-tango-tangogql
   repository: https://artefact.skao.int/repository/helm-internal
   version: 1.3.12
