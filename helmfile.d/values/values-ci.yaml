@@ -1,4 +1,6 @@
 platform:
+  cluster:
+    domain: cluster.local
   array:
     stations:
       ci-1:
