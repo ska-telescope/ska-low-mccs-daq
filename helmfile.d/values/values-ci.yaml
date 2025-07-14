@@ -1,12 +1,13 @@
 platform:
   cluster:
     domain: cluster.local
+    daq:
+      storage_class: ~
   array:
     stations:
       ci-1:
         id: 1
         sps: {}
-
   stations:
     ci-1:
       sps:
@@ -16,3 +17,13 @@ platform:
       sps:
         daq:
           two-pod-daq: false
+
+helm_values:
+  ska-tango-devices:
+    deviceServers:
+      daq:
+        daq-ci-1:
+          volumes: ~
+        daq-real-daq-1:
+          volumes: ~
+  storage: ~
