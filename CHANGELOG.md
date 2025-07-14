@@ -1,5 +1,8 @@
 # Version History
 
+## Unreleased
+
+* [THORN-203] The nofPackets attribute now works for integrated channel data.
 
 ## 3.0.0-rc3
 
