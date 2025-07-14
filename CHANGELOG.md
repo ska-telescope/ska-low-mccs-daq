@@ -1,7 +1,11 @@
 # Version History
 
-## Unreleased
 
+## 3.0.0-rc3
+
+* [SKB-827] Fixed a memory leak in StationData.cpp. The DoubleBuffer was cleaning up the incorrect number of buffers.
+* [SKB-827] Updated aavs-daq reference for fixes to the ringbuffer.
+* [SPRTS-388] SIMD optimisations to station beam data mode to be more resiliant to bursty behaviour.
 * [THORN-215] Add json validation to MccsDaq configure command.
 * [THORN-180] Expose DaqStatus as attributes
 

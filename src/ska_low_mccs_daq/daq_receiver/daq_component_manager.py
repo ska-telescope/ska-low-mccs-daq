@@ -1071,7 +1071,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
         net = psutil.net_io_counters(pernic=True)
-        interface_stats = net[self._configuration["receiver_interface"]]
+        interface_stats = net[self._daq_client._config["receiver_interface"]]
         return (
             interface_stats.bytes_recv,
             interface_stats.packets_recv,
@@ -1128,6 +1128,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     self.logger.error(
                         "Caught error in data rate monitor.", exc_info=True
                     )
+                    sleep(1)
             self.logger.info("Stopped net IO sampling.")
 
         data_rate_thread = threading.Thread(
