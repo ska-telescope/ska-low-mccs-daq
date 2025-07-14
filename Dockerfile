@@ -6,7 +6,7 @@
 # but hopefully a better solution will be found.
 FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.5.13 AS tools
 
-FROM artefact.skao.int/ska-build-cuda-11:0.1.1
+FROM artefact.skao.int/ska-build-cuda-11:0.1.3
 
 # Create non-root user
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
@@ -47,7 +47,8 @@ RUN apt-get update && apt-get install -y \
     tzdata
 
 ENV POETRY_HOME=/opt/poetry
-RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | gosu root python3 - --yes
+RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | \
+    gosu root python3 - --yes --version 2.1.3
 RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
     ln -sfn /opt/poetry/bin/poetry /usr/local/bin/poetry
 

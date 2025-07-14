@@ -368,7 +368,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if not self._is_bandpass_monitor_running():
             self.logger.info("Auto starting bandpass monitor.")
             self.configure_daq(
-                json.dumps({"append_integrated": False, "nof_tiles": self._nof_tiles})
+                **{"append_integrated": False, "nof_tiles": self._nof_tiles}
             )
             self.start_bandpass_monitor()
             _wait_for_status(status="Bandpass Monitor", value="True")
@@ -445,18 +445,17 @@ class DaqComponentManager(TaskExecutorComponentManager):
     @check_communicating
     def configure_daq(
         self: DaqComponentManager,
-        config: str,
+        **daq_config: Any,
     ) -> tuple[ResultCode, str]:
         """
         Apply a configuration to the DaqReceiver.
 
-        :param config: A json containing configuration settings.
+        :param daq_config: Validated kwargs containing configuration settings.
 
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
         """
-        daq_config = json.loads(config)
         self.logger.info("Configuring daq with: %s", daq_config)
         try:
             if not daq_config:
@@ -604,7 +603,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         # This delays the start call by a lot if SKUID isn't there.
         if not self._data_directory_format_adr55_compliant():
             config = {"directory": self._construct_adr55_filepath()}
-            self.configure_daq(json.dumps(config))
+            self.configure_daq(**config)
             self.logger.info(
                 "Data directory automatically reconfigured to: %s", config["directory"]
             )
@@ -1072,7 +1071,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
         net = psutil.net_io_counters(pernic=True)
-        interface_stats = net[self._configuration["receiver_interface"]]
+        interface_stats = net[self._daq_client._config["receiver_interface"]]
         return (
             interface_stats.bytes_recv,
             interface_stats.packets_recv,
@@ -1129,6 +1128,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     self.logger.error(
                         "Caught error in data rate monitor.", exc_info=True
                     )
+                    sleep(1)
             self.logger.info("Stopped net IO sampling.")
 
         data_rate_thread = threading.Thread(
