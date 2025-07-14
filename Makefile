@@ -73,7 +73,9 @@ K8S_CHART_PARAMS = \
 	--set image.registry=$(CI_REGISTRY_IMAGE) \
 	--set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
 	--set ska-tango-devices.deviceServerTypes.daq.image.registry=$(CI_REGISTRY_IMAGE) \
-	--set ska-tango-devices.deviceServerTypes.daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \	--set global.exposeAllDS=false
+	--set ska-tango-devices.deviceServerTypes.daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
+	--set global.exposeAllDS=false \
+	--set global.minikube=false
 endif
 
 JUNITXML_REPORT_PATH ?= build/reports/functional-tests.xml
