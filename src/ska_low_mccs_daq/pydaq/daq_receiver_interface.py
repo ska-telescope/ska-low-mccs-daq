@@ -59,6 +59,14 @@ class DaqReceiver:
             ("nof_packets", ctypes.c_uint32),
         ]
 
+    class CorrelatorMetadata(ctypes.Structure):
+        _fields_ = [
+            ("channel_id", ctypes.c_uint),
+            ("time_taken", ctypes.c_double),
+            ("nof_samples", ctypes.c_uint),
+            ("nof_packets", ctypes.c_uint),
+        ]
+
     class DataType(Enum):
         """DataType enumeration"""
 
@@ -179,7 +187,9 @@ class DaqReceiver:
                 self._channel_integrated_data_callback
             ),
             DaqModes.STATION_BEAM_DATA: self.DATA_CALLBACK(self._station_callback),
-            DaqModes.CORRELATOR_DATA: self.DATA_CALLBACK(self._correlator_callback),
+            DaqModes.CORRELATOR_DATA: self.DYNAMIC_DATA_CALLBACK(
+                self._correlator_callback
+            ),
             DaqModes.ANTENNA_BUFFER: self.DATA_CALLBACK(self._antenna_buffer_callback),
         }
 
@@ -564,7 +574,10 @@ class DaqReceiver:
             )
 
     def _correlator_callback(
-        self, data: ctypes.POINTER, timestamp: float, channel_id: int, _: int
+        self,
+        data: ctypes.POINTER,
+        timestamp: float,
+        metadata: ctypes.POINTER,
     ) -> None:
         """Correlated data callback
         :param data: Received data
@@ -573,6 +586,12 @@ class DaqReceiver:
 
         if not self._config["write_to_disk"]:
             return
+
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.ChannelMetadata)).contents
+        channel_id = metadata.channel_id
+        time_taken = metadata.time_taken
+        nof_samples = metadata.nof_samples
+        nof_packets = metadata.nof_packets
 
         # Extract data sent by DAQ
         nof_antennas = self._config["nof_tiles"] * self._config["nof_antennas"]
@@ -633,7 +652,13 @@ class DaqReceiver:
 
         # Call external callback if defined
         if self._external_callbacks[DaqModes.CORRELATOR_DATA] is not None:
-            self._external_callbacks[DaqModes.CORRELATOR_DATA]("correlator", filename)
+            self._external_callbacks[DaqModes.CORRELATOR_DATA](
+                "correlator",
+                filename,
+                nof_packets=nof_packets,
+                nof_samples=nof_samples,
+                correlator_time_taken=time_taken,
+            )
 
         if self._config["logging"]:
             logging.info("Received correlated data for channel {}".format(channel))
@@ -1142,7 +1167,10 @@ class DaqReceiver:
 
         if (
             self._start_consumer(
-                "correlator", params, self._callbacks[DaqModes.CORRELATOR_DATA]
+                "correlator",
+                params,
+                self._callbacks[DaqModes.CORRELATOR_DATA],
+                dynamic_callback=True,
             )
             != self.Result.Success
         ):
