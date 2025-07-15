@@ -766,9 +766,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
     @property
     def daq_library(self: DaqComponentManager) -> str:
         """
-        Get the current library version used.
+        Get the filename of the current daq library used.
 
-        :return: the version as a string of form 'major.minor.patch' .
+        :return: a string corresponding to the library filename.
         """
         version = str("none")
         if self._daq_client._daq_library_path is not None:

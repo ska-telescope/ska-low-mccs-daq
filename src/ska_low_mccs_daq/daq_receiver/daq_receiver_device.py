@@ -1211,9 +1211,9 @@ class MccsDaqReceiver(MccsBaseDevice):
     @attribute(dtype="DevString")
     def daqLibrary(self: MccsDaqReceiver) -> str:
         """
-        Get the current library version used.
+        Get the filename of the current daq library used.
 
-        :return: the verision as a string of form 'major.minor.patch' .
+        :return: a string corresponding to the library filename.
         """
         return self.component_manager.daq_library
 
