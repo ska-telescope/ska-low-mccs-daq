@@ -637,6 +637,8 @@ class TestDaqComponentManager:
         daq_component_manager._file_dump_callback(
             "station", "some/existing/file", nof_packets=49152, nof_saturations=53
         )
+        callbacks["component_state"].assert_call(lost_pushes=Anything)
+        callbacks["component_state"].assert_call(ringbuffer_occupancy=Anything)
         callbacks["component_state"].assert_call(nof_packets=49152)
         callbacks["component_state"].assert_call(nof_saturations=53)
 
