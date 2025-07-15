@@ -122,6 +122,7 @@ class PersisterSimulator:
         return {"some": "metadata"}
 
 
+# pylint: disable=too-many-instance-attributes
 class DaqSimulator:
     """An implementation of a DaqSimulator device."""
 
@@ -187,6 +188,7 @@ class DaqSimulator:
 
         self._stop_bandpass: bool = False
         self._monitoring_bandpass: bool = False
+        self._daq_library_path: bytes = "path/libaavsdaq.so".encode()
 
     def _data_callback(self) -> None:
         pass
