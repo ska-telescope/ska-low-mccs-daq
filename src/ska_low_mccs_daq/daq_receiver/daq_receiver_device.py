@@ -287,6 +287,9 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._data_rate: float
         self._receive_rate: float
         self._drop_rate: float
+        self._ringbuffer_occupancy: float
+        self._lost_pushes: int
+
         self._skuid_url: str
 
     def init_device(self: MccsDaqReceiver) -> None:
@@ -356,6 +359,8 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._receive_rate = 0
         self._drop_rate = 0
         self._data_rate = 0
+        self._ringbuffer_occupancy = 0.0
+        self._lost_pushes = 0
         self.set_change_event("healthState", True, False)
         self.set_archive_event("healthState", True, False)
 
@@ -463,6 +468,10 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("receiveRate", True, False)
             self._device.set_change_event("dropRate", True, False)
             self._device.set_archive_event("dropRate", True, False)
+            self._device.set_change_event("ringbufferOccupancy", True, False)
+            self._device.set_archive_event("ringbufferOccupancy", True, False)
+            self._device.set_change_event("lostPushes", True, False)
+            self._device.set_archive_event("lostPushes", True, False)
 
             return (ResultCode.OK, "Init command completed OK")
 
@@ -572,6 +581,14 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._nof_packets = 0
         self.push_change_event("nofPackets", 0)
         self.push_archive_event("nofPackets", 0)
+
+        self._ringbuffer_occupancy = 0.0
+        self.push_change_event("ringbufferOccupancy", 0.0)
+        self.push_archive_event("ringbufferOccupancy", 0.0)
+
+        self._lost_pushes = 0
+        self.push_change_event("lostPushes", 0)
+        self.push_archive_event("lostPushes", 0)
 
     def _received_data_callback(
         self: MccsDaqReceiver,
@@ -1207,6 +1224,24 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
         return self._drop_rate
+
+    @attribute(dtype="DevDouble")
+    def RingbufferOccupancy(self: MccsDaqReceiver) -> float:
+        """
+        Return the current ringbuffer occupancy in percent.
+
+        :return: the current ringbuffer occupancy in percent.
+        """
+        return self._ringbuffer_occupancy
+
+    @attribute(dtype="DevULong64")
+    def LostPushes(self: MccsDaqReceiver) -> int:
+        """
+        Return the number of lost pushes to the ringbuffer.
+
+        :return: the number of lost pushes to the ringbuffer.
+        """
+        return self._lost_pushes
 
 
 # ----------

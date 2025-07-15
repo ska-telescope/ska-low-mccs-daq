@@ -52,6 +52,16 @@ class DaqReceiver:
 
         _fields_ = [("x", ctypes.c_int32), ("y", ctypes.c_int32)]
 
+
+    class Diagnostic(ctypes.Structure):
+        """Diagnostic structure definition"""
+
+        _fields_ = [
+            ("ringbuffer_occupancy", ctypes.c_double),
+            ("lost_pushes", ctypes.c_size_t),
+        ]
+
+
     class DataType(Enum):
         """DataType enumeration"""
 
@@ -85,6 +95,10 @@ class DaqReceiver:
         ctypes.c_double,
         ctypes.c_uint32,
         ctypes.c_uint32,
+    )
+
+    DIAGNOSTIC_CALLBACK = ctypes.CFUNCTYPE(
+        None, ctypes.POINTER(ctypes.c_void_p)
     )
 
     # Define logging callback wrapper
@@ -186,11 +200,38 @@ class DaqReceiver:
         # Pointer to logging function forwarded by low-level DAQ
         self._daq_logging_function = self.LOGGER_CALLBACK(self._logging_callback)
 
+        # Pointer to diagnostic function forwarded by low-level DAQ
+        self._daq_diagnostic_callback = self.DIAGNOSTIC_CALLBACK(self._diagnostic_callback)
+
         # Keep track of which data consumers are running
         self._running_consumers = {}
 
         # Placeholder for continuous and station data to skip first few buffers
         self._buffer_counter = {}
+
+    # --------------------------------------- DIAGNOSTICS ------------------------------------
+
+    def _diagnostic_callback(self, data: ctypes.POINTER) -> None:
+        """Diagnostic callback
+        :param data: Received data
+        """
+        # Extract diagnostic data
+        diagnostic = ctypes.cast(data, ctypes.POINTER(self.Diagnostic)).contents
+        diagnostics = {
+            "ringbuffer_occupancy": diagnostic.ringbuffer_occupancy,
+            "lost_pushes": diagnostic.lost_pushes,
+        }
+
+        # Call external diagnostic callback if defined
+        if self._external_diagnostic_callback is not None:
+            self._external_diagnostic_callback(**diagnostics)
+        elif self._config["logging"]:
+            logging.info(
+                "Received diagnostic data - occupancy: {}, lost: {}".format(
+                    diagnostic.ringbuffer_occupancy, diagnostic.lost_pushes
+                )
+            )
+
 
     # --------------------------------------- CONSUMERS --------------------------------------
 
@@ -1377,10 +1418,13 @@ class DaqReceiver:
         self,
         daq_modes: Union[DaqModes, List[DaqModes]],
         callbacks: Optional[Union[Callable, List[Callable]]] = None,
+        diagnostic_callback: Optional[Callable] = None,
     ) -> None:
         """Start acquiring data for specified modes
         :param daq_modes: List of modes to start, should be from DaqModes
-        :param callbacks: List of callbacks, one per mode in daq_modes"""
+        :param callbacks: List of callbacks, one per mode in daq_modes
+        :param diagnostic_callback: Callback for diagnostics
+        """
 
         if type(daq_modes) != list:
             daq_modes = [daq_modes]
@@ -1395,6 +1439,8 @@ class DaqReceiver:
                 "Number of callback should match number of daq_modes. Ignoring callbacks."
             )
             callbacks = []
+
+        self._external_diagnostic_callback = diagnostic_callback
 
         # Check all modes
         for i, mode in enumerate(daq_modes):
@@ -1770,7 +1816,7 @@ class DaqReceiver:
         self._daq_library.initialiseConsumer.restype = ctypes.c_int
 
         # Define startConsumer function
-        self._daq_library.startConsumer.argtypes = [ctypes.c_char_p, self.DATA_CALLBACK]
+        self._daq_library.startConsumer.argtypes = [ctypes.c_char_p, self.DATA_CALLBACK, self.DIAGNOSTIC_CALLBACK]
         self._daq_library.startConsumer.restype = ctypes.c_int
 
         # Define stopConsumer function
@@ -1863,7 +1909,7 @@ class DaqReceiver:
             return self.Result.Failure
 
         # Start consumer
-        res = self._daq_library.startConsumer(consumer, callback)
+        res = self._daq_library.startConsumer(consumer, callback, self._daq_diagnostic_callback)
         if res != self.Result.Success.value:
             return self.Result.Failure
 
