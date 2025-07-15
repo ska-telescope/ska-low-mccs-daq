@@ -253,7 +253,7 @@ class TestMccsDaqReceiver:
         poll_until_command_result(device_under_test, cmd_id, "COMPLETED")
         poll_until_consumers_stopped(device_under_test)
 
-    def test_daqLibraryVersion(
+    def test_daqLibrary(
         self: TestMccsDaqReceiver,
         device_under_test: tango.DeviceProxy,
     ) -> None:
@@ -265,7 +265,7 @@ class TestMccsDaqReceiver:
             :py:class:`tango.test_context.DeviceTestContext`.
         """
         # the value here is the same one defined in the simulator
-        assert device_under_test.daqLibraryVersion == "libaavsdaq.so"
+        assert device_under_test.daqLibrary == "libaavsdaq.so"
 
     def test_get_data_rate(
         self: TestMccsDaqReceiver,

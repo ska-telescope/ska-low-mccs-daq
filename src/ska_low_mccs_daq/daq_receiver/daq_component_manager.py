@@ -764,7 +764,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         )
 
     @property
-    def library_version(self: DaqComponentManager) -> str:
+    def daq_library(self: DaqComponentManager) -> str:
         """
         Get the current library version used.
 
