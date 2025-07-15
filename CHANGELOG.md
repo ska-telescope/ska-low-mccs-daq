@@ -1,5 +1,8 @@
 # Version History
 
+## Unreleased
+
+* [THORN-178] Added attribute to expose aavsdaq library version
 
 ## 3.0.0-rc3
 
