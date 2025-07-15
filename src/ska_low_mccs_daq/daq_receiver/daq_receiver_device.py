@@ -1243,6 +1243,15 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return self._lost_pushes
 
+    @attribute(dtype="DevString")
+    def daqLibrary(self: MccsDaqReceiver) -> str:
+        """
+        Get the filename of the current daq library used.
+
+        :return: a string corresponding to the library filename.
+        """
+        return self.component_manager.daq_library
+
 
 # ----------
 # Run server
