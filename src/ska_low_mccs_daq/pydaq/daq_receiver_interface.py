@@ -663,7 +663,7 @@ class DaqReceiver:
             )
 
         if self._config["logging"]:
-            logging.info("Received correlated data for channel {}".format(channel))
+            logging.info("Received correlated data for channel {}".format(channel_id))
 
     def _station_callback(
         self,
