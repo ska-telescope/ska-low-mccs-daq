@@ -587,7 +587,9 @@ class DaqReceiver:
         if not self._config["write_to_disk"]:
             return
 
-        metadata = ctypes.cast(metadata, ctypes.POINTER(self.ChannelMetadata)).contents
+        metadata = ctypes.cast(
+            metadata, ctypes.POINTER(self.CorrelatorMetadata)
+        ).contents
         channel_id = metadata.channel_id
         time_taken = metadata.time_taken
         nof_samples = metadata.nof_samples
