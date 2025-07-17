@@ -1864,6 +1864,7 @@ class DaqReceiver:
         self._daq_library.startConsumerDynamic.argtypes = [
             ctypes.c_char_p,
             self.DYNAMIC_DATA_CALLBACK,
+            self.DIAGNOSTIC_CALLBACK,
         ]
         self._daq_library.startConsumerDynamic.restype = ctypes.c_int
 
