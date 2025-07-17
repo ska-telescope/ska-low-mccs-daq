@@ -431,7 +431,7 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.CHANNEL_DATA](
-                    "burst_channel", filename, tile
+                    "burst_channel", filename, tile, nof_packets=nof_packets
                 )
 
             if self._config["logging"]:
