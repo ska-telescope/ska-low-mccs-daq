@@ -17,6 +17,13 @@
 
 #include "DAQ.h"
 
+struct ChannelMetadata
+{
+    uint16_t tile;
+    uint32_t cont_channel_id;
+    uint32_t nof_packets;
+};
+
 // ----------------------- Channelised Data Container and Helpers ---------------------------------
 
 // Class which will hold the channel data
@@ -71,9 +78,9 @@ public:
 public:
 
     // Set callback function
-    void setCallback(DataCallback callback)
+    void setCallback(DataCallbackDynamic callback)
     {
-        this -> callback = callback;
+        this->callback = callback;
     }
 
     // Add data to buffer
@@ -145,9 +152,16 @@ public:
         if (this->callback != NULL)
         {
             // Call callback for every tile (if buffer has some content)
-            for(unsigned i = 0; i < nof_tiles; i++)
-                callback((uint32_t *) channel_data[i].data, this->timestamp,
-                     channel_data[i].tile, cont_channel_id);
+            for (unsigned i = 0; i < nof_tiles; i++)
+            {
+                ChannelMetadata metadata = {
+                    .tile = channel_data[i].tile,
+                    .cont_channel_id = cont_channel_id,
+                    .nof_packets = this->nof_packets,
+                };
+                callback((uint32_t *)channel_data[i].data, this->timestamp,
+                         static_cast<void *>(&metadata));
+            }
             clear();
             return;
         }
@@ -179,7 +193,7 @@ private:
     ChannelStructure *channel_data;
 
     // Callback function
-    DataCallback callback = nullptr;
+    DataCallbackDynamic callback = nullptr;
 };
 
 // This class is responsible for consuming channel SPEAD packets coming out of TPMs
@@ -189,7 +203,7 @@ class ChannelisedData : public DataConsumer
 public:
 
     // Override setDataCallback
-    void setCallback(DataCallback callback) override;
+    void setCallback(DataCallbackDynamic callback) override;
 
     // Initialise consumer
     bool initialiseConsumer(json configuration) override;
@@ -228,7 +242,7 @@ class ContinuousChannelisedData : public DataConsumer
 public:
 
     // Override setDataCallback
-    void setCallback(DataCallback callback) override;
+    void setCallback(DataCallbackDynamic callback) override;
 
     // Initialise consumer
     bool initialiseConsumer(json configuration) override;
@@ -276,7 +290,7 @@ class IntegratedChannelisedData : public DataConsumer
 public:
 
     // Override setDataCallback
-    void setCallback(DataCallback callback) override;
+    void setCallback(DataCallbackDynamic callback) override;
 
     // Initialise consumer
     bool initialiseConsumer(json configuration) override;
