@@ -61,7 +61,7 @@ void CorrelatorData::cleanUp()
 }
 
 // Set callback
-void CorrelatorData::setCallback(DataCallback callback)
+void CorrelatorData::setCallback(DataCallbackDynamic callback)
 {
     this -> cross_correlator -> setCallback(callback);
 }
@@ -397,14 +397,22 @@ void CrossCorrelator::threadEntry()
         double_buffer -> release_buffer();
         
         // Call callback if set
+        clock_gettime(CLOCK_MONOTONIC, &toc);
         if (callback != nullptr)
-            callback(context.matrix_h, timestamp, static_cast<unsigned int>(channel), 0);
+        {
+            CorrelatorMetadata metadata = {
+                .channel_id = static_cast<unsigned int>(channel),
+                .time_taken = ELAPSED_MS(tic, toc),
+                .nof_samples = read_samples,
+                .nof_packets = nof_packets,
+            };
+            callback(context.matrix_h, timestamp, static_cast<void *>(&metadata));
+        };
 
         // Clear device integrations
         xgpuClearDeviceIntegrationBuffer(&context);
 
         // Finished with current buffer
-        clock_gettime(CLOCK_MONOTONIC, &toc);
         LOG(INFO, "xGPU with callback took: %11.6f ms (%d samples, %d packets)",
             ELAPSED_MS(tic,toc), read_samples, nof_packets);
     }
