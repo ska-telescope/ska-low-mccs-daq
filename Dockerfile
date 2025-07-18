@@ -6,14 +6,12 @@
 # but hopefully a better solution will be found.
 FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.5.13 AS tools
 
-FROM artefact.skao.int/ska-build-cuda-11:0.1.1
+FROM artefact.skao.int/ska-build-cuda-11:0.1.3
 
 # Create non-root user
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
 RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
     chmod 0440 /etc/sudoers.d/daqqer
-
-COPY --chown=daqqer:daqqer ./ /app/
 
 # TODO: Unsatisfactory; see comment above
 COPY --from=tools /usr/local/bin/retry /usr/local/bin/retry
@@ -30,7 +28,8 @@ ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 ENV TZ="United_Kingdom/London"
 ENV CUDA_ARCH="sm_80"
 ENV LC_ALL="en_US.UTF-8"
-ENV AAVS_DAQ_SHA=7ca4f06a983861a8596a98abe3a3d34fa5f1a1b5
+ENV AAVS_DAQ_SHA=b15aa05064be2c2d5995d7b64dac822d9c7ed77c
+
 ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
 
 # Install necessary packages for compiling and installing DAQ and prerequisites.
@@ -47,6 +46,12 @@ RUN apt-get update && apt-get install -y \
     sudo \
     tzdata
 
+ENV POETRY_HOME=/opt/poetry
+RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | \
+    gosu root python3 - --yes --version 2.1.3
+RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
+    ln -sfn /opt/poetry/bin/poetry /usr/local/bin/poetry
+
 # Clone and install xGPU
 WORKDIR /app/
 RUN git clone https://github.com/GPU-correlators/xGPU.git /app/xGPU/
@@ -55,25 +60,21 @@ RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
 # Install AAVS DAQ
 RUN mkdir /app/aavs-system/ && mkdir /app/aavs-system/pydaq && mkdir /app/aavs-system/cdaq
-COPY /src/ska_low_mccs_daq/pydaq  /app/aavs-system/pydaq/
-COPY /src/ska_low_mccs_daq/cdaq /app/aavs-system/cdaq/
-COPY deploy.sh cdaq_requirements.pip /app/aavs-system/
+COPY --chown=daqqer:daqqer /src/ska_low_mccs_daq/pydaq  /app/aavs-system/pydaq/
+COPY --chown=daqqer:daqqer /src/ska_low_mccs_daq/cdaq /app/aavs-system/cdaq/
+COPY --chown=daqqer:daqqer deploy.sh cdaq_requirements.pip /app/aavs-system/
 WORKDIR /app/aavs-system
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 
 WORKDIR /src
 
-# Expose the DAQ port to UDP traffic.
-ENV POETRY_HOME=/opt/poetry
-RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | gosu root python3 - --yes
-RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
-    ln -sfn /opt/poetry/bin/poetry /usr/local/bin/poetry
+
 
 EXPOSE 4660/udp
-COPY README.md pyproject.toml poetry.lock* ./
+COPY --chown=daqqer:daqqer README.md pyproject.toml poetry.lock* ./
 RUN poetry install --no-root
 
-COPY src ./
+COPY --chown=daqqer:daqqer src ./
 RUN poetry install
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 RUN chmod a+w /app/
@@ -84,7 +85,6 @@ RUN mkdir /product && chmod a+w /product/
 RUN chown daqqer:daqqer /product/ -R
 RUN chown daqqer:daqqer /app/ -R
 RUN chown daqqer:daqqer /opt/ -R
-RUN chown daqqer:daqqer /src/ -R
 
 WORKDIR /app/
 

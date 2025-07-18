@@ -262,13 +262,13 @@ StationDoubleBuffer::StationDoubleBuffer(uint16_t nof_channels, uint32_t nof_sam
         nof_channels(nof_channels), nof_samples(nof_samples), nof_pols(nof_pols), nof_buffers(nbuffers)
 {
     // Make sure that nof_buffers is a power of 2
-    nbuffers = (uint8_t) pow(2, ceil(log2(nbuffers)));
+    nof_buffers = (uint8_t) pow(2, ceil(log2(nof_buffers)));
 
     // Allocate the double buffer
-    allocate_aligned((void **) &double_buffer, (size_t) CACHE_ALIGNMENT, nbuffers * sizeof(StationBuffer));
+    allocate_aligned((void **) &double_buffer, (size_t)CACHE_ALIGNMENT, nof_buffers * sizeof(StationBuffer));
 
     // Initialise and allocate buffers in each struct instance
-    for(unsigned i = 0; i < nbuffers; i++)
+    for (unsigned i = 0; i < nof_buffers; i++)
     {
         double_buffer[i].ref_time     = 0;
         double_buffer[i].ready        = false;
@@ -392,27 +392,33 @@ inline void StationDoubleBuffer::process_data(int producer_index, uint16_t chann
     auto *ptr = reinterpret_cast<complex8_t *>(data_ptr);
     double *buffer_x = this->double_buffer[producer_index].integrators;
     double *buffer_y = this->double_buffer[producer_index].integrators + nof_channels;
+    double acc_x, acc_y = 0.0;
+    uint32_t sat_local = 0;
+    uint32_t read_samples = 0;
 
-    for(unsigned i = 0; i < samples; i++)
+    for (unsigned i = 0; i < samples; i++)
     {
         complex8_t x = *ptr++;
         complex8_t y = *ptr++;
 
-        // Check if this samples is saturated, and if so exclude it from integration
-        if (get_abs(x.real) >= 127 || get_abs(x.imag) >= 127 || get_abs(y.real) >= 127 || get_abs(y.imag) >= 127)
-            this->double_buffer[producer_index].nof_saturations++;
+        uint32_t sat_x_real = (get_abs(x.real) >= 127);
+        uint32_t sat_x_imag = (get_abs(x.imag) >= 127);
+        uint32_t sat_y_real = (get_abs(y.real) >= 127);
+        uint32_t sat_y_imag = (get_abs(y.imag) >= 127);
+        uint32_t saturated = sat_x_real | sat_x_imag | sat_y_real | sat_y_imag;
 
-        // Otherwise add to integrator and increase number of associated samples
-        else {
-            buffer_x[channel] += static_cast<double>(x.real * x.real + x.imag * x.imag);
-            buffer_y[channel] += static_cast<double>(y.real * y.real + y.imag * y.imag);
+        sat_local += saturated;
+        uint32_t not_saturated = 1 - saturated;
 
-            // Update number of samples in the current buffer
-            this -> double_buffer[producer_index].read_samples[channel] += 1;
-        }
+        acc_x += not_saturated * static_cast<double>(x.real * x.real + x.imag * x.imag);
+        acc_y += not_saturated * static_cast<double>(y.real * y.real + y.imag * y.imag);
+        read_samples += not_saturated;
     }
+    buffer_x[channel] += acc_x;
+    buffer_y[channel] += acc_y;
 
-    // Update number of packets
+    this->double_buffer[producer_index].read_samples[channel] += read_samples;
+    this->double_buffer[producer_index].nof_saturations += sat_local;
     this->double_buffer[producer_index].nof_packets++;
 
     // Update timings

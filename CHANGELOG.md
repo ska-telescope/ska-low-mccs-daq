@@ -3,6 +3,14 @@
 ## Unreleased
 
 * [THORN-229] Fix StartBandpassMonitor internal command interface, reinstate necessary configuration checks.
+* [THORN-203] The nofPackets attribute now works for integrated channel data.
+* [THORN-178] Added attribute to expose aavsdaq library version
+
+## 3.0.0-rc3
+
+* [SKB-827] Fixed a memory leak in StationData.cpp. The DoubleBuffer was cleaning up the incorrect number of buffers.
+* [SKB-827] Updated aavs-daq reference for fixes to the ringbuffer.
+* [SPRTS-388] SIMD optimisations to station beam data mode to be more resiliant to bursty behaviour.
 * [THORN-215] Add json validation to MccsDaq configure command.
 * [THORN-180] Expose DaqStatus as attributes
 
