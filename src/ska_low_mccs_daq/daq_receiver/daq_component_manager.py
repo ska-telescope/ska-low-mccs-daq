@@ -33,6 +33,7 @@ from ska_tango_base.executor import TaskExecutor, TaskExecutorComponentManager
 
 from ..pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from .daq_simulator import DaqSimulator
+from .tpm_pcap_replay import PcapReplayer
 
 __all__ = ["DaqComponentManager"]
 SUBSYSTEM_SLUG = "ska-low-mccs"
@@ -197,6 +198,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         else:
             self._daq_client = DaqReceiver()
         logger.info(f"DAQ backend in simulation mode: {simulation_mode}")
+        self._pcap_replayer = PcapReplayer(logger)
         self._skuid_url = skuid_url
         self._measure_data_rate: bool = False
         self._data_rate: float | None = None
@@ -274,9 +276,17 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if self.communication_state == CommunicationStatus.DISABLED:
             self._update_communication_state(CommunicationStatus.NOT_ESTABLISHED)
         self.initialise(self._configuration)
+        self._set_up_pcap_replayer()
         self._update_communication_state(CommunicationStatus.ESTABLISHED)
         if self._dedicated_bandpass_daq:
             self._get_bandpass_running()
+
+    def _set_up_pcap_replayer(self: DaqComponentManager) -> None:
+        self._pcap_replayer.interface = str(
+            self._daq_client._config["receiver_interface"]
+        )
+        self._pcap_replayer.dst_ip = str(self._daq_client._config["receiver_ip"])
+        self._pcap_replayer.reroute_packets()
 
     def initialise(
         self: DaqComponentManager, config: dict[str, Any]
@@ -1185,3 +1195,42 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param attribute_value: value of the attribute.
         """
         self._event_queue.put((attribute_name, attribute_value))
+
+    @check_communicating
+    def receive_integrated_channel_data(
+        self: DaqComponentManager,
+        task_callback: TaskCallbackType | None = None,
+    ) -> tuple[TaskStatus, str]:
+        """
+        Receive integrated channel data replayed by the simluator.
+
+        :param task_callback: Update task state, defaults to None
+
+        :return: a task status and response message
+        """
+        return self.submit_task(
+            self._receive_integrated_channel_data,
+            task_callback=task_callback,
+        )
+
+    def _receive_integrated_channel_data(
+        self: DaqComponentManager,
+        task_callback: TaskCallbackType | None = None,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
+        """
+        Receive integrated channel data replayed by the simluator.
+
+        :param task_callback: Update task state, defaults to None
+        :param task_abort_event: Check for abort, defaults to None
+        """
+        if task_callback:
+            task_callback(status=TaskStatus.IN_PROGRESS)
+        self.logger.info("Receiving integrated channel data from replayer.")
+        self._pcap_replayer.replay_integrated_channel()
+        self.logger.info("Finished sending data from replayer.")
+        if task_callback:
+            task_callback(
+                status=TaskStatus.COMPLETED,
+                result=(ResultCode.OK, "Integrated channel data received."),
+            )

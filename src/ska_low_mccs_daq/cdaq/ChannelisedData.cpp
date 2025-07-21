@@ -704,6 +704,9 @@ bool IntegratedChannelisedData::processPacket()
     nof_included_channels = static_cast<uint16_t>((payload_length - payload_offset) /
             (nof_included_antennas * nof_pols * samples_in_packet * bitwidth / 8));
 
+    LOG(WARN, "Integrated data: %d channels, %d antennas, %d pols, %d samples in packet, num_packets %d",
+        nof_included_channels, nof_included_antennas, nof_pols, samples_in_packet, num_packets);
+
     // TEMPORARY: Timestamp_scale may disappear, so it's hardcoded for now
     double packet_time = sync_time + timestamp * sampling_time;
 
