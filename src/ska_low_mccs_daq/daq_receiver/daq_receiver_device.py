@@ -12,12 +12,13 @@ from __future__ import annotations  # allow forward references in type hints
 import json
 import logging
 import time
+from functools import wraps
 from importlib import resources
 from typing import Any, Callable, Final, Optional, Union
 
 import numpy as np
 import tango
-from ska_control_model import CommunicationStatus, HealthState, ResultCode
+from ska_control_model import AdminMode, CommunicationStatus, HealthState, ResultCode
 from ska_low_mccs_common import HealthRecorder, MccsBaseDevice
 from ska_tango_base.base import BaseComponentManager
 from ska_tango_base.commands import (
@@ -47,6 +48,31 @@ def snake_to_camel(s: str) -> str:
     """
     parts = s.split("_")
     return parts[0] + "".join(word.capitalize() for word in parts[1:])
+
+
+def engineering_mode_required(func: Callable) -> Callable:
+    """
+    Return a decorator for engineering only commands.
+
+    :param func: the command which is engineering mode only.
+
+    :returns: decorator to check for engineering mode before running command.
+    """
+
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> DevVarLongStringArrayType:
+        device: MccsBaseDevice = args[0]
+        if device._admin_mode != AdminMode.ENGINEERING:
+            return (
+                [ResultCode.REJECTED],
+                [
+                    f"Device in adminmode {device._admin_mode.name}, "
+                    "this command requires engineering."
+                ],
+            )
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 class _StartDaqCommand(SubmittedSlowCommand):
@@ -433,6 +459,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             ("StartDataRateMonitor", "start_data_rate_monitor"),
             ("StopDataRateMonitor", "stop_data_rate_monitor"),
             ("MarkDone", "mark_scan_done"),
+            ("ReceiveIntegratedChannelData", "receive_integrated_channel_data"),
         ]:
             self.register_command_object(
                 command_name,
@@ -1290,6 +1317,25 @@ class MccsDaqReceiver(MccsBaseDevice):
             information purpose only.
         """
         handler = self.get_command_object("MarkDone")
+        (result_code, message) = handler()
+        return ([result_code], [message])
+
+    @engineering_mode_required
+    @command(dtype_out="DevVarLongStringArray")
+    def ReceiveIntegratedChannelData(
+        self: MccsDaqReceiver,
+    ) -> DevVarLongStringArrayType:
+        """
+        Engineering only method to receive integrated channel data.
+
+        This replays a pcap file containing integrated channel data, captured
+        from 8 TPMs, with signal genrators on at channel 96 and 192.
+
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+        """
+        handler = self.get_command_object("ReceiveIntegratedChannelData")
         (result_code, message) = handler()
         return ([result_code], [message])
 
