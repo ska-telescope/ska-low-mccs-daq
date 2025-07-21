@@ -1,24 +1,37 @@
-FROM nvidia/cuda:11.4.3-devel-ubuntu20.04 AS cuda_base
+# TODO: Adding this image "as tools"
+# so that we can copy the shell scripts
+# that ska-tango-util expects this image to have
+# is highly unsatisfactory.
+# I've taken this from ska-tango-examples
+# but hopefully a better solution will be found.
+FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.5.13 AS tools
 
+FROM artefact.skao.int/ska-build-cuda-11:0.1.3
+
+# Create non-root user
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
 RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
-    chmod 0760 /etc/sudoers.d/daqqer
+    chmod 0440 /etc/sudoers.d/daqqer
 
-COPY --chown=daqqer:daqqer ./ /app/
+# TODO: Unsatisfactory; see comment above
+COPY --from=tools /usr/local/bin/retry /usr/local/bin/retry
+COPY --from=tools /usr/local/bin/wait-for-it.sh /usr/local/bin/wait-for-it.sh
 
-# Setup environment variables
-# When updating AAVS_SYSTEM_TAG, also update in pyproject.toml
-ENV AAVS_SYSTEM_TAG=1.4.1
+ENV POETRY_NO_INTERACTION=1
+ENV POETRY_VIRTUALENVS_IN_PROJECT=1
+ENV POETRY_VIRTUALENVS_CREATE=1
+ENV VIRTUAL_ENV=/src/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 ENV DEBIAN_FRONTEND=noninteractive
-ENV NVIDIA_VISIBLE_DEVICES=all
-ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 ENV TZ="United_Kingdom/London"
 ENV CUDA_ARCH="sm_80"
+ENV LC_ALL="en_US.UTF-8"
+ENV AAVS_DAQ_SHA=b15aa05064be2c2d5995d7b64dac822d9c7ed77c
 
-# Add required packages and python repo.
-RUN rm /etc/apt/sources.list.d/cuda.list && apt-get update && apt-get install -y \
-    software-properties-common \
-    && add-apt-repository ppa:deadsnakes/ppa
+ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
+
 # Install necessary packages for compiling and installing DAQ and prerequisites.
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -30,29 +43,14 @@ RUN apt-get update && apt-get install -y \
     libcap2-bin \
     make \
     pkg-config \
-    python3.10 \
-    libpython3.10-dev \
-    python3-distutils \
-    python3.10-dev \
     sudo \
     tzdata
 
-# Set Python3.10 to preferred version, add folders to PATH, create symlink to python3
-RUN update-alternatives --install /usr/bin/python3 python /usr/bin/python3.10 2
-ENV PATH="/usr/local/lib:/usr/local/bin:/usr/local/cuda:/usr/local/cuda/bin:/usr/bin/python:/usr/bin/python3:/usr/bin/python3.10:${PATH}"
-ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
-RUN ["/usr/bin/ln", "-s", "/usr/bin/python3.10", "/usr/bin/python"]
-
-# # Install pip and poetry.
 ENV POETRY_HOME=/opt/poetry
-ENV POETRY_VERSION=1.3.2
-RUN curl -sSL --retry 3 --connect-timeout 15 https://bootstrap.pypa.io/get-pip.py | gosu root python3
-RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | gosu root python3 - --yes
+RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | \
+    gosu root python3 - --yes --version 2.1.3
 RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
     ln -sfn /opt/poetry/bin/poetry /usr/local/bin/poetry
-
-# Fix distro-info being non pep compliant (due to the NVIDIA base image configuration)
-RUN apt -y autoremove python3-debian python3-distro-info
 
 # Clone and install xGPU
 WORKDIR /app/
@@ -61,25 +59,33 @@ WORKDIR /app/xGPU/src/
 RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
 # Install AAVS DAQ
-RUN git clone --branch $AAVS_SYSTEM_TAG https://gitlab.com/ska-telescope/aavs-system.git /app/aavs-system/
+RUN mkdir /app/aavs-system/ && mkdir /app/aavs-system/pydaq && mkdir /app/aavs-system/cdaq
+COPY --chown=daqqer:daqqer /src/ska_low_mccs_daq/pydaq  /app/aavs-system/pydaq/
+COPY --chown=daqqer:daqqer /src/ska_low_mccs_daq/cdaq /app/aavs-system/cdaq/
+COPY --chown=daqqer:daqqer deploy.sh cdaq_requirements.pip /app/aavs-system/
 WORKDIR /app/aavs-system
-
-# Copy a version of deploy.sh that does not setcap. (Causes [bad interpreter: operation not permitted] error)
-COPY deploy.sh /app/aavs-system/
-# Copy CMakeLists.txt with corrected library name.
-COPY CMakeLists.txt /app/aavs-system/src/
 RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
 
-# Expose the DAQ port to UDP traffic.
+WORKDIR /src
+
+
+
 EXPOSE 4660/udp
+COPY --chown=daqqer:daqqer README.md pyproject.toml poetry.lock* ./
+RUN poetry install --no-root
 
-WORKDIR /app/
-COPY pyproject.toml poetry.lock* ./
-
-RUN poetry config virtualenvs.create false && poetry install --only main
+COPY --chown=daqqer:daqqer src ./
+RUN poetry install
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/
-RUN usermod -a -G aavs_logger daqqer
+
+# Ensure root doesn't own things it shouldn't
+# There should be a way to avoid this, but it works for now.
+RUN chown daqqer:daqqer /product/ -R
+RUN chown daqqer:daqqer /app/ -R
+RUN chown daqqer:daqqer /opt/ -R
+
+WORKDIR /app/
 
 USER daqqer

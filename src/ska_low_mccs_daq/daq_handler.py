@@ -22,9 +22,10 @@ from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 import h5py
 import numpy as np
 import psutil  # type: ignore
-from pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from ska_control_model import ResultCode, TaskStatus
 from ska_low_mccs_daq_interface.server import run_server_forever
+
+from .pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 
 __all__ = ["DaqHandler", "main"]
 
@@ -172,23 +173,33 @@ class DaqHandler:
 
     def __init__(
         self: DaqHandler,
+        logger: Optional[logging.Logger] = None,
+        external_ip: Optional[str] = None,
         **extra_config: Any,
     ) -> None:
         """
         Initialise this device.
 
+        :param logger: the logger for this device to use.
+        :param external_ip: the IP of the service which exposes this device.
         :param extra_config: keyword args providing extra configuration.
         """
         print("Initialising DAQ handler with extra config:")
 
+        self._external_ip_override = (
+            external_ip if external_ip else extra_config.pop("external_ip", None)
+        )
         self._config = self.CONFIG_DEFAULTS | extra_config
 
-        self.daq_instance: DaqReceiver = None
+        self.daq_instance: DaqReceiver | None = None
         self._receiver_started: bool = False
         self._initialised: bool = False
         self._stop_bandpass: bool = False
         self._monitoring_bandpass: bool = False
-        self.logger = logging.getLogger("daq-server")
+        if logger is not None:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger("daq-server")
         self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
         self._data_mode_mapping: dict[str, DaqModes] = {
             "burst_raw": DaqModes.RAW_DATA,
@@ -224,6 +235,7 @@ class DaqHandler:
         data_mode: str,
         file_name: str,
         additional_info: Optional[str] = None,
+        **attributes: float,
     ) -> None:
         """
         Call a callback for specific data mode.
@@ -233,7 +245,9 @@ class DaqHandler:
         :param data_mode: The DAQ data type written
         :param file_name: The filename written
         :param additional_info: Any additional information/metadata.
+        :param attributes: any attributes to update the value for.
         """
+        assert self.daq_instance is not None
         # Callbacks to call for all data modes.
         daq_mode = self._data_mode_mapping[data_mode]
         if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
@@ -311,8 +325,8 @@ class DaqHandler:
 
         :return: a resultcode, message tuple
         """
-        self.logger.info("initialise() issued with: %s", config)
-        self._config |= config
+        merged_config = self._config | config
+        self.logger.info("initialise() issued with: %s", merged_config)
 
         if self._initialised is False:
             self.logger.debug("Creating DaqReceiver instance.")
@@ -325,7 +339,8 @@ class DaqHandler:
                 self.logger.info(
                     "Configuring before initialising with: %s", self._config
                 )
-                self.daq_instance.populate_configuration(self._config)
+                self.daq_instance.populate_configuration(merged_config)
+                self._config = merged_config
                 self.logger.info("Initialising daq.")
                 self.daq_instance.initialise_daq()
                 self._receiver_started = True
@@ -371,6 +386,7 @@ class DaqHandler:
         :raises ValueError: if an invalid DaqMode is supplied
         :raises Exception: If an unexpected Exception is caught.
         """
+        assert self.daq_instance is not None
         try:
             # Convert string representation to DaqModes
             converted_modes_to_start: list[DaqModes] = convert_daq_modes(
@@ -421,6 +437,7 @@ class DaqHandler:
 
         :return: a resultcode, message tuple
         """
+        assert self.daq_instance is not None
         self.logger.info("Stopping daq.....")
         self.daq_instance.stop_daq()
         self._receiver_started = False
@@ -440,6 +457,7 @@ class DaqHandler:
         :return: a resultcode, message tuple
         """
         self.logger.info("Configuring daq with: %s", config)
+        assert self.daq_instance is not None
         try:
             if not config:
                 self.logger.error(
@@ -457,8 +475,9 @@ class DaqHandler:
                     )
                     os.makedirs(config["directory"])
                     self.logger.info(f'directory {config["directory"]} created!')
-            self._config |= config
-            self.daq_instance.populate_configuration(self._config)
+            merged_config = self._config | config
+            self.daq_instance.populate_configuration(merged_config)
+            self._config = merged_config
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Daq reconfigured"
 
@@ -476,6 +495,7 @@ class DaqHandler:
 
         :return: a configuration dictionary.
         """
+        assert self.daq_instance is not None
         return self.daq_instance.get_configuration()
 
     @check_initialisation
@@ -492,6 +512,7 @@ class DaqHandler:
 
         :return: A json string containing the status of this DaqReceiver.
         """
+        assert self.daq_instance is not None
         # 2. Get consumer list, filter by `running`
         full_consumer_list = self.daq_instance._running_consumers.items()
         running_consumer_list = [
@@ -502,7 +523,9 @@ class DaqHandler:
         # 3. Get Receiver Interface, Ports and IP (and later `Uptime`)
         receiver_interface = self.daq_instance._config["receiver_interface"]
         receiver_ports = self.daq_instance._config["receiver_ports"]
-        receiver_ip = self.daq_instance._config["receiver_ip"]
+        receiver_ip = (
+            self._external_ip_override or self.daq_instance._config["receiver_ip"]
+        )
         # 4. Compose into some format and return.
         return {
             "Running Consumers": running_consumer_list,
@@ -550,6 +573,7 @@ class DaqHandler:
         :yields: Taskstatus, Message, bandpass/rms plot(s).
         :returns: TaskStatus, Message, None, None, None
         """
+        assert self.daq_instance is not None
         if self._monitoring_bandpass and self._plot_transmission:
             yield (
                 TaskStatus.REJECTED,
@@ -1177,6 +1201,7 @@ def main() -> None:
         receiver_interface=os.environ["DAQ_RECEIVER_INTERFACE"],
         receiver_ip=os.environ["DAQ_RECEIVER_IP"],
         receiver_ports=os.environ["DAQ_RECEIVER_PORTS"],
+        external_ip=os.getenv("EXTERNAL_IP", None),
     )
     port = os.getenv("DAQ_GRPC_PORT", default="50051")
 

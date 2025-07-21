@@ -5,17 +5,16 @@
 Standard sphinx config file.
 """
 
-import sys
 import os
+import sys
 
 # WORKAROUND: https://github.com/sphinx-doc/sphinx/issues/9243
 import sphinx.builders.html
-import sphinx.builders.linkcheck
 import sphinx.builders.latex
+import sphinx.builders.linkcheck
 import sphinx.builders.texinfo
 import sphinx.builders.text
 import sphinx.ext.autodoc
-
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -27,8 +26,6 @@ sys.path.insert(0, os.path.abspath("../../src"))
 # pylint: disable=invalid-name
 autodoc_mock_imports = [
     "h5py",
-    "pydaq",
-    "pyaavs",
     "past",
     "matplotlib",
     "ska_low_mccs_daq_interface",
@@ -122,11 +119,9 @@ html_theme = "ska_ser_sphinx_theme"
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-html_theme_options = {
-}
+html_theme_options = {}
 
-html_context = {
-}
+html_context = {}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -230,6 +225,6 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable/", None),
     "ska-control-model": (
         "https://developer.skao.int/projects/ska-control-model/en/latest/",
-        None
+        None,
     ),
 }

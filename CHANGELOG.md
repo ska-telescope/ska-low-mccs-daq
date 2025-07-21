@@ -1,6 +1,62 @@
 # Version History
 
-## unreleased
+## Unreleased
+
+* [THORN-196] Added attributes for the correlator mode: nofSamples, correlatorTimeTaken
+* [THORN-203] The nofPackets attribute now works for integrated channel data.
+* [THORN-178] Added attribute to expose aavsdaq library version
+
+## 3.0.0-rc3
+
+* [SKB-827] Fixed a memory leak in StationData.cpp. The DoubleBuffer was cleaning up the incorrect number of buffers.
+* [SKB-827] Updated aavs-daq reference for fixes to the ringbuffer.
+* [SPRTS-388] SIMD optimisations to station beam data mode to be more resiliant to bursty behaviour.
+* [THORN-215] Add json validation to MccsDaq configure command.
+* [THORN-180] Expose DaqStatus as attributes
+
+## 3.0.0-rc2
+
+* [THORN-220] Add cleanup for component manager.
+
+## 3.0.0-rc1
+
+* [THORN-174] Update DaqComponentManager to talk to DaqReceiver. (DaqComponentManager -> DaqHandler -> DaqReceiver is now DaqComponentManager -> DaqRecevier)
+
+## 2.1.0
+
+* [THORN-217] Add method for fetching loadbalancer IP
+* [THORN-170] Update Dockerfile to support a Tango device too. It remains backward compatible with the two-pod-daq.
+* [THORN-215] Update configuration after writing.
+* [THORN-171] Copy the DAQ tango device into ska-low-mccs-daq.
+
+## 2.0.4
+
+* [THORN-160] Re-add methods that were omitted during the repo reshuffle.
+
+## 2.0.3
+
+* [JANUS-153] Fix to typo in daq_receiver_interface
+
+## 2.0.2
+
+* [JANUS-146] Fix Error Message "AAVS_SOFTWARE_DIRECTORY not defined"
+
+## 2.0.1
+
+* [JANUS-142] Fixed imports in daq_plotter and daq_receiver required for CLI usage
+* [SPRTS-260] Fixed issue with pydaq not locking hdf5 files introduced in bug fix AAVS-System release 2.1.4
+
+## 2.0.0
+
+* [THORN-110] Pull aavs-system code in to its new home. We now don't clone aavs-system and instead use the copied code when building the image. Changes should be transparent to users. Relax python version requirements.
+
+## 1.0.2
+
+* [THORN-97] Expose LoadBalancer IP through DaqStatus if loadbalancer is present
+
+## 1.0.1
+
+* [SKB-799] Pull fix in aavs system to DAQ
 
 ## 1.0.0
 
