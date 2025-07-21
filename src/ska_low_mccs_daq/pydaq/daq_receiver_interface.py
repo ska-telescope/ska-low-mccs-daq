@@ -52,6 +52,21 @@ class DaqReceiver:
 
         _fields_ = [("x", ctypes.c_int32), ("y", ctypes.c_int32)]
 
+    class ChannelMetadata(ctypes.Structure):
+        _fields_ = [
+            ("tile", ctypes.c_int16),
+            ("cont_channel_id", ctypes.c_int32),
+            ("nof_packets", ctypes.c_uint32),
+        ]
+
+    class CorrelatorMetadata(ctypes.Structure):
+        _fields_ = [
+            ("channel_id", ctypes.c_uint),
+            ("time_taken", ctypes.c_double),
+            ("nof_samples", ctypes.c_uint),
+            ("nof_packets", ctypes.c_uint),
+        ]
+
     class DataType(Enum):
         """DataType enumeration"""
 
@@ -85,6 +100,12 @@ class DaqReceiver:
         ctypes.c_double,
         ctypes.c_uint32,
         ctypes.c_uint32,
+    )
+    DYNAMIC_DATA_CALLBACK = ctypes.CFUNCTYPE(
+        None,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.c_double,
+        ctypes.POINTER(ctypes.c_void_p),
     )
 
     # Define logging callback wrapper
@@ -152,21 +173,23 @@ class DaqReceiver:
         # List of data callbacks
         self._callbacks = {
             DaqModes.RAW_DATA: self.DATA_CALLBACK(self._raw_data_callback),
-            DaqModes.CHANNEL_DATA: self.DATA_CALLBACK(
+            DaqModes.CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._channel_burst_data_callback
             ),
             DaqModes.BEAM_DATA: self.DATA_CALLBACK(self._beam_burst_data_callback),
-            DaqModes.CONTINUOUS_CHANNEL_DATA: self.DATA_CALLBACK(
+            DaqModes.CONTINUOUS_CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._channel_continuous_data_callback
             ),
             DaqModes.INTEGRATED_BEAM_DATA: self.DATA_CALLBACK(
                 self._beam_integrated_data_callback
             ),
-            DaqModes.INTEGRATED_CHANNEL_DATA: self.DATA_CALLBACK(
+            DaqModes.INTEGRATED_CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._channel_integrated_data_callback
             ),
             DaqModes.STATION_BEAM_DATA: self.DATA_CALLBACK(self._station_callback),
-            DaqModes.CORRELATOR_DATA: self.DATA_CALLBACK(self._correlator_callback),
+            DaqModes.CORRELATOR_DATA: self.DYNAMIC_DATA_CALLBACK(
+                self._correlator_callback
+            ),
             DaqModes.ANTENNA_BUFFER: self.DATA_CALLBACK(self._antenna_buffer_callback),
         }
 
@@ -248,8 +271,7 @@ class DaqReceiver:
         self,
         data: ctypes.POINTER,
         timestamp: float,
-        tile: int,
-        channel_id: int,
+        metadata: ctypes.POINTER,
         mode: str = "burst",
     ) -> None:
         """Channel data callback
@@ -263,6 +285,11 @@ class DaqReceiver:
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
+
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.ChannelMetadata)).contents
+        tile = metadata.tile
+        channel_id = metadata.cont_channel_id
+        nof_packets = metadata.nof_packets
 
         # Ignore first two buffers for continuous channel mode
         if mode == "continuous" and not self._config["persist_all_buffers"]:
@@ -347,7 +374,7 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA](
-                    "cont_channel", filename, tile
+                    "cont_channel", filename, tile, nof_packets=nof_packets
                 )
 
             if self._config["logging"]:
@@ -385,7 +412,7 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
-                    "integrated_channel", filename, tile
+                    "integrated_channel", filename, tile, nof_packets=nof_packets
                 )
 
             if self._config["logging"]:
@@ -405,42 +432,59 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.CHANNEL_DATA](
-                    "burst_channel", filename, tile
+                    "burst_channel", filename, tile, nof_packets=nof_packets
                 )
 
             if self._config["logging"]:
                 logging.info("Received burst channel data for tile {}".format(tile))
 
     def _channel_burst_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, _: int
+        self,
+        data: ctypes.POINTER,
+        timestamp: float,
+        metadata: ctypes.POINTER,
     ) -> None:
         """Channel callback wrapper for burst data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param tile: The tile from which the data was acquired
+        :param metadata: pointer to the metadata associated with the callback.
+            * tile_id
+            * channel_id
+            * nof_packets
         """
-        self._channel_data_callback(data, timestamp, tile, _)
+        self._channel_data_callback(data, timestamp, metadata)
 
     def _channel_continuous_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, channel_id: int
+        self,
+        data: ctypes.POINTER,
+        timestamp: float,
+        metadata: ctypes.POINTER,
     ) -> None:
         """Channel callback wrapper for continuous data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param tile: The tile from which the data was acquired
-        :param channel_id: Channel identifier
+        :param metadata: pointer to the metadata associated with the callback.
+            * tile_id
+            * channel_id
+            * nof_packets
         """
-        self._channel_data_callback(data, timestamp, tile, channel_id, "continuous")
+        self._channel_data_callback(data, timestamp, metadata, "continuous")
 
     def _channel_integrated_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, _: int
+        self,
+        data: ctypes.POINTER,
+        timestamp: float,
+        metadata: ctypes.POINTER,
     ) -> None:
         """Channel callback wrapper for integrated data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param tile: The tile from which the data was acquired
+        :param metadata: pointer to the metadata associated with the callback.
+            * tile_id
+            * channel_id
+            * nof_packets
         """
-        self._channel_data_callback(data, timestamp, tile, _, "integrated")
+        self._channel_data_callback(data, timestamp, metadata, "integrated")
 
     def _beam_burst_data_callback(
         self, data: ctypes.POINTER, timestamp: float, tile: int, _: int
@@ -531,7 +575,10 @@ class DaqReceiver:
             )
 
     def _correlator_callback(
-        self, data: ctypes.POINTER, timestamp: float, channel_id: int, _: int
+        self,
+        data: ctypes.POINTER,
+        timestamp: float,
+        metadata: ctypes.POINTER,
     ) -> None:
         """Correlated data callback
         :param data: Received data
@@ -540,6 +587,14 @@ class DaqReceiver:
 
         if not self._config["write_to_disk"]:
             return
+
+        metadata = ctypes.cast(
+            metadata, ctypes.POINTER(self.CorrelatorMetadata)
+        ).contents
+        channel_id = metadata.channel_id
+        time_taken = metadata.time_taken
+        nof_samples = metadata.nof_samples
+        nof_packets = metadata.nof_packets
 
         # Extract data sent by DAQ
         nof_antennas = self._config["nof_tiles"] * self._config["nof_antennas"]
@@ -600,10 +655,16 @@ class DaqReceiver:
 
         # Call external callback if defined
         if self._external_callbacks[DaqModes.CORRELATOR_DATA] is not None:
-            self._external_callbacks[DaqModes.CORRELATOR_DATA]("correlator", filename)
+            self._external_callbacks[DaqModes.CORRELATOR_DATA](
+                "correlator",
+                filename,
+                nof_packets=nof_packets,
+                nof_samples=nof_samples,
+                correlator_time_taken=time_taken,
+            )
 
         if self._config["logging"]:
-            logging.info("Received correlated data for channel {}".format(channel))
+            logging.info("Received correlated data for channel {}".format(channel_id))
 
     def _station_callback(
         self,
@@ -772,7 +833,10 @@ class DaqReceiver:
         # Start channel data consumer
         if (
             self._start_consumer(
-                "burstchannel", params, self._callbacks[DaqModes.CHANNEL_DATA]
+                "burstchannel",
+                params,
+                self._callbacks[DaqModes.CHANNEL_DATA],
+                dynamic_callback=True,
             )
             != self.Result.Success
         ):
@@ -843,6 +907,7 @@ class DaqReceiver:
                 "continuouschannel",
                 params,
                 self._callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA],
+                dynamic_callback=True,
             )
             != self.Result.Success
         ):
@@ -899,6 +964,7 @@ class DaqReceiver:
                 "integratedchannel",
                 params,
                 self._callbacks[DaqModes.INTEGRATED_CHANNEL_DATA],
+                dynamic_callback=True,
             )
             != self.Result.Success
         ):
@@ -1104,7 +1170,10 @@ class DaqReceiver:
 
         if (
             self._start_consumer(
-                "correlator", params, self._callbacks[DaqModes.CORRELATOR_DATA]
+                "correlator",
+                params,
+                self._callbacks[DaqModes.CORRELATOR_DATA],
+                dynamic_callback=True,
             )
             != self.Result.Success
         ):
@@ -1774,6 +1843,13 @@ class DaqReceiver:
         self._daq_library.startConsumer.argtypes = [ctypes.c_char_p, self.DATA_CALLBACK]
         self._daq_library.startConsumer.restype = ctypes.c_int
 
+        # Define startConsumer function
+        self._daq_library.startConsumerDynamic.argtypes = [
+            ctypes.c_char_p,
+            self.DYNAMIC_DATA_CALLBACK,
+        ]
+        self._daq_library.startConsumerDynamic.restype = ctypes.c_int
+
         # Define stopConsumer function
         self._daq_library.stopConsumer.argtypes = [ctypes.c_char_p]
         self._daq_library.stopConsumer.restype = ctypes.c_int
@@ -1841,6 +1917,7 @@ class DaqReceiver:
         consumer: str,
         configuration: Dict[str, Any],
         callback: Optional[Callable] = None,
+        dynamic_callback: Optional[bool] = False,
     ) -> Result:
         """Start consumer
         :param consumer: String representation of consumer
@@ -1864,7 +1941,10 @@ class DaqReceiver:
             return self.Result.Failure
 
         # Start consumer
-        res = self._daq_library.startConsumer(consumer, callback)
+        if dynamic_callback:
+            res = self._daq_library.startConsumerDynamic(consumer, callback)
+        else:
+            res = self._daq_library.startConsumer(consumer, callback)
         if res != self.Result.Success.value:
             return self.Result.Failure
 

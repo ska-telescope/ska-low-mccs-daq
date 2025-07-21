@@ -44,9 +44,9 @@ bool ChannelisedData::initialiseConsumer(json configuration)
 }
 
 // Set channelised data callback
-void ChannelisedData::setCallback(DataCallback callback)
+void ChannelisedData::setCallback(DataCallbackDynamic callback)
 {
-    this -> container -> setCallback(callback);
+    this->container->setCallback(callback);
 }
 
 // Packet filter
@@ -270,7 +270,7 @@ void ContinuousChannelisedData::cleanUp() {
 }
 
 // Set continuous channelised data callback
-void ContinuousChannelisedData::setCallback(DataCallback callback)
+void ContinuousChannelisedData::setCallback(DataCallbackDynamic callback)
 {
     if (bitwidth == 16)
         for(unsigned i = 0; i < nof_containers; i++)
@@ -574,7 +574,7 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
 }
 
 // Set integrate channel callback
-void IntegratedChannelisedData::setCallback(DataCallback callback)
+void IntegratedChannelisedData::setCallback(DataCallbackDynamic callback)
 {
     if (bitwidth == 16)
         container_16bit -> setCallback(callback);

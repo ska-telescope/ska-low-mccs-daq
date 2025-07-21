@@ -26,6 +26,13 @@
 #define ELAPSED_MS(start,stop) \
   ((((int64_t)stop.tv_sec-start.tv_sec)*1000*1000*1000+(stop.tv_nsec-start.tv_nsec))/1e6)
 
+struct CorrelatorMetadata
+{
+    uint channel_id;
+    double time_taken;
+    uint nof_samples;
+    uint nof_packets;
+};
 
 // -----------------------------------------------------------------------------
 
@@ -41,7 +48,7 @@ public:
     ~CrossCorrelator() override;
 
     // Set callback (provided by CorrelatorData)
-    void setCallback(DataCallback callback)
+    void setCallback(DataCallbackDynamic callback)
     {
         this -> callback = callback;
     }
@@ -60,7 +67,7 @@ private:
     DoubleBuffer *double_buffer;
 
     // Callback
-    DataCallback callback = nullptr;
+    DataCallbackDynamic callback = nullptr;
 
     // Output buffer
     Complex *output_buffer = nullptr;
@@ -98,7 +105,7 @@ class CorrelatorData: public DataConsumer
 public:
 
     // Override setDataCallback
-    void setCallback(DataCallback callback) override;
+    void setCallback(DataCallbackDynamic callback) override;
 
     // Initialise consumer
     bool initialiseConsumer(json configuration) override;

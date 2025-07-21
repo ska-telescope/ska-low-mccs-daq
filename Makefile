@@ -54,7 +54,7 @@ include .make/oci.mk
 # K8S
 ###############################################
 K8S_USE_HELMFILE = true
-K8S_HELMFILE = helmfile.d/helmfile.yaml
+K8S_HELMFILE = helmfile.d/helmfile.yaml.gotmpl
 
 ifdef CI_COMMIT_SHORT_SHA
 K8S_HELMFILE_ENV ?= stfc-ci
@@ -73,7 +73,9 @@ K8S_CHART_PARAMS = \
 	--set image.registry=$(CI_REGISTRY_IMAGE) \
 	--set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
 	--set ska-tango-devices.deviceServerTypes.daq.image.registry=$(CI_REGISTRY_IMAGE) \
-	--set ska-tango-devices.deviceServerTypes.daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \	--set global.exposeAllDS=false
+	--set ska-tango-devices.deviceServerTypes.daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
+	--set global.exposeAllDS=false \
+	--set global.minikube=false
 endif
 
 JUNITXML_REPORT_PATH ?= build/reports/functional-tests.xml

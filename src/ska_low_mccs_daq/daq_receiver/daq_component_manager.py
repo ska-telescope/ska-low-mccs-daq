@@ -763,6 +763,20 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._daq_client._config["receiver_ip"]
         )
 
+    @property
+    def daq_library(self: DaqComponentManager) -> str:
+        """
+        Get the filename of the current daq library used.
+
+        :return: a string corresponding to the library filename.
+        """
+        version = str("none")
+        if self._daq_client._daq_library_path is not None:
+            lib_path = self._daq_client._daq_library_path.decode()
+            # split the path and grab the filename
+            version = lib_path.split("/")[-1]
+        return version
+
     def start_bandpass_monitor(
         self: DaqComponentManager,
         task_callback: TaskCallbackType | None = None,
@@ -1071,7 +1085,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
         net = psutil.net_io_counters(pernic=True)
-        interface_stats = net[self._configuration["receiver_interface"]]
+        interface_stats = net[self._daq_client._config["receiver_interface"]]
         return (
             interface_stats.bytes_recv,
             interface_stats.packets_recv,
@@ -1128,6 +1142,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     self.logger.error(
                         "Caught error in data rate monitor.", exc_info=True
                     )
+                    sleep(1)
             self.logger.info("Stopped net IO sampling.")
 
         data_rate_thread = threading.Thread(
