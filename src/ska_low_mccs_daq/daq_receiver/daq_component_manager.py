@@ -616,9 +616,30 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
             raise
 
-        if not self._receiver_started:
-            self._daq_client.initialise_daq()
+        # Check that if we're asked for RAW_STATION_BEAM that it's the only mode.
+        if (
+            DaqModes.RAW_STATION_BEAM in converted_modes_to_start
+            and len(converted_modes_to_start) != 1
+        ):
+            self.logger.error("Raw station beam mode must be started alone.")
+            if task_callback:
+                task_callback(
+                    status=TaskStatus.REJECTED,
+                    result=(
+                        ResultCode.NOT_ALLOWED,
+                        "Raw station beam mode must be started alone.",
+                    ),
+                )
+            return  # raise?
+
+        if DaqModes.RAW_STATION_BEAM in converted_modes_to_start:
+            # We initialise differently for raw station beam mode.
+            self._daq_client.initialise_station_beam()
             self._receiver_started = True
+        else:
+            if not self._receiver_started:
+                self._daq_client.initialise_daq()
+                self._receiver_started = True
 
         self.client_queue = queue.SimpleQueue()
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
