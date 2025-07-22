@@ -634,7 +634,7 @@ bool IntegratedChannelisedData::processPacket()
     uint16_t nof_included_antennas = 0;
     uint16_t tile_id = 0;
     uint16_t station_id = 0;
-    uint8_t  pol_id     = 0;
+    uint8_t  fpga_id     = 0;
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
@@ -682,7 +682,7 @@ bool IntegratedChannelisedData::processPacket()
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
                 tile_id    = (uint16_t) ((val >> 32) & 0xFF);
-                pol_id     = (uint8_t)   (val & 0xFF);
+                fpga_id     = (uint8_t)   (val & 0xFF);
                 break;
             }
             case 0x3300: // Payload offset
@@ -704,25 +704,12 @@ bool IntegratedChannelisedData::processPacket()
     nof_included_channels = static_cast<uint16_t>((payload_length - payload_offset) /
             (nof_included_antennas * nof_pols * samples_in_packet * bitwidth / 8));
 
-    LOG(WARN, "Integrated data: %d channels, %d antennas, %d pols, %d samples in packet, num_packets %d",
-        nof_included_channels, nof_included_antennas, nof_pols, samples_in_packet, num_packets);
-
     // TEMPORARY: Timestamp_scale may disappear, so it's hardcoded for now
     double packet_time = sync_time + timestamp * sampling_time;
 
     // Check if we processed all the sample
     auto total_packets = (nof_antennas / nof_included_antennas) *
-                          (nof_channels / nof_included_channels) * nof_pols * nof_tiles;
-
-    if (num_packets == total_packets)
-    {
-        if (bitwidth == 16)
-            container_16bit -> persist_container();
-        else
-            container_32bit -> persist_container();
-
-        num_packets = 0;
-    }
+                          (nof_channels / nof_included_channels) * nof_tiles;
 
     // We have processed the packet items, now comes the data
     num_packets++;
@@ -735,6 +722,16 @@ bool IntegratedChannelisedData::processPacket()
                                     start_antenna_id, (uint32_t *) (payload + payload_offset), packet_time,
                                     nof_included_channels, nof_included_antennas);
 
+
+    if (num_packets == total_packets)
+    {
+        if (bitwidth == 16)
+            container_16bit -> persist_container();
+        else
+            container_32bit -> persist_container();
+
+        num_packets = 0;
+    }
 
     // Ready from packet
     ring_buffer -> pull_ready();
