@@ -4,3 +4,28 @@ platform:
       ci-1:
         id: 1
         sps: {}
+  stations:
+    ci-1:
+      sps:
+        daq:
+          two-pod-daq: false
+    real-daq-1:
+      sps:
+        daq:
+          two-pod-daq: false
+
+helm_values:
+  ska-tango-devices:
+    deviceServers:
+      daq:
+        daq-ci-1:
+          volumes: ~
+        daq-real-daq-1:
+          volumes: ~
+    devices:
+      MccsDaqReceiver:
+        low-mccs/daqreceiver/real-daq-1:
+          NumberOfTiles: 8
+        low-mccs/daqreceiver/real-daq-1-bandpass:
+          NumberOfTiles: 8
+  storage: ~
