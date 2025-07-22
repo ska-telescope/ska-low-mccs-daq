@@ -15,3 +15,12 @@ platform:
       sps:
         daq:
           two-pod-daq: false
+
+helm_values:
+  ska-tango-devices:
+    devices:
+      MccsDaqReceiver:
+        low-mccs/daqreceiver/real-daq-1:
+          NumberOfTiles: 8
+        low-mccs/daqreceiver/real-daq-1-bandpass:
+          NumberOfTiles: 8

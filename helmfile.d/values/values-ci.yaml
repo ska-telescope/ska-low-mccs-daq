@@ -26,4 +26,10 @@ helm_values:
           volumes: ~
         daq-real-daq-1:
           volumes: ~
+    devices:
+      MccsDaqReceiver:
+        low-mccs/daqreceiver/real-daq-1:
+          NumberOfTiles: 8
+        low-mccs/daqreceiver/real-daq-1-bandpass:
+          NumberOfTiles: 8
   storage: ~
