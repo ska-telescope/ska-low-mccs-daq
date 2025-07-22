@@ -395,6 +395,7 @@ class DaqReceiver:
                     append=True,
                     data_ptr=values,
                     timestamp=self._timestamps[DaqModes.INTEGRATED_CHANNEL_DATA],
+                    sampling_time=self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA],
                     buffer_timestamp=timestamp,
                     tile_id=tile,
                 )
