@@ -1,5 +1,18 @@
 # Version History
 
+## Unreleased
+
+* [THORN-231] Added the MccsDaqReceiver.ReceiveIntegratedChannelData() command. This in an engineering mode only command which replays data
+    to the DAQ. The data replayed to the DAQ is data from 8 TPMs, with the internal signal generator on for channels 96 and 192.
+* [THORN-231] The total not packets expected for a full integration for all TPMs was calculated as
+    (total channels / channels per packet) x (antennas per TPM / antennas per packet) x (polarisations per TPM) x (number of TPMs).
+    However each integrated channel packet contains data for both pols, so this calculation was double counting.
+    This meant the DAQ ignored every other integration from the TPMs.
+* [THORN-231] The integrated channel data was only being persisted when the first packet from the next integration was coming in.
+    This meant that we only pushed change events for the bandpasses when the next integration was starting to be received, which meant
+    our bandpasses are 5-10 seconds out of date. 
+    Now we persist the data after the last packet from the integration has been processed, rather than the first packet of the next integration.
+
 ## 4.3.1
 
 * [SKB-1090] Fixed issue related to buffer boundaries in the channelised continuous mode.
@@ -68,6 +81,7 @@ Known bug: If Daq is configured for a single channel and a channel > ~8 is chose
 
 * [SKB-490] Fix timestamps being all zeroes for integrated channel data by adding sampling time to ingest data call.
 * [THORN-229] Fix StartBandpassMonitor internal command interface, reinstate necessary configuration checks.
+
 * [THORN-196] Added attributes for the correlator mode: nofSamples, correlatorTimeTaken
 * [THORN-203] The nofPackets attribute now works for integrated channel data.
 * [THORN-178] Added attribute to expose aavsdaq library version
