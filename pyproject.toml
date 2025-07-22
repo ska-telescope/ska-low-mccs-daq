@@ -79,6 +79,7 @@ lockfile = "0.12.2"
 watchdog = "^3.0.0"
 GitPython = "^3.1.44"
 kubernetes = "^33.0.0"
+scapy = "^2.6.1"
 
 [tool.poetry.scripts]
 daq = "ska_low_mccs_daq:main"

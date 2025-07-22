@@ -1344,14 +1344,14 @@ reference = "PyPI-public"
 
 [[package]]
 name = "jsonschema"
-version = "4.25.0"
+version = "4.24.0"
 description = "An implementation of JSON Schema validation for Python"
 optional = false
 python-versions = ">=3.9"
 groups = ["main", "docs"]
 files = [
-    {file = "jsonschema-4.25.0-py3-none-any.whl", hash = "sha256:24c2e8da302de79c8b9382fee3e76b355e44d2a4364bb207159ce10b517bd716"},
-    {file = "jsonschema-4.25.0.tar.gz", hash = "sha256:e63acf5c11762c0e6672ffb61482bdf57f0876684d8d249c0fe2d730d48bc55f"},
+    {file = "jsonschema-4.24.0-py3-none-any.whl", hash = "sha256:a462455f19f5faf404a7902952b6f0e3ce868f3ee09a359b05eca6673bd8412d"},
+    {file = "jsonschema-4.24.0.tar.gz", hash = "sha256:0b4e8069eb12aedfa881333004bccaec24ecef5a8a6a4b6df142b2cc9599d196"},
 ]
 
 [package.dependencies]
@@ -1362,7 +1362,7 @@ rpds-py = ">=0.7.1"
 
 [package.extras]
 format = ["fqdn", "idna", "isoduration", "jsonpointer (>1.13)", "rfc3339-validator", "rfc3987", "uri-template", "webcolors (>=1.11)"]
-format-nongpl = ["fqdn", "idna", "isoduration", "jsonpointer (>1.13)", "rfc3339-validator", "rfc3986-validator (>0.1.0)", "rfc3987-syntax (>=1.1.0)", "uri-template", "webcolors (>=24.6.0)"]
+format-nongpl = ["fqdn", "idna", "isoduration", "jsonpointer (>1.13)", "rfc3339-validator", "rfc3986-validator (>0.1.0)", "uri-template", "webcolors (>=24.6.0)"]
 
 [package.source]
 type = "legacy"
@@ -1371,18 +1371,18 @@ reference = "PyPI-public"
 
 [[package]]
 name = "jsonschema-specifications"
-version = "2023.3.6"
+version = "2025.4.1"
 description = "The JSON Schema meta-schemas and vocabularies, exposed as a Registry"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 groups = ["main", "docs"]
 files = [
-    {file = "jsonschema_specifications-2023.3.6-py3-none-any.whl", hash = "sha256:a743d6acd3d6ce0aa4d691b001be145eb8d0075d5beb3ce77c4e17cb13ebf158"},
-    {file = "jsonschema_specifications-2023.3.6.tar.gz", hash = "sha256:1f84ccccce27abf263904363aa59171e9f889c152965f9e71bc05dfc520502fb"},
+    {file = "jsonschema_specifications-2025.4.1-py3-none-any.whl", hash = "sha256:4653bffbd6584f7de83a67e0d620ef16900b390ddc7939d56684d6c81e33f1af"},
+    {file = "jsonschema_specifications-2025.4.1.tar.gz", hash = "sha256:630159c9f4dbea161a6a2205c3011cc4f18ff381b189fff48bb39b9bf26ae608"},
 ]
 
 [package.dependencies]
-referencing = ">=0.25.0"
+referencing = ">=0.31.0"
 
 [package.source]
 type = "legacy"
@@ -2896,14 +2896,14 @@ reference = "PyPI-public"
 
 [[package]]
 name = "referencing"
-version = "0.28.6"
+version = "0.31.0"
 description = "JSON Referencing + Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main", "docs"]
 files = [
-    {file = "referencing-0.28.6-py3-none-any.whl", hash = "sha256:1bca0754a9a742fbd7524e3c2d4c7404cf8b90469219ae02e16af0cf878ca0a1"},
-    {file = "referencing-0.28.6.tar.gz", hash = "sha256:00e3edd3564b579bde921d46e8da425cfdc147ec3a9cd4bbe2890e357720e7ad"},
+    {file = "referencing-0.31.0-py3-none-any.whl", hash = "sha256:381b11e53dd93babb55696c71cf42aef2d36b8a150c49bf0bc301e36d536c882"},
+    {file = "referencing-0.31.0.tar.gz", hash = "sha256:cc28f2c88fbe7b961a7817a0abc034c09a1e36358f82fedb4ffdf29a25398863"},
 ]
 
 [package.dependencies]
@@ -3170,7 +3170,7 @@ version = "2.6.1"
 description = "Scapy: interactive packet manipulation tool"
 optional = false
 python-versions = "<4,>=3.7"
-groups = ["main"]
+groups = ["main", "docs"]
 files = [
     {file = "scapy-2.6.1-py3-none-any.whl", hash = "sha256:88a998572049b511a1f3e44f4aa7c62dd39c6ea2aa1bb58434f503956641789d"},
     {file = "scapy-2.6.1.tar.gz", hash = "sha256:7600d7e2383c853e5c3a6e05d37e17643beebf2b3e10d7914dffcc3bc3c6e6c5"},
@@ -3271,31 +3271,32 @@ reference = "ska-nexus"
 
 [[package]]
 name = "ska-low-mccs-common"
-version = "3.0.0"
+version = "3.0.1"
 description = "The Monitoring, Control and Calibration Subsystem (MCCS) of the SKA Low telescope"
 optional = false
 python-versions = ">=3.10,<4.0"
 groups = ["main", "docs"]
 files = [
-    {file = "ska_low_mccs_common-3.0.0-py3-none-any.whl", hash = "sha256:488dbf86a96864400e0d9b4af0255957fdc3ca41d768768af8a0da6ffbf77fc9"},
-    {file = "ska_low_mccs_common-3.0.0.tar.gz", hash = "sha256:b9f5798050fdf493a6db0c19f1a4cb8eb6137b2082217f4d40d11e390f35a96f"},
+    {file = "ska_low_mccs_common-3.0.1-py3-none-any.whl", hash = "sha256:0d1525aefda19413e395eba46db4cba83f8e74c1eba73739362887a17c3b4463"},
+    {file = "ska_low_mccs_common-3.0.1.tar.gz", hash = "sha256:57d8d0069541270e0d1e5e6c85e82866db8ac9cfcd1dbefb737e769e0c6fb68d"},
 ]
 
 [package.dependencies]
 attrs = ">=24.2.0"
 backoff = ">=2.2.1,<3.0.0"
-jsonschema = ">=4.21.1,<5.0.0"
-jsonschema-specifications = ">=2023.03.6,<2023.4.0"
+jsonschema = "4.24.0"
+jsonschema-specifications = ">=2025.4.1,<2026.0.0"
 numpy = ">=1.26.4,<2.0.0"
 pytango = ">=9.5.1,<11.0.0"
 PyYAML = ">=6.0.1,<7.0.0"
-referencing = ">=0.28.4,<0.29.0"
+referencing = "0.31.0"
 requests = ">=2.31.0,<3.0.0"
+six = ">=1.17.0,<2.0.0"
 ska-control-model = ">=1.0.0,<2.0.0"
 ska-ser-logging = ">=0.4.2,<0.5.0"
 ska-tango-base = ">=1.3.2,<2.0.0"
 ska-tango-testing = ">=0,<1"
-transitions = ">=0.9.0,<0.10.0"
+transitions = "0.9.2"
 
 [package.source]
 type = "legacy"
@@ -3802,14 +3803,14 @@ reference = "PyPI-public"
 
 [[package]]
 name = "transitions"
-version = "0.9.3"
+version = "0.9.2"
 description = "A lightweight, object-oriented Python state machine implementation with many extensions."
 optional = false
 python-versions = "*"
 groups = ["main", "docs"]
 files = [
-    {file = "transitions-0.9.3-py2.py3-none-any.whl", hash = "sha256:02463248f2b668d86f66636b1e3c9e8de84d93e22915247f4e1aa9ee1cae28aa"},
-    {file = "transitions-0.9.3.tar.gz", hash = "sha256:881fb75bb1654ed55d86060bb067f2c716f8e155f57bb73fd444e53713aafec8"},
+    {file = "transitions-0.9.2-py2.py3-none-any.whl", hash = "sha256:f7b40c9b4a93869f36c4d1c33809aeb18cdeeb065fd1adba018ee39c3db216f3"},
+    {file = "transitions-0.9.2.tar.gz", hash = "sha256:2f8490dbdbd419366cef1516032ab06d07ccb5839ef54905e842a472692d4204"},
 ]
 
 [package.dependencies]
@@ -4072,4 +4073,4 @@ reference = "PyPI-public"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "faea1a093e191fc02e0854a75db56c92aa0e12cc97da067be3af4bde33cdaa2c"
+content-hash = "0e84c370d7d0cd155bd823b64a4a8d504b934d30af2c67857f62e9dc1f2bd49e"
