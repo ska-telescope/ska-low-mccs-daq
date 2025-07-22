@@ -4,7 +4,6 @@
 
 #include "ChannelisedData.h"
 
-
 #include "ChannelisedData.h"
 #include "SPEAD.h"
 
@@ -17,27 +16,28 @@ bool ChannelisedData::initialiseConsumer(json configuration)
         (key_in_json(configuration, "nof_samples")) &&
         (key_in_json(configuration, "nof_antennas")) &&
         (key_in_json(configuration, "nof_pols")) &&
-        (key_in_json(configuration, "max_packet_size"))) {
+        (key_in_json(configuration, "max_packet_size")))
+    {
         LOG(FATAL, "Missing configuration item for ChannelisedData consumer. Requires "
-                    "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols and max_packet_size");
+                   "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols and max_packet_size");
         return false;
     }
 
     // Set local values
-    this -> nof_channels = configuration["nof_channels"];
-    this -> nof_tiles    = configuration["nof_tiles"];
-    this -> nof_samples  = configuration["nof_samples"];
-    this -> nof_antennas = configuration["nof_antennas"];
-    this -> nof_pols     = configuration["nof_pols"];
-    this -> packet_size  = configuration["max_packet_size"];
+    this->nof_channels = configuration["nof_channels"];
+    this->nof_tiles = configuration["nof_tiles"];
+    this->nof_samples = configuration["nof_samples"];
+    this->nof_antennas = configuration["nof_antennas"];
+    this->nof_pols = configuration["nof_pols"];
+    this->packet_size = configuration["max_packet_size"];
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t) nof_samples * nof_tiles);
+    initialiseRingBuffer(packet_size, (size_t)nof_samples * nof_tiles);
 
     // Create channel container
-    container = new ChannelDataContainer<uint16_t>(this -> nof_tiles, this -> nof_antennas,
-                                                   this -> nof_samples, this -> nof_channels,
-                                                   this -> nof_pols);
+    container = new ChannelDataContainer<uint16_t>(this->nof_tiles, this->nof_antennas,
+                                                   this->nof_samples, this->nof_channels,
+                                                   this->nof_pols);
 
     // All done
     return true;
@@ -77,7 +77,8 @@ void ChannelisedData::onStreamEnd()
 }
 
 // Override clean up method
-void ChannelisedData::cleanUp() {
+void ChannelisedData::cleanUp()
+{
     delete container;
 }
 
@@ -85,7 +86,7 @@ void ChannelisedData::cleanUp() {
 bool ChannelisedData::processPacket()
 {
     // Get next packet to process
-    size_t packet_size = ring_buffer -> pull_timeout(&packet, 1);
+    size_t packet_size = ring_buffer->pull_timeout(&packet, 1);
 
     // Check if the request timed out
     if (packet_size == SIZE_MAX)
@@ -96,7 +97,7 @@ bool ChannelisedData::processPacket()
     // passed through the filter
     uint64_t hdr = SPEAD_HEADER(packet);
 
-    uint32_t packet_index   = 0;
+    uint32_t packet_index = 0;
     uint32_t packet_counter = 0;
     uint64_t payload_length = 0;
     uint64_t sync_time = 0;
@@ -107,89 +108,88 @@ bool ChannelisedData::processPacket()
     uint16_t nof_included_antennas = 0;
     uint8_t tile_id = 0;
     uint16_t station_id = 0;
-    uint8_t  fpga_id     = 0;
+    uint8_t fpga_id = 0;
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
-    auto nof_items = (unsigned short) SPEAD_GET_NITEMS(hdr);
+    auto nof_items = (unsigned short)SPEAD_GET_NITEMS(hdr);
     uint8_t *payload = packet + SPEAD_HEADERLEN + nof_items * SPEAD_ITEMLEN;
 
     // Loop over items to extract values
-    for(unsigned i = 1; i <= nof_items; i++)
+    for (unsigned i = 1; i <= nof_items; i++)
     {
         uint64_t item = SPEAD_ITEM(packet, i);
         switch (SPEAD_ITEM_ID(item))
         {
-            case 0x0001:  // Heap counter
-            {
-                packet_counter = (uint32_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFF);       // 24-bits
-                packet_index   = (uint32_t) ((SPEAD_ITEM_ADDR(item) >> 24) & 0xFFFF); // 16-bits
-                break;
-            }
-            case 0x0004: // Payload length
-            {
-                payload_length = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x1027: // Sync time
-            {
-                sync_time = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x1600: // Timestamp
-            {
-                timestamp = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x2002: // Antenna and Channel information
-            {
-                uint64_t val = SPEAD_ITEM_ADDR(item);
-                start_channel_id      = (uint16_t) ((val >> 24) & 0xFFFF);
-                nof_included_channels = (uint16_t) ((val >> 16) & 0xFF);
-                start_antenna_id      = (uint16_t) ((val >> 8) & 0xFF);
-                nof_included_antennas = (uint16_t) (val & 0xFF);
-                break;
-            }
-            case 0x2001: // Tile information
-            {
-                uint64_t val = SPEAD_ITEM_ADDR(item);
-                station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
-                fpga_id     = (uint8_t)   (val & 0xFF);
-                break;
-            }
-            case 0x3300: // Payload offset
-            {
-                payload_offset = (uint32_t) SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x2004:
-                break;
-            default:
-                LOG(INFO, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nof_items);
+        case 0x0001: // Heap counter
+        {
+            packet_counter = (uint32_t)(SPEAD_ITEM_ADDR(item) & 0xFFFFFF);     // 24-bits
+            packet_index = (uint32_t)((SPEAD_ITEM_ADDR(item) >> 24) & 0xFFFF); // 16-bits
+            break;
+        }
+        case 0x0004: // Payload length
+        {
+            payload_length = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1027: // Sync time
+        {
+            sync_time = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1600: // Timestamp
+        {
+            timestamp = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x2002: // Antenna and Channel information
+        {
+            uint64_t val = SPEAD_ITEM_ADDR(item);
+            start_channel_id = (uint16_t)((val >> 24) & 0xFFFF);
+            nof_included_channels = (uint16_t)((val >> 16) & 0xFF);
+            start_antenna_id = (uint16_t)((val >> 8) & 0xFF);
+            nof_included_antennas = (uint16_t)(val & 0xFF);
+            break;
+        }
+        case 0x2001: // Tile information
+        {
+            uint64_t val = SPEAD_ITEM_ADDR(item);
+            station_id = (uint16_t)((val >> 16) & 0xFFFF);
+            tile_id = (uint8_t)((val >> 32) & 0xFF);
+            fpga_id = (uint8_t)(val & 0xFF);
+            break;
+        }
+        case 0x3300: // Payload offset
+        {
+            payload_offset = (uint32_t)SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x2004:
+            break;
+        default:
+            LOG(INFO, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nof_items);
         }
     }
 
     // Calculate number of samples in packet
     uint32_t samples_in_packet;
 
-    samples_in_packet = (uint32_t) ((payload_length - payload_offset) /
-                                    (nof_included_antennas * nof_pols * nof_included_channels * sizeof(uint16_t)));
+    samples_in_packet = (uint32_t)((payload_length - payload_offset) /
+                                   (nof_included_antennas * nof_pols * nof_included_channels * sizeof(uint16_t)));
 
     // TEMPORARY: Timestamp_scale maybe will disappear, so it's hardcoded for now
-    double packet_time = sync_time + timestamp * 1.08e-6;// timestamp_scale;
+    double packet_time = sync_time + timestamp * 1.08e-6; // timestamp_scale;
 
     // We have processed the packet items, now comes the data
     num_packets++;
     int sample_index = packet_counter % (nof_samples / samples_in_packet);
-    container -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, tile_id, fpga_id,
-                          start_channel_id, sample_index * samples_in_packet, samples_in_packet,
-                          start_antenna_id, (uint16_t *) (payload + payload_offset), packet_time,
-                          nof_included_channels, nof_included_antennas, payload_length);
-
+    container->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, tile_id, fpga_id,
+                        start_channel_id, sample_index * samples_in_packet, samples_in_packet,
+                        start_antenna_id, (uint16_t *)(payload + payload_offset), packet_time,
+                        nof_included_channels, nof_included_antennas, payload_length);
 
     // Ready from packet
-    ring_buffer -> pull_ready();
+    ring_buffer->pull_ready();
 
     // All done, return
     return true;
@@ -211,7 +211,8 @@ bool ContinuousChannelisedData::initialiseConsumer(json configuration)
         (key_in_json(configuration, "sampling_time")) &&
         (key_in_json(configuration, "nof_buffer_skips")) &&
         (key_in_json(configuration, "max_packet_size")) &&
-        (key_in_json(configuration, "start_time"))) {
+        (key_in_json(configuration, "start_time")))
+    {
         LOG(FATAL, "Missing configuration item for ContinuousChannelisedData consumer. Requires "
                    "nof_tiles, nof_channels, nof_samples, nof_antennas, nof_pols, nof_buffer_skips,"
                    "start_time and max_packet_size");
@@ -219,33 +220,35 @@ bool ContinuousChannelisedData::initialiseConsumer(json configuration)
     }
 
     // Set local values
-    nof_channels  = configuration["nof_channels"];
-    nof_tiles     = configuration["nof_tiles"];
-    nof_samples   = configuration["nof_samples"];
-    nof_antennas  = configuration["nof_antennas"];
-    nof_pols      = configuration["nof_pols"];
-    bitwidth      = configuration["bitwidth"];
+    nof_channels = configuration["nof_channels"];
+    nof_tiles = configuration["nof_tiles"];
+    nof_samples = configuration["nof_samples"];
+    nof_antennas = configuration["nof_antennas"];
+    nof_pols = configuration["nof_pols"];
+    bitwidth = configuration["bitwidth"];
     sampling_time = configuration["sampling_time"];
-    packet_size   = configuration["max_packet_size"];
+    packet_size = configuration["max_packet_size"];
     nof_buffer_skips = configuration["nof_buffer_skips"];
 
-
     // Set star time, to the nearest second
-    start_time = round((double) configuration["start_time"]);
+    start_time = round((double)configuration["start_time"]);
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t) 131072 * nof_tiles);
+    initialiseRingBuffer(packet_size, (size_t)131072 * nof_tiles);
 
     // Create channel container
-    if (bitwidth == 16) {
-        containers_16bit = (ChannelDataContainer<uint16_t> **) malloc(
-                nof_containers * sizeof(ChannelDataContainer<uint16_t> *));
+    if (bitwidth == 16)
+    {
+        containers_16bit = (ChannelDataContainer<uint16_t> **)malloc(
+            nof_containers * sizeof(ChannelDataContainer<uint16_t> *));
         for (unsigned i = 0; i < nof_containers; i++)
             containers_16bit[i] = new ChannelDataContainer<uint16_t>(nof_tiles, nof_antennas, nof_samples,
                                                                      nof_channels, nof_pols);
-    } else if (bitwidth == 32) {
-        containers_32bit = (ChannelDataContainer<uint32_t> **) malloc(
-                nof_containers * sizeof(ChannelDataContainer<uint16_t> *));
+    }
+    else if (bitwidth == 32)
+    {
+        containers_32bit = (ChannelDataContainer<uint32_t> **)malloc(
+            nof_containers * sizeof(ChannelDataContainer<uint16_t> *));
         for (unsigned i = 0; i < nof_containers; i++)
             containers_32bit[i] = new ChannelDataContainer<uint32_t>(nof_tiles, nof_antennas, nof_samples,
                                                                      nof_channels, nof_pols);
@@ -256,14 +259,17 @@ bool ContinuousChannelisedData::initialiseConsumer(json configuration)
 }
 
 // Override clean up method
-void ContinuousChannelisedData::cleanUp() {
+void ContinuousChannelisedData::cleanUp()
+{
     // Delete containers
-    if (bitwidth == 16) {
+    if (bitwidth == 16)
+    {
         for (unsigned i = 0; i < nof_containers; i++)
             delete containers_16bit[i];
         free(containers_16bit);
     }
-    else {
+    else
+    {
         for (unsigned i = 0; i < nof_containers; i++)
             delete containers_32bit[i];
         free(containers_32bit);
@@ -274,11 +280,11 @@ void ContinuousChannelisedData::cleanUp() {
 void ContinuousChannelisedData::setCallback(DataCallbackDynamic callback)
 {
     if (bitwidth == 16)
-        for(unsigned i = 0; i < nof_containers; i++)
-            containers_16bit[i] -> setCallback(callback);
+        for (unsigned i = 0; i < nof_containers; i++)
+            containers_16bit[i]->setCallback(callback);
     else
-        for(unsigned i = 0; i < nof_containers; i++)
-            containers_32bit[i] -> setCallback(callback);
+        for (unsigned i = 0; i < nof_containers; i++)
+            containers_32bit[i]->setCallback(callback);
 }
 
 // Packet filter
@@ -304,10 +310,11 @@ bool ContinuousChannelisedData::packetFilter(unsigned char *udp_packet)
 bool ContinuousChannelisedData::processPacket()
 {
     // Get next packet to process
-    size_t packet_size = ring_buffer -> pull_timeout(&packet, 1);
+    size_t packet_size = ring_buffer->pull_timeout(&packet, 1);
 
     // Check if the request timed out
-    if (packet_size == SIZE_MAX) {
+    if (packet_size == SIZE_MAX)
+    {
         // Request timed out
         return false;
     }
@@ -316,7 +323,7 @@ bool ContinuousChannelisedData::processPacket()
     // passed through the filter
     uint64_t hdr = SPEAD_HEADER(packet);
 
-    uint32_t packet_index   = 0;
+    uint32_t packet_index = 0;
     unsigned long packet_counter = 0;
     uint64_t payload_length = 0;
     uint64_t sync_time = 0;
@@ -327,66 +334,66 @@ bool ContinuousChannelisedData::processPacket()
     uint16_t nof_included_antennas = 0;
     uint8_t tile_id = 0;
     uint16_t station_id = 0;
-    uint8_t  fpga_id     = 0;
+    uint8_t fpga_id = 0;
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
-    auto nof_items = (unsigned short) SPEAD_GET_NITEMS(hdr);
+    auto nof_items = (unsigned short)SPEAD_GET_NITEMS(hdr);
     uint8_t *payload = packet + SPEAD_HEADERLEN + nof_items * SPEAD_ITEMLEN;
 
     // Loop over items to extract values
-    for(unsigned i = 1; i <= nof_items; i++)
+    for (unsigned i = 1; i <= nof_items; i++)
     {
         uint64_t item = SPEAD_ITEM(packet, i);
         switch (SPEAD_ITEM_ID(item))
         {
-            case 0x0001:  // Heap counter
-            {
-                packet_counter = (uint32_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFF);       // 24-bits
-                packet_index   = (uint32_t) ((SPEAD_ITEM_ADDR(item) >> 24) & 0xFFFF); // 16-bits
-                break;
-            }
-            case 0x0004: // Payload length
-            {
-                payload_length = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x1027: // Sync time
-            {
-                sync_time = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x1600: // Timestamp
-            {
-                timestamp = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x2002: // Antenna and Channel information
-            {
-                uint64_t val = SPEAD_ITEM_ADDR(item);
-                start_channel_id      = (uint16_t) ((val >> 24) & 0xFFFF);
-                nof_included_channels = (uint16_t) ((val >> 16) & 0xFF);
-                start_antenna_id      = (uint16_t) ((val >> 8) & 0xFF);
-                nof_included_antennas = (uint16_t) (val & 0xFF);
-                break;
-            }
-            case 0x2001: // Tile information
-            {
-                uint64_t val = SPEAD_ITEM_ADDR(item);
-                station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
-                fpga_id     = (uint8_t)   (val & 0xFF);
-                break;
-            }
-            case 0x3300: // Payload offset
-            {
-                payload_offset = (uint32_t) SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x2004:
-                break;
-            default:
-                LOG(INFO, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nof_items);
+        case 0x0001: // Heap counter
+        {
+            packet_counter = (uint32_t)(SPEAD_ITEM_ADDR(item) & 0xFFFFFF);     // 24-bits
+            packet_index = (uint32_t)((SPEAD_ITEM_ADDR(item) >> 24) & 0xFFFF); // 16-bits
+            break;
+        }
+        case 0x0004: // Payload length
+        {
+            payload_length = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1027: // Sync time
+        {
+            sync_time = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1600: // Timestamp
+        {
+            timestamp = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x2002: // Antenna and Channel information
+        {
+            uint64_t val = SPEAD_ITEM_ADDR(item);
+            start_channel_id = (uint16_t)((val >> 24) & 0xFFFF);
+            nof_included_channels = (uint16_t)((val >> 16) & 0xFF);
+            start_antenna_id = (uint16_t)((val >> 8) & 0xFF);
+            nof_included_antennas = (uint16_t)(val & 0xFF);
+            break;
+        }
+        case 0x2001: // Tile information
+        {
+            uint64_t val = SPEAD_ITEM_ADDR(item);
+            station_id = (uint16_t)((val >> 16) & 0xFFFF);
+            tile_id = (uint8_t)((val >> 32) & 0xFF);
+            fpga_id = (uint8_t)(val & 0xFF);
+            break;
+        }
+        case 0x3300: // Payload offset
+        {
+            payload_offset = (uint32_t)SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x2004:
+            break;
+        default:
+            LOG(INFO, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nof_items);
         }
     }
 
@@ -394,22 +401,23 @@ bool ContinuousChannelisedData::processPacket()
     uint32_t samples_in_packet;
 
     if (bitwidth == 16)
-        samples_in_packet = (uint32_t) ((payload_length - payload_offset) /
-                                        (nof_included_antennas * nof_included_channels * nof_pols * sizeof(uint16_t)));
+        samples_in_packet = (uint32_t)((payload_length - payload_offset) /
+                                       (nof_included_antennas * nof_included_channels * nof_pols * sizeof(uint16_t)));
     else
-        samples_in_packet = (uint32_t) ((payload_length - payload_offset) /
-                                        (nof_included_antennas * nof_included_channels * nof_pols * sizeof(uint32_t)));
+        samples_in_packet = (uint32_t)((payload_length - payload_offset) /
+                                       (nof_included_antennas * nof_included_channels * nof_pols * sizeof(uint32_t)));
 
     // Compute packet time
     double packet_time = sync_time + timestamp * sampling_time;
-    
+
     // Handle packet counter rollover
     // First condition ensures that if DAQ is started before transmission, firs packet with counter 0 are not updates
     if (reference_counter == 0)
         reference_counter = packet_counter;
     else
     {
-        if (tile_id == 0 && packet_counter == 0 && fpga_id == 0) {
+        if (tile_id == 0 && packet_counter == 0 && fpga_id == 0)
+        {
             rollover_counter += 1;
             packet_counter += rollover_counter << 24;
         }
@@ -434,32 +442,32 @@ bool ContinuousChannelisedData::processPacket()
     if (packet_time < reference_time)
     {
         // If we are skipping buffer, ignore previous packet
-        if (nof_buffer_skips == 0) {
+        if (nof_buffer_skips == 0)
+        {
 
             // We have processed the packet items, now comes the data
             unsigned index = (current_container - 1) % nof_containers;
             if (bitwidth == 16)
-                containers_16bit[index]->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
-                                            tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
-                                            samples_in_packet, start_antenna_id,
-                                            (uint16_t *) (payload + payload_offset), packet_time,
-                                            nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
+                containers_16bit[index]->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset,
+                                                  tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
+                                                  samples_in_packet, start_antenna_id,
+                                                  (uint16_t *)(payload + payload_offset), packet_time,
+                                                  nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
             else
-                containers_32bit[index]->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
-                                            tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
-                                            samples_in_packet, start_antenna_id,
-                                            (uint32_t *) (payload + payload_offset), packet_time,
-                                            nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
-
+                containers_32bit[index]->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset,
+                                                  tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
+                                                  samples_in_packet, start_antenna_id,
+                                                  (uint32_t *)(payload + payload_offset), packet_time,
+                                                  nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
         }
 
         // Ready from packet
-        ring_buffer -> pull_ready();
+        ring_buffer->pull_ready();
         return true;
     }
 
     // Check if we skipped buffer boundaries
-   if (packet_time >= reference_time + nof_samples * sampling_time)
+    if (packet_time >= reference_time + nof_samples * sampling_time)
     {
         // Increment buffer skip
         if (nof_buffer_skips != 0)
@@ -468,34 +476,42 @@ bool ContinuousChannelisedData::processPacket()
             current_buffer = 0;
 
         // Only update and persist container when current_buffer == 0
-        if (current_buffer == 0) {
+        if (current_buffer == 0)
+        {
 
             // If we are skipping buffer, then persist previous current container
-            if (nof_buffer_skips != 0) {
-                if (bitwidth == 16) {
+            if (nof_buffer_skips != 0)
+            {
+                if (bitwidth == 16)
+                {
                     if (containers_16bit[current_container]->nof_packets > 0)
                         containers_16bit[current_container]->persist_container();
-                } else {
+                }
+                else
+                {
                     if (containers_32bit[current_container]->nof_packets > 0)
                         containers_32bit[current_container]->persist_container();
                 }
 
-
                 // Update container index
                 current_container = (current_container + 1) % nof_containers;
-            } else {
+            }
+            else
+            {
                 // Update container index
                 current_container = (current_container + 1) % nof_containers;
 
                 // If the number of processed packet in this container is greater than 0, persist it
-                if (bitwidth == 16) {
+                if (bitwidth == 16)
+                {
                     if (containers_16bit[current_container]->nof_packets > 0)
                         containers_16bit[current_container]->persist_container();
-                } else {
+                }
+                else
+                {
                     if (containers_32bit[current_container]->nof_packets > 0)
                         containers_32bit[current_container]->persist_container();
                 }
-
             }
 
             // Update timestamp
@@ -505,8 +521,9 @@ bool ContinuousChannelisedData::processPacket()
     }
 
     // If we are skipping buffers, and current_buffer != 0, then don't add packet
-    if (current_buffer != 0) {
-        ring_buffer -> pull_ready();
+    if (current_buffer != 0)
+    {
+        ring_buffer->pull_ready();
         return true;
     }
 
@@ -515,21 +532,20 @@ bool ContinuousChannelisedData::processPacket()
 
     // We have processed the packet items, now comes the data
     if (bitwidth == 16)
-        containers_16bit[current_container] -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
-                                                  tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
-                                                  samples_in_packet, start_antenna_id,
-                                                  (uint16_t *) (payload + payload_offset), packet_time,
-                                                  nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
+        containers_16bit[current_container]->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset,
+                                                      tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
+                                                      samples_in_packet, start_antenna_id,
+                                                      (uint16_t *)(payload + payload_offset), packet_time,
+                                                      nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
     else
-        containers_32bit[current_container] -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
-                                                  tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
-                                                  samples_in_packet, start_antenna_id,
-                                                  (uint32_t *) (payload + payload_offset), packet_time,
-                                                  nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
-
+        containers_32bit[current_container]->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset,
+                                                      tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
+                                                      samples_in_packet, start_antenna_id,
+                                                      (uint32_t *)(payload + payload_offset), packet_time,
+                                                      nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
 
     // Ready from packet
-    ring_buffer -> pull_ready();
+    ring_buffer->pull_ready();
 
     // All done, return
     return true;
@@ -545,24 +561,25 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
         (key_in_json(configuration, "sampling_time")) &&
         (key_in_json(configuration, "nof_pols")) &&
         (key_in_json(configuration, "bitwidth")) &&
-        (key_in_json(configuration, "max_packet_size"))) {
+        (key_in_json(configuration, "max_packet_size")))
+    {
         LOG(FATAL, "Missing configuration item for IntegratedChannelisedData consumer. Requires "
-                "nof_tiles, nof_channels, nof_antennas, nof_pols, bitwidth and max_packet_size");
+                   "nof_tiles, nof_channels, nof_antennas, nof_pols, bitwidth and max_packet_size");
         return false;
     }
 
     // Set local values
     nof_channels = configuration["nof_channels"];
-    nof_tiles    = configuration["nof_tiles"];
+    nof_tiles = configuration["nof_tiles"];
     nof_antennas = configuration["nof_antennas"];
-    nof_pols     = configuration["nof_pols"];
-    bitwidth     = configuration["bitwidth"];
+    nof_pols = configuration["nof_pols"];
+    bitwidth = configuration["bitwidth"];
     sampling_time = configuration["sampling_time"];
-    packet_size  = configuration["max_packet_size"];
-    nof_samples  = 1;
+    packet_size = configuration["max_packet_size"];
+    nof_samples = 1;
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t) 1024);
+    initialiseRingBuffer(packet_size, (size_t)1024);
 
     // Create channel container
     if (bitwidth == 16)
@@ -581,13 +598,14 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
 void IntegratedChannelisedData::setCallback(DataCallbackDynamic callback)
 {
     if (bitwidth == 16)
-        container_16bit -> setCallback(callback);
+        container_16bit->setCallback(callback);
     else
-        container_32bit -> setCallback(callback);
+        container_32bit->setCallback(callback);
 }
 
-void IntegratedChannelisedData::cleanUp() {
-//    delete container;
+void IntegratedChannelisedData::cleanUp()
+{
+    //    delete container;
 }
 
 // Packet filter
@@ -613,7 +631,7 @@ bool IntegratedChannelisedData::packetFilter(unsigned char *udp_packet)
 bool IntegratedChannelisedData::processPacket()
 {
     // Get next packet to process
-    size_t packet_size = ring_buffer -> pull_timeout(&packet, 0.5);
+    size_t packet_size = ring_buffer->pull_timeout(&packet, 0.5);
 
     // Check if the request timed out
     if (packet_size == SIZE_MAX)
@@ -624,7 +642,7 @@ bool IntegratedChannelisedData::processPacket()
     // passed through the filter
     uint64_t hdr = SPEAD_HEADER(packet);
 
-    uint32_t packet_index   = 0;
+    uint32_t packet_index = 0;
     uint32_t packet_counter = 0;
     uint64_t heap_offset = 0;
     uint64_t payload_length = 0;
@@ -638,66 +656,66 @@ bool IntegratedChannelisedData::processPacket()
     uint16_t nof_included_antennas = 0;
     uint8_t tile_id = 0;
     uint16_t station_id = 0;
-    uint8_t  fpga_id     = 0;
+    uint8_t fpga_id = 0;
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
-    auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
+    auto nofitems = (unsigned short)SPEAD_GET_NITEMS(hdr);
     uint8_t *payload = packet + SPEAD_HEADERLEN + nofitems * SPEAD_ITEMLEN;
 
     // Loop over items to extract values
-    for(unsigned i = 1; i <= nofitems; i++)
+    for (unsigned i = 1; i <= nofitems; i++)
     {
         uint64_t item = SPEAD_ITEM(packet, i);
         switch (SPEAD_ITEM_ID(item))
         {
-            case 0x0001:  // Heap counter
-            {
-                packet_counter = (uint32_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFF);       // 24-bits
-                packet_index   = (uint32_t) ((SPEAD_ITEM_ADDR(item) >> 24) & 0xFFFF); // 16-bits
-                break;
-            }
-            case 0x0004: // Payload length
-            {
-                payload_length = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x1027: // Sync time
-            {
-                sync_time = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x1600: // Timestamp
-            {
-                timestamp = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x2002: // Antenna and Channel information
-            {
-                uint64_t val = SPEAD_ITEM_ADDR(item);
-                start_channel_id      = (uint16_t) ((val >> 24) & 0xFFFF);
-                nof_included_channels = (uint16_t) ((val >> 16) & 0xFF);
-                start_antenna_id      = (uint16_t) ((val >> 8) & 0xFF);
-                nof_included_antennas = (uint16_t) (val & 0xFF);
-                break;
-            }
-            case 0x2001: // Tile information
-            {
-                uint64_t val = SPEAD_ITEM_ADDR(item);
-                station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
-                fpga_id     = (uint8_t)   (val & 0xFF);
-                break;
-            }
-            case 0x3300: // Payload offset
-            {
-                payload_offset = (uint32_t) SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x2004:
-                break;
-            default:
-                LOG(INFO, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nofitems);
+        case 0x0001: // Heap counter
+        {
+            packet_counter = (uint32_t)(SPEAD_ITEM_ADDR(item) & 0xFFFFFF);     // 24-bits
+            packet_index = (uint32_t)((SPEAD_ITEM_ADDR(item) >> 24) & 0xFFFF); // 16-bits
+            break;
+        }
+        case 0x0004: // Payload length
+        {
+            payload_length = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1027: // Sync time
+        {
+            sync_time = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1600: // Timestamp
+        {
+            timestamp = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x2002: // Antenna and Channel information
+        {
+            uint64_t val = SPEAD_ITEM_ADDR(item);
+            start_channel_id = (uint16_t)((val >> 24) & 0xFFFF);
+            nof_included_channels = (uint16_t)((val >> 16) & 0xFF);
+            start_antenna_id = (uint16_t)((val >> 8) & 0xFF);
+            nof_included_antennas = (uint16_t)(val & 0xFF);
+            break;
+        }
+        case 0x2001: // Tile information
+        {
+            uint64_t val = SPEAD_ITEM_ADDR(item);
+            station_id = (uint16_t)((val >> 16) & 0xFFFF);
+            tile_id = (uint8_t)((val >> 32) & 0xFF);
+            fpga_id = (uint8_t)(val & 0xFF);
+            break;
+        }
+        case 0x3300: // Payload offset
+        {
+            payload_offset = (uint32_t)SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x2004:
+            break;
+        default:
+            LOG(INFO, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nofitems);
         }
     }
 
@@ -706,24 +724,21 @@ bool IntegratedChannelisedData::processPacket()
 
     // Overwrite number of included channels since this does not fit in header for integrated data
     nof_included_channels = static_cast<uint16_t>((payload_length - payload_offset) /
-            (nof_included_antennas * nof_pols * samples_in_packet * bitwidth / 8));
-
-    LOG(WARN, "Integrated data: %d channels, %d antennas, %d pols, %d samples in packet, num_packets %d",
-        nof_included_channels, nof_included_antennas, nof_pols, samples_in_packet, num_packets);
+                                                  (nof_included_antennas * nof_pols * samples_in_packet * bitwidth / 8));
 
     // TEMPORARY: Timestamp_scale may disappear, so it's hardcoded for now
     double packet_time = sync_time + timestamp * sampling_time;
 
     // Check if we processed all the sample
     auto total_packets = (nof_antennas / nof_included_antennas) *
-                          (nof_channels / nof_included_channels) * nof_pols * nof_tiles;
+                         (nof_channels / nof_included_channels) * nof_pols * nof_tiles;
 
     if (num_packets == total_packets)
     {
         if (bitwidth == 16)
-            container_16bit -> persist_container();
+            container_16bit->persist_container();
         else
-            container_32bit -> persist_container();
+            container_32bit->persist_container();
 
         num_packets = 0;
     }
@@ -731,19 +746,18 @@ bool IntegratedChannelisedData::processPacket()
     // We have processed the packet items, now comes the data
     num_packets++;
     if (bitwidth == 16)
-        container_16bit -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
-                                    tile_id, fpga_id, start_channel_id, 0, samples_in_packet,
-                                    start_antenna_id, (uint16_t *) (payload + payload_offset), packet_time,
-                                    nof_included_channels, nof_included_antennas, payload_length);
+        container_16bit->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset,
+                                  tile_id, fpga_id, start_channel_id, 0, samples_in_packet,
+                                  start_antenna_id, (uint16_t *)(payload + payload_offset), packet_time,
+                                  nof_included_channels, nof_included_antennas, payload_length);
     else
-        container_32bit -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
-                                    tile_id, fpga_id, start_channel_id, 0, samples_in_packet,
-                                    start_antenna_id, (uint32_t *) (payload + payload_offset), packet_time,
-                                    nof_included_channels, nof_included_antennas, payload_length);
-
+        container_32bit->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset,
+                                  tile_id, fpga_id, start_channel_id, 0, samples_in_packet,
+                                  start_antenna_id, (uint32_t *)(payload + payload_offset), packet_time,
+                                  nof_included_channels, nof_included_antennas, payload_length);
 
     // Ready from packet
-    ring_buffer -> pull_ready();
+    ring_buffer->pull_ready();
 
     // All done, return
     return true;
