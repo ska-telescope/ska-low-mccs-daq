@@ -630,6 +630,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                         "Raw station beam mode must be started alone.",
                     ),
                 )
+            self._started_event.clear()
             return  # raise?
 
         if DaqModes.RAW_STATION_BEAM in converted_modes_to_start:

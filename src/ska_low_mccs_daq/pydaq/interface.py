@@ -210,6 +210,7 @@ def initialise_station_beam_library(filepath=None):
 
     if _library is None:
         raise Exception("AAVS Station Beam library not found")
+    print(f"Daq library in use: {_library=}")
 
     aavstationbeam_library_path = _library.encode()
 
