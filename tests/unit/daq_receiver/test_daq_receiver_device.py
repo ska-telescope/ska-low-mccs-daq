@@ -720,16 +720,13 @@ class TestPatchedDaq:
         sleep(0.1)
 
         # Call start_bandpass
-        bandpass_config = '{"some_key": "some_value"}'
-        _ = device_under_test.StartBandpassMonitor(bandpass_config)
-        call_args = mock_component_manager.start_bandpass_monitor.call_args
-        # A bit clunky but it gets padded with command IDs etc.
-        assert call_args[0][0] == bandpass_config
+        _ = device_under_test.StartBandpassMonitor()
+        _ = mock_component_manager.start_bandpass_monitor.assert_called_once_with(
+            Anything  # We get some command tracker padding in here.
+        )
 
         _ = device_under_test.StopBandpassMonitor()
-        call_args = (
-            mock_component_manager.stop_bandpass_monitor.assert_called_once_with()
-        )
+        _ = mock_component_manager.stop_bandpass_monitor.assert_called_once_with()
 
     def test_start_stop_data_rate_monitor(
         self: TestPatchedDaq,

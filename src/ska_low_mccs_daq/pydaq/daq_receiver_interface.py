@@ -1654,7 +1654,6 @@ class DaqReceiver:
 
     def get_configuration(self) -> Dict[str, Any]:
         """Return configuration dictionary"""
-        logging.warning(f"the config is {self._config}")
         return self._config
 
     @staticmethod

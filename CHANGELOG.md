@@ -12,6 +12,7 @@
     This meant that we only pushed change events for the bandpasses when the next integration was starting to be received, which meant
     our bandpasses are 5-10 seconds out of date. 
     Now we persist the data after the last packet from the integration has been processed, rather than the first packet of the next integration.
+* [THORN-229] Fix StartBandpassMonitor internal command interface, reinstate necessary configuration checks.
 * [THORN-196] Added attributes for the correlator mode: nofSamples, correlatorTimeTaken
 * [THORN-203] The nofPackets attribute now works for integrated channel data.
 * [THORN-178] Added attribute to expose aavsdaq library version
