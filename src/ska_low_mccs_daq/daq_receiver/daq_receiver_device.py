@@ -154,11 +154,9 @@ class _StartBandpassMonitorCommand(SubmittedSlowCommand):
             logger=logger,
         )
 
-    # pylint: disable = arguments-differ
     def do(  # type: ignore[override]
         self: _StartBandpassMonitorCommand,
         *args: Any,
-        argin: str,
         **kwargs: Any,
     ) -> tuple[ResultCode, str]:
         """
@@ -166,20 +164,6 @@ class _StartBandpassMonitorCommand(SubmittedSlowCommand):
 
         :param args: unspecified positional arguments. This should be
             empty and is provided for typehinting purposes only.
-        :param argin: A json dictionary with keywords.
-            - plot_directory
-            Directory in which to store bandpass plots.
-            - monitor_rms
-            Whether or not to additionally produce RMS plots.
-            Default: False.
-            - auto_handle_daq
-            Whether DAQ should be automatically reconfigured,
-            started and stopped without user action if necessary.
-            This set to False means we expect DAQ to already
-            be properly configured and listening for traffic
-            and DAQ will not be stopped when `StopBandpassMonitor`
-            is called.
-            Default: False.
         :param kwargs: unspecified keyword arguments. This should be
             empty and is provided for typehinting purposes only.
 
@@ -191,7 +175,7 @@ class _StartBandpassMonitorCommand(SubmittedSlowCommand):
             not args and not kwargs
         ), f"do method has unexpected arguments: {args}, {kwargs}"
 
-        return super().do(argin)
+        return super().do()
 
 
 # pylint: disable = too-many-instance-attributes, too-many-public-methods
@@ -944,9 +928,9 @@ class MccsDaqReceiver(MccsBaseDevice):
         (result_code, message) = handler(argin)
         return ([result_code], [message])
 
-    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    @command(dtype_out="DevVarLongStringArray")
     def StartBandpassMonitor(
-        self: MccsDaqReceiver, argin: str
+        self: MccsDaqReceiver,
     ) -> DevVarLongStringArrayType:
         """
         Start monitoring antenna bandpasses.
@@ -954,29 +938,12 @@ class MccsDaqReceiver(MccsBaseDevice):
         The MccsDaqReceiver will begin monitoring antenna bandpasses
             and producing plots of the spectra.
 
-        :param argin: A json dictionary with keywords.
-            - plot_directory
-            Directory in which to store bandpass plots.
-            - monitor_rms
-            Whether or not to additionally produce RMS plots.
-            Default: False.
-            - auto_handle_daq
-            Whether DAQ should be automatically reconfigured,
-            started and stopped without user action if necessary.
-            This set to False means we expect DAQ to already
-            be properly configured and listening for traffic
-            and DAQ will not be stopped when `StopBandpassMonitor`
-            is called.
-            Default: False.
-            - cadence
-            The time in seconds over which to average bandpass data.
-            Default: 0 returns snapshots.
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
         """
         handler = self.get_command_object("StartBandpassMonitor")
-        (result_code, message) = handler(argin=argin)
+        (result_code, message) = handler()
         return ([result_code], [message])
 
     class StopBandpassMonitorCommand(FastCommand):
