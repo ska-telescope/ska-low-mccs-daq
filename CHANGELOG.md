@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* [THORN-229] Fix StartBandpassMonitor internal command interface, reinstate necessary configuration checks.
 * [THORN-196] Added attributes for the correlator mode: nofSamples, correlatorTimeTaken
 * [THORN-203] The nofPackets attribute now works for integrated channel data.
 * [THORN-178] Added attribute to expose aavsdaq library version
