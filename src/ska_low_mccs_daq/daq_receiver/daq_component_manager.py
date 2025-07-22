@@ -635,7 +635,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         if DaqModes.RAW_STATION_BEAM in converted_modes_to_start:
             # We initialise differently for raw station beam mode.
-            self._daq_client.initialise_station_beam()
+            # self._daq_client.initialise_station_beam()
+            self._daq_client._initialise_station_beam_library()
             self._receiver_started = True
         else:
             if not self._receiver_started:

@@ -227,7 +227,7 @@ class DaqSimulator:
             self._station_beam_library = filepath.encode()
         return ResultCode.OK, "Daq successfully initialised for raw station beam"
 
-    def initialise_station_beam_library(
+    def _initialise_station_beam_library(
         self: DaqSimulator, filepath: str | None = None
     ) -> tuple[ResultCode, str]:
         """
