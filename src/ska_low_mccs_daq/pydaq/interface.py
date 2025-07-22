@@ -184,6 +184,9 @@ def initialise_station_beam_library(filepath=None):
     global aavsstationbeam_library
 
     # This only need to be done once
+    # TODO Remove print
+    print(f"Daq library in use: {aavsstationbeam_library=}")
+    print(f"{os.environ['DAQ_INSTALL']=}")
     if aavsstationbeam_library is not None:
         return None
 
@@ -201,6 +204,8 @@ def initialise_station_beam_library(filepath=None):
             )
             library_found = True
 
+    # TODO Remove print
+    print(f"Got daq library?: {library_found=}")
     if not library_found:
         _library = find("libaavsstationbeam.so", "/opt/aavs/lib")
         if _library is None:
@@ -210,6 +215,7 @@ def initialise_station_beam_library(filepath=None):
 
     if _library is None:
         raise Exception("AAVS Station Beam library not found")
+    # TODO Remove print
     print(f"Daq library in use: {_library=}")
 
     aavstationbeam_library_path = _library.encode()
