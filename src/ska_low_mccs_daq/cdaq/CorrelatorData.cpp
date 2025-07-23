@@ -188,17 +188,16 @@ bool CorrelatorData::processPacket()
 
     samples_in_packet = (uint32_t) ((payload_length - payload_offset) /
                                     (nof_included_antennas * nof_pols * nof_included_channels * sizeof(uint16_t)));
-        
-    // Update packet index
-    if (reference_counter == 0)
-        reference_counter = packet_counter;
-
     // Check whether packet counter has rolled over
     if (packet_counter == 0 && pol_id == 0)
         rollover_counter += 1;
 
     // Multiply packet_counter by rollover counts
     packet_counter += rollover_counter << 24;
+
+    // Update packet index
+    if (reference_counter == 0)
+        reference_counter = packet_counter;
 
     // Assigned correct packet index
     packet_index = static_cast<uint32_t>((packet_counter - reference_counter) % (this->nof_samples / samples_in_packet));
