@@ -330,7 +330,7 @@ class DaqHandler:
 
         if self._initialised is False:
             self.logger.debug("Creating DaqReceiver instance.")
-            self.daq_instance = DaqReceiver()
+            self.daq_instance = DaqReceiver(self.logger)
             if libaavsdaq_filepath == "":
                 self._custom_libaavsdaq_filepath = None
             else:

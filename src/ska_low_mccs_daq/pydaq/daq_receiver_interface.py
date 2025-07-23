@@ -111,7 +111,7 @@ class DaqReceiver:
     # Define logging callback wrapper
     LOGGER_CALLBACK = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p)
 
-    def __init__(self):
+    def __init__(self, logger):
         """Class constructor"""
 
         # Configuration directory containing defaults for all possible parameter
@@ -169,6 +169,7 @@ class DaqReceiver:
         # Pointer to shared library objects
         self._daq_library = None
         self._station_beam_library = None
+        self._logger = logger
 
         # List of data callbacks
         self._callbacks = {
@@ -1719,9 +1720,7 @@ class DaqReceiver:
             return None
 
         # TODO: Remove this log.
-        self._logging_callback(
-            self.LogLevel.Info, "RAW BEAM initialising station beam library"
-        )
+        self._logger("RAW BEAM initialising station beam library")
         # This only need to be done once
         if self._station_beam_library is not None:
             return None
@@ -1741,9 +1740,7 @@ class DaqReceiver:
                 library_found = True
 
         # TODO: Remove this log.
-        self._logging_callback(
-            self.LogLevel.Info, f"RAW BEAM Library found? {library_found}"
-        )
+        self._logger(f"RAW BEAM Library found? {library_found}")
 
         if not library_found:
             _library = find("libaavsstationbeam.so", "/opt/aavs/lib")
@@ -1753,9 +1750,7 @@ class DaqReceiver:
                 _library = find_library("daq")
 
         # TODO: Remove this log.
-        self._logging_callback(
-            self.LogLevel.Info, f"RAW BEAM Library in use: {_library}"
-        )
+        self._logger(f"RAW BEAM Library in use: {_library}")
         if _library is None:
             raise Exception("AAVS Station Beam library not found")
 
