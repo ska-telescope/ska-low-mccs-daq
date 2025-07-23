@@ -1251,6 +1251,15 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return self.component_manager.daq_library
 
+    @attribute(dtype="DevString")
+    def daqStationBeamLibrary(self: MccsDaqReceiver) -> str:
+        """
+        Get the filename of the current daq station beam library used.
+
+        :return: a string corresponding to the library filename.
+        """
+        return self.component_manager._daq_client._station_beam_library.decode()
+
 
 # ----------
 # Run server
