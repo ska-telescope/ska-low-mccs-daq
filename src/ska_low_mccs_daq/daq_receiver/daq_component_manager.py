@@ -568,6 +568,18 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if data_mode == "correlator":
             pass
 
+    def _diagnostic_callback(
+        self: DaqComponentManager,
+        **diagnostic_data: float,
+    ) -> None:
+        """
+        Diagnostic callback for DAQ component manager.
+
+        :param diagnostic_data: Diagnostic data to process.
+        """
+        for attribute_name, attribute_value in diagnostic_data.items():
+            self._attribute_callback(attribute_name, attribute_value)
+
     @check_communicating
     def start_daq(
         self: DaqComponentManager,
@@ -642,7 +654,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         self.client_queue = queue.SimpleQueue()
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
-        self._daq_client.start_daq(converted_modes_to_start, callbacks)
+        self._daq_client.start_daq(
+            converted_modes_to_start, callbacks, self._diagnostic_callback
+        )
         self.logger.info("Daq listening......")
 
         if task_callback:
