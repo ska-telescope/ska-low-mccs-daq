@@ -2,8 +2,10 @@
 API
 ===
 
-Daq handler
-~~~~~~~~~~~
+.. toctree::
+   :maxdepth: 1
 
-.. automodule:: ska_low_mccs_daq.daq_handler
-   :members:
+   daq_handler
+   daq_component_manager
+   daq_receiver_device
+   daq_simulator
