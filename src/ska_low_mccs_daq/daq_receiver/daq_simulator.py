@@ -225,21 +225,7 @@ class DaqSimulator:
         self._initialised = True
         if filepath:
             self._station_beam_library = filepath.encode()
-        return ResultCode.OK, "Daq successfully initialised for raw station beam"
-
-    def _initialise_station_beam_library(
-        self: DaqSimulator, filepath: str | None = None
-    ) -> tuple[ResultCode, str]:
-        """
-        Initialise the station beam.
-
-        :param filepath: Filepath to a specific version of libaavsstationbeam.so
-
-        :return: a resultcode, message tuple
-        """
-        self._initialised = True
-        if filepath:
-            self._station_beam_library = filepath.encode()
+            self._daq_library_path = filepath.encode()
         return ResultCode.OK, "Daq successfully initialised for raw station beam"
 
     def populate_configuration(
