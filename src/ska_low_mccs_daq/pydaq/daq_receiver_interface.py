@@ -215,8 +215,6 @@ class DaqReceiver:
         # Placeholder for continuous and station data to skip first few buffers
         self._buffer_counter = {}
 
-        self.logger = logging.Logger("daq-debug")
-
     # --------------------------------------- CONSUMERS --------------------------------------
 
     def _raw_data_callback(
@@ -1721,7 +1719,9 @@ class DaqReceiver:
             return None
 
         # TODO: Remove this log.
-        self.logger.info("RAW BEAM initialising station beam library")
+        self._logging_callback(
+            self.LogLevel.Info, "RAW BEAM initialising station beam library"
+        )
         # This only need to be done once
         if self._station_beam_library is not None:
             return None
@@ -1741,7 +1741,9 @@ class DaqReceiver:
                 library_found = True
 
         # TODO: Remove this log.
-        self.logger.info(f"RAW BEAM Library found? {library_found}")
+        self._logging_callback(
+            self.LogLevel.Info, f"RAW BEAM Library found? {library_found}"
+        )
 
         if not library_found:
             _library = find("libaavsstationbeam.so", "/opt/aavs/lib")
@@ -1751,7 +1753,9 @@ class DaqReceiver:
                 _library = find_library("daq")
 
         # TODO: Remove this log.
-        self.logger.info(f"RAW BEAM Library in use: {_library}")
+        self._logging_callback(
+            self.LogLevel.Info, f"RAW BEAM Library in use: {_library}"
+        )
         if _library is None:
             raise Exception("AAVS Station Beam library not found")
 
