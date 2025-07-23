@@ -1,8 +1,4 @@
 platform:
-  cluster:
-    domain: cluster.local
-    daq:
-      storage_class: ~
   array:
     stations:
       ci-1:
@@ -20,16 +16,9 @@ platform:
 
 helm_values:
   ska-tango-devices:
-    deviceServers:
-      daq:
-        daq-ci-1:
-          volumes: ~
-        daq-real-daq-1:
-          volumes: ~
     devices:
       MccsDaqReceiver:
         low-mccs/daqreceiver/real-daq-1:
           NumberOfTiles: 8
         low-mccs/daqreceiver/real-daq-1-bandpass:
           NumberOfTiles: 8
-  storage: ~
