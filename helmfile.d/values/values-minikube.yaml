@@ -24,3 +24,9 @@ helm_values:
           NumberOfTiles: 8
         low-mccs/daqreceiver/real-daq-1-bandpass:
           NumberOfTiles: 8
+
+#     deviceServerTypes:
+#       daq:
+#         image:
+#           registry: docker.io/library
+#           tag: 3.0.0-rc2-dirty
