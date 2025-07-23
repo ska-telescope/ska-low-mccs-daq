@@ -215,7 +215,7 @@ class DaqReceiver:
         # Placeholder for continuous and station data to skip first few buffers
         self._buffer_counter = {}
 
-        self.logger = logging.Logger()
+        self.logger = logging.Logger("daq-debug")
 
     # --------------------------------------- CONSUMERS --------------------------------------
 
