@@ -8,7 +8,7 @@ These metrics are placed at one of three steps in the DAQ:
 1. Interface Diagnostics - These are measuring the data over the virtualised interface the DAQ pod has mounted. 
    This means it only sees data directed to it.
 2. Ringbuffer Diagnostics - These measure the capacity and performance of the ringbuffer. 
-   The producer captures data and writes it into the ring buffe, and the consumer pulls from it. 
+   The producer captures data and writes it into the ring buffer, and the consumer pulls from it. 
    If the consumer is slower than the producer, the buffer will fill up. 
    Once the ring buffer is full, packets are dropped until there is space again.
 3. Consumer Diagnostics - These measure the performance of the consumers pulling from the ringbuffer. 
