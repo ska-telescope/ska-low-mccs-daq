@@ -4,8 +4,6 @@ platform:
       ci-1:
         id: 1
         sps: {}
-
-platform:
   stations:
     ci-1:
       sps:
