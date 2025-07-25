@@ -1,6 +1,6 @@
 # Version History
 
-## Unreleased
+## 3.0.0
 
 * [SKB-490] Fix timestamps being all zeroes for integrated channel data by adding sampling time to ingest data call.
 * [THORN-229] Fix StartBandpassMonitor internal command interface, reinstate necessary configuration checks.
@@ -12,6 +12,9 @@
 * [SPRTS-388] SIMD optimisations to station beam data mode to be more resiliant to bursty behaviour.
 * [THORN-215] Add json validation to MccsDaq configure command.
 * [THORN-180] Expose DaqStatus as attributes
+* [THORN-233] Added documentation for new attributes
+* [THORN-187] Added ringbuffer diagnostic attributes ringbufferOccupancy and lostPushes
+* [THORN-185] Added interface monitoring points and station beam monitoring points
 
 ## 3.0.0-rc2
 
