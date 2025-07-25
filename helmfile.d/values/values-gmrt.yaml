@@ -1,0 +1,23 @@
+# Added TPM2 in simulation mode, To test with real hardware, We need to comment everything starting from overrides.
+defaults:
+  logging_level_default: 5
+  
+# Use helm_values to set arbitrary helm values.
+# These are passed through to the helm values file as-is.
+# For example,
+#
+helm_values:
+  # Null ParentTRL given by platform spec, currently the only place to do this.
+  ska-tango-devices:
+    devices:
+      SpsStation:
+        low-mccs/spsstation/gmrt:
+          ParentTRL: ""
+#   image:
+#     registry: registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-spshw
+#     tag: 0.11.0-dev.cc21201e6
+
+#   ska-low-mccs-daq:
+#     image:
+#       registry: registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq
+#       tag: 0.5.0-dev.cfc920d91

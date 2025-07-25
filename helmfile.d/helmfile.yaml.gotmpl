@@ -24,131 +24,158 @@ environments:
         - real-daq-1.yaml
     - config_files:
       - values/values-ci.yaml
-  aa0.5-production:
+  aa0.5:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/ska-low-deployment?f0f1478a2b5ebc240222db8ede01b94aa7f977a9#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/ska-low-tmdata?c5b6c9172bc30dd30afce59c4061e1f4f8342859#tmdata
         datasets:
-        - instrument/mccs-configuration/aa0.5.yaml
-        - instrument/mccs-configuration/s8-1.yaml
-        - instrument/mccs-configuration/s8-6.yaml
-        - instrument/mccs-configuration/s9-2.yaml
-        - instrument/mccs-configuration/s10-3.yaml
+        - aa0.5.yaml
+        - stations/s8-1.yaml
+        - stations/s8-6.yaml
+        - stations/s9-1.yaml
+        - stations/s9-2.yaml
+        - stations/s10-3.yaml
+        - channeliser_rounding.yaml
       config_files:
       - values/values-aa0-5.yaml
-      datacentre: infra:au-aa-mccs-cloud01-k8s
-  aavs3-production:
-    values:
-    - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/ska-low-aavs3?cbbc6191a2ff3556011a55e0abf47f49ddb97936#tmdata
-        datasets:
-        - aavs3.yaml
-      config_files: []
-      # - values/values-aavs3.yaml
-      datacentre: infra:au-itf-aavs302-k8s
-  aavs3-minikube:
-    values:
-    - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/ska-low-aavs3?cbbc6191a2ff3556011a55e0abf47f49ddb97936#tmdata
-        datasets:
-        - aavs3.yaml
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata
-        datasets:
-        - minikube.yaml
-      config_files: []
-      # - values/values-aavs3.yaml
-      datacentre: minikube
   arcetri:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/arcetri
         datasets:
         - arcetri.yaml
-        - minikube.yaml
-      config_files: []
-      # - values/values-arcetri.yaml
+        - stations/arcetri.yaml
+    - config_files:
+      - values/values-arcetri.yaml
       datacentre: minikube
   gmrt:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/gmrt
         datasets:
         - gmrt.yaml
-        - minikube.yaml
-      config_files: []
-      # - values/values-gmrt.yaml
+        - stations/gmrt.yaml
+    - config_files:
+      - values/values-gmrt.yaml
       datacentre: minikube
   low-itf:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/aiv/ska-low-itf?6e443bb6ab4a1a2c0a3567990b4c3323f097f80a#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/aiv/ska-low-itf?a73828ae7741284d948fff4988123c9f0fa8ae2d#tmdata
         datasets:
+        - stations/itf1.yaml
         - low-itf.yaml
-      config_files: []
-      # - values/values-low-itf.yaml
-      datacentre: infra:au-itf-k8s-master01-k8s
+        - stations/itf1.yaml
+        - stations/itf2.yaml
+      config_files:
+        - values/values-low-itf.yaml
   low-itf-minikube:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/aiv/ska-low-itf?6e443bb6ab4a1a2c0a3567990b4c3323f097f80a#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/aiv/ska-low-itf?a73828ae7741284d948fff4988123c9f0fa8ae2d#tmdata
         datasets:
+        - stations/itf2.yaml
         - low-itf.yaml
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata
+        - stations/itf1.yaml
+        - stations/itf2.yaml
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/minikube
         datasets:
-        - minikube.yaml
-      config_files: []
-      # - values/values-low-itf.yaml
-      datacentre: infra:au-itf-k8s-master01-k8s
+        - platform.yaml
+      config_files:
+        - values/values-low-itf.yaml
   oxford:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/oxford
         datasets:
+        - stations/oxford.yaml
         - oxford.yaml
-        - minikube.yaml
-      config_files: []
-      # - values/values-oxford.yaml
+    - config_files:
+      - values/values-oxford.yaml
       datacentre: minikube
   psi-low:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/ska-psi-low?40484382a636977c72e32a389301e17cf13fa2b5#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/ska-psi-low?8d6ebfaa87f4aa253083c04f6ff1d22e8054e075#tmdata
         datasets:
+        - stations/stations.yaml # needs to be first see LOW-988 ska-telescope/ska-low-deployment@7c57c32a
         - psi-low.yaml
-      config_files: []
-      # - values/values-psi-low.yaml
+    - config_files:
+      - values/values-psi-low.yaml
       datacentre: psi-low
   psi-low-minikube:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/ska-psi-low?40484382a636977c72e32a389301e17cf13fa2b5#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/ska-psi-low?8d6ebfaa87f4aa253083c04f6ff1d22e8054e075#tmdata
         datasets:
+        - stations/stations.yaml # needs to be first see LOW-988 ska-telescope/ska-low-deployment@7c57c32a
         - psi-low.yaml
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/minikube
         datasets:
-        - minikube.yaml
-      config_files: []
-      # - values/values-psi-low.yaml
+        - platform.yaml
+      config_files:
+      - values/values-psi-low.yaml
       datacentre: psi-low
-  ral:
+  ral-1:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/stfc-ral
         datasets:
         - stfc-ral.yaml
-      config_files:
-      - values/values-ral.yaml
+        - stations/stfc-ral-1.yaml
+    - config_files:
+      - values/values-ral-1.yaml
       datacentre: stfc-ral
-  ral-minikube:
+  ral-2:
     values:
     - telmodel:
-      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/stfc-ral
         datasets:
         - stfc-ral.yaml
-        - minikube.yaml
-      config_files:
-      - values/values-ral.yaml
+        - stations/stfc-ral-2.yaml
+    - config_files:
+      - values/values-ral-2.yaml
       datacentre: stfc-ral
+  ral-3:
+    values:
+    - telmodel:
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/stfc-ral
+        datasets:
+        - stfc-ral.yaml
+        - stations/stfc-ral-3.yaml
+    - config_files:
+      - values/values-ral-3.yaml
+      datacentre: stfc-ral
+  ral-4:
+    values:
+    - telmodel:
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/stfc-ral
+        datasets:
+        - stfc-ral.yaml
+        - stations/stfc-ral-4.yaml
+    - config_files:
+      - values/values-ral-4.yaml
+      datacentre: stfc-ral
+  ral-5:
+    values:
+    - telmodel:
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/stfc-ral
+        datasets:
+        - stfc-ral.yaml
+        - stations/stfc-ral-5.yaml
+    - config_files:
+      - values/values-ral-5.yaml
+      datacentre: stfc-ral
+  jbo:
+    values:
+    - telmodel:
+      - source: gitlab://gitlab.com/ska-telescope/mccs/ska-low-mccs-common?205effe6f1cb8b556863c50dda5e0ab90df7a9e7#tmdata/jbo
+        datasets:
+        - jbo.yaml
+        - stations/jbo.yaml
+    - config_files:
+      - values/values-jbo.yaml
+      datacentre: jbo
 
 ---
 
@@ -192,6 +219,7 @@ releases:
       - .deploy/helmfile.d/templates/globals.yaml.gotmpl
       - .deploy/helmfile.d/templates/daq/daqs.yaml.gotmpl
       - .deploy/helmfile.d/templates/daq/daqrxs.yaml.gotmpl
+      - .deploy/helmfile.d/templates/daq/daq_storage.yaml.gotmpl
       - .deploy/helmfile.d/templates/helm-values.yaml.gotmpl
 
 {{- $_tango_host_provided := dig "platform" "cluster" "services" "tango-base" "tango-host" "" .Values}}
