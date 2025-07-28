@@ -1109,16 +1109,11 @@ class AAVSFileManager(object):
         """
         filename = file_obj.filename
         first_full_filename = filename
-
-        mode = file_obj.mode
-
-        if mode != "r":
-            lock = FileLock(first_full_filename)
+        lock = FileLock(first_full_filename)
 
         file_obj.close()
 
-        if mode != "r":
-            lock.release()
+        lock.release()
 
     @staticmethod
     def open_file(filename, mode="r"):
@@ -1130,9 +1125,8 @@ class AAVSFileManager(object):
         """
         first_full_filename = filename
 
-        if mode != "r":
-            lock = FileLock(first_full_filename)
-            lock.acquire(timeout=None)
+        lock = FileLock(first_full_filename)
+        lock.acquire(timeout=None)
 
         file_obj = h5py.File(filename, mode)
         return file_obj
