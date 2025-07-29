@@ -1,0 +1,108 @@
+defaults:
+  logging_level_default: 5
+
+platform:
+  stations:
+    arcetri:
+      sps:
+        daq:
+          ip: 10.255.255.255
+          port: 50051
+        tpms:
+          tpm1:
+            resources:
+              requests:
+                memory: 512Mi
+          tpm2:
+            host: 10.0.10.72
+            subrack_slot: 2
+            simulated: true
+            resources:
+              requests:
+                memory: 512Mi
+          tpm3:
+            id: 2
+            host: 10.0.10.73
+            port: 10000
+            version: tpm_v1_6
+            subrack: sr1
+            subrack_slot: 3
+            simulated: true
+            resources:
+              requests:
+                memory: 512Mi
+          tpm4:
+            id: 3
+            host: 10.0.10.74
+            port: 10000
+            version: tpm_v1_6
+            subrack: sr1
+            subrack_slot: 4
+            simulated: true
+            resources:
+              requests:
+                memory: 512Mi
+          tpm5:
+            id: 4
+            host: 10.0.10.75
+            port: 10000
+            version: tpm_v1_6
+            subrack: sr1
+            subrack_slot: 5
+            simulated: true
+            resources:
+              requests:
+                memory: 512Mi
+          tpm6:
+            id: 5
+            host: 10.0.10.76
+            port: 10000
+            version: tpm_v1_6
+            subrack: sr1
+            subrack_slot: 6
+            simulated: true
+            resources:
+              requests:
+                memory: 512Mi
+          tpm7:
+            id: 6
+            host: 10.0.10.77
+            port: 10000
+            version: tpm_v1_6
+            subrack: sr1
+            subrack_slot: 7
+            simulated: true
+            resources:
+              requests:
+                memory: 512Mi
+          tpm8:
+            id: 7
+            host: 10.0.10.78
+            port: 10000
+            version: tpm_v1_6
+            subrack: sr1
+            subrack_slot: 8
+            simulated: true
+            resources:
+              requests:
+                memory: 512Mi
+
+# Use helm_values to set arbitrary helm values.
+# These are passed through to the helm values file as-is.
+# For example,
+#
+helm_values:
+  # Null ParentTRL given by platform spec, currently the only place to do this.
+  ska-tango-devices:
+    devices:
+      SpsStation:
+        low-mccs/spsstation/arcetri:
+          ParentTRL: ""
+#   image:
+#     registry: registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-spshw
+#     tag: 0.11.0-dev.cc21201e6
+
+#   ska-low-mccs-daq:
+#     image:
+#       registry: registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq
+#       tag: 0.5.0-dev.cfc920d91
