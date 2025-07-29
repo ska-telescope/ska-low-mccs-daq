@@ -1,6 +1,11 @@
 # Version History
 
-## Unreleased
+## 3.0.1
+
+* [REL-2240] Moved back to STFC pipelines
+* [THORN-235] Fix data callback attribute
+
+## 3.0.0
 
 * [THORN-231] Added the MccsDaqReceiver.ReceiveIntegratedChannelData() command. This in an engineering mode only command which replays data
     to the DAQ. The data replayed to the DAQ is data from 8 TPMs, with the internal signal generator on for channels 96 and 192.
@@ -22,6 +27,9 @@
 * [SPRTS-388] SIMD optimisations to station beam data mode to be more resiliant to bursty behaviour.
 * [THORN-215] Add json validation to MccsDaq configure command.
 * [THORN-180] Expose DaqStatus as attributes
+* [THORN-233] Added documentation for new attributes
+* [THORN-187] Added ringbuffer diagnostic attributes ringbufferOccupancy and lostPushes
+* [THORN-185] Added interface monitoring points and station beam monitoring points
 
 ## 3.0.0-rc2
 

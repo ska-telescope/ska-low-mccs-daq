@@ -1208,16 +1208,28 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return self._health_model.health_report
 
-    @attribute(dtype="DevLong")
+    @attribute(
+        dtype="DevLong",
+        doc=(
+            "Number of packets returned from the last ",
+            "callback from the running consumer, see RTDs for specifics.",
+        ),
+    )
     def nofSaturations(self: MccsDaqReceiver) -> int:
         """
-        Return the nof saturations of the last consumer integration.
+        Return the nof saturations of the last station beam consumer integration.
 
-        :return: the nof saturations of the last consumer integration.
+        :return: the nof saturations of the last station beam consumer integration.
         """
         return int(self._nof_saturations)
 
-    @attribute(dtype="DevLong")
+    @attribute(
+        dtype="DevLong",
+        doc=(
+            "Number of packets returned from the last ",
+            "callback from the running consumer, see RTDs for specifics.",
+        ),
+    )
     def nofPackets(self: MccsDaqReceiver) -> int:
         """
         Return the nof packets of the last consumer integration.
@@ -1226,52 +1238,102 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return int(self._nof_packets)
 
-    @attribute(dtype="DevLong")
+    @attribute(
+        dtype="DevLong",
+        doc=(
+            "Number of samples returned from the last ",
+            "callback from the running consumer, see RTDs for specifics.",
+        ),
+    )
     def nofSamples(self: MccsDaqReceiver) -> int:
         """
-        Return the nof samples of the last consumer integration.
+        Return the nof samples of the last consumer callback.
 
-        :return: the nof packets of the last consumer integration.
+        :return: the nof packets of the last consumer callback.
         """
         return int(self._nof_samples)
 
-    @attribute(dtype="DevFloat")
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The amount of time taken to complete the last",
+            " correlation in xGPU. If this is increasing likely ",
+            "the GPU is under contention.",
+        ),
+        unit="ms",
+    )
     def correlatorTimeTaken(self: MccsDaqReceiver) -> float:
         """
-        Return the time taken for the last correlation.
+        Return the time taken for the last correlation in xGPU in ms.
 
-        :return: the time taken for the last correlation.
+        if this is increasing likely the GPU is under contention.
+
+        :return: the time taken for the last correlation in xGPU in ms.
         """
         return self._correlator_time_taken
 
-    @attribute(dtype="DevFloat")
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The amount of data rate measured over the",
+            " DAQ interface. This is independent of the DaqReceiver.",
+        ),
+        unit="Gb/s",
+    )
     def dataRate(self: MccsDaqReceiver) -> float | None:
         """
         Return the current data rate in Gb/s, or None if not being monitored.
+
+        This is independent of the DaqReceiver.
 
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
         return self._data_rate
 
-    @attribute(dtype="DevFloat")
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The rate of received packets measured over the",
+            " DAQ interface. This is independent of the DaqReceiver.",
+        ),
+        unit="packets/s",
+    )
     def receiveRate(self: MccsDaqReceiver) -> float | None:
         """
-        Return the current data rate in Gb/s, or None if not being monitored.
+        Return the rate of received packets measured over the DAQ interface.
 
-        :return: the current data rate in Gb/s, or None if not being monitored.
+        This is independent of the DaqReceiver.
+
+        :return: the rate of received packets measured over the DAQ interface.
         """
         return self._receive_rate
 
-    @attribute(dtype="DevFloat")
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The rate of dropped packets measured over the",
+            " DAQ interface. This is independent of the DaqReceiver.",
+        ),
+        unit="packets/s",
+    )
     def dropRate(self: MccsDaqReceiver) -> float | None:
         """
-        Return the current data rate in Gb/s, or None if not being monitored.
+        Return the rate of dropped packets measured over the DAQ interface.
 
-        :return: the current data rate in Gb/s, or None if not being monitored.
+        This is independent of the DaqReceiver.
+
+        :return: the rate of dropped packets measured over the DAQ interface.
         """
         return self._drop_rate
 
-    @attribute(dtype="DevDouble")
+    @attribute(
+        dtype="DevDouble",
+        doc=(
+            "Percentage occupancy of the ringbuffer. If the ringbuffer ",
+            "is full you will be dropping packets as the consumer",
+            " is not keeping up with the producer.",
+        ),
+    )
     def RingbufferOccupancy(self: MccsDaqReceiver) -> float:
         """
         Return the current ringbuffer occupancy in percent.
@@ -1280,7 +1342,13 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return self._ringbuffer_occupancy
 
-    @attribute(dtype="DevULong64")
+    @attribute(
+        dtype="DevULong64",
+        doc=(
+            "The number of lost pushes to the ringbuffer, "
+            "typically increases when ringbuffer is full."
+        ),
+    )
     def LostPushes(self: MccsDaqReceiver) -> int:
         """
         Return the number of lost pushes to the ringbuffer.
@@ -1289,7 +1357,14 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return self._lost_pushes
 
-    @attribute(dtype="DevString")
+    @attribute(
+        dtype="DevString",
+        doc=(
+            "The underlying DAQ library currently in use. ",
+            "For now this is fixed, in future dependent on correlator ",
+            "integration time.",
+        ),
+    )
     def daqLibrary(self: MccsDaqReceiver) -> str:
         """
         Get the filename of the current daq library used.

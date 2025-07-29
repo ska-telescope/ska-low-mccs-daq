@@ -545,8 +545,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             metadata["additional_info"] = additional_info
 
         self._received_data_callback(
-            file_name,
             data_mode,
+            file_name,
             json.dumps(metadata, cls=NumpyEncoder),
         )
 

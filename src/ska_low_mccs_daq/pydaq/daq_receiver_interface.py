@@ -248,7 +248,7 @@ class DaqReceiver:
         if self._external_diagnostic_callback is not None:
             self._external_diagnostic_callback(**diagnostics)
         elif self._config["logging"]:
-            logging.info(
+            logging.debug(
                 "Received diagnostic data - occupancy: {}, lost: {}".format(
                     diagnostic.ringbuffer_occupancy, diagnostic.lost_pushes
                 )

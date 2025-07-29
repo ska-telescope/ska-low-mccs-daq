@@ -29,6 +29,9 @@ autodoc_mock_imports = [
     "past",
     "matplotlib",
     "ska_low_mccs_daq_interface",
+    "ska_tango_base",
+    "ska_control_model",
+    "ska_low_mccs_common",
 ]
 
 
@@ -50,6 +53,9 @@ nitpicky = True
 nitpick_ignore = [
     ("py:class", "pydaq.daq_receiver_interface.DaqReceiver"),
     ("py:class", "pydaq.daq_receiver_interface.DaqModes"),
+    ("py:class", "ska_low_mccs_daq.pydaq.daq_receiver_interface.DaqModes"),
+    ("py:class", "tango.server.MccsDaqReceiverClass"),
+    ("py:class", "DebugDeviceCommand"),
 ]
 
 # If your documentation needs a minimal Sphinx version, state it here.
