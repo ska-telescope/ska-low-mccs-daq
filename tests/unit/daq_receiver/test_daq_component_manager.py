@@ -403,7 +403,7 @@ class TestDaqComponentManager:
 
             for _ in range(8):
                 callbacks["received_data"].assert_call(
-                    Anything, "integrated_channel", Anything
+                    "integrated_channel", Anything, Anything
                 )
 
             call_args = callbacks["component_state"]._call_queue.get(timeout=5)
