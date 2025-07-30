@@ -117,7 +117,7 @@ bool CorrelatorData::processPacket()
     uint16_t nof_included_antennas = 0;
     uint16_t tile_id = 0;
     uint16_t station_id = 0;
-    uint8_t  pol_id     = 0;
+    uint8_t  fpga_id     = 0;
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
@@ -165,7 +165,7 @@ bool CorrelatorData::processPacket()
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
                 tile_id    = (uint16_t) ((val >> 32) & 0xFF);
-                pol_id     = (uint8_t)   (val & 0xFF);
+                fpga_id     = (uint8_t)   (val & 0xFF);
                 break;
             }
             case 0x3300: // Payload offset
@@ -189,7 +189,7 @@ bool CorrelatorData::processPacket()
     samples_in_packet = (uint32_t) ((payload_length - payload_offset) /
                                     (nof_included_antennas * nof_pols * nof_included_channels * sizeof(uint16_t)));
     // Check whether packet counter has rolled over
-    if (packet_counter == 0 && pol_id == 0)
+    if (packet_counter == 0 && fpga_id == 0)
         rollover_counter += 1;
 
     // Multiply packet_counter by rollover counts

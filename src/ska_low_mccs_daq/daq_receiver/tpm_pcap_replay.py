@@ -8,11 +8,14 @@
 """This module implements a replay mechanism for PCAP files using Scapy."""
 from __future__ import annotations
 
+import fcntl
+import socket
+import struct
 from logging import Logger
 from pathlib import Path
 from threading import Thread
 
-from scapy.layers.inet import IP, UDP
+from scapy.layers.inet import IP, UDP, Ether
 from scapy.sendrecv import sendp
 from scapy.utils import rdpcap, wrpcap
 
@@ -29,11 +32,22 @@ class PcapReplayer:
         self._logger = logger
         self.interface: str | None = None
         self.dst_ip: str | None = None
+        self._mac_address: str | None = None
         self._integrated_channel_file = str(
             Path(__file__).parent / "replay_data" / "channel_integ_96_192.pcap"
         )
         self._files = [self._integrated_channel_file]
         self._reroute_thread: Thread | None = None
+
+    def _get_mac_address(self: PcapReplayer) -> str:
+        assert self.interface is not None
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            info = fcntl.ioctl(
+                s.fileno(),
+                0x8927,  # SIOCGIFHWADDR
+                struct.pack("256s", self.interface.encode("utf-8")[:15]),
+            )
+            return ":".join(f"{b:02x}" for b in info[18:24])
 
     def reroute_packets(self: PcapReplayer) -> None:
         """Spin up the task to reroute packets to this DaqReceiver."""
@@ -47,14 +61,17 @@ class PcapReplayer:
                 f"Cannot reroute packets, unknown destination IP: {self.dst_ip}"
             )
             return
+        self._mac_address = self._get_mac_address()
         for file in self._files:
             packets = rdpcap(file)
             for packet in packets:
                 if IP in packet:
                     packet[IP].dst = self.dst_ip
                     del packet[IP].chksum
-                    if UDP in packet:
-                        del packet[UDP].chksum
+                if UDP in packet:
+                    del packet[UDP].chksum
+                if Ether in packet:
+                    packet[Ether].dst = self._mac_address
             wrpcap(file, packets)
 
     def _replay(self: PcapReplayer, pcap_file: str) -> None:
