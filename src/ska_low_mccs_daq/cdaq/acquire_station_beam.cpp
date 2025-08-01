@@ -73,7 +73,7 @@ void exit_with_error(const char *message) {
         if (fd != -1)
             close(fd);
 
-    exit(-1);
+    exit(EXIT_FAILURE);
 }
 
 
@@ -215,7 +215,7 @@ void allocate_space(off_t offset, size_t len) {
         if (fallocate(fd, FALLOC_FL_ZERO_RANGE, offset, len) < 0) {
             perror("Failed to fallocate empty gap in file");
             close(fd);
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
 }
 
@@ -262,7 +262,7 @@ static int generate_output_file(double timestamp, unsigned int frequency,
 
     if ((fd = open(path.c_str(), O_WRONLY | O_CREAT | O_SYNC | O_TRUNC, (mode_t) 0600)) < 0) {
         perror("Failed to create output data file, check directory");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     // Tell the kernel how the file is going to be accessed (sequentially)
@@ -293,7 +293,7 @@ static int generate_output_file(double timestamp, unsigned int frequency,
         {
             perror("Failed to write DADA header to disk");
             close(fd);
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
 
         free(full_header);
