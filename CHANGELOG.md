@@ -1,5 +1,10 @@
 # Version History
 
+## 3.0.2
+
+* [SKB-996] Fix bug with x pol data in the station data consumer having a fake additional 1e-6 power values.
+* [SKB-996] Fix bug with the bandpass DAQ loadbalancer not exposing port 4660 on UDP.
+
 ## 3.0.1
 
 * [REL-2240] Moved back to STFC pipelines

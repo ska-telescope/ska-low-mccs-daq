@@ -392,7 +392,7 @@ inline void StationDoubleBuffer::process_data(int producer_index, uint16_t chann
     auto *ptr = reinterpret_cast<complex8_t *>(data_ptr);
     double *buffer_x = this->double_buffer[producer_index].integrators;
     double *buffer_y = this->double_buffer[producer_index].integrators + nof_channels;
-    double acc_x, acc_y = 0.0;
+    double acc_x = 0.0, acc_y = 0.0;
     uint32_t sat_local = 0;
     uint32_t read_samples = 0;
 
