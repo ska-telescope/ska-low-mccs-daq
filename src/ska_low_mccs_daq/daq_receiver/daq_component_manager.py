@@ -255,7 +255,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 logger.error("Couldn't get external IP automatically.")
                 return ""
             namespace = server_hostname.split(".")[1]
-            name = device_hostname.rsplit("-", 1)[0]
+            name = device_hostname.rsplit("-", 1)[0] + "-data"
             svc = core_v1_api.read_namespaced_service(name=name, namespace=namespace)
             ip = svc.status.load_balancer.ingress[0].ip
             logger.info(f"Got external IP: {ip}")
