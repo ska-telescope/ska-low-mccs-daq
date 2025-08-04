@@ -222,8 +222,10 @@ void allocate_space(off_t offset, size_t len) {
 void seek_to_location(off_t offset, int whence) {
     // Wrapper to lseek which works for multiple files
     for(int fd: files)
-        if (lseek(fd, offset, whence) < 0)
-            exit_with_error("WARNING: Cannot seek file after gap allocation. Exiting\n");
+        if (lseek(fd, offset, whence) < 0){
+            LOG(WARN, "Failed to seek file to offset %lld. (Was the consumer restarted? Data will be appended.)", offset);
+            //exit_with_error("WARNING: Cannot seek file after gap allocation. Exiting\n");
+        }
 }
 
 void write_to_file(void* data, unsigned start_sample_index) {
@@ -262,6 +264,7 @@ static int generate_output_file(double timestamp, unsigned int frequency,
 
     if ((fd = open(path.c_str(), O_WRONLY | O_CREAT | O_SYNC | O_TRUNC, (mode_t) 0600)) < 0) {
         perror("Failed to create output data file, check directory");
+        LOG(WARN, "Failed to create output data file at %s, check directory", path.c_str());
         exit(EXIT_FAILURE);
     }
 
@@ -556,6 +559,7 @@ void test_acquire_station_beam() {
 RESULT start_acquisition() {
     // Split files into max_file_size_gb x 1G. If DADA header is being generated, set do not split file (set
     // cutoff counter to "infinity"
+    counter = 0; // Reset counter for new run
     if (include_dada_header)
         cutoff_counter = INT_MAX;
     else if (individual_channel_files)
