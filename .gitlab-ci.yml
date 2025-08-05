@@ -83,7 +83,7 @@ helmfile-lint:
   image: $SKA_K8S_TOOLS_BUILD_DEPLOY
   stage: lint
   tags:
-    - aws-ska-default
+    - ska-default
   before_script:
     - pip install --extra-index-url https://artefact.skao.int/repository/pypi-internal/simple ska-telmodel
   script:
@@ -101,7 +101,7 @@ python-test:
     job: oci-image-build
     artifacts: true
   tags:
-    - aws-ska-default
+    - ska-default
   before_script:
     - '[ -f .make/python.mk ] || (echo "File python.mk not included in Makefile; exit 1")'
     - 'make help | grep python-test'
