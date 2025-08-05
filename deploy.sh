@@ -113,7 +113,7 @@ pushd third_party || exit
       fi
 	# Install DAQ C++ core
         pushd build || exit
-        cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=$DAQ_INSTALL -DWITH_BCC=OFF .. || exit
+        cmake -DCMAKE_INSTALL_PREFIX=$DAQ_INSTALL -DWITH_BCC=OFF .. || exit
         make -B -j8 install || exit
       popd
     popd
@@ -126,7 +126,7 @@ if [ ! -d build ]; then
 fi
 
 pushd build || exit
-  cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=$DAQ_INSTALL -DWITH_CORRELATOR=$COMPILE_CORRELATOR ../cdaq || exit
+  cmake -DCMAKE_INSTALL_PREFIX=$DAQ_INSTALL -DWITH_CORRELATOR=$COMPILE_CORRELATOR ../cdaq || exit
   make -B -j4 install || exit
 popd
 

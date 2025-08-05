@@ -127,7 +127,6 @@ class TestDaqComponentManager:
         assert daq_config_dict["nof_tiles"] == 55
         assert daq_config_dict["nof_channels"] == 1234
 
-    # Not compiled with correlator currently.
     @pytest.mark.parametrize(
         ("daq_modes_str", "daq_modes_list"),
         (
@@ -201,6 +200,7 @@ class TestDaqComponentManager:
             "DaqModes.STATION_BEAM_DATA",
             "DaqModes.CORRELATOR_DATA",
             "DaqModes.ANTENNA_BUFFER",
+            "DaqModes.RAW_STATION_BEAM",
             "DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA",
             "1, 2, 0",
             "DaqModes.CONTINUOUS_CHANNEL_DATA, DaqModes.ANTENNA_BUFFER, 6",

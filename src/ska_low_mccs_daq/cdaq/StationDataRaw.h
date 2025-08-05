@@ -22,7 +22,7 @@
 struct StationRawBuffer
 {
     double     ref_time;      // The reference time of the second contained in the buffer
-    uint64_t        sample_index;  // Index to be used to determine buffer boundaries
+    uint64_t   sample_index;  // Index to be used to determine buffer boundaries
     bool       ready;         // Specifies whether the buffer is ready to be processed
     uint32_t   sample_offset; // Sample offset from beginning of buffer
     uint32_t   nof_packets;   // Number of packets
