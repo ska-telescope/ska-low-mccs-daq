@@ -1,0 +1,46 @@
+defaults:
+  logging_level_default: 5
+
+subarrays:  # 2 subarrays, no defaults overridden
+  "1": {}
+    # enabled: false  # for example
+  "2": {}
+    # logging_level_default: 4  # for example
+
+subarraybeams:  # 6 subarraybeams, no defaults overridden
+  "1": {}
+    # enabled: false  # for example
+  "2": {}
+    # logging_level_default: 4  # for example
+  "3": {}
+  "4": {}
+  "5": {}
+  "6": {}
+
+
+# Use helm_values to set arbitrary helm values.
+# These are passed through to the helm values file as-is.
+# For example,
+#
+helm_values:
+  # Null ParentTRL given by platform spec, currently the only place to do this.
+  ska-tango-devices:
+    devices:
+      SpsStation:
+        low-mccs/spsstation/stfc-ral-5:
+          ParentTRL: ""
+          
+    # deviceServerTypes:
+    #   spshw:
+    #     image:
+    #       registry: localhost:5000
+    #       tag: 3.1.1-dirty
+    #       pullPolicy: Always
+
+  # ska-low-mccs-daq:
+  #     ska-tango-devices:
+  #       deviceServerTypes:
+  #         daq:
+  #           image:
+  #             registry: registry.gitlab.com/ska-telescope/mccs/ska-low-mccs-daq
+  #             tag: 3.0.0-rc2-dev.c3a04b7ec

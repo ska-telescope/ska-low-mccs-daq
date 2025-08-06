@@ -4,8 +4,6 @@ platform:
       ci-1:
         id: 1
         sps: {}
-
-platform:
   stations:
     ci-1:
       sps:
@@ -15,3 +13,11 @@ platform:
       sps:
         daq:
           two-pod-daq: false
+
+# helm_values:
+#   ska-tango-devices:
+#     deviceServerTypes:
+#       daq:
+#         image:
+#           registry: docker.io/library
+#           tag: 3.0.0-rc2-dirty

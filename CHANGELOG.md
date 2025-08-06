@@ -1,18 +1,30 @@
 # Version History
 
-## Unreleased
+## 3.0.2
 
+* [SKB-996] Fix bug with x pol data in the station data consumer having a fake additional 1e-6 power values.
+* [SKB-996] Fix bug with the bandpass DAQ loadbalancer not exposing port 4660 on UDP.
+
+## 3.0.1
+
+* [REL-2240] Moved back to STFC pipelines
+* [THORN-235] Fix data callback attribute
+
+## 3.0.0
+
+* [SKB-490] Fix timestamps being all zeroes for integrated channel data by adding sampling time to ingest data call.
+* [THORN-229] Fix StartBandpassMonitor internal command interface, reinstate necessary configuration checks.
 * [THORN-196] Added attributes for the correlator mode: nofSamples, correlatorTimeTaken
 * [THORN-203] The nofPackets attribute now works for integrated channel data.
 * [THORN-178] Added attribute to expose aavsdaq library version
-
-## 3.0.0-rc3
-
 * [SKB-827] Fixed a memory leak in StationData.cpp. The DoubleBuffer was cleaning up the incorrect number of buffers.
 * [SKB-827] Updated aavs-daq reference for fixes to the ringbuffer.
 * [SPRTS-388] SIMD optimisations to station beam data mode to be more resiliant to bursty behaviour.
 * [THORN-215] Add json validation to MccsDaq configure command.
 * [THORN-180] Expose DaqStatus as attributes
+* [THORN-233] Added documentation for new attributes
+* [THORN-187] Added ringbuffer diagnostic attributes ringbufferOccupancy and lostPushes
+* [THORN-185] Added interface monitoring points and station beam monitoring points
 
 ## 3.0.0-rc2
 

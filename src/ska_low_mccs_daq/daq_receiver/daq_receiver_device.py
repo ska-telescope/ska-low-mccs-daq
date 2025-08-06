@@ -154,11 +154,9 @@ class _StartBandpassMonitorCommand(SubmittedSlowCommand):
             logger=logger,
         )
 
-    # pylint: disable = arguments-differ
     def do(  # type: ignore[override]
         self: _StartBandpassMonitorCommand,
         *args: Any,
-        argin: str,
         **kwargs: Any,
     ) -> tuple[ResultCode, str]:
         """
@@ -166,20 +164,6 @@ class _StartBandpassMonitorCommand(SubmittedSlowCommand):
 
         :param args: unspecified positional arguments. This should be
             empty and is provided for typehinting purposes only.
-        :param argin: A json dictionary with keywords.
-            - plot_directory
-            Directory in which to store bandpass plots.
-            - monitor_rms
-            Whether or not to additionally produce RMS plots.
-            Default: False.
-            - auto_handle_daq
-            Whether DAQ should be automatically reconfigured,
-            started and stopped without user action if necessary.
-            This set to False means we expect DAQ to already
-            be properly configured and listening for traffic
-            and DAQ will not be stopped when `StopBandpassMonitor`
-            is called.
-            Default: False.
         :param kwargs: unspecified keyword arguments. This should be
             empty and is provided for typehinting purposes only.
 
@@ -191,7 +175,7 @@ class _StartBandpassMonitorCommand(SubmittedSlowCommand):
             not args and not kwargs
         ), f"do method has unexpected arguments: {args}, {kwargs}"
 
-        return super().do(argin)
+        return super().do()
 
 
 # pylint: disable = too-many-instance-attributes, too-many-public-methods
@@ -288,6 +272,8 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._data_rate: float
         self._receive_rate: float
         self._drop_rate: float
+        self._ringbuffer_occupancy: float
+        self._lost_pushes: int
         self._correlator_time_taken: float
         self._skuid_url: str
 
@@ -359,6 +345,8 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._receive_rate = 0
         self._drop_rate = 0
         self._data_rate = 0
+        self._ringbuffer_occupancy = 0.0
+        self._lost_pushes = 0
         self._correlator_time_taken = 0.0
         self.set_change_event("healthState", True, False)
         self.set_archive_event("healthState", True, False)
@@ -469,6 +457,10 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("receiveRate", True, False)
             self._device.set_change_event("dropRate", True, False)
             self._device.set_archive_event("dropRate", True, False)
+            self._device.set_change_event("ringbufferOccupancy", True, False)
+            self._device.set_archive_event("ringbufferOccupancy", True, False)
+            self._device.set_change_event("lostPushes", True, False)
+            self._device.set_archive_event("lostPushes", True, False)
             self._device.set_change_event("correlatorTimeTaken", True, False)
             self._device.set_archive_event("correlatorTimeTaken", True, False)
 
@@ -580,6 +572,14 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._nof_packets = 0
         self.push_change_event("nofPackets", 0)
         self.push_archive_event("nofPackets", 0)
+
+        self._ringbuffer_occupancy = 0.0
+        self.push_change_event("ringbufferOccupancy", 0.0)
+        self.push_archive_event("ringbufferOccupancy", 0.0)
+
+        self._lost_pushes = 0
+        self.push_change_event("lostPushes", 0)
+        self.push_archive_event("lostPushes", 0)
 
         self._nof_samples = 0
         self.push_change_event("nofSamples", 0)
@@ -944,9 +944,9 @@ class MccsDaqReceiver(MccsBaseDevice):
         (result_code, message) = handler(argin)
         return ([result_code], [message])
 
-    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    @command(dtype_out="DevVarLongStringArray")
     def StartBandpassMonitor(
-        self: MccsDaqReceiver, argin: str
+        self: MccsDaqReceiver,
     ) -> DevVarLongStringArrayType:
         """
         Start monitoring antenna bandpasses.
@@ -954,29 +954,12 @@ class MccsDaqReceiver(MccsBaseDevice):
         The MccsDaqReceiver will begin monitoring antenna bandpasses
             and producing plots of the spectra.
 
-        :param argin: A json dictionary with keywords.
-            - plot_directory
-            Directory in which to store bandpass plots.
-            - monitor_rms
-            Whether or not to additionally produce RMS plots.
-            Default: False.
-            - auto_handle_daq
-            Whether DAQ should be automatically reconfigured,
-            started and stopped without user action if necessary.
-            This set to False means we expect DAQ to already
-            be properly configured and listening for traffic
-            and DAQ will not be stopped when `StopBandpassMonitor`
-            is called.
-            Default: False.
-            - cadence
-            The time in seconds over which to average bandpass data.
-            Default: 0 returns snapshots.
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
         """
         handler = self.get_command_object("StartBandpassMonitor")
-        (result_code, message) = handler(argin=argin)
+        (result_code, message) = handler()
         return ([result_code], [message])
 
     class StopBandpassMonitorCommand(FastCommand):
@@ -1179,16 +1162,28 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return self._health_model.health_report
 
-    @attribute(dtype="DevLong")
+    @attribute(
+        dtype="DevLong",
+        doc=(
+            "Number of packets returned from the last ",
+            "callback from the running consumer, see RTDs for specifics.",
+        ),
+    )
     def nofSaturations(self: MccsDaqReceiver) -> int:
         """
-        Return the nof saturations of the last consumer integration.
+        Return the nof saturations of the last station beam consumer integration.
 
-        :return: the nof saturations of the last consumer integration.
+        :return: the nof saturations of the last station beam consumer integration.
         """
         return int(self._nof_saturations)
 
-    @attribute(dtype="DevLong")
+    @attribute(
+        dtype="DevLong",
+        doc=(
+            "Number of packets returned from the last ",
+            "callback from the running consumer, see RTDs for specifics.",
+        ),
+    )
     def nofPackets(self: MccsDaqReceiver) -> int:
         """
         Return the nof packets of the last consumer integration.
@@ -1197,52 +1192,133 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return int(self._nof_packets)
 
-    @attribute(dtype="DevLong")
+    @attribute(
+        dtype="DevLong",
+        doc=(
+            "Number of samples returned from the last ",
+            "callback from the running consumer, see RTDs for specifics.",
+        ),
+    )
     def nofSamples(self: MccsDaqReceiver) -> int:
         """
-        Return the nof samples of the last consumer integration.
+        Return the nof samples of the last consumer callback.
 
-        :return: the nof packets of the last consumer integration.
+        :return: the nof packets of the last consumer callback.
         """
         return int(self._nof_samples)
 
-    @attribute(dtype="DevFloat")
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The amount of time taken to complete the last",
+            " correlation in xGPU. If this is increasing likely ",
+            "the GPU is under contention.",
+        ),
+        unit="ms",
+    )
     def correlatorTimeTaken(self: MccsDaqReceiver) -> float:
         """
-        Return the time taken for the last correlation.
+        Return the time taken for the last correlation in xGPU in ms.
 
-        :return: the time taken for the last correlation.
+        if this is increasing likely the GPU is under contention.
+
+        :return: the time taken for the last correlation in xGPU in ms.
         """
         return self._correlator_time_taken
 
-    @attribute(dtype="DevFloat")
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The amount of data rate measured over the",
+            " DAQ interface. This is independent of the DaqReceiver.",
+        ),
+        unit="Gb/s",
+    )
     def dataRate(self: MccsDaqReceiver) -> float | None:
         """
         Return the current data rate in Gb/s, or None if not being monitored.
+
+        This is independent of the DaqReceiver.
 
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
         return self._data_rate
 
-    @attribute(dtype="DevFloat")
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The rate of received packets measured over the",
+            " DAQ interface. This is independent of the DaqReceiver.",
+        ),
+        unit="packets/s",
+    )
     def receiveRate(self: MccsDaqReceiver) -> float | None:
         """
-        Return the current data rate in Gb/s, or None if not being monitored.
+        Return the rate of received packets measured over the DAQ interface.
 
-        :return: the current data rate in Gb/s, or None if not being monitored.
+        This is independent of the DaqReceiver.
+
+        :return: the rate of received packets measured over the DAQ interface.
         """
         return self._receive_rate
 
-    @attribute(dtype="DevFloat")
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The rate of dropped packets measured over the",
+            " DAQ interface. This is independent of the DaqReceiver.",
+        ),
+        unit="packets/s",
+    )
     def dropRate(self: MccsDaqReceiver) -> float | None:
         """
-        Return the current data rate in Gb/s, or None if not being monitored.
+        Return the rate of dropped packets measured over the DAQ interface.
 
-        :return: the current data rate in Gb/s, or None if not being monitored.
+        This is independent of the DaqReceiver.
+
+        :return: the rate of dropped packets measured over the DAQ interface.
         """
         return self._drop_rate
 
-    @attribute(dtype="DevString")
+    @attribute(
+        dtype="DevDouble",
+        doc=(
+            "Percentage occupancy of the ringbuffer. If the ringbuffer ",
+            "is full you will be dropping packets as the consumer",
+            " is not keeping up with the producer.",
+        ),
+    )
+    def RingbufferOccupancy(self: MccsDaqReceiver) -> float:
+        """
+        Return the current ringbuffer occupancy in percent.
+
+        :return: the current ringbuffer occupancy in percent.
+        """
+        return self._ringbuffer_occupancy
+
+    @attribute(
+        dtype="DevULong64",
+        doc=(
+            "The number of lost pushes to the ringbuffer, "
+            "typically increases when ringbuffer is full."
+        ),
+    )
+    def LostPushes(self: MccsDaqReceiver) -> int:
+        """
+        Return the number of lost pushes to the ringbuffer.
+
+        :return: the number of lost pushes to the ringbuffer.
+        """
+        return self._lost_pushes
+
+    @attribute(
+        dtype="DevString",
+        doc=(
+            "The underlying DAQ library currently in use. ",
+            "For now this is fixed, in future dependent on correlator ",
+            "integration time.",
+        ),
+    )
     def daqLibrary(self: MccsDaqReceiver) -> str:
         """
         Get the filename of the current daq library used.

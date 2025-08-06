@@ -15,6 +15,8 @@ import functools
 import json
 import os
 import time
+from random import gauss, randint
+from threading import Thread
 from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 import numpy as np
@@ -185,6 +187,9 @@ class DaqSimulator:
         self._modes: list[DaqModes] = []
         self._persisters: dict[DaqModes, PersisterSimulator] = {}
         self._running_consumers: dict[DaqModes, bool] = {}
+        self._diagnostic_callback: Optional[Callable] = None
+
+        self._started = False
 
         self._stop_bandpass: bool = False
         self._monitoring_bandpass: bool = False
@@ -193,6 +198,17 @@ class DaqSimulator:
 
     def _data_callback(self) -> None:
         pass
+
+    def _simulate_diagnostics(self) -> None:
+        lost_pushes = 0
+        while self._started:
+            if self._diagnostic_callback:
+                random_occupancy = max(0.0, min(100.0, gauss(20, 25)))
+                if random_occupancy >= 90:
+                    lost_pushes += randint(1, 100)
+                self._diagnostic_callback(lost_pushes=lost_pushes)
+                self._diagnostic_callback(ringbuffer_occupancy=random_occupancy)
+            time.sleep(5)
 
     def initialise_daq(
         self: DaqSimulator,
@@ -253,20 +269,27 @@ class DaqSimulator:
 
     @check_initialisation
     def start_daq(
-        self: DaqSimulator, modes_to_start: list[DaqModes], callbacks: list[Callable]
+        self: DaqSimulator,
+        modes_to_start: list[DaqModes],
+        callbacks: list[Callable],
+        diagnostic_callback: Optional[Callable],
     ) -> tuple[ResultCode, str]:
         """
         Start data acquisition with the current configuration.
 
         :param modes_to_start: modes to start.
         :param callbacks: callbacks for the data modes.
+        :param diagnostic_callback: callback for diagnostics.
 
         :return: a result code and status.
         """
         self._modes = modes_to_start
+        self._started = True
+        self._diagnostic_callback = diagnostic_callback
         for mode in modes_to_start:
             self._persisters[mode] = PersisterSimulator()
             self._running_consumers[mode] = True
+        Thread(target=self._simulate_diagnostics, name="SimulatedDiagnostics").start()
         return (ResultCode.OK, "DAQ started.")
 
     @check_initialisation
@@ -279,6 +302,7 @@ class DaqSimulator:
         self._modes = []
         self._persisters = {}
         self._running_consumers = {}
+        self._started = False
         return ResultCode.OK, "Daq stopped"
 
     @check_initialisation
@@ -411,7 +435,11 @@ class DaqSimulator:
                     None,
                 )
                 return
-            self.start_daq([DaqModes.INTEGRATED_CHANNEL_DATA], [self._data_callback])
+            self.start_daq(
+                [DaqModes.INTEGRATED_CHANNEL_DATA],
+                [self._data_callback],
+                self._diagnostic_callback,
+            )
 
         station_name = "simulated_station_name"
 

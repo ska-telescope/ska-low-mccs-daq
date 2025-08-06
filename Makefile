@@ -135,12 +135,14 @@ k8s-do-test:
 		pytest $(K8S_TEST_RUNNER_PYTEST_OPTIONS) $(K8S_TEST_RUNNER_PYTEST_TARGET)" ; \
     EXIT_CODE=$$? ; \
 	kubectl -n $(KUBE_NAMESPACE) cp ska-low-mccs-k8s-test-runner:$(K8S_TEST_RUNNER_WORKING_DIRECTORY)/build/ ./build/ ; \
+	source $(K8S_SUPPORT); \
+	k8sSaveLogs $(KUBE_NAMESPACE); \
 	helm  -n $(KUBE_NAMESPACE) uninstall $(K8S_TEST_RUNNER_CHART_RELEASE) ; \
 	echo $$EXIT_CODE > build/status
 	exit $$EXIT_CODE
 
 telmodel-deps:
-	pip install --extra-index-url https://artefact.skao.int/repository/pypi-internal/simple ska-telmodel check-jsonschema
+	pip install --extra-index-url https://artefact.skao.int/repository/pypi-internal/simple ska-telmodel jsonschema jsonschema-specifications fqdn
 
 k8s-pre-install-chart: telmodel-deps
 k8s-pre-uninstall-chart: telmodel-deps
@@ -158,9 +160,9 @@ HELM_CHARTS_TO_PUBLISH = ska-low-mccs-daq
 ####################
 # Helmfile
 ####################
-helmfile-lint:
+helmfile-lint: telmodel-deps
 	SKIPDEPS=""
-	for environment in minikube aa0.5-production aavs3-production aavs3-minikube arcetri gmrt low-itf low-itf-minikube oxford psi-low psi-low-minikube ral ral-minikube; do \
+	for environment in minikube aa0.5 arcetri gmrt low-itf low-itf-minikube oxford psi-low psi-low-minikube ral-1 ral-2 ral-3 ral-4 ral-5; do \
         echo "Linting helmfile against environment '$$environment'" ; \
 		helmfile -e $$environment lint $$SKIPDEPS; \
 		EXIT_CODE=$$? ; \
@@ -169,7 +171,7 @@ helmfile-lint:
 		break ; \
 		fi ; \
 		SKIPDEPS="--skip-deps" ; \
-	done
+	done; \
 	exit $$EXIT_CODE
 
 .PHONY: helmfile-lint

@@ -83,7 +83,7 @@ class TestMccsDaqReceiver:
             (
                 "DaqModes.INTEGRATED_CHANNEL_DATA",
                 [DaqModes.INTEGRATED_CHANNEL_DATA],
-                "lo",
+                "eth0",
                 [4567],
                 "123.456.789.000",
             ),
@@ -294,6 +294,54 @@ class TestMccsDaqReceiver:
         time.sleep(2)  # Allow some time for data rate to be calculated.
         assert device_under_test.dataRate == pytest.approx(1.0, rel=1e-1)
 
+    def test_diagnostics(
+        self: TestMccsDaqReceiver,
+        device_under_test: tango.DeviceProxy,
+        change_event_callbacks: MockTangoEventCallbackGroup,
+    ) -> None:
+        """
+        Test that we can record diagnostics from the ringbuffer.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param change_event_callbacks: group of Tango change event
+            callback with asynchrony support
+        """
+        device_under_test.adminMode = AdminMode.ONLINE
+        assert device_under_test.adminMode == AdminMode.ONLINE
+        device_under_test.subscribe_event(
+            "state",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["state"],
+        )
+        change_event_callbacks["state"].assert_change_event(
+            tango.DevState.ON, consume_nonmatches=True, lookahead=5
+        )
+        device_under_test.subscribe_event(
+            "ringbufferoccupancy",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["ringbuffer_occupancy"],
+        )
+        change_event_callbacks["ringbuffer_occupancy"].assert_change_event(0.0)
+        device_under_test.subscribe_event(
+            "lostpushes",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["lost_pushes"],
+        )
+        change_event_callbacks["lost_pushes"].assert_change_event(0)
+        device_under_test.start(json.dumps({"modes_to_start": "STATION_BEAM_DATA"}))
+        change_event_callbacks["ringbuffer_occupancy"].assert_change_event(Anything)
+        change_event_callbacks["lost_pushes"].assert_change_event(Anything)
+        assert 0.0 <= device_under_test.ringbufferoccupancy <= 100.0
+        if device_under_test.ringbufferoccupancy >= 90:
+            assert device_under_test.lostpushes > 0
+        else:
+            assert device_under_test.lostpushes == 0
+        device_under_test.stop()
+        change_event_callbacks["ringbuffer_occupancy"].assert_change_event(0.0)
+        change_event_callbacks["lost_pushes"].assert_change_event(0)
+
 
 class TestPatchedDaq:
     """
@@ -348,21 +396,21 @@ class TestPatchedDaq:
             {
                 "Daq Health": [HealthState.OK.name, HealthState.OK.value],
                 "Running Consumers": [[]],
-                "Receiver Interface": "lo",
+                "Receiver Interface": "eth0",
                 "Receiver IP": ["123.456.789.000"],
                 "Bandpass Monitor": False,
             },
             {
                 "Daq Health": [HealthState.OK.name, HealthState.OK.value],
                 "Running Consumers": [["INTEGRATED_CHANNEL_DATA", 5]],
-                "Receiver Interface": "lo",
+                "Receiver Interface": "eth0",
                 "Receiver IP": ["123.456.789.000"],
                 "Bandpass Monitor": False,
             },
             {
                 "Daq Health": [HealthState.OK.name, HealthState.OK.value],
                 "Running Consumers": [["INTEGRATED_CHANNEL_DATA", 5]],
-                "Receiver Interface": "lo",
+                "Receiver Interface": "eth0",
                 "Receiver IP": ["123.456.789.000"],
                 "Bandpass Monitor": True,
             },
@@ -720,16 +768,13 @@ class TestPatchedDaq:
         sleep(0.1)
 
         # Call start_bandpass
-        bandpass_config = '{"some_key": "some_value"}'
-        _ = device_under_test.StartBandpassMonitor(bandpass_config)
-        call_args = mock_component_manager.start_bandpass_monitor.call_args
-        # A bit clunky but it gets padded with command IDs etc.
-        assert call_args[0][0] == bandpass_config
+        _ = device_under_test.StartBandpassMonitor()
+        _ = mock_component_manager.start_bandpass_monitor.assert_called_once_with(
+            Anything  # We get some command tracker padding in here.
+        )
 
         _ = device_under_test.StopBandpassMonitor()
-        call_args = (
-            mock_component_manager.stop_bandpass_monitor.assert_called_once_with()
-        )
+        _ = mock_component_manager.stop_bandpass_monitor.assert_called_once_with()
 
     def test_start_stop_data_rate_monitor(
         self: TestPatchedDaq,

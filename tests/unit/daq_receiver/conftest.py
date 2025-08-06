@@ -52,6 +52,8 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
         "healthState",
         "dataReceivedResult",
         "state",
+        "ringbuffer_occupancy",
+        "lost_pushes",
         timeout=15.0,
         # TODO: Add more event types here as the tests grow
     )
@@ -206,7 +208,17 @@ def mock_psutil_methods(
                 errout=0,
                 dropin=0,
                 dropout=0,
-            )
+            ),
+            "eth0": psutil._common.snetio(
+                bytes_sent=0,
+                bytes_recv=0,
+                packets_sent=0,
+                packets_recv=0,
+                errin=0,
+                errout=0,
+                dropin=0,
+                dropout=0,
+            ),
         }
 
     monkeypatch.setattr(psutil, "net_io_counters", mock_net_io_counters)

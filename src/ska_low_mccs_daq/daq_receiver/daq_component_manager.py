@@ -255,7 +255,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 logger.error("Couldn't get external IP automatically.")
                 return ""
             namespace = server_hostname.split(".")[1]
-            name = device_hostname.rsplit("-", 1)[0]
+            name = device_hostname.rsplit("-", 1)[0] + "-data"
             svc = core_v1_api.read_namespaced_service(name=name, namespace=namespace)
             ip = svc.status.load_balancer.ingress[0].ip
             logger.info(f"Got external IP: {ip}")
@@ -276,7 +276,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.initialise(self._configuration)
         self._update_communication_state(CommunicationStatus.ESTABLISHED)
         if self._dedicated_bandpass_daq:
-            self._get_bandpass_running()
+            self.start_bandpass_monitor()
 
     def initialise(
         self: DaqComponentManager, config: dict[str, Any]
@@ -320,17 +320,23 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.logger.info("Daq already initialised")
         return ResultCode.REJECTED, "Daq already initialised"
 
-    def _get_bandpass_running(self: DaqComponentManager) -> None:
+    @check_communicating
+    def _get_bandpass_running(
+        self: DaqComponentManager,
+        task_callback: TaskCallbackType | None = None,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
         """
         Get the bandpass monitor running if it isn't already.
 
-        This method is called when the monitoring thread detects that either
-        the consumer has stopped or the bandpass monitor itself has stopped.
-        It starts the INTEGRATED DATA consumer and starts the bandpass monitor with
-        `auto_handle_daq=True`.
-        This device-side handles starting the correct consumer, the daq-server side
-        handles any reconfiguration.
+        It checks configuration, reconfigures if needed,
+        starts the INTEGRATED DATA consumer and starts the bandpass monitor.
+
+        :param task_callback: Update task state, defaults to None
+        :param task_abort_event: Check for abort, defaults to None
         """
+        if task_callback:
+            task_callback(status=TaskStatus.IN_PROGRESS)
 
         def _wait_for_status(status: str, value: str) -> None:
             """
@@ -355,6 +361,15 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     return
             self.logger.debug(f"Found {value} in DaqStatus[{status}]: {daq_status=}.")
 
+        # Check configuration.
+        new_config = self._is_daq_configured_for_bandpass_monitoring()
+        if new_config:
+            self.logger.info(
+                f"Reconfiguring DAQ for bandpass monitoring with: {new_config}"
+            )
+            self.configure_daq(**new_config)
+
+        # Check consumer is running.
         if not self._is_integrated_channel_consumer_running():
             # start consumer
             self.logger.info(
@@ -365,13 +380,16 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 status="Running Consumers", value=str(["INTEGRATED_CHANNEL_DATA", 5])
             )
 
-        if not self._is_bandpass_monitor_running():
-            self.logger.info("Auto starting bandpass monitor.")
-            self.configure_daq(
-                **{"append_integrated": False, "nof_tiles": self._nof_tiles}
+        # Good to go.
+        self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
+        self._files_received_per_tile = [0] * self._nof_tiles
+        self._monitoring_bandpass = True
+
+        if task_callback:
+            task_callback(
+                status=TaskStatus.COMPLETED,
+                result=(ResultCode.OK, "Bandpass monitor active"),
             )
-            self.start_bandpass_monitor()
-            _wait_for_status(status="Bandpass Monitor", value="True")
 
     def _is_integrated_channel_consumer_running(
         self: DaqComponentManager, status: dict[str, Any] | None = None
@@ -393,19 +411,21 @@ class DaqComponentManager(TaskExecutorComponentManager):
             in str(self.get_status().get("Running Consumers"))
         )
 
-    def _is_bandpass_monitor_running(
-        self: DaqComponentManager, status: dict[str, Any] | None = None
-    ) -> bool:
+    def _is_daq_configured_for_bandpass_monitoring(
+        self: DaqComponentManager,
+    ) -> dict[str, Any]:
         """
-        Check if the bandpass monitor is running.
+        Check if the DAQ is configured for bandpass monitoring.
 
-        :param status: An optional status dictionary to check.
-
-        :return: True if the bandpass monitor is running, False otherwise.
+        :return: The new configuration needed to enable bandpass monitoring.
         """
-        if status is not None:
-            return bool(status.get("Bandpass Monitor"))
-        return bool(self.get_status().get("Bandpass Monitor"))
+        config = self.get_configuration()
+        new_config: dict[str, Any] = {}
+        if config["append_integrated"] is True:
+            new_config["append_integrated"] = False
+        if config["nof_tiles"] != self._nof_tiles:
+            new_config["nof_tiles"] = self._nof_tiles
+        return new_config
 
     def stop_communicating(self: DaqComponentManager) -> None:
         """Break off communication with the DaqReceiver components."""
@@ -515,8 +535,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             metadata["additional_info"] = additional_info
 
         self._received_data_callback(
-            file_name,
             data_mode,
+            file_name,
             json.dumps(metadata, cls=NumpyEncoder),
         )
 
@@ -547,6 +567,18 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         if data_mode == "correlator":
             pass
+
+    def _diagnostic_callback(
+        self: DaqComponentManager,
+        **diagnostic_data: float,
+    ) -> None:
+        """
+        Diagnostic callback for DAQ component manager.
+
+        :param diagnostic_data: Diagnostic data to process.
+        """
+        for attribute_name, attribute_value in diagnostic_data.items():
+            self._attribute_callback(attribute_name, attribute_value)
 
     @check_communicating
     def start_daq(
@@ -647,7 +679,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         self.client_queue = queue.SimpleQueue()
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
-        self._daq_client.start_daq(converted_modes_to_start, callbacks)
+        self._daq_client.start_daq(
+            converted_modes_to_start, callbacks, self._diagnostic_callback
+        )
         self.logger.info("Daq listening......")
 
         if task_callback:
@@ -821,36 +855,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
             return (TaskStatus.REJECTED, "Bandpass monitor already started.")
         self.logger.info("Starting bandpass monitor.")
         return self.submit_task(
-            self._start_bandpass_monitor,
+            self._get_bandpass_running,
             task_callback=task_callback,
         )
-
-    @check_communicating
-    def _start_bandpass_monitor(
-        self: DaqComponentManager,
-        task_callback: TaskCallbackType | None = None,
-        task_abort_event: Optional[threading.Event] = None,
-    ) -> None:
-        """
-        Start monitoring antenna bandpasses.
-
-        The MccsDaqReceiver will begin monitoring antenna bandpasses
-            and producing plots of the spectra.
-
-        :param task_callback: Update task state, defaults to None
-        :param task_abort_event: Check for abort, defaults to None
-
-        """
-        if task_callback:
-            task_callback(status=TaskStatus.IN_PROGRESS)
-        self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
-        self._files_received_per_tile = [0] * self._nof_tiles
-        self._monitoring_bandpass = True
-        if task_callback:
-            task_callback(
-                status=TaskStatus.COMPLETED,
-                result=(ResultCode.OK, "Bandpass monitor active"),
-            )
 
     def _to_db(self: DaqComponentManager, data: np.ndarray) -> np.ndarray:
         np.seterr(divide="ignore")
