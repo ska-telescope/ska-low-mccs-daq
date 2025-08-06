@@ -322,6 +322,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             == CommunicationStatus.ESTABLISHED
         ):
             self.component_manager._stop_daq()
+        self.component_manager.stop_data_rate_monitor()
         super().delete_device()
 
     def _init_state_model(self: MccsDaqReceiver) -> None:
