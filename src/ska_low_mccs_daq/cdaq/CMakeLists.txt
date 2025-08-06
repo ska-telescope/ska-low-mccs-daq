@@ -51,12 +51,6 @@ set(STATION_BEAM_FILES StationDataRaw.cpp
         acquire_station_beam.cpp
         acquire_station_beam.h)
 
-# Source file for raw station beam acquisition
-set(STATION_BEAM_FILES StationDataRaw.cpp
-        StationData.h
-        acquire_station_beam.cpp
-        acquire_station_beam.h)
-
 # Compile library
 add_library(aavsdaq SHARED ${AAVS_FILES})
 

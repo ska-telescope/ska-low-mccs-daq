@@ -258,7 +258,7 @@ static int generate_output_file(double timestamp, unsigned int frequency,
 
     // Create output file
     std::string suffix = include_dada_header ? ".dada" : ".dat";
-    std::string path = base_directory + "raw_station_beam_" + std::to_string(first_channel)
+    std::string path = base_directory + "raw_station_beam_channel_" + std::to_string(first_channel)
                        + "_" + std::to_string(channels_in_file)
                        + "_" + std::to_string(timestamp) + suffix;
 
