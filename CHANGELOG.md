@@ -1,5 +1,10 @@
 # Version History
 
+## unreleased
+
+* [THORN-38] Added Raw station beam data consumer.
+Known bug: If Daq is configured for a single channel and a channel > ~8 is chosen then a segfault is observed when receiving data. See `https://jira.skatelescope.org/browse/THORN-242`
+
 ## 3.0.2
 
 * [SKB-996] Fix bug with x pol data in the station data consumer having a fake additional 1e-6 power values.
