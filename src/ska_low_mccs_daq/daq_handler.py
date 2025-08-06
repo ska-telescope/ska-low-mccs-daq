@@ -12,6 +12,7 @@ import functools
 import json
 import logging
 import os
+import pprint
 import queue
 import re
 import threading
@@ -185,6 +186,7 @@ class DaqHandler:
         :param extra_config: keyword args providing extra configuration.
         """
         print("Initialising DAQ handler with extra config:")
+        pprint.pprint(extra_config)
 
         self._external_ip_override = (
             external_ip if external_ip else extra_config.pop("external_ip", None)
@@ -330,7 +332,7 @@ class DaqHandler:
 
         if self._initialised is False:
             self.logger.debug("Creating DaqReceiver instance.")
-            self.daq_instance = DaqReceiver(self.logger)
+            self.daq_instance = DaqReceiver()
             if libaavsdaq_filepath == "":
                 self._custom_libaavsdaq_filepath = None
             else:

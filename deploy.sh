@@ -134,11 +134,6 @@ popd
 pip install -r cdaq_requirements.pip || exit
 pip install .
 
-
-echo ""
-echo "Installation finished. Please check your .bashrc file and source it to update your environment."
-echo ""
-echo "Instructions to update the TPM BIOS are available here: https://gitlab.com/sanitaseg/itpm-bios"
 echo ""
 echo "Installation finished."
 echo ""

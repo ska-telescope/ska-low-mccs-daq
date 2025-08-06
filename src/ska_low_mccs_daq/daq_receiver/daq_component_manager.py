@@ -195,7 +195,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if simulation_mode:
             self._daq_client = DaqSimulator(**self._configuration)
         else:
-            self._daq_client = DaqReceiver(logger)
+            self._daq_client = DaqReceiver()
         logger.info(f"DAQ backend in simulation mode: {simulation_mode}")
         self._skuid_url = skuid_url
         self._measure_data_rate: bool = False
@@ -296,7 +296,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             if self._simulation_mode:
                 self._daq_client = DaqSimulator(**self._configuration)
             else:
-                self._daq_client = DaqReceiver(self.logger)
+                self._daq_client = DaqReceiver()
             try:
                 self.logger.info(
                     "Configuring before initialising with: %s", self._configuration
@@ -663,17 +663,14 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     ),
                 )
             self._started_event.clear()
-            return  # raise?
+            return
 
         if DaqModes.RAW_STATION_BEAM in converted_modes_to_start:
             # We initialise differently for raw station beam mode.
-            # self._daq_client.initialise_station_beam()
-            print("Initialising raw station beam")
             self._daq_client.initialise_station_beam()
             self._receiver_started = True
         else:
             if not self._receiver_started:
-                print("Initialising normally")
                 self._daq_client.initialise_daq()
                 self._receiver_started = True
 
