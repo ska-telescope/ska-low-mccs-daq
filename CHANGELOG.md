@@ -1,5 +1,9 @@
 # Version History
 
+## 3.2.0
+
+* [THORN-197] Add attributes nofPackets/bufferCount for raw station beam. Link up ringbufferOccupancy/lostPushes for raw station beam.
+
 ## 3.1.0
 
 * [THORN-38] Added Raw station beam data consumer.

@@ -821,7 +821,7 @@ class DaqReceiver:
             logging.info("Received antenna buffer data for tile {}".format(tile))
 
     def _raw_station_callback(
-        self, metadadata: ctypes.POINTER,
+        self, metadata: ctypes.POINTER,
     ) -> None:
         """Raw data callback
         :param metadadata: Pointer to the metadata associated with the callback.
@@ -829,7 +829,7 @@ class DaqReceiver:
             * buffer_counter
         """
         metadata = ctypes.cast(
-            metadadata, ctypes.POINTER(self.RawStationMetadata)
+            metadata, ctypes.POINTER(self.RawStationMetadata)
         ).contents
 
         station_metadata = {
