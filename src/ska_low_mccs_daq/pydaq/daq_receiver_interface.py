@@ -1335,7 +1335,7 @@ class DaqReceiver:
             logging.error("Failed to start raw station beam capture")
             raise Exception("Failed to start raw station beam capture")
         else:
-            logging.info("Started raw station beam capture")
+            logging.info(f"Started raw station beam capture with {params=}")
 
         self._running_consumers[DaqModes.RAW_STATION_BEAM] = True
 

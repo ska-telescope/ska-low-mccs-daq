@@ -114,16 +114,18 @@ def check_initialisation(func: Wrapped) -> Wrapped:
         :param args: positional arguments to the wrapped function
         :param kwargs: keyword arguments to the wrapped function
 
-        :raises ValueError: if component initialisation has
-            not been completed.
         :return: whatever the wrapped function returns
         """
         if not self.initialised:
-            raise ValueError(
-                f"Cannot execute '{type(self).__name__}.{func.__name__}'. "
-                "DaqReceiver has not been initialised. "
-                "Set adminMode to ONLINE to re-initialise."
+            self.logger.warning(
+                "Daq has not been initialised. Initialising with defaults now."
             )
+            self.initialise(self._config, "")
+            # raise ValueError(
+            #     f"Cannot execute '{type(self).__name__}.{func.__name__}'. "
+            #     "DaqReceiver has not been initialised. "
+            #     "Set adminMode to ONLINE to re-initialise."
+            # )
         return func(self, *args, **kwargs)
 
     return cast(Wrapped, _wrapper)
@@ -211,6 +213,7 @@ class DaqHandler:
             "correlator": DaqModes.CORRELATOR_DATA,
             "station": DaqModes.STATION_BEAM_DATA,
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
+            "raw_station_beam": DaqModes.RAW_STATION_BEAM,
         }
         # TODO: Check this typehint. Floats might be ints, not sure.
         self._antenna_locations: dict[
@@ -221,12 +224,14 @@ class DaqHandler:
         self._x_bandpass_plots: deque[str] = deque(maxlen=1)
         self._rms_plots: deque[str] = deque(maxlen=1)
         self._station_name: str = "a_station_name"  # TODO: Get Station TRL/ID
+        self._custom_libaavsdaq_filepath: Optional[str] = None
         self._plot_transmission: bool = False
         self._files_to_plot: queue.Queue[str] = queue.Queue()
         self._measure_data_rate: bool = False
         self._data_rate: float | None = None
 
     # Callback called for every data mode.
+    # pylint: disable = too-many-branches
     def _file_dump_callback(  # noqa: C901
         self: DaqHandler,
         data_mode: str,
@@ -290,6 +295,9 @@ class DaqHandler:
         if data_mode == "correlator":
             pass
 
+        if data_mode == "raw_station_beam":
+            pass
+
     def _data_received_callback(
         self: DaqHandler,
         data_mode: str,
@@ -325,6 +333,10 @@ class DaqHandler:
         if self._initialised is False:
             self.logger.debug("Creating DaqReceiver instance.")
             self.daq_instance = DaqReceiver()
+            if libaavsdaq_filepath == "":
+                self._custom_libaavsdaq_filepath = None
+            else:
+                self._custom_libaavsdaq_filepath = libaavsdaq_filepath
             try:
                 self.logger.info(
                     "Configuring before initialising with: %s", self._config
@@ -374,6 +386,7 @@ class DaqHandler:
         :yield: a status update.
 
         :raises ValueError: if an invalid DaqMode is supplied
+        :raises Exception: If an unexpected Exception is caught.
         """
         assert self.daq_instance is not None
         try:
@@ -385,9 +398,26 @@ class DaqHandler:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
             raise
 
-        if not self._receiver_started:
-            self.daq_instance.initialise_daq()
-            self._receiver_started = True
+        try:
+            if not self._receiver_started:
+                self.daq_instance.initialise_daq(
+                    filepath=self._custom_libaavsdaq_filepath
+                )
+                self._receiver_started = True
+                self.logger.info("Restarted daq's receiver thread.")
+        except Exception as e:
+            self.logger.error(
+                "Caught exception initialising in daq_handler.start: %s", e
+            )
+            raise
+
+        # Can only start RAW_STATION_BEAM mode on its own.
+        if DaqModes.RAW_STATION_BEAM in converted_modes_to_start:
+            if len(converted_modes_to_start) > 1:
+                self.logger.error("DaqModes.RAW_STATION_BEAM must be started alone.")
+                return
+            # Reinitialise for RAW_STATION_BEAM
+            self.daq_instance.initialise_station_beam()
 
         try:
             self.client_queue = queue.SimpleQueue()
