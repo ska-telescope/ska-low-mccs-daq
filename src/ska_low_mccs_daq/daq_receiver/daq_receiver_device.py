@@ -275,6 +275,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._ringbuffer_occupancy: float
         self._lost_pushes: int
         self._correlator_time_taken: float
+        self._buffer_counter: int
         self._skuid_url: str
 
     def init_device(self: MccsDaqReceiver) -> None:
@@ -1317,21 +1318,21 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the number of lost pushes to the ringbuffer.
         """
         return self._lost_pushes
-    
+
     @attribute(
         dtype="DevLong",
         doc=(
-            "The number of buffers processed by the DAQ receiver for raw station beam.",
+            "The number of buffers processed by the DAQ for raw station beam.",
             " This is incremented each time a buffer is processed.",
         ),
     )
     def bufferCounter(self: MccsDaqReceiver) -> int:
         """
-        Return the number of buffers processed by the DAQ receiver for raw station beam.
+        Return the number of buffers processed by the DAQ for raw station beam.
 
         This is incremented each time a buffer is processed.
 
-        :return: the number of buffers processed by the DAQ receiver for raw station beam.
+        :return: the number of buffers processed by the DAQ for raw station beam.
         """
         return self._buffer_counter
 
