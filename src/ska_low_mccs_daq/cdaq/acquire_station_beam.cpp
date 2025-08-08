@@ -556,7 +556,7 @@ void test_acquire_station_beam() {
 // -----------------------------------------------------------------------------------------------------------
 
 // Set up and start raw station beam acquisition
-RESULT start_acquisition() {
+RESULT start_acquisition(DiagnosticCallback diagnostic_callback = nullptr) {
     // Split files into max_file_size_gb x 1G. If DADA header is being generated, set do not split file (set
     // cutoff counter to "infinity"
     counter = 0; // Reset counter for new run
@@ -609,7 +609,7 @@ RESULT start_acquisition() {
         return FAILURE;
     }
 
-    if (startConsumerDynamic("stationdataraw", raw_station_beam_callback) != SUCCESS) {
+    if (startConsumerDynamic("stationdataraw", raw_station_beam_callback, diagnostic_callback) != SUCCESS) {
         LOG(ERROR, "Failed to start station data consumser");
         return FAILURE;
     }
@@ -633,7 +633,7 @@ RESULT stop_acquisition() {
 }
 
 // Start capture, for external use
-RESULT start_capture(const char* json_string) {
+RESULT start_capture(const char* json_string, DiagnosticCallback diagnostic_callback) {
 
     auto configuration = json::parse(json_string);
 
@@ -681,7 +681,7 @@ RESULT start_capture(const char* json_string) {
     }
 
     // Start acquisition
-    return start_acquisition();
+    return start_acquisition(diagnostic_callback);
 }
 
 // Stop capture, for external use

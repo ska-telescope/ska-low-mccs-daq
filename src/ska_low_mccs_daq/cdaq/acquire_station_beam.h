@@ -8,7 +8,7 @@
 #define AAVS_DAQ_ACQUIRE_STATION_BEAM_H
 
 extern "C" {
-    RESULT start_capture(const char* json_string);
+    RESULT start_capture(const char* json_string, DiagnosticCallback diagnostic_callback = nullptr);
     RESULT stop_capture();
 }
 

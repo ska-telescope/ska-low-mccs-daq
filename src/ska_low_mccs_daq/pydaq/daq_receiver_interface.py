@@ -1794,7 +1794,7 @@ class DaqReceiver:
         self._station_beam_library = ctypes.CDLL(_library)
 
         # Define start capture
-        self._station_beam_library.start_capture.argtypes = [ctypes.c_char_p]
+        self._station_beam_library.start_capture.argtypes = [ctypes.c_char_p, self.DIAGNOSTIC_CALLBACK]
         self._station_beam_library.start_capture.restype = ctypes.c_int
 
         # Define stop capture
@@ -2018,7 +2018,7 @@ class DaqReceiver:
     def _start_raw_station_acquisition(self, configuration: Dict[str, Any]):
         """Start receiving raw station beam data"""
         if (
-            self._station_beam_library.start_capture(json.dumps(configuration).encode())
+            self._station_beam_library.start_capture(json.dumps(configuration).encode(), self._daq_diagnostic_callback)
             == self.Result.Success.value
         ):
             return self.Result.Success
