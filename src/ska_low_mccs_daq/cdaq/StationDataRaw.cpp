@@ -257,7 +257,7 @@ bool StationRawData::processPacket()
     unsigned start_sample_offset = 0;
     if (capture_start_time > 0) {
         // Check whether the packet end time is before provided start time
-        // LOG(INFO, "%d %d s:%.12lf e:%.12lf", logical_channel_id, packet_counter, packet_time, packet_end_time);
+        LOG(INFO, "%d %lu s:%.12lf e:%.12lf", logical_channel_id, packet_counter, packet_time, packet_end_time);
         if (packet_end_time < capture_start_time) {
             ring_buffer -> pull_ready();
             return true;

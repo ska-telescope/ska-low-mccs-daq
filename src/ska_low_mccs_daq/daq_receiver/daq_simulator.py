@@ -194,6 +194,7 @@ class DaqSimulator:
         self._stop_bandpass: bool = False
         self._monitoring_bandpass: bool = False
         self._daq_library_path: bytes = "path/libaavsdaq.so".encode()
+        self._station_beam_library: bytes = "path/libaavsstationbeam.so".encode()
 
     def _data_callback(self) -> None:
         pass
@@ -216,14 +217,32 @@ class DaqSimulator:
         """
         Initialise a new DaqReceiver instance.
 
-        :param libaavsdaq_filepath: Filepath to a custom version of libaavsdaq.so
+        :param libaavsdaq_filepath: Filepath to a specific version of libaavsdaq.so
 
         :return: a resultcode, message tuple
         """
         if self._initialised:
             return ResultCode.REJECTED, "Daq already initialised"
         self._initialised = True
+        if libaavsdaq_filepath:
+            self._daq_library_path = libaavsdaq_filepath.encode()
         return ResultCode.OK, "Daq successfully initialised"
+
+    def initialise_station_beam(
+        self: DaqSimulator, filepath: str | None = None
+    ) -> tuple[ResultCode, str]:
+        """
+        Initialise the station beam.
+
+        :param filepath: Filepath to a specific version of libaavsstationbeam.so
+
+        :return: a resultcode, message tuple
+        """
+        self._initialised = True
+        if filepath:
+            self._station_beam_library = filepath.encode()
+            self._daq_library_path = filepath.encode()
+        return ResultCode.OK, "Daq successfully initialised for raw station beam"
 
     def populate_configuration(
         self: DaqSimulator,

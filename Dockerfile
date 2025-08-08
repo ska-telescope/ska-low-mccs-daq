@@ -29,6 +29,7 @@ ENV TZ="United_Kingdom/London"
 ENV CUDA_ARCH="sm_80"
 ENV LC_ALL="en_US.UTF-8"
 ENV AAVS_DAQ_SHA=c92881df1c72d8abebbe3a9077fb595ee63107e4
+ENV DAQ_INSTALL="/opt/aavs"
 
 ENV LD_LIBRARY_PATH="/usr/local/lib/:${LD_LIBRARY_PATH}"
 
