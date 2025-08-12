@@ -275,6 +275,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._ringbuffer_occupancy: float
         self._lost_pushes: int
         self._correlator_time_taken: float
+        self._buffer_counter: int
         self._skuid_url: str
 
     def init_device(self: MccsDaqReceiver) -> None:
@@ -349,6 +350,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._ringbuffer_occupancy = 0.0
         self._lost_pushes = 0
         self._correlator_time_taken = 0.0
+        self._buffer_counter = 0
         self.set_change_event("healthState", True, False)
         self.set_archive_event("healthState", True, False)
 
@@ -464,6 +466,8 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("lostPushes", True, False)
             self._device.set_change_event("correlatorTimeTaken", True, False)
             self._device.set_archive_event("correlatorTimeTaken", True, False)
+            self._device.set_change_event("bufferCounter", True, False)
+            self._device.set_archive_event("bufferCounter", True, False)
 
             return (ResultCode.OK, "Init command completed OK")
 
@@ -589,6 +593,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._correlator_time_taken = 0.0
         self.push_change_event("correlatorTimeTaken", 0)
         self.push_archive_event("correlatorTimeTaken", 0)
+
+        self._buffer_counter = 0
+        self.push_change_event("bufferCounter", 0)
+        self.push_archive_event("bufferCounter", 0)
 
     def _received_data_callback(
         self: MccsDaqReceiver,
@@ -1311,6 +1319,23 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the number of lost pushes to the ringbuffer.
         """
         return self._lost_pushes
+
+    @attribute(
+        dtype="DevLong",
+        doc=(
+            "The number of buffers processed by the DAQ for raw station beam.",
+            " This is incremented each time a buffer is processed.",
+        ),
+    )
+    def bufferCounter(self: MccsDaqReceiver) -> int:
+        """
+        Return the number of buffers processed by the DAQ for raw station beam.
+
+        This is incremented each time a buffer is processed.
+
+        :return: the number of buffers processed by the DAQ for raw station beam.
+        """
+        return self._buffer_counter
 
     @attribute(
         dtype="DevString",

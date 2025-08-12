@@ -75,6 +75,13 @@ class DaqReceiver:
             ("nof_packets", ctypes.c_uint),
         ]
 
+    class RawStationMetadata(ctypes.Structure):
+        """Raw station metadata structure definition"""
+        _fields_ = [
+            ("nof_packets", ctypes.c_uint),
+            ("buffer_counter", ctypes.c_uint),
+        ]
+
     class DataType(Enum):
         """DataType enumeration"""
 
@@ -202,6 +209,7 @@ class DaqReceiver:
                 self._correlator_callback
             ),
             DaqModes.ANTENNA_BUFFER: self.DATA_CALLBACK(self._antenna_buffer_callback),
+            DaqModes.RAW_STATION_BEAM: self.DIAGNOSTIC_CALLBACK(self._raw_station_callback),
         }
 
         # List of external callback
@@ -811,6 +819,27 @@ class DaqReceiver:
 
         if self._config["logging"]:
             logging.info("Received antenna buffer data for tile {}".format(tile))
+
+    def _raw_station_callback(
+        self, metadata: ctypes.POINTER,
+    ) -> None:
+        """Raw data callback
+        :param metadadata: Pointer to the metadata associated with the callback.
+            * nof_packets
+            * buffer_counter
+        """
+        metadata = ctypes.cast(
+            metadata, ctypes.POINTER(self.RawStationMetadata)
+        ).contents
+
+        station_metadata = {
+            "nof_packets": metadata.nof_packets,
+            "buffer_counter": metadata.buffer_counter,
+        }
+
+        # Call external diagnostic callback if defined
+        if self._external_diagnostic_callback is not None:
+            self._external_diagnostic_callback(**station_metadata)
 
     def _start_raw_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """Start raw data consumer
@@ -1794,7 +1823,7 @@ class DaqReceiver:
         self._station_beam_library = ctypes.CDLL(_library)
 
         # Define start capture
-        self._station_beam_library.start_capture.argtypes = [ctypes.c_char_p]
+        self._station_beam_library.start_capture.argtypes = [ctypes.c_char_p, self.DIAGNOSTIC_CALLBACK, self.DIAGNOSTIC_CALLBACK]
         self._station_beam_library.start_capture.restype = ctypes.c_int
 
         # Define stop capture
@@ -2018,7 +2047,7 @@ class DaqReceiver:
     def _start_raw_station_acquisition(self, configuration: Dict[str, Any]):
         """Start receiving raw station beam data"""
         if (
-            self._station_beam_library.start_capture(json.dumps(configuration).encode())
+            self._station_beam_library.start_capture(json.dumps(configuration).encode(), self._daq_diagnostic_callback, self._callbacks[DaqModes.RAW_STATION_BEAM])
             == self.Result.Success.value
         ):
             return self.Result.Success

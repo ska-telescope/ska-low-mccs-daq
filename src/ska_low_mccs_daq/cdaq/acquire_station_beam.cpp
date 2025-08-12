@@ -54,6 +54,8 @@ typedef struct raw_station_metadata {
     unsigned start_sample_index;
 } RawStationMetadata;
 
+static ExternalStationCallback external_callback = nullptr;
+
 // Forward declaration of functions
 static int generate_output_file(double timestamp, unsigned int frequency,
                                 unsigned int first_channel, unsigned int channels_in_file);
@@ -204,6 +206,12 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
     auto date_text = strtok(ctime(&datetime), "\n");
     cout << date_text <<  ": Written buffer " << buffer_counter << " with " << nof_packets <<
          " packets in " << (unsigned) (diff(t1, t2) * 1000) << "ms" << endl;
+    if (external_callback != nullptr) {
+        ExternalStationMetadata metadata;
+        metadata.nof_packets = nof_packets;
+        metadata.buffer_counter = buffer_counter;
+        external_callback(&metadata);
+    }
 
     // Increment buffer counter
     counter++;
@@ -556,7 +564,7 @@ void test_acquire_station_beam() {
 // -----------------------------------------------------------------------------------------------------------
 
 // Set up and start raw station beam acquisition
-RESULT start_acquisition() {
+RESULT start_acquisition(DiagnosticCallback diagnostic_callback = nullptr, ExternalStationCallback station_external_callback = nullptr) {
     // Split files into max_file_size_gb x 1G. If DADA header is being generated, set do not split file (set
     // cutoff counter to "infinity"
     counter = 0; // Reset counter for new run
@@ -580,6 +588,8 @@ RESULT start_acquisition() {
     // Configure receiver
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
     addReceiverPort(4660);
+
+    external_callback = station_external_callback;
 
     // Set station raw consumer parameters
     json j = {
@@ -609,7 +619,7 @@ RESULT start_acquisition() {
         return FAILURE;
     }
 
-    if (startConsumerDynamic("stationdataraw", raw_station_beam_callback) != SUCCESS) {
+    if (startConsumerDynamic("stationdataraw", raw_station_beam_callback, diagnostic_callback) != SUCCESS) {
         LOG(ERROR, "Failed to start station data consumser");
         return FAILURE;
     }
@@ -633,7 +643,7 @@ RESULT stop_acquisition() {
 }
 
 // Start capture, for external use
-RESULT start_capture(const char* json_string) {
+RESULT start_capture(const char* json_string, DiagnosticCallback diagnostic_callback, ExternalStationCallback station_external_callback) {
 
     auto configuration = json::parse(json_string);
 
@@ -681,7 +691,7 @@ RESULT start_capture(const char* json_string) {
     }
 
     // Start acquisition
-    return start_acquisition();
+    return start_acquisition(diagnostic_callback, station_external_callback);
 }
 
 // Stop capture, for external use
