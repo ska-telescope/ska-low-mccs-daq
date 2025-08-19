@@ -39,6 +39,9 @@ if (WITH_CORRELATOR)
                            DoubleBuffer.h
                            CorrelatorData.cpp
                            CorrelatorData.h
+                           multi_array.h
+                           TensorCorrelatorData.cpp
+                           TensorCorrelatorData.h
                            StandaloneCorrelator.cpp)
 endif()
 
@@ -57,6 +60,12 @@ add_library(aavsdaq SHARED ${AAVS_FILES})
 # Compile AAVSDAQ library
 if (WITH_CORRELATOR)
     # Link required libraries
+
+    find_package(CUDAToolkit REQUIRED)
+    find_package(cudawrappers REQUIRED)
+    find_package(libtcc REQUIRED)
+
+    target_link_libraries(aavsdaq tcc cudawrappers::cu cudawrappers::nvrtc)
     target_link_libraries(aavsdaq daq xgpu ${CMAKE_THREAD_LIBS_INIT})
 
     if (WITH_SMALL_STATION)

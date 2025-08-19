@@ -118,6 +118,23 @@ pushd third_party || exit
       popd
     popd
   fi
+
+  # Install CudaWrapper
+  if [[ ! -d "cudawrappers" ]]; then
+    git clone https://github.com/nlesc-recruit/cudawrappers
+
+    pushd cudawrappers || exit
+      if [[ ! -d build ]]; then
+        mkdir build
+      fi
+
+        pushd build || exit
+        cmake -DCMAKE_INSTALL_PREFIX=$DAQ_INSTALL -DCMAKE_INSTALL_LIBDIR=lib -S .. -B build || exit
+        make -C build || exit
+        make -C build install || exit
+      popd
+    popd
+  fi
 popd
 
 # Install C++ src
@@ -126,11 +143,11 @@ if [ ! -d build ]; then
 fi
 
 pushd build || exit
-  cmake -DCMAKE_INSTALL_PREFIX=$DAQ_INSTALL -DWITH_CORRELATOR=$COMPILE_CORRELATOR ../cdaq || exit
+  cmake -DCMAKE_INSTALL_PREFIX=$DAQ_INSTALL -DWITH_CORRELATOR=$COMPILE_CORRELATOR -DCMAKE_INSTALL_LIBDIR=lib ../cdaq || exit
   make -B -j4 install || exit
 popd
 
-# Install required python packages
+Install required python packages
 pip install -r cdaq_requirements.pip || exit
 pip install .
 
