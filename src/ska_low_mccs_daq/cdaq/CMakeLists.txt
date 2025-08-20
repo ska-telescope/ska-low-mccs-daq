@@ -8,7 +8,7 @@ include_directories(${DAQ_DIRECTORY}/include)
 project(AAVS_DAQ C CXX)
 
 # Add option to compile correlator
-option(WITH_CORRELATOR "Compile cross-correlator which uses xGPU" OFF)
+option(WITH_CORRELATOR "Compile cross-correlator which uses xGPU" ON)
 option(WITH_SMALL_STATION "Compile a separate library for 48 element stations" OFF)
 message(STATUS "Correlator compilation: ${WITH_CORRELATOR}")
 message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")
@@ -102,3 +102,7 @@ install(TARGETS "aavsdaq" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 if (WITH_SMALL_STATION)
     install(TARGETS "aavsdaq48" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
+
+add_executable(tensor_ctor_test test_tcc_correlator.cpp)
+target_link_libraries(tensor_ctor_test aavsdaq)
+install(TARGETS tensor_ctor_test RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)

@@ -77,6 +77,7 @@ class DaqReceiver:
 
     class RawStationMetadata(ctypes.Structure):
         """Raw station metadata structure definition"""
+
         _fields_ = [
             ("nof_packets", ctypes.c_uint),
             ("buffer_counter", ctypes.c_uint),
@@ -209,7 +210,9 @@ class DaqReceiver:
                 self._correlator_callback
             ),
             DaqModes.ANTENNA_BUFFER: self.DATA_CALLBACK(self._antenna_buffer_callback),
-            DaqModes.RAW_STATION_BEAM: self.DIAGNOSTIC_CALLBACK(self._raw_station_callback),
+            DaqModes.RAW_STATION_BEAM: self.DIAGNOSTIC_CALLBACK(
+                self._raw_station_callback
+            ),
         }
 
         # List of external callback
@@ -651,9 +654,15 @@ class DaqReceiver:
         )
         nof_channels = 1
 
-        values = self._get_numpy_from_ctypes(
-            data, np.complex64, nof_channels * nof_baselines * nof_stokes
-        )
+        N = nof_channels * ((nof_antennas * (nof_antennas + 1)) // 2) * nof_stokes
+
+        # Read 2*N int32’s (re,im interleaved)
+        ints = self._get_numpy_from_ctypes(data, np.int32, 2 * N)
+
+        # Split and convert to complex64s
+        re = ints[0::2].astype(np.float32)
+        im = ints[1::2].astype(np.float32)
+        values = (re + 1j * im).astype(np.complex64)   # shape: (N,)
 
         # The correlator reorders the matrix in lower triangular form, this needs to be converted
         # to upper triangular form to be compatible with the rest of the system
@@ -821,7 +830,8 @@ class DaqReceiver:
             logging.info("Received antenna buffer data for tile {}".format(tile))
 
     def _raw_station_callback(
-        self, metadata: ctypes.POINTER,
+        self,
+        metadata: ctypes.POINTER,
     ) -> None:
         """Raw data callback
         :param metadadata: Pointer to the metadata associated with the callback.
@@ -1238,7 +1248,7 @@ class DaqReceiver:
 
         if (
             self._start_consumer(
-                "correlator",
+                "tensorcorrelator",
                 params,
                 self._callbacks[DaqModes.CORRELATOR_DATA],
                 dynamic_callback=True,
@@ -1434,7 +1444,7 @@ class DaqReceiver:
     def _stop_correlator(self) -> None:
         """Stop correlator consumer"""
         self._external_callbacks[DaqModes.CORRELATOR_DATA] = None
-        if self._stop_consumer("correlator") != self.Result.Success:
+        if self._stop_consumer("tensorcorrelator") != self.Result.Success:
             raise Exception("Failed to stop correlator")
         self._running_consumers[DaqModes.CORRELATOR_DATA] = False
 
@@ -1823,7 +1833,11 @@ class DaqReceiver:
         self._station_beam_library = ctypes.CDLL(_library)
 
         # Define start capture
-        self._station_beam_library.start_capture.argtypes = [ctypes.c_char_p, self.DIAGNOSTIC_CALLBACK, self.DIAGNOSTIC_CALLBACK]
+        self._station_beam_library.start_capture.argtypes = [
+            ctypes.c_char_p,
+            self.DIAGNOSTIC_CALLBACK,
+            self.DIAGNOSTIC_CALLBACK,
+        ]
         self._station_beam_library.start_capture.restype = ctypes.c_int
 
         # Define stop capture
@@ -2047,7 +2061,11 @@ class DaqReceiver:
     def _start_raw_station_acquisition(self, configuration: Dict[str, Any]):
         """Start receiving raw station beam data"""
         if (
-            self._station_beam_library.start_capture(json.dumps(configuration).encode(), self._daq_diagnostic_callback, self._callbacks[DaqModes.RAW_STATION_BEAM])
+            self._station_beam_library.start_capture(
+                json.dumps(configuration).encode(),
+                self._daq_diagnostic_callback,
+                self._callbacks[DaqModes.RAW_STATION_BEAM],
+            )
             == self.Result.Success.value
         ):
             return self.Result.Success

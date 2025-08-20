@@ -4,51 +4,48 @@
 
 #include "TensorCorrelatorData.h"
 #include "SPEAD.h"
-#include <cudawrappers/nvrtc.hpp>
 #include "libtcc/Correlator.h"
-#include <complex>
-
-#include "multi_array.h"        // from libtcc
-#include <cudawrappers/cu.hpp>  // cudawrappers device/stream wrappers
 
 // Initialise correlator data consumer
 bool TensorCorrelatorData::initialiseConsumer(json configuration)
 {
     // Check that all required keys are present
     if (!(key_in_json(configuration, "nof_antennas")) &&
-         (key_in_json(configuration, "nof_channels")) &&
-         (key_in_json(configuration, "nof_fine_channels")) &&
-         (key_in_json(configuration, "nof_tiles")) &&
-         (key_in_json(configuration, "nof_samples")) &&
-         (key_in_json(configuration, "nof_pols")) &&
-         (key_in_json(configuration, "max_packet_size"))) {
+        (key_in_json(configuration, "nof_channels")) &&
+        (key_in_json(configuration, "nof_fine_channels")) &&
+        (key_in_json(configuration, "nof_tiles")) &&
+        (key_in_json(configuration, "nof_samples")) &&
+        (key_in_json(configuration, "nof_pols")) &&
+        (key_in_json(configuration, "max_packet_size")))
+    {
         LOG(FATAL, "Missing configuration item for TensorCorrelatorData consumer. Requires "
-                "nof_antennas, nof_samples, nof_tiles, nof_pols, nof_channels, "
-                "nof_fine_channels and max_packet_size");
+                   "nof_antennas, nof_samples, nof_tiles, nof_pols, nof_channels, "
+                   "nof_fine_channels and max_packet_size");
         return false;
     }
 
     // Set local values
-    this -> nof_channels = configuration["nof_channels"];
-    this -> nof_tiles    = configuration["nof_tiles"];
-    this -> nof_samples  = configuration["nof_samples"];
-    this -> nof_antennas = configuration["nof_antennas"];
-    this -> nof_pols     = configuration["nof_pols"];
-    this -> packet_size  = configuration["max_packet_size"];
+    this->nof_channels = configuration["nof_channels"];
+    this->nof_tiles = configuration["nof_tiles"];
+    this->nof_samples = configuration["nof_samples"];
+    this->nof_antennas = configuration["nof_antennas"];
+    this->nof_pols = configuration["nof_pols"];
+    this->packet_size = configuration["max_packet_size"];
     uint32_t nof_fine_channels = configuration["nof_fine_channels"];
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t) 32768 * this -> nof_tiles);
+    initialiseRingBuffer(packet_size, (size_t)32768 * this->nof_tiles);
 
     // Create double buffer
-    double_buffer= new DoubleBuffer(nof_antennas * nof_tiles, nof_samples, nof_pols);
+    double_buffer = new DoubleBuffer(nof_antennas * nof_tiles, nof_samples, nof_pols);
 
     // Create cross-correlator and start
+    cu::init();
     cross_correlator = new TensorCrossCorrelator(double_buffer, nof_fine_channels,
-                                           nof_tiles * nof_antennas, nof_samples, nof_pols);
+                                                 nof_tiles * nof_antennas, nof_samples, nof_pols);
 
     // Start cross-correlator
-    cross_correlator -> startThread();
+    cross_correlator->startThread();
 
     // All done
     return true;
@@ -68,7 +65,7 @@ void TensorCorrelatorData::cleanUp()
 // Set callback
 void TensorCorrelatorData::setCallback(DataCallbackDynamic callback)
 {
-    this -> cross_correlator -> setCallback(callback);
+    this->cross_correlator->setCallback(callback);
 }
 
 // Packet filter
@@ -94,10 +91,11 @@ bool TensorCorrelatorData::packetFilter(unsigned char *udp_packet)
 bool TensorCorrelatorData::processPacket()
 {
     // Get next packet to process
-    size_t packet_size = ring_buffer -> pull_timeout(&packet, 1);
+    size_t packet_size = ring_buffer->pull_timeout(&packet, 1);
 
     // Check if the request timed out
-    if (packet_size == SIZE_MAX) {
+    if (packet_size == SIZE_MAX)
+    {
         // Request timed out, finish any pending writes
         double_buffer->finish_write();
 
@@ -111,7 +109,7 @@ bool TensorCorrelatorData::processPacket()
     // passed through the filter
     uint64_t hdr = SPEAD_HEADER(packet);
 
-    uint32_t packet_index   = 0;
+    uint32_t packet_index = 0;
     uint32_t packet_counter = 0;
     uint64_t payload_length = 0;
     uint64_t sync_time = 0;
@@ -122,81 +120,77 @@ bool TensorCorrelatorData::processPacket()
     uint16_t nof_included_antennas = 0;
     uint16_t tile_id = 0;
     uint16_t station_id = 0;
-    uint8_t  pol_id     = 0;
+    uint8_t pol_id = 0;
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
-    auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
+    auto nofitems = (unsigned short)SPEAD_GET_NITEMS(hdr);
     uint8_t *payload = packet + SPEAD_HEADERLEN + nofitems * SPEAD_ITEMLEN;
 
     // Loop over items to extract values
-    for(unsigned i = 1; i <= nofitems; i++)
+    for (unsigned i = 1; i <= nofitems; i++)
     {
         uint64_t item = SPEAD_ITEM(packet, i);
         switch (SPEAD_ITEM_ID(item))
         {
-            case 0x0001:  // Heap counter
-            {
-                packet_counter = (uint32_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFF);       // 24-bits
-                packet_index   = (uint32_t) ((SPEAD_ITEM_ADDR(item) >> 24) & 0xFFFF); // 16-bits
-                break;
-            }
-            case 0x0004: // Payload length
-            {
-                payload_length = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x1027: // Sync time
-            {
-                sync_time = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x1600: // Timestamp
-            {
-                timestamp = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x2002: // Antenna and Channel information
-            {
-                uint64_t val = SPEAD_ITEM_ADDR(item);
-                start_channel_id      = (uint16_t) ((val >> 24) & 0xFFFF);
-                nof_included_channels = (uint16_t) ((val >> 16) & 0xFF);
-                start_antenna_id      = (uint16_t) ((val >> 8) & 0xFF);
-                nof_included_antennas = (uint16_t) (val & 0xFF);
-                break;
-            }
-            case 0x2001: // Tile information
-            {
-                uint64_t val = SPEAD_ITEM_ADDR(item);
-                station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint16_t) ((val >> 32) & 0xFF);
-                pol_id     = (uint8_t)   (val & 0xFF);
-                break;
-            }
-            case 0x3300: // Payload offset
-            {
-                payload_offset = (uint32_t) SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x2004:
-                break;
-            default:
-                LOG(INFO, "Unknown item %#010x (%d of %d)", SPEAD_ITEM_ID(item), i, nofitems);
+        case 0x0001: // Heap counter
+        {
+            packet_counter = (uint32_t)(SPEAD_ITEM_ADDR(item) & 0xFFFFFF);     // 24-bits
+            packet_index = (uint32_t)((SPEAD_ITEM_ADDR(item) >> 24) & 0xFFFF); // 16-bits
+            break;
+        }
+        case 0x0004: // Payload length
+        {
+            payload_length = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1027: // Sync time
+        {
+            sync_time = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1600: // Timestamp
+        {
+            timestamp = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x2002: // Antenna and Channel information
+        {
+            uint64_t val = SPEAD_ITEM_ADDR(item);
+            start_channel_id = (uint16_t)((val >> 24) & 0xFFFF);
+            nof_included_channels = (uint16_t)((val >> 16) & 0xFF);
+            start_antenna_id = (uint16_t)((val >> 8) & 0xFF);
+            nof_included_antennas = (uint16_t)(val & 0xFF);
+            break;
+        }
+        case 0x2001: // Tile information
+        {
+            uint64_t val = SPEAD_ITEM_ADDR(item);
+            station_id = (uint16_t)((val >> 16) & 0xFFFF);
+            tile_id = (uint16_t)((val >> 32) & 0xFF);
+            pol_id = (uint8_t)(val & 0xFF);
+            break;
+        }
+        case 0x3300: // Payload offset
+        {
+            payload_offset = (uint32_t)SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x2004:
+            break;
+        default:
+            LOG(INFO, "Unknown item %#010x (%d of %d)", SPEAD_ITEM_ID(item), i, nofitems);
         }
     }
 
     // TEMPORARY: Timestamp_scale maybe will disappear, so it's hardcoded for now
-    double packet_time = sync_time + timestamp * 1.08e-6;// timestamp_scale;
+    double packet_time = sync_time + timestamp * 1.08e-6; // timestamp_scale;
 
     // Calculate number of samples in packet
     uint32_t samples_in_packet;
 
-    samples_in_packet = (uint32_t) ((payload_length - payload_offset) /
-                                    (nof_included_antennas * nof_pols * nof_included_channels * sizeof(uint16_t)));
-        
-    // Update packet index
-    if (reference_counter == 0)
-        reference_counter = packet_counter;
+    samples_in_packet = (uint32_t)((payload_length - payload_offset) /
+                                   (nof_included_antennas * nof_pols * nof_included_channels * sizeof(uint16_t)));
 
     // Check whether packet counter has rolled over
     if (packet_counter == 0 && pol_id == 0)
@@ -205,29 +199,33 @@ bool TensorCorrelatorData::processPacket()
     // Multiply packet_counter by rollover counts
     packet_counter += rollover_counter << 24;
 
+    // Update packet index
+    if (reference_counter == 0)
+        reference_counter = packet_counter;
+
     // Assigned correct packet index
     packet_index = static_cast<uint32_t>((packet_counter - reference_counter) % (this->nof_samples / samples_in_packet));
 
-   if (this->nof_channels == 1)
+    if (this->nof_channels == 1)
         // Write packet data to double buffer
         double_buffer->write_data_single_channel(tile_id * nof_antennas + start_antenna_id,
                                                  nof_included_antennas, start_channel_id,
                                                  packet_index,
                                                  samples_in_packet,
-                                                 (uint16_t * )(payload + payload_offset),
+                                                 (uint16_t *)(payload + payload_offset),
                                                  packet_time);
-    
-    else 
+
+    else
         // We have processed the packet items, send data to packet counter
         double_buffer->write_data(tile_id * nof_antennas + start_antenna_id,
                                   nof_included_antennas, start_channel_id,
                                   packet_index,
                                   samples_in_packet,
-                                  (uint16_t * )(payload + payload_offset),
+                                  (uint16_t *)(payload + payload_offset),
                                   packet_time);
 
     // Ready from packet
-    ring_buffer -> pull_ready();
+    ring_buffer->pull_ready();
 
     // All done, return
     return true;
@@ -236,56 +234,44 @@ bool TensorCorrelatorData::processPacket()
 // ------------------------- CROSS CORRELATOR ----------------------------------
 
 // Class constructor
-TensorCrossCorrelator::TensorCrossCorrelator(DoubleBuffer *double_buffer, uint32_t nof_fine_channels, uint16_t nof_antennas,
-                                 uint32_t nof_samples, uint8_t nof_pols):
-        nof_antennas(nof_antennas), nof_samples(nof_samples), nof_pols(nof_pols), nof_channels(nof_fine_channels)
+TensorCrossCorrelator::TensorCrossCorrelator(DoubleBuffer *double_buffer,
+                                             uint32_t nof_fine_channels,
+                                             uint16_t nof_antennas,
+                                             uint32_t nof_samples,
+                                             uint8_t nof_pols)
+    : device_(0) // choose GPU 0
+      ,
+      context_(0, device_) // primary context on device 0
+      ,
+      stream_(),
+      samplesExt_(multi_array::extents[1][nof_samples / 16][nof_antennas][nof_pols][16]),
+      visExt_(multi_array::extents[1][(nof_antennas * (nof_antennas + 1)) / 2][nof_pols][nof_pols]),
+      hostSamples_(sizeof(SampleT) * samplesExt_.size, CU_MEMHOSTALLOC_WRITECOMBINED), hostVis_(sizeof(VisT) * visExt_.size, 0),
+      devSamples_(sizeof(SampleT) * samplesExt_.size), devVis_(sizeof(VisT) * visExt_.size),
+      double_buffer(double_buffer),
+      nof_channels(nof_fine_channels),
+      nof_antennas(nof_antennas),
+      nof_samples(nof_samples),
+      nof_pols(nof_pols)
+
 {
-    // Get pointer to double buffer
-    this -> double_buffer = double_buffer;
+    context_.setCurrent();
 
-    // Input comes from TPMs as complex int8 → use i8 path.
-    constexpr tcc::Format fmt = tcc::Format::i8;
-
-    // We ingest one channel at a time from DoubleBuffer.
-    const int C   = 1;                   // channels per launch
-    const int R   = nof_antennas;        // receivers
-    const int P   = nof_pols;            // 2
-    const int TPB = 256;                 // times per block (packet size)
-
-    if (nof_samples % TPB != 0) {
-        LOG(FATAL, "nof_samples (%u) must be divisible by TPB (%d).", nof_samples, TPB);
+    constexpr tcc::Format fmt = tcc::Format::i8; // TPMs produce int8 complex
+    const int TPB = 16;
+    if (nof_samples % TPB != 0)
+    {
+        LOG(FATAL, "nof_samples (%u) must be divisible by %d", nof_samples, TPB);
     }
+    const int receiversPerBlock = 64;
 
-    // Choose a receiver tile size for the GPU kernel (typical: 64 on sm80).
-    const int nrReceiversPerBlock = 64;
-
-    // Create CUDA device/stream and the tensor-core correlator.
-    device_ = cu::Device(0);
-    stream_ = cu::Stream();
     correlator_ = std::make_unique<tcc::Correlator>(
         device_, fmt,
-        R,                  // nof_antennas
-        C,                  // nof_channels
-        TPB,                // one minor-time block per launch
-        P,                  // nof_pols
-        nrReceiversPerBlock //
-    );
-
-    // Build extents for a single-block launch (M = 1 here).
-    samplesExt_ = multi_array::extent<5>(
-        multi_array::extents[C][/*M*/1][R][P][TPB]
-    );
-    visExt_ = multi_array::extent<4>(
-        multi_array::extents[C][/*baselines*/ (R*(R+1))/2][P][P]
-    );
-
-    // Host (pinned) and device buffers matching the correlator’s expected layout.
-    hostSamples_ = cu::HostMemory(sizeof(SampleT) * samplesExt_.size, CU_MEMHOSTALLOC_WRITECOMBINED);
-    hostVis_     = cu::HostMemory(sizeof(VisT)    * visExt_.size);
-
-    // If the GPU has integrated memory the wrapper can alias; otherwise allocate device buffers.
-    devSamples_  = cu::DeviceMemory(sizeof(SampleT) * samplesExt_.size);
-    devVis_      = cu::DeviceMemory(sizeof(VisT)    * visExt_.size);
+        /*nrReceivers*/ nof_antennas,
+        /*nrChannels*/ 1,
+        /*nrTimesPerBlock*/ nof_samples,
+        /*nrPolarizations*/ nof_pols,
+        /*nrReceiversPerBlock*/ receiversPerBlock);
 }
 
 // Class destructor
@@ -296,45 +282,70 @@ TensorCrossCorrelator::~TensorCrossCorrelator()
 // Main event loop
 void TensorCrossCorrelator::threadEntry()
 {
-
-    // Initialise with empty buffer for now
-    // context.array_h = (ComplexInput *) (double_buffer -> get_buffer_pointer(0)) -> data;
-    // if (xgpuInit(&context, 0))
-    //     LOG(FATAL, "xgpuInit returned error code");
-
-    // Infinite loop: Process buffers
-    while(!this->stop_thread)
+    while (!this->stop_thread)
     {
-        // Get new buffer
         Buffer *buffer;
-        do {
+        do
+        {
             buffer = double_buffer->read_buffer();
             if (this->stop_thread)
                 return;
-        } while(buffer == nullptr);
+        } while (buffer == nullptr);
 
-        // Start timing
         clock_gettime(CLOCK_MONOTONIC, &tic);
 
-        // Get parameters
-        double timestamp = buffer->ref_time;
-        int channel = buffer->channel;
-        unsigned int read_samples = buffer->read_samples;
-        unsigned int nof_packets = buffer->nof_packets;
+        const double timestamp = buffer->ref_time;
+        const int channel = buffer->channel;
+        const unsigned read_samples = buffer->read_samples;
+        const unsigned nof_packets = buffer->nof_packets;
 
-        // // Set buffer data as input to xGPU
-        // context.array_h = (ComplexInput *) (buffer->data);
+        // 1) Pack host samples into [C=1][M][R][P][TPB] as std::complex<int8_t>
+        const uint16_t *__restrict src = buffer->data;
 
-        // // Call xGPU
-        // xgpuCudaXengine(&context, SYNCOP_DUMP);
+        multi_array::array_ref<SampleT, 5> samplesRef(* (SampleT *) hostSamples_, samplesExt_);
+        multi_array::array_ref<VisT, 4> visibilitiesRef(* (VisT *) hostVis_, visExt_);
 
-        // // Reorder output matrix
-        // xgpuReorderMatrix(context.matrix_h);
+        struct timespec pack0{}, pack1{};
+        clock_gettime(CLOCK_MONOTONIC, &pack0);
+        constexpr int TPB = 16;
+        for (int m = 0; m < nof_samples/TPB; ++m)
+        for (int r = 0; r < nof_antennas; ++r)        // r is tile-major (tile*A + ant)
+        for (int p = 0; p < nof_pols; ++p)
+        for (int t = 0; t < TPB; ++t) {
+            // Compose a per-(ant,pol) receiver index if you want per-receiver alternation:
+            // int8_t val = (r + 1) % 2;
 
-        // All done with data, release buffer
-        double_buffer -> release_buffer();
+            const int ti = m * TPB + t;                      // absolute time index
+            const size_t idx = ((size_t)ti * nof_antennas + r) * nof_pols + p; // [time][ant][pol]
+            const uint16_t w = src[idx];                     // {re_i8, im_i8} packed in u16
+            const int8_t re = static_cast<int8_t>(w & 0xFF);
+            const int8_t im = static_cast<int8_t>((w >> 8) & 0xFF);
+            samplesRef[0][m][r][p][t] = SampleT(re, im);
+        }
         
-        // Call callback if set
+
+        clock_gettime(CLOCK_MONOTONIC, &pack1);
+        const double pack_ms = ELAPSED_MS(pack0, pack1);
+        LOG(INFO,
+            "TCC pack took: %.3f ms",
+            pack_ms);
+
+        // 2) H->D copy
+        stream_.memcpyHtoDAsync(devSamples_, hostSamples_, samplesRef.bytesize());
+
+        // 3) Correlate (no accumulation)
+        correlator_->launchAsync(stream_, devVis_, devSamples_, false);
+
+        // 4) D->H visibilities
+        stream_.memcpyDtoHAsync(hostVis_, devVis_, visibilitiesRef.bytesize());
+
+        // Ensure all GPU work done
+        stream_.synchronize();
+
+        // Release buffer back to producer
+        double_buffer->release_buffer();
+
+        // Callback (hostVis_ holds C×B×P×P)
         clock_gettime(CLOCK_MONOTONIC, &toc);
         if (callback != nullptr)
         {
@@ -344,15 +355,10 @@ void TensorCrossCorrelator::threadEntry()
                 .nof_samples = read_samples,
                 .nof_packets = nof_packets,
             };
-            callback(context.matrix_h, timestamp, static_cast<void *>(&metadata));
-        };
+            callback(static_cast<void *>(hostVis_), timestamp, static_cast<void *>(&metadata));
+        }
 
-        // Clear device integrations
-        // xgpuClearDeviceIntegrationBuffer(&context);
-
-        // Finished with current buffer
-        LOG(INFO, "xGPU with callback took: %11.6f ms (%d samples, %d packets)",
-            ELAPSED_MS(tic,toc), read_samples, nof_packets);
+        LOG(INFO, "TCC correlator for channel %d took: %11.6f ms (%u samples, %u packets)",
+            channel, ELAPSED_MS(tic, toc), read_samples, nof_packets);
     }
 }
-

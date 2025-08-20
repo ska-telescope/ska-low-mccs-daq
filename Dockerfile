@@ -60,19 +60,11 @@ RUN git clone https://github.com/GPU-correlators/xGPU.git /app/xGPU/
 WORKDIR /app/xGPU/src/
 RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
-# WORKDIR /app/
-# RUN git clone https://github.com/nlesc-recruit/cudawrappers
-# WORKDIR /app/cudawrappers
-# RUN cmake -S . -B build \
-#     -DCMAKE_INSTALL_PREFIX=/opt/aavs
-# RUN make -C build
-# RUN make -C build install
-
 # Clone and install TensorCoreCorrelator
 WORKDIR /app/
 RUN git clone https://git.astron.nl/RD/tensor-core-correlator.git
 WORKDIR /app/tensor-core-correlator/
-RUN cmake -DCMAKE_INSTALL_PREFIX=/opt/aavs -S . -B build
+RUN cmake -S . -B build
 RUN make -C build
 RUN make -C build install
 

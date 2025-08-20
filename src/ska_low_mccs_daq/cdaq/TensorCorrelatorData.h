@@ -12,6 +12,7 @@
 #include <cstring>
 #include <cmath>
 #include <string>
+#include <complex>
 
 #include "DAQ.h"
 #include "DoubleBuffer.h"
@@ -35,57 +36,51 @@ struct CorrelatorMetadata
 // -----------------------------------------------------------------------------
 
 // Class which implements the GPU cross-correlator
-class TensorCrossCorrelator: public RealTimeThread
-{
-
+class TensorCrossCorrelator : public RealTimeThread {
 public:
-    // Class constructor
-    TensorCrossCorrelator(DoubleBuffer *double_buffer, uint32_t nof_fine_channels,
-                    uint16_t nof_antennas, uint32_t nof_samples, uint8_t nof_pols);
-
+    TensorCrossCorrelator(DoubleBuffer* db,
+                        uint32_t nof_fine_channels,
+                        uint16_t nof_antennas,
+                        uint32_t nof_samples,
+                        uint8_t  nof_pols);
     ~TensorCrossCorrelator() override;
 
-    // Set callback (provided by CorrelatorData)
-    void setCallback(DataCallbackDynamic callback)
-    {
-        this -> callback = callback;
-    }
+    void setCallback(DataCallbackDynamic cb) { callback = cb; }
 
 protected:
-
-    // Main thread event loop
     void threadEntry() override;
 
 private:
-
-    std::unique_ptr<tcc::Correlator> correlator_;
-    cu::Device device_;
-    cu::Stream stream_;
-    cu::HostMemory hostSamples_, hostVis_;
-    cu::DeviceMemory devSamples_, devVis_;
-    multi_array::extent<5> samplesExt_;
-    multi_array::extent<4> visExt_;
     using SampleT = std::complex<int8_t>;
     using VisT    = std::complex<int32_t>;
 
+    // CUDA objects must come first (context needs device)
+    cu::Device  device_;
+    cu::Context context_;
+    cu::Stream  stream_;
 
-    // Pointer to double buffer
-    DoubleBuffer *double_buffer;
+    // Extents next (sizes used by buffers)
+    multi_array::extent<5> samplesExt_;
+    multi_array::extent<4> visExt_;
 
-    // Callback
-    DataCallbackDynamic callback = nullptr;
+    // Host/device buffers (need extents)
+    cu::HostMemory  hostSamples_;
+    cu::HostMemory  hostVis_;
+    cu::DeviceMemory devSamples_;
+    cu::DeviceMemory devVis_;
 
-    // Output buffer
-    Complex *output_buffer = nullptr;
+    std::unique_ptr<tcc::Correlator> correlator_;
 
-    // Observation parameters
+    DoubleBuffer*         double_buffer{nullptr};
+    DataCallbackDynamic   callback{nullptr};
+
+    // config
     uint32_t nof_channels;
     uint16_t nof_antennas;
     uint32_t nof_samples;
-    uint8_t nof_pols;
+    uint8_t  nof_pols;
 
-    // Timing
-    struct timespec tic, toc;
+    struct timespec tic{}, toc{};
 };
 
 
@@ -133,6 +128,6 @@ private:
 };
 
 // Expose class factory for birales
-extern "C" DataConsumer *correlator() { return new TensorCorrelatorData; }
+extern "C" DataConsumer *tensorcorrelator() { return new TensorCorrelatorData; }
 
 #endif //AAVS_DAQ_CORRELATOR_H
