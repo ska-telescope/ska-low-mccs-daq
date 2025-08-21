@@ -1,5 +1,9 @@
 # Version History
 
+## 3.2.1
+
+* [LOW-1593] Eliminate dependency on bitnami images / charts
+
 ## 3.2.0
 
 * [THORN-197] Add attributes nofPackets/bufferCount for raw station beam. Link up ringbufferOccupancy/lostPushes for raw station beam.
