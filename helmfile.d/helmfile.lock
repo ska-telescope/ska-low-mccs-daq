@@ -1,28 +1,28 @@
-version: 0.157.0
+version: 1.1.0
 dependencies:
-- name: jupyterhub
-  repository: https://jupyterhub.github.io/helm-chart
-  version: 3.1.0
-- name: ska-ser-skuid
-  repository: https://artefact.skao.int/repository/helm-internal
-  version: 3.3.3
-- name: ska-tango-base
-  repository: https://artefact.skao.int/repository/helm-internal
-  version: 0.4.22
-- name: ska-tango-tangogql
-  repository: https://artefact.skao.int/repository/helm-internal
-  version: 1.3.12
-- name: ska-tango-taranta
-  repository: https://artefact.skao.int/repository/helm-internal
-  version: 2.5.1
-- name: ska-tango-taranta-auth
-  repository: https://artefact.skao.int/repository/helm-internal
-  version: 0.1.9
-- name: ska-tango-taranta-dashboard
-  repository: https://artefact.skao.int/repository/helm-internal
-  version: 1.4.1
-- name: ska-tango-taranta-dashboard-pvc
-  repository: https://artefact.skao.int/repository/helm-internal
-  version: 1.4.1
-digest: sha256:432551b5f112906d44e69646a86c66b9ae216b9c6982e065d7d2256a43b31559
-generated: "2025-07-09T13:45:40.092214038+01:00"
+  - name: jupyterhub
+    repository: https://jupyterhub.github.io/helm-chart
+    version: 3.1.0
+  - name: ska-ser-skuid
+    repository: https://artefact.skao.int/repository/helm-internal
+    version: 3.3.3
+  - name: ska-tango-base
+    repository: https://artefact.skao.int/repository/helm-internal
+    version: 0.4.23
+  - name: ska-tango-tangogql
+    repository: https://artefact.skao.int/repository/helm-internal
+    version: 1.3.12
+  - name: ska-tango-taranta
+    repository: https://artefact.skao.int/repository/helm-internal
+    version: 2.5.1
+  - name: ska-tango-taranta-auth
+    repository: https://artefact.skao.int/repository/helm-internal
+    version: 0.1.9
+  - name: ska-tango-taranta-dashboard
+    repository: https://artefact.skao.int/repository/helm-internal
+    version: 1.4.1
+  - name: ska-tango-taranta-dashboard-pvc
+    repository: https://artefact.skao.int/repository/helm-internal
+    version: 1.4.1
+digest: sha256:2b323294c1280156e389f4a55edfd322a2764c761124e9a92a352fa143ab7198
+generated: "2025-08-21T13:22:18.758650955+08:00"

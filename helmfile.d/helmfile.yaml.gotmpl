@@ -204,8 +204,6 @@ environments:
 repositories:
   - name: skao
     url: https://artefact.skao.int/repository/helm-internal
-  - name: bitnami
-    url: https://charts.bitnami.com/bitnami
   - name: jupyterhub
     url: https://jupyterhub.github.io/helm-chart
   - name: ska-tango-devices
@@ -228,7 +226,7 @@ releases:
   - name: ska-tango-base
     namespace: {{.Namespace | default "ska-low-mccs"}}
     chart: skao/ska-tango-base
-    version: ~0.4.7
+    version: ~0.4.23
     values:
       - .deploy/helmfile.d/templates/globals.yaml.gotmpl
 {{- end}}
