@@ -104,7 +104,3 @@ install(TARGETS "aavsdaq" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 if (WITH_SMALL_STATION)
     install(TARGETS "aavsdaq48" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
-
-add_executable(tensor_ctor_test test_tcc_correlator.cpp)
-target_link_libraries(tensor_ctor_test aavsdaq)
-install(TARGETS tensor_ctor_test RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
