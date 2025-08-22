@@ -64,7 +64,7 @@ RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 WORKDIR /app/
 RUN git clone https://git.astron.nl/RD/tensor-core-correlator.git
 WORKDIR /app/tensor-core-correlator/
-RUN cmake -S . -B build
+RUN cmake -S . -B build -DCMAKE_CUDA_ARCHITECTURES=89
 RUN make -C build
 RUN make -C build install
 

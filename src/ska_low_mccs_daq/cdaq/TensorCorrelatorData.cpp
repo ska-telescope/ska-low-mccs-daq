@@ -37,7 +37,7 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     initialiseRingBuffer(packet_size, (size_t)32768 * this->nof_tiles);
 
     // Create double buffer
-    double_buffer = new DoubleBuffer(nof_antennas * nof_tiles, nof_samples, nof_pols);
+    double_buffer = new TccDoubleBuffer(nof_antennas * nof_tiles, nof_samples, nof_pols);
 
     // Create cross-correlator and start
     cu::init();
@@ -298,46 +298,17 @@ void TensorCrossCorrelator::threadEntry()
         const int channel = buffer->channel;
         const unsigned read_samples = buffer->read_samples;
         const unsigned nof_packets = buffer->nof_packets;
+        const size_t sample_bytes = (size_t)nof_samples * nof_antennas * nof_pols * sizeof(uint16_t);
+        const size_t vis_bytes    = sizeof(VisT) * visExt_.size;
 
-        // 1) Pack host samples into [C=1][M][R][P][TPB] as std::complex<int8_t>
-        const uint16_t *__restrict src = buffer->data;
+        // 1) H->D copy
+        stream_.memcpyHtoDAsync(devSamples_, buffer->data, sample_bytes);
 
-        multi_array::array_ref<SampleT, 5> samplesRef(* (SampleT *) hostSamples_, samplesExt_);
-        multi_array::array_ref<VisT, 4> visibilitiesRef(* (VisT *) hostVis_, visExt_);
-
-        struct timespec pack0{}, pack1{};
-        clock_gettime(CLOCK_MONOTONIC, &pack0);
-        constexpr int TPB = 16;
-        for (int m = 0; m < nof_samples/TPB; ++m)
-        for (int r = 0; r < nof_antennas; ++r)        // r is tile-major (tile*A + ant)
-        for (int p = 0; p < nof_pols; ++p)
-        for (int t = 0; t < TPB; ++t) {
-            // Compose a per-(ant,pol) receiver index if you want per-receiver alternation:
-            // int8_t val = (r + 1) % 2;
-
-            const int ti = m * TPB + t;                      // absolute time index
-            const size_t idx = ((size_t)ti * nof_antennas + r) * nof_pols + p; // [time][ant][pol]
-            const uint16_t w = src[idx];                     // {re_i8, im_i8} packed in u16
-            const int8_t re = static_cast<int8_t>(w & 0xFF);
-            const int8_t im = static_cast<int8_t>((w >> 8) & 0xFF);
-            samplesRef[0][m][r][p][t] = SampleT(re, im);
-        }
-        
-
-        clock_gettime(CLOCK_MONOTONIC, &pack1);
-        const double pack_ms = ELAPSED_MS(pack0, pack1);
-        LOG(INFO,
-            "TCC pack took: %.3f ms",
-            pack_ms);
-
-        // 2) H->D copy
-        stream_.memcpyHtoDAsync(devSamples_, hostSamples_, samplesRef.bytesize());
-
-        // 3) Correlate (no accumulation)
+        // 2) Correlate
         correlator_->launchAsync(stream_, devVis_, devSamples_, false);
 
-        // 4) D->H visibilities
-        stream_.memcpyDtoHAsync(hostVis_, devVis_, visibilitiesRef.bytesize());
+        // 3) D->H visibilities
+        stream_.memcpyDtoHAsync(hostVis_, devVis_, vis_bytes);
 
         // Ensure all GPU work done
         stream_.synchronize();
@@ -345,7 +316,7 @@ void TensorCrossCorrelator::threadEntry()
         // Release buffer back to producer
         double_buffer->release_buffer();
 
-        // Callback (hostVis_ holds C×B×P×P)
+        // Callback
         clock_gettime(CLOCK_MONOTONIC, &toc);
         if (callback != nullptr)
         {

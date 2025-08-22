@@ -1,5 +1,5 @@
 //
-// Created by Alessio Magro on 14/05/2018.
+// Created by Tom Moynihan on 22/08/2025.
 //
 
 #ifndef AAVS_DAQ_CORRELATOR_H
@@ -15,7 +15,7 @@
 #include <complex>
 
 #include "DAQ.h"
-#include "DoubleBuffer.h"
+#include "TccDoubleBuffer.h"
 
 #include <cudawrappers/nvrtc.hpp>
 #include "libtcc/Correlator.h"
@@ -110,7 +110,7 @@ protected:
 private:
 
     // Pointer to Double Buffer
-    DoubleBuffer *double_buffer;
+    TccDoubleBuffer *double_buffer;
 
     // Pointer to CrossCorrelator;
     TensorCrossCorrelator *cross_correlator;

@@ -42,6 +42,8 @@ if (WITH_CORRELATOR)
                            multi_array.h
                            TensorCorrelatorData.cpp
                            TensorCorrelatorData.h
+                           TccDoubleBuffer.cpp
+                           TccDoubleBuffer.h
                            StandaloneCorrelator.cpp)
 endif()
 

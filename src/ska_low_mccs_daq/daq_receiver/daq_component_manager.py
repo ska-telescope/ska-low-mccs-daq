@@ -218,6 +218,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             "burst_beam": DaqModes.BEAM_DATA,
             "integrated_beam": DaqModes.INTEGRATED_BEAM_DATA,
             "correlator": DaqModes.CORRELATOR_DATA,
+            "tc_correlator": DaqModes.TC_CORRELATOR_DATA,
             "station": DaqModes.STATION_BEAM_DATA,
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
         }

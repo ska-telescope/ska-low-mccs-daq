@@ -43,7 +43,7 @@ public:
                  uint8_t nof_pols, uint8_t nbuffers = 4);
 
     // Class destructor
-    ~DoubleBuffer();
+    virtual ~DoubleBuffer();
 
     // Write data to buffer
     void write_data(uint16_t start_antenna, uint16_t nof_included_antennas, uint16_t channel,
@@ -73,12 +73,11 @@ public:
     // Clear double buffer
     void clear();
 
-private:
+protected:
 
-    inline void copy_data(uint32_t producer_index, uint16_t start_antenna, uint16_t nof_included_antennas,
+    virtual inline void copy_data(uint32_t producer_index, uint16_t start_antenna, uint16_t nof_included_antennas,
                           uint64_t start_sample_index, uint32_t samples, uint16_t *data_ptr, double timestamp);
 
-private:
     // The data structure which will hold the buffer elements
     Buffer *double_buffer;
 
