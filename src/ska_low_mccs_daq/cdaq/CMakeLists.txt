@@ -8,7 +8,7 @@ include_directories(${DAQ_DIRECTORY}/include)
 project(AAVS_DAQ C CXX)
 
 # Add option to compile correlator
-option(WITH_CORRELATOR "Compile cross-correlator which uses xGPU" ON)
+option(WITH_CORRELATOR "Compile cross-correlator which uses xGPU" OFF)
 option(WITH_SMALL_STATION "Compile a separate library for 48 element stations" OFF)
 message(STATUS "Correlator compilation: ${WITH_CORRELATOR}")
 message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")
@@ -39,12 +39,16 @@ if (WITH_CORRELATOR)
                            DoubleBuffer.h
                            CorrelatorData.cpp
                            CorrelatorData.h
-                           multi_array.h
-                           TensorCorrelatorData.cpp
-                           TensorCorrelatorData.h
-                           TccDoubleBuffer.cpp
-                           TccDoubleBuffer.h
                            StandaloneCorrelator.cpp)
+    add_library(aavsdaq_tcc SHARED
+        DoubleBuffer.cpp
+        DoubleBuffer.h
+        multi_array.h
+        TensorCorrelatorData.cpp
+        TensorCorrelatorData.h
+        TccDoubleBuffer.cpp
+        TccDoubleBuffer.h        
+    )
 endif()
 
 # CMAKE compilation flags
@@ -67,7 +71,7 @@ if (WITH_CORRELATOR)
     find_package(cudawrappers REQUIRED)
     find_package(libtcc REQUIRED)
 
-    target_link_libraries(aavsdaq tcc cudawrappers::cu cudawrappers::nvrtc)
+    target_link_libraries(aavsdaq_tcc daq tcc cudawrappers::cu cudawrappers::nvrtc)
     target_link_libraries(aavsdaq daq xgpu ${CMAKE_THREAD_LIBS_INIT})
 
     if (WITH_SMALL_STATION)
@@ -100,6 +104,9 @@ target_link_libraries(acquire_station_beam aavsdaq)
 
 # Install library
 install(TARGETS "aavsdaq" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+if (WITH_CORRELATOR)
+  install(TARGETS aavsdaq_tcc DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+endif()
 
 if (WITH_SMALL_STATION)
     install(TARGETS "aavsdaq48" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)

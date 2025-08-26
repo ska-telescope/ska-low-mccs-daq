@@ -185,6 +185,9 @@ class DaqReceiver:
         # Default AAVS DAQ C++ shared library path
         daq_install_path = os.environ.get("DAQ_INSTALL", "/opt/aavs")
         self._daq_library_path = f"{daq_install_path}/lib/libaavsdaq.so".encode("ASCII")
+        self._tcc_correlator_path = f"{daq_install_path}/lib/libaavsdaq_tcc.so".encode(
+            "ASCII"
+        )
 
         # Pointer to shared library objects
         self._daq_library = None
@@ -771,6 +774,7 @@ class DaqReceiver:
                 grid[j, i, :] = data[counter, :]
                 counter += 1
 
+        # TCC output order seemed to change in the last update??
         grid = np.transpose(np.flipud(np.fliplr(grid)), (1, 0, 2))
 
         values = np.zeros(nof_baselines * nof_stokes, dtype=np.complex64)
@@ -2196,7 +2200,14 @@ class DaqReceiver:
         consumer = consumer.encode()
 
         # Load consumer
-        res = self._daq_library.loadConsumer(self._daq_library_path, consumer)
+        res = self._daq_library.loadConsumer(
+            (
+                self._tcc_correlator_path
+                if consumer == b"tensorcorrelator"
+                else self._daq_library_path
+            ),
+            consumer,
+        )
         if res != self.Result.Success.value:
             return self.Result.Failure
 
