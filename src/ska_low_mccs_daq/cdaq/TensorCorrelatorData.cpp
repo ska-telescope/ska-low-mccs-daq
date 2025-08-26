@@ -1,5 +1,5 @@
 //
-// Created by Alessio Magro on 14/05/2018.
+// Created by Tom Moynihan on 22/08/2025.
 //
 
 #include "TensorCorrelatorData.h"
@@ -9,6 +9,7 @@
 // Initialise correlator data consumer
 bool TensorCorrelatorData::initialiseConsumer(json configuration)
 {
+    cu::init();
     // Check that all required keys are present
     if (!(key_in_json(configuration, "nof_antennas")) &&
         (key_in_json(configuration, "nof_channels")) &&
@@ -36,13 +37,11 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t)32768 * this->nof_tiles);
 
-    // Create double buffer
-    double_buffer = new TccDoubleBuffer(nof_antennas * nof_tiles, nof_samples, nof_pols);
-
     // Create cross-correlator and start
-    cu::init();
-    cross_correlator = new TensorCrossCorrelator(double_buffer, nof_fine_channels,
+    cross_correlator = new TensorCrossCorrelator(nof_fine_channels,
                                                  nof_tiles * nof_antennas, nof_samples, nof_pols);
+
+    double_buffer = cross_correlator->double_buffer;
 
     // Start cross-correlator
     cross_correlator->startThread();
@@ -59,7 +58,6 @@ void TensorCorrelatorData::cleanUp()
 
     // Destroy instances
     delete cross_correlator;
-    delete double_buffer;
 }
 
 // Set callback
@@ -234,11 +232,11 @@ bool TensorCorrelatorData::processPacket()
 // ------------------------- CROSS CORRELATOR ----------------------------------
 
 // Class constructor
-TensorCrossCorrelator::TensorCrossCorrelator(DoubleBuffer *double_buffer,
-                                             uint32_t nof_fine_channels,
+TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
                                              uint16_t nof_antennas,
                                              uint32_t nof_samples,
-                                             uint8_t nof_pols)
+                                             uint8_t nof_pols,
+                                             uint8_t nbuffers)
     : device_(0) // choose GPU 0
       ,
       context_(0, device_) // primary context on device 0
@@ -248,7 +246,6 @@ TensorCrossCorrelator::TensorCrossCorrelator(DoubleBuffer *double_buffer,
       visExt_(multi_array::extents[1][(nof_antennas * (nof_antennas + 1)) / 2][nof_pols][nof_pols]),
       hostSamples_(sizeof(SampleT) * samplesExt_.size, CU_MEMHOSTALLOC_WRITECOMBINED), hostVis_(sizeof(VisT) * visExt_.size, 0),
       devSamples_(sizeof(SampleT) * samplesExt_.size), devVis_(sizeof(VisT) * visExt_.size),
-      double_buffer(double_buffer),
       nof_channels(nof_fine_channels),
       nof_antennas(nof_antennas),
       nof_samples(nof_samples),
@@ -256,6 +253,8 @@ TensorCrossCorrelator::TensorCrossCorrelator(DoubleBuffer *double_buffer,
 
 {
     context_.setCurrent();
+
+    double_buffer = new TccDoubleBuffer(nof_antennas, nof_samples, nof_pols, nbuffers);
 
     constexpr tcc::Format fmt = tcc::Format::i8; // TPMs produce int8 complex
     const int TPB = 16;
@@ -277,6 +276,7 @@ TensorCrossCorrelator::TensorCrossCorrelator(DoubleBuffer *double_buffer,
 // Class destructor
 TensorCrossCorrelator::~TensorCrossCorrelator()
 {
+    delete double_buffer;
 }
 
 // Main event loop
@@ -299,7 +299,7 @@ void TensorCrossCorrelator::threadEntry()
         const unsigned read_samples = buffer->read_samples;
         const unsigned nof_packets = buffer->nof_packets;
         const size_t sample_bytes = (size_t)nof_samples * nof_antennas * nof_pols * sizeof(uint16_t);
-        const size_t vis_bytes    = sizeof(VisT) * visExt_.size;
+        const size_t vis_bytes = sizeof(VisT) * visExt_.size;
 
         // 1) H->D copy
         stream_.memcpyHtoDAsync(devSamples_, buffer->data, sample_bytes);

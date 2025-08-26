@@ -32,7 +32,11 @@ struct Buffer
     uint32_t   nof_samples;     // Number of samples in buffer
     uint8_t    nof_pols;      // Number of polarisations in buffer
     std::mutex *mutex;    // Mutex lock for this buffer
+    bool owned_by_base; // Whether or not this is owned by base, and should be freed as such
 };
+
+// I am unhappy with this, surely there's a better way??
+enum class AllocPolicy { Default, External };
 
 class DoubleBuffer
 {
@@ -40,7 +44,7 @@ class DoubleBuffer
 public:
     // Default constructor
     DoubleBuffer(uint16_t nof_antennas, uint32_t nof_samples,
-                 uint8_t nof_pols, uint8_t nbuffers = 4);
+                 uint8_t nof_pols, uint8_t nbuffers = 4, AllocPolicy policy = AllocPolicy::Default);
 
     // Class destructor
     virtual ~DoubleBuffer();

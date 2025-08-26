@@ -16,7 +16,7 @@ message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 
 # CMAKE compilation flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx2 -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx2 -g")
 
 # Source files
 set(AAVS_FILES RawData.cpp
@@ -48,7 +48,7 @@ if (WITH_CORRELATOR)
 endif()
 
 # CMAKE compilation flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx2 -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx2 -g")
 
 # Source file for raw station beam acquisition
 set(STATION_BEAM_FILES StationDataRaw.cpp

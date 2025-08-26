@@ -720,7 +720,6 @@ class DaqReceiver:
         if self._config["logging"]:
             logging.info("Received correlated data for channel {}".format(channel_id))
 
-
     def _tc_correlator_callback(
         self,
         data: ctypes.POINTER,
@@ -759,7 +758,7 @@ class DaqReceiver:
         # Split and convert to complex64s
         re = ints[0::2].astype(np.float32)
         im = ints[1::2].astype(np.float32)
-        values = (re + 1j * im).astype(np.complex64)   # shape: (N,)
+        values = (re + 1j * im).astype(np.complex64)  # shape: (N,)
 
         # The correlator reorders the matrix in lower triangular form, this needs to be converted
         # to upper triangular form to be compatible with the rest of the system
@@ -771,6 +770,8 @@ class DaqReceiver:
             for j in range(i + 1):
                 grid[j, i, :] = data[counter, :]
                 counter += 1
+
+        grid = np.transpose(np.flipud(np.fliplr(grid)), (1, 0, 2))
 
         values = np.zeros(nof_baselines * nof_stokes, dtype=np.complex64)
 
@@ -1619,7 +1620,6 @@ class DaqReceiver:
         self._running_consumers[DaqModes.CORRELATOR_DATA] = False
 
         logging.info("Stopped correlator")
-
 
     def _stop_antenna_buffer_consumer(self) -> None:
         """Stop antenna buffer consumer"""
