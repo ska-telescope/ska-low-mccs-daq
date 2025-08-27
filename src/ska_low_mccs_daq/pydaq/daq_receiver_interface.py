@@ -765,7 +765,7 @@ class DaqReceiver:
 
         # The correlator reorders the matrix in lower triangular form, this needs to be converted
         # to upper triangular form to be compatible with the rest of the system
-        data = np.reshape(np.conj(values), (nof_baselines, nof_stokes))
+        data = np.reshape(values, (nof_baselines, nof_stokes))
         grid = np.zeros((nof_antennas, nof_antennas, nof_stokes), dtype=np.complex64)
 
         counter = 0
@@ -773,9 +773,6 @@ class DaqReceiver:
             for j in range(i + 1):
                 grid[j, i, :] = data[counter, :]
                 counter += 1
-
-        # TCC output order seemed to change in the last update??
-        grid = np.transpose(np.flipud(np.fliplr(grid)), (1, 0, 2))
 
         values = np.zeros(nof_baselines * nof_stokes, dtype=np.complex64)
 

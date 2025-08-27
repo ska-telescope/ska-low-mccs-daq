@@ -262,15 +262,13 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
     {
         LOG(FATAL, "nof_samples (%u) must be divisible by %d", nof_samples, TPB);
     }
-    const int receiversPerBlock = 64;
 
     correlator_ = std::make_unique<tcc::Correlator>(
         device_, fmt,
         /*nrReceivers*/ nof_antennas,
         /*nrChannels*/ 1,
         /*nrTimesPerBlock*/ nof_samples,
-        /*nrPolarizations*/ nof_pols,
-        /*nrReceiversPerBlock*/ receiversPerBlock);
+        /*nrPolarizations*/ nof_pols);
 }
 
 // Class destructor
