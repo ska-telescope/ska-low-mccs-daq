@@ -1277,7 +1277,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the time taken for the last correlation solve in TCC in ms.
         """
         return self._correlator_solve_time
-        
 
     @attribute(
         dtype="DevFloat",
@@ -1296,7 +1295,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the time taken for the last host to device copy in ms.
         """
         return self._host_to_device_copy_time
-
 
     @attribute(
         dtype="DevFloat",
