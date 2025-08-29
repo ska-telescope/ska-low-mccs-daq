@@ -23,10 +23,13 @@
 #define ELAPSED_MS(start, stop) \
     ((((int64_t)stop.tv_sec - start.tv_sec) * 1000 * 1000 * 1000 + (stop.tv_nsec - start.tv_nsec)) / 1e6)
 
-struct CorrelatorMetadata
+struct TensorCorrelatorMetadata
 {
     uint channel_id;
     double time_taken;
+    double h2d_time;
+    double kern_time;
+    double d2h_time;
     uint nof_samples;
     uint nof_packets;
 };
@@ -63,7 +66,6 @@ private:
     multi_array::extent<4> visExt_;
 
     // Host/device buffers (need extents)
-    cu::HostMemory hostSamples_;
     cu::HostMemory hostVis_;
     cu::DeviceMemory devSamples_;
     cu::DeviceMemory devVis_;

@@ -237,14 +237,12 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
                                              uint32_t nof_samples,
                                              uint8_t nof_pols,
                                              uint8_t nbuffers)
-    : device_(0) // choose GPU 0
-      ,
-      context_(0, device_) // primary context on device 0
-      ,
+    : device_(0), // choose GPU 0
+      context_(0, device_), // primary context on device 0
       stream_(),
       samplesExt_(multi_array::extents[1][nof_samples / 16][nof_antennas][nof_pols][16]),
       visExt_(multi_array::extents[1][(nof_antennas * (nof_antennas + 1)) / 2][nof_pols][nof_pols]),
-      hostSamples_(sizeof(SampleT) * samplesExt_.size, CU_MEMHOSTALLOC_WRITECOMBINED), hostVis_(sizeof(VisT) * visExt_.size, 0),
+      hostVis_(sizeof(VisT) * visExt_.size, 0),
       devSamples_(sizeof(SampleT) * samplesExt_.size), devVis_(sizeof(VisT) * visExt_.size),
       nof_channels(nof_fine_channels),
       nof_antennas(nof_antennas),
@@ -267,7 +265,7 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
         device_, fmt,
         /*nrReceivers*/ nof_antennas,
         /*nrChannels*/ 1,
-        /*nrTimesPerBlock*/ nof_samples,
+        /*nrSamplesPerChannel*/ nof_samples,
         /*nrPolarizations*/ nof_pols);
 }
 
@@ -280,6 +278,11 @@ TensorCrossCorrelator::~TensorCrossCorrelator()
 // Main event loop
 void TensorCrossCorrelator::threadEntry()
 {
+    context_.setCurrent();
+    cu::Event eH2D0, eH2D1;
+    cu::Event eK0,   eK1;
+    cu::Event eD2H0, eD2H1;
+
     while (!this->stop_thread)
     {
         Buffer *buffer;
@@ -299,17 +302,24 @@ void TensorCrossCorrelator::threadEntry()
         const size_t sample_bytes = (size_t)nof_samples * nof_antennas * nof_pols * sizeof(uint16_t);
         const size_t vis_bytes = sizeof(VisT) * visExt_.size;
 
-        // 1) H->D copy
+        stream_.record(eH2D0);
         stream_.memcpyHtoDAsync(devSamples_, buffer->data, sample_bytes);
+        stream_.record(eH2D1);
 
-        // 2) Correlate
+        stream_.record(eK0);
         correlator_->launchAsync(stream_, devVis_, devSamples_, false);
+        stream_.record(eK1);
 
-        // 3) D->H visibilities
+        stream_.record(eD2H0);
         stream_.memcpyDtoHAsync(hostVis_, devVis_, vis_bytes);
+        stream_.record(eD2H1);
 
-        // Ensure all GPU work done
         stream_.synchronize();
+
+        // Read GPU timings (ms) from device timeline
+        float h2d_ms = eH2D1.elapsedTime(eH2D0);
+        float kern_ms = eK1.elapsedTime(eK0);
+        float d2h_ms = eD2H1.elapsedTime(eD2H0);
 
         // Release buffer back to producer
         double_buffer->release_buffer();
@@ -318,16 +328,23 @@ void TensorCrossCorrelator::threadEntry()
         clock_gettime(CLOCK_MONOTONIC, &toc);
         if (callback != nullptr)
         {
-            CorrelatorMetadata metadata = {
-                .channel_id = static_cast<unsigned int>(channel),
-                .time_taken = ELAPSED_MS(tic, toc),
+            TensorCorrelatorMetadata metadata = {
+                .channel_id  = static_cast<unsigned int>(channel),
+                .time_taken  = ELAPSED_MS(tic, toc),
+                .h2d_time = h2d_ms,
+                .kern_time = kern_ms,
+                .d2h_time = d2h_ms,
                 .nof_samples = read_samples,
                 .nof_packets = nof_packets,
             };
             callback(static_cast<void *>(hostVis_), timestamp, static_cast<void *>(&metadata));
         }
 
-        LOG(INFO, "TCC correlator for channel %d took: %11.6f ms (%u samples, %u packets)",
-            channel, ELAPSED_MS(tic, toc), read_samples, nof_packets);
+        LOG(INFO,
+            "TCC ch=%d | H2D=%.3f ms | kern=%.3f ms | D2H=%.3f ms "
+            "(samples=%u, packets=%u, bytes=%.2f MiB)",
+            channel,
+            h2d_ms, kern_ms, d2h_ms,
+            read_samples, nof_packets, sample_bytes / (1024.0 * 1024.0));
     }
 }

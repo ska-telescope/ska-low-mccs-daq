@@ -76,6 +76,17 @@ class DaqReceiver:
             ("nof_packets", ctypes.c_uint),
         ]
 
+    class TensorCorrelatorMetadata(ctypes.Structure):
+        _fields_ = [
+            ("channel_id", ctypes.c_uint),
+            ("time_taken", ctypes.c_double),
+            ("h2d_time", ctypes.c_double),
+            ("kern_time", ctypes.c_double),
+            ("d2h_time", ctypes.c_double),
+            ("nof_samples", ctypes.c_uint),
+            ("nof_packets", ctypes.c_uint),
+        ]
+
     class RawStationMetadata(ctypes.Structure):
         """Raw station metadata structure definition"""
 
@@ -738,12 +749,15 @@ class DaqReceiver:
             return
 
         metadata = ctypes.cast(
-            metadata, ctypes.POINTER(self.CorrelatorMetadata)
+            metadata, ctypes.POINTER(self.TensorCorrelatorMetadata)
         ).contents
         channel_id = metadata.channel_id
         time_taken = metadata.time_taken
         nof_samples = metadata.nof_samples
         nof_packets = metadata.nof_packets
+        h2d_time = metadata.h2d_time
+        kern_time = metadata.kern_time
+        d2h_time = metadata.d2h_time
 
         # Extract data sent by DAQ
         nof_antennas = self._config["nof_tiles"] * self._config["nof_antennas"]
@@ -816,6 +830,9 @@ class DaqReceiver:
                 nof_packets=nof_packets,
                 nof_samples=nof_samples,
                 correlator_time_taken=time_taken,
+                host_to_device_copy_time=h2d_time,
+                correlator_solve_time=kern_time,
+                device_to_host_copy_time=d2h_time
             )
 
         if self._config["logging"]:
