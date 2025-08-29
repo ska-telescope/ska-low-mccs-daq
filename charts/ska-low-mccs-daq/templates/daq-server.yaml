@@ -111,7 +111,7 @@ spec:
       serviceAccountName: {{$slug}}-serviceaccount
       initContainers:
       - name: get-load-balancer-ip
-        image: bitnami/kubectl:latest
+        image: artefact.skao.int/ska-ser-utils:0.1.0
         volumeMounts:
           - name: lb-ip-volume
             mountPath: /tmp

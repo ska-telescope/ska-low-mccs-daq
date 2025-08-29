@@ -5,6 +5,10 @@
 * [THORN-247] Added a new correlator mode for the Tensor Core Correlator (https://git.astron.nl/RD/tensor-core-correlator/-/tree/master).
     It lives in a new DaqMode 'TC_CORRELATOR_DATA' and should be considered experimental for now.
 
+## 3.2.1
+
+* [LOW-1593] Eliminate dependency on bitnami images / charts
+
 ## 3.2.0
 
 * [THORN-197] Add attributes nofPackets/bufferCount for raw station beam. Link up ringbufferOccupancy/lostPushes for raw station beam.
