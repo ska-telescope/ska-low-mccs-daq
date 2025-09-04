@@ -1,5 +1,9 @@
 # Version History
 
+## 3.2.2
+
+* [THORN-248] Update ska-low-mccs-common dependency.#
+
 ## 3.2.1
 
 * [LOW-1593] Eliminate dependency on bitnami images / charts
