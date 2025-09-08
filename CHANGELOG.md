@@ -4,6 +4,10 @@
 
 * [THORN-247] Added a new correlator mode for the Tensor Core Correlator (https://git.astron.nl/RD/tensor-core-correlator/-/tree/master).
     It lives in a new DaqMode 'TC_CORRELATOR_DATA' and should be considered experimental for now.
+    
+## 3.2.2
+
+* [THORN-248] Update ska-low-mccs-common dependency.#
 
 ## 3.2.1
 
