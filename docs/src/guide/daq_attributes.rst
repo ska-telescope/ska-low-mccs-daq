@@ -139,6 +139,8 @@ Consumer Diagnostics
    Time taken to copy data from the host (CPU) to the device (GPU) memory, measured in milliseconds.
    A rising trend may indicate issues with data transfer rates or GPU memory allocation.
 
+   This is typically the bottleneck in TCC as the solve time is very fast.
+
    Note: This attribute is only available when using the TCC correlator.
 
 .. attribute:: deviceToHostCopyTime
@@ -152,7 +154,7 @@ Consumer Diagnostics
 
    Note: This attribute is only available when using the TCC correlator.
 
-.. attribute:: correlatorTimeTaken
+.. attribute:: correlatorSolveTime
 
    **Type:** DevFloat
 
