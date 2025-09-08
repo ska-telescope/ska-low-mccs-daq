@@ -103,8 +103,8 @@ Consumer Diagnostics
     Total number of packets processed during the last integration by the data consumer.
 
     1. For the station beam consumer this is dependent on the integration time, the higher the integation time
-       the more packets we expect per integration.
-    2. For the correlator data consumer, this at the moment should be 1835008/128 per TPM as each packet contains 128 samples, and nof samples is fixed to 1835008. 
+       the more packets we expect per integration. (nof_station_samples * nof_channels / 2048)
+    2. For the xGPU correlator data consumer, this at the moment should be 1835008/128 per TPM as each packet contains 128 samples, and nof samples is fixed to 1835008. 
        Note: there is some odd behaviour with this attribute at the beginning/end of a frequency sweep which is not yet understood.
     3. For the integrated channel data consumer (bandpasses), should be 32 packets per TPM sending data as each packet contains data for 8 antennas and 32 channels.
 
@@ -115,9 +115,11 @@ Consumer Diagnostics
 
    Total number of data samples received in the last callback from the running consumer.
 
-   For the correlator data consumer, this at the moment should be 1835008 as the correlator is fixed to this integration period.
+   For the xGPU correlator data consumer, this at the moment should be 1835008 as the correlator is fixed to this integration period.
    Note: there is some odd behaviour with this attribute at the beginning/end of a frequency sweep which is not yet understood.
-    
+
+   For the TCC correlator this is variable as the integration time can be changed. 
+   The odd behaviour at the beginning/end of a frequency sweep is not present for TCC.
 
 .. attribute:: correlatorTimeTaken
 
@@ -125,5 +127,36 @@ Consumer Diagnostics
 
    **Unit:** milliseconds (ms)  
 
-   Time taken to complete the last correlation in xGPU, measured in milliseconds.
+   Time taken to complete the last correlation in xGPU or TCC, measured in milliseconds.
+   A rising trend may indicate GPU contention or performance bottlenecks.
+
+.. attribute:: hostToDeviceCopyTime
+
+   **Type:** DevFloat
+
+   **Unit:** milliseconds (ms)  
+
+   Time taken to copy data from the host (CPU) to the device (GPU) memory, measured in milliseconds.
+   A rising trend may indicate issues with data transfer rates or GPU memory allocation.
+
+   Note: This attribute is only available when using the TCC correlator.
+
+.. attribute:: deviceToHostCopyTime
+
+   **Type:** DevFloat
+
+   **Unit:** milliseconds (ms)  
+
+   Time taken to copy data from the device (GPU) back to the host (CPU) memory, measured in milliseconds.
+   A rising trend may indicate issues with data transfer rates or GPU memory allocation.
+
+   Note: This attribute is only available when using the TCC correlator.
+
+.. attribute:: correlatorTimeTaken
+
+   **Type:** DevFloat
+
+   **Unit:** milliseconds (ms)  
+
+   Time taken to solve the last correlation in TCC, measured in milliseconds.
    A rising trend may indicate GPU contention or performance bottlenecks.
