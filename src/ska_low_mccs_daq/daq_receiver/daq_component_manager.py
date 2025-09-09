@@ -674,6 +674,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 self._daq_client.initialise_daq()
                 self._receiver_started = True
 
+        self._mark_scan_started()
+
         self.client_queue = queue.SimpleQueue()
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
         self._daq_client.start_daq(
@@ -726,6 +728,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._started_event.clear()
         if self._component_state_callback:
             self._component_state_callback(reset_consumer_attributes=True)
+        self._mark_scan_done()
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
 
@@ -1019,6 +1022,71 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._monitoring_bandpass = False
         self.logger.info("Bandpass monitor stopping.")
         return (ResultCode.OK, "Bandpass monitor stopping.")
+
+    def _change_directory(self: DaqComponentManager, match: str, change: str) -> bool:
+        """
+        Change the current data directory by replacing "match" to "change".
+
+        Reads the current used directory from self._configurations and replaces
+        a portion of it, "match", with a "change".
+
+        The function then calls os.rename to apply the changed in the file system.
+        The function logs any errors and checks that the desired new directory exists.
+
+        :param match: the portion of the path to be changed
+        :param change: the new path portion to replace match
+        :return: True if successful
+        """
+        current_dir = self._configuration["directory"]
+        new_dir = current_dir.replace(match, change)
+
+        # could probably get away with only one exception
+        try:
+            os.rename(current_dir, new_dir)
+        except IsADirectoryError as err:
+            self.logger.error(
+                f"Can't change file: \n {current_dir} to directory: \n"
+                f"{new_dir} \n Error: {err}"
+            )
+        except NotADirectoryError as err:
+            self.logger.error(
+                f"Can't change directory: \n {current_dir} to file: \n"
+                f"{new_dir} \n Error: {err}"
+            )
+        except OSError as err:
+            self.logger.error(
+                f"Failed to change {current_dir} to directory"
+                f"{new_dir} \n Error: {err}"
+            )
+
+        # Make sure path exists and save it
+        if not os.path.exists(new_dir):
+            return False
+
+        self._configuration["directory"] = new_dir
+        self._daq_client.populate_configuration(self._configuration)
+        self.logger.info(f"Current writting path changed to: {new_dir}")
+        return True
+
+    def _mark_scan_done(
+        self: DaqComponentManager,
+    ) -> bool:
+        """
+        Change the current path when scan is finished.
+
+        :return: True if successful
+        """
+        return self._change_directory(f"{SUBSYSTEM_SLUG}/.", f"{SUBSYSTEM_SLUG}/")
+
+    def _mark_scan_started(
+        self: DaqComponentManager,
+    ) -> bool:
+        """
+        Change the current path when scan is started.
+
+        :return: True if successful
+        """
+        return self._change_directory(f"{SUBSYSTEM_SLUG}/", f"{SUBSYSTEM_SLUG}/.")
 
     def _data_directory_format_adr55_compliant(
         self: DaqComponentManager,

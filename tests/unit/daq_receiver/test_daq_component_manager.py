@@ -653,3 +653,37 @@ class TestDaqComponentManager:
             under test.
         """
         assert daq_component_manager.daq_library == "libaavsdaq.so"
+
+    def test_change_directory(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test change data directory.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        existing_directory = "some/file/path"
+        daq_component_manager.configure_daq(**{"directory": existing_directory})
+        assert (
+            daq_component_manager.get_configuration()["directory"] == existing_directory
+        )
+
+        # change the path half way
+        assert daq_component_manager._change_directory("file/", "file/.")
+        assert daq_component_manager._configuration["directory"] == "some/file/.path"
+        assert (
+            daq_component_manager.get_configuration()["directory"] == "some/file/.path"
+        )
+        assert os.path.exists("some/file/.path")
