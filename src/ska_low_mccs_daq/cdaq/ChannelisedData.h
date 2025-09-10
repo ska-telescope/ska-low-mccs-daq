@@ -21,7 +21,19 @@ struct ChannelMetadata
 {
     uint16_t tile;
     uint32_t cont_channel_id;
-    uint32_t nof_packets;
+    uint32_t nof_packets; //nof bytes of data (?)
+    uint32_t packet_counter;
+    uint64_t payload_length;
+    uint64_t sync_time;
+    uint64_t timestamp;
+    uint16_t start_channel_id;
+    uint16_t start_antenna_id;
+    uint16_t nof_included_channels;
+    uint16_t nof_included_antennas;
+    uint16_t tile_id;
+    uint16_t station_id;
+    uint8_t  fpga_id;
+    uint32_t payload_offset;
 };
 
 // ----------------------- Channelised Data Container and Helpers ---------------------------------
@@ -126,6 +138,18 @@ public:
         if (this->timestamp > timestamp) {
             this->timestamp = timestamp;
             this->cont_channel_id = cont_channel_id;
+            this->packet_counter = 0;
+            this->payload_length = samples;
+            this->sync_time = 0;
+            this->start_channel_id = channel;
+            this->start_antenna_id = start_antenna_id;
+            this->nof_included_channels = included_channels;
+            this->nof_included_antennas = nof_included_antennas;
+            this->tile_id = tile;
+            this->station_id = 0;
+            this->fpga_id = 0;
+            this->payload_offset = 0;
+
         }
 
         // Update number of packets in container
