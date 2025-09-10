@@ -674,16 +674,22 @@ class TestDaqComponentManager:
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
 
-        existing_directory = "some/file/path"
+        existing_directory = "/product/1/ska-low-mccs/scan_id/user/"
         daq_component_manager.configure_daq(**{"directory": existing_directory})
         assert (
             daq_component_manager.get_configuration()["directory"] == existing_directory
         )
 
         # change the path half way
-        assert daq_component_manager._change_directory("file/", "file/.")
-        assert daq_component_manager._configuration["directory"] == "some/file/.path"
-        assert (
-            daq_component_manager.get_configuration()["directory"] == "some/file/.path"
+        assert daq_component_manager._change_directory(
+            "scan_id/", "scan_id_in_progress/"
         )
-        assert os.path.exists("some/file/.path")
+        assert (
+            daq_component_manager._configuration["directory"]
+            == "/product/1/ska-low-mccs/scan_id_in_progress/user/"
+        )
+        assert (
+            daq_component_manager.get_configuration()["directory"]
+            == "/product/1/ska-low-mccs/scan_id_in_progress/user/"
+        )
+        assert os.path.exists("/product/1/ska-low-mccs/scan_id_in_progress/user/")
