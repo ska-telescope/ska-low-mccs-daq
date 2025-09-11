@@ -1,14 +1,6 @@
 defaults:
   logging_level_default: 5
 
-platform:
-  stations:
-    stfc-ral-2:
-      sps:
-        daq:
-          two-pod-daq: false
-
-
 subarrays:  # 2 subarrays, no defaults overridden
   "1": {}
     # enabled: false  # for example
