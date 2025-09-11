@@ -54,6 +54,11 @@ include:
     file: 'gitlab-ci/includes/k8s.gitlab-ci.yml'
 
 
+cpp-build:
+  stage: build
+  script:
+    - make cpp-build
+
 oci-image-build:
   stage: build
   before_script:

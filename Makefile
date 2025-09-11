@@ -23,6 +23,20 @@ docs-pre-build:
 
 
 ###############################################
+# C++
+###############################################
+DAQ_INSTALL ?= /opt/aavs  # default
+
+cpp-build:
+	echo "Installing into $(DAQ_INSTALL)"
+	cd src/ska_low_mccs_daq/cdaq && \
+	mkdir -p build && \
+	cd build && \
+	cmake -DCMAKE_INSTALL_PREFIX=$(DAQ_INSTALL) -DWITH_CORRELATOR=OFF .. && \
+	make -B -j4 install
+
+
+###############################################
 # PYTHON
 ###############################################
 
