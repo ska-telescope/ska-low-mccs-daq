@@ -25,7 +25,7 @@ struct ChannelMetadata
     uint32_t packet_counter;
     uint64_t payload_length;
     uint64_t sync_time;
-    uint64_t timestamp;
+    double timestamp;
     uint16_t start_channel_id;
     uint16_t start_antenna_id;
     uint16_t nof_included_channels;
@@ -143,8 +143,8 @@ public:
             this->sync_time = 0;
             this->start_channel_id = channel;
             this->start_antenna_id = start_antenna_id;
-            this->nof_included_channels = included_channels;
-            this->nof_included_antennas = nof_included_antennas;
+            this->nof_channels = included_channels;
+            this->nof_antennas = nof_included_antennas;
             this->tile_id = tile;
             this->station_id = 0;
             this->fpga_id = 0;
@@ -182,6 +182,18 @@ public:
                     .tile = channel_data[i].tile,
                     .cont_channel_id = cont_channel_id,
                     .nof_packets = this->nof_packets,
+                    .payload_length = this->payload_length,
+                    .sync_time = this->sync_time,
+                    .timestamp = this->timestamp,
+                    .start_channel_id = this->start_channel_id,
+                    .start_antenna_id = this->start_antenna_id,
+                    .nof_included_channels =this->nof_channels,
+                    .nof_included_antennas =this->nof_antennas,
+                    .tile_id =this->tile_id,
+                    .station_id = this->station_id,
+                    .fpga_id=this->fpga_id,
+                    .payload_offset = this->payload_offset,
+
                 };
                 callback((uint32_t *)channel_data[i].data, this->timestamp,
                          static_cast<void *>(&metadata));
@@ -206,6 +218,16 @@ private:
     uint16_t nof_channels;
     uint8_t  nof_pols;
     uint32_t cont_channel_id = 0;
+    uint32_t packet_counter;
+    uint64_t payload_length;
+    uint64_t sync_time;
+    //uint64_t timestamp;
+    uint16_t start_channel_id;
+    uint16_t start_antenna_id;
+    uint16_t tile_id;
+    uint16_t station_id;
+    uint8_t  fpga_id;
+    uint32_t payload_offset;
 
     // Tile map
     std::unordered_map<uint16_t, unsigned int> tile_map;
