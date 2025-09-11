@@ -1,8 +1,12 @@
 # Version History
 
+## 4.0.0
+
+* [THORN-172] The old two pod DAQ has been removed.
+
 ## 3.2.2
 
-* [THORN-248] Update ska-low-mccs-common dependency.#
+* [THORN-248] Update ska-low-mccs-common dependency.
 
 ## 3.2.1
 
