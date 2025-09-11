@@ -29,7 +29,7 @@ import psutil  # type: ignore
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
 from ska_ser_skuid.client import SkuidClient  # type: ignore
 from ska_tango_base.base import TaskCallbackType, check_communicating
-from ska_tango_base.executor import TaskExecutor, TaskExecutorComponentManager
+from ska_tango_base.executor import TaskExecutorComponentManager
 
 from ..pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from .daq_simulator import DaqSimulator
@@ -200,6 +200,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._skuid_url = skuid_url
         self._measure_data_rate: bool = False
         self._data_rate: float | None = None
+        self.current_scan_id: str = ""
 
         self._monitoring_bandpass = False
         self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
@@ -230,7 +231,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             fault=None,
         )
         # We've bumped this to 3 workers to allow for the bandpass monitoring.
-        self._task_executor = TaskExecutor(max_workers=3)
         self.start_data_rate_monitor(1)
 
     def get_external_ip(self, logger: logging.Logger) -> str:
@@ -674,8 +674,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 self._daq_client.initialise_daq()
                 self._receiver_started = True
 
-        self._mark_scan_started()
-
+        # mark the directory as in progress
+        self._change_directory(
+            f"/{self.current_scan_id}/", f"/{self.current_scan_id}_in_progress/"
+        )
         self.client_queue = queue.SimpleQueue()
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
         self._daq_client.start_daq(
@@ -728,7 +730,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._started_event.clear()
         if self._component_state_callback:
             self._component_state_callback(reset_consumer_attributes=True)
-        self._mark_scan_done()
         if task_callback:
             task_callback(status=TaskStatus.COMPLETED)
 
@@ -1039,54 +1040,71 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         current_dir = self._configuration["directory"]
         new_dir = current_dir.replace(match, change)
+        user_dir = ""
+        # Truncate to the relevant change
+        current_dir_list = current_dir.split("/", maxsplit=5)
+        current_dir = "/".join(current_dir_list[0:5])
+        if len(current_dir_list) > 5:
+            user_dir = "/" + "/".join(current_dir_list[5:])
+            user_dir.replace("//", "/")
 
-        # could probably get away with only one exception
+        new_dir_list = new_dir.split("/", maxsplit=5)
+        new_dir = "/".join(new_dir_list[0:5])
+
         try:
-            os.rename(current_dir, new_dir)
-        except IsADirectoryError as err:
-            self.logger.error(
-                f"Can't change file: \n {current_dir} to directory: \n"
-                f"{new_dir} \n Error: {err}"
-            )
-        except NotADirectoryError as err:
-            self.logger.error(
-                f"Can't change directory: \n {current_dir} to file: \n"
-                f"{new_dir} \n Error: {err}"
-            )
+            os.rename(f"{current_dir}", f"{new_dir}")
         except OSError as err:
             self.logger.error(
-                f"Failed to change {current_dir} to directory"
-                f"{new_dir} \n Error: {err}"
+                f"Failed to change {current_dir} to directory " f"{new_dir}: {err}"
             )
+            return False
 
         # Make sure path exists and save it
         if not os.path.exists(new_dir):
             return False
 
-        self._configuration["directory"] = new_dir
+        self._configuration["directory"] = new_dir + user_dir
         self._daq_client.populate_configuration(self._configuration)
-        self.logger.info(f"Current writting path changed to: {new_dir}")
+        self.logger.info(f"Current writing path changed to: {new_dir}{user_dir}")
         return True
 
-    def _mark_scan_done(
+    @check_communicating
+    def mark_scan_done(
         self: DaqComponentManager,
-    ) -> bool:
+        task_callback: TaskCallbackType | None = None,
+    ) -> tuple[TaskStatus, str]:
         """
         Change the current path when scan is finished.
 
+        :param task_callback: Update task state, defaults to None
+
         :return: True if successful
         """
-        return self._change_directory(f"{SUBSYSTEM_SLUG}/.", f"{SUBSYSTEM_SLUG}/")
+        return self.submit_task(
+            self._mark_scan_done,
+            task_callback=task_callback,
+        )
 
-    def _mark_scan_started(
+    def _mark_scan_done(
         self: DaqComponentManager,
-    ) -> bool:
+        task_callback: TaskCallbackType | None = None,
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
         """
-        Change the current path when scan is started.
+        Change the current path when scan is finished.
 
-        :return: True if successful
+        :param task_callback: Update task state, defaults to None
+        :param task_abort_event: Check for abort, defaults to None
         """
-        return self._change_directory(f"{SUBSYSTEM_SLUG}/", f"{SUBSYSTEM_SLUG}/.")
+        if task_callback:
+            task_callback(status=TaskStatus.IN_PROGRESS)
+
+        result = self._change_directory(
+            f"/{self.current_scan_id}_in_progress/", f"/{self.current_scan_id}/"
+        )
+        status = TaskStatus.COMPLETED if result else TaskStatus.FAILED
+        if task_callback:
+            task_callback(status=status)
 
     def _data_directory_format_adr55_compliant(
         self: DaqComponentManager,
@@ -1129,6 +1147,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         existing_directory = self.get_configuration()["directory"]
         # Replace any double slashes with just one in case
         # `existing_directory` begins with one.
+        self.current_scan_id = scan_id
         return (
             f"/product/{eb_id}/{SUBSYSTEM_SLUG}/{scan_id}/{existing_directory}".replace(
                 "//", "/"

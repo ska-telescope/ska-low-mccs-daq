@@ -397,6 +397,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             ("Stop", "stop_daq"),
             ("StartDataRateMonitor", "start_data_rate_monitor"),
             ("StopDataRateMonitor", "stop_data_rate_monitor"),
+            ("MarkDone", "mark_scan_done"),
         ]:
             self.register_command_object(
                 command_name,
@@ -1051,6 +1052,26 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         handler = self.get_command_object("StartDataRateMonitor")
         (result_code, message) = handler(interval)
+        return ([result_code], [message])
+
+    @command(dtype_out="DevVarLongStringArray")
+    def MarkDone(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+        """
+        Change the data dictionary to mark the end of a scan.
+
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+
+        :example:
+            >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
+            >>> argin = '{"modes_to_start": "INTEGRATED_CHANNEL_DATA,
+            RAW_DATA"}'
+            >>> daq.Start(argin) # use specified consumers
+            >>> daq.Start("") # Uses default consumers.
+        """
+        handler = self.get_command_object("MarkDone")
+        (result_code, message) = handler()
         return ([result_code], [message])
 
     # ----------
