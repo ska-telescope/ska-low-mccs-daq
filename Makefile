@@ -29,11 +29,11 @@ DAQ_INSTALL ?= /opt/aavs  # default
 
 cpp-build:
 	echo "Installing into $(DAQ_INSTALL)"
-	cd src/ska_low_mccs_daq/cdaq && \
-	mkdir -p build && \
-	cd build && \
-	cmake -DCMAKE_INSTALL_PREFIX=$(DAQ_INSTALL) -DWITH_CORRELATOR=OFF .. && \
-	make -B -j4 install
+	mkdir -p src/ska_low_mccs_daq/cdaq/build
+	cd src/ska_low_mccs_daq/cdaq/build && git clone https://gitlab.com/ska-telescope/aavs-daq
+	mkdir -p src/ska_low_mccs_daq/cdaq/build/aavs-daq/src/build
+	cd src/ska_low_mccs_daq/cdaq/build/aavs-daq/src/build && cmake -DCMAKE_INSTALL_PREFIX=$(DAQ_INSTALL) -DWITH_BCC=OFF .. && make -B -j8 install
+	cd src/ska_low_mccs_daq/cdaq/build && cmake -DCMAKE_INSTALL_PREFIX=$(DAQ_INSTALL) -DWITH_CORRELATOR=OFF .. && make -B -j4 install
 
 
 ###############################################
