@@ -20,4 +20,5 @@ protected:
 
 private:
   std::vector<std::unique_ptr<cu::HostMemory>> pinned_;
+  uint8_t times_per_block = 16; // Fixed by TCC for complex 8 bit samples 
 };

@@ -21,32 +21,46 @@ TccDoubleBuffer::TccDoubleBuffer(uint16_t na, uint32_t ns,
     }
 }
 
-void TccDoubleBuffer::copy_data(uint32_t producer_index,
+inline void TccDoubleBuffer::copy_data(uint32_t producer_index,
                                 uint16_t start_antenna, uint16_t nof_included_antennas,
                                 uint64_t start_sample_index, uint32_t samples,
                                 uint16_t *data_ptr, double timestamp)
 {
     // Target layout: [M][R][P][T], T=16; elements are still uint16_t holding {re_i8, im_i8}
-    constexpr int TPB = 16;
-    uint16_t *base = double_buffer[producer_index].data;
+    const uint64_t m_stride = uint64_t(nof_antennas) * nof_pols * times_per_block; // stride per m
+    const uint32_t r_stride  = nof_pols * times_per_block;              // stride per r
+    const uint32_t src_stride = nof_included_antennas * nof_pols;       // elems per source sample
 
-    for (uint32_t i = 0; i < samples; ++i)
+    uint16_t* base = double_buffer[producer_index].data;
+    uint64_t m       = start_sample_index >> 4;
+    uint32_t blocks  = samples >> 4;  
+
+    for (uint32_t b = 0; b < blocks; ++b, ++m)
     {
-        const uint64_t ti = start_sample_index + i;
-        const uint64_t m = ti / TPB; // block index
-        const uint64_t t = ti % TPB; // time-in-block
-
-        const uint64_t mt_off = m * (uint64_t)nof_antennas * nof_pols * TPB + t;
+        uint16_t* base_m = base + m * m_stride;
 
         for (uint16_t j = 0; j < nof_included_antennas; ++j)
         {
-            const uint16_t r = start_antenna + j;
-            for (uint8_t p = 0; p < nof_pols; ++p)
-            {
-                const uint64_t idx = (((uint64_t)r * nof_pols + p) * TPB) + mt_off;
-                base[idx] = *data_ptr++; // exact bits copied; no conversion
+            const uint32_t r = uint32_t(start_antenna) + j;
+
+            // dst stripes (contiguous along T)
+            uint16_t* d0 = base_m + r * r_stride;
+            uint16_t* d1 = d0 + times_per_block;
+
+            // src pointers advance by a fixed stride per sample
+            uint16_t* s0 = data_ptr + j * nof_pols; // pol 0
+            uint16_t* s1 = s0 + 1;                  // pol 1
+
+            for (uint32_t t = 0; t < times_per_block; ++t) {
+                d0[t] = *s0;
+                d1[t] = *s1;
+                s0 += src_stride;
+                s1 += src_stride;
             }
         }
+
+        // consumed one 16-sample block from the source
+        data_ptr += times_per_block * src_stride;
     }
 
     if (start_antenna == 0)
