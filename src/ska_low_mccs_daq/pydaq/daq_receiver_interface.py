@@ -65,6 +65,18 @@ class DaqReceiver:
             ("tile", ctypes.c_int16),
             ("cont_channel_id", ctypes.c_int32),
             ("nof_packets", ctypes.c_uint32),
+            ("packet_counter", ctypes.c_uint32),
+            ("payload_length", ctypes.c_uint64),
+            ("sync_time", ctypes.c_uint64),
+            ("timestamp", ctypes.c_double),
+            ("start_channel_id", ctypes.c_uint16),  
+            ("start_antenna_id", ctypes.c_uint16),  
+            ("nof_included_channels", ctypes.c_uint16),
+            ("nof_included_antennas", ctypes.c_uint16),
+            ("tile_id", ctypes.c_uint16),
+            ("station_id", ctypes.c_uint16),
+            ("fpga_id", ctypes.c_uint8),
+            ("payload_offset", ctypes.c_uint32),
         ]
 
     class CorrelatorMetadata(ctypes.Structure):
