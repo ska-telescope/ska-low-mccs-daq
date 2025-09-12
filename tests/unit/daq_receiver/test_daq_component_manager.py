@@ -654,10 +654,21 @@ class TestDaqComponentManager:
         """
         assert daq_component_manager.daq_library == "libaavsdaq.so"
 
+    @pytest.mark.parametrize(
+        ("directory_tag", "outcome"),
+        (
+            ("", ".scan_id"),
+            (".", ".scan_id"),
+            ("default", ".scan_id"),
+            ("_in_progress", "scan_id_in_progress"),
+        ),
+    )
     def test_change_directory(
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
         callbacks: MockCallableGroup,
+        directory_tag: str,
+        outcome: bool,
     ) -> None:
         """
         Test change data directory.
@@ -666,7 +677,10 @@ class TestDaqComponentManager:
             under test.
         :param callbacks: a dictionary from which callbacks with
             asynchrony support can be accessed.
+        :param directory_tag: directory tag to be applied to the directory in progress.
+        :param outcome: the changes applied to the directory
         """
+        # Setting up the daq
         assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
         daq_component_manager.start_communicating()
         callbacks["communication_state"].assert_call(
@@ -674,22 +688,25 @@ class TestDaqComponentManager:
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
 
-        existing_directory = "/product/1/ska-low-mccs/scan_id/user/"
-        daq_component_manager.configure_daq(**{"directory": existing_directory})
-        assert (
-            daq_component_manager.get_configuration()["directory"] == existing_directory
-        )
+        default_dir = "/product/1/ska-low-mccs/scan_id/user/"
+        new_dir = f"/product/1/ska-low-mccs/{outcome}/user/"
 
-        # change the path half way
-        assert daq_component_manager._change_directory(
-            "scan_id/", "scan_id_in_progress/"
+        daq_component_manager.configure_daq(
+            **{"directory": default_dir, "directory_tag": directory_tag}
         )
-        assert (
-            daq_component_manager._configuration["directory"]
-            == "/product/1/ska-low-mccs/scan_id_in_progress/user/"
-        )
-        assert (
-            daq_component_manager.get_configuration()["directory"]
-            == "/product/1/ska-low-mccs/scan_id_in_progress/user/"
-        )
-        assert os.path.exists("/product/1/ska-low-mccs/scan_id_in_progress/user/")
+        assert daq_component_manager.get_configuration()["directory"] == default_dir
+
+        if os.path.exists(new_dir):
+            os.rmdir(new_dir)
+
+        # Changed the path to the "in progress state"
+        assert daq_component_manager._change_directory()
+        assert daq_component_manager._configuration["directory"] == new_dir
+        assert daq_component_manager.get_configuration()["directory"] == new_dir
+        assert os.path.exists(new_dir)
+
+        # Changed the path to the "done state"
+        assert daq_component_manager._change_directory(mark_done=True)
+        assert daq_component_manager._configuration["directory"] == default_dir
+        assert daq_component_manager.get_configuration()["directory"] == default_dir
+        assert os.path.exists(default_dir)

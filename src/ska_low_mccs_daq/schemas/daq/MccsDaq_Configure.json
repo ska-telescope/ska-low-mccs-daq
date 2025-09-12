@@ -250,6 +250,11 @@
             "type": "string",
             "default": ".",
             "description": "Directory where data is saved"
+        },
+        "directory_tag": {
+            "type": "string",
+            "default": "",
+            "description": "Directory tag applied when daq scanning is in progress"
         }
     }
 }

@@ -1062,13 +1062,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
-
-        :example:
-            >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
-            >>> argin = '{"modes_to_start": "INTEGRATED_CHANNEL_DATA,
-            RAW_DATA"}'
-            >>> daq.Start(argin) # use specified consumers
-            >>> daq.Start("") # Uses default consumers.
         """
         handler = self.get_command_object("MarkDone")
         (result_code, message) = handler()

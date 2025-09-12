@@ -84,7 +84,7 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     return []
 
 
-# pylint: disable=abstract-method,too-many-instance-attributes
+# pylint: disable=abstract-method,too-many-instance-attributes, too-many-public-methods
 class DaqComponentManager(TaskExecutorComponentManager):
     """A component manager for a DaqReceiver."""
 
@@ -200,7 +200,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._skuid_url = skuid_url
         self._measure_data_rate: bool = False
         self._data_rate: float | None = None
-        self.current_scan_id: str = ""
+
+        # used for MarkDone command to keep track of directory changes
+        self.current_scan_id: str | None = None
+        self.mark_done_tag: str | None = None
 
         self._monitoring_bandpass = False
         self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
@@ -494,6 +497,16 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     )
                     os.makedirs(daq_config["directory"])
                     self.logger.info(f'directory {daq_config["directory"]} created!')
+            if "directory_tag" in daq_config:
+                self.mark_done_tag = daq_config["directory_tag"]
+                if self.mark_done_tag in ["", ".", "default"]:
+                    self.mark_done_tag = None
+                    self.logger.info("Changed directory tag to default")
+                self.logger.info(
+                    f'Changed directory tag to {daq_config["directory_tag"]}'
+                )
+            # if "automatic_dir_tagging" in daq_config:
+            #     self.mark_done_tag
             merged_config = self._configuration | daq_config
             self._daq_client.populate_configuration(merged_config)
             self._configuration = merged_config
@@ -675,9 +688,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 self._receiver_started = True
 
         # mark the directory as in progress
-        self._change_directory(
-            f"/{self.current_scan_id}/", f"/{self.current_scan_id}_in_progress/"
-        )
+        self._change_directory()
+
         self.client_queue = queue.SimpleQueue()
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
         self._daq_client.start_daq(
@@ -1024,7 +1036,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.logger.info("Bandpass monitor stopping.")
         return (ResultCode.OK, "Bandpass monitor stopping.")
 
-    def _change_directory(self: DaqComponentManager, match: str, change: str) -> bool:
+    def _change_directory(self: DaqComponentManager, mark_done: bool = False) -> bool:
         """
         Change the current data directory by replacing "match" to "change".
 
@@ -1034,11 +1046,23 @@ class DaqComponentManager(TaskExecutorComponentManager):
         The function then calls os.rename to apply the changed in the file system.
         The function logs any errors and checks that the desired new directory exists.
 
-        :param match: the portion of the path to be changed
-        :param change: the new path portion to replace match
+        :param mark_done: reverses the change if True
         :return: True if successful
         """
         current_dir = self._configuration["directory"]
+
+        if self.current_scan_id is None:
+            self.current_scan_id = current_dir.split("/", maxsplit=5)[4]
+
+        match = f"/{self.current_scan_id}/"
+        change = f"/{self.current_scan_id}{self.mark_done_tag}/"
+
+        if self.mark_done_tag is None:
+            change = f"/.{self.current_scan_id}/"
+
+        if mark_done:
+            change, match = match, change
+
         new_dir = current_dir.replace(match, change)
         user_dir = ""
         # Truncate to the relevant change
@@ -1099,9 +1123,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
 
-        result = self._change_directory(
-            f"/{self.current_scan_id}_in_progress/", f"/{self.current_scan_id}/"
-        )
+        result = self._change_directory(mark_done=True)
         status = TaskStatus.COMPLETED if result else TaskStatus.FAILED
         if task_callback:
             task_callback(status=status)
