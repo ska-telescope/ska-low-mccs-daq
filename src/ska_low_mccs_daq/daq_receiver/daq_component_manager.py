@@ -497,13 +497,16 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     )
                     os.makedirs(daq_config["directory"])
                     self.logger.info(f'directory {daq_config["directory"]} created!')
+                    # reset the current scan id, as it changed.
+                    # this used only in _change_directory and will be determined again.
+                    self.current_scan_id = None
+
             if "directory_tag" in daq_config:
                 self.mark_done_tag = daq_config["directory_tag"]
                 if self.mark_done_tag in ["", ".", "default"]:
                     self.mark_done_tag = None
-                    self.logger.info("Changed directory tag to default")
                 self.logger.info(
-                    f'Changed directory tag to {daq_config["directory_tag"]}'
+                    f'Changed directory tag to {self.mark_done_tag or "default"}'
                 )
             # if "automatic_dir_tagging" in daq_config:
             #     self.mark_done_tag
