@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [JANUS-273] Updated environment variable used in acquire_station_beam.cpp to align with other data modes
+
 ## 4.0.0
 
 * [THORN-172] The old two pod DAQ has been removed.
