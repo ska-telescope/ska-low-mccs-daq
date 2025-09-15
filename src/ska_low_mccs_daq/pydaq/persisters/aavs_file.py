@@ -110,6 +110,7 @@ class AAVSFileManager(object):
         self.channel_id = 0
         self.station_id = 0
         self.tsamp = 0
+        self.beam_id = 0
 
     @abstractmethod
     def configure(self, file_obj):
@@ -220,6 +221,7 @@ class AAVSFileManager(object):
         timestamp=0,
         date_time="",
         data_mode="",
+        beam_id=0
     ):
         """
         A method that has to be called soon after any AAVS File Manager object is created, to let us know what config
@@ -253,6 +255,7 @@ class AAVSFileManager(object):
         self.n_stokes = n_stokes
         self.station_id = station_id
         self.channel_id = channel_id
+        self.beam_id = beam_id
 
     @staticmethod
     def time_range(low, up, leng):
@@ -544,6 +547,7 @@ class AAVSFileManager(object):
                 metadata_dict["n_stokes"] = self.n_stokes
                 metadata_dict["channel_id"] = self.channel_id
                 metadata_dict["station_id"] = self.station_id
+                metadata_dict["beam_id"] = self.beam_id
                 if "observation_info" in file_obj:
                     metadata_dict["observation_info"] = dict(
                         file_obj["observation_info"].attrs
@@ -959,6 +963,8 @@ class AAVSFileManager(object):
                         self.n_baselines = self.main_dset.attrs["n_baselines"]
                         self.n_stokes = self.main_dset.attrs["n_stokes"]
                         self.channel_id = self.main_dset.attrs["channel_id"]
+                        if "beam_id" in list(self.main_dset.attrs.keys()):
+                            self.beam_id = self.main_dset.attrs["beam_id"]
                         if "nsamp" in list(self.main_dset.attrs.keys()):
                             self.nsamp = self.main_dset.attrs["nsamp"]
 
@@ -1088,6 +1094,8 @@ class AAVSFileManager(object):
         self.main_dset.attrs["n_stokes"] = self.n_stokes
         self.main_dset.attrs["channel_id"] = self.channel_id
         self.main_dset.attrs["station_id"] = self.station_id
+        if self.beam_id is not None:
+            self.main_dset.attrs["beam_id"] = self.beam_id
         if self.tsamp is not None:
             self.main_dset.attrs["tsamp"] = self.tsamp
 

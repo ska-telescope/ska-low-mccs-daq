@@ -731,13 +731,14 @@ class DaqReceiver:
         timestamp: float,
         nof_packets: int,
         nof_saturations: int,
+        # metadata: ctypes.POINTER,
     ) -> None:
         """Correlated data callback
         :param data: Received data
         :param timestamp: Timestamp of first sample in data
         :param nof_packets: Number of packets received for this buffer
         :param nof_saturations: Number of saturated samples whilst acquiring buffer"""
-
+        beam_id =7
         if not self._config["write_to_disk"]:
             return
 
@@ -762,6 +763,7 @@ class DaqReceiver:
             self._timestamps[DaqModes.STATION_BEAM_DATA] = timestamp
 
         persister = self._persisters[DaqModes.STATION_BEAM_DATA]
+        persister.set_metadata(beam_id=beam_id)
         filename = persister.ingest_data(
             append=True,
             data_ptr=values,
@@ -771,7 +773,6 @@ class DaqReceiver:
             station_id=0,  # TODO: Get station ID from station config, if possible
             sample_packets=nof_packets,
         )
-
         # Call external callback
         if self._external_callbacks[DaqModes.STATION_BEAM_DATA] is not None:
             self._external_callbacks[DaqModes.STATION_BEAM_DATA](
