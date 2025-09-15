@@ -853,6 +853,13 @@ class DaqReceiver:
         if self._external_diagnostic_callback is not None:
             self._external_diagnostic_callback(**station_metadata)
 
+        # Call external callback
+        if self._external_callbacks[DaqModes.RAW_STATION_BEAM] is not None:
+            self._external_callbacks[DaqModes.RAW_STATION_BEAM](
+                "raw_station",
+                metadata=station_metadata
+            )
+
     def _start_raw_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """Start raw data consumer
         :param callback: Caller callback"""
@@ -1341,9 +1348,8 @@ class DaqReceiver:
 
         logging.info("Started antenna buffer consumer")
 
-    def _start_station_beam_acquisition(self):
+    def _start_station_beam_acquisition(self, callback=None):
         """Start station beam acquisition using acquire_station_beam interface"""
-
         duration = (
             self._config["acquisition_duration"]
             if self._config["acquisition_duration"] > 0
@@ -1379,6 +1385,7 @@ class DaqReceiver:
             logging.info(f"Started raw station beam capture with {params=}")
 
         self._running_consumers[DaqModes.RAW_STATION_BEAM] = True
+        self._external_callbacks[DaqModes.RAW_STATION_BEAM] = callback
 
     def _stop_raw_data_consumer(self) -> None:
         """Stop raw data consumer"""
@@ -1463,6 +1470,7 @@ class DaqReceiver:
 
     def _stop_station_beam_acquisition(self):
         """Stop acquisition of raw station beam"""
+        self._external_callbacks[DaqModes.RAW_STATION_BEAM] = None
         if self._stop_raw_station_acquisition() != self.Result.Success:
             raise Exception("Failed to stop raw station beam acquisition")
         self._running_consumers[DaqModes.RAW_STATION_BEAM] = False
@@ -1592,7 +1600,7 @@ class DaqReceiver:
 
             # Running in acquire station beam mode
             if DaqModes.RAW_STATION_BEAM == mode:
-                self._start_station_beam_acquisition()
+                self._start_station_beam_acquisition(callbacks[i])
 
     def stop_daq(self) -> None:
         """Stop DAQ"""
