@@ -502,12 +502,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     self.current_scan_id = None
 
             if "directory_tag" in daq_config:
-                self.mark_done_tag = daq_config["directory_tag"]
-                if self.mark_done_tag in ["", ".", "default"]:
-                    self.mark_done_tag = None
-                self.logger.info(
-                    f'Changed directory tag to {self.mark_done_tag or "default"}'
-                )
+                self._change_directory_tag(daq_config["directory_tag"])
             # if "automatic_dir_tagging" in daq_config:
             #     self.mark_done_tag
             merged_config = self._configuration | daq_config
@@ -1094,6 +1089,22 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._daq_client.populate_configuration(self._configuration)
         self.logger.info(f"Current writing path changed to: {new_dir}{user_dir}")
         return True
+
+    def _change_directory_tag(self: DaqComponentManager, tag: str) -> None:
+        """
+        Change the directory tag used.
+
+        :param tag: the new directory tag
+        """
+        self.mark_done_tag = tag
+        self.logger.info(f'Changed directory tag to {tag or "default"}')
+        if tag in ["", ".", "default"]:
+            self.mark_done_tag = None
+            return
+
+        # sanitize the input
+        for bad_character in ["/", " ", "\n", "\t", "%", ".."]:
+            self.mark_done_tag.replace(bad_character, "")
 
     @check_communicating
     def mark_scan_done(
