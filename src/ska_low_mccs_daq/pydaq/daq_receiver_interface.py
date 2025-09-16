@@ -68,14 +68,14 @@ class DaqReceiver:
             ("packet_counter", ctypes.c_uint32),
             ("payload_length", ctypes.c_uint64),
             ("sync_time", ctypes.c_uint64),
-            ("timestamp", ctypes.c_double),
-            ("start_channel_id", ctypes.c_uint16),  
-            ("start_antenna_id", ctypes.c_uint16),  
+            ("timestamp", ctypes.c_double * 2048),
+            ("start_channel_id", ctypes.c_uint16 * 2048),  
+            ("start_antenna_id", ctypes.c_uint16 * 2048),  
             ("nof_included_channels", ctypes.c_uint16),
             ("nof_included_antennas", ctypes.c_uint16),
             ("tile_id", ctypes.c_uint16),
             ("station_id", ctypes.c_uint16),
-            ("fpga_id", ctypes.c_uint8),
+            ("fpga_id", ctypes.c_uint8 * 2048),
             ("payload_offset", ctypes.c_uint32),
         ]
 
@@ -349,6 +349,7 @@ class DaqReceiver:
         tile = metadata.tile
         channel_id = metadata.cont_channel_id
         nof_packets = metadata.nof_packets
+    
 
         # Ignore first two buffers for continuous channel mode
         if mode == "continuous" and not self._config["persist_all_buffers"]:
