@@ -95,7 +95,13 @@ public:
                     uint16_t start_channel_id, uint32_t payload_length, uint16_t start_antenna_id,  
                     uint16_t nof_included_channels, uint16_t nof_included_antennas)
     {
-        metadata.packet_counter[index] = packet_counter;
+        int i = index % 2048; 
+        //The line above stops the DAQ from failing when it receives more than 2048 packets. 
+        //In the case of a capture larger than 2048 packets,
+        //the metadata is overwritten on a first-in first-out basis. 
+        //The nof_packets field in the metadata should be helpful in finding out which
+        //packet was received last in the case that nof_packets>2048.
+        metadata.packet_counter[i] = packet_counter;
         metadata.tile_id = tile_id;
         metadata.cont_channel_id = this->cont_channel_id;
         metadata.nof_packets = this->nof_packets+1;
@@ -105,10 +111,10 @@ public:
         metadata.nof_included_antennas =nof_included_antennas;
         metadata.station_id = station_id;
         metadata.payload_offset = payload_offset;
-        metadata.start_channel_id[index] = start_channel_id;
-        metadata.start_antenna_id[index] = start_antenna_id;
-        metadata.fpga_id[index] = fpga_id;
-        metadata.timestamp[index] = timestamp;
+        metadata.start_channel_id[i] = start_channel_id;
+        metadata.start_antenna_id[i] = start_antenna_id;
+        metadata.fpga_id[i] = fpga_id;
+        metadata.timestamp[i] = timestamp;
     }
 
     // Set callback function
