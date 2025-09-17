@@ -62,18 +62,17 @@ class DaqReceiver:
 
     class ChannelMetadata(ctypes.Structure):
         _fields_ = [
-            ("tile", ctypes.c_int16),
+            ("tile_id", ctypes.c_int16),
             ("cont_channel_id", ctypes.c_int32),
             ("nof_packets", ctypes.c_uint32),
-            ("packet_counter", ctypes.c_uint32),
+            ("packet_counter", ctypes.c_uint32 * 2048),
             ("payload_length", ctypes.c_uint64),
             ("sync_time", ctypes.c_uint64),
-            ("timestamp", ctypes.c_double * 2048),
+            ("timestamp", ctypes.c_uint64 * 2048),
             ("start_channel_id", ctypes.c_uint16 * 2048),  
             ("start_antenna_id", ctypes.c_uint16 * 2048),  
             ("nof_included_channels", ctypes.c_uint16),
             ("nof_included_antennas", ctypes.c_uint16),
-            ("tile_id", ctypes.c_uint16),
             ("station_id", ctypes.c_uint16),
             ("fpga_id", ctypes.c_uint8 * 2048),
             ("payload_offset", ctypes.c_uint32),
@@ -346,7 +345,7 @@ class DaqReceiver:
             return
 
         metadata = ctypes.cast(metadata, ctypes.POINTER(self.ChannelMetadata)).contents
-        tile = metadata.tile
+        tile = metadata.tile_id
         channel_id = metadata.cont_channel_id
         nof_packets = metadata.nof_packets
     

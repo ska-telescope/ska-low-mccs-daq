@@ -19,18 +19,17 @@
 
 struct ChannelMetadata
 {
-    uint16_t tile;
+    uint16_t tile_id;
     uint32_t cont_channel_id;
-    uint32_t nof_packets;
-    uint32_t packet_counter;
+    uint32_t nof_packets = 0;
+    uint32_t packet_counter[2048];
     uint64_t payload_length;
     uint64_t sync_time;
-    double timestamp[2048];
+    uint64_t timestamp[2048];
     uint16_t start_channel_id[2048];
     uint16_t start_antenna_id[2048];
     uint16_t nof_included_channels;
     uint16_t nof_included_antennas;
-    uint16_t tile_id;
     uint16_t station_id;
     uint8_t  fpga_id[2048];
     uint32_t payload_offset;
@@ -97,7 +96,8 @@ public:
     }
 
     // Add data to buffer
-    void add_data(uint16_t tile, uint16_t channel, uint32_t start_sample_index, uint32_t samples,
+    void add_data(uint64_t timestamp_field, uint32_t packet_counter, uint64_t sync_time, uint16_t station_id, uint32_t payload_offset, 
+                  uint16_t tile, uint8_t fpga_id, uint16_t channel, uint32_t start_sample_index, uint32_t samples,
                   uint16_t start_antenna_id, T *data_ptr, double timestamp, uint16_t included_channels,
                   uint16_t nof_included_antennas, uint32_t cont_channel_id = 0)
     {
@@ -142,17 +142,18 @@ public:
 
         }
 
-        this->packet_counter = 0;
-        this->payload_length = samples;
-        this->sync_time = 0;
+        this->timestamp_field=timestamp_field;
+        this->packet_counter = packet_counter;
+        this->payload_length = samples*32;
+        this->sync_time = sync_time;
         this->start_channel_id = channel;
         this->start_antenna_id = start_antenna_id;
         this->nof_included_channels = included_channels;
         this->nof_included_antennas = nof_included_antennas;
         this->tile_id = tile;
-        this->station_id = 0;
-        this->fpga_id = 0;
-        this->payload_offset = 0;
+        this->station_id = station_id;
+        this->fpga_id = fpga_id;
+        this->payload_offset = payload_offset;
         set_metadata(nof_packets);
         // Update number of packets in container
         nof_packets++;
@@ -172,8 +173,8 @@ public:
     }
 
     void set_metadata(uint32_t index){
-        metadata.packet_counter = this->packet_counter;
-        metadata.tile = this->tile_id;
+        metadata.packet_counter[index] = this->packet_counter;
+        metadata.tile_id = this->tile_id;
         metadata.cont_channel_id = cont_channel_id;
         metadata.nof_packets = this->nof_packets+1;
         metadata.payload_length = this->payload_length;
@@ -185,8 +186,7 @@ public:
         metadata.start_channel_id[index] = this->start_channel_id;
         metadata.start_antenna_id[index] = this->start_antenna_id;
         metadata.fpga_id[index] = this->fpga_id;
-        // printf("fpga_id: %d \n", metadata.fpga_id[index]);
-        metadata.timestamp[index] = this->timestamp;
+        metadata.timestamp[index] = this->timestamp_field;
     }
 
     // Save data to disk
@@ -226,7 +226,7 @@ private:
     uint32_t packet_counter;
     uint64_t payload_length;
     uint64_t sync_time;
-    //uint64_t timestamp;
+    uint64_t timestamp_field;
     uint16_t start_channel_id;
     uint16_t start_antenna_id;
     uint16_t tile_id;
