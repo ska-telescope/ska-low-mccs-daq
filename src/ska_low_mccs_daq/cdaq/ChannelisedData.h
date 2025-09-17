@@ -87,7 +87,29 @@ public:
     }
 
 public:
+
     ChannelMetadata metadata;
+
+    void set_metadata(uint32_t index, uint64_t timestamp, uint32_t packet_counter, uint64_t sync_time, 
+                    uint16_t station_id, uint32_t payload_offset, uint16_t tile_id, uint8_t fpga_id, 
+                    uint16_t start_channel_id, uint32_t payload_length, uint16_t start_antenna_id,  
+                    uint16_t nof_included_channels, uint16_t nof_included_antennas)
+    {
+        metadata.packet_counter[index] = packet_counter;
+        metadata.tile_id = tile_id;
+        metadata.cont_channel_id = this->cont_channel_id;
+        metadata.nof_packets = this->nof_packets+1;
+        metadata.payload_length = payload_length;
+        metadata.sync_time = sync_time;
+        metadata.nof_included_channels = nof_included_channels;
+        metadata.nof_included_antennas =nof_included_antennas;
+        metadata.station_id = station_id;
+        metadata.payload_offset = payload_offset;
+        metadata.start_channel_id[index] = start_channel_id;
+        metadata.start_antenna_id[index] = start_antenna_id;
+        metadata.fpga_id[index] = fpga_id;
+        metadata.timestamp[index] = timestamp;
+    }
 
     // Set callback function
     void setCallback(DataCallbackDynamic callback)
@@ -139,22 +161,11 @@ public:
         if (this->timestamp > timestamp) {
             this->timestamp = timestamp;
             this->cont_channel_id = cont_channel_id;
-
         }
 
-        this->timestamp_field=timestamp_field;
-        this->packet_counter = packet_counter;
-        this->payload_length = samples*32;
-        this->sync_time = sync_time;
-        this->start_channel_id = channel;
-        this->start_antenna_id = start_antenna_id;
-        this->nof_included_channels = included_channels;
-        this->nof_included_antennas = nof_included_antennas;
-        this->tile_id = tile;
-        this->station_id = station_id;
-        this->fpga_id = fpga_id;
-        this->payload_offset = payload_offset;
-        set_metadata(nof_packets);
+        set_metadata(nof_packets, timestamp_field, packet_counter, sync_time, station_id, 
+                    payload_offset, tile, fpga_id, channel, samples*32, 
+                    start_antenna_id, included_channels, nof_included_antennas);
         // Update number of packets in container
         nof_packets++;
     }
@@ -170,23 +181,6 @@ public:
         // Clear number of packets
         this->timestamp = DBL_MAX;
         nof_packets = 0;
-    }
-
-    void set_metadata(uint32_t index){
-        metadata.packet_counter[index] = this->packet_counter;
-        metadata.tile_id = this->tile_id;
-        metadata.cont_channel_id = cont_channel_id;
-        metadata.nof_packets = this->nof_packets+1;
-        metadata.payload_length = this->payload_length;
-        metadata.sync_time = this->sync_time;
-        metadata.nof_included_channels =this->nof_included_channels;
-        metadata.nof_included_antennas =this->nof_included_antennas;
-        metadata.station_id = this->station_id;
-        metadata.payload_offset = this->payload_offset;
-        metadata.start_channel_id[index] = this->start_channel_id;
-        metadata.start_antenna_id[index] = this->start_antenna_id;
-        metadata.fpga_id[index] = this->fpga_id;
-        metadata.timestamp[index] = this->timestamp_field;
     }
 
     // Save data to disk
@@ -223,18 +217,6 @@ private:
     uint16_t nof_channels;
     uint8_t  nof_pols;
     uint32_t cont_channel_id = 0;
-    uint32_t packet_counter;
-    uint64_t payload_length;
-    uint64_t sync_time;
-    uint64_t timestamp_field;
-    uint16_t start_channel_id;
-    uint16_t start_antenna_id;
-    uint16_t tile_id;
-    uint16_t station_id;
-    uint8_t  fpga_id;
-    uint32_t payload_offset;
-    uint16_t nof_included_channels;
-    uint16_t nof_included_antennas;
 
     // Tile map
     std::unordered_map<uint16_t, unsigned int> tile_map;
