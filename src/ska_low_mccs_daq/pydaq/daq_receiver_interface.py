@@ -747,6 +747,7 @@ class DaqReceiver:
         timestamp: float,
         nof_packets: int,
         nof_saturations: int,
+        #metadata: ctypes.POINTER,
     ) -> None:
         """Correlated data callback
         :param data: Received data
@@ -765,7 +766,9 @@ class DaqReceiver:
             logging.info("Ignoring second integration for station")
             self._buffer_counter["station"] += 1
             return
-
+        # metadata = ctypes.cast(
+        #     metadata, ctypes.POINTER(self.StationMetadata)
+        # ).contents
         # Extract data sent by DAQ
         values = self._get_numpy_from_ctypes(
             data,

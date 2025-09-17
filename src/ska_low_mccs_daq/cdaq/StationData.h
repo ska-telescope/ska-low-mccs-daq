@@ -16,6 +16,14 @@
 #include "Utils.h"
 #include "DAQ.h"
 
+struct StationMetadata
+{
+    uint16_t beam_id[48];
+    uint16_t logical_channel_id[48];
+    uint16_t frequency_id[48][384];
+    int nof_beams;
+};
+
 /* This class implements a double buffering system */
 
 // Represents a single buffer in the double (or more) buffering system
@@ -71,7 +79,6 @@ private:
 private:
     // The data structure which will hold the buffer elements
     StationBuffer *double_buffer;
-
     // Double buffer parameters
     uint32_t nof_samples;   // Total number of samples
     uint16_t nof_channels;  // Total number of channels
@@ -97,7 +104,8 @@ class StationPersister: public RealTimeThread
 public:
     // Class constructor
     explicit StationPersister(StationDoubleBuffer *double_buffer)
-    { this -> double_buffer = double_buffer; }
+    { this -> double_buffer = double_buffer; 
+    }
 
     // Set callback (provided by CorrelatorData)
     void setCallback(DataCallback callback)
@@ -124,7 +132,15 @@ private:
 class StationData: public DataConsumer
 {
 public:
-
+    void setMetadata(StationMetadata& m){
+        for (int i=0; i<48; i++){
+            m.beam_id[i] = this->beam_id[i];
+            m.logical_channel_id[i] = this->logical_channel_id[i];
+            for (int j=0; j<384; j++){
+                m.frequency_id[i][j] = this->frequency_id[i][j];
+            }
+        } 
+    }
     // Override setDataCallback
     void setCallback(DataCallback callback) override;
 
@@ -152,7 +168,10 @@ private:
     // Internal book keeping
     unsigned long rollover_counter = 0;
     unsigned long timestamp_rollover = 0;
-
+    uint16_t beam_id[48];
+    uint16_t logical_channel_id[48];
+    uint16_t frequency_id[48][384];
+    int nof_beams = 0;
     // Data setup
     uint16_t nof_antennas = 0;        // Number of antennas per tile
     uint8_t  nof_pols = 0;            // Number of polarisations
