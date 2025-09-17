@@ -8,6 +8,7 @@
 #include "StationData.h"
 #include "SPEAD.h"
 
+StationMetadata metadata;
 // Constants needed to manage time in TAI format
 //
 const uint64_t TAI_2000 = 946684768 - 5; // Unix time of TAI 2000, including extra leap seconds
@@ -249,6 +250,16 @@ bool StationData::processPacket()
     // Ready from packet
     ring_buffer -> pull_ready();
 
+    this->beam_id[nof_beams] = beam_id;
+    bool new_beam = false;
+    //Generate metadata
+    for (int i=0; i<nof_beams+1; i++) {
+        if (this->beam_id[i]!= beam_id){
+            new_beam = true;
+        }
+    }
+    if (new_beam) {this->nof_beams++;}
+    setMetadata(metadata);
     // All done, return
     return true;
 }
@@ -307,7 +318,7 @@ void StationDoubleBuffer::tearDown()
 
 // Write data to buffer
 void StationDoubleBuffer::write_data(uint16_t channel_id, uint32_t samples, uint64_t packet_counter,
-                                     uint16_t *data_ptr, double timestamp)
+                    uint16_t *data_ptr, double timestamp)
 {
     // Check whether the current consumer buffer is empty, and if so set index of the buffer
     if (this -> double_buffer[this->producer].index == 0)
@@ -495,11 +506,13 @@ void StationPersister::threadEntry()
             if (this->stop_thread)
                 return;
         } while (buffer == nullptr);
-
         // Call callback if set
         if (callback != nullptr)
             callback(buffer->integrators, buffer->ref_time,
                      buffer->nof_packets, buffer->nof_saturations);
+        // if (callback != nullptr)
+        //     callback(buffer->integrators, buffer->ref_time,
+        //             buffer->nof_packets, buffer->nof_saturations, static_cast<void *>(&metadata));
         else
             LOG(INFO, "Received station beam");
 
