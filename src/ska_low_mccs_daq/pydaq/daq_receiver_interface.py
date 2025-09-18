@@ -1215,7 +1215,9 @@ class DaqReceiver:
 
         if (
             self._start_consumer(
-                "stationdata", params, self._callbacks[DaqModes.STATION_BEAM_DATA]
+                "stationdata", params, self._callbacks[DaqModes.STATION_BEAM_DATA],
+                dynamic_callback=True,
+
             )
             != self.Result.Success
         ):
