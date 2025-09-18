@@ -101,6 +101,21 @@ class DaqReceiver:
             ("nof_packets", ctypes.c_uint),
         ]
 
+    class StationMetadata(ctypes.Structure):
+        _fields_ = [
+             ("nof_packets", ctypes.c_uint32),
+             ("nof_saturations",  ctypes.c_uint32),
+             ("packet_count", ctypes.c_uint64 * 1024),
+             ("payload_length", ctypes.c_uint64),
+             ("scan_id", ctypes.c_uint64 * 1024),
+             ("logical_channel_id", ctypes.c_uint16 * 1024),
+             ("beam_id", ctypes.c_uint16 * 1024),
+             ("frequency_id", ctypes.c_uint16 * 1024),
+             ("substation_id", ctypes.c_uint8 * 1024),
+             ("subarray_id", ctypes.c_uint16 * 1024),
+             ("station_id", ctypes.c_uint16),
+        ]
+
     class RawStationMetadata(ctypes.Structure):
         """Raw station metadata structure definition"""
         _fields_ = [
@@ -230,7 +245,7 @@ class DaqReceiver:
             DaqModes.INTEGRATED_CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._channel_integrated_data_callback
             ),
-            DaqModes.STATION_BEAM_DATA: self.DATA_CALLBACK(self._station_callback),
+            DaqModes.STATION_BEAM_DATA: self.DYNAMIC_DATA_CALLBACK(self._station_callback),
             DaqModes.CORRELATOR_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._correlator_callback
             ),
@@ -745,9 +760,7 @@ class DaqReceiver:
         self,
         data: ctypes.POINTER,
         timestamp: float,
-        nof_packets: int,
-        nof_saturations: int,
-        #metadata: ctypes.POINTER,
+        metadata: ctypes.POINTER,
     ) -> None:
         """Correlated data callback
         :param data: Received data
@@ -766,9 +779,10 @@ class DaqReceiver:
             logging.info("Ignoring second integration for station")
             self._buffer_counter["station"] += 1
             return
-        # metadata = ctypes.cast(
-        #     metadata, ctypes.POINTER(self.StationMetadata)
-        # ).contents
+        
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.StationMetadata)).contents
+        nof_packets = metadata.nof_packets
+        nof_saturations = metadata.nof_saturations
         # Extract data sent by DAQ
         values = self._get_numpy_from_ctypes(
             data,
@@ -796,8 +810,7 @@ class DaqReceiver:
             self._external_callbacks[DaqModes.STATION_BEAM_DATA](
                 "station",
                 filename,
-                nof_packets=nof_packets,
-                nof_saturations=nof_saturations,
+                spead_metadata=metadata
             )
 
         if self._config["logging"]:
