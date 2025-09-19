@@ -265,7 +265,7 @@ class DaqReceiver:
     # --------------------------------------- CONSUMERS --------------------------------------
 
     def _raw_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, _: int
+        self, data: ctypes.POINTER, timestamp: float, tile: int, nof_packets: int
     ) -> None:
         """Raw data callback
         :param data: Received data
@@ -309,7 +309,7 @@ class DaqReceiver:
 
         # Call external callback if defined
         if self._external_callbacks[DaqModes.RAW_DATA] is not None:
-            self._external_callbacks[DaqModes.RAW_DATA]("burst_raw", filename, tile)
+            self._external_callbacks[DaqModes.RAW_DATA]("burst_raw", filename, tile, nof_packets=nof_packets)
 
         if self._config["logging"]:
             logging.info("Received raw data for tile {}".format(tile))

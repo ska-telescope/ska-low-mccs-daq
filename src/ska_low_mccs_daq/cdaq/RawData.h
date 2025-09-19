@@ -122,10 +122,11 @@ public:
     //  Clear buffer and antenna information
     void clear()
     {
+        this->nof_packets=0;
         // Clear buffer, set all content to 0
         for(unsigned i = 0; i < nof_tiles; i++) {
             memset(antenna_data[i].data, 0, nof_antennas * nof_samples * nof_pols * sizeof(T));
-
+        
             // Clear AntennaStructure
             antenna_data[i].first_sample_index = UINT32_MAX;
             antenna_data[i].timestamp = 0;
@@ -142,8 +143,8 @@ public:
             for(unsigned i = 0; i < nof_tiles; i++)
                 if (antenna_data[i].first_sample_index != UINT32_MAX)
                     callback((int8_t *) antenna_data[i].data, antenna_data[i].timestamp,
-                             antenna_data[i].tile, 0);
-
+                             antenna_data[i].tile, this->nof_packets);
+                            
             // Clear buffer
             clear();
             return;
@@ -160,6 +161,7 @@ private:
     uint16_t nof_antennas;
     uint32_t nof_samples;
     uint8_t  nof_pols;
+    int nof_packets=0;
 
     // Tile map
     std::unordered_map<uint16_t, unsigned int> tile_map;
