@@ -198,7 +198,6 @@ bool RawData::processPacket()
     if (nof_received_samples == nof_required_samples)
         onStreamEnd();
 
-    this->nof_packets++;
     // All done, return
     return true;
 }
