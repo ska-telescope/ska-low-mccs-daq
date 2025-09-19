@@ -19,6 +19,7 @@ public:
 
     struct AntennaStructure
     {
+        int nof_packets=0;
         double   timestamp;
         uint32_t first_sample_index;
         T*       data;
@@ -76,6 +77,7 @@ public:
 
             tile_map[tile] = tile_index;
             antenna_data[tile_index].tile = tile;
+            antenna_data[tile_index].nof_packets++;
         }
 
         // Burst raw data
@@ -122,7 +124,6 @@ public:
     //  Clear buffer and antenna information
     void clear()
     {
-        this->nof_packets=0;
         // Clear buffer, set all content to 0
         for(unsigned i = 0; i < nof_tiles; i++) {
             memset(antenna_data[i].data, 0, nof_antennas * nof_samples * nof_pols * sizeof(T));
@@ -143,7 +144,7 @@ public:
             for(unsigned i = 0; i < nof_tiles; i++)
                 if (antenna_data[i].first_sample_index != UINT32_MAX)
                     callback((int8_t *) antenna_data[i].data, antenna_data[i].timestamp,
-                             antenna_data[i].tile, this->nof_packets);
+                             antenna_data[i].tile, antenna_data[i].nof_packets);
                             
             // Clear buffer
             clear();
@@ -161,7 +162,6 @@ private:
     uint16_t nof_antennas;
     uint32_t nof_samples;
     uint8_t  nof_pols;
-    int nof_packets=0;
 
     // Tile map
     std::unordered_map<uint16_t, unsigned int> tile_map;
