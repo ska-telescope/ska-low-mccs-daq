@@ -67,6 +67,21 @@ class DaqReceiver:
             ("nof_packets", ctypes.c_uint32),
         ]
 
+    class AdcMetadata(ctypes.Structure):
+        _fields_ = [
+            ("nof_packets", ctypes.c_uint64),
+            ("packet_counter", ctypes.c_uint32 * 128),
+            ("payload_length", ctypes.c_uint64),
+            ("sync_time", ctypes.c_uint64 * 128),
+            ("timestamp",  ctypes.c_uint64 * 128),
+            ("start_antenna_id", ctypes.c_uint8 * 128),
+            ("nof_antennas", ctypes.c_uint8),
+            ("tile_id", ctypes.c_uint8),
+            ("station_id", ctypes.c_uint16),
+            ("fpga_id", ctypes.c_uint8 * 128),
+            ("payload_offset", ctypes.c_uint64),
+        ]
+
     class CorrelatorMetadata(ctypes.Structure):
         _fields_ = [
             ("channel_id", ctypes.c_uint),
@@ -190,7 +205,7 @@ class DaqReceiver:
 
         # List of data callbacks
         self._callbacks = {
-            DaqModes.RAW_DATA: self.DATA_CALLBACK(self._raw_data_callback),
+            DaqModes.RAW_DATA: self.DYNAMIC_DATA_CALLBACK(self._raw_data_callback),
             DaqModes.CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._channel_burst_data_callback
             ),
@@ -265,14 +280,15 @@ class DaqReceiver:
     # --------------------------------------- CONSUMERS --------------------------------------
 
     def _raw_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, nof_packets: int
+        self, data: ctypes.POINTER, timestamp: float, metadata: ctypes.POINTER 
     ) -> None:
         """Raw data callback
         :param data: Received data
         :param tile: The tile from which the data was acquired
         :param timestamp: Timestamp of first data point in data
         """
-
+        spead_metadata = ctypes.cast(metadata, ctypes.POINTER(self.AdcMetadata)).contents
+        tile = spead_metadata.tile_id
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
@@ -309,7 +325,7 @@ class DaqReceiver:
 
         # Call external callback if defined
         if self._external_callbacks[DaqModes.RAW_DATA] is not None:
-            self._external_callbacks[DaqModes.RAW_DATA]("burst_raw", filename, tile, nof_packets=nof_packets)
+            self._external_callbacks[DaqModes.RAW_DATA]("burst_raw", filename, tile, spead_metadata=spead_metadata)
 
         if self._config["logging"]:
             logging.info("Received raw data for tile {}".format(tile))
@@ -856,7 +872,7 @@ class DaqReceiver:
 
         # Start raw data consumer
         if (
-            self._start_consumer("rawdata", params, self._callbacks[DaqModes.RAW_DATA])
+            self._start_consumer("rawdata", params, self._callbacks[DaqModes.RAW_DATA], dynamic_callback=True)
             != self.Result.Success
         ):
             logging.info("Failed to start raw data consumer")
