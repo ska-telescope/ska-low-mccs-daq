@@ -57,15 +57,19 @@ class SpsTangoTestHarnessContext:
         self._station_label = station_label
         self._tango_context = tango_context
 
-    def get_daq_device(self: SpsTangoTestHarnessContext) -> tango.DeviceProxy:
+    def get_daq_device(
+        self: SpsTangoTestHarnessContext, station_label: str | None = None
+    ) -> tango.DeviceProxy:
         """
         Get the DAQ receiver Tango device.
+
+        :param station_label: optional station_label override.
 
         :raises RuntimeError: if the device fails to become ready.
 
         :returns: a proxy to the DAQ receiver Tango device.
         """
-        device_name = get_lmc_daq_name(self._station_label)
+        device_name = get_lmc_daq_name(station_label or self._station_label)
         device_proxy = self._tango_context.get_device(device_name)
 
         # TODO: This should simply be
@@ -140,7 +144,10 @@ class SpsTangoTestHarness:
         address: tuple[str, int] | None,
         receiver_interface: str | None = None,
         consumers_to_start: list[str] | None = None,
+        ringbuffer_max_warning: float = 20,
+        ringbuffer_max_alarm: float = 70,
         logging_level: int = int(LoggingLevel.DEBUG),
+        station_label: str | None = None,
         device_class: type[Device] | str = "ska_low_mccs_daq.MccsDaqReceiver",
     ) -> None:
         """
@@ -153,7 +160,12 @@ class SpsTangoTestHarness:
         :param receiver_interface: The interface on which the DAQ receiver
             is listening for traffic.
         :param consumers_to_start: list of consumers to start.
+        :param ringbuffer_max_warning: the max warning to configure the ringbuffer
+            alarms with.
+        :param ringbuffer_max_alarm: the max alarm to configure the ringbuffer alarms
+            with.
         :param logging_level: the Tango device's default logging level.
+        :param station_label: optional station label override.
         :param device_class: The device class to use.
             This may be used to override the usual device class,
             for example with a patched subclass.
@@ -168,7 +180,7 @@ class SpsTangoTestHarness:
             (host, _) = address
 
         self._tango_test_harness.add_device(
-            get_lmc_daq_name(self._station_label),
+            get_lmc_daq_name(station_label or self._station_label),
             device_class,
             DaqId=daq_id,
             ReceiverInterface=receiver_interface,
@@ -176,6 +188,8 @@ class SpsTangoTestHarness:
             ConsumersToStart=consumers_to_start,
             LoggingLevelDefault=logging_level,
             SimulationMode=True,
+            RingbufferOccupancyWarning=ringbuffer_max_warning,
+            RingbufferOccupancyAlarm=ringbuffer_max_alarm,
         )
 
     def set_bandpass_daq_device(  # pylint: disable=too-many-arguments

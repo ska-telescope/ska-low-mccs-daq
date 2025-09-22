@@ -203,7 +203,7 @@ class DaqSimulator:
         lost_pushes = 0
         while self._started:
             if self._diagnostic_callback:
-                random_occupancy = max(0.0, min(100.0, gauss(20, 25)))
+                random_occupancy = max(0.0, min(10.0, gauss(5, 5)))
                 if random_occupancy >= 90:
                     lost_pushes += randint(1, 100)
                 self._diagnostic_callback(lost_pushes=lost_pushes)
