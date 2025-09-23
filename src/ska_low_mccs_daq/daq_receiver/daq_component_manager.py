@@ -16,6 +16,7 @@ import queue
 import random
 import re
 import threading
+import ctypes
 from collections import deque
 from datetime import date
 from pathlib import PurePath
@@ -511,6 +512,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         data_mode: str,
         file_name: str,
         additional_info: Optional[str] = None,
+        metadata: Optional[ctypes.Structure] = None,
         **attributes: float,
     ) -> None:
         """

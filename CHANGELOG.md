@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [JANUS-257] Added channelised data SPEAD headers to callback as metadata
+
 ## 4.0.0
 
 * [THORN-172] The old two pod DAQ has been removed.
