@@ -3267,7 +3267,7 @@ transitions = "0.9.2"
 type = "git"
 url = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-common/"
 reference = "thorn-256"
-resolved_reference = "637a027089ce3f20165583619ccf06c7e3b2e4e3"
+resolved_reference = "8f5748d715895760c662809940c78bf248671573"
 
 [[package]]
 name = "ska-ser-logging"

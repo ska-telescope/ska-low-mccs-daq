@@ -88,18 +88,23 @@ class TestDaqHealth:
             change_event_callbacks["healthState"],
         )
         change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
+        assert daq_device.state() == tango.DevState.DISABLE
 
         daq_device.adminmode = 0
         change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
+        assert daq_device.state() == tango.DevState.ON
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 50}))
         change_event_callbacks["healthState"].assert_change_event(HealthState.DEGRADED)
+        assert daq_device.state() == tango.DevState.ALARM
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 100}))
         change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        assert daq_device.state() == tango.DevState.ALARM
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 0}))
         change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
+        assert daq_device.state() == tango.DevState.ON
 
     def test_health_thresholds(
         self,
@@ -121,15 +126,20 @@ class TestDaqHealth:
             change_event_callbacks["healthState"],
         )
         change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
+        assert daq_device.state() == tango.DevState.DISABLE
 
         daq_device.adminmode = 0
         change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
+        assert daq_device.state() == tango.DevState.ON
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 50}))
         change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        assert daq_device.state() == tango.DevState.ALARM
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 100}))
         change_event_callbacks["healthState"].assert_not_called()
+        assert daq_device.state() == tango.DevState.ALARM
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 0}))
         change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
+        assert daq_device.state() == tango.DevState.ON

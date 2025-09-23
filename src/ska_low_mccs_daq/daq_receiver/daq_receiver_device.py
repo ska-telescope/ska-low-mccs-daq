@@ -11,10 +11,12 @@ from __future__ import annotations  # allow forward references in type hints
 
 import json
 import logging
+import time
 from importlib import resources
 from typing import Any, Final, Optional, Union
 
 import numpy as np
+import tango
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
 from ska_low_mccs_common import HealthRecorder, MccsBaseDevice
 from ska_tango_base.base import BaseComponentManager
@@ -289,7 +291,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._data_rate: float
         self._receive_rate: float
         self._drop_rate: float
-        self._ringbuffer_occupancy: float
+        self._ringbuffer_occupancy: float | None
         self._lost_pushes: int
         self._correlator_time_taken: float
         self._buffer_counter: int
@@ -301,7 +303,7 @@ class MccsDaqReceiver(MccsBaseDevice):
 
         This is overridden here to change the Tango serialisation model.
         """
-        self._multi_attr = self.get_device_attr()
+        self._multi_attr: tango.MultiAttribute = self.get_device_attr()
         super().init_device()
 
         self._build_state = ",".join(
@@ -337,9 +339,17 @@ class MccsDaqReceiver(MccsBaseDevice):
 
         self._healthful_attributes = ["RingbufferOccupancy"]
         for attribute_name in self._healthful_attributes:
-            attr = self._multi_attr.get_attr_by_name(attribute_name)
+            attr: tango.Attribute = self._multi_attr.get_attr_by_name(attribute_name)
             attr.set_max_alarm(getattr(self, f"{attribute_name}Alarm"))
             attr.set_max_warning(getattr(self, f"{attribute_name}Warning"))
+
+        self._health_recorder = HealthRecorder(
+            self.get_name(),
+            self.logger,
+            attributes=self._healthful_attributes,
+            health_callback=self._health_changed,
+            event_serialiser=self._event_serialiser,
+        )
 
     def delete_device(self: MccsDaqReceiver) -> None:
         """Delete the device."""
@@ -373,7 +383,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._receive_rate = 0
         self._drop_rate = 0
         self._data_rate = 0
-        self._ringbuffer_occupancy = 0.0
+        self._ringbuffer_occupancy = None
         self._lost_pushes = 0
         self._correlator_time_taken = 0.0
         self._buffer_counter = 0
@@ -523,22 +533,16 @@ class MccsDaqReceiver(MccsBaseDevice):
         action = action_map[communication_state]
         if action is not None:
             self.op_state_model.perform_action(action)
-        if (
-            communication_state == CommunicationStatus.ESTABLISHED
-            and self._health_recorder is None
-        ):
-            self._health_recorder = HealthRecorder(
-                self.get_name(),
-                self.logger,
-                attributes=self._healthful_attributes,
-                health_callback=self._health_changed,
-                event_serialiser=self._event_serialiser,
-            )
-        if communication_state != CommunicationStatus.ESTABLISHED:
-            self._health_changed(HealthState.UNKNOWN, "Device not communicating.")
-            if self._health_recorder is not None:
-                self._health_recorder.cleanup()
-                self._health_recorder = None
+        if communication_state == CommunicationStatus.DISABLED:
+            for attribute_name in self._healthful_attributes:
+                self.push_change_event(
+                    attribute_name,
+                    self._ringbuffer_occupancy,
+                    time.time(),
+                    tango.AttrQuality.ATTR_INVALID,
+                )
+        elif communication_state == CommunicationStatus.ESTABLISHED:
+            self._component_state_callback(reset_consumer_attributes=True)
 
     # pylint: disable=too-many-arguments
     def _component_state_callback(  # noqa: C901
@@ -1339,7 +1343,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         max_alarm=70.0,
         max_warning=20.0,
     )
-    def RingbufferOccupancy(self: MccsDaqReceiver) -> float:
+    def RingbufferOccupancy(self: MccsDaqReceiver) -> float | None:
         """
         Return the current ringbuffer occupancy in percent.
 
