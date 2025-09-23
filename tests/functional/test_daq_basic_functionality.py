@@ -222,15 +222,16 @@ def check_daq_is_healthy(
     :param daq_receiver: The daq_receiver fixture to use.
     :param change_event_callbacks: A change event callback group.
     """
-    subscription_id = daq_receiver.subscribe_event(
-        "healthstate",
-        tango.EventType.CHANGE_EVENT,
-        change_event_callbacks["device_healthstate"],
-    )
-    change_event_callbacks["device_healthstate"].assert_change_event(
-        HealthState.OK, lookahead=2
-    )
-    daq_receiver.unsubscribe_event(subscription_id)
+    if daq_receiver.healthstate != HealthState.OK:
+        subscription_id = daq_receiver.subscribe_event(
+            "healthstate",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["device_healthstate"],
+        )
+        change_event_callbacks["device_healthstate"].assert_change_event(
+            HealthState.OK, lookahead=2
+        )
+        daq_receiver.unsubscribe_event(subscription_id)
     assert daq_receiver.healthstate == HealthState.OK
 
 

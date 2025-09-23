@@ -536,6 +536,9 @@ class MccsDaqReceiver(MccsBaseDevice):
             )
         if communication_state != CommunicationStatus.ESTABLISHED:
             self._health_changed(HealthState.UNKNOWN, "Device not communicating.")
+            if self._health_recorder is not None:
+                self._health_recorder.cleanup()
+                self._health_recorder = None
 
     # pylint: disable=too-many-arguments
     def _component_state_callback(  # noqa: C901
