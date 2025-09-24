@@ -19,9 +19,9 @@
 
 struct ChannelMetadata
 {
-    uint16_t tile_id;
+    uint8_t tile_id;
     uint32_t cont_channel_id;
-    uint32_t nof_packets = 0;
+    uint64_t nof_packets = 0;
     uint32_t packet_counter[2048];
     uint64_t payload_length;
     uint64_t sync_time;
@@ -63,6 +63,7 @@ public:
 
         // Allocate buffer
         channel_data = (ChannelStructure *) malloc(nof_tiles * sizeof(ChannelStructure));
+        metadata = (ChannelMetadata *) malloc(nof_tiles * sizeof(ChannelMetadata));
         for(unsigned i = 0; i < nof_tiles; i++) {
             allocate_aligned((void **) &(channel_data[i].data), (size_t) CACHE_ALIGNMENT, malloc_size);
 
@@ -84,37 +85,35 @@ public:
         for(unsigned i = 0; i < nof_tiles; i++)
             free(channel_data[i].data);
         free(channel_data);
+        free(metadata);
     }
 
 public:
 
-    ChannelMetadata metadata;
-
-    void set_metadata(uint32_t index, uint64_t timestamp, uint32_t packet_counter, uint64_t sync_time, 
-                    uint16_t station_id, uint32_t payload_offset, uint16_t tile_id, uint8_t fpga_id, 
+    void set_metadata(uint32_t packet_index, uint64_t timestamp, uint32_t packet_counter, uint64_t sync_time, 
+                    uint16_t station_id, uint32_t payload_offset, unsigned int tile_index, uint8_t fpga_id, 
                     uint16_t start_channel_id, uint32_t payload_length, uint16_t start_antenna_id,  
                     uint16_t nof_included_channels, uint16_t nof_included_antennas)
     {
-        int i = index % 2048; 
+        int i = packet_index % 2048; 
         //The line above stops the DAQ from failing when it receives more than 2048 packets. 
         //In the case of a capture larger than 2048 packets,
         //the metadata is overwritten on a first-in first-out basis. 
         //The nof_packets field in the metadata should be helpful in finding out which
         //packet was received last in the case that nof_packets>2048.
-        metadata.packet_counter[i] = packet_counter;
-        metadata.tile_id = tile_id;
-        metadata.cont_channel_id = this->cont_channel_id;
-        metadata.nof_packets = this->nof_packets+1;
-        metadata.payload_length = payload_length;
-        metadata.sync_time = sync_time;
-        metadata.nof_included_channels = nof_included_channels;
-        metadata.nof_included_antennas =nof_included_antennas;
-        metadata.station_id = station_id;
-        metadata.payload_offset = payload_offset;
-        metadata.start_channel_id[i] = start_channel_id;
-        metadata.start_antenna_id[i] = start_antenna_id;
-        metadata.fpga_id[i] = fpga_id;
-        metadata.timestamp[i] = timestamp;
+        metadata[tile_index].packet_counter[i] = packet_counter;
+        metadata[tile_index].cont_channel_id = this->cont_channel_id;
+        metadata[tile_index].nof_packets = this->nof_packets+1;
+        metadata[tile_index].payload_length = payload_length;
+        metadata[tile_index].sync_time = sync_time;
+        metadata[tile_index].nof_included_channels = nof_included_channels;
+        metadata[tile_index].nof_included_antennas =nof_included_antennas;
+        metadata[tile_index].station_id = station_id;
+        metadata[tile_index].payload_offset = payload_offset;
+        metadata[tile_index].start_channel_id[i] = start_channel_id;
+        metadata[tile_index].start_antenna_id[i] = start_antenna_id;
+        metadata[tile_index].fpga_id[i] = fpga_id;
+        metadata[tile_index].timestamp[i] = timestamp;
     }
 
     // Set callback function
@@ -125,7 +124,7 @@ public:
 
     // Add data to buffer
     void add_data(uint64_t timestamp_field, uint32_t packet_counter, uint64_t sync_time, uint16_t station_id, uint32_t payload_offset, 
-                  uint16_t tile, uint8_t fpga_id, uint16_t channel, uint32_t start_sample_index, uint32_t samples,
+                  uint8_t tile, uint8_t fpga_id, uint16_t channel, uint32_t start_sample_index, uint32_t samples,
                   uint16_t start_antenna_id, T *data_ptr, double timestamp, uint16_t included_channels,
                   uint16_t nof_included_antennas, uint32_t cont_channel_id = 0)
     {
@@ -143,6 +142,7 @@ public:
 
             tile_map[tile] = tile_index;
             channel_data[tile_index].tile = tile;
+            metadata[tile_index].tile_id = tile;
         }
 
         // Copy packet content to buffer
@@ -169,11 +169,11 @@ public:
             this->cont_channel_id = cont_channel_id;
         }
 
-        set_metadata(nof_packets, timestamp_field, packet_counter, sync_time, station_id, 
-                    payload_offset, tile, fpga_id, channel, samples*32, 
+        set_metadata(this->nof_packets, timestamp_field, packet_counter, sync_time, station_id, 
+                    payload_offset, tile_index, fpga_id, channel, samples*32, 
                     start_antenna_id, included_channels, nof_included_antennas);
         // Update number of packets in container
-        nof_packets++;
+        this->nof_packets++;
     }
 
     //  Clear buffer and channel information
@@ -186,7 +186,7 @@ public:
 
         // Clear number of packets
         this->timestamp = DBL_MAX;
-        nof_packets = 0;
+        this->nof_packets = 0;
     }
 
     // Save data to disk
@@ -200,7 +200,7 @@ public:
             {
                 
                 callback((uint32_t *)channel_data[i].data, this->timestamp,
-                         static_cast<void *>(&metadata));
+                         static_cast<void *>(&metadata[i]));
             }
             clear();
             return;
@@ -212,7 +212,7 @@ public:
 
 public:
     // Number of process packets
-    uint32_t nof_packets = 0;
+    uint64_t nof_packets = 0;
 
 
 private:
@@ -232,6 +232,7 @@ private:
 
     // Data container
     ChannelStructure *channel_data;
+    ChannelMetadata *metadata;
 
     // Callback function
     DataCallbackDynamic callback = nullptr;

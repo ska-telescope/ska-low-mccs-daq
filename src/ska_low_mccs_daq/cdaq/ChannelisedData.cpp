@@ -105,7 +105,7 @@ bool ChannelisedData::processPacket()
     uint16_t start_antenna_id = 0;
     uint16_t nof_included_channels = 0;
     uint16_t nof_included_antennas = 0;
-    uint16_t tile_id = 0;
+    uint8_t tile_id = 0;
     uint16_t station_id = 0;
     uint8_t  fpga_id     = 0;
     uint32_t payload_offset = 0;
@@ -154,7 +154,7 @@ bool ChannelisedData::processPacket()
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint16_t) ((val >> 32) & 0xFF);
+                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
                 fpga_id     = (uint8_t)   (val & 0xFF);
                 break;
             }
@@ -325,7 +325,7 @@ bool ContinuousChannelisedData::processPacket()
     uint16_t start_antenna_id = 0;
     uint16_t nof_included_channels = 0;
     uint16_t nof_included_antennas = 0;
-    uint16_t tile_id = 0;
+    uint8_t tile_id = 0;
     uint16_t station_id = 0;
     uint8_t  fpga_id     = 0;
     uint32_t payload_offset = 0;
@@ -374,7 +374,7 @@ bool ContinuousChannelisedData::processPacket()
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint16_t) ((val >> 32) & 0xFF);
+                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
                 fpga_id     = (uint8_t)   (val & 0xFF);
                 break;
             }
@@ -637,7 +637,7 @@ bool IntegratedChannelisedData::processPacket()
     uint16_t start_antenna_id = 0;
     uint16_t nof_included_channels = 0;
     uint16_t nof_included_antennas = 0;
-    uint16_t tile_id = 0;
+    uint8_t tile_id = 0;
     uint16_t station_id = 0;
     uint8_t  fpga_id     = 0;
     uint32_t payload_offset = 0;
@@ -686,7 +686,7 @@ bool IntegratedChannelisedData::processPacket()
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint16_t) ((val >> 32) & 0xFF);
+                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
                 fpga_id     = (uint8_t)   (val & 0xFF);
                 break;
             }
