@@ -577,7 +577,7 @@ class DaqReceiver:
         self._channel_data_callback(data, timestamp, metadata, "integrated")
 
     def _beam_burst_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, _: int
+        self, data: ctypes.POINTER, timestamp: float, tile: int, nof_packets: int
     ) -> None:
         """Beam callback wrapper for burst data mode
         :param data: Received data
@@ -588,7 +588,8 @@ class DaqReceiver:
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
-
+            
+        print(f"Number of Packets: {nof_packets}")
         # Extract data sent by DAQ
         values = self._get_numpy_from_ctypes(
             data,

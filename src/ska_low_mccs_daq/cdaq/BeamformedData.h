@@ -27,7 +27,23 @@ public:
         double   timestamp;
         uint32_t first_sample_index;
         T*       data;
-        uint16_t tile;
+        uint8_t tile;
+    };
+
+    struct BeamMetadata
+    {
+        uint64_t nof_packets=0;
+        uint64_t packet_counter[128]=0;
+        uint64_t payload_length;
+        uint64_t sync_time[128] = 0;
+        uint64_t timestamp[128] = 0;
+        uint8_t beam_id[128] = 0;
+        uint8_t tile_id;
+        uint16_t station_id;
+        uint16_t nof_contributing_antennas[128] = 0;
+        uint32_t payload_offset;
+        uint16_t start_channel_id[128] = 0;
+        uint16_t nof_included_channels[128] = 0;
     };
 
     // Class constructor
@@ -46,6 +62,8 @@ public:
 
         // Allocate buffer
         beam_data = (BeamStructure *) malloc(nof_tiles * sizeof(BeamStructure));
+        metadata = (BeamMetadata *) malloc(nof_tiles * sizeof(BeamMetadata));
+
         for(unsigned i = 0; i < nof_tiles; i++)
             beam_data[i].data = (T *) malloc(nof_beams * nof_pols * nof_samples * nof_channels * sizeof(T));
 
@@ -73,9 +91,10 @@ public:
 
 
     // Add data to buffer
-    void add_data(uint16_t tile, uint32_t beam_id, uint16_t start_channel_id, uint16_t nof_included_channels,
-                  uint32_t start_sample_index, uint32_t samples,
-                  T* data_ptr, double timestamp)
+    void add_data(uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, uint64_t timestamp_field,
+        uint16_t beam_id, uint16_t station_id, uint16_t nof_contributing_antennas, uint32_t payload_offset,
+        uint16_t nof_included_channels, uint8_t tile, uint64_t offset, uint16_t start_channel_id, uint64_t size,  
+        T* data_ptr, double timestamp)
     {
         // Get current tile index
         unsigned int tile_index = 0;
@@ -156,11 +175,13 @@ private:
     uint32_t nof_beams;
     uint8_t  nof_pols;
 
+
     // Tile map
     std::unordered_map<uint16_t, unsigned int> tile_map;
 
     // Beam data and info
     BeamStructure *beam_data;
+    BeamMetadata *metadata;
 
     // Callback function
     DataCallback callback = nullptr;
@@ -178,6 +199,22 @@ public:
         uint16_t tile;
     };
 
+    struct BeamMetadata
+    {
+        uint64_t nof_packets=0;
+        uint64_t packet_counter[128] = 0;
+        uint64_t payload_length;
+        uint64_t sync_time[128] = 0;
+        uint64_t timestamp[128] = 0;
+        uint8_t beam_id[128] = 0;
+        uint8_t tile_id;
+        uint16_t station_id;
+        uint16_t nof_contributing_antennas[128] = 0;
+        uint32_t payload_offset;
+        uint16_t start_channel_id[128] = 0;
+        uint16_t nof_included_channels[128] = 0;
+    };
+
     // Class constructor
     BurstBeamDataContainer(uint16_t nof_tiles,
                            uint32_t nof_samples,
@@ -192,6 +229,8 @@ public:
 
         // Allocate buffer
         beam_data = (BeamStructure *) malloc(nof_tiles * sizeof(BeamStructure));
+        metadata = (BeamMetadata *) malloc(nof_tiles * sizeof(BeamMetadata));
+
         for(unsigned i = 0; i < nof_tiles; i++)
             beam_data[i].data = (T *) malloc(nof_pols * nof_samples * nof_channels * sizeof(T));
 
@@ -217,10 +256,30 @@ public:
         this -> callback = callback;
     }
 
+    void set_metadata(unsigned int tile_index, uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, 
+        uint64_t timestamp, uint16_t station_id, uint8_t beam_id, uint32_t payload_offset, 
+        uint8_t tile_id, uint8_t start_channel_id, uint16_t nof_included_channels, uint8_t nof_contributing_antennas)
+    {
+        unsigned int packet_index = metadata[tile_index].nof_packets % 128;
+        metadata[tile_index].packet_counter[packet_index] = packet_counter;
+        metadata[tile_index].payload_length = payload_length;
+        metadata[tile_index].sync_time[packet_index] = sync_time;
+        metadata[tile_index].timestamp[packet_index] = timestamp;
+        metadata[tile_index].station_id = station_id;
+        metadata[tile_index].beam_id[packet_index] = beam_id;
+        metadata[tile_index].nof_included_channels[packet_index] = nof_included_channels;
+        metadata[tile_index].payload_offset = payload_offset;
+        metadata[tile_index].tile_id = tile_id;
+        metadata[tile_index].start_channel_id[packet_index] = start_channel_id;
+        metadata[tile_index].nof_contributing_antennas = nof_contributing_antennas;
+    }
 
     // Add data to buffer
-    void add_data(uint16_t tile, uint64_t offset, uint32_t start_channel_id, uint64_t size,  T* data_ptr, double timestamp)
-    {
+    void add_data(uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, uint64_t timestamp_field,
+        uint16_t beam_id, uint16_t station_id, uint16_t nof_contributing_antennas, uint32_t payload_offset,
+        uint16_t nof_included_channels, uint8_t tile, uint64_t offset, uint16_t start_channel_id, uint64_t size,  
+        T* data_ptr, double timestamp)
+    {   
         // Get current tile index
         unsigned int tile_index = 0;
         if (tile_map.find(tile) != tile_map.end())
@@ -286,8 +345,7 @@ public:
                         }
 
                     callback((uint32_t *) buffer, beam_data[i].timestamp,
-                             beam_data[i].tile, 0);
-
+                             beam_data[i].tile);
                     memset(buffer, 0, this->nof_channels * this->nof_samples * this->nof_pols * sizeof(T));
                 }
             }
@@ -314,6 +372,7 @@ private:
 
     // Beam data and info
     BeamStructure *beam_data;
+    BeamMetadata *metadata;
 
     // Callback function
     DataCallback callback = nullptr;
