@@ -84,7 +84,7 @@ public:
 
 public:
     // Set callback function
-    void setCallback(DataCallback callback)
+    void setCallback(DataCallbackDynamic callback)
     {
         this -> callback = callback;
     }
@@ -190,7 +190,7 @@ private:
     BeamMetadata *metadata;
 
     // Callback function
-    DataCallback callback = nullptr;
+    DataCallbackDynamic callback = nullptr;
 };
 
 template <class T> class BurstBeamDataContainer
@@ -257,7 +257,7 @@ public:
 
 public:
     // Set callback function
-    void setCallback(DataCallback callback)
+    void setCallback(DataCallbackDynamic callback)
     {
         this -> callback = callback;
     }
@@ -387,7 +387,7 @@ private:
     BeamMetadata *metadata;
 
     // Callback function
-    DataCallback callback = nullptr;
+    DataCallbackDynamic callback = nullptr;
 };
 
 
@@ -396,8 +396,8 @@ class BeamformedData : public DataConsumer
 {
 public:
 
-    // Override setDataCallback
-    void setCallback(DataCallback callback) override;
+    // Override setDataCallbackDynamic
+    void setCallback(DataCallbackDynamic callback) override;
 
     // Initialise consumer
     bool initialiseConsumer(json configuration) override;
@@ -436,8 +436,8 @@ class IntegratedBeamformedData : public DataConsumer
 {
 public:
 
-    // Override setDataCallback
-    void setCallback(DataCallback callback) override;
+    // Override setDataCallbackDynamic
+    void setCallback(DataCallbackDynamic callback) override;
 
     // Initialise consumer
     bool initialiseConsumer(json configuration) override;

@@ -235,11 +235,11 @@ class DaqReceiver:
             DaqModes.CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._channel_burst_data_callback
             ),
-            DaqModes.BEAM_DATA: self.DATA_CALLBACK(self._beam_burst_data_callback),
+            DaqModes.BEAM_DATA: self.DYNAMIC_DATA_CALLBACK(self._beam_burst_data_callback),
             DaqModes.CONTINUOUS_CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._channel_continuous_data_callback
             ),
-            DaqModes.INTEGRATED_BEAM_DATA: self.DATA_CALLBACK(
+            DaqModes.INTEGRATED_BEAM_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._beam_integrated_data_callback
             ),
             DaqModes.INTEGRATED_CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
@@ -577,19 +577,21 @@ class DaqReceiver:
         self._channel_data_callback(data, timestamp, metadata, "integrated")
 
     def _beam_burst_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, nof_packets: int
+        self, data: ctypes.POINTER, timestamp: float, metadata: ctypes.POINTER,
     ) -> None:
         """Beam callback wrapper for burst data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param tile: The tile from which the data was acquired
+        :param metadata: Contains the spead headers of the data
         """
 
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
-            
-        print(f"Number of Packets: {nof_packets}")
+
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.ChannelMetadata)).contents
+        tile = metadata.tile_id
+
         # Extract data sent by DAQ
         values = self._get_numpy_from_ctypes(
             data,
@@ -611,23 +613,26 @@ class DaqReceiver:
 
         # Call external callback if defined
         if self._external_callbacks[DaqModes.BEAM_DATA] is not None:
-            self._external_callbacks[DaqModes.BEAM_DATA]("burst_beam", filename, tile)
+            self._external_callbacks[DaqModes.BEAM_DATA]("burst_beam", filename, tile, spead_metadata=metadata)
 
         if self._config["logging"]:
             logging.info("Received beam data for tile {}".format(tile))
 
     def _beam_integrated_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, _: int
+        self, data: ctypes.POINTER, timestamp: float, metadata: ctypes.POINTER,
     ) -> None:
         """Beam callback wrapper for integrated data mode
         :param data: Received data
-        :param tile: The tile from which the data was acquired
         :param timestamp: Timestamp of first data point in data
+        :param metadata: Contains the spead headers of the data
         """
 
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
+
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.ChannelMetadata)).contents
+        tile = metadata.tile_id
 
         # Extract data sent by DAQ
         values = self._get_numpy_from_ctypes(
@@ -662,7 +667,7 @@ class DaqReceiver:
         # Call external callback if defined
         if self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] is not None:
             self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA](
-                "integrated_beam", filename, tile
+                "integrated_beam", filename, tile, spead_metadata=metadadata
             )
 
     def _correlator_callback(

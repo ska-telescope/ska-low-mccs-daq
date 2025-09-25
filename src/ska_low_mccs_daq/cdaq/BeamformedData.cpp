@@ -37,7 +37,7 @@ bool BeamformedData::initialiseConsumer(json configuration)
 }
 
 // Set callback
-void BeamformedData::setCallback(DataCallback callback)
+void BeamformedData::setCallback(DataCallbackDynamic callback)
 {
     container -> setCallback(callback);
 }
@@ -223,7 +223,7 @@ bool IntegratedBeamformedData::initialiseConsumer(json configuration)
 }
 
 // Set callback
-void IntegratedBeamformedData::setCallback(DataCallback callback)
+void IntegratedBeamformedData::setCallback(DataCallbackDynamic callback)
 {
     this -> container -> setCallback(callback);
 }
