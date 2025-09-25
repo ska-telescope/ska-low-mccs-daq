@@ -76,7 +76,7 @@ public:
 
     void set_metadata(unsigned int tile_index, uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, 
         uint64_t timestamp, uint16_t station_id, uint8_t  fpga_id, uint64_t payload_offset, 
-        uint8_t tile_id, uint8_t start_antenna_id, uint8_t nof_included_antennas){
+        uint8_t start_antenna_id, uint8_t nof_included_antennas){
             unsigned int packet_index = metadata[tile_index].nof_packets % 128;
             metadata[tile_index].packet_counter[packet_index] = packet_counter;
             metadata[tile_index].payload_length = payload_length;
@@ -85,7 +85,6 @@ public:
             metadata[tile_index].station_id = station_id;
             metadata[tile_index].fpga_id[packet_index] = fpga_id;
             metadata[tile_index].payload_offset = payload_offset;
-            metadata[tile_index].tile_id = tile_id;
             metadata[tile_index].start_antenna_id[packet_index] = start_antenna_id;
             metadata[tile_index].nof_antennas = nof_included_antennas;
         }
@@ -110,7 +109,7 @@ public:
 
             tile_map[tile] = tile_index;
             antenna_data[tile_index].tile = tile;
-            
+            metadata[tile_index].tile_id = tile;
         }
         // Burst raw data
         if (nof_included_antennas == 1)
@@ -153,7 +152,7 @@ public:
         }
 
         set_metadata(tile_index, packet_counter, payload_length, sync_time, timestamp_field, 
-        station_id, fpga_id, payload_offset, tile, start_antenna, nof_included_antennas);
+        station_id, fpga_id, payload_offset, start_antenna, nof_included_antennas);
 
         metadata[tile_index].nof_packets++;
     }
