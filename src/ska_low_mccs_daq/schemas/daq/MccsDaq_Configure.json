@@ -253,7 +253,7 @@
         },
         "directory_tag": {
             "type": "string",
-            "default": "",
+            "default": ".",
             "description": "Directory tag applied when daq scanning is in progress"
         }
     }
