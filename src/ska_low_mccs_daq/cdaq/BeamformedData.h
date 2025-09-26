@@ -33,17 +33,17 @@ public:
     struct BeamMetadata
     {
         uint64_t nof_packets=0;
-        uint64_t packet_counter[128]=0;
+        uint32_t packet_counter[128]=0;
         uint64_t payload_length;
         uint64_t sync_time[128] = 0;
         uint64_t timestamp[128] = 0;
         uint8_t beam_id[128] = 0;
         uint8_t tile_id;
         uint16_t station_id;
-        uint16_t nof_contributing_antennas[128] = 0;
+        uint16_t nof_contributing_antennas;
         uint32_t payload_offset;
         uint16_t start_channel_id[128] = 0;
-        uint16_t nof_included_channels[128] = 0;
+        uint16_t nof_included_channels;
     };
 
     // Class constructor
@@ -91,7 +91,7 @@ public:
 
     void set_metadata(unsigned int tile_index, uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, 
         uint64_t timestamp, uint16_t station_id, uint8_t beam_id, uint32_t payload_offset, 
-        uint8_t start_channel_id, uint16_t nof_included_channels, uint8_t nof_contributing_antennas)
+        uint16_t start_channel_id, uint16_t nof_included_channels, uint16_t nof_contributing_antennas)
     {
         unsigned int packet_index = metadata[tile_index].nof_packets % 128;
         metadata[tile_index].packet_counter[packet_index] = packet_counter;
@@ -100,16 +100,16 @@ public:
         metadata[tile_index].timestamp[packet_index] = timestamp;
         metadata[tile_index].station_id = station_id;
         metadata[tile_index].beam_id[packet_index] = beam_id;
-        metadata[tile_index].nof_included_channels[packet_index] = nof_included_channels;
+        metadata[tile_index].nof_included_channels = nof_included_channels;
         metadata[tile_index].payload_offset = payload_offset;
         metadata[tile_index].start_channel_id[packet_index] = start_channel_id;
-        metadata[tile_index].nof_contributing_antennas[packet_index] = nof_contributing_antennas;
+        metadata[tile_index].nof_contributing_antennas = nof_contributing_antennas;
     }
 
     // Add data to buffer
     void add_data(uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, 
         uint64_t timestamp_field, uint16_t station_id, uint16_t nof_contributing_antennas, 
-        uint32_t payload_offset, uint8_t tile, uint16_t beam_id, uint16_t start_channel_id, 
+        uint32_t payload_offset, uint8_t tile, uint8_t beam_id, uint16_t start_channel_id, 
         uint16_t nof_included_channels, uint32_t start_sample_index, uint32_t samples, 
         T* data_ptr, double timestamp)
 
@@ -226,17 +226,17 @@ public:
     struct BeamMetadata
     {
         uint64_t nof_packets=0;
-        uint64_t packet_counter[128] = 0;
+        uint32_t packet_counter[128] = 0;
         uint64_t payload_length;
         uint64_t sync_time[128] = 0;
         uint64_t timestamp[128] = 0;
         uint8_t beam_id[128] = 0;
         uint8_t tile_id;
         uint16_t station_id;
-        uint16_t nof_contributing_antennas[128] = 0;
+        uint16_t nof_contributing_antennas;
         uint32_t payload_offset;
         uint16_t start_channel_id[128] = 0;
-        uint16_t nof_included_channels[128] = 0;
+        uint16_t nof_included_channels;
     };
 
     // Class constructor
@@ -282,7 +282,7 @@ public:
 
     void set_metadata(unsigned int tile_index, uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, 
         uint64_t timestamp, uint16_t station_id, uint8_t beam_id, uint32_t payload_offset, 
-        uint8_t start_channel_id, uint16_t nof_included_channels, uint8_t nof_contributing_antennas)
+        uint16_t start_channel_id, uint16_t nof_included_channels, uint16_t nof_contributing_antennas)
     {
         unsigned int packet_index = metadata[tile_index].nof_packets % 128;
         metadata[tile_index].packet_counter[packet_index] = packet_counter;
@@ -291,15 +291,15 @@ public:
         metadata[tile_index].timestamp[packet_index] = timestamp;
         metadata[tile_index].station_id = station_id;
         metadata[tile_index].beam_id[packet_index] = beam_id;
-        metadata[tile_index].nof_included_channels[packet_index] = nof_included_channels;
+        metadata[tile_index].nof_included_channels = nof_included_channels;
         metadata[tile_index].payload_offset = payload_offset;
         metadata[tile_index].start_channel_id[packet_index] = start_channel_id;
-        metadata[tile_index].nof_contributing_antennas[packet_index] = nof_contributing_antennas;
+        metadata[tile_index].nof_contributing_antennas = nof_contributing_antennas;
     }
 
     // Add data to buffer
     void add_data(uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, uint64_t timestamp_field,
-        uint16_t beam_id, uint16_t station_id, uint16_t nof_contributing_antennas, uint32_t payload_offset,
+        uint8_t beam_id, uint16_t station_id, uint16_t nof_contributing_antennas, uint32_t payload_offset,
         uint16_t nof_included_channels, uint8_t tile, uint64_t offset, uint16_t start_channel_id, uint64_t size,  
         T* data_ptr, double timestamp)
     {   

@@ -63,17 +63,17 @@ class DaqReceiver:
     class BeamMetadata(ctypes.Structure):
         _fields_ = [
             ("nof_packets", ctypes.c_uint64),
-            ("packet_counter", ctypes.c_uint64 * 128),
+            ("packet_counter", ctypes.c_uint32 * 128),
             ("payload_length", ctypes.c_uint64),
             ("sync_time ", ctypes.c_uint64 * 128),
             ("timestamp", ctypes.c_uint64 * 128),
             ("beam_id", ctypes.c_uint8 * 128),
             ("tile_id", ctypes.c_uint8),
             ("station_id", ctypes.c_uint16),
-            ("nof_contributing_antennas", ctypes.c_uint16 * 128),
+            ("nof_contributing_antennas", ctypes.c_uint16),
             ("payload_offset", ctypes.c_uint32),
             ("start_channel_id", ctypes.c_uint16 * 128),
-            ("nof_included_channels", ctypes.c_uint16 * 128),
+            ("nof_included_channels", ctypes.c_uint16),
         ]
 
     class ChannelMetadata(ctypes.Structure):
@@ -326,8 +326,8 @@ class DaqReceiver:
     ) -> None:
         """Raw data callback
         :param data: Received data
-        :param tile: The tile from which the data was acquired
         :param timestamp: Timestamp of first data point in data
+        :param metadata: Pointer to the metadata containing SPEAD header fields
         """
         spead_metadata = ctypes.cast(metadata, ctypes.POINTER(self.AdcMetadata)).contents
         tile = spead_metadata.tile_id
@@ -382,9 +382,8 @@ class DaqReceiver:
         """Channel data callback
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param tile: Tile number
-        :param channel_id: Channel identifier
         :param mode: Channel transmission mode
+        :param metadata: Pointer to the metadata containing SPEAD header fields.
         """
 
         # If writing to disk is not enabled, return immediately
@@ -553,10 +552,7 @@ class DaqReceiver:
         """Channel callback wrapper for burst data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param metadata: pointer to the metadata associated with the callback.
-            * tile_id
-            * channel_id
-            * nof_packets
+        :param metadata: Pointer to the metadata containing SPEAD header fields.
         """
         self._channel_data_callback(data, timestamp, metadata)
 
@@ -569,10 +565,7 @@ class DaqReceiver:
         """Channel callback wrapper for continuous data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param metadata: pointer to the metadata associated with the callback.
-            * tile_id
-            * channel_id
-            * nof_packets
+        :param metadata: Pointer to the metadata containing SPEAD header fields.
         """
         self._channel_data_callback(data, timestamp, metadata, "continuous")
 
@@ -585,10 +578,7 @@ class DaqReceiver:
         """Channel callback wrapper for integrated data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param metadata: pointer to the metadata associated with the callback.
-            * tile_id
-            * channel_id
-            * nof_packets
+        :param metadata: Pointer to the metadata containing SPEAD header fields.
         """
         self._channel_data_callback(data, timestamp, metadata, "integrated")
 
@@ -598,14 +588,14 @@ class DaqReceiver:
         """Beam callback wrapper for burst data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param metadata: Contains the spead headers of the data
+        :param metadata: Contains the SPEAD headers of the data
         """
 
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
 
-        metadata = ctypes.cast(metadata, ctypes.POINTER(self.ChannelMetadata)).contents
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.BeamMetadata)).contents
         tile = metadata.tile_id
 
         # Extract data sent by DAQ
@@ -640,14 +630,14 @@ class DaqReceiver:
         """Beam callback wrapper for integrated data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param metadata: Contains the spead headers of the data
+        :param metadata: Contains the SPEAD headers of the data
         """
 
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
 
-        metadata = ctypes.cast(metadata, ctypes.POINTER(self.ChannelMetadata)).contents
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.BeamMetadata)).contents
         tile = metadata.tile_id
 
         # Extract data sent by DAQ
@@ -683,7 +673,7 @@ class DaqReceiver:
         # Call external callback if defined
         if self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] is not None:
             self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA](
-                "integrated_beam", filename, tile, spead_metadata=metadadata
+                "integrated_beam", filename, tile, spead_metadata=metadata
             )
 
     def _correlator_callback(
@@ -695,7 +685,8 @@ class DaqReceiver:
         """Correlated data callback
         :param data: Received data
         :param timestamp: Timestamp of first sample in data
-        :param channel_id: Channel identifier"""
+        :param metadata: Pointer to the metadata associated with the callback.
+        """
 
         if not self._config["write_to_disk"]:
             return
@@ -787,8 +778,8 @@ class DaqReceiver:
         """Correlated data callback
         :param data: Received data
         :param timestamp: Timestamp of first sample in data
-        :param nof_packets: Number of packets received for this buffer
-        :param nof_saturations: Number of saturated samples whilst acquiring buffer"""
+        :param metadata: Pointer to the metadata containing SPEAD header fields
+        """
 
         if not self._config["write_to_disk"]:
             return
@@ -1150,7 +1141,8 @@ class DaqReceiver:
 
         if (
             self._start_consumer(
-                "burstbeam", params, self._callbacks[DaqModes.BEAM_DATA]
+                "burstbeam", params, self._callbacks[DaqModes.BEAM_DATA], 
+                dynamic_callback=True
             )
             != self.Result.Success
         ):
@@ -1201,7 +1193,8 @@ class DaqReceiver:
 
         if (
             self._start_consumer(
-                "integratedbeam", params, self._callbacks[DaqModes.INTEGRATED_BEAM_DATA]
+                "integratedbeam", params, self._callbacks[DaqModes.INTEGRATED_BEAM_DATA],
+                dynamic_callback=True
             )
             != self.Result.Success
         ):
