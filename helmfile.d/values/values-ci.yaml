@@ -4,12 +4,3 @@ platform:
       ci-1:
         id: 1
         sps: {}
-  stations:
-    ci-1:
-      sps:
-        daq:
-          two-pod-daq: false
-    real-daq-1:
-      sps:
-        daq:
-          two-pod-daq: false

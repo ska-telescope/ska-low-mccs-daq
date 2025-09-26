@@ -62,9 +62,20 @@ class DaqReceiver:
 
     class ChannelMetadata(ctypes.Structure):
         _fields_ = [
-            ("tile", ctypes.c_int16),
-            ("cont_channel_id", ctypes.c_int32),
-            ("nof_packets", ctypes.c_uint32),
+            ("tile_id", ctypes.c_uint8),
+            ("cont_channel_id", ctypes.c_uint32),
+            ("nof_packets", ctypes.c_uint64),
+            ("packet_counter", ctypes.c_uint32 * 2048),
+            ("payload_length", ctypes.c_uint64),
+            ("sync_time", ctypes.c_uint64),
+            ("timestamp", ctypes.c_uint64 * 2048),
+            ("start_channel_id", ctypes.c_uint16 * 2048),  
+            ("start_antenna_id", ctypes.c_uint16 * 2048),  
+            ("nof_included_channels", ctypes.c_uint16),
+            ("nof_included_antennas", ctypes.c_uint16),
+            ("station_id", ctypes.c_uint16),
+            ("fpga_id", ctypes.c_uint8 * 2048),
+            ("payload_offset", ctypes.c_uint32),
         ]
 
     class CorrelatorMetadata(ctypes.Structure):
@@ -334,9 +345,10 @@ class DaqReceiver:
             return
 
         metadata = ctypes.cast(metadata, ctypes.POINTER(self.ChannelMetadata)).contents
-        tile = metadata.tile
+        tile = metadata.tile_id
         channel_id = metadata.cont_channel_id
         nof_packets = metadata.nof_packets
+    
 
         # Ignore first two buffers for continuous channel mode
         if mode == "continuous" and not self._config["persist_all_buffers"]:
@@ -421,7 +433,7 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA](
-                    "cont_channel", filename, tile, nof_packets=nof_packets
+                    "cont_channel", filename, tile, nof_packets=nof_packets, spead_metadata=metadata
                 )
 
             if self._config["logging"]:
@@ -459,7 +471,7 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
-                    "integrated_channel", filename, tile, nof_packets=nof_packets
+                    "integrated_channel", filename, tile, nof_packets=nof_packets, spead_metadata=metadata
                 )
 
             if self._config["logging"]:
@@ -479,7 +491,7 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.CHANNEL_DATA](
-                    "burst_channel", filename, tile, nof_packets=nof_packets
+                    "burst_channel", filename, tile, nof_packets=nof_packets, spead_metadata=metadata
                 )
 
             if self._config["logging"]:

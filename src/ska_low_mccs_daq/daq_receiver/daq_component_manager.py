@@ -9,6 +9,7 @@
 """This module implements component management for DaqReceivers."""
 from __future__ import annotations
 
+import ctypes
 import json
 import logging
 import os
@@ -532,6 +533,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         data_mode: str,
         file_name: str,
         additional_info: Optional[str] = None,
+        spead_metadata: Optional[ctypes.Structure] = None,
         **attributes: float,
     ) -> None:
         """
@@ -542,6 +544,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param data_mode: The DAQ data type written
         :param file_name: The filename written
         :param additional_info: Any additional information/metadata.
+        :param spead_metadata: C Struct containing SPEAD header fields
         :param attributes: any attributes to update the value for.
         """
         # Callbacks to call for all data modes.
