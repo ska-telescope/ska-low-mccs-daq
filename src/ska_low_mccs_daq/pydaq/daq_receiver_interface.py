@@ -60,6 +60,22 @@ class DaqReceiver:
             ("lost_pushes", ctypes.c_size_t),
         ]
 
+    class BeamMetadata(ctypes.Structure):
+        _fields_ = [
+            ("nof_packets", ctypes.c_uint64),
+            ("packet_counter", ctypes.c_uint64 * 128),
+            ("payload_length", ctypes.c_uint64),
+            ("sync_time ", ctypes.c_uint64 * 128),
+            ("timestamp", ctypes.c_uint64 * 128),
+            ("beam_id", ctypes.c_uint8 * 128),
+            ("tile_id", ctypes.c_uint8),
+            ("station_id", ctypes.c_uint16),
+            ("nof_contributing_antennas", ctypes.c_uint16 * 128),
+            ("payload_offset", ctypes.c_uint32),
+            ("start_channel_id", ctypes.c_uint16 * 128),
+            ("nof_included_channels", ctypes.c_uint16 * 128),
+        ]
+
     class ChannelMetadata(ctypes.Structure):
         _fields_ = [
             ("tile_id", ctypes.c_uint8),
