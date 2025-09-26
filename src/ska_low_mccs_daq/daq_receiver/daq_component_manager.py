@@ -116,6 +116,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         "receiver_nof_blocks": 256,
         "receiver_nof_threads": 1,
         "directory": ".",
+        "directory_tag": "",
         "logging": True,
         "write_to_disk": True,
         "station_config": None,
@@ -176,6 +177,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._faulty: Optional[bool] = None
         self._consumers_to_start: str = "Daqmodes.INTEGRATED_CHANNEL_DATA"
         self._receiver_started: bool = False
+        self._scan_in_progress: bool = False
         self._initialised = False
         self._daq_id = str(daq_id).zfill(3)
         self._dedicated_bandpass_daq = dedicated_bandpass_daq
@@ -201,9 +203,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._measure_data_rate: bool = False
         self._data_rate: float | None = None
 
-        # used for MarkDone command to keep track of directory changes
-        self.current_scan_id: str | None = None
-        self.mark_done_tag: str | None = None
+        # since configurations can be called during scan time we need to keep track of
+        # directory changes in order to mark all of them when calling mark_done()
+        self._directory_paths: list[str] = []
+        self._directory_tags: dict[str, str] = {}
 
         self._monitoring_bandpass = False
         self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
@@ -487,6 +490,15 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 )  # noqa: E501
                 return ResultCode.REJECTED, "No configuration data supplied."
 
+            if self._scan_in_progress:
+                warning_string = (
+                    "Attemting to change configurations during scan. "
+                    "To change configuration please stop, configure and start the scan"
+                )
+                self.logger.warning(warning_string)
+
+                return ResultCode.REJECTED, warning_string
+
             if "directory" in daq_config:
                 if not os.path.exists(daq_config["directory"]):
                     # Note: The daq-handler does not have permission
@@ -497,14 +509,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     )
                     os.makedirs(daq_config["directory"])
                     self.logger.info(f'directory {daq_config["directory"]} created!')
-                    # reset the current scan id, as it changed.
-                    # this used only in _change_directory and will be determined again.
-                    self.current_scan_id = None
 
             if "directory_tag" in daq_config:
-                self._change_directory_tag(daq_config["directory_tag"])
-            # if "automatic_dir_tagging" in daq_config:
-            #     self.mark_done_tag
+                daq_config["directory_tag"] = self._change_directory_tag(
+                    daq_config["directory_tag"]
+                )
+
             merged_config = self._configuration | daq_config
             self._daq_client.populate_configuration(merged_config)
             self._configuration = merged_config
@@ -625,6 +635,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             task_callback=task_callback,
         )
 
+    # flake8: noqa: C901
     def _start_daq(
         self: DaqComponentManager,
         modes_to_start: str,
@@ -686,8 +697,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 self._receiver_started = True
 
         # mark the directory as in progress
-        self._change_directory()
-
+        if not self._change_directory():
+            self.logger.warning(
+                "Failed to mark directory with tag "
+                f"{self._configuration['directory_tag']}"
+            )
+        self._scan_in_progress = True
         self.client_queue = queue.SimpleQueue()
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
         self._daq_client.start_daq(
@@ -737,6 +752,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             task_callback(status=TaskStatus.IN_PROGRESS)
         self._daq_client.stop_daq()
         self._receiver_started = False
+        self._scan_in_progress = False
         self._started_event.clear()
         if self._component_state_callback:
             self._component_state_callback(reset_consumer_attributes=True)
@@ -1048,33 +1064,43 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :return: True if successful
         """
         current_dir = self._configuration["directory"]
+        mark_done_tag = self._configuration["directory_tag"]
 
-        if self.current_scan_id is None:
-            self.current_scan_id = current_dir.split("/", maxsplit=5)[4]
+        current_scan_id = current_dir.split("/", maxsplit=5)[4]
+        match = f"/{current_scan_id}"
 
-        match = f"/{self.current_scan_id}/"
-        change = f"/{self.current_scan_id}{self.mark_done_tag}/"
-
-        if self.mark_done_tag is None:
-            change = f"/.{self.current_scan_id}/"
+        if mark_done_tag == ".":
+            change = f"/.{current_scan_id}"
+        else:
+            change = f"/{current_scan_id}{mark_done_tag}"
 
         if mark_done:
-            change, match = match, change
+            # reverse the change when done
+            match = current_scan_id
+            change = f"{match.replace(mark_done_tag, '')}"
 
-        new_dir = current_dir.replace(match, change)
-        user_dir = ""
-        # Truncate to the relevant change
+        # The current directory has the following form:
+        # /product/eb_id/ska-low-mccs/scan-id/user/specified/path
+        # And we plan to mark the path at the scan-id level:
+        # /product/eb_id/ska-low-mccs/scan-id_tag/user/specified/path
+        # Because we don't know what the user specified path is, and because of how
+        # the rename method works (it's not able to create paths recursively) we need
+        # to truncate the path to the relevant change:
         current_dir_list = current_dir.split("/", maxsplit=5)
+        # /product/eb_id/ska-low-mccs/scan-id
         current_dir = "/".join(current_dir_list[0:5])
-        if len(current_dir_list) > 5:
-            user_dir = "/" + "/".join(current_dir_list[5:])
-            user_dir.replace("//", "/")
 
-        new_dir_list = new_dir.split("/", maxsplit=5)
-        new_dir = "/".join(new_dir_list[0:5])
+        # The new path will be:
+        # /product/eb_id/ska-low-mccs/scan-id_tag
+        new_dir = current_dir.replace(match, change)
+
+        # to keep track of the user specified path:
+        user_dir = ""
+        if len(current_dir_list) > 5:
+            user_dir = "/".join(current_dir_list[5:])
 
         try:
-            os.rename(f"{current_dir}", f"{new_dir}")
+            os.rename(current_dir, new_dir)
         except OSError as err:
             self.logger.error(
                 f"Failed to change {current_dir} to directory " f"{new_dir}: {err}"
@@ -1082,29 +1108,31 @@ class DaqComponentManager(TaskExecutorComponentManager):
             return False
 
         # Make sure path exists and save it
-        if not os.path.exists(new_dir):
+        if not os.path.exists(f"{new_dir}/{user_dir}"):
             return False
 
-        self._configuration["directory"] = new_dir + user_dir
+        self._configuration["directory"] = f"{new_dir}/{user_dir}"
         self._daq_client.populate_configuration(self._configuration)
-        self.logger.info(f"Current writing path changed to: {new_dir}{user_dir}")
+        self.logger.info(f"Current writing path changed to: {new_dir}/{user_dir}")
         return True
 
-    def _change_directory_tag(self: DaqComponentManager, tag: str) -> None:
+    def _change_directory_tag(self: DaqComponentManager, tag: str) -> str:
         """
         Change the directory tag used.
 
         :param tag: the new directory tag
+        :return: the new tag
         """
-        self.mark_done_tag = tag
+        mark_done_tag = tag
         self.logger.info(f'Changed directory tag to {tag or "default"}')
         if tag in ["", ".", "default"]:
-            self.mark_done_tag = None
-            return
+            mark_done_tag = "."
 
         # sanitize the input
-        for bad_character in ["/", " ", "\n", "\t", "%", ".."]:
-            self.mark_done_tag.replace(bad_character, "")
+        for bad_character in "/%*#$(){}[]":
+            mark_done_tag = mark_done_tag.replace(bad_character, "")
+
+        return mark_done_tag
 
     @check_communicating
     def mark_scan_done(
@@ -1183,7 +1211,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         existing_directory = self.get_configuration()["directory"]
         # Replace any double slashes with just one in case
         # `existing_directory` begins with one.
-        self.current_scan_id = scan_id
         return (
             f"/product/{eb_id}/{SUBSYSTEM_SLUG}/{scan_id}/{existing_directory}".replace(
                 "//", "/"

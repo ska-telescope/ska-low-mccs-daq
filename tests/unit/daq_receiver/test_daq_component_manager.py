@@ -657,10 +657,14 @@ class TestDaqComponentManager:
     @pytest.mark.parametrize(
         ("directory_tag", "outcome"),
         (
+            # default behavior
             ("", ".scan_id"),
             (".", ".scan_id"),
             ("default", ".scan_id"),
+            # user specified tags
             ("_in_progress", "scan_id_in_progress"),
+            # Make sure we filter out bad characters:
+            ("_/i%n*_#p$r(o){g}r[e]ss", "scan_id_in_progress"),
         ),
     )
     def test_change_directory(
@@ -702,11 +706,51 @@ class TestDaqComponentManager:
         # Changed the path to the "in progress state"
         assert daq_component_manager._change_directory()
         assert daq_component_manager._configuration["directory"] == new_dir
-        assert daq_component_manager.get_configuration()["directory"] == new_dir
         assert os.path.exists(new_dir)
+        assert not os.path.exists(default_dir)
 
         # Changed the path to the "done state"
         assert daq_component_manager._change_directory(mark_done=True)
         assert daq_component_manager._configuration["directory"] == default_dir
-        assert daq_component_manager.get_configuration()["directory"] == default_dir
         assert os.path.exists(default_dir)
+        assert not os.path.exists(new_dir)
+
+    @pytest.mark.parametrize(
+        ("directory_tag", "outcome"),
+        (
+            # default behavior
+            ("", "."),
+            (".", "."),
+            ("default", "."),
+            ("_in_progress", "_in_progress"),
+            ("_/i%n*_#p$r(o){g}r[e]ss", "_in_progress"),
+        ),
+    )
+    def test_change_directory_tag(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+        directory_tag: str,
+        outcome: bool,
+    ) -> None:
+        """
+        Test change the directory tag.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        :param directory_tag: directory tag to be applied to the directory in progress.
+        :param outcome: the changes applied to the directory
+        """
+        # Setting up the daq
+        assert daq_component_manager.communication_state == CommunicationStatus.DISABLED
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        daq_component_manager.configure_daq(**{"directory_tag": directory_tag})
+
+        assert daq_component_manager._configuration["directory_tag"] == outcome

@@ -61,11 +61,11 @@ the ``Configure()`` command:
 
 The rest of the options available to the configure command are listed in the API section of the docs.
 
-----------------------------
+---------------------------- 
 Stopping the MccsDaqReceiver
 ----------------------------
 
-The ``Stop()`` command requires on inputs and stops the scan when called:
+The ``Stop()`` command requires no inputs and stops the scan when called:
 
 .. code-block:: python
 
@@ -123,6 +123,8 @@ To mark a scan as finished, users can call the ``MarkDone`` command. This will r
 .. code-block:: python
 
     daq.MarkDone()
+
+While this is currently only implemented as a manual operation, the aim is to automate it in the future.
 
 .. Caution::
     While the code can accept any string as a tag, it's recommended that users are mindful of the choices they make.

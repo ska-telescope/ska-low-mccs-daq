@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-257] Added MarkDone() command
+
 ## 3.2.2
 
 * [THORN-248] Update ska-low-mccs-common dependency.#
