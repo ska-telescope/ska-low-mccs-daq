@@ -176,8 +176,10 @@ bool BeamformedData::processPacket()
     this -> received_packets++;
 
     // Add data to container
-    container->add_data(tile_id, packet_counter * payload_length, start_channel_id, payload_length / 4,
-                        (uint32_t *) (payload + payload_offset), packet_time);
+    container->add_data(packet_counter, payload_length, sync_time, timestamp, beam_id,
+            station_id, nof_contributing_antennas, payload_offset, nof_included_channels, 
+            tile_id, packet_counter * payload_length, start_channel_id, payload_length / 4,
+            (uint32_t *) (payload + payload_offset), packet_time);
 
     // Ready from packet
     ring_buffer -> pull_ready();
@@ -364,9 +366,11 @@ bool IntegratedBeamformedData::processPacket()
     }
 
     // We have processed the packet items, now comes the data
-    container -> add_data(tile_id, beam_id, start_channel_id, nof_included_channels,
-                          packet_counter - this->saved_packet_counter, 1,
-                          (uint32_t *) (payload + payload_offset), packet_time);
+    container -> add_data(packet_counter, payload_length, sync_time, timestamp,
+                station_id, nof_contributing_antennas, payload_offset, 
+                tile_id, beam_id, start_channel_id, nof_included_channels,
+                packet_counter - this->saved_packet_counter, 1,
+                (uint32_t *) (payload + payload_offset), packet_time);
 
     // Increment number of received packets
     this -> received_packets++;
