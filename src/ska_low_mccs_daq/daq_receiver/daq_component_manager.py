@@ -85,7 +85,7 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     return []
 
 
-# pylint: disable=abstract-method,too-many-instance-attributes, too-many-public-methods
+# pylint: disable=abstract-method,too-many-instance-attributes
 class DaqComponentManager(TaskExecutorComponentManager):
     """A component manager for a DaqReceiver."""
 
@@ -117,7 +117,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         "receiver_nof_blocks": 256,
         "receiver_nof_threads": 1,
         "directory": ".",
-        "directory_tag": "",
+        "directory_tag": ".",
         "logging": True,
         "write_to_disk": True,
         "station_config": None,
@@ -493,7 +493,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
             if self._scan_in_progress:
                 warning_string = (
-                    "Attemting to change configurations during scan. "
+                    "Attempting to change configurations during scan not allowed. "
                     "To change configuration please stop, configure and start the scan"
                 )
                 self.logger.warning(warning_string)
@@ -701,7 +701,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         # mark the directory as in progress
         if not self._change_directory():
-            self.logger.warning(
+            self.logger.error(
                 "Failed to mark directory with tag "
                 f"{self._configuration['directory_tag']}"
             )

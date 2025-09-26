@@ -91,6 +91,11 @@ Then, when a user starts the scan the path will be changed to:
 
     /product/eb-id/ska-low-mccs/.scan-id/user/path
 
+.. Caution::
+    This behavior will result in the folder being treated as a hidden directory, excluding it from
+    file report unless explicitly requested. This will mean that tools such as ``ls`` and ``tree`` will
+    not report the directory unless called with the correct configs (``ls -a`` and ``tree -a``, respectively).
+
 Users can change the tag used by calling the configure command and specifying a new tag as such:
 
 .. code-block:: python

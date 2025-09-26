@@ -1367,6 +1367,22 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         return self.component_manager.daq_library
 
+    @attribute(
+        dtype="DevString",
+        doc=("Current status of a scan",),
+    )
+    def scanStatus(self: MccsDaqReceiver) -> str:
+        """
+        Get the current status of recieving a scan.
+
+        :return: a string stating if we are receiving a scan or not.
+            "Active" if the we are curently recording a scan.
+            "Inactive" if the receiver is stopped.
+        """
+        if self.component_manager._scan_in_progress:
+            return "Active"
+        return "Inactive"
+
 
 # ----------
 # Run server
