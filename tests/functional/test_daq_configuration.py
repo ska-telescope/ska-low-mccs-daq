@@ -90,7 +90,7 @@ def given_a_daq_receiver(
             "daq_state", tango.DevState.ON, lookahead=2
         )
 
-    if daq_receiver.scanStatus == 'Active':
+    if daq_receiver.scanStatus == "Active":
         daq_receiver.Stop()
 
     yield daq_receiver
