@@ -841,6 +841,8 @@ class DaqReceiver:
             self._external_callbacks[DaqModes.STATION_BEAM_DATA](
                 "station",
                 filename,
+                nof_packets=nof_packets,
+                nof_saturations=nof_saturations,
                 spead_metadata=metadata
             )
 
