@@ -40,7 +40,7 @@ bool RawData::initialiseConsumer(json configuration)
 }
 
 // Set callback
-void RawData::setCallback(DataCallback callback)
+void RawData::setCallback(DataCallbackDynamic callback)
 {
     this -> container -> setCallback(callback);
 }
@@ -107,17 +107,17 @@ bool RawData::processPacket()
     // passed through the filter
     uint64_t hdr = SPEAD_HEADER(packet);
 
-    uint32_t packet_index   = 0;
+    uint32_t packet_index  = 0;
     uint32_t packet_counter = 0;
     uint64_t payload_length = 0;
     uint64_t sync_time = 0;
     uint64_t timestamp = 0;
-    uint16_t start_antenna_id = 0;
-    uint16_t nof_antennas = 0;
-    uint16_t tile_id = 0;
+    uint8_t start_antenna_id = 0;
+    uint8_t nof_antennas = 0;
+    uint8_t tile_id = 0;
     uint16_t station_id = 0;
-    uint8_t  pol_id     = 0;
-    uint32_t payload_offset = 0;
+    uint8_t fpga_id = 0;
+    uint64_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
     auto nof_spead_items = (unsigned short) SPEAD_GET_NITEMS(hdr);
@@ -153,21 +153,21 @@ bool RawData::processPacket()
             case 0x2000: // Antenna information
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
-                start_antenna_id = (uint16_t) ((val >> 8) & 0xFF);
-                nof_antennas     = (uint16_t) (val & 0xFF);
+                start_antenna_id = (uint8_t) ((val >> 8) & 0xFF);
+                nof_antennas     = (uint8_t) (val & 0xFF);
                 break;
             }
             case 0x2001: // Tile information
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint16_t) ((val >> 32) & 0xFF);
-                pol_id     = (uint8_t)   (val & 0xFF);
+                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
+                fpga_id     = (uint8_t)   (val & 0xFF);
                 break;
             }
             case 0x3300: // Payload offset
             {
-                payload_offset = (uint32_t) SPEAD_ITEM_ADDR(item);
+                payload_offset = (uint64_t) SPEAD_ITEM_ADDR(item);
                 break;
             }
             case 0x2004:
@@ -188,8 +188,9 @@ bool RawData::processPacket()
 
     // We have processed the packet items, now comes the data
     uint32_t index = (packet_counter * nof_samples) % samples_per_buffer;
-    container -> add_data(tile_id, start_antenna_id, index, nof_samples,
-                          nof_antennas, payload + payload_offset, sync_time + timestamp * timestamp_scale);
+    container -> add_data(packet_counter, payload_length, sync_time, timestamp, station_id, fpga_id, 
+                        payload_offset, tile_id, start_antenna_id, index, nof_samples,
+                        nof_antennas, payload + payload_offset, sync_time + timestamp * timestamp_scale);
 
     // Ready from packet
     ring_buffer -> pull_ready();
@@ -197,7 +198,6 @@ bool RawData::processPacket()
     // If the number of received samples match a full buffer's worth, persist it
     if (nof_received_samples == nof_required_samples)
         onStreamEnd();
-
 
     // All done, return
     return true;

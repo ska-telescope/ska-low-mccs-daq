@@ -37,7 +37,7 @@ bool BeamformedData::initialiseConsumer(json configuration)
 }
 
 // Set callback
-void BeamformedData::setCallback(DataCallback callback)
+void BeamformedData::setCallback(DataCallbackDynamic callback)
 {
     container -> setCallback(callback);
 }
@@ -102,9 +102,9 @@ bool BeamformedData::processPacket()
     uint64_t payload_length = 0;
     uint64_t sync_time = 0;
     uint64_t timestamp = 0;
-    uint16_t beam_id = 0;
+    uint8_t beam_id = 0;
     uint16_t frequency_id = 0;
-    uint16_t tile_id = 0;
+    uint8_t tile_id = 0;
     uint16_t station_id = 0;
     uint16_t nof_contributing_antennas = 0;
     uint32_t payload_offset = 0;
@@ -152,7 +152,7 @@ bool BeamformedData::processPacket()
             case 0x2003: // Tile and Station information (LMC data)
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
-                tile_id    = (uint16_t) ((val >> 32) & 0xFF);
+                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
                 nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
                 break;
@@ -176,8 +176,10 @@ bool BeamformedData::processPacket()
     this -> received_packets++;
 
     // Add data to container
-    container->add_data(tile_id, packet_counter * payload_length, start_channel_id, payload_length / 4,
-                        (uint32_t *) (payload + payload_offset), packet_time);
+    container->add_data(packet_counter, payload_length, sync_time, timestamp, beam_id,
+            station_id, nof_contributing_antennas, payload_offset, nof_included_channels, 
+            tile_id, packet_counter * payload_length, start_channel_id, payload_length / 4,
+            (uint32_t *) (payload + payload_offset), packet_time);
 
     // Ready from packet
     ring_buffer -> pull_ready();
@@ -223,7 +225,7 @@ bool IntegratedBeamformedData::initialiseConsumer(json configuration)
 }
 
 // Set callback
-void IntegratedBeamformedData::setCallback(DataCallback callback)
+void IntegratedBeamformedData::setCallback(DataCallbackDynamic callback)
 {
     this -> container -> setCallback(callback);
 }
@@ -280,9 +282,9 @@ bool IntegratedBeamformedData::processPacket()
     uint64_t payload_length = 0;
     uint64_t sync_time = 0;
     uint64_t timestamp = 0;
-    uint16_t beam_id = 0;
+    uint8_t beam_id = 0;
     uint16_t frequency_id = 0;
-    uint16_t tile_id = 0;
+    uint8_t tile_id = 0;
     uint16_t station_id = 0;
     uint16_t nof_contributing_antennas = 0;
     uint32_t payload_offset = 0;
@@ -330,7 +332,7 @@ bool IntegratedBeamformedData::processPacket()
             case 0x2003: // Tile and Station information (LMC data)
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
-                tile_id    = (uint16_t) ((val >> 32) & 0xFF);
+                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
                 nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
                 break;
@@ -364,9 +366,11 @@ bool IntegratedBeamformedData::processPacket()
     }
 
     // We have processed the packet items, now comes the data
-    container -> add_data(tile_id, beam_id, start_channel_id, nof_included_channels,
-                          packet_counter - this->saved_packet_counter, 1,
-                          (uint32_t *) (payload + payload_offset), packet_time);
+    container -> add_data(packet_counter, payload_length, sync_time, timestamp,
+                station_id, nof_contributing_antennas, payload_offset, 
+                tile_id, beam_id, start_channel_id, nof_included_channels,
+                packet_counter - this->saved_packet_counter, 1,
+                (uint32_t *) (payload + payload_offset), packet_time);
 
     // Increment number of received packets
     this -> received_packets++;
