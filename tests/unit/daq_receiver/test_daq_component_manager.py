@@ -698,7 +698,7 @@ class TestDaqComponentManager:
         daq_component_manager.configure_daq(
             **{"directory": default_dir, "directory_tag": directory_tag}
         )
-        assert daq_component_manager.get_configuration()["directory"] == default_dir
+        assert daq_component_manager._configuration["directory"] == default_dir
 
         if os.path.exists(new_dir):
             os.rmdir(new_dir)
