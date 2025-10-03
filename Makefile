@@ -72,8 +72,10 @@ K8S_CHART_PARAMS = \
 	--selector chart=ska-tango-base \
 	--set image.registry=$(CI_REGISTRY_IMAGE) \
 	--set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
-	--set ska-tango-devices.deviceServerTypes.daq.image.registry=$(CI_REGISTRY_IMAGE) \
-	--set ska-tango-devices.deviceServerTypes.daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
+	--set ska-tango-devices.deviceServerTypes.correlation-daq.image.registry=$(CI_REGISTRY_IMAGE) \
+	--set ska-tango-devices.deviceServerTypes.correlation-daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
+	--set ska-tango-devices.deviceServerTypes.bandpass-daq.image.registry=$(CI_REGISTRY_IMAGE) \
+	--set ska-tango-devices.deviceServerTypes.bandpass-daq.image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
 	--set global.exposeAllDS=false \
 	--set global.minikube=false
 endif
