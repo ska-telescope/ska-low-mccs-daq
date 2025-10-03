@@ -65,7 +65,7 @@ class DaqReceiver:
             ("nof_packets", ctypes.c_uint64),
             ("packet_counter", ctypes.c_uint32 * 128),
             ("payload_length", ctypes.c_uint64),
-            ("sync_time ", ctypes.c_uint64 * 128),
+            ("sync_time", ctypes.c_uint64 * 128),
             ("timestamp", ctypes.c_uint64 * 128),
             ("beam_id", ctypes.c_uint8 * 128),
             ("tile_id", ctypes.c_uint8),
