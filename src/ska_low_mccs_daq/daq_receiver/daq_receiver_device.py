@@ -1368,6 +1368,18 @@ class MccsDaqReceiver(MccsBaseDevice):
         return self.component_manager.daq_library
 
     @attribute(
+        dtype="DevBoolean",
+        doc=("If the last directory change was successful"),
+    )
+    def directoryChangeResult(self: MccsDaqReceiver) -> bool:
+        """
+        Get the last result of a directory tag command.
+
+        :return: a bool corresponding to the last result of a directory tag change
+        """
+        return self.component_manager.directory_change_result
+
+    @attribute(
         dtype="DevString",
         doc=("Current status of a scan",),
     )

@@ -85,7 +85,7 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     return []
 
 
-# pylint: disable=abstract-method,too-many-instance-attributes
+# pylint: disable=abstract-method,too-many-instance-attributes, too-many-public-methods
 class DaqComponentManager(TaskExecutorComponentManager):
     """A component manager for a DaqReceiver."""
 
@@ -208,6 +208,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         # directory changes in order to mark all of them when calling mark_done()
         self._directory_paths: list[str] = []
         self._directory_tags: dict[str, str] = {}
+        self.dir_change_result = True
 
         self._monitoring_bandpass = False
         self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
@@ -1066,6 +1067,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param mark_done: reverses the change if True
         :return: True if successful
         """
+        self.dir_change_result = True
         current_dir = self._configuration["directory"]
         mark_done_tag = self._configuration["directory_tag"]
 
@@ -1108,16 +1110,17 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.error(
                 f"Failed to change {current_dir} to directory " f"{new_dir}: {err}"
             )
-            return False
+            self.dir_change_result = False
 
         # Make sure path exists and save it
         if not os.path.exists(f"{new_dir}/{user_dir}"):
-            return False
+            self.dir_change_result = False
 
         self._configuration["directory"] = f"{new_dir}/{user_dir}"
         self._daq_client.populate_configuration(self._configuration)
         self.logger.info(f"Current writing path changed to: {new_dir}/{user_dir}")
-        return True
+
+        return self.dir_change_result
 
     def _change_directory_tag(self: DaqComponentManager, tag: str) -> str:
         """
@@ -1172,6 +1175,15 @@ class DaqComponentManager(TaskExecutorComponentManager):
         status = TaskStatus.COMPLETED if result else TaskStatus.FAILED
         if task_callback:
             task_callback(status=status)
+
+    @property
+    def directory_change_result(self: DaqComponentManager) -> bool:
+        """
+        Get the last result of a directory tag command.
+
+        :return: a bool corresponding to the last result of a directory tag change
+        """
+        return self.dir_change_result
 
     def _data_directory_format_adr55_compliant(
         self: DaqComponentManager,

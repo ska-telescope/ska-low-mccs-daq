@@ -51,13 +51,13 @@ the ``Configure()`` command:
 .. Admonition::
     Directory structure
 
-    The directory used by the daq must be of form: ``/product/eb-id/ska-low-mccs/.scan-id/``. When 
+    The directory used by the daq must be of form: ``/product/eb-id/ska-low-mccs/scan-id/``. When 
     configuring the directory as a path that doesn't adhere to the above form, the code will create
     a new path and append the user specified path to it.
 
-    Additionally, the fourth path will always be used as a 'marker'. This means that the path will
-    have a "." prepended to it at the start of the code and the dot will be removed when users call
-    the ``MarkDone()`` command.
+    Additionally, the fourth directory in the path will always be used as a 'marker'. This means that 
+    the path will have a "." prepended to it at the start of the code and the dot will be removed 
+    when users call the ``MarkDone()`` command.
 
 The rest of the options available to the configure command are listed in the API section of the docs.
 
@@ -95,6 +95,20 @@ Then, when a user starts the scan the path will be changed to:
     This behavior will result in the folder being treated as a hidden directory, excluding it from
     file report unless explicitly requested. This will mean that tools such as ``ls`` and ``tree`` will
     not report the directory unless called with the correct configs (``ls -a`` and ``tree -a``, respectively).
+
+To confirm that the change of the directory has been successful users can read the ``directoryChangeResult`` 
+attribute. This attribute returns True if the last directory change has been successful and False otherwise.
+The attribute also reflects changes due to calling the ``MarkDone()`` command, however that command will 
+also return a result value directly (like all commands). The role of this attribute is focused on the ``Start`` 
+command, where the change happens implicitly:
+
+.. code-block:: shell
+
+    daq.Start(json.dumps({}))
+    if daq.directoryChangeResult :
+        ...
+    else:
+        ...
 
 Users can change the tag used by calling the configure command and specifying a new tag as such:
 
