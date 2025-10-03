@@ -78,7 +78,8 @@ GitPython = "^3.1.44"
 kubernetes = "^33.0.0"
 
 [tool.poetry.scripts]
-daq = "ska_low_mccs_daq:main"
+bandpass-daq = "ska_low_mccs_daq:daq_device_server"
+correlation-daq = "ska_low_mccs_daq:daq_device_server"
 MccsDaqServer = "ska_low_mccs_daq.daq_handler:main"
 MccsDaqReceiver = "ska_low_mccs_daq.daq_receiver.daq_receiver_device:main"
 

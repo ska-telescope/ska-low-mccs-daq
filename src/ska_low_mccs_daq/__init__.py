@@ -22,8 +22,10 @@ __version_info__ = (
 __all__ = [
     "MccsDaqReceiver",
     "version",
-    "main",
+    "daq_device_server",
 ]
+
+import sys
 
 import tango.server
 
@@ -33,16 +35,14 @@ from .version import version_info
 __version__ = version_info["version"]
 
 
-def main(*args: str, **kwargs: str) -> int:  # pragma: no cover
+def daq_device_server() -> int:  # pragma: no cover
     """
-    Entry point for module.
-
-    :param args: positional arguments
-    :param kwargs: named arguments
+    Entry point that runs a Tango device server for DAQ devices.
 
     :return: exit code
     """
-    return tango.server.run(classes=(MccsDaqReceiver,), args=args or None, **kwargs)
+    print(f"Launching DAQ device server with arguments:\n\t{' '.join(sys.argv)}")
+    return tango.server.run((MccsDaqReceiver,))
 
 
 if __name__ == "__main__":

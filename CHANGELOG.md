@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* Provide separate "correlation-daq" and "bandpass-daq" device server types,
+  the difference being that the former specifies that it needs a GPU.
+
 ## 4.1.0
 
 * [JANUS-257] Added the SPEAD header metadata to the callbacks of RAW_DATA, BEAM_DATA, INTEGRATED_BEAM_DATA, STATION_BEAM_DATA, ANTENNA_BUFFER DAQ modes.
