@@ -4,6 +4,10 @@
 
 * [THORN-257] Added MarkDone() command
 
+## 4.1.1
+
+* [JANUS-257] Deleted a space in a field name in BeamMetadata
+
 ## 4.1.0
 
 * [JANUS-257] Added the SPEAD header metadata to the callbacks of RAW_DATA, BEAM_DATA, INTEGRATED_BEAM_DATA, STATION_BEAM_DATA, ANTENNA_BUFFER DAQ modes.
