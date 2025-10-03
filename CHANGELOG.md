@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* [JANUS-273] Updated environment variable used in acquire_station_beam.cpp to align with other data modes
+
 ## 4.1.1
 
 * [JANUS-257] Deleted a space in a field name in BeamMetadata
