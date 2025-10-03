@@ -25,6 +25,20 @@ public:
         uint16_t tile;
     };
 
+    struct AdcMetadata {
+        uint64_t nof_packets=0;
+        uint32_t packet_counter[128];
+        uint64_t payload_length;
+        uint64_t sync_time[128];
+        uint64_t timestamp[128];
+        uint8_t start_antenna_id[128];
+        uint8_t nof_antennas;
+        uint8_t tile_id;
+        uint16_t station_id;
+        uint8_t  fpga_id[128];
+        uint64_t payload_offset;
+    };
+
     // Class constructor
     AntennaDataContainer(uint16_t nof_tiles, uint16_t nof_antennas,
                          uint32_t nof_samples, uint8_t nof_pols):
@@ -33,6 +47,7 @@ public:
     {
         // Allocate buffers
         antenna_data = (AntennaStructure *) malloc(nof_tiles * sizeof(AntennaStructure));
+        metadata = (AdcMetadata *) malloc(nof_tiles * sizeof(AdcMetadata));
         for (unsigned i = 0; i < nof_tiles; i++)
             antenna_data[i].data = (T *) malloc(nof_antennas * nof_samples * nof_pols * sizeof(T));
 
@@ -49,18 +64,36 @@ public:
         for(unsigned i = 0; i < nof_tiles; i++)
             free(antenna_data[i].data);
         free(antenna_data);
+        free(metadata);
     }
 
 public:
     // Set callback function
-    void setCallback(DataCallback callback)
+    void setCallback(DataCallbackDynamic callback)
     {
         this -> callback = callback;
     }
 
+    void set_metadata(unsigned int tile_index, uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, 
+        uint64_t timestamp, uint16_t station_id, uint8_t  fpga_id, uint64_t payload_offset, 
+        uint8_t start_antenna_id, uint8_t nof_included_antennas){
+            unsigned int packet_index = metadata[tile_index].nof_packets % 128;
+            metadata[tile_index].packet_counter[packet_index] = packet_counter;
+            metadata[tile_index].payload_length = payload_length;
+            metadata[tile_index].sync_time[packet_index] = sync_time;
+            metadata[tile_index].timestamp[packet_index] = timestamp;
+            metadata[tile_index].station_id = station_id;
+            metadata[tile_index].fpga_id[packet_index] = fpga_id;
+            metadata[tile_index].payload_offset = payload_offset;
+            metadata[tile_index].start_antenna_id[packet_index] = start_antenna_id;
+            metadata[tile_index].nof_antennas = nof_included_antennas;
+        }
+
     // Add data to buffer
-    void add_data(uint16_t tile, uint16_t start_antenna, uint32_t start_sample_index, uint32_t nsamp,
-                  uint16_t nof_included_antennas, T *data_ptr, double timestamp)
+    void add_data(uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, 
+        uint64_t timestamp_field, uint16_t station_id, uint8_t fpga_id, uint64_t payload_offset, 
+        uint8_t tile, uint8_t start_antenna, uint32_t start_sample_index, uint32_t nsamp, 
+        uint8_t nof_included_antennas, T *data_ptr, double timestamp)
     {
         // Get current tile index
         unsigned int tile_index = 0;
@@ -76,8 +109,8 @@ public:
 
             tile_map[tile] = tile_index;
             antenna_data[tile_index].tile = tile;
+            metadata[tile_index].tile_id = tile;
         }
-
         // Burst raw data
         if (nof_included_antennas == 1)
         {
@@ -117,6 +150,11 @@ public:
             antenna_data[tile_index].timestamp = timestamp;
             antenna_data[tile_index].first_sample_index = start_sample_index;
         }
+
+        set_metadata(tile_index, packet_counter, payload_length, sync_time, timestamp_field, 
+        station_id, fpga_id, payload_offset, start_antenna, nof_included_antennas);
+
+        metadata[tile_index].nof_packets++;
     }
 
     //  Clear buffer and antenna information
@@ -125,7 +163,7 @@ public:
         // Clear buffer, set all content to 0
         for(unsigned i = 0; i < nof_tiles; i++) {
             memset(antenna_data[i].data, 0, nof_antennas * nof_samples * nof_pols * sizeof(T));
-
+            metadata[i].nof_packets=0;
             // Clear AntennaStructure
             antenna_data[i].first_sample_index = UINT32_MAX;
             antenna_data[i].timestamp = 0;
@@ -142,8 +180,8 @@ public:
             for(unsigned i = 0; i < nof_tiles; i++)
                 if (antenna_data[i].first_sample_index != UINT32_MAX)
                     callback((int8_t *) antenna_data[i].data, antenna_data[i].timestamp,
-                             antenna_data[i].tile, 0);
-
+                            static_cast<void *>(&metadata[i]));
+                            
             // Clear buffer
             clear();
             return;
@@ -165,10 +203,11 @@ private:
     std::unordered_map<uint16_t, unsigned int> tile_map;
 
     // Callback
-    DataCallback callback = nullptr;
+    DataCallbackDynamic callback = nullptr;
 
     // Antenna data and info
     AntennaStructure *antenna_data;
+    AdcMetadata *metadata;
 };
 
 // This class is responsible for consuming raw antenna SPEAD packets coming out of TPMs
@@ -176,8 +215,8 @@ class RawData: public DataConsumer {
 
 public:
 
-    // Override setDataCallback
-    void setCallback(DataCallback callback) override;
+    // Override setDataCallbackDynamic
+    void setCallback(DataCallbackDynamic callback) override;
 
     // Initialise consumer
     bool initialiseConsumer(json configuration) override;

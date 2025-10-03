@@ -8,6 +8,7 @@
 #include "StationData.h"
 #include "SPEAD.h"
 
+StationMetadata metadata;
 // Constants needed to manage time in TAI format
 //
 const uint64_t TAI_2000 = 946684768 - 5; // Unix time of TAI 2000, including extra leap seconds
@@ -63,7 +64,7 @@ void StationData::cleanUp()
 }
 
 // Set callback
-void StationData::setCallback(DataCallback callback)
+void StationData::setCallback(DataCallbackDynamic callback)
 {
     this -> persister -> setCallback(callback);
 }
@@ -117,7 +118,7 @@ bool StationData::processPacket()
     uint8_t substation_id = 0;
     uint8_t subarray_id = 0;
     uint16_t station_id = 0;
-    uint16_t nof_contributing_antennas = 0;
+    //uint16_t nof_contributing_antennas = 0;
     uint32_t payload_offset = 0;
     uint32_t scan_id = 0;
     double timestamp_scale = 1.0e-8;  // new timestamp format
@@ -183,7 +184,7 @@ bool StationData::processPacket()
                 substation_id = (uint8_t) ((val >> 40) & 0xFF);
                 subarray_id = (uint8_t) ((val >> 32) & 0xFF);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                // nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
+                //nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
                 break;
             }
 	    case 0x3010: // Scan ID
@@ -248,8 +249,22 @@ bool StationData::processPacket()
 
     // Ready from packet
     ring_buffer -> pull_ready();
+    
+    metadata.beam_id[this->packet_index] = beam_id;
+    metadata.frequency_id[this->packet_index] = frequency_id;
+    metadata.logical_channel_id[this->packet_index] = logical_channel_id;
+    metadata.payload_length = payload_length;
+    metadata.packet_count[this->packet_index] = packet_counter;
+    metadata.scan_id[this->packet_index] = scan_id;
+    metadata.station_id = station_id;
+    metadata.subarray_id[this->packet_index] = subarray_id;
+    metadata.substation_id[this->packet_index] = substation_id;
 
-    // All done, return
+    if (this->packet_index<1024) {
+        this->packet_index++;
+    }
+    else this->packet_index=0;
+        // All done, return
     return true;
 }
 
@@ -307,7 +322,7 @@ void StationDoubleBuffer::tearDown()
 
 // Write data to buffer
 void StationDoubleBuffer::write_data(uint16_t channel_id, uint32_t samples, uint64_t packet_counter,
-                                     uint16_t *data_ptr, double timestamp)
+                    uint16_t *data_ptr, double timestamp)
 {
     // Check whether the current consumer buffer is empty, and if so set index of the buffer
     if (this -> double_buffer[this->producer].index == 0)
@@ -495,11 +510,12 @@ void StationPersister::threadEntry()
             if (this->stop_thread)
                 return;
         } while (buffer == nullptr);
-
         // Call callback if set
-        if (callback != nullptr)
-            callback(buffer->integrators, buffer->ref_time,
-                     buffer->nof_packets, buffer->nof_saturations);
+        metadata.nof_packets=buffer->nof_packets;
+        metadata.nof_saturations=buffer->nof_saturations;
+        if (callback != nullptr) {
+            callback(buffer->integrators, buffer->ref_time, static_cast<void *>(&metadata));
+        }
         else
             LOG(INFO, "Received station beam");
 

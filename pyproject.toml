@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ska-low-mccs-daq"
-version = "4.0.0"
+version = "4.1.0"
 description = "Data acquisition for the SKA-Low Monitoring, Control and Calibration Subsystem (MCCS)"
 license = "BSD-3-Clause"
 authors = ["MCCS team"]
