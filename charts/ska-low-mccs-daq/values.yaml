@@ -88,13 +88,51 @@ ska-tango-devices:
   #       NumberOfTiles: 1
         
   deviceServerTypes:
-    daq:
+    calibration-daq:
       metadata:
-        component: daq
+        component: calibration-daq
       image:
         registry: artefact.skao.int
         name: ska-low-mccs-daq
-        tag: 4.1.0
+        tag: 4.1.1
+        pullPolicy: IfNotPresent
+      command: daq
+      resources:
+        requests:
+          cpu: 20m
+          memory: 50Mi
+        limits:
+          nvidia.com/gpu: 1
+      securityContext:
+        capabilities:
+          add:
+          - NET_RAW
+          - IPC_LOCK
+          - SYS_NICE
+          - SYS_ADMIN
+          - KILL
+          - SYS_TIME
+      podSecurityContext:
+        fsGroup: 1000
+      livenessProbe:
+        initialDelaySeconds: 0
+        periodSeconds: 10
+        timeoutSeconds: 3
+        successThreshold: 1
+        failureThreshold: 3
+      readinessProbe:
+        initialDelaySeconds: 0
+        periodSeconds: 10
+        timeoutSeconds: 3
+        successThreshold: 1
+        failureThreshold: 3
+    bandpass-daq:
+      metadata:
+        component: bandpass-daq
+      image:
+        registry: artefact.skao.int
+        name: ska-low-mccs-daq
+        tag: 4.1.1
         pullPolicy: IfNotPresent
       command: daq
       resources:

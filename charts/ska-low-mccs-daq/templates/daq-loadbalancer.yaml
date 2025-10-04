@@ -1,19 +1,17 @@
-{{- range $slug, $spec := index .Values "ska-tango-devices" "deviceServers" "daq" }}
-{{- if hasSuffix "-bandpass" $slug }}
+{{- range keys (index .Values "ska-tango-devices" "deviceServers" "bandpass-daq")}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: mccs-daq-{{$slug}}-data
+  name: mccs-bandpass-daq-{{.}}-data
   labels:
-    component: {{$slug}}
+    component: {{.}}
 spec:
   type: LoadBalancer
   ports:
-    - name: {{$slug}}-data-port
+    - name: {{.}}-data-port
       port: 4660
       protocol: UDP
   selector:
-    component: mccs-daq-{{$slug}}
-{{- end }}
+    component: mccs-bandpass-daq-{{.}}
 {{- end }}
