@@ -5,8 +5,25 @@ platform:
         id: 1
         sps: {}
 
-# helm_values:
-#   ska-tango-devices:
+
+helm_values:
+  # Null ParentTRL given by platform spec, currently the only place to do this.
+  ska-tango-devices:
+    deviceServerTypes:
+      calibration-daq:
+        resources:
+          limits:
+            nvidia.com/gpu: ~
+    devices:
+      MccsDaqReceiver:
+        low-mccs/daqreceiver/ci-1:
+          ParentTRL: ""
+        low-mccs/daqreceiver/ci-1-bandpass:
+          ParentTRL: ""
+        low-mccs/daqreceiver/real-daq-1:
+          ParentTRL: ""
+        low-mccs/daqreceiver/real-daq-1-bandpass:
+          ParentTRL: ""
 #     deviceServerTypes:
 #       daq:
 #         image:
