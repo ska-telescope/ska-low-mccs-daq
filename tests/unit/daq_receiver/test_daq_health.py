@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Iterator
 
 import pytest
@@ -58,14 +59,6 @@ class TestDaqHealth:
         test_harness.set_lmc_daq_device(
             1, address=None, device_class=_PatchedDaqReceiver
         )
-        test_harness.set_lmc_daq_device(
-            2,
-            address=None,
-            ringbuffer_max_alarm=40,
-            ringbuffer_max_warning=30,
-            station_label="ci-2",
-            device_class=_PatchedDaqReceiver,
-        )
 
         with test_harness as test_harness_context:
             yield test_harness_context
@@ -91,7 +84,9 @@ class TestDaqHealth:
         assert daq_device.state() == tango.DevState.DISABLE
 
         daq_device.adminmode = 0
-        change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
+        change_event_callbacks["healthState"].assert_change_event(
+            HealthState.OK, lookahead=2
+        )
         assert daq_device.state() == tango.DevState.ON
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 50}))
@@ -106,20 +101,18 @@ class TestDaqHealth:
         change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
         assert daq_device.state() == tango.DevState.ON
 
-    def test_health_thresholds(
+    def test_attribute_config(
         self,
         test_context: SpsTangoTestHarnessContext,
         change_event_callbacks: MockTangoEventCallbackGroup,
     ) -> None:
         """
-        Test that the health state of the daq receiver device is as expected.
-
-        The DAQ device used in this test was initialised with different thresholds.
+        Test that when alarm thresholds are changed, health state updates.
 
         :param test_context: The test context fixture.
         :param change_event_callbacks: The change event callbacks fixture.
         """
-        daq_device = test_context.get_daq_device("ci-2")
+        daq_device = test_context.get_daq_device()
         daq_device.subscribe_event(
             "healthState",
             tango.EventType.CHANGE_EVENT,
@@ -129,17 +122,40 @@ class TestDaqHealth:
         assert daq_device.state() == tango.DevState.DISABLE
 
         daq_device.adminmode = 0
-        change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
+        change_event_callbacks["healthState"].assert_change_event(
+            HealthState.OK, lookahead=2
+        )
         assert daq_device.state() == tango.DevState.ON
 
-        daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 50}))
+        attribute = daq_device.get_attribute_config("ringbufferoccupancy")
+        alarm_config = attribute.alarms
+        alarm_config.max_warning = "10.0"
+        alarm_config.max_alarm = "20.0"
+        attribute.alarms = alarm_config
+        time.sleep(60)  # Needed to avoid hitting monitor lock issues
+        daq_device.set_attribute_config(attribute)
+
+        daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 15}))
+        change_event_callbacks["healthState"].assert_change_event(HealthState.DEGRADED)
+        assert daq_device.state() == tango.DevState.ALARM
+
+        daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 25}))
         change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
         assert daq_device.state() == tango.DevState.ALARM
 
-        daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 100}))
-        change_event_callbacks["healthState"].assert_not_called()
-        assert daq_device.state() == tango.DevState.ALARM
+        attribute = daq_device.get_attribute_config("ringbufferoccupancy")
+        alarm_config = attribute.alarms
+        alarm_config.max_warning = "75.0"
+        alarm_config.max_alarm = "100.0"
+        attribute.alarms = alarm_config
+        time.sleep(60)  # Needed to avoid hitting monitor lock issues
+        daq_device.set_attribute_config(attribute)
 
-        daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 0}))
-        change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
+        try:
+            change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
+        except AssertionError:
+            attribute = daq_device.get_attribute_config("ringbufferoccupancy")
+            print(attribute.alarms)
+            assert False, daq_device.RingbufferOccupancy
+
         assert daq_device.state() == tango.DevState.ON

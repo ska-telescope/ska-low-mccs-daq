@@ -188,8 +188,8 @@ class SpsTangoTestHarness:
             ConsumersToStart=consumers_to_start,
             LoggingLevelDefault=logging_level,
             SimulationMode=True,
-            RingbufferOccupancyWarning=ringbuffer_max_warning,
-            RingbufferOccupancyAlarm=ringbuffer_max_alarm,
+            # RingbufferOccupancyWarning=ringbuffer_max_warning,
+            # RingbufferOccupancyAlarm=ringbuffer_max_alarm,
         )
 
     def set_bandpass_daq_device(  # pylint: disable=too-many-arguments

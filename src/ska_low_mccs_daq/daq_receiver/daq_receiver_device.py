@@ -240,22 +240,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         doc="Whether DaqReceiver should use a simulator backend.",
         default_value=False,
     )
-    RingbufferOccupancyWarning = device_property(
-        dtype=float,
-        doc=(
-            "The ringbuffer occupancy percentage above "
-            "which a warning health state is triggered."
-        ),
-        default_value=20.0,
-    )
-    RingbufferOccupancyAlarm = device_property(
-        dtype=float,
-        doc=(
-            "The ringbuffer occupancy percentage above "
-            "which an alarm health state is triggered."
-        ),
-        default_value=70.0,
-    )
 
     # ---------------
     # Initialisation
@@ -279,7 +263,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._health_state: HealthState = HealthState.UNKNOWN
         self._health_report: str = ""
         self._health_recorder: Optional[HealthRecorder] = None
-        self._healthful_attributes: list[str]
+        self._healthful_attributes: dict[str, Any]
         self._received_data_mode: str
         self._received_data_result: str
         self._x_bandpass_plot: np.ndarray
@@ -296,6 +280,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._correlator_time_taken: float
         self._buffer_counter: int
         self._skuid_url: str
+        self._stopping = False
 
     def init_device(self: MccsDaqReceiver) -> None:
         """
@@ -329,39 +314,24 @@ class MccsDaqReceiver(MccsBaseDevice):
             f"\tSkuidUrl: {self.SkuidUrl}\n"
             f"\tBandpassDaq: {self.BandpassDaq}\n"
             f"\tNumberOfTiles: {self.NumberOfTiles}\n"
-            f"\tSimulationMode: {self.SimulationMode}\n"
-            f"\tRingbufferOccupancyAlarm: {self.RingbufferOccupancyAlarm}\n"
-            f"\tRingbufferOccupancyWarning: {self.RingbufferOccupancyWarning}"
+            f"\tSimulationMode: {self.SimulationMode}"
         )
         self.logger.info(
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
         )
 
-        self._healthful_attributes = ["RingbufferOccupancy"]
-        for attribute_name in self._healthful_attributes:
-            attr: tango.Attribute = self._multi_attr.get_attr_by_name(attribute_name)
-            attr.set_max_alarm(getattr(self, f"{attribute_name}Alarm"))
-            attr.set_max_warning(getattr(self, f"{attribute_name}Warning"))
-
-        self._health_recorder = HealthRecorder(
-            self.get_name(),
-            self.logger,
-            attributes=self._healthful_attributes,
-            health_callback=self._health_changed,
-            event_serialiser=self._event_serialiser,
-        )
-
     def delete_device(self: MccsDaqReceiver) -> None:
         """Delete the device."""
+        self._stopping = True
+        if self._health_recorder is not None:
+            self._health_recorder.cleanup()
+            self._health_recorder = None
         self.component_manager._task_executor._executor.shutdown()
         if (
             self.component_manager.communication_state
             == CommunicationStatus.ESTABLISHED
         ):
             self.component_manager._stop_daq()
-        if self._health_recorder is not None:
-            self._health_recorder.cleanup()
-            self._health_recorder = None
         self.component_manager.stop_data_rate_monitor()
         super().delete_device()
 
@@ -371,6 +341,18 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._health_state = (
             HealthState.UNKNOWN
         )  # InitCommand.do() does this too late.# noqa: E501
+        self.set_change_event("healthState", True, False)
+        self.set_archive_event("healthState", True, False)
+        self._healthful_attributes = {
+            "ringbufferOccupancy": lambda: self._ringbuffer_occupancy
+        }
+        self._health_recorder = HealthRecorder(
+            self.get_name(),
+            self.logger,
+            attributes=list(self._healthful_attributes.keys()),
+            health_callback=self._health_changed,
+            attr_conf_callback=self._attr_conf_changed,
+        )
         self._health_report = ""
         self._received_data_mode = ""
         self._received_data_result = ""
@@ -387,8 +369,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._lost_pushes = 0
         self._correlator_time_taken = 0.0
         self._buffer_counter = 0
-        self.set_change_event("healthState", True, False)
-        self.set_archive_event("healthState", True, False)
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
         """
@@ -702,11 +682,35 @@ class MccsDaqReceiver(MccsBaseDevice):
         :param health: the new health value
         :param health_report: the health report
         """
+        self.logger.error(f"Health changed to {health.name}: {health_report}")
+        if self._stopping:
+            return
         if self._health_state != health:
             self._health_state = health
             self._health_report = health_report
             self.push_change_event("healthState", health)
             self.push_archive_event("healthState", health)
+
+    def _attr_conf_changed(self: MccsDaqReceiver, attribute_name: str) -> None:
+        """
+        Handle change in configuration of an attribute.
+
+        This is a workaround as if you configure an attribute
+        which is not alarming to have alarm/warning thresholds
+        such that it would be alarming, Tango does not push an event
+        until the attribute value changes.
+
+        :param attribute_name: the name of the attribute whose
+            configuration has changed.
+        """
+        # self.logger.error({self._healthful_attributes[attribute_name]()})
+        if (
+            attribute_name in self._healthful_attributes
+            and self._healthful_attributes[attribute_name]() is not None
+        ):
+            self.push_change_event(
+                attribute_name, self._healthful_attributes[attribute_name]()
+            )
 
     # --------
     # Commands
@@ -1097,6 +1101,15 @@ class MccsDaqReceiver(MccsBaseDevice):
         (result_code, message) = handler(interval)
         return ([result_code], [message])
 
+    @command
+    def CallComponentCallback(self, argin: str) -> None:
+        """
+        Patched method to call component callback directly.
+
+        :param argin: json-ified dict to call component callback with.
+        """
+        self._component_state_callback(**json.loads(argin))
+
     # ----------
     # Attributes
     # ----------
@@ -1343,7 +1356,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         max_alarm=70.0,
         max_warning=20.0,
     )
-    def RingbufferOccupancy(self: MccsDaqReceiver) -> float | None:
+    def ringbufferOccupancy(self: MccsDaqReceiver) -> float | None:
         """
         Return the current ringbuffer occupancy in percent.
 

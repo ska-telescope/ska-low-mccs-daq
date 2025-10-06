@@ -81,6 +81,7 @@ kubernetes = "^33.0.0"
 daq = "ska_low_mccs_daq:main"
 MccsDaqServer = "ska_low_mccs_daq.daq_handler:main"
 MccsDaqReceiver = "ska_low_mccs_daq.daq_receiver.daq_receiver_device:main"
+StubDevice = "ska_low_mccs_daq.daq_receiver.stub_device:main"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"
