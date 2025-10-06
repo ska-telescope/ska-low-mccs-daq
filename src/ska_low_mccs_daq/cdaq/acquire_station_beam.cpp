@@ -601,10 +601,11 @@ RESULT start_acquisition(DiagnosticCallback diagnostic_callback = nullptr, Exter
             {"capture_start_time", capture_start_time}
     };
 
-    // Check whether a LIBAAVSDAQ environment variable is defined
+    // Check whether DAQ_INSTALL environment variable is defined
     string libaavsdaq_location = "/opt/aavs/lib/libaavsdaq.so";
-    if (std::getenv("AAVS_DAQ_LIBRARY") != nullptr)
-        libaavsdaq_location = std::getenv("AAVS_DAQ_LIBRARY");
+    if (const char* daq_install = std::getenv("DAQ_INSTALL")) {
+        libaavsdaq_location = std::string(daq_install) + "/lib/libaavsdaq.so";
+    }
 
     // Workaround to avoid shared object not found, specify default location
     std::cout << "Using AAVS DAQ library " << libaavsdaq_location << std::endl;
