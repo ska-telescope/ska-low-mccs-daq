@@ -256,7 +256,6 @@ bool StationData::processPacket()
     metadata.payload_length = payload_length;
     metadata.packet_count[this->packet_index] = packet_counter;
     metadata.scan_id[this->packet_index] = scan_id;
-    printf("Station: %d \n", station_id);
     metadata.station_id = station_id;
     metadata.subarray_id[this->packet_index] = subarray_id;
     metadata.substation_id[this->packet_index] = substation_id;
