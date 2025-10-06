@@ -146,7 +146,7 @@ class DaqReceiver:
              ("beam_id", ctypes.c_uint16 * 1024),
              ("frequency_id", ctypes.c_uint16 * 1024),
              ("substation_id", ctypes.c_uint8 * 1024),
-             ("subarray_id", ctypes.c_uint16 * 1024),
+             ("subarray_id", ctypes.c_uint8 * 1024),
              ("station_id", ctypes.c_uint16),
         ]
 
