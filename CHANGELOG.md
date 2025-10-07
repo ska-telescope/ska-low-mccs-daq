@@ -1,5 +1,19 @@
 # Version History
 
+## Unreleased
+
+* [THORN-257] Added MarkDone() command
+* [JANUS-273] Updated environment variable used in acquire_station_beam.cpp to align with other data modes
+
+## 4.1.1
+
+* [JANUS-257] Deleted a space in a field name in BeamMetadata
+
+## 4.1.0
+
+* [JANUS-257] Added the SPEAD header metadata to the callbacks of RAW_DATA, BEAM_DATA, INTEGRATED_BEAM_DATA, STATION_BEAM_DATA, ANTENNA_BUFFER DAQ modes.
+* [JANUS-257] Added channelised data SPEAD headers to callback as metadata.
+
 ## 4.0.0
 
 * [THORN-172] The old two pod DAQ has been removed.

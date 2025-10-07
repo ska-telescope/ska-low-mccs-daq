@@ -9,6 +9,6 @@
 
 version_info = {
     "name": "ska_low_mccs_daq",
-    "version": "4.0.0",
+    "version": "4.1.1",
     "description": ("Data Acquisition as part of the MCCS subsystem"),
 }

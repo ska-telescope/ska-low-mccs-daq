@@ -37,7 +37,7 @@ bool AntennaBuffer::initialiseConsumer(json configuration) {
 }
 
 // Set callback
-void AntennaBuffer::setCallback(DataCallback callback) {
+void AntennaBuffer::setCallback(DataCallbackDynamic callback) {
     for(unsigned i = 0; i < nof_containers; i++)
         this->containers[i]->setCallback(callback);
 }
@@ -104,7 +104,7 @@ bool AntennaBuffer::processPacket() {
     uint64_t timestamp = 0;
     uint8_t nof_included_antennas = 0;
     uint8_t antenna_0_id = 0, antenna_1_id = 0, antenna_2_id = 0, antenna_3_id = 0;
-    uint16_t tile_id = 0;
+    uint8_t tile_id = 0;
     uint16_t station_id = 0;
     uint8_t  fpga_id     = 0;
     uint32_t payload_offset = 0;
@@ -153,7 +153,7 @@ bool AntennaBuffer::processPacket() {
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id  = (uint16_t) ((val >> 32) & 0xFF);
+                tile_id  = (uint8_t) ((val >> 32) & 0xFF);
                 fpga_id = (uint8_t)   (val & 0xFF);
                 break;
             }
@@ -190,8 +190,11 @@ bool AntennaBuffer::processPacket() {
     // heavy load or extreme packet loss this will not be the case, but the data will be unusable anyway)
     if ((static_cast<int>(packet_index) - current_packet_index) > (32 * nof_tiles)) {
         unsigned index = (current_container - 1) % nof_containers;
-        containers[index]->add_data((uint8_t *) (payload + payload_offset),
-                                    tile_id, packet_index * packet_samples, packet_samples, timestamp, fpga_id);
+        containers[index]->add_data(packet_counter, payload_length, sync_time, timestamp, 
+                                    station_id, payload_offset, antenna_0_id, antenna_1_id, 
+                                    antenna_2_id, antenna_3_id, nof_included_antennas, 
+                                    (uint8_t *) (payload + payload_offset), tile_id, 
+                                    packet_index * packet_samples, packet_samples, timestamp, fpga_id);
 
         // Ready from packet
         ring_buffer -> pull_ready();
@@ -210,9 +213,12 @@ bool AntennaBuffer::processPacket() {
     }
 
     // Add packet to current container
-    containers[current_container]->add_data((uint8_t *) (payload + payload_offset),
-                                            tile_id, packet_index * packet_samples,
-                                            packet_samples, packet_time, fpga_id);
+    containers[current_container]->add_data(packet_counter, payload_length, sync_time, timestamp, 
+                                            station_id, payload_offset, antenna_0_id, antenna_1_id, 
+                                            antenna_2_id, antenna_3_id, nof_included_antennas, 
+                                            (uint8_t *) (payload + payload_offset),
+                                            tile_id, packet_index * packet_samples,packet_samples, 
+                                            packet_time, fpga_id);
 
     // Ready from packet
     ring_buffer -> pull_ready();

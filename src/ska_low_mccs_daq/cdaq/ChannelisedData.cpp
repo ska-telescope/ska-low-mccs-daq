@@ -105,9 +105,9 @@ bool ChannelisedData::processPacket()
     uint16_t start_antenna_id = 0;
     uint16_t nof_included_channels = 0;
     uint16_t nof_included_antennas = 0;
-    uint16_t tile_id = 0;
+    uint8_t tile_id = 0;
     uint16_t station_id = 0;
-    uint8_t  pol_id     = 0;
+    uint8_t  fpga_id     = 0;
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
@@ -154,8 +154,8 @@ bool ChannelisedData::processPacket()
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint16_t) ((val >> 32) & 0xFF);
-                pol_id     = (uint8_t)   (val & 0xFF);
+                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
+                fpga_id     = (uint8_t)   (val & 0xFF);
                 break;
             }
             case 0x3300: // Payload offset
@@ -182,7 +182,8 @@ bool ChannelisedData::processPacket()
     // We have processed the packet items, now comes the data
     num_packets++;
     int sample_index = packet_counter % (nof_samples / samples_in_packet);
-    container -> add_data(tile_id, start_channel_id, sample_index * samples_in_packet, samples_in_packet,
+    container -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, tile_id, fpga_id,
+                          start_channel_id, sample_index * samples_in_packet, samples_in_packet,
                           start_antenna_id, (uint16_t *) (payload + payload_offset), packet_time,
                           nof_included_channels, nof_included_antennas);
 
@@ -324,9 +325,9 @@ bool ContinuousChannelisedData::processPacket()
     uint16_t start_antenna_id = 0;
     uint16_t nof_included_channels = 0;
     uint16_t nof_included_antennas = 0;
-    uint16_t tile_id = 0;
+    uint8_t tile_id = 0;
     uint16_t station_id = 0;
-    uint8_t  pol_id     = 0;
+    uint8_t  fpga_id     = 0;
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
@@ -373,8 +374,8 @@ bool ContinuousChannelisedData::processPacket()
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint16_t) ((val >> 32) & 0xFF);
-                pol_id     = (uint8_t)   (val & 0xFF);
+                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
+                fpga_id     = (uint8_t)   (val & 0xFF);
                 break;
             }
             case 0x3300: // Payload offset
@@ -408,7 +409,7 @@ bool ContinuousChannelisedData::processPacket()
         reference_counter = packet_counter;
     else
     {
-        if (tile_id == 0 && packet_counter == 0 && pol_id == 0) {
+        if (tile_id == 0 && packet_counter == 0 && fpga_id == 0) {
             rollover_counter += 1;
             packet_counter += rollover_counter << 24;
         }
@@ -438,12 +439,14 @@ bool ContinuousChannelisedData::processPacket()
             // We have processed the packet items, now comes the data
             unsigned index = (current_container - 1) % nof_containers;
             if (bitwidth == 16)
-                containers_16bit[index]->add_data(tile_id, start_channel_id, packet_index * samples_in_packet,
+                containers_16bit[index]->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
+                                            tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
                                             samples_in_packet, start_antenna_id,
                                             (uint16_t *) (payload + payload_offset), packet_time,
                                             nof_included_channels, nof_included_antennas, cont_channel_id);
             else
-                containers_32bit[index]->add_data(tile_id, start_channel_id, packet_index * samples_in_packet,
+                containers_32bit[index]->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
+                                            tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
                                             samples_in_packet, start_antenna_id,
                                             (uint32_t *) (payload + payload_offset), packet_time,
                                             nof_included_channels, nof_included_antennas, cont_channel_id);
@@ -457,7 +460,7 @@ bool ContinuousChannelisedData::processPacket()
 
     // Check if we skipped buffer boundaries
     if (packet_index == 0 && packet_time >= reference_time + nof_samples * sampling_time &&
-        num_packets > nof_tiles * 2 && tile_id == 0 && pol_id == 0)
+        num_packets > nof_tiles * 2 && tile_id == 0 && fpga_id == 0)
     {
         // Increment buffer skip
         if (nof_buffer_skips != 0)
@@ -513,12 +516,14 @@ bool ContinuousChannelisedData::processPacket()
 
     // We have processed the packet items, now comes the data
     if (bitwidth == 16)
-        containers_16bit[current_container] -> add_data(tile_id, start_channel_id, packet_index * samples_in_packet,
+        containers_16bit[current_container] -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
+                                                  tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
                                                   samples_in_packet, start_antenna_id,
                                                   (uint16_t *) (payload + payload_offset), packet_time,
                                                   nof_included_channels, nof_included_antennas, cont_channel_id);
     else
-        containers_32bit[current_container] -> add_data(tile_id, start_channel_id, packet_index * samples_in_packet,
+        containers_32bit[current_container] -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
+                                                  tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
                                                   samples_in_packet, start_antenna_id,
                                                   (uint32_t *) (payload + payload_offset), packet_time,
                                                   nof_included_channels, nof_included_antennas, cont_channel_id);
@@ -632,9 +637,9 @@ bool IntegratedChannelisedData::processPacket()
     uint16_t start_antenna_id = 0;
     uint16_t nof_included_channels = 0;
     uint16_t nof_included_antennas = 0;
-    uint16_t tile_id = 0;
+    uint8_t tile_id = 0;
     uint16_t station_id = 0;
-    uint8_t  pol_id     = 0;
+    uint8_t  fpga_id     = 0;
     uint32_t payload_offset = 0;
 
     // Get the number of items and get a pointer to the packet payload
@@ -681,8 +686,8 @@ bool IntegratedChannelisedData::processPacket()
             {
                 uint64_t val = SPEAD_ITEM_ADDR(item);
                 station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                tile_id    = (uint16_t) ((val >> 32) & 0xFF);
-                pol_id     = (uint8_t)   (val & 0xFF);
+                tile_id    = (uint8_t) ((val >> 32) & 0xFF);
+                fpga_id     = (uint8_t)   (val & 0xFF);
                 break;
             }
             case 0x3300: // Payload offset
@@ -724,11 +729,13 @@ bool IntegratedChannelisedData::processPacket()
     // We have processed the packet items, now comes the data
     num_packets++;
     if (bitwidth == 16)
-        container_16bit -> add_data(tile_id, start_channel_id, 0, samples_in_packet,
+        container_16bit -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
+                                    tile_id, fpga_id, start_channel_id, 0, samples_in_packet,
                                     start_antenna_id, (uint16_t *) (payload + payload_offset), packet_time,
                                     nof_included_channels, nof_included_antennas);
     else
-        container_32bit -> add_data(tile_id, start_channel_id, 0, samples_in_packet,
+        container_32bit -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
+                                    tile_id, fpga_id, start_channel_id, 0, samples_in_packet,
                                     start_antenna_id, (uint32_t *) (payload + payload_offset), packet_time,
                                     nof_included_channels, nof_included_antennas);
 

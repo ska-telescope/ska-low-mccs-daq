@@ -60,11 +60,71 @@ class DaqReceiver:
             ("lost_pushes", ctypes.c_size_t),
         ]
 
+    class BeamMetadata(ctypes.Structure):
+        _fields_ = [
+            ("nof_packets", ctypes.c_uint64),
+            ("packet_counter", ctypes.c_uint32 * 128),
+            ("payload_length", ctypes.c_uint64),
+            ("sync_time", ctypes.c_uint64 * 128),
+            ("timestamp", ctypes.c_uint64 * 128),
+            ("beam_id", ctypes.c_uint8 * 128),
+            ("tile_id", ctypes.c_uint8),
+            ("station_id", ctypes.c_uint16),
+            ("nof_contributing_antennas", ctypes.c_uint16),
+            ("payload_offset", ctypes.c_uint32),
+            ("start_channel_id", ctypes.c_uint16 * 128),
+            ("nof_included_channels", ctypes.c_uint16),
+        ]
+
+    class AntennaBufferMetadata(ctypes.Structure):
+        _fields_ = [
+            ("nof_packets", ctypes.c_uint64),
+            ("packet_counter", ctypes.c_uint32 * 2048),
+            ("payload_length", ctypes.c_uint64),
+            ("sync_time", ctypes.c_uint64 * 2048),
+            ("timestamp",  ctypes.c_uint64 * 2048),
+            ("antenna_0_id", ctypes.c_uint8), 
+            ("antenna_1_id", ctypes.c_uint8), 
+            ("antenna_2_id", ctypes.c_uint8),
+            ("antenna_3_id", ctypes.c_uint8),
+            ("nof_included_antennas", ctypes.c_uint8),
+            ("tile_id", ctypes.c_uint8),
+            ("station_id", ctypes.c_uint16),
+            ("fpga_id", ctypes.c_uint8 * 2048),
+            ("payload_offset", ctypes.c_uint32),
+        ]
+
     class ChannelMetadata(ctypes.Structure):
         _fields_ = [
-            ("tile", ctypes.c_int16),
-            ("cont_channel_id", ctypes.c_int32),
-            ("nof_packets", ctypes.c_uint32),
+            ("tile_id", ctypes.c_uint8),
+            ("cont_channel_id", ctypes.c_uint32),
+            ("nof_packets", ctypes.c_uint64),
+            ("packet_counter", ctypes.c_uint32 * 2048),
+            ("payload_length", ctypes.c_uint64),
+            ("sync_time", ctypes.c_uint64),
+            ("timestamp", ctypes.c_uint64 * 2048),
+            ("start_channel_id", ctypes.c_uint16 * 2048),  
+            ("start_antenna_id", ctypes.c_uint16 * 2048),  
+            ("nof_included_channels", ctypes.c_uint16),
+            ("nof_included_antennas", ctypes.c_uint16),
+            ("station_id", ctypes.c_uint16),
+            ("fpga_id", ctypes.c_uint8 * 2048),
+            ("payload_offset", ctypes.c_uint32),
+        ]
+
+    class AdcMetadata(ctypes.Structure):
+        _fields_ = [
+            ("nof_packets", ctypes.c_uint64),
+            ("packet_counter", ctypes.c_uint32 * 128),
+            ("payload_length", ctypes.c_uint64),
+            ("sync_time", ctypes.c_uint64 * 128),
+            ("timestamp",  ctypes.c_uint64 * 128),
+            ("start_antenna_id", ctypes.c_uint8 * 128),
+            ("nof_antennas", ctypes.c_uint8),
+            ("tile_id", ctypes.c_uint8),
+            ("station_id", ctypes.c_uint16),
+            ("fpga_id", ctypes.c_uint8 * 128),
+            ("payload_offset", ctypes.c_uint64),
         ]
 
     class CorrelatorMetadata(ctypes.Structure):
@@ -73,6 +133,21 @@ class DaqReceiver:
             ("time_taken", ctypes.c_double),
             ("nof_samples", ctypes.c_uint),
             ("nof_packets", ctypes.c_uint),
+        ]
+
+    class StationMetadata(ctypes.Structure):
+        _fields_ = [
+             ("nof_packets", ctypes.c_uint32),
+             ("nof_saturations",  ctypes.c_uint32),
+             ("packet_count", ctypes.c_uint64 * 1024),
+             ("payload_length", ctypes.c_uint64),
+             ("scan_id", ctypes.c_uint64 * 1024),
+             ("logical_channel_id", ctypes.c_uint16 * 1024),
+             ("beam_id", ctypes.c_uint16 * 1024),
+             ("frequency_id", ctypes.c_uint16 * 1024),
+             ("substation_id", ctypes.c_uint8 * 1024),
+             ("subarray_id", ctypes.c_uint16 * 1024),
+             ("station_id", ctypes.c_uint16),
         ]
 
     class RawStationMetadata(ctypes.Structure):
@@ -164,6 +239,7 @@ class DaqReceiver:
             "receiver_nof_blocks": 256,
             "receiver_nof_threads": 1,
             "directory": ".",
+            "directory_tag": ".",
             "logging": True,
             "write_to_disk": True,
             "station_config": None,
@@ -190,25 +266,25 @@ class DaqReceiver:
 
         # List of data callbacks
         self._callbacks = {
-            DaqModes.RAW_DATA: self.DATA_CALLBACK(self._raw_data_callback),
+            DaqModes.RAW_DATA: self.DYNAMIC_DATA_CALLBACK(self._raw_data_callback),
             DaqModes.CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._channel_burst_data_callback
             ),
-            DaqModes.BEAM_DATA: self.DATA_CALLBACK(self._beam_burst_data_callback),
+            DaqModes.BEAM_DATA: self.DYNAMIC_DATA_CALLBACK(self._beam_burst_data_callback),
             DaqModes.CONTINUOUS_CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._channel_continuous_data_callback
             ),
-            DaqModes.INTEGRATED_BEAM_DATA: self.DATA_CALLBACK(
+            DaqModes.INTEGRATED_BEAM_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._beam_integrated_data_callback
             ),
             DaqModes.INTEGRATED_CHANNEL_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._channel_integrated_data_callback
             ),
-            DaqModes.STATION_BEAM_DATA: self.DATA_CALLBACK(self._station_callback),
+            DaqModes.STATION_BEAM_DATA: self.DYNAMIC_DATA_CALLBACK(self._station_callback),
             DaqModes.CORRELATOR_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._correlator_callback
             ),
-            DaqModes.ANTENNA_BUFFER: self.DATA_CALLBACK(self._antenna_buffer_callback),
+            DaqModes.ANTENNA_BUFFER: self.DYNAMIC_DATA_CALLBACK(self._antenna_buffer_callback),
             DaqModes.RAW_STATION_BEAM: self.DIAGNOSTIC_CALLBACK(self._raw_station_callback),
         }
 
@@ -265,14 +341,15 @@ class DaqReceiver:
     # --------------------------------------- CONSUMERS --------------------------------------
 
     def _raw_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, _: int
+        self, data: ctypes.POINTER, timestamp: float, metadata: ctypes.POINTER 
     ) -> None:
         """Raw data callback
         :param data: Received data
-        :param tile: The tile from which the data was acquired
         :param timestamp: Timestamp of first data point in data
+        :param metadata: Pointer to the metadata containing SPEAD header fields
         """
-
+        spead_metadata = ctypes.cast(metadata, ctypes.POINTER(self.AdcMetadata)).contents
+        tile = spead_metadata.tile_id
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
@@ -309,7 +386,7 @@ class DaqReceiver:
 
         # Call external callback if defined
         if self._external_callbacks[DaqModes.RAW_DATA] is not None:
-            self._external_callbacks[DaqModes.RAW_DATA]("burst_raw", filename, tile)
+            self._external_callbacks[DaqModes.RAW_DATA]("burst_raw", filename, tile, spead_metadata=spead_metadata)
 
         if self._config["logging"]:
             logging.info("Received raw data for tile {}".format(tile))
@@ -324,9 +401,8 @@ class DaqReceiver:
         """Channel data callback
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param tile: Tile number
-        :param channel_id: Channel identifier
         :param mode: Channel transmission mode
+        :param metadata: Pointer to the metadata containing SPEAD header fields.
         """
 
         # If writing to disk is not enabled, return immediately
@@ -334,9 +410,10 @@ class DaqReceiver:
             return
 
         metadata = ctypes.cast(metadata, ctypes.POINTER(self.ChannelMetadata)).contents
-        tile = metadata.tile
+        tile = metadata.tile_id
         channel_id = metadata.cont_channel_id
         nof_packets = metadata.nof_packets
+    
 
         # Ignore first two buffers for continuous channel mode
         if mode == "continuous" and not self._config["persist_all_buffers"]:
@@ -421,7 +498,7 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA](
-                    "cont_channel", filename, tile, nof_packets=nof_packets
+                    "cont_channel", filename, tile, nof_packets=nof_packets, spead_metadata=metadata
                 )
 
             if self._config["logging"]:
@@ -459,7 +536,7 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
-                    "integrated_channel", filename, tile, nof_packets=nof_packets
+                    "integrated_channel", filename, tile, nof_packets=nof_packets, spead_metadata=metadata
                 )
 
             if self._config["logging"]:
@@ -479,7 +556,7 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.CHANNEL_DATA] is not None:
                 self._external_callbacks[DaqModes.CHANNEL_DATA](
-                    "burst_channel", filename, tile, nof_packets=nof_packets
+                    "burst_channel", filename, tile, nof_packets=nof_packets, spead_metadata=metadata
                 )
 
             if self._config["logging"]:
@@ -494,10 +571,7 @@ class DaqReceiver:
         """Channel callback wrapper for burst data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param metadata: pointer to the metadata associated with the callback.
-            * tile_id
-            * channel_id
-            * nof_packets
+        :param metadata: Pointer to the metadata containing SPEAD header fields.
         """
         self._channel_data_callback(data, timestamp, metadata)
 
@@ -510,10 +584,7 @@ class DaqReceiver:
         """Channel callback wrapper for continuous data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param metadata: pointer to the metadata associated with the callback.
-            * tile_id
-            * channel_id
-            * nof_packets
+        :param metadata: Pointer to the metadata containing SPEAD header fields.
         """
         self._channel_data_callback(data, timestamp, metadata, "continuous")
 
@@ -526,25 +597,25 @@ class DaqReceiver:
         """Channel callback wrapper for integrated data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param metadata: pointer to the metadata associated with the callback.
-            * tile_id
-            * channel_id
-            * nof_packets
+        :param metadata: Pointer to the metadata containing SPEAD header fields.
         """
         self._channel_data_callback(data, timestamp, metadata, "integrated")
 
     def _beam_burst_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, _: int
+        self, data: ctypes.POINTER, timestamp: float, metadata: ctypes.POINTER,
     ) -> None:
         """Beam callback wrapper for burst data mode
         :param data: Received data
         :param timestamp: Timestamp of first data point in data
-        :param tile: The tile from which the data was acquired
+        :param metadata: Contains the SPEAD headers of the data
         """
 
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
+
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.BeamMetadata)).contents
+        tile = metadata.tile_id
 
         # Extract data sent by DAQ
         values = self._get_numpy_from_ctypes(
@@ -567,23 +638,26 @@ class DaqReceiver:
 
         # Call external callback if defined
         if self._external_callbacks[DaqModes.BEAM_DATA] is not None:
-            self._external_callbacks[DaqModes.BEAM_DATA]("burst_beam", filename, tile)
+            self._external_callbacks[DaqModes.BEAM_DATA]("burst_beam", filename, tile, spead_metadata=metadata)
 
         if self._config["logging"]:
             logging.info("Received beam data for tile {}".format(tile))
 
     def _beam_integrated_data_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, _: int
+        self, data: ctypes.POINTER, timestamp: float, metadata: ctypes.POINTER,
     ) -> None:
         """Beam callback wrapper for integrated data mode
         :param data: Received data
-        :param tile: The tile from which the data was acquired
         :param timestamp: Timestamp of first data point in data
+        :param metadata: Contains the SPEAD headers of the data
         """
 
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
+
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.BeamMetadata)).contents
+        tile = metadata.tile_id
 
         # Extract data sent by DAQ
         values = self._get_numpy_from_ctypes(
@@ -618,7 +692,7 @@ class DaqReceiver:
         # Call external callback if defined
         if self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] is not None:
             self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA](
-                "integrated_beam", filename, tile
+                "integrated_beam", filename, tile, spead_metadata=metadata
             )
 
     def _correlator_callback(
@@ -630,7 +704,8 @@ class DaqReceiver:
         """Correlated data callback
         :param data: Received data
         :param timestamp: Timestamp of first sample in data
-        :param channel_id: Channel identifier"""
+        :param metadata: Pointer to the metadata associated with the callback.
+        """
 
         if not self._config["write_to_disk"]:
             return
@@ -717,14 +792,13 @@ class DaqReceiver:
         self,
         data: ctypes.POINTER,
         timestamp: float,
-        nof_packets: int,
-        nof_saturations: int,
+        metadata: ctypes.POINTER,
     ) -> None:
         """Correlated data callback
         :param data: Received data
         :param timestamp: Timestamp of first sample in data
-        :param nof_packets: Number of packets received for this buffer
-        :param nof_saturations: Number of saturated samples whilst acquiring buffer"""
+        :param metadata: Pointer to the metadata containing SPEAD header fields
+        """
 
         if not self._config["write_to_disk"]:
             return
@@ -737,7 +811,10 @@ class DaqReceiver:
             logging.info("Ignoring second integration for station")
             self._buffer_counter["station"] += 1
             return
-
+        
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.StationMetadata)).contents
+        nof_packets = metadata.nof_packets
+        nof_saturations = metadata.nof_saturations
         # Extract data sent by DAQ
         values = self._get_numpy_from_ctypes(
             data,
@@ -767,6 +844,7 @@ class DaqReceiver:
                 filename,
                 nof_packets=nof_packets,
                 nof_saturations=nof_saturations,
+                spead_metadata=metadata
             )
 
         if self._config["logging"]:
@@ -777,18 +855,20 @@ class DaqReceiver:
             )
 
     def _antenna_buffer_callback(
-        self, data: ctypes.POINTER, timestamp: float, tile: int, _: int
+        self, data: ctypes.POINTER, timestamp: float, metadata: ctypes.POINTER,
     ) -> None:
-        """Antenna buffer data callback
+        """Correlated data callback
         :param data: Received data
-        :param tile: The tile from which the data was acquired
-        :param timestamp: Timestamp of first data point in data
+        :param timestamp: Timestamp of first sample in data
+        :param metadata: Pointer to the metadata containing SPEAD header fields
         """
 
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
 
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.AntennaBufferMetadata)).contents
+        tile = metadata.tile_id
         # Extract data sent by DAQ
         nof_values = (
             self._config["nof_antennas"]
@@ -814,7 +894,7 @@ class DaqReceiver:
         # Call external callback if defined
         if self._external_callbacks[DaqModes.ANTENNA_BUFFER] is not None:
             self._external_callbacks[DaqModes.ANTENNA_BUFFER](
-                "antenna_buffer", filename, tile
+                "antenna_buffer", filename, tile, spead_metadata=metadata
             )
 
         if self._config["logging"]:
@@ -856,7 +936,7 @@ class DaqReceiver:
 
         # Start raw data consumer
         if (
-            self._start_consumer("rawdata", params, self._callbacks[DaqModes.RAW_DATA])
+            self._start_consumer("rawdata", params, self._callbacks[DaqModes.RAW_DATA], dynamic_callback=True)
             != self.Result.Success
         ):
             logging.info("Failed to start raw data consumer")
@@ -1084,7 +1164,8 @@ class DaqReceiver:
 
         if (
             self._start_consumer(
-                "burstbeam", params, self._callbacks[DaqModes.BEAM_DATA]
+                "burstbeam", params, self._callbacks[DaqModes.BEAM_DATA], 
+                dynamic_callback=True
             )
             != self.Result.Success
         ):
@@ -1135,7 +1216,8 @@ class DaqReceiver:
 
         if (
             self._start_consumer(
-                "integratedbeam", params, self._callbacks[DaqModes.INTEGRATED_BEAM_DATA]
+                "integratedbeam", params, self._callbacks[DaqModes.INTEGRATED_BEAM_DATA],
+                dynamic_callback=True
             )
             != self.Result.Success
         ):
@@ -1187,7 +1269,9 @@ class DaqReceiver:
 
         if (
             self._start_consumer(
-                "stationdata", params, self._callbacks[DaqModes.STATION_BEAM_DATA]
+                "stationdata", params, self._callbacks[DaqModes.STATION_BEAM_DATA],
+                dynamic_callback=True,
+
             )
             != self.Result.Success
         ):
@@ -1301,7 +1385,7 @@ class DaqReceiver:
         # Start raw data consumer
         if (
             self._start_consumer(
-                "antennabuffer", params, self._callbacks[DaqModes.ANTENNA_BUFFER]
+                "antennabuffer", params, self._callbacks[DaqModes.ANTENNA_BUFFER], dynamic_callback=True
             )
             != self.Result.Success
         ):
