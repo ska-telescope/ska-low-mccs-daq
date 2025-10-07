@@ -397,6 +397,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             ("Stop", "stop_daq"),
             ("StartDataRateMonitor", "start_data_rate_monitor"),
             ("StopDataRateMonitor", "stop_data_rate_monitor"),
+            ("MarkDone", "mark_scan_done"),
         ]:
             self.register_command_object(
                 command_name,
@@ -1053,6 +1054,19 @@ class MccsDaqReceiver(MccsBaseDevice):
         (result_code, message) = handler(interval)
         return ([result_code], [message])
 
+    @command(dtype_out="DevVarLongStringArray")
+    def MarkDone(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+        """
+        Change the data dictionary to mark the end of a scan.
+
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+        """
+        handler = self.get_command_object("MarkDone")
+        (result_code, message) = handler()
+        return ([result_code], [message])
+
     # ----------
     # Attributes
     # ----------
@@ -1352,6 +1366,34 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: a string corresponding to the library filename.
         """
         return self.component_manager.daq_library
+
+    @attribute(
+        dtype="DevBoolean",
+        doc=("If the last directory change was successful"),
+    )
+    def directoryChangeResult(self: MccsDaqReceiver) -> bool:
+        """
+        Get the last result of a directory tag command.
+
+        :return: a bool corresponding to the last result of a directory tag change
+        """
+        return self.component_manager.directory_change_result
+
+    @attribute(
+        dtype="DevString",
+        doc=("Current status of a scan",),
+    )
+    def scanStatus(self: MccsDaqReceiver) -> str:
+        """
+        Get the current status of recieving a scan.
+
+        :return: a string stating if we are receiving a scan or not.
+            "Active" if the we are curently recording a scan.
+            "Inactive" if the receiver is stopped.
+        """
+        if self.component_manager._scan_in_progress:
+            return "Active"
+        return "Inactive"
 
 
 # ----------
