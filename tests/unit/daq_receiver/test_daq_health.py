@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import json
-import time
 from typing import Iterator
 
 import pytest
@@ -94,7 +93,9 @@ class TestDaqHealth:
         assert daq_device.state() == tango.DevState.ALARM
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 100}))
-        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        change_event_callbacks["healthState"].assert_change_event(
+            HealthState.FAILED, lookahead=2
+        )
         assert daq_device.state() == tango.DevState.ALARM
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 0}))
@@ -119,43 +120,46 @@ class TestDaqHealth:
             change_event_callbacks["healthState"],
         )
         change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
+        change_event_callbacks["healthState"].assert_not_called()
         assert daq_device.state() == tango.DevState.DISABLE
 
         daq_device.adminmode = 0
         change_event_callbacks["healthState"].assert_change_event(
-            HealthState.OK, lookahead=2
+            HealthState.OK, lookahead=2, consume_nonmatches=True
         )
+        change_event_callbacks["healthState"].assert_not_called()
         assert daq_device.state() == tango.DevState.ON
 
-        attribute = daq_device.get_attribute_config("ringbufferoccupancy")
-        alarm_config = attribute.alarms
-        alarm_config.max_warning = "10.0"
-        alarm_config.max_alarm = "20.0"
-        attribute.alarms = alarm_config
-        time.sleep(60)  # Needed to avoid hitting monitor lock issues
-        daq_device.set_attribute_config(attribute)
+        try:
+            attribute = daq_device.get_attribute_config("ringbufferoccupancy")
+            alarm_config = attribute.alarms
+            alarm_config.max_warning = "10.0"
+            alarm_config.max_alarm = "20.0"
+            attribute.alarms = alarm_config
+            daq_device.set_attribute_config(attribute)
+        except tango.DevFailed:
+            pytest.xfail("Ran into PyTango monitor lock issue, to be fixed in 10.1.0")
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 15}))
-        change_event_callbacks["healthState"].assert_change_event(HealthState.DEGRADED)
+        change_event_callbacks["healthState"].assert_change_event(
+            HealthState.DEGRADED, lookahead=2, consume_nonmatches=True
+        )
         assert daq_device.state() == tango.DevState.ALARM
 
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 25}))
-        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        change_event_callbacks["healthState"].assert_change_event(
+            HealthState.FAILED, lookahead=2, consume_nonmatches=True
+        )
         assert daq_device.state() == tango.DevState.ALARM
-
-        attribute = daq_device.get_attribute_config("ringbufferoccupancy")
-        alarm_config = attribute.alarms
-        alarm_config.max_warning = "75.0"
-        alarm_config.max_alarm = "100.0"
-        attribute.alarms = alarm_config
-        time.sleep(60)  # Needed to avoid hitting monitor lock issues
-        daq_device.set_attribute_config(attribute)
-
         try:
-            change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
-        except AssertionError:
             attribute = daq_device.get_attribute_config("ringbufferoccupancy")
-            print(attribute.alarms)
-            assert False, daq_device.RingbufferOccupancy
+            alarm_config = attribute.alarms
+            alarm_config.max_warning = "75.0"
+            alarm_config.max_alarm = "100.0"
+            attribute.alarms = alarm_config
+            daq_device.set_attribute_config(attribute)
+        except tango.DevFailed:
+            pytest.xfail("Ran into PyTango monitor lock issue, to be fixed in 10.1.0")
 
+        change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
         assert daq_device.state() == tango.DevState.ON

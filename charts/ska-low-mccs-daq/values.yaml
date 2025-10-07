@@ -76,8 +76,8 @@ ska-tango-devices:
 
   deviceDefaults:
     MccsDaqReceiver:
-      RingbufferOccupancyWarning: 20.0
-      RingbufferOccupancyAlarm: 70.0
+      RingbufferOccupancy->max_warning: 20
+      RingbufferOccupancy->max_alarm: 70
 
   # devices:
   #   MccsDaqReceiver:

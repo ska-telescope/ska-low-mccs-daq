@@ -515,10 +515,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         if action is not None:
             self.op_state_model.perform_action(action)
         if communication_state == CommunicationStatus.DISABLED:
-            for attribute_name in self._healthful_attributes:
+            for attribute_name, attribute_value in self._healthful_attributes.items():
                 self.push_change_event(
                     attribute_name,
-                    self._ringbuffer_occupancy,
+                    attribute_value(),
                     time.time(),
                     tango.AttrQuality.ATTR_INVALID,
                 )
@@ -683,7 +683,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         :param health: the new health value
         :param health_report: the health report
         """
-        self.logger.error(f"Health changed to {health.name}: {health_report}")
+        self.logger.debug(f"Health changed to {health.name}: {health_report}")
         if self._stopping:
             return
         if self._health_state != health:
@@ -704,7 +704,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         :param attribute_name: the name of the attribute whose
             configuration has changed.
         """
-        # self.logger.error({self._healthful_attributes[attribute_name]()})
         if (
             attribute_name in self._healthful_attributes
             and self._healthful_attributes[attribute_name]() is not None
