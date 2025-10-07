@@ -239,6 +239,7 @@ class DaqReceiver:
             "receiver_nof_blocks": 256,
             "receiver_nof_threads": 1,
             "directory": ".",
+            "directory_tag": ".",
             "logging": True,
             "write_to_disk": True,
             "station_config": None,
