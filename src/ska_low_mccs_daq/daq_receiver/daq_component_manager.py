@@ -704,7 +704,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if not self._change_directory():
             self.logger.error(
                 "Failed to mark directory with tag "
-                f"{self._configuration['directory_tag']}"
+                f"{self.get_configuration()['directory_tag']}"
             )
         self._scan_in_progress = True
         self.client_queue = queue.SimpleQueue()
@@ -1068,8 +1068,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :return: True if successful
         """
         self.dir_change_result = True
-        current_dir = self._configuration["directory"]
-        mark_done_tag = self._configuration["directory_tag"]
+        current_dir = self.get_configuration()["directory"]
+        mark_done_tag = self.get_configuration()["directory_tag"]
 
         current_scan_id = current_dir.split("/", maxsplit=5)[4]
         match = f"/{current_scan_id}"
@@ -1115,9 +1115,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         # Make sure path exists and save it
         if not os.path.exists(f"{new_dir}/{user_dir}"):
             self.dir_change_result = False
-
-        self._configuration["directory"] = f"{new_dir}/{user_dir}"
-        self._daq_client.populate_configuration(self._configuration)
+        self.configure_daq(**{"directory": f"{new_dir}/{user_dir}"})
         self.logger.info(f"Current writing path changed to: {new_dir}/{user_dir}")
 
         return self.dir_change_result

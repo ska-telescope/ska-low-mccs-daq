@@ -698,20 +698,20 @@ class TestDaqComponentManager:
         daq_component_manager.configure_daq(
             **{"directory": default_dir, "directory_tag": directory_tag}
         )
-        assert daq_component_manager._configuration["directory"] == default_dir
+        assert daq_component_manager.get_configuration()["directory"] == default_dir
 
         if os.path.exists(new_dir):
             os.rmdir(new_dir)
 
         # Changed the path to the "in progress state"
         assert daq_component_manager._change_directory()
-        assert daq_component_manager._configuration["directory"] == new_dir
+        assert daq_component_manager.get_configuration()["directory"] == new_dir
         assert os.path.exists(new_dir)
         assert not os.path.exists(default_dir)
 
         # Changed the path to the "done state"
         assert daq_component_manager._change_directory(mark_done=True)
-        assert daq_component_manager._configuration["directory"] == default_dir
+        assert daq_component_manager.get_configuration()["directory"] == default_dir
         assert os.path.exists(default_dir)
         assert not os.path.exists(new_dir)
 
@@ -753,4 +753,4 @@ class TestDaqComponentManager:
 
         daq_component_manager.configure_daq(**{"directory_tag": directory_tag})
 
-        assert daq_component_manager._configuration["directory_tag"] == outcome
+        assert daq_component_manager.get_configuration()["directory_tag"] == outcome
