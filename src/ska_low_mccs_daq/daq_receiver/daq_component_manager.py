@@ -204,10 +204,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._measure_data_rate: bool = False
         self._data_rate: float | None = None
 
-        # since configurations can be called during scan time we need to keep track of
-        # directory changes in order to mark all of them when calling mark_done()
-        self._directory_paths: list[str] = []
-        self._directory_tags: dict[str, str] = {}
         self.dir_change_result = True
 
         self._monitoring_bandpass = False
