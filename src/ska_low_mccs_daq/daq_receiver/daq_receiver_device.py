@@ -272,6 +272,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._nof_saturations: int
         self._nof_packets: int
         self._relative_nof_packets_diff: float
+        self._relative_nof_samples_diff: float
         self._nof_samples: int
         self._data_rate: float
         self._receive_rate: float
@@ -363,6 +364,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._nof_saturations = 0
         self._nof_packets = 0
         self._relative_nof_packets_diff = 0.0
+        self._relative_nof_samples_diff = 0.0
         self._nof_samples = 0
         self._receive_rate = 0
         self._drop_rate = 0
@@ -475,6 +477,8 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("relativeNofPacketsDiff", True, False)
             self._device.set_change_event("nofSamples", True, False)
             self._device.set_archive_event("nofSamples", True, False)
+            self._device.set_change_event("relativeNofSamplesDiff", True, False)
+            self._device.set_archive_event("relativeNofSamplesDiff", True, False)
             self._device.set_change_event("dataRate", True, False)
             self._device.set_archive_event("dataRate", True, False)
             self._device.set_change_event("receiveRate", True, False)
@@ -595,6 +599,8 @@ class MccsDaqReceiver(MccsBaseDevice):
                 self.push_archive_event(snake_to_camel(attribute_name), attribute_value)
                 if attribute_name == "nof_packets" and attribute_value is not None:
                     self._update_relative_nof_packets(int(attribute_value))
+                if attribute_name == "nof_samples" and attribute_value is not None:
+                    self._update_relative_nof_samples(int(attribute_value))
 
     def _update_relative_nof_packets(self, abs_nof_packets: int) -> None:
         config = self.component_manager.get_configuration()
@@ -616,7 +622,7 @@ class MccsDaqReceiver(MccsBaseDevice):
                     nof_tiles
                     * (nof_channels / channels_per_packet)
                     * (nof_antennas / antennas_per_packet)
-                    * 2
+                    * 2  # This shouldn't be needed, this is a bug in Cpp DAQ.
                 )
             case "CORRELATOR_DATA":
                 nof_tiles = int(config["nof_tiles"])
@@ -644,6 +650,26 @@ class MccsDaqReceiver(MccsBaseDevice):
             "relativeNofPacketsDiff", self._relative_nof_packets_diff
         )
 
+    def _update_relative_nof_samples(self, abs_nof_samples: int) -> None:
+        config = self.component_manager.get_configuration()
+        match self.component_manager.running_consumers[0][0]:
+            case "CORRELATOR_DATA":
+                expected_nof_samples = int(config["nof_correlator_samples"])
+            case _:
+                self.logger.debug(
+                    "Received nof_samples for unsupported DAQ mode, "
+                    "ignoring for health monitoring."
+                )
+        self._relative_nof_samples_diff = (
+            100 * (abs_nof_samples - expected_nof_samples) / expected_nof_samples
+        )
+        self.push_change_event(
+            "relativeNofSamplesDiff", self._relative_nof_samples_diff
+        )
+        self.push_archive_event(
+            "relativeNofSamplesDiff", self._relative_nof_samples_diff
+        )
+
     def _reset_consumer_attributes(self) -> None:
         self._nof_saturations = 0
         self.push_change_event("nofSaturations", 0)
@@ -652,6 +678,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._nof_packets = 0
         self.push_change_event("nofPackets", 0)
         self.push_archive_event("nofPackets", 0)
+
+        self._relative_nof_packets_diff = 0.0
+        self.push_change_event("relativeNofPacketsDiff", 0.0)
+        self.push_archive_event("relativeNofPacketsDiff", 0.0)
 
         self._ringbuffer_occupancy = 0.0
         self.push_change_event("ringbufferOccupancy", 0.0)
@@ -1323,6 +1353,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         max_warning=5.0,
         min_warning=-5.0,
         min_alarm=-10.0,
+        unit="percent",
     )
     def relativeNofPacketsDiff(self: MccsDaqReceiver) -> float:
         """
@@ -1346,6 +1377,23 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the nof packets of the last consumer callback.
         """
         return int(self._nof_samples)
+
+    @attribute(
+        dtype="DevFloat",
+        doc=("Percentage diff between expected nof_samples and received nof_samples.",),
+        max_alarm=10.0,
+        max_warning=5.0,
+        min_warning=-5.0,
+        min_alarm=-10.0,
+        unit="percent",
+    )
+    def relativeNofSamplesDiff(self: MccsDaqReceiver) -> float:
+        """
+        Return Percentage diff between expected nof_samples and received nof_samples.
+
+        :return: Percentage diff between expected nof_samples and received nof_samples.
+        """
+        return self._relative_nof_samples_diff
 
     @attribute(
         dtype="DevFloat",
