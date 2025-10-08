@@ -280,6 +280,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._ringbuffer_occupancy: float | None
         self._lost_pushes: int
         self._correlator_time_taken: float
+        self._correlator_time_util: float
         self._buffer_counter: int
         self._skuid_url: str
         self._stopping = False
@@ -372,6 +373,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._ringbuffer_occupancy = None
         self._lost_pushes = 0
         self._correlator_time_taken = 0.0
+        self._correlator_time_util = 0.0
         self._buffer_counter = 0
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
@@ -491,6 +493,8 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("lostPushes", True, False)
             self._device.set_change_event("correlatorTimeTaken", True, False)
             self._device.set_archive_event("correlatorTimeTaken", True, False)
+            self._device.set_change_event("correlatorTimeUtil", True, False)
+            self._device.set_archive_event("correlatorTimeUtil", True, False)
             self._device.set_change_event("bufferCounter", True, False)
             self._device.set_archive_event("bufferCounter", True, False)
 
@@ -601,6 +605,11 @@ class MccsDaqReceiver(MccsBaseDevice):
                     self._update_relative_nof_packets(int(attribute_value))
                 if attribute_name == "nof_samples" and attribute_value is not None:
                     self._update_relative_nof_samples(int(attribute_value))
+                if (
+                    attribute_name == "correlator_time_taken"
+                    and attribute_value is not None
+                ):
+                    self._update_correlator_time_util(float(attribute_value))
 
     def _update_relative_nof_packets(self, abs_nof_packets: int) -> None:
         config = self.component_manager.get_configuration()
@@ -670,6 +679,24 @@ class MccsDaqReceiver(MccsBaseDevice):
             "relativeNofSamplesDiff", self._relative_nof_samples_diff
         )
 
+    def _update_correlator_time_util(self, correlator_time_taken: float) -> None:
+        config = self.component_manager.get_configuration()
+        match self.component_manager.running_consumers[0][0]:
+            case "CORRELATOR_DATA":
+                max_time_available = int(config["nof_correlator_samples"]) / float(
+                    config["sampling_rate"]
+                )
+            case _:
+                self.logger.debug(
+                    "Received correlator_time_taken for unsupported DAQ mode, "
+                    "ignoring for health monitoring."
+                )
+        self._correlator_time_util = (
+            100 * (correlator_time_taken - max_time_available) / max_time_available
+        )
+        self.push_change_event("correlatorTimeUtil", self._correlator_time_util)
+        self.push_archive_event("correlatorTimeUtil", self._correlator_time_util)
+
     def _reset_consumer_attributes(self) -> None:
         self._nof_saturations = 0
         self.push_change_event("nofSaturations", 0)
@@ -694,6 +721,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._nof_samples = 0
         self.push_change_event("nofSamples", 0)
         self.push_archive_event("nofSamples", 0)
+
+        self._relative_nof_samples_diff = 0.0
+        self.push_change_event("relativeNofSamplesDiff", 0.0)
+        self.push_archive_event("relativeNofSamplesDiff", 0.0)
 
         self._correlator_time_taken = 0.0
         self.push_change_event("correlatorTimeTaken", 0)
@@ -1413,6 +1444,26 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the time taken for the last correlation in xGPU in ms.
         """
         return self._correlator_time_taken
+
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The time taken to complete the last ",
+            "correlation in xGPU relative to available time given nof_samples.",
+        ),
+        max_warning=50.0,
+        max_alarm=90.0,
+        unit="percent",
+    )
+    def correlatorTimeUtil(self: MccsDaqReceiver) -> float:
+        """
+        Return time taken to complete the last correlation relative to max time.
+
+        Max time is a function of nof_samples
+
+        :return: the time taken to complete the last correlation relative to max time.
+        """
+        return self._correlator_time_util
 
     @attribute(
         dtype="DevFloat",
