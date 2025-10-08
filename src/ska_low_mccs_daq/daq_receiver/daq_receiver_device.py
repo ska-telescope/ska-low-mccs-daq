@@ -279,6 +279,8 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._drop_rate: float
         self._ringbuffer_occupancy: float | None
         self._lost_pushes: int
+        self._last_lost_pushes: int
+        self._lost_push_rate: float
         self._correlator_time_taken: float
         self._correlator_time_util: float
         self._buffer_counter: int
@@ -348,6 +350,8 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._healthful_attributes = {
             "ringbufferOccupancy": lambda: self._ringbuffer_occupancy,
             "relativenofpacketsdiff": lambda: self._relative_nof_packets_diff,
+            "relativenofsamplesdiff": lambda: self._relative_nof_samples_diff,
+            "correlatortimeutil": lambda: self._correlator_time_util,
         }
         self._health_recorder = HealthRecorder(
             self.get_name(),
@@ -372,6 +376,8 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._data_rate = 0
         self._ringbuffer_occupancy = None
         self._lost_pushes = 0
+        self._last_lost_pushes = 0
+        self._lost_push_rate = 0
         self._correlator_time_taken = 0.0
         self._correlator_time_util = 0.0
         self._buffer_counter = 0
@@ -610,6 +616,8 @@ class MccsDaqReceiver(MccsBaseDevice):
                     and attribute_value is not None
                 ):
                     self._update_correlator_time_util(float(attribute_value))
+                if attribute_name == "lost_pushes" and attribute_value is not None:
+                    self._update_lost_push_rate(int(attribute_value))
 
     def _update_relative_nof_packets(self, abs_nof_packets: int) -> None:
         config = self.component_manager.get_configuration()
@@ -649,6 +657,7 @@ class MccsDaqReceiver(MccsBaseDevice):
                     "Received nof_packets for unsupported DAQ mode, "
                     "ignoring for health monitoring."
                 )
+                return
         self._relative_nof_packets_diff = (
             100 * (abs_nof_packets - expected_nof_packets) / expected_nof_packets
         )
@@ -669,6 +678,7 @@ class MccsDaqReceiver(MccsBaseDevice):
                     "Received nof_samples for unsupported DAQ mode, "
                     "ignoring for health monitoring."
                 )
+                return
         self._relative_nof_samples_diff = (
             100 * (abs_nof_samples - expected_nof_samples) / expected_nof_samples
         )
@@ -681,21 +691,34 @@ class MccsDaqReceiver(MccsBaseDevice):
 
     def _update_correlator_time_util(self, correlator_time_taken: float) -> None:
         config = self.component_manager.get_configuration()
-        match self.component_manager.running_consumers[0][0]:
-            case "CORRELATOR_DATA":
-                max_time_available = int(config["nof_correlator_samples"]) / float(
-                    config["sampling_rate"]
-                )
-            case _:
-                self.logger.debug(
-                    "Received correlator_time_taken for unsupported DAQ mode, "
-                    "ignoring for health monitoring."
-                )
+        if self.component_manager.running_consumers[0][0] != "CORRELATOR_DATA":
+            self.logger.debug(
+                "Received correlator_time_taken for unsupported DAQ mode, "
+                "ignoring for health monitoring."
+            )
+            return
+        max_time_available = int(config["nof_correlator_samples"]) / float(
+            config["sampling_rate"]
+        )
         self._correlator_time_util = (
             100 * (correlator_time_taken - max_time_available) / max_time_available
         )
         self.push_change_event("correlatorTimeUtil", self._correlator_time_util)
         self.push_archive_event("correlatorTimeUtil", self._correlator_time_util)
+
+    def _update_lost_push_rate(self, lost_pushes: int) -> None:
+        if self.component_manager.running_consumers[0][0] != "STATION_BEAM_DATA":
+            self.logger.debug(
+                "Received lost_pushes for unsupported DAQ mode, "
+                "ignoring for health monitoring."
+            )
+            return
+        self._lost_push_rate = (
+            lost_pushes - self._last_lost_pushes
+        ) / 5.0  # 5 seconds is the hard coded period for this in DAQ core.
+        self._last_lost_pushes = lost_pushes
+        self.push_change_event("lostPushRate", self._lost_push_rate)
+        self.push_archive_event("lostPushRate", self._lost_push_rate)
 
     def _reset_consumer_attributes(self) -> None:
         self._nof_saturations = 0
@@ -718,6 +741,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         self.push_change_event("lostPushes", 0)
         self.push_archive_event("lostPushes", 0)
 
+        self._lost_push_rate = 0.0
+        self.push_change_event("lostPushRate", 0)
+        self.push_archive_event("lostPushRate", 0)
+
         self._nof_samples = 0
         self.push_change_event("nofSamples", 0)
         self.push_archive_event("nofSamples", 0)
@@ -729,6 +756,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._correlator_time_taken = 0.0
         self.push_change_event("correlatorTimeTaken", 0)
         self.push_archive_event("correlatorTimeTaken", 0)
+
+        self._correlator_time_util = 0.0
+        self.push_change_event("correlatorTimeUtil", 0.0)
+        self.push_archive_event("correlatorTimeUtil", 0.0)
 
         self._buffer_counter = 0
         self.push_change_event("bufferCounter", 0)
@@ -1544,13 +1575,27 @@ class MccsDaqReceiver(MccsBaseDevice):
             "typically increases when ringbuffer is full."
         ),
     )
-    def LostPushes(self: MccsDaqReceiver) -> int:
+    def lostPushes(self: MccsDaqReceiver) -> int:
         """
         Return the number of lost pushes to the ringbuffer.
 
         :return: the number of lost pushes to the ringbuffer.
         """
         return self._lost_pushes
+
+    @attribute(
+        dtype="DevFloat",
+        doc=("The rate at which pushes to the ringbuffer are being lost."),
+        max_warning=100,
+        max_alarm=1000,
+    )
+    def lostPushRate(self: MccsDaqReceiver) -> float:
+        """
+        Return the rate at which pushes to the ringbuffer are being lost.
+
+        :return: the rate at which pushes to the ringbuffer are being lost.
+        """
+        return self._lost_push_rate
 
     @attribute(
         dtype="DevLong",
