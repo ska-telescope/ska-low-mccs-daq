@@ -269,10 +269,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._x_bandpass_plot: np.ndarray
         self._y_bandpass_plot: np.ndarray
         self._rms_plot: np.ndarray
-        self._nof_saturations: int
+        self._nof_saturations: int | None
         self._nof_packets: int
-        self._relative_nof_packets_diff: float
-        self._relative_nof_samples_diff: float
+        self._relative_nof_packets_diff: float | None
+        self._relative_nof_samples_diff: float | None
         self._nof_samples: int
         self._data_rate: float
         self._receive_rate: float
@@ -280,9 +280,9 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._ringbuffer_occupancy: float | None
         self._lost_pushes: int
         self._last_lost_pushes: int
-        self._lost_push_rate: float
+        self._lost_push_rate: float | None
         self._correlator_time_taken: float
-        self._correlator_time_util: float
+        self._correlator_time_util: float | None
         self._buffer_counter: int
         self._skuid_url: str
         self._stopping = False
@@ -349,9 +349,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         self.set_archive_event("healthState", True, False)
         self._healthful_attributes = {
             "ringbufferOccupancy": lambda: self._ringbuffer_occupancy,
-            "relativenofpacketsdiff": lambda: self._relative_nof_packets_diff,
-            "relativenofsamplesdiff": lambda: self._relative_nof_samples_diff,
-            "correlatortimeutil": lambda: self._correlator_time_util,
+            "relativeNofPacketsDiff": lambda: self._relative_nof_packets_diff,
+            "relativeNofSamplesDiff": lambda: self._relative_nof_samples_diff,
+            "correlatorTimeUtil": lambda: self._correlator_time_util,
+            "lostPushRate": lambda: self._lost_push_rate,
         }
         self._health_recorder = HealthRecorder(
             self.get_name(),
@@ -366,10 +367,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._x_bandpass_plot = np.zeros(shape=(256, 512), dtype=float)
         self._y_bandpass_plot = np.zeros(shape=(256, 512), dtype=float)
         self._rms_plot = np.zeros(shape=(256, 512), dtype=float)
-        self._nof_saturations = 0
+        self._nof_saturations = None
         self._nof_packets = 0
-        self._relative_nof_packets_diff = 0.0
-        self._relative_nof_samples_diff = 0.0
+        self._relative_nof_packets_diff = None
+        self._relative_nof_samples_diff = None
         self._nof_samples = 0
         self._receive_rate = 0
         self._drop_rate = 0
@@ -377,9 +378,9 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._ringbuffer_occupancy = None
         self._lost_pushes = 0
         self._last_lost_pushes = 0
-        self._lost_push_rate = 0
+        self._lost_push_rate = None
         self._correlator_time_taken = 0.0
-        self._correlator_time_util = 0.0
+        self._correlator_time_util = None
         self._buffer_counter = 0
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
@@ -543,7 +544,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         elif communication_state == CommunicationStatus.ESTABLISHED:
             self._component_state_callback(reset_consumer_attributes=True)
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments, too-many-branches
     def _component_state_callback(  # noqa: C901
         self: MccsDaqReceiver,
         fault: Optional[bool] = None,
@@ -701,7 +702,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             config["sampling_rate"]
         )
         self._correlator_time_util = (
-            100 * (correlator_time_taken - max_time_available) / max_time_available
+            100 * (max_time_available - correlator_time_taken) / max_time_available
         )
         self.push_change_event("correlatorTimeUtil", self._correlator_time_util)
         self.push_archive_event("correlatorTimeUtil", self._correlator_time_util)
@@ -713,6 +714,8 @@ class MccsDaqReceiver(MccsBaseDevice):
                 "ignoring for health monitoring."
             )
             return
+        if self._last_lost_pushes is None:
+            self._last_lost_pushes = 0.0
         self._lost_push_rate = (
             lost_pushes - self._last_lost_pushes
         ) / 5.0  # 5 seconds is the hard coded period for this in DAQ core.
@@ -1385,13 +1388,13 @@ class MccsDaqReceiver(MccsBaseDevice):
             "callback from the running consumer, see RTDs for specifics.",
         ),
     )
-    def nofSaturations(self: MccsDaqReceiver) -> int:
+    def nofSaturations(self: MccsDaqReceiver) -> int | None:
         """
         Return the nof saturations of the last station beam consumer integration.
 
         :return: the nof saturations of the last station beam consumer integration.
         """
-        return int(self._nof_saturations)
+        return self._nof_saturations
 
     @attribute(
         dtype="DevLong",
@@ -1417,7 +1420,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         min_alarm=-10.0,
         unit="percent",
     )
-    def relativeNofPacketsDiff(self: MccsDaqReceiver) -> float:
+    def relativeNofPacketsDiff(self: MccsDaqReceiver) -> float | None:
         """
         Return Percentage diff between expected nof_packets and received nof_packets.
 
@@ -1449,7 +1452,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         min_alarm=-10.0,
         unit="percent",
     )
-    def relativeNofSamplesDiff(self: MccsDaqReceiver) -> float:
+    def relativeNofSamplesDiff(self: MccsDaqReceiver) -> float | None:
         """
         Return Percentage diff between expected nof_samples and received nof_samples.
 
@@ -1486,7 +1489,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         max_alarm=90.0,
         unit="percent",
     )
-    def correlatorTimeUtil(self: MccsDaqReceiver) -> float:
+    def correlatorTimeUtil(self: MccsDaqReceiver) -> float | None:
         """
         Return time taken to complete the last correlation relative to max time.
 
@@ -1589,7 +1592,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         max_warning=100,
         max_alarm=1000,
     )
-    def lostPushRate(self: MccsDaqReceiver) -> float:
+    def lostPushRate(self: MccsDaqReceiver) -> float | None:
         """
         Return the rate at which pushes to the ringbuffer are being lost.
 
