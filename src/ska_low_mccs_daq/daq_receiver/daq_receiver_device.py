@@ -13,7 +13,7 @@ import json
 import logging
 import time
 from importlib import resources
-from typing import Any, Final, Optional, Union
+from typing import Any, Callable, Final, Optional, Union
 
 import numpy as np
 import tango
@@ -263,7 +263,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._health_state: HealthState = HealthState.UNKNOWN
         self._health_report: str = ""
         self._health_recorder: Optional[HealthRecorder] = None
-        self._healthful_attributes: dict[str, Any]
+        self._healthful_attributes: dict[str, Callable]
         self._received_data_mode: str
         self._received_data_result: str
         self._x_bandpass_plot: np.ndarray
@@ -288,7 +288,6 @@ class MccsDaqReceiver(MccsBaseDevice):
 
         This is overridden here to change the Tango serialisation model.
         """
-        self._multi_attr: tango.MultiAttribute = self.get_device_attr()
         super().init_device()
 
         self._build_state = ",".join(
