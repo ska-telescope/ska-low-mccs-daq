@@ -271,6 +271,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._rms_plot: np.ndarray
         self._nof_saturations: int
         self._nof_packets: int
+        self._relative_nof_packets_diff: float
         self._nof_samples: int
         self._data_rate: float
         self._receive_rate: float
@@ -344,7 +345,8 @@ class MccsDaqReceiver(MccsBaseDevice):
         self.set_change_event("healthState", True, False)
         self.set_archive_event("healthState", True, False)
         self._healthful_attributes = {
-            "ringbufferOccupancy": lambda: self._ringbuffer_occupancy
+            "ringbufferOccupancy": lambda: self._ringbuffer_occupancy,
+            "relativenofpacketsdiff": lambda: self._relative_nof_packets_diff,
         }
         self._health_recorder = HealthRecorder(
             self.get_name(),
@@ -361,6 +363,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._rms_plot = np.zeros(shape=(256, 512), dtype=float)
         self._nof_saturations = 0
         self._nof_packets = 0
+        self._relative_nof_packets_diff = 0.0
         self._nof_samples = 0
         self._receive_rate = 0
         self._drop_rate = 0
@@ -469,6 +472,8 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("nofSaturations", True, False)
             self._device.set_change_event("nofPackets", True, False)
             self._device.set_archive_event("nofPackets", True, False)
+            self._device.set_change_event("relativeNofPacketsDiff", True, False)
+            self._device.set_archive_event("relativeNofPacketsDiff", True, False)
             self._device.set_change_event("nofSamples", True, False)
             self._device.set_archive_event("nofSamples", True, False)
             self._device.set_change_event("dataRate", True, False)
@@ -589,6 +594,56 @@ class MccsDaqReceiver(MccsBaseDevice):
                 setattr(self, internal_attr, attribute_value)
                 self.push_change_event(snake_to_camel(attribute_name), attribute_value)
                 self.push_archive_event(snake_to_camel(attribute_name), attribute_value)
+                if attribute_name == "nof_packets" and attribute_value is not None:
+                    self._update_relative_nof_packets(int(attribute_value))
+
+    def _update_relative_nof_packets(self, abs_nof_packets: int) -> None:
+        config = self.component_manager.get_configuration()
+        match self.component_manager.running_consumers[0][0]:
+            case "STATION_BEAM_DATA":
+                nof_samples = int(config["nof_station_samples"])
+                nof_channels = int(config["nof_beam_channels"])
+                nof_samples_per_packet = 2048
+                expected_nof_packets = (
+                    nof_channels * nof_samples / nof_samples_per_packet
+                )
+            case "INTEGRATED_CHANNEL_DATA":
+                nof_tiles = int(config["nof_tiles"])
+                nof_channels = int(config["nof_channels"])
+                channels_per_packet = 32
+                nof_antennas = int(config["nof_antennas"])
+                antennas_per_packet = 8
+                expected_nof_packets = (
+                    nof_tiles
+                    * (nof_channels / channels_per_packet)
+                    * (nof_antennas / antennas_per_packet)
+                    * 2
+                )
+            case "CORRELATOR_DATA":
+                nof_tiles = int(config["nof_tiles"])
+                nof_samples = int(config["nof_correlator_samples"])
+                samples_per_packet = 256
+                nof_antennas = int(config["nof_antennas"])
+                antennas_per_packet = 8
+                expected_nof_packets = (
+                    nof_tiles
+                    * (nof_samples / samples_per_packet)
+                    * (nof_antennas / antennas_per_packet)
+                )
+            case _:
+                self.logger.debug(
+                    "Received nof_packets for unsupported DAQ mode, "
+                    "ignoring for health monitoring."
+                )
+        self._relative_nof_packets_diff = (
+            100 * (abs_nof_packets - expected_nof_packets) / expected_nof_packets
+        )
+        self.push_change_event(
+            "relativeNofPacketsDiff", self._relative_nof_packets_diff
+        )
+        self.push_archive_event(
+            "relativeNofPacketsDiff", self._relative_nof_packets_diff
+        )
 
     def _reset_consumer_attributes(self) -> None:
         self._nof_saturations = 0
@@ -1129,7 +1184,7 @@ class MccsDaqReceiver(MccsBaseDevice):
 
         :return: [(DaqMode.name: str, DaqMode.value: str)]
         """
-        return [(c[0], str(c[1])) for c in self.component_manager.get_running_consumers]
+        return [(c[0], str(c[1])) for c in self.component_manager.running_consumers]
 
     @attribute(dtype="DevString")
     def interfaceName(self: MccsDaqReceiver) -> str:
@@ -1261,6 +1316,22 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the nof packets of the last consumer integration.
         """
         return int(self._nof_packets)
+
+    @attribute(
+        dtype="DevFloat",
+        doc=("Percentage diff between expected nof_packets and received nof_packets.",),
+        max_alarm=10.0,
+        max_warning=5.0,
+        min_warning=-5.0,
+        min_alarm=-10.0,
+    )
+    def relativeNofPacketsDiff(self: MccsDaqReceiver) -> float:
+        """
+        Return Percentage diff between expected nof_packets and received nof_packets.
+
+        :return: Percentage diff between expected nof_packets and received nof_packets.
+        """
+        return self._relative_nof_packets_diff
 
     @attribute(
         dtype="DevLong",
