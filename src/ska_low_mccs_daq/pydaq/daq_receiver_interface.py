@@ -348,8 +348,8 @@ class DaqReceiver:
         :param timestamp: Timestamp of first data point in data
         :param metadata: Pointer to the metadata containing SPEAD header fields
         """
-        spead_metadata = ctypes.cast(metadata, ctypes.POINTER(self.AdcMetadata)).contents
-        tile = spead_metadata.tile_id
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.AdcMetadata)).contents
+        tile = metadata.tile_id
         # If writing to disk is not enabled, return immediately
         if not self._config["write_to_disk"]:
             return
@@ -386,7 +386,7 @@ class DaqReceiver:
 
         # Call external callback if defined
         if self._external_callbacks[DaqModes.RAW_DATA] is not None:
-            self._external_callbacks[DaqModes.RAW_DATA]("burst_raw", filename, tile, spead_metadata=spead_metadata)
+            self._external_callbacks[DaqModes.RAW_DATA]("burst_raw", filename, tile, spead_metadata=metadata)
 
         if self._config["logging"]:
             logging.info("Received raw data for tile {}".format(tile))
