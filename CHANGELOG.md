@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## 4.1.2
+
+* [JANUS-257] Fixed the type of subarray_id in the StationMetadata class to match with StationData.h
 * [THORN-257] Added MarkDone() command
 * [JANUS-273] Updated environment variable used in acquire_station_beam.cpp to align with other data modes
 
