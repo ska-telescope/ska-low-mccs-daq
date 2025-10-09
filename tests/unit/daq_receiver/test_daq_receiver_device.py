@@ -308,16 +308,23 @@ class TestMccsDaqReceiver:
         :param change_event_callbacks: group of Tango change event
             callback with asynchrony support
         """
-        device_under_test.adminMode = AdminMode.ONLINE
-        assert device_under_test.adminMode == AdminMode.ONLINE
         device_under_test.subscribe_event(
             "state",
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["state"],
         )
-        change_event_callbacks["state"].assert_change_event(
-            tango.DevState.ON, consume_nonmatches=True, lookahead=5
+        change_event_callbacks["state"].assert_change_event(tango.DevState.DISABLE)
+        device_under_test.subscribe_event(
+            "healthState",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["healthState"],
         )
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
+        device_under_test.adminMode = AdminMode.ONLINE
+        assert device_under_test.adminMode == AdminMode.ONLINE
+        change_event_callbacks["state"].assert_change_event(tango.DevState.UNKNOWN)
+        change_event_callbacks["state"].assert_change_event(tango.DevState.ON)
+        change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
         device_under_test.subscribe_event(
             "ringbufferoccupancy",
             tango.EventType.CHANGE_EVENT,
@@ -339,8 +346,10 @@ class TestMccsDaqReceiver:
         else:
             assert device_under_test.lostpushes == 0
         device_under_test.stop()
-        change_event_callbacks["ringbuffer_occupancy"].assert_change_event(0.0)
-        change_event_callbacks["lost_pushes"].assert_change_event(0)
+        change_event_callbacks["ringbuffer_occupancy"].assert_change_event(
+            0.0, lookahead=2
+        )
+        change_event_callbacks["lost_pushes"].assert_change_event(0, lookahead=2)
 
 
 class TestPatchedDaq:

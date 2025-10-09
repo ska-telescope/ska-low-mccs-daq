@@ -498,6 +498,8 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("ringbufferOccupancy", True, False)
             self._device.set_change_event("lostPushes", True, False)
             self._device.set_archive_event("lostPushes", True, False)
+            self._device.set_change_event("lostPushRate", True, False)
+            self._device.set_archive_event("lostPushRate", True, False)
             self._device.set_change_event("correlatorTimeTaken", True, False)
             self._device.set_archive_event("correlatorTimeTaken", True, False)
             self._device.set_change_event("correlatorTimeUtil", True, False)
