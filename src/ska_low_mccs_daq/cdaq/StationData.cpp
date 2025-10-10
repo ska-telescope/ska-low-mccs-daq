@@ -11,7 +11,7 @@
 // Constants needed to manage time in TAI format
 //
 const uint64_t TAI_2000 = 946684768 - 5; // Unix time of TAI 2000, including extra leap seconds
-const double TAI_OFFSET = 37.0;    // TAI-UTC offset since 2017-01-01
+const double TAI_OFFSET = 37.0;          // TAI-UTC offset since 2017-01-01
 // -------------------------------------------------------------------------------------------------------------
 // STATION DATA CONSUMER
 // -------------------------------------------------------------------------------------------------------------
@@ -23,23 +23,25 @@ bool StationData::initialiseConsumer(json configuration)
     // Check that all required keys are present
     if (!(key_in_json(configuration, "nof_channels")) &&
         (key_in_json(configuration, "nof_samples")) &&
-        (key_in_json(configuration, "max_packet_size"))) {
+        (key_in_json(configuration, "max_packet_size")))
+    {
         LOG(FATAL, "Missing configuration item for StationData consumer. Requires "
-                "nof_channels, nof_samples and max_packet_size");
+                   "nof_channels, nof_samples and max_packet_size");
         return false;
     }
 
     // Set local values
-    this -> nof_channels = configuration["nof_channels"];
-    this -> nof_samples  = configuration["nof_samples"];
-    this -> nof_pols     = 2;
-    this -> packet_size  = configuration["max_packet_size"];
+    this->nof_channels = configuration["nof_channels"];
+    this->nof_samples = configuration["nof_samples"];
+    this->nof_pols = 2;
+    this->packet_size = configuration["max_packet_size"];
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t) nof_samples / 2);
+    // initialiseRingBuffer(packet_size, (size_t) nof_samples / 2);
+    initialiseRingBuffer(packet_size, (size_t)nof_samples * 2);
 
     // Create double buffer
-    double_buffer= new StationDoubleBuffer(nof_channels, nof_samples, nof_pols);
+    double_buffer = new StationDoubleBuffer(nof_channels, nof_samples, nof_pols);
 
     // Create and persister
     persister = new StationPersister(double_buffer);
@@ -65,7 +67,7 @@ void StationData::cleanUp()
 // Set callback
 void StationData::setCallback(DataCallback callback)
 {
-    this -> persister -> setCallback(callback);
+    this->persister->setCallback(callback);
 }
 
 // Packet filter
@@ -96,7 +98,7 @@ bool StationData::packetFilter(unsigned char *udp_packet)
 bool StationData::processPacket()
 {
     // Get next packet to process
-    size_t packet_size = ring_buffer -> pull_timeout(&packet, 1);
+    size_t packet_size = ring_buffer->pull_timeout(&packet, 1);
 
     // Check if the request timed out
     if (packet_size == SIZE_MAX)
@@ -106,7 +108,7 @@ bool StationData::processPacket()
     // passed through the filter
     uint64_t hdr = SPEAD_HEADER(packet);
 
-    uint64_t packet_counter   = 0;
+    uint64_t packet_counter = 0;
     uint16_t logical_channel_id = 0;
     uint64_t sync_time = 0;
     uint64_t timestamp = 0;
@@ -120,91 +122,98 @@ bool StationData::processPacket()
     uint16_t nof_contributing_antennas = 0;
     uint32_t payload_offset = 0;
     uint32_t scan_id = 0;
-    double timestamp_scale = 1.0e-8;  // new timestamp format
+    double timestamp_scale = 1.0e-8; // new timestamp format
 
     // Get the number of items and get a pointer to the packet payload
-    auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
+    auto nofitems = (unsigned short)SPEAD_GET_NITEMS(hdr);
     uint8_t *payload = packet + SPEAD_HEADERLEN + nofitems * SPEAD_ITEMLEN;
     // check if header is using TAI time: 6 elements in header,
     // timestamp entry implicit at TAI 2000.0
     bool tai_time = (nofitems == 6);
-    if (tai_time) {
-	sync_time = TAI_2000;
-	timestamp_scale = 2.21184e-3; // 2048*1.08e-6
+    if (tai_time)
+    {
+        sync_time = TAI_2000;
+        timestamp_scale = 2.21184e-3; // 2048*1.08e-6
     }
-    for(unsigned i = 1; i <= nofitems; i++)
+    for (unsigned i = 1; i <= nofitems; i++)
     {
         uint64_t item = SPEAD_ITEM(packet, i);
         switch (SPEAD_ITEM_ID(item))
         {
-            case 0x0001:  // Heap counter
+        case 0x0001: // Heap counter
+        {
+            if (tai_time)
             {
-		if (tai_time) {
-		    packet_counter = timestamp = (uint64_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFFFFLL); // 40-bits
-		} else {
-                    logical_channel_id = (uint16_t) ((SPEAD_ITEM_ADDR(item) >> 32) & 0xFFFF); // 16-bits
-                    packet_counter = (uint32_t) (SPEAD_ITEM_ADDR(item) & 0xFFFFFFFF); // 32-bits
-                }
-                break;
+                packet_counter = timestamp = (uint64_t)(SPEAD_ITEM_ADDR(item) & 0xFFFFFFFFFFLL); // 40-bits
             }
-            case 0x0004: // Payload length
+            else
             {
-                payload_length = SPEAD_ITEM_ADDR(item);
-                break;
+                logical_channel_id = (uint16_t)((SPEAD_ITEM_ADDR(item) >> 32) & 0xFFFF); // 16-bits
+                packet_counter = (uint32_t)(SPEAD_ITEM_ADDR(item) & 0xFFFFFFFF);         // 32-bits
             }
-            case 0x1027: // Sync time
+            break;
+        }
+        case 0x0004: // Payload length
+        {
+            payload_length = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1027: // Sync time
+        {
+            sync_time = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1600: // Timestamp
+        {
+            timestamp = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x1011: // Frequency
+        {
+            frequency = SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x3000: // Antenna and Channel information
+        {
+            uint64_t val = SPEAD_ITEM_ADDR(item);
+            if (tai_time)
             {
-                sync_time = SPEAD_ITEM_ADDR(item);
-                break;
+                logical_channel_id = (uint16_t)((SPEAD_ITEM_ADDR(item) >> 32) & 0xFFFF); // 16-bits
             }
-            case 0x1600: // Timestamp
-            {
-                timestamp = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x1011: // Frequency
-            {
-                frequency = SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x3000: // Antenna and Channel information
-            {
-                uint64_t val = SPEAD_ITEM_ADDR(item);
-		if (tai_time) {
-		    logical_channel_id = (uint16_t) ((SPEAD_ITEM_ADDR(item) >> 32) & 0xFFFF); // 16-bits
-                }
-                beam_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                frequency_id = (uint16_t) (val & 0xFFFF);
-                break;
-            }
-            case 0x3001: // Tile information
-            {
-                uint64_t val = SPEAD_ITEM_ADDR(item);
-                substation_id = (uint8_t) ((val >> 40) & 0xFF);
-                subarray_id = (uint8_t) ((val >> 32) & 0xFF);
-                station_id = (uint16_t) ((val >> 16) & 0xFFFF);
-                // nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
-                break;
-            }
-	    case 0x3010: // Scan ID
-	    {
-	        scan_id = (uint32_t) SPEAD_ITEM_ADDR(item);
-	    }
-            case 0x3300: // Payload offset
-            {
-                payload_offset = (uint32_t) SPEAD_ITEM_ADDR(item);
-                break;
-            }
-            case 0x2004:
-                break;
-            default:
-                LOG(WARN, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nofitems);
+            beam_id = (uint16_t)((val >> 16) & 0xFFFF);
+            frequency_id = (uint16_t)(val & 0xFFFF);
+            break;
+        }
+        case 0x3001: // Tile information
+        {
+            uint64_t val = SPEAD_ITEM_ADDR(item);
+            substation_id = (uint8_t)((val >> 40) & 0xFF);
+            subarray_id = (uint8_t)((val >> 32) & 0xFF);
+            station_id = (uint16_t)((val >> 16) & 0xFFFF);
+            // nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
+            break;
+        }
+        case 0x3010: // Scan ID
+        {
+            scan_id = (uint32_t)SPEAD_ITEM_ADDR(item);
+        }
+        case 0x3300: // Payload offset
+        {
+            payload_offset = (uint32_t)SPEAD_ITEM_ADDR(item);
+            break;
+        }
+        case 0x2004:
+            break;
+        default:
+            LOG(WARN, "Unknown item %#010x (%d of %d) \n", SPEAD_ITEM_ID(item), i, nofitems);
         }
     }
 
-    if (!tai_time) {
+    if (!tai_time)
+    {
         // Check whether timestamp counter has rolled over
-        if (timestamp == 0 && logical_channel_id == 0) {
+        if (timestamp == 0 && logical_channel_id == 0)
+        {
             timestamp_rollover += 1;
             timestamp += timestamp_rollover << 48;
         }
@@ -217,8 +226,9 @@ bool StationData::processPacket()
     // Calculate packet time. It is expressed in UTC
     double packet_time = sync_time + timestamp * timestamp_scale;
     // Calculate frequency if not present
-    if (frequency == 0) {
-       frequency = 781250 * frequency_id;
+    if (frequency == 0)
+    {
+        frequency = 781250 * frequency_id;
     }
 
     // Divide packet counter by 8 (reason unknown)
@@ -229,7 +239,8 @@ bool StationData::processPacket()
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
 
     // Check whether packet counter has rolled over
-    if (packet_counter == 0 && logical_channel_id == 0) {
+    if (packet_counter == 0 && logical_channel_id == 0)
+    {
         rollover_counter += 1;
         packet_counter += rollover_counter << 32;
     }
@@ -240,14 +251,14 @@ bool StationData::processPacket()
         packet_counter += rollover_counter << 32;
 
     // We have processed the packet items, send data to packet counter
-    double_buffer -> write_data(logical_channel_id,
-                                samples_in_packet,
-                                packet_counter,
-                                reinterpret_cast<uint16_t *>(payload + payload_offset),
-                                packet_time);
+    double_buffer->write_data(logical_channel_id,
+                              samples_in_packet,
+                              packet_counter,
+                              reinterpret_cast<uint16_t *>(payload + payload_offset),
+                              packet_time);
 
     // Ready from packet
-    ring_buffer -> pull_ready();
+    ring_buffer->pull_ready();
 
     // All done, return
     return true;
@@ -258,28 +269,27 @@ bool StationData::processPacket()
 // -------------------------------------------------------------------------------------------------------------
 
 // Default double buffer constructor
-StationDoubleBuffer::StationDoubleBuffer(uint16_t nof_channels, uint32_t nof_samples, uint8_t nof_pols, uint8_t nbuffers) :
-        nof_channels(nof_channels), nof_samples(nof_samples), nof_pols(nof_pols), nof_buffers(nbuffers)
+StationDoubleBuffer::StationDoubleBuffer(uint16_t nof_channels, uint32_t nof_samples, uint8_t nof_pols, uint8_t nbuffers) : nof_channels(nof_channels), nof_samples(nof_samples), nof_pols(nof_pols), nof_buffers(nbuffers)
 {
     // Make sure that nof_buffers is a power of 2
-    nof_buffers = (uint8_t) pow(2, ceil(log2(nof_buffers)));
+    nof_buffers = (uint8_t)pow(2, ceil(log2(nof_buffers)));
 
     // Allocate the double buffer
-    allocate_aligned((void **) &double_buffer, (size_t)CACHE_ALIGNMENT, nof_buffers * sizeof(StationBuffer));
+    allocate_aligned((void **)&double_buffer, (size_t)CACHE_ALIGNMENT, nof_buffers * sizeof(StationBuffer));
 
     // Initialise and allocate buffers in each struct instance
     for (unsigned i = 0; i < nof_buffers; i++)
     {
-        double_buffer[i].ref_time     = 0;
-        double_buffer[i].ready        = false;
-        double_buffer[i].index        = 0;
-        double_buffer[i].nof_packets  = 0;
-        double_buffer[i].nof_saturations  = 0;
+        double_buffer[i].ref_time = 0;
+        double_buffer[i].ready = false;
+        double_buffer[i].index = 0;
+        double_buffer[i].nof_packets = 0;
+        double_buffer[i].nof_saturations = 0;
         double_buffer[i].nof_channels = nof_channels;
-        double_buffer[i].nof_samples  = nof_samples;
+        double_buffer[i].nof_samples = nof_samples;
         double_buffer[i].mutex = new std::mutex;
-        allocate_aligned((void **) &(double_buffer[i].integrators), CACHE_ALIGNMENT, nof_pols * nof_channels * sizeof(double));
-        allocate_aligned((void **) &(double_buffer[i].read_samples), CACHE_ALIGNMENT, nof_channels * sizeof(uint32_t));
+        allocate_aligned((void **)&(double_buffer[i].integrators), CACHE_ALIGNMENT, nof_pols * nof_channels * sizeof(double));
+        allocate_aligned((void **)&(double_buffer[i].read_samples), CACHE_ALIGNMENT, nof_channels * sizeof(uint32_t));
         memset(double_buffer[i].integrators, 0, nof_pols * nof_channels * sizeof(double));
         memset(double_buffer[i].read_samples, 0, nof_channels * sizeof(uint32_t));
     }
@@ -289,14 +299,14 @@ StationDoubleBuffer::StationDoubleBuffer(uint16_t nof_channels, uint32_t nof_sam
     consumer = 0;
 
     // Set up timing variables
-    tim.tv_sec  = 0;
+    tim.tv_sec = 0;
     tim.tv_nsec = 1000;
 }
 
 // Tear down buffer
 void StationDoubleBuffer::tearDown()
 {
-    for(unsigned i = 0; i < nof_buffers; i++)
+    for (unsigned i = 0; i < nof_buffers; i++)
     {
         delete double_buffer[i].mutex;
         free(double_buffer[i].integrators);
@@ -310,22 +320,22 @@ void StationDoubleBuffer::write_data(uint16_t channel_id, uint32_t samples, uint
                                      uint16_t *data_ptr, double timestamp)
 {
     // Check whether the current consumer buffer is empty, and if so set index of the buffer
-    if (this -> double_buffer[this->producer].index == 0)
-        this -> double_buffer[this->producer].index = packet_counter;
+    if (this->double_buffer[this->producer].index == 0)
+        this->double_buffer[this->producer].index = packet_counter;
 
     // Check if we are receiving a packet from a previous buffer, if so place in previous buffer
-    else if (this -> double_buffer[this->producer].index > packet_counter)
+    else if (this->double_buffer[this->producer].index > packet_counter)
     {
         // Select buffer to place data into
         int local_producer = (this->producer == 0) ? this->nof_buffers - 1 : (this->producer - 1);
 
         // Check if packet belongs in previous buffer
-        if (this -> double_buffer[local_producer].index > packet_counter)
+        if (this->double_buffer[local_producer].index > packet_counter)
             // Packet belongs to an older buffer (or is invalid). Ignoring
             return;
 
         // Copy data into selected buffer
-        this->process_data(local_producer, channel_id, samples, data_ptr,  timestamp);
+        this->process_data(local_producer, channel_id, samples, data_ptr, timestamp);
 
         // Ready from packet
         return;
@@ -335,25 +345,26 @@ void StationDoubleBuffer::write_data(uint16_t channel_id, uint32_t samples, uint
     else if (packet_counter - this->double_buffer[this->producer].index >= nof_samples / samples)
     {
         // Store current buffers's index
-        uint64_t current_index = this -> double_buffer[this->producer].index;
+        uint64_t current_index = this->double_buffer[this->producer].index;
 
         // Check if packet's counter is beyond next buffer as well, and if so ignore
         if (packet_counter > current_index + (nof_samples / samples) * 2)
             return;
 
         // We have skipped buffer borders, mark buffer before previous one as ready and switch to next one
-        int local_producer = (this->producer < 2) ? (this -> producer - 2) + this->nof_buffers : (this -> producer - 2);
+        int local_producer = (this->producer < 2) ? (this->producer - 2) + this->nof_buffers : (this->producer - 2);
         if (this->double_buffer[local_producer].index != 0)
-            this -> double_buffer[local_producer].ready = true;
+            this->double_buffer[local_producer].ready = true;
 
         // Update producer pointer
-        this -> producer = (this -> producer + 1) % this -> nof_buffers;
+        this->producer = (this->producer + 1) % this->nof_buffers;
 
         // Wait for next buffer to become available
         unsigned int index = 0;
         while (index * tim.tv_nsec < 1e6)
         {
-            if (this->double_buffer[this->producer].index != 0) {
+            if (this->double_buffer[this->producer].index != 0)
+            {
                 nanosleep(&tim, &tim2);
                 index++;
             }
@@ -361,12 +372,12 @@ void StationDoubleBuffer::write_data(uint16_t channel_id, uint32_t samples, uint
                 break;
         }
 
-        if (index * tim.tv_nsec >= 1e6 )
-            LOG(WARN, "Warning: Overwriting buffer [%d]!\n", this ->producer);
+        if (index * tim.tv_nsec >= 1e6)
+            LOG(WARN, "Warning: Overwriting buffer [%d]!\n", this->producer);
 
         // Start using new buffer. Note that current packet's packet counter could be invalid, so we
         // assign the buffer's index to be the next increment after the previous buffer
-        this -> double_buffer[this -> producer].index = current_index + nof_samples / samples;
+        this->double_buffer[this->producer].index = current_index + nof_samples / samples;
         memset(double_buffer[this->producer].read_samples, 0, nof_channels * sizeof(uint32_t));
     }
 
@@ -427,17 +438,19 @@ inline void StationDoubleBuffer::process_data(int producer_index, uint16_t chann
 }
 
 // Read buffer
-StationBuffer* StationDoubleBuffer::read_buffer()
+StationBuffer *StationDoubleBuffer::read_buffer()
 {
     // Wait for buffer to become available
-    if (!(this->double_buffer[this->consumer].ready)) {
+    if (!(this->double_buffer[this->consumer].ready))
+    {
         nanosleep(&tim, &tim2); // Wait using nanosleep
         return nullptr;
     }
 
     // Buffer is ready, finalise integration by diving with number of read samples
     // per channel for both X and Y pol
-    for (unsigned i = 0; i < this->nof_channels; i++) {
+    for (unsigned i = 0; i < this->nof_channels; i++)
+    {
         uint32_t nof_samples = this->double_buffer[this->consumer].read_samples[i];
         this->double_buffer[this->consumer].integrators[i] /= nof_samples;
         this->double_buffer[this->consumer].integrators[i + this->nof_channels] /= nof_samples;
@@ -450,15 +463,15 @@ StationBuffer* StationDoubleBuffer::read_buffer()
 void StationDoubleBuffer::release_buffer()
 {
     // Set buffer as processed
-    this->double_buffer[this->consumer].mutex -> lock();
+    this->double_buffer[this->consumer].mutex->lock();
     this->double_buffer[this->consumer].index = 0;
     this->double_buffer[this->consumer].ready = false;
     this->double_buffer[this->consumer].ref_time = DBL_MAX;
-    this->double_buffer[this->consumer].nof_packets=0;
-    this->double_buffer[this->consumer].nof_saturations=0;
+    this->double_buffer[this->consumer].nof_packets = 0;
+    this->double_buffer[this->consumer].nof_saturations = 0;
     memset(double_buffer[this->consumer].integrators, 0, nof_pols * nof_channels * sizeof(double));
     memset(double_buffer[this->consumer].read_samples, 0, nof_channels * sizeof(uint32_t));
-    this->double_buffer[this->consumer].mutex -> unlock();
+    this->double_buffer[this->consumer].mutex->unlock();
 
     // Update consumer pointer
     this->consumer = (this->consumer + 1) % nof_buffers;
@@ -468,11 +481,11 @@ void StationDoubleBuffer::release_buffer()
 void StationDoubleBuffer::clear()
 {
     // Initialise and allocate buffers in each struct instance
-    for(unsigned i = 0; i < nof_buffers; i++)
+    for (unsigned i = 0; i < nof_buffers; i++)
     {
         double_buffer[i].ref_time = DBL_MAX;
-        double_buffer[i].ready    = false;
-        double_buffer[i].index  = 0;
+        double_buffer[i].ready = false;
+        double_buffer[i].index = 0;
         double_buffer[i].nof_samples = 0;
         double_buffer[i].nof_packets = 0;
         double_buffer[i].nof_saturations = 0;
@@ -486,11 +499,13 @@ void StationDoubleBuffer::clear()
 void StationPersister::threadEntry()
 {
     // Infinite loop: Process buffers
-    while (!this->stop_thread) {
+    while (!this->stop_thread)
+    {
 
         // Get new buffer
         StationBuffer *buffer;
-        do {
+        do
+        {
             buffer = double_buffer->read_buffer();
             if (this->stop_thread)
                 return;
