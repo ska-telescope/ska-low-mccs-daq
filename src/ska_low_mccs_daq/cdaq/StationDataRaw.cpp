@@ -68,7 +68,7 @@ bool StationRawData::initialiseConsumer(json configuration)
     nof_pols = 2;
 
     // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t)nof_samples * 4);
+    initialiseRingBuffer(packet_size, (size_t)nof_samples * 8);
     // initialiseRingBuffer(packet_size, (size_t) nof_samples / 8);
 
     // Create double buffer
