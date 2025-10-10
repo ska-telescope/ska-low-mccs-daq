@@ -19,6 +19,7 @@ from tango.server import command
 
 from ska_low_mccs_daq import MccsDaqReceiver
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
+from tests.test_tools import execute_lrc_to_completion
 
 
 class TestDaqHealth:
@@ -32,7 +33,10 @@ class TestDaqHealth:
         :return: a collections.defaultdict that returns change event
             callbacks by name.
         """
-        return MockTangoEventCallbackGroup("healthState")
+        return MockTangoEventCallbackGroup(
+            "healthState",
+            "track_lrc_command",
+        )
 
     @pytest.fixture(name="test_context")
     def test_context_fixture(self) -> Iterator[SpsTangoTestHarnessContext]:
@@ -163,3 +167,115 @@ class TestDaqHealth:
 
         change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
         assert daq_device.state() == tango.DevState.ON
+
+    @pytest.mark.parametrize(
+        ["consumer", "attribute", "expected_value", "expected_health"],
+        [
+            (
+                "STATION_BEAM_DATA",
+                "nof_packets",
+                int(384 * 262144 / 2048 * 0.5),
+                HealthState.FAILED,
+            ),
+            (
+                "STATION_BEAM_DATA",
+                "nof_packets",
+                int(384 * 262144 / 2048 * 0.95),
+                HealthState.DEGRADED,
+            ),
+            (
+                "INTEGRATED_CHANNEL_DATA",
+                "nof_packets",
+                int(2 * 512 / 32 * 16 / 8 * 0.5),
+                HealthState.FAILED,
+            ),
+            (
+                "INTEGRATED_CHANNEL_DATA",
+                "nof_packets",
+                int(2 * 512 / 32 * 16 / 8 * 0.95),
+                HealthState.DEGRADED,
+            ),
+            (
+                "CORRELATOR_DATA",
+                "nof_packets",
+                int(1835008 / 256 * 16 / 8 * 0.5),
+                HealthState.FAILED,
+            ),
+            (
+                "CORRELATOR_DATA",
+                "nof_packets",
+                int(1835008 / 256 * 16 / 8 * 0.95),
+                HealthState.DEGRADED,
+            ),
+            (
+                "CORRELATOR_DATA",
+                "correlator_time_taken",
+                1835008 / 925925.925 * 2,
+                HealthState.FAILED,
+            ),
+            (
+                "CORRELATOR_DATA",
+                "correlator_time_taken",
+                1835008 / 925925.925 * 0.8,
+                HealthState.DEGRADED,
+            ),
+            (
+                "CORRELATOR_DATA",
+                "nof_samples",
+                int(1835008 * 0.5),
+                HealthState.FAILED,
+            ),
+            (
+                "CORRELATOR_DATA",
+                "nof_samples",
+                int(1835008 * 0.95),
+                HealthState.DEGRADED,
+            ),
+        ],
+    )
+    # pylint: disable=too-many-arguments
+    def test_rel_attrs(
+        self,
+        test_context: SpsTangoTestHarnessContext,
+        change_event_callbacks: MockTangoEventCallbackGroup,
+        consumer: str,
+        attribute: str,
+        expected_value: float,
+        expected_health: HealthState,
+    ) -> None:
+        """
+        Test that when alarm thresholds are changed, health state updates.
+
+        :param test_context: The test context fixture.
+        :param change_event_callbacks: The change event callbacks fixture.
+        :param consumer: The consumer to start up.
+        :param attribute: The attribute to check.
+        :param expected_value: The expected value of the attribute.
+        :param expected_health: The expected health state.
+        """
+        daq_device = test_context.get_daq_device()
+        daq_device.subscribe_event(
+            "healthState",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["healthState"],
+        )
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
+        change_event_callbacks["healthState"].assert_not_called()
+        assert daq_device.state() == tango.DevState.DISABLE
+
+        daq_device.adminmode = 0
+        change_event_callbacks["healthState"].assert_change_event(
+            HealthState.OK, lookahead=2, consume_nonmatches=True
+        )
+        change_event_callbacks["healthState"].assert_not_called()
+        assert daq_device.state() == tango.DevState.ON
+
+        execute_lrc_to_completion(
+            change_event_callbacks,
+            daq_device,
+            "Start",
+            json.dumps({"modes_to_start": consumer}),
+        )
+        daq_device.CallComponentCallback(json.dumps({attribute: expected_value}))
+
+        change_event_callbacks["healthState"].assert_change_event(expected_health)

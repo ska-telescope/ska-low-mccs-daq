@@ -683,7 +683,7 @@ class MccsDaqReceiver(MccsBaseDevice):
                 )
                 return
         self._relative_nof_samples_diff = (
-            100 * (abs_nof_samples - expected_nof_samples) / expected_nof_samples
+            100 * (expected_nof_samples - abs_nof_samples) / expected_nof_samples
         )
         self.push_change_event(
             "relativeNofSamplesDiff", self._relative_nof_samples_diff
@@ -703,9 +703,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         max_time_available = int(config["nof_correlator_samples"]) / float(
             config["sampling_rate"]
         )
-        self._correlator_time_util = (
-            100 * (max_time_available - correlator_time_taken) / max_time_available
-        )
+        self._correlator_time_util = 100 * correlator_time_taken / max_time_available
         self.push_change_event("correlatorTimeUtil", self._correlator_time_util)
         self.push_archive_event("correlatorTimeUtil", self._correlator_time_util)
 
