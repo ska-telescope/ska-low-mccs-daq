@@ -1,13 +1,56 @@
 # Version History
 
-## 3.3.0
+## Unreleased
 
 * [THORN-247] Added a new correlator mode for the Tensor Core Correlator (https://git.astron.nl/RD/tensor-core-correlator/-/tree/master).
     It lives in a new DaqMode 'TC_CORRELATOR_DATA' and should be considered experimental for now.
+
+## 4.1.2
+
+* [JANUS-257] Fixed the type of subarray_id in the StationMetadata class to match with StationData.h
+* [THORN-257] Added MarkDone() command
+* [JANUS-273] Updated environment variable used in acquire_station_beam.cpp to align with other data modes
+
+## 4.1.1
+
+* [JANUS-257] Deleted a space in a field name in BeamMetadata
+
+## 4.1.0
+
+* [JANUS-257] Added the SPEAD header metadata to the callbacks of RAW_DATA, BEAM_DATA, INTEGRATED_BEAM_DATA, STATION_BEAM_DATA, ANTENNA_BUFFER DAQ modes.
+* [JANUS-257] Added channelised data SPEAD headers to callback as metadata.
+
+## 4.0.0
+
+* [THORN-172] The old two pod DAQ has been removed.
+
+## Unreleased
+
+* [THORN-247] Added a new correlator mode for the Tensor Core Correlator (https://git.astron.nl/RD/tensor-core-correlator/-/tree/master).
+    It lives in a new DaqMode 'TC_CORRELATOR_DATA' and should be considered experimental for now.
+
+## 4.1.2
+
+* [JANUS-257] Fixed the type of subarray_id in the StationMetadata class to match with StationData.h
+* [THORN-257] Added MarkDone() command
+* [JANUS-273] Updated environment variable used in acquire_station_beam.cpp to align with other data modes
+
+## 4.1.1
+
+* [JANUS-257] Deleted a space in a field name in BeamMetadata
+
+## 4.1.0
+
+* [JANUS-257] Added the SPEAD header metadata to the callbacks of RAW_DATA, BEAM_DATA, INTEGRATED_BEAM_DATA, STATION_BEAM_DATA, ANTENNA_BUFFER DAQ modes.
+* [JANUS-257] Added channelised data SPEAD headers to callback as metadata.
+
+## 4.0.0
+
+* [THORN-172] The old two pod DAQ has been removed.
     
 ## 3.2.2
 
-* [THORN-248] Update ska-low-mccs-common dependency.#
+* [THORN-248] Update ska-low-mccs-common dependency.
 
 ## 3.2.1
 
