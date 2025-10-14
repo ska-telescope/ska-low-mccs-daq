@@ -18,6 +18,9 @@ dsconfig:
 
 global:
   minikube: true
+  operator: true
+  ska-tango-base:
+    enabled: true
   tango_host: databaseds-tango-base:10000
   cluster_domain: cluster.local
 
@@ -124,3 +127,58 @@ ska-tango-devices:
         timeoutSeconds: 3
         successThreshold: 1
         failureThreshold: 3
+  deviceServers:
+    daq:
+      daq-ci-1:
+        devices:
+          MccsDaqReceiver:
+          - low-mccs/daqreceiver/ci-1
+        volumes:
+          daq-data:
+            claim: daq-data
+            mountPath: /product
+      daq-ci-1-bandpass:
+        devices:
+          MccsDaqReceiver:
+          - low-mccs/daqreceiver/ci-1-bandpass
+        expose: true
+      daq-real-daq-1:
+        devices:
+          MccsDaqReceiver:
+          - low-mccs/daqreceiver/real-daq-1
+        volumes:
+          daq-data:
+            claim: daq-data
+            mountPath: /product
+      daq-real-daq-1-bandpass:
+        devices:
+          MccsDaqReceiver:
+          - low-mccs/daqreceiver/real-daq-1-bandpass
+        expose: true
+  devices:
+    MccsDaqReceiver:
+      low-mccs/daqreceiver/ci-1:
+        DaqId: 1
+        Host: daqrx-ci-1
+        NumberOfTiles: 1
+        SimulationMode: true
+      low-mccs/daqreceiver/ci-1-bandpass:
+        BandpassDaq: true
+        DaqId: 1
+        Host: daqrx-ci-1-bandpass
+        NumberOfTiles: 1
+        SimulationMode: true
+      low-mccs/daqreceiver/real-daq-1:
+        DaqId: 1
+        Host: daqrx-real-daq-1
+        NumberOfTiles: 1
+      low-mccs/daqreceiver/real-daq-1-bandpass:
+        BandpassDaq: true
+        DaqId: 1
+        Host: daqrx-real-daq-1-bandpass
+        NumberOfTiles: 1
+storage:
+  daq-data:
+    size: 250Mi
+    storage_class: nfss1
+

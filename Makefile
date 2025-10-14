@@ -53,7 +53,7 @@ include .make/oci.mk
 ###############################################
 # K8S
 ###############################################
-K8S_USE_HELMFILE = true
+K8S_USE_HELMFILE = false
 K8S_HELMFILE = helmfile.d/helmfile.yaml.gotmpl
 
 ifdef CI_COMMIT_SHORT_SHA
