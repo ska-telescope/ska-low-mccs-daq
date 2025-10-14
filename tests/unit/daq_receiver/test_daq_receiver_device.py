@@ -33,6 +33,7 @@ from tests.functional.conftest import (
     verify_bandpass_state,
 )
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
+from tests.test_tools import execute_lrc_to_completion
 
 # TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
 gc.disable()
@@ -125,6 +126,12 @@ class TestMccsDaqReceiver:
         :param change_event_callbacks: group of Tango change event callbacks
             with asynchony support.
         """
+        device_under_test.subscribe_event(
+            "healthState",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["healthState"],
+        )
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
         # Set adminMode so we can control device.
         device_under_test.adminMode = AdminMode.ONLINE
         device_under_test.subscribe_event(
@@ -135,6 +142,9 @@ class TestMccsDaqReceiver:
         change_event_callbacks["state"].assert_change_event(
             tango.DevState.ON, consume_nonmatches=True, lookahead=5
         )
+        change_event_callbacks["healthState"].assert_change_event(
+            HealthState.OK, consume_nonmatches=True, lookahead=5
+        )
 
         # Configure.
         daq_config = {
@@ -144,15 +154,12 @@ class TestMccsDaqReceiver:
         }
         device_under_test.Configure(json.dumps(daq_config))
         # Start a consumer to check with DaqStatus.
-        device_under_test.Start(json.dumps({"modes_to_start": modes_to_start}))
-        # We can't check immediately so wait for consumer(s) to start.
-
-        # I'd like to pass `task_callback=MockCallback()` to `Start`.
-        # However it isn't json serializable so we can't do that here.
-        # Instead we resort to this...
-
-        # TODO: mock skuid_client to fail fast.
-        sleep(25)
+        execute_lrc_to_completion(
+            change_event_callbacks,
+            device_under_test,
+            "Start",
+            json.dumps({"modes_to_start": modes_to_start}),
+        )
 
         # Check status.
         status = json.loads(device_under_test.DaqStatus())
