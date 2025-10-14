@@ -68,8 +68,6 @@ include .make/k8s.mk
 # THIS IS SPECIFIC TO THIS REPO
 ifdef CI_REGISTRY_IMAGE
 K8S_CHART_PARAMS = \
-	--selector chart=ska-low-mccs-daq \
-	--selector chart=ska-tango-base \
 	--set image.registry=$(CI_REGISTRY_IMAGE) \
 	--set image.tag=$(VERSION)-dev.c$(CI_COMMIT_SHORT_SHA) \
 	--set ska-tango-devices.deviceServerTypes.daq.image.registry=$(CI_REGISTRY_IMAGE) \
