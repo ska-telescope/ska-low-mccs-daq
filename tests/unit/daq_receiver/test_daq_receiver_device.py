@@ -339,8 +339,10 @@ class TestMccsDaqReceiver:
         else:
             assert device_under_test.lostpushes == 0
         device_under_test.stop()
-        change_event_callbacks["ringbuffer_occupancy"].assert_change_event(0.0)
-        change_event_callbacks["lost_pushes"].assert_change_event(0)
+        change_event_callbacks["ringbuffer_occupancy"].assert_change_event(
+            0.0, lookahead=2
+        )
+        change_event_callbacks["lost_pushes"].assert_change_event(0, lookahead=2)
 
 
 class TestPatchedDaq:
