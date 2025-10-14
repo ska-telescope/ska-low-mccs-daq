@@ -11,12 +11,14 @@ from __future__ import annotations  # allow forward references in type hints
 
 import json
 import logging
+import time
 from importlib import resources
-from typing import Any, Final, Optional, Union
+from typing import Any, Callable, Final, Optional, Union
 
 import numpy as np
+import tango
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
-from ska_low_mccs_common import MccsBaseDevice
+from ska_low_mccs_common import HealthRecorder, MccsBaseDevice
 from ska_tango_base.base import BaseComponentManager
 from ska_tango_base.commands import (
     CommandTrackerProtocol,
@@ -29,7 +31,6 @@ from tango.server import attribute, command, device_property
 
 from ..version import version_info
 from .daq_component_manager import DaqComponentManager
-from .daq_health_model import DaqHealthModel
 
 __all__ = ["MccsDaqReceiver", "main"]
 
@@ -260,7 +261,9 @@ class MccsDaqReceiver(MccsBaseDevice):
 
         self.component_manager: DaqComponentManager
         self._health_state: HealthState = HealthState.UNKNOWN
-        self._health_model: DaqHealthModel
+        self._health_report: str = ""
+        self._health_recorder: Optional[HealthRecorder] = None
+        self._healthful_attributes: dict[str, Callable]
         self._received_data_mode: str
         self._received_data_result: str
         self._x_bandpass_plot: np.ndarray
@@ -272,11 +275,12 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._data_rate: float
         self._receive_rate: float
         self._drop_rate: float
-        self._ringbuffer_occupancy: float
+        self._ringbuffer_occupancy: float | None
         self._lost_pushes: int
         self._correlator_time_taken: float
         self._buffer_counter: int
         self._skuid_url: str
+        self._stopping = False
 
     def init_device(self: MccsDaqReceiver) -> None:
         """
@@ -317,6 +321,10 @@ class MccsDaqReceiver(MccsBaseDevice):
 
     def delete_device(self: MccsDaqReceiver) -> None:
         """Delete the device."""
+        self._stopping = True
+        if self._health_recorder is not None:
+            self._health_recorder.cleanup()
+            self._health_recorder = None
         self.component_manager._task_executor._executor.shutdown()
         if (
             self.component_manager.communication_state
@@ -332,10 +340,19 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._health_state = (
             HealthState.UNKNOWN
         )  # InitCommand.do() does this too late.# noqa: E501
-        self._health_model = DaqHealthModel(
-            self._health_changed,
-            ignore_power_state=True,
+        self.set_change_event("healthState", True, False)
+        self.set_archive_event("healthState", True, False)
+        self._healthful_attributes = {
+            "ringbufferOccupancy": lambda: self._ringbuffer_occupancy
+        }
+        self._health_recorder = HealthRecorder(
+            self.get_name(),
+            self.logger,
+            attributes=list(self._healthful_attributes.keys()),
+            health_callback=self._health_changed,
+            attr_conf_callback=self._attr_conf_changed,
         )
+        self._health_report = ""
         self._received_data_mode = ""
         self._received_data_result = ""
         self._x_bandpass_plot = np.zeros(shape=(256, 512), dtype=float)
@@ -347,12 +364,10 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._receive_rate = 0
         self._drop_rate = 0
         self._data_rate = 0
-        self._ringbuffer_occupancy = 0.0
+        self._ringbuffer_occupancy = None
         self._lost_pushes = 0
         self._correlator_time_taken = 0.0
         self._buffer_counter = 0
-        self.set_change_event("healthState", True, False)
-        self.set_archive_event("healthState", True, False)
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
         """
@@ -498,9 +513,16 @@ class MccsDaqReceiver(MccsBaseDevice):
         action = action_map[communication_state]
         if action is not None:
             self.op_state_model.perform_action(action)
-        self._health_model.update_state(
-            communicating=(communication_state == CommunicationStatus.ESTABLISHED)
-        )
+        if communication_state == CommunicationStatus.DISABLED:
+            for attribute_name, attribute_value in self._healthful_attributes.items():
+                self.push_change_event(
+                    attribute_name,
+                    attribute_value(),
+                    time.time(),
+                    tango.AttrQuality.ATTR_INVALID,
+                )
+        elif communication_state == CommunicationStatus.ESTABLISHED:
+            self._component_state_callback(reset_consumer_attributes=True)
 
     # pylint: disable=too-many-arguments
     def _component_state_callback(  # noqa: C901
@@ -527,9 +549,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         """
         if fault:
             self.op_state_model.perform_action("component_fault")
-            self._health_model.update_state(fault=True)
-        elif fault is False:
-            self._health_model.update_state(fault=False)
 
         if x_bandpass_plot is not None:
             if isinstance(x_bandpass_plot, list):
@@ -649,7 +668,9 @@ class MccsDaqReceiver(MccsBaseDevice):
                 (self._received_data_mode, self._received_data_result),
             )
 
-    def _health_changed(self: MccsDaqReceiver, health: HealthState) -> None:
+    def _health_changed(
+        self: MccsDaqReceiver, health: HealthState, health_report: str
+    ) -> None:
         """
         Handle change in this device's health state.
 
@@ -659,11 +680,36 @@ class MccsDaqReceiver(MccsBaseDevice):
         date, and events are pushed.
 
         :param health: the new health value
+        :param health_report: the health report
         """
+        self.logger.debug(f"Health changed to {health.name}: {health_report}")
+        if self._stopping:
+            return
         if self._health_state != health:
             self._health_state = health
+            self._health_report = health_report
             self.push_change_event("healthState", health)
             self.push_archive_event("healthState", health)
+
+    def _attr_conf_changed(self: MccsDaqReceiver, attribute_name: str) -> None:
+        """
+        Handle change in configuration of an attribute.
+
+        This is a workaround as if you configure an attribute
+        which is not alarming to have alarm/warning thresholds
+        such that it would be alarming, Tango does not push an event
+        until the attribute value changes.
+
+        :param attribute_name: the name of the attribute whose
+            configuration has changed.
+        """
+        if (
+            attribute_name in self._healthful_attributes
+            and self._healthful_attributes[attribute_name]() is not None
+        ):
+            self.push_change_event(
+                attribute_name, self._healthful_attributes[attribute_name]()
+            )
 
     # --------
     # Commands
@@ -1183,7 +1229,7 @@ class MccsDaqReceiver(MccsBaseDevice):
 
         :return: the health report.
         """
-        return self._health_model.health_report
+        return self._health_report
 
     @attribute(
         dtype="DevLong",
@@ -1310,8 +1356,10 @@ class MccsDaqReceiver(MccsBaseDevice):
             "is full you will be dropping packets as the consumer",
             " is not keeping up with the producer.",
         ),
+        max_alarm=70.0,
+        max_warning=20.0,
     )
-    def RingbufferOccupancy(self: MccsDaqReceiver) -> float:
+    def ringbufferOccupancy(self: MccsDaqReceiver) -> float | None:
         """
         Return the current ringbuffer occupancy in percent.
 
