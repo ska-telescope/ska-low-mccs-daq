@@ -22,7 +22,7 @@ global:
   ska-tango-base:
     enabled: true
   tango_host: databaseds-tango-base:10000
-  cluster_domain: cluster.local
+  cluster_domain: staging.internal.skao.int
 
 storage: {}
 #   daq-data:

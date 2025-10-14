@@ -4,3 +4,5 @@ platform:
       ci-1:
         id: 1
         sps: {}
+  cluster:
+    domain: staging.internal.skao.int
