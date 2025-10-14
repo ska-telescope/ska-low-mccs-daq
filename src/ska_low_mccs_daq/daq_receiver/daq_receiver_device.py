@@ -645,7 +645,11 @@ class MccsDaqReceiver(MccsBaseDevice):
                     * 2  # This shouldn't be needed, this is a bug in Cpp DAQ.
                 )
             case "CORRELATOR_DATA":
-                nof_tiles = int(config["nof_tiles"])
+                # Using this as xGPU requires 16 tiles hardcoded,
+                # but we'll still only get this many packets.
+                # So for environments with less that 16 tiles, the
+                # config would give an incorrect calculation.
+                nof_tiles = self.NumberOfTiles
                 nof_samples = int(config["nof_correlator_samples"])
                 samples_per_packet = 256
                 nof_antennas = int(config["nof_antennas"])
@@ -700,8 +704,10 @@ class MccsDaqReceiver(MccsBaseDevice):
                 "ignoring for health monitoring."
             )
             return
-        max_time_available = int(config["nof_correlator_samples"]) / float(
-            config["sampling_rate"]
+        max_time_available = (
+            int(config["nof_correlator_samples"])
+            / float(config["sampling_rate"])
+            * 1000  # to milliseconds
         )
         self._correlator_time_util = 100 * correlator_time_taken / max_time_available
         self.push_change_event("correlatorTimeUtil", self._correlator_time_util)

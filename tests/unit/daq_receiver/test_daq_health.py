@@ -210,13 +210,13 @@ class TestDaqHealth:
             (
                 "CORRELATOR_DATA",
                 "correlator_time_taken",
-                1835008 / 925925.925 * 2,
+                1000 * 1835008 / 925925.925 * 2,
                 HealthState.FAILED,
             ),
             (
                 "CORRELATOR_DATA",
                 "correlator_time_taken",
-                1835008 / 925925.925 * 0.8,
+                1000 * 1835008 / 925925.925 * 0.8,
                 HealthState.DEGRADED,
             ),
             (
