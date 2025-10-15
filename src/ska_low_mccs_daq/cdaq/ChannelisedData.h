@@ -90,12 +90,12 @@ public:
 
 public:
 
-    void set_metadata(uint32_t packet_index, uint64_t timestamp, uint32_t packet_counter, uint64_t sync_time, 
+    void set_metadata(uint64_t timestamp, uint32_t packet_counter, uint64_t sync_time, 
                     uint16_t station_id, uint32_t payload_offset, unsigned int tile_index, uint8_t fpga_id, 
                     uint16_t start_channel_id, uint32_t payload_length, uint16_t start_antenna_id,  
                     uint16_t nof_included_channels, uint16_t nof_included_antennas)
     {
-        int i = packet_index % 2048; 
+        unsigned int i = metadata[tile_index].nof_packets % 2048;
         //The line above stops the DAQ from failing when it receives more than 2048 packets. 
         //In the case of a capture larger than 2048 packets,
         //the metadata is overwritten on a first-in first-out basis. 
@@ -103,7 +103,6 @@ public:
         //packet was received last in the case that nof_packets>2048.
         metadata[tile_index].packet_counter[i] = packet_counter;
         metadata[tile_index].cont_channel_id = this->cont_channel_id;
-        metadata[tile_index].nof_packets = this->nof_packets+1;
         metadata[tile_index].payload_length = payload_length;
         metadata[tile_index].sync_time = sync_time;
         metadata[tile_index].nof_included_channels = nof_included_channels;
@@ -169,11 +168,14 @@ public:
             this->cont_channel_id = cont_channel_id;
         }
 
-        set_metadata(this->nof_packets, timestamp_field, packet_counter, sync_time, station_id, 
+        set_metadata(timestamp_field, packet_counter, sync_time, station_id, 
                     payload_offset, tile_index, fpga_id, channel, samples*32, 
                     start_antenna_id, included_channels, nof_included_antennas);
+
         // Update number of packets in container
         this->nof_packets++;
+        // Update number of packets in metadata
+        metadata[tile_index].nof_packets++;
     }
 
     //  Clear buffer and channel information
@@ -181,6 +183,7 @@ public:
     {
         // Clear buffer, set all content to 0
         for(unsigned i = 0; i < nof_tiles; i++) {
+            metadata[i].nof_packets=0;
             memset(channel_data[i].data, 0, nof_channels * nof_samples * nof_antennas * nof_pols * sizeof(T));
         }
 
@@ -211,9 +214,7 @@ public:
     }
 
 public:
-    // Number of process packets
-    uint64_t nof_packets = 0;
-
+    uint32_t nof_packets = 0;
 
 private:
     // Parameters
