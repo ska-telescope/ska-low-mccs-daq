@@ -18,6 +18,7 @@ from ska_control_model import AdminMode, HealthState
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.functional.conftest import (
+    expect_attribute,
     poll_until_command_result,
     poll_until_consumer_running,
     poll_until_consumers_stopped,
@@ -127,7 +128,7 @@ def check_daq_is_unknown_health(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    assert daq_receiver.healthState == HealthState.UNKNOWN
+    expect_attribute(daq_receiver, "healthState", HealthState.UNKNOWN)
 
 
 @given("the DAQ is in adminMode OFFLINE")

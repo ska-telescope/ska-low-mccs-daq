@@ -87,6 +87,14 @@ Ringbuffer Diagnostics
    Total number of failed attempts to push data into the ringbuffer.
    This typically increases when the buffer is full or consumer lag is high.
 
+.. attribute:: lostPushRate
+
+   **Type:** DevFloat 
+
+   **Unit:** packets/second
+
+   Rate of failed pushes to the ringbuffer per second.
+
 Consumer Diagnostics
 --------------------
 
@@ -108,6 +116,17 @@ Consumer Diagnostics
        Note: there is some odd behaviour with this attribute at the beginning/end of a frequency sweep which is not yet understood.
     3. For the integrated channel data consumer (bandpasses), should be 32 packets per TPM sending data as each packet contains data for 8 antennas and 32 channels.
 
+.. attribute:: relativeNofPacketsDiff
+
+   **Type** DevFloat
+
+   **Unit:** percentage  
+
+    The amount the amount of packets received at the last consumer interation compared to what we expect given consumer configuration. E.g if DAQ is configured to
+    receive a station beam for 384 channels, and to integrate 262144 samples, it expect to receive 384 * 262144/2048 packets per integration. (As there are 2048 samples
+    per packet). The attribute will then alarm if, for example, the DAQ is falling behind and only managed to process half that many packets last integration.
+
+    The expected nof packets calculation is different for each consumer.  
 
 .. attribute:: nofSamples
 
@@ -118,6 +137,14 @@ Consumer Diagnostics
    For the correlator data consumer, this at the moment should be 1835008 as the correlator is fixed to this integration period.
    Note: there is some odd behaviour with this attribute at the beginning/end of a frequency sweep which is not yet understood.
     
+.. attribute:: relativeNofSamplesDiff
+
+   **Type** DevFloat
+
+   **Unit:** percentage  
+
+    The amound of samples received at the last consumer interation compared to what we expect given consumer configuration. E.g if DAQ is configured to integrate 262144
+    station beam samples, it compares what it actually did with that and this attribute will alarm if the percentage difference is greater than configured limits.
 
 .. attribute:: correlatorTimeTaken
 
@@ -127,3 +154,16 @@ Consumer Diagnostics
 
    Time taken to complete the last correlation in xGPU, measured in milliseconds.
    A rising trend may indicate GPU contention or performance bottlenecks.
+
+.. attribute:: correlatorTimeUtil
+
+   **Type:** DevFloat
+
+   **Unit:** percentage  
+
+   Time taken to complete the last correlation in xGPU, compared to how long we have available, given current DAQ configuration.
+
+   E.g For a correlation of 1835008 samples, the sampling time is 1835008/925925.925 seconds. This means the TPMs will spend about 2 seconds per channel.
+   The consumer loads those samples into a buffer, then once the next channel arrives it moves to the next buffer. This means the consumer rotates through buffers
+   at a rate dependent on how long we are sampling for. If the correlator takes longer than the time we are sampling for, eventually once we run out of buffers,
+   the consumer will rotate back to buffers which have not yet been solved, and we drop channels from the frequency sweep.

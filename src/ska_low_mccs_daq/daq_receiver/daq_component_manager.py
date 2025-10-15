@@ -803,7 +803,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     @property
     @check_communicating
-    def get_running_consumers(self: DaqComponentManager) -> list:
+    def running_consumers(self: DaqComponentManager) -> list:
         """
         Provide a list of the status consumers.
 

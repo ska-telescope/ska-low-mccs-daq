@@ -54,6 +54,7 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
         "state",
         "ringbuffer_occupancy",
         "lost_pushes",
+        "track_lrc_command",
         timeout=15.0,
         # TODO: Add more event types here as the tests grow
     )
