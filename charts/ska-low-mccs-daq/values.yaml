@@ -74,11 +74,10 @@ ska-tango-devices:
   labels:
     app: ska-low-mccs-daq
 
-  # deviceDefaults:
-  #   MccsDaqReceiver:
-  #     ConsumersToStart: DaqModes.INTEGRATED_CHANNEL_DATA
-  #     Port: 50051
-  #     SkuidUrl: http://ska-ser-skuid-ska-ser-skuid-svc:9870/
+  deviceDefaults:
+    MccsDaqReceiver:
+      RingbufferOccupancy->max_warning: 20
+      RingbufferOccupancy->max_alarm: 70
 
   # devices:
   #   MccsDaqReceiver:

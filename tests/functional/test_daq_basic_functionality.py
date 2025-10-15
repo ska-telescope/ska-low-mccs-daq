@@ -15,8 +15,10 @@ import pytest
 import tango
 from pytest_bdd import given, parsers, scenarios, then, when
 from ska_control_model import AdminMode, HealthState
+from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.functional.conftest import (
+    expect_attribute,
     poll_until_command_result,
     poll_until_consumer_running,
     poll_until_consumers_stopped,
@@ -126,7 +128,7 @@ def check_daq_is_unknown_health(
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    assert daq_receiver.healthState == HealthState.UNKNOWN
+    expect_attribute(daq_receiver, "healthState", HealthState.UNKNOWN)
 
 
 @given("the DAQ is in adminMode OFFLINE")
@@ -213,13 +215,25 @@ def check_daq_is_on(
 @then("the DAQ is in health state OK")
 def check_daq_is_healthy(
     daq_receiver: tango.DeviceProxy,
+    change_event_callbacks: MockTangoEventCallbackGroup,
 ) -> None:
     """
     Check that the daq receiver is healthy.
 
     :param daq_receiver: The daq_receiver fixture to use.
+    :param change_event_callbacks: A change event callback group.
     """
-    assert daq_receiver.healthState == HealthState.OK
+    if daq_receiver.healthstate != HealthState.OK:
+        subscription_id = daq_receiver.subscribe_event(
+            "healthstate",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["device_healthstate"],
+        )
+        change_event_callbacks["device_healthstate"].assert_change_event(
+            HealthState.OK, lookahead=2
+        )
+        daq_receiver.unsubscribe_event(subscription_id)
+    assert daq_receiver.healthstate == HealthState.OK
 
 
 @given("the DAQ is in the ON state")
@@ -239,15 +253,25 @@ def daq_device_is_on(
 
 @given("the DAQ is in health state OK")
 def daq_device_is_online_health(
-    daq_receiver: tango.DeviceProxy,
+    daq_receiver: tango.DeviceProxy, change_event_callbacks: MockTangoEventCallbackGroup
 ) -> None:
     """
     Assert that daq receiver is in health mode OK.
 
     :param daq_receiver: The daq_receiver fixture to use.
+    :param change_event_callbacks: A change event callback group.
     """
     if daq_receiver.healthState != HealthState.OK:
-        pytest.fail("Initial conditions not met, health state not OK")
+        subcription_id = daq_receiver.subscribe_event(
+            "healthstate",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["device_healthstate"],
+        )
+        change_event_callbacks["device_healthstate"].assert_change_event(
+            HealthState.OK, lookahead=2
+        )
+        daq_receiver.unsubscribe_event(subcription_id)
+        assert daq_receiver.healthstate == HealthState.OK
 
 
 @when("I send the Start command with raw data")
