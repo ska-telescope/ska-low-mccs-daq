@@ -14,7 +14,7 @@
 
 // Default double buffer constructor
 DoubleBuffer::DoubleBuffer(uint16_t nof_antennas, uint32_t nof_samples,
-                           uint8_t nof_pols, uint8_t nbuffers, AllocPolicy policy) :
+                           uint8_t nof_pols, uint8_t nbuffers, bool allocate_buffer) :
                             nof_antennas(nof_antennas), nof_samples(nof_samples), nof_pols(nof_pols),
                             nbuffers(nbuffers)
 {
@@ -37,7 +37,7 @@ DoubleBuffer::DoubleBuffer(uint16_t nof_antennas, uint32_t nof_samples,
         double_buffer[i].nof_samples = nof_samples;
         double_buffer[i].nof_pols  = nof_pols;
         double_buffer[i].mutex = new std::mutex;
-        if (policy == AllocPolicy::Default) {
+        if (allocate_buffer) {
             allocate_aligned((void **) &(double_buffer[i].data), (size_t) CACHE_ALIGNMENT,
                             nof_samples * nof_antennas * nof_pols * sizeof(uint16_t));
 

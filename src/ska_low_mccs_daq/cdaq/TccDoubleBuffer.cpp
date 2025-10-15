@@ -7,7 +7,7 @@
 
 TccDoubleBuffer::TccDoubleBuffer(uint16_t na, uint32_t ns,
                                  uint8_t np, uint8_t nb)
-    : DoubleBuffer(na, ns, np, nb, AllocPolicy::External) // Is this really the best way to do this???
+    : DoubleBuffer(na, ns, np, nb, false)
 {
     cu::init();
     const size_t bytes = (size_t)nof_samples * nof_antennas * nof_pols * sizeof(uint16_t);

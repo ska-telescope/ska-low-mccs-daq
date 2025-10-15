@@ -138,7 +138,7 @@ Consumer Diagnostics
    Note: there is some odd behaviour with this attribute at the beginning/end of a frequency sweep which is not yet understood.
 
    For the TCC correlator this is variable as the integration time can be changed. 
-   The odd behaviour at the beginning/end of a frequency sweep is not present for TCC.
+   
 .. attribute:: relativeNofSamplesDiff
 
    **Type** DevFloat

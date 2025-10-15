@@ -35,16 +35,13 @@ struct Buffer
     bool owned_by_base; // Whether or not this is owned by base, and should be freed as such
 };
 
-// I am unhappy with this, surely there's a better way??
-enum class AllocPolicy { Default, External };
-
 class DoubleBuffer
 {
 
 public:
     // Default constructor
     DoubleBuffer(uint16_t nof_antennas, uint32_t nof_samples,
-                 uint8_t nof_pols, uint8_t nbuffers = 4, AllocPolicy policy = AllocPolicy::Default);
+                 uint8_t nof_pols, uint8_t nbuffers = 4, bool allocate_buffer = true);
 
     // Class destructor
     virtual ~DoubleBuffer();
