@@ -187,8 +187,9 @@ public:
 
         // Call callback for each tile
         for(unsigned i = 0; i < nof_tiles; i++)
-            callback((uint32_t *) antenna_buffer_data[i].data, timestamp,
-                    static_cast<void *>(&metadata[i]));
+            if (metadata[i].nof_packets!=0)
+                callback((uint32_t *) antenna_buffer_data[i].data, timestamp,
+                        static_cast<void *>(&metadata[i]));
         clear();
     }
 

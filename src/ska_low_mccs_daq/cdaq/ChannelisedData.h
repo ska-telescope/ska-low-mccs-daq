@@ -201,9 +201,9 @@ public:
             // Call callback for every tile (if buffer has some content)
             for (unsigned i = 0; i < nof_tiles; i++)
             {
-                
-                callback((uint32_t *)channel_data[i].data, this->timestamp,
-                         static_cast<void *>(&metadata[i]));
+                if (metadata[i].nof_packets!=0)
+                    callback((uint32_t *)channel_data[i].data, this->timestamp,
+                            static_cast<void *>(&metadata[i]));
             }
             clear();
             return;
