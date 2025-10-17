@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 4.1.3
+
+* [JANUS-257] Fixed the order of fields in the AntennaBufferMetadata class to match with AntennaBuffer.h. Seperated the member variable nof_packets in ChaneelisedData.h from the
+metadata field nof_packets. Added condition for calling back for only the tiles the DAQ has received data from for AntennaBuffer and Channelised modes. 
+
 ## 4.1.2
 
 * [JANUS-257] Fixed the type of subarray_id in the StationMetadata class to match with StationData.h
