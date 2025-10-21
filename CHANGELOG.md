@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* [THORN-247] Added a new correlator mode for the Tensor Core Correlator (https://git.astron.nl/RD/tensor-core-correlator/-/tree/master).
+    It lives in a new DaqMode 'TC_CORRELATOR_DATA' and should be considered experimental for now.
+
 ## 4.2.0
 
 * [JANUS-257] Fixed the order of fields in the AntennaBufferMetadata class to match with AntennaBuffer.h. Seperated the member variable nof_packets in ChaneelisedData.h from the
@@ -27,7 +30,7 @@ metadata field nof_packets. Added condition for calling back for only the tiles 
 ## 4.0.0
 
 * [THORN-172] The old two pod DAQ has been removed.
-
+    
 ## 3.2.2
 
 * [THORN-248] Update ska-low-mccs-common dependency.

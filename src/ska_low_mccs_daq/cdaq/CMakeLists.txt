@@ -16,7 +16,7 @@ message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 
 # CMAKE compilation flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx2 -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx2 -g")
 
 # Source files
 set(AAVS_FILES RawData.cpp
@@ -40,10 +40,19 @@ if (WITH_CORRELATOR)
                            CorrelatorData.cpp
                            CorrelatorData.h
                            StandaloneCorrelator.cpp)
+    add_library(aavsdaq_tcc SHARED
+        DoubleBuffer.cpp
+        DoubleBuffer.h
+        multi_array.h
+        TensorCorrelatorData.cpp
+        TensorCorrelatorData.h
+        TccDoubleBuffer.cpp
+        TccDoubleBuffer.h        
+    )
 endif()
 
 # CMAKE compilation flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx2 -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx2 -g")
 
 # Source file for raw station beam acquisition
 set(STATION_BEAM_FILES StationDataRaw.cpp
@@ -57,6 +66,12 @@ add_library(aavsdaq SHARED ${AAVS_FILES})
 # Compile AAVSDAQ library
 if (WITH_CORRELATOR)
     # Link required libraries
+
+    find_package(CUDAToolkit REQUIRED)
+    find_package(cudawrappers REQUIRED)
+    find_package(libtcc REQUIRED)
+
+    target_link_libraries(aavsdaq_tcc daq tcc cudawrappers::cu cudawrappers::nvrtc)
     target_link_libraries(aavsdaq daq xgpu ${CMAKE_THREAD_LIBS_INIT})
 
     if (WITH_SMALL_STATION)
@@ -89,6 +104,9 @@ target_link_libraries(acquire_station_beam aavsdaq)
 
 # Install library
 install(TARGETS "aavsdaq" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+if (WITH_CORRELATOR)
+  install(TARGETS aavsdaq_tcc DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+endif()
 
 if (WITH_SMALL_STATION)
     install(TARGETS "aavsdaq48" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)

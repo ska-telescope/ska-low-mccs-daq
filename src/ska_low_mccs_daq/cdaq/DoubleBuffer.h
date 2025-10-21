@@ -32,6 +32,7 @@ struct Buffer
     uint32_t   nof_samples;     // Number of samples in buffer
     uint8_t    nof_pols;      // Number of polarisations in buffer
     std::mutex *mutex;    // Mutex lock for this buffer
+    bool owned_by_base; // Whether or not this is owned by base, and should be freed as such
 };
 
 class DoubleBuffer
@@ -40,10 +41,10 @@ class DoubleBuffer
 public:
     // Default constructor
     DoubleBuffer(uint16_t nof_antennas, uint32_t nof_samples,
-                 uint8_t nof_pols, uint8_t nbuffers = 4);
+                 uint8_t nof_pols, uint8_t nbuffers = 4, bool allocate_buffer = true);
 
     // Class destructor
-    ~DoubleBuffer();
+    virtual ~DoubleBuffer();
 
     // Write data to buffer
     void write_data(uint16_t start_antenna, uint16_t nof_included_antennas, uint16_t channel,
@@ -73,12 +74,11 @@ public:
     // Clear double buffer
     void clear();
 
-private:
+protected:
 
-    inline void copy_data(uint32_t producer_index, uint16_t start_antenna, uint16_t nof_included_antennas,
+    virtual inline void copy_data(uint32_t producer_index, uint16_t start_antenna, uint16_t nof_included_antennas,
                           uint64_t start_sample_index, uint32_t samples, uint16_t *data_ptr, double timestamp);
 
-private:
     // The data structure which will hold the buffer elements
     Buffer *double_buffer;
 

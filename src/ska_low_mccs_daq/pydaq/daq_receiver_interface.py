@@ -31,6 +31,7 @@ class DaqModes(IntEnum):
     CORRELATOR_DATA = 7
     ANTENNA_BUFFER = 8
     RAW_STATION_BEAM = 10
+    TC_CORRELATOR_DATA = 11
 
 
 class DaqReceiver:
@@ -135,6 +136,17 @@ class DaqReceiver:
             ("nof_packets", ctypes.c_uint),
         ]
 
+    class TensorCorrelatorMetadata(ctypes.Structure):
+        _fields_ = [
+            ("channel_id", ctypes.c_uint),
+            ("time_taken", ctypes.c_double),
+            ("h2d_time", ctypes.c_double),
+            ("kern_time", ctypes.c_double),
+            ("d2h_time", ctypes.c_double),
+            ("nof_samples", ctypes.c_uint),
+            ("nof_packets", ctypes.c_uint),
+        ]
+
     class StationMetadata(ctypes.Structure):
         _fields_ = [
              ("nof_packets", ctypes.c_uint32),
@@ -152,6 +164,7 @@ class DaqReceiver:
 
     class RawStationMetadata(ctypes.Structure):
         """Raw station metadata structure definition"""
+
         _fields_ = [
             ("nof_packets", ctypes.c_uint),
             ("buffer_counter", ctypes.c_uint),
@@ -259,6 +272,9 @@ class DaqReceiver:
         # Default AAVS DAQ C++ shared library path
         daq_install_path = os.environ.get("DAQ_INSTALL", "/opt/aavs")
         self._daq_library_path = f"{daq_install_path}/lib/libaavsdaq.so".encode("ASCII")
+        self._tcc_correlator_path = f"{daq_install_path}/lib/libaavsdaq_tcc.so".encode(
+            "ASCII"
+        )
 
         # Pointer to shared library objects
         self._daq_library = None
@@ -285,7 +301,12 @@ class DaqReceiver:
                 self._correlator_callback
             ),
             DaqModes.ANTENNA_BUFFER: self.DYNAMIC_DATA_CALLBACK(self._antenna_buffer_callback),
-            DaqModes.RAW_STATION_BEAM: self.DIAGNOSTIC_CALLBACK(self._raw_station_callback),
+            DaqModes.RAW_STATION_BEAM: self.DIAGNOSTIC_CALLBACK(
+                self._raw_station_callback
+            ),
+            DaqModes.TC_CORRELATOR_DATA: self.DYNAMIC_DATA_CALLBACK(
+                self._tc_correlator_callback
+            ),
         }
 
         # List of external callback
@@ -788,6 +809,110 @@ class DaqReceiver:
         if self._config["logging"]:
             logging.info("Received correlated data for channel {}".format(channel_id))
 
+    def _tc_correlator_callback(
+        self,
+        data: ctypes.POINTER,
+        timestamp: float,
+        metadata: ctypes.POINTER,
+    ) -> None:
+        """Correlated data callback
+        :param data: Received data
+        :param timestamp: Timestamp of first sample in data
+        :param channel_id: Channel identifier"""
+
+        if not self._config["write_to_disk"]:
+            return
+
+        metadata = ctypes.cast(
+            metadata, ctypes.POINTER(self.TensorCorrelatorMetadata)
+        ).contents
+        channel_id = metadata.channel_id
+        time_taken = metadata.time_taken
+        nof_samples = metadata.nof_samples
+        nof_packets = metadata.nof_packets
+        h2d_time = metadata.h2d_time
+        kern_time = metadata.kern_time
+        d2h_time = metadata.d2h_time
+
+        # Extract data sent by DAQ
+        nof_antennas = self._config["nof_tiles"] * self._config["nof_antennas"]
+        nof_baselines = int((nof_antennas + 1) * 0.5 * nof_antennas)
+        nof_stokes = (
+            self._config["nof_polarisations"] * self._config["nof_polarisations"]
+        )
+        nof_channels = 1
+
+        N = nof_channels * ((nof_antennas * (nof_antennas + 1)) // 2) * nof_stokes
+
+        # Read 2*N int32’s (re,im interleaved)
+        ints = self._get_numpy_from_ctypes(data, np.int32, 2 * N)
+
+        # Split and convert to complex64s
+        re = ints[0::2].astype(np.float32)
+        im = ints[1::2].astype(np.float32)
+        values = (re + 1j * im).astype(np.complex64)  # shape: (N,)
+
+        # The correlator reorders the matrix in lower triangular form, this needs to be converted
+        # to upper triangular form to be compatible with the rest of the system
+        data = np.reshape(values, (nof_baselines, nof_stokes))
+        grid = np.zeros((nof_antennas, nof_antennas, nof_stokes), dtype=np.complex64)
+
+        counter = 0
+        for i in range(nof_antennas):
+            for j in range(i + 1):
+                grid[j, i, :] = data[counter, :]
+                counter += 1
+
+        values = np.zeros(nof_baselines * nof_stokes, dtype=np.complex64)
+
+        counter = 0
+        for i in range(nof_antennas):
+            for j in range(i, nof_antennas):
+                values[counter * nof_stokes : (counter + 1) * nof_stokes] = grid[
+                    i, j, :
+                ]
+                counter += 1
+
+        # Persist extracted data to file
+        persister = self._persisters[DaqModes.TC_CORRELATOR_DATA]
+        if self._config["nof_correlator_channels"] == 1:
+
+            if DaqModes.TC_CORRELATOR_DATA not in list(self._timestamps.keys()):
+                self._timestamps[DaqModes.TC_CORRELATOR_DATA] = timestamp
+
+            filename = persister.ingest_data(
+                append=True,
+                data_ptr=values,
+                timestamp=self._timestamps[DaqModes.TC_CORRELATOR_DATA],
+                sampling_time=self._sampling_time[DaqModes.TC_CORRELATOR_DATA],
+                buffer_timestamp=timestamp,
+                channel_id=channel_id,
+            )
+        else:
+            filename = persister.ingest_data(
+                append=False,
+                data_ptr=values,
+                timestamp=timestamp,
+                sampling_time=self._sampling_time[DaqModes.TC_CORRELATOR_DATA],
+                channel_id=channel_id,
+            )
+
+        # Call external callback if defined
+        if self._external_callbacks[DaqModes.TC_CORRELATOR_DATA] is not None:
+            self._external_callbacks[DaqModes.TC_CORRELATOR_DATA](
+                "tc_correlator",
+                filename,
+                nof_packets=nof_packets,
+                nof_samples=nof_samples,
+                correlator_time_taken=time_taken,
+                host_to_device_copy_time=h2d_time,
+                correlator_solve_time=kern_time,
+                device_to_host_copy_time=d2h_time
+            )
+
+        if self._config["logging"]:
+            logging.info("Received correlated data for channel {}".format(channel_id))
+
     def _station_callback(
         self,
         data: ctypes.POINTER,
@@ -901,7 +1026,8 @@ class DaqReceiver:
             logging.info("Received antenna buffer data for tile {}".format(tile))
 
     def _raw_station_callback(
-        self, metadata: ctypes.POINTER,
+        self,
+        metadata: ctypes.POINTER,
     ) -> None:
         """Raw data callback
         :param metadadata: Pointer to the metadata associated with the callback.
@@ -1304,6 +1430,70 @@ class DaqReceiver:
 
         logging.info("Started station beam data consumer")
 
+    def _start_tc_correlator(self, callback: Optional[Callable] = None) -> None:
+        """Start TC correlator
+        :param callback: Caller callback
+        """
+
+        # Generate configuration for raw consumer
+        params = {
+            "nof_channels": self._config["nof_correlator_channels"],
+            "nof_fine_channels": 1,
+            "nof_samples": self._config["nof_correlator_samples"],
+            "nof_antennas": self._config["nof_antennas"],
+            "nof_tiles": self._config["nof_tiles"],
+            "nof_pols": self._config["nof_polarisations"],
+            "max_packet_size": self._config["receiver_frame_size"],
+        }
+
+        if (
+            self._start_consumer(
+                "tensorcorrelator",
+                params,
+                self._callbacks[DaqModes.TC_CORRELATOR_DATA],
+                dynamic_callback=True,
+            )
+            != self.Result.Success
+        ):
+            raise Exception("Failed to start correlator")
+        self._running_consumers[DaqModes.TC_CORRELATOR_DATA] = True
+
+        # Create data persister
+        corr_file = CorrelationFormatFileManager(
+            root_path=self._config["directory"],
+            data_type="complex64",
+            observation_metadata=self._config["observation_metadata"],
+        )
+
+        nof_baselines = int(
+            (self._config["nof_tiles"] * self._config["nof_antennas"] + 1)
+            * 0.5
+            * self._config["nof_tiles"]
+            * self._config["nof_antennas"]
+        )
+
+        corr_file.set_metadata(
+            n_chans=1,
+            n_pols=self._config["nof_polarisations"],
+            n_samples=1,
+            n_antennas=self._config["nof_tiles"] * self._config["nof_antennas"],
+            n_stokes=self._config["nof_polarisations"]
+            * self._config["nof_polarisations"],
+            n_baselines=nof_baselines,
+            station_id=self._config["station_id"],
+        )
+        self._persisters[DaqModes.TC_CORRELATOR_DATA] = corr_file
+
+        # Set sampling time
+        self._sampling_time[DaqModes.TC_CORRELATOR_DATA] = self._config[
+            "nof_correlator_samples"
+        ] / float(self._config["sampling_rate"])
+
+        # Set external callback
+        self._external_callbacks[DaqModes.TC_CORRELATOR_DATA] = callback
+
+        logging.info("Started TC correlator")
+
     def _start_correlator(self, callback: Optional[Callable] = None) -> None:
         """Start correlator
         :param callback: Caller callback
@@ -1515,6 +1705,15 @@ class DaqReceiver:
 
         logging.info("Stopped station beam data consumer")
 
+    def _stop_tc_correlator(self) -> None:
+        """Stop TC correlator consumer"""
+        self._external_callbacks[DaqModes.TC_CORRELATOR_DATA] = None
+        if self._stop_consumer("tensorcorrelator") != self.Result.Success:
+            raise Exception("Failed to stop TC correlator")
+        self._running_consumers[DaqModes.TC_CORRELATOR_DATA] = False
+
+        logging.info("Stopped TC correlator")
+
     def _stop_correlator(self) -> None:
         """Stop correlator consumer"""
         self._external_callbacks[DaqModes.CORRELATOR_DATA] = None
@@ -1666,6 +1865,10 @@ class DaqReceiver:
             if DaqModes.RAW_STATION_BEAM == mode:
                 self._start_station_beam_acquisition()
 
+            # Running in TC correlator mode
+            if DaqModes.TC_CORRELATOR_DATA == mode:
+                self._start_tc_correlator(callbacks[i])
+
     def stop_daq(self) -> None:
         """Stop DAQ"""
 
@@ -1685,6 +1888,7 @@ class DaqReceiver:
             DaqModes.CORRELATOR_DATA: self._stop_correlator,
             DaqModes.ANTENNA_BUFFER: self._stop_antenna_buffer_consumer,
             DaqModes.RAW_STATION_BEAM: self._stop_station_beam_acquisition,
+            DaqModes.TC_CORRELATOR_DATA: self._stop_tc_correlator,
         }
 
         # Stop all running consumers
@@ -1907,7 +2111,11 @@ class DaqReceiver:
         self._station_beam_library = ctypes.CDLL(_library)
 
         # Define start capture
-        self._station_beam_library.start_capture.argtypes = [ctypes.c_char_p, self.DIAGNOSTIC_CALLBACK, self.DIAGNOSTIC_CALLBACK]
+        self._station_beam_library.start_capture.argtypes = [
+            ctypes.c_char_p,
+            self.DIAGNOSTIC_CALLBACK,
+            self.DIAGNOSTIC_CALLBACK,
+        ]
         self._station_beam_library.start_capture.restype = ctypes.c_int
 
         # Define stop capture
@@ -2090,7 +2298,14 @@ class DaqReceiver:
         consumer = consumer.encode()
 
         # Load consumer
-        res = self._daq_library.loadConsumer(self._daq_library_path, consumer)
+        res = self._daq_library.loadConsumer(
+            (
+                self._tcc_correlator_path
+                if consumer == b"tensorcorrelator"
+                else self._daq_library_path
+            ),
+            consumer,
+        )
         if res != self.Result.Success.value:
             return self.Result.Failure
 
@@ -2131,7 +2346,11 @@ class DaqReceiver:
     def _start_raw_station_acquisition(self, configuration: Dict[str, Any]):
         """Start receiving raw station beam data"""
         if (
-            self._station_beam_library.start_capture(json.dumps(configuration).encode(), self._daq_diagnostic_callback, self._callbacks[DaqModes.RAW_STATION_BEAM])
+            self._station_beam_library.start_capture(
+                json.dumps(configuration).encode(),
+                self._daq_diagnostic_callback,
+                self._callbacks[DaqModes.RAW_STATION_BEAM],
+            )
             == self.Result.Success.value
         ):
             return self.Result.Success

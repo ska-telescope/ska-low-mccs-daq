@@ -282,6 +282,9 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._last_lost_pushes: int
         self._lost_push_rate: float | None
         self._correlator_time_taken: float
+        self._correlator_solve_time: float
+        self._host_to_device_copy_time: float
+        self._device_to_host_copy_time: float
         self._correlator_time_util: float | None
         self._buffer_counter: int
         self._skuid_url: str
@@ -380,6 +383,9 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._last_lost_pushes = 0
         self._lost_push_rate = None
         self._correlator_time_taken = 0.0
+        self._correlator_solve_time = 0.0
+        self._host_to_device_copy_time = 0.0
+        self._device_to_host_copy_time = 0.0
         self._correlator_time_util = None
         self._buffer_counter = 0
 
@@ -502,6 +508,12 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._device.set_archive_event("lostPushRate", True, False)
             self._device.set_change_event("correlatorTimeTaken", True, False)
             self._device.set_archive_event("correlatorTimeTaken", True, False)
+            self._device.set_change_event("correlatorSolveTime", True, False)
+            self._device.set_archive_event("correlatorSolveTime", True, False)
+            self._device.set_change_event("hostToDeviceCopyTime", True, False)
+            self._device.set_archive_event("hostToDeviceCopyTime", True, False)
+            self._device.set_change_event("deviceToHostCopyTime", True, False)
+            self._device.set_archive_event("deviceToHostCopyTime", True, False)
             self._device.set_change_event("correlatorTimeUtil", True, False)
             self._device.set_archive_event("correlatorTimeUtil", True, False)
             self._device.set_change_event("bufferCounter", True, False)
@@ -765,6 +777,18 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._correlator_time_taken = 0.0
         self.push_change_event("correlatorTimeTaken", 0)
         self.push_archive_event("correlatorTimeTaken", 0)
+
+        self._correlator_solve_time = 0.0
+        self.push_change_event("correlatorSolveTime", 0)
+        self.push_archive_event("correlatorSolveTime", 0)
+
+        self._host_to_device_copy_time = 0.0
+        self.push_change_event("hostToDeviceCopyTime", 0)
+        self.push_archive_event("hostToDeviceCopyTime", 0)
+
+        self._device_to_host_copy_time = 0.0
+        self.push_change_event("deviceToHostCopyTime", 0)
+        self.push_archive_event("deviceToHostCopyTime", 0)
 
         self._correlator_time_util = 0.0
         self.push_change_event("correlatorTimeUtil", 0.0)
@@ -1470,7 +1494,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         dtype="DevFloat",
         doc=(
             "The amount of time taken to complete the last",
-            " correlation in xGPU. If this is increasing likely ",
+            " correlation in xGPU/TCC. If this is increasing likely ",
             "the GPU is under contention.",
         ),
         unit="ms",
@@ -1484,6 +1508,61 @@ class MccsDaqReceiver(MccsBaseDevice):
         :return: the time taken for the last correlation in xGPU in ms.
         """
         return self._correlator_time_taken
+
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The amount of time taken to complete the last",
+            " correlation solve in TCC. If this is increasing likely ",
+            "the GPU is under contention.",
+        ),
+        unit="ms",
+    )
+    def correlatorSolveTime(self: MccsDaqReceiver) -> float:
+        """
+        Return the time taken for the last correlation solve in TCC in ms.
+
+        if this is increasing likely the GPU is under contention.
+
+        :return: the time taken for the last correlation solve in TCC in ms.
+        """
+        return self._correlator_solve_time
+
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The amount of time taken for the last device to host copy.",
+            " If this is increasing likely the GPU is under contention.",
+        ),
+        unit="ms",
+    )
+    def HostToDeviceCopyTime(self: MccsDaqReceiver) -> float:
+        """
+        Return the time taken for the last host to device copy in ms.
+
+        if this is increasing likely the GPU is under contention.
+
+        :return: the time taken for the last host to device copy in ms.
+        """
+        return self._host_to_device_copy_time
+
+    @attribute(
+        dtype="DevFloat",
+        doc=(
+            "The amount of time taken for the last device to host copy.",
+            " If this is increasing likely the GPU is under contention.",
+        ),
+        unit="ms",
+    )
+    def DeviceToHostCopyTime(self: MccsDaqReceiver) -> float:
+        """
+        Return the time taken for the last device to host copy in ms.
+
+        if this is increasing likely the GPU is under contention.
+
+        :return: the time taken for the last device to host copy in ms.
+        """
+        return self._device_to_host_copy_time
 
     @attribute(
         dtype="DevFloat",

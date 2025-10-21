@@ -14,7 +14,7 @@
 
 // Default double buffer constructor
 DoubleBuffer::DoubleBuffer(uint16_t nof_antennas, uint32_t nof_samples,
-                           uint8_t nof_pols, uint8_t nbuffers) :
+                           uint8_t nof_pols, uint8_t nbuffers, bool allocate_buffer) :
                             nof_antennas(nof_antennas), nof_samples(nof_samples), nof_pols(nof_pols),
                             nbuffers(nbuffers)
 {
@@ -37,12 +37,18 @@ DoubleBuffer::DoubleBuffer(uint16_t nof_antennas, uint32_t nof_samples,
         double_buffer[i].nof_samples = nof_samples;
         double_buffer[i].nof_pols  = nof_pols;
         double_buffer[i].mutex = new std::mutex;
-        allocate_aligned((void **) &(double_buffer[i].data), (size_t) CACHE_ALIGNMENT,
-                          nof_samples * nof_antennas * nof_pols * sizeof(uint16_t));
+        if (allocate_buffer) {
+            allocate_aligned((void **) &(double_buffer[i].data), (size_t) CACHE_ALIGNMENT,
+                            nof_samples * nof_antennas * nof_pols * sizeof(uint16_t));
 
-        // Lock memory
-        if (mlock(double_buffer[i].data, nof_antennas * nof_pols * nof_samples * sizeof(uint16_t)) == -1)
-            perror("Could not lock memory");
+            // Lock memory
+            if (mlock(double_buffer[i].data, nof_antennas * nof_pols * nof_samples * sizeof(uint16_t)) == -1)
+                perror("Could not lock memory");
+            double_buffer[i].owned_by_base = true;
+        } else {
+            double_buffer[i].data = nullptr;
+            double_buffer[i].owned_by_base = false;
+        }
     }
 
     // Initialise producer and consumer
@@ -59,8 +65,10 @@ DoubleBuffer::~DoubleBuffer()
 {
     for(unsigned i = 0; i < nbuffers; i++)
     {
+        if (double_buffer[i].owned_by_base) {
+            free(double_buffer[i].data);
+        }
         delete double_buffer[i].mutex;
-        free(double_buffer[i].data);
     }
     free(double_buffer);
 }
