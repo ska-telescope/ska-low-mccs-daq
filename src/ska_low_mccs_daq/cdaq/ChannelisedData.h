@@ -125,7 +125,7 @@ public:
     void add_data(uint64_t timestamp_field, uint32_t packet_counter, uint64_t sync_time, uint16_t station_id, uint32_t payload_offset, 
                   uint8_t tile, uint8_t fpga_id, uint16_t channel, uint32_t start_sample_index, uint32_t samples,
                   uint16_t start_antenna_id, T *data_ptr, double timestamp, uint16_t included_channels,
-                  uint16_t nof_included_antennas, uint32_t cont_channel_id = 0)
+                  uint16_t nof_included_antennas, uint64_t payload_length, uint32_t cont_channel_id = 0)
     {
         // Get current tile index
         unsigned int tile_index;
@@ -169,7 +169,7 @@ public:
         }
 
         set_metadata(timestamp_field, packet_counter, sync_time, station_id, 
-                    payload_offset, tile_index, fpga_id, channel, samples*32, 
+                    payload_offset, tile_index, fpga_id, channel, payload_length, 
                     start_antenna_id, included_channels, nof_included_antennas);
 
         // Update number of packets in container

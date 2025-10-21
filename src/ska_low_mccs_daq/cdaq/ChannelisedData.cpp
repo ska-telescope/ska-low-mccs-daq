@@ -185,7 +185,7 @@ bool ChannelisedData::processPacket()
     container -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, tile_id, fpga_id,
                           start_channel_id, sample_index * samples_in_packet, samples_in_packet,
                           start_antenna_id, (uint16_t *) (payload + payload_offset), packet_time,
-                          nof_included_channels, nof_included_antennas);
+                          nof_included_channels, nof_included_antennas, payload_length);
 
 
     // Ready from packet
@@ -443,13 +443,13 @@ bool ContinuousChannelisedData::processPacket()
                                             tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
                                             samples_in_packet, start_antenna_id,
                                             (uint16_t *) (payload + payload_offset), packet_time,
-                                            nof_included_channels, nof_included_antennas, cont_channel_id);
+                                            nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
             else
                 containers_32bit[index]->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
                                             tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
                                             samples_in_packet, start_antenna_id,
                                             (uint32_t *) (payload + payload_offset), packet_time,
-                                            nof_included_channels, nof_included_antennas, cont_channel_id);
+                                            nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
 
         }
 
@@ -520,13 +520,13 @@ bool ContinuousChannelisedData::processPacket()
                                                   tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
                                                   samples_in_packet, start_antenna_id,
                                                   (uint16_t *) (payload + payload_offset), packet_time,
-                                                  nof_included_channels, nof_included_antennas, cont_channel_id);
+                                                  nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
     else
         containers_32bit[current_container] -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
                                                   tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
                                                   samples_in_packet, start_antenna_id,
                                                   (uint32_t *) (payload + payload_offset), packet_time,
-                                                  nof_included_channels, nof_included_antennas, cont_channel_id);
+                                                  nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
 
 
     // Ready from packet
@@ -732,12 +732,12 @@ bool IntegratedChannelisedData::processPacket()
         container_16bit -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
                                     tile_id, fpga_id, start_channel_id, 0, samples_in_packet,
                                     start_antenna_id, (uint16_t *) (payload + payload_offset), packet_time,
-                                    nof_included_channels, nof_included_antennas);
+                                    nof_included_channels, nof_included_antennas, payload_length);
     else
         container_32bit -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
                                     tile_id, fpga_id, start_channel_id, 0, samples_in_packet,
                                     start_antenna_id, (uint32_t *) (payload + payload_offset), packet_time,
-                                    nof_included_channels, nof_included_antennas);
+                                    nof_included_channels, nof_included_antennas, payload_length);
 
 
     // Ready from packet
