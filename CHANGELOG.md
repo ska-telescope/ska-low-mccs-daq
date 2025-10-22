@@ -1,7 +1,8 @@
 # Version History
 
-## Unreleased
+## 4.3.0
 
+* [SPRTS-388] Update ringbuffer size for station beam data consumer.
 * [THORN-247] Added a new correlator mode for the Tensor Core Correlator (https://git.astron.nl/RD/tensor-core-correlator/-/tree/master).
     It lives in a new DaqMode 'TC_CORRELATOR_DATA' and should be considered experimental for now.
 
