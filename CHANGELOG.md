@@ -1,5 +1,9 @@
 # Version History
 
+## 4.3.1
+
+* [JANUS-257] Using the payload_length field from the header isntead of samples value for channelised metadata.
+
 ## 4.3.0
 
 * [SPRTS-388] Update ringbuffer size for station beam data consumer.
