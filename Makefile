@@ -87,6 +87,10 @@ K8S_TEST_RUNNER_PYTEST_OPTIONS = -v --true-context \
     --cucumberjson=$(CUCUMBER_JSON_PATH) \
 	--json-report --json-report-file=$(JSON_REPORT_PATH)
 
+ifdef K8S_PYTEST_EXTRA_ARGUMENTS
+K8S_TEST_RUNNER_PYTEST_OPTIONS += $(K8S_PYTEST_EXTRA_ARGUMENTS)
+endif
+
 K8S_TEST_RUNNER_PYTEST_TARGET = tests/functional
 K8S_TEST_RUNNER_PIP_INSTALL_ARGS = -r tests/functional/requirements.txt
 

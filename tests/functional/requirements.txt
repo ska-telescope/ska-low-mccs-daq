@@ -1,6 +1,7 @@
 pytest==7.4.0
 pytest-json-report==1.5.0
 pytest-bdd==6.1.1
+pytest-repeat==0.9.4
 pyyaml==6.0
 ska-control-model==1.1.1
 ska-tango-testing==0.7.3
