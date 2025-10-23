@@ -459,8 +459,7 @@ bool ContinuousChannelisedData::processPacket()
     }
 
     // Check if we skipped buffer boundaries
-    if (packet_index == 0 && packet_time >= reference_time + nof_samples * sampling_time &&
-        num_packets > nof_tiles * 2 && tile_id == 0 && fpga_id == 0)
+   if (packet_time >= reference_time + nof_samples * sampling_time)
     {
         // Increment buffer skip
         if (nof_buffer_skips != 0)

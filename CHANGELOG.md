@@ -2,6 +2,7 @@
 
 ## 4.3.1
 
+* [SKB-1090] Fixed issue related to buffer boundaries in the channelised continuous mode.
 * [JANUS-257] Using the payload_length field from the header isntead of samples value for channelised metadata.
 
 ## 4.3.0
