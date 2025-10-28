@@ -145,22 +145,23 @@ public:
         }
 
         // Copy packet content to buffer
+        const long dst_channel_stride = nof_samples * nof_antennas * nof_pols;
+        const long dst_sample_stride = nof_antennas * nof_pols;
+        const long src_sample_stride = nof_included_antennas * nof_pols;
+        const size_t row_size = nof_included_antennas * nof_pols * sizeof(T);
+
         T *ptr = channel_data[tile_index].data;
-        for (unsigned i = 0; i < included_channels; i++)
-            for (unsigned j = 0; j < samples; j++)
-                for (unsigned k = 0; k < nof_included_antennas; k++)
-                {
-                    long dst_index = (channel + i) * nof_samples * nof_antennas * nof_pols +
-                                     (start_sample_index + j) * nof_antennas * nof_pols +
-                                     (start_antenna_id + k) * nof_pols;
+        for (unsigned i = 0; i < included_channels; i++) {
+            long dst_ch_base = (channel + i) * dst_channel_stride;
+            long src_ch_base = i * samples * src_sample_stride;
 
-                    long src_index = i * samples * nof_included_antennas * nof_pols +
-                                     j * nof_included_antennas * nof_pols +
-                                     k * nof_pols;
+            for (unsigned j = 0; j < samples; j++) {
+                long dst_index = dst_ch_base + (start_sample_index + j) * dst_sample_stride + start_antenna_id * nof_pols;
+                long src_index = src_ch_base + j * src_sample_stride;
 
-                    for(unsigned l = 0; l < nof_pols; l++)
-                        ptr[dst_index + l] = data_ptr[src_index + l];
-                }
+                memcpy(&ptr[dst_index], &data_ptr[src_index], row_size);
+            }
+        }
 
         // Update timing
         if (this->timestamp > timestamp) {
