@@ -178,6 +178,8 @@ class DaqSimulator:
             "logging": True,
             "write_to_disk": True,
             "station_config": None,
+            "station_id": 0,
+            "station_name": "",
             "max_filesize": None,
             "acquisition_duration": -1,
             "acquisition_start_time": -1,
