@@ -13,11 +13,13 @@ for, amongst other things, monitoring and control of LFAA.
 """
 
 __version__ = "4.3.1"
-__version_info__ = (
-    "ska-low-mccs-daq",
-    __version__,
-    "This package implements SKA Low's MCCS DAQ subsystem.",
-)
+__version_info__ = str(
+    (
+        "ska-low-mccs-daq",
+        __version__,
+        "This package implements SKA Low's MCCS DAQ subsystem.",
+    )
+).replace("'", "")
 
 __all__ = [
     "MccsDaqReceiver",

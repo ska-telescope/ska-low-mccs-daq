@@ -240,6 +240,16 @@ class MccsDaqReceiver(MccsBaseDevice):
         doc="Whether DaqReceiver should use a simulator backend.",
         default_value=False,
     )
+    StationName = device_property(
+        dtype=str,
+        doc="The name of the station this DaqReceiver is associated with.",
+        default_value="",
+    )
+    StationId = device_property(
+        dtype=int,
+        doc="The ID of the station this DaqReceiver is associated with (Same as DaqID)",
+        default_value=0,
+    )
 
     # ---------------
     # Initialisation
@@ -321,7 +331,10 @@ class MccsDaqReceiver(MccsBaseDevice):
             f"\tSkuidUrl: {self.SkuidUrl}\n"
             f"\tBandpassDaq: {self.BandpassDaq}\n"
             f"\tNumberOfTiles: {self.NumberOfTiles}\n"
-            f"\tSimulationMode: {self.SimulationMode}"
+            f"\tSimulationMode: {self.SimulationMode}\n"
+            f"\tStationId: {self.StationId}"
+            f"\tStationName: {self.StationName}\n"
+            f"\tParentTRL: {self.ParentTRL}"
         )
         self.logger.info(
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
@@ -404,6 +417,8 @@ class MccsDaqReceiver(MccsBaseDevice):
             self.NumberOfTiles,
             self.SkuidUrl,
             self.logger,
+            self.StationName,
+            self.StationId,
             self._component_communication_state_changed,
             self._component_state_callback,
             self._received_data_callback,

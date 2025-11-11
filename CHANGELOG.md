@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-* [SKB-610] Add Station Name to hdf5 metadata.
+* [SKB-610] Add Station Name to hdf5 metadata. Add `StationName` and `StationId` properties to Daq to be set by templates. Update deploy submodule.
 
 ## 4.3.1
 
