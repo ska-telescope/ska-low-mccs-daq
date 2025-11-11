@@ -332,7 +332,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             f"\tBandpassDaq: {self.BandpassDaq}\n"
             f"\tNumberOfTiles: {self.NumberOfTiles}\n"
             f"\tSimulationMode: {self.SimulationMode}\n"
-            f"\tStationId: {self.StationId}"
+            f"\tStationId: {self.StationId}\n"
             f"\tStationName: {self.StationName}\n"
             f"\tParentTRL: {self.ParentTRL}"
         )
