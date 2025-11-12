@@ -109,6 +109,7 @@ class AAVSFileManager(object):
         self.n_stokes = 0
         self.channel_id = 0
         self.station_id = 0
+        self.station_name = ""
         self.tsamp = 0
 
     @abstractmethod
@@ -216,6 +217,7 @@ class AAVSFileManager(object):
         n_stokes=4,
         channel_id=0,
         station_id=0,
+        station_name="",
         n_blocks=0,
         timestamp=0,
         date_time="",
@@ -233,6 +235,7 @@ class AAVSFileManager(object):
         :param n_stokes: The number of stokes for correlation.
         :param channel_id: The channel ID.
         :param station_id: The station ID.
+        :param station_name: The station name.
         :param n_blocks: The number of blocks to start this file set.
         :param timestamp: The timestamp for this file set.
         :param date_time: The date time string for this file set.
@@ -252,6 +255,7 @@ class AAVSFileManager(object):
         self.data_mode = data_mode
         self.n_stokes = n_stokes
         self.station_id = station_id
+        self.station_name = station_name
         self.channel_id = channel_id
 
     @staticmethod
@@ -544,6 +548,7 @@ class AAVSFileManager(object):
                 metadata_dict["n_stokes"] = self.n_stokes
                 metadata_dict["channel_id"] = self.channel_id
                 metadata_dict["station_id"] = self.station_id
+                metadata_dict["station_name"] = self.station_name
                 if "observation_info" in file_obj:
                     metadata_dict["observation_info"] = dict(
                         file_obj["observation_info"].attrs
@@ -965,6 +970,9 @@ class AAVSFileManager(object):
                         if "station_id" in list(self.main_dset.attrs.keys()):
                             self.station_id = self.main_dset.attrs["station_id"]
 
+                        if "station_name" in list(self.main_dset.attrs.keys()):
+                            self.station_name = self.main_dset.attrs["station_name"]
+
                         self.timestamp = self.main_dset.attrs["timestamp"]
                         self.data_type_name = self.main_dset.attrs["data_type"]
                         self.data_type = DATA_TYPE_MAP[self.data_type_name]
@@ -1088,6 +1096,7 @@ class AAVSFileManager(object):
         self.main_dset.attrs["n_stokes"] = self.n_stokes
         self.main_dset.attrs["channel_id"] = self.channel_id
         self.main_dset.attrs["station_id"] = self.station_id
+        self.main_dset.attrs["station_name"] = self.station_name
         if self.tsamp is not None:
             self.main_dset.attrs["tsamp"] = self.tsamp
 

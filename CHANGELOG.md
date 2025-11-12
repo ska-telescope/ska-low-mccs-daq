@@ -1,5 +1,11 @@
 # Version History
 
+## Unreleased
+
+## 4.4.0
+
+* [SKB-610] Add Station Name to hdf5 metadata. Add `StationName` and `StationId` properties to Daq to be set by templates. Update deploy submodule.
+
 ## 4.3.1
 
 * [SKB-1090] Fixed issue related to buffer boundaries in the channelised continuous mode.
@@ -8,13 +14,13 @@
 ## 4.3.0
 
 * [SPRTS-388] Update ringbuffer size for station beam data consumer.
-* [THORN-247] Added a new correlator mode for the Tensor Core Correlator (https://git.astron.nl/RD/tensor-core-correlator/-/tree/master).
+* [THORN-247] Added a new correlator mode for the Tensor Core Correlator (<https://git.astron.nl/RD/tensor-core-correlator/-/tree/master>).
     It lives in a new DaqMode 'TC_CORRELATOR_DATA' and should be considered experimental for now.
 
 ## 4.2.0
 
 * [JANUS-257] Fixed the order of fields in the AntennaBufferMetadata class to match with AntennaBuffer.h. Seperated the member variable nof_packets in ChaneelisedData.h from the
-metadata field nof_packets. Added condition for calling back for only the tiles the DAQ has received data from for AntennaBuffer and Channelised modes. 
+metadata field nof_packets. Added condition for calling back for only the tiles the DAQ has received data from for AntennaBuffer and Channelised modes.
 * [THORN-259] Add attributes correlatorTimeUtil, relativeNofPacketsDiff, relativeNofSamplesDiff, lostPushRate for healthstatus calculation
 
 ## 4.1.2
@@ -36,7 +42,7 @@ metadata field nof_packets. Added condition for calling back for only the tiles 
 ## 4.0.0
 
 * [THORN-172] The old two pod DAQ has been removed.
-    
+
 ## 3.2.2
 
 * [THORN-248] Update ska-low-mccs-common dependency.
