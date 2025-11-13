@@ -215,10 +215,9 @@ bool StationRawData::processPacket()
                 nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
                 break;
             }
-            case 0x3010: // Scan ID. If present, timestamp scale is different
+            case 0x3010: // Scan ID. 
             {
 		scan_id = (uint32_t) SPEAD_ITEM_ADDR(item);
-		timestamp_scale = 1.0e-8;
                 break;
             }
             case 0x3300: // Payload offset
