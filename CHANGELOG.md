@@ -3,6 +3,8 @@
 ## Unreleased
 * [SKB-1105] Removed code to reset the sampling time in the raw station beam mode which was causing incorrect timestamps in the DADA headers.
 
+* [SKB-1079] Cleanup. Ensure that we are not defining important cleanup information in init, this is executed after
+
 ## 4.4.0
 
 * [SKB-610] Add Station Name to hdf5 metadata. Add `StationName` and `StationId` properties to Daq to be set by templates. Update deploy submodule.

@@ -272,7 +272,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self.component_manager: DaqComponentManager
         self._health_state: HealthState = HealthState.UNKNOWN
         self._health_report: str = ""
-        self._health_recorder: Optional[HealthRecorder] = None
+        self._health_recorder: Optional[HealthRecorder]
         self._healthful_attributes: dict[str, Callable]
         self._received_data_mode: str
         self._received_data_result: str
