@@ -1,7 +1,9 @@
 # Version History
 
 ## Unreleased
+
 * [SKB-1105] Removed code to reset the sampling time in the raw station beam mode which was causing incorrect timestamps in the DADA headers.
+* [THORN-262] Add timeout to pytest configuration. This should be set to slightly less than the pipeline timeout so that test reports are generated before the job is killed.
 
 ## 4.4.0
 
