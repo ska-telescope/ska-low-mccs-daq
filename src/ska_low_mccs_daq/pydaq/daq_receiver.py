@@ -65,7 +65,7 @@ conf = {
     "receiver_frames_per_block": 32,
     "receiver_nof_blocks": 256,
     "directory": ".",
-    "directory_tag": ".",
+    "directory_tag": "/",
     "logging": True,
     "write_to_disk": True,
     "station_config": None,
