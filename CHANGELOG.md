@@ -1,8 +1,9 @@
 # Version History
 
-## Unreleased
-* [SKB-1105] Removed code to reset the sampling time in the raw station beam mode which was causing incorrect timestamps in the DADA headers.
+## 4.5.0
 
+* [SKB-1123] Fix TCC inversion of XY/YX stokes
+* [SKB-1105] Removed code to reset the sampling time in the raw station beam mode which was causing incorrect timestamps in the DADA headers.
 * [SKB-1079] Cleanup. Ensure that we are not defining important cleanup information in init, this is executed after
 
 ## 4.4.0
