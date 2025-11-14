@@ -883,6 +883,7 @@ class DaqReceiver:
         # The correlator reorders the matrix in lower triangular form, this needs to be converted
         # to upper triangular form to be compatible with the rest of the system
         data = np.reshape(values, (nof_baselines, nof_stokes))
+        data[:, [1, 2]] = data[:, [2, 1]]
         grid = np.zeros((nof_antennas, nof_antennas, nof_stokes), dtype=np.complex64)
 
         counter = 0
