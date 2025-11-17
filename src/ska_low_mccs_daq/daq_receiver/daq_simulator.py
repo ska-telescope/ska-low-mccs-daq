@@ -174,7 +174,7 @@ class DaqSimulator:
             "receiver_interface": "eth0",
             "receiver_ip": "0.0.0.0",
             "directory": ".",
-            "directory_tag": ".",
+            "directory_tag": "/",
             "logging": True,
             "write_to_disk": True,
             "station_config": None,
