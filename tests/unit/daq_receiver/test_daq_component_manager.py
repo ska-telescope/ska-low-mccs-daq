@@ -280,7 +280,9 @@ class TestDaqComponentManager:
 
         callbacks["task"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
-        callbacks["task"].assert_call(status=TaskStatus.COMPLETED)
+        callbacks["task"].assert_call(
+            status=TaskStatus.COMPLETED, result=(ResultCode.OK, "Stop completed OK.")
+        )
         # Once we issue the stop command on the DAQ this will stop the thread
         # with the streamed response. We need to wait for the start_daq thread
         # to complete.

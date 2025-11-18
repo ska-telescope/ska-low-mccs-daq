@@ -1,5 +1,9 @@
 # Version History
 
+## 5.0.0
+
+* [THORN-331] Daq.Stop() now correctly calls back with result= when done.
+
 ## 4.5.0
 
 * [SKB-1105] Removed code to reset the sampling time in the raw station beam mode which was causing incorrect timestamps in the DADA headers.

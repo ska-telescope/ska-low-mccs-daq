@@ -769,7 +769,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if self._component_state_callback:
             self._component_state_callback(reset_consumer_attributes=True)
         if task_callback:
-            task_callback(status=TaskStatus.COMPLETED)
+            task_callback(
+                status=TaskStatus.COMPLETED,
+                result=(ResultCode.OK, "Stop completed OK."),
+            )
 
     @check_communicating
     def get_status(self: DaqComponentManager) -> dict[str, Any]:
