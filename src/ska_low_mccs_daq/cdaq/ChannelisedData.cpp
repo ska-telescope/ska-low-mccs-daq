@@ -401,43 +401,46 @@ bool ContinuousChannelisedData::processPacket()
                                         (nof_included_antennas * nof_included_channels * nof_pols * sizeof(uint32_t)));
 
     // Compute packet time
+    uint64_t sampling_time_ns = sampling_time * 1e9;
     double packet_time = sync_time + timestamp * sampling_time;
+    uint64_t packet_time_ns = (uint64_t) (sync_time * 1e9 + timestamp * sampling_time_ns);
+
+    // Get entry index for packet counter information
+    uint16_t counter_index = tile_id * 2 + fpga_id;
     
-    // Handle packet counter rollover
-    // First condition ensures that if DAQ is started before transmission, firs packet with counter 0 are not updates
-    if (reference_counter == 0)
-        reference_counter = packet_counter;
-    else
-    {
-        if (tile_id == 0 && packet_counter == 0 && fpga_id == 0) {
-            rollover_counter += 1;
-            packet_counter += rollover_counter << 24;
-        }
-        else if (packet_counter == 0)
-            packet_counter += 1 << 24;
-        else
-            packet_counter += rollover_counter << 24;
+    // If this is the first packet from this FPGA, initialised the packet information structure
+    if (packet_counter_information.find(counter_index) == packet_counter_information.end()) {
+        packet_counter_information[counter_index] = {packet_counter, 0, packet_counter};
+        reference_time_ns = packet_time_ns;
+    }
+    else {
+        // Detect whether packet counter has rolled over
+        if (packet_counter == 0)
+            packet_counter_information[counter_index][1] += 1;
+
+        // Update packet counter with rollover
+        packet_counter_information[counter_index][2] = packet_counter + (packet_counter_information[counter_index][1] << 24);
     }
 
-    // Assigned correct packet index
-    packet_index = static_cast<uint32_t>((packet_counter - reference_counter) % (this->nof_samples / samples_in_packet));
+    // Get reference to updated packet counter`
+    packet_counter = packet_counter_information[counter_index][2];
 
-    // Set start channel ID to 1 (otherwise it will mess with buffer indexing)
+    // Assigned correct packet index
+    packet_index = static_cast<uint32_t>((packet_counter - packet_counter_information[counter_index][0]) % (nof_samples / samples_in_packet));
+
+    // Set start channel ID to 0 (otherwise it will mess with buffer indexing)
     auto cont_channel_id = start_channel_id;
     start_channel_id = 0;
 
-    // Check if packet belongs to current buffer
-    if (reference_time == 0)
-        reference_time = packet_time;
-
     // If packet time is less than reference time, then this belongs to the previous buffer
-    if (packet_time < reference_time)
-    {
+    if (packet_time_ns < reference_time_ns) {
+
         // If we are skipping buffer, ignore previous packet
         if (nof_buffer_skips == 0) {
 
             // We have processed the packet items, now comes the data
             unsigned index = (current_container - 1) % nof_containers;
+
             if (bitwidth == 16)
                 containers_16bit[index]->add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
                                             tile_id, fpga_id, start_channel_id, packet_index * samples_in_packet,
@@ -450,7 +453,6 @@ bool ContinuousChannelisedData::processPacket()
                                             samples_in_packet, start_antenna_id,
                                             (uint32_t *) (payload + payload_offset), packet_time,
                                             nof_included_channels, nof_included_antennas, payload_length, cont_channel_id);
-
         }
 
         // Ready from packet
@@ -459,7 +461,7 @@ bool ContinuousChannelisedData::processPacket()
     }
 
     // Check if we skipped buffer boundaries
-   if (packet_time >= reference_time + nof_samples * sampling_time)
+    if (packet_time_ns >= reference_time_ns + nof_samples * sampling_time_ns)
     {
         // Increment buffer skip
         if (nof_buffer_skips != 0)
@@ -473,10 +475,10 @@ bool ContinuousChannelisedData::processPacket()
             // If we are skipping buffer, then persist previous current container
             if (nof_buffer_skips != 0) {
                 if (bitwidth == 16) {
-                    if (containers_16bit[current_container]->nof_packets > 0)
+                    if (containers_16bit[current_container]->nof_packets > nof_tiles * 2)
                         containers_16bit[current_container]->persist_container();
                 } else {
-                    if (containers_32bit[current_container]->nof_packets > 0)
+                    if (containers_32bit[current_container]->nof_packets > nof_tiles * 2)
                         containers_32bit[current_container]->persist_container();
                 }
 
@@ -489,18 +491,17 @@ bool ContinuousChannelisedData::processPacket()
 
                 // If the number of processed packet in this container is greater than 0, persist it
                 if (bitwidth == 16) {
-                    if (containers_16bit[current_container]->nof_packets > 0)
+                    if (containers_16bit[current_container]->nof_packets > nof_tiles * 2)
                         containers_16bit[current_container]->persist_container();
                 } else {
-                    if (containers_32bit[current_container]->nof_packets > 0)
+                    if (containers_32bit[current_container]->nof_packets > nof_tiles * 2)
                         containers_32bit[current_container]->persist_container();
                 }
 
             }
 
             // Update timestamp
-            reference_time += nof_samples * sampling_time;
-            num_packets = 0;
+            reference_time_ns += nof_samples * sampling_time_ns;
         }
     }
 
@@ -509,9 +510,6 @@ bool ContinuousChannelisedData::processPacket()
         ring_buffer -> pull_ready();
         return true;
     }
-
-    // Increment number of received packets
-    num_packets++;
 
     // We have processed the packet items, now comes the data
     if (bitwidth == 16)
