@@ -1,6 +1,8 @@
 # Version History
 
-## Unreleased
+## 5.0.0
+
+* [THORN-331] Daq.Stop() now correctly calls back with result= when done.
 * Improvements to the continuous channel consumer by addressing floating-point precision loss and packet counter synchronisation issues, and upgraded memory allocation for better performance. This eliminates intermittent errors ("skipped packets") and ensures accurate data streaming, particularly over long observation periods.
 
 ## 4.5.0
