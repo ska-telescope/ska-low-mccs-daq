@@ -98,9 +98,14 @@ public:
     // Class Destructor
     ~ChannelDataContainer()
     {
-        for(unsigned i = 0; i < nof_tiles; i++)
-            free(channel_data[i].data);
+        // Compute the mmap'ed size
+        size_t malloc_size = nof_channels * nof_antennas * nof_pols * (size_t) nof_samples * sizeof(T);
 
+        // Unmap each buffer
+        for(unsigned i = 0; i < nof_tiles; i++)
+            munmap(channel_data[i].data, malloc_size);
+
+        // Free channel data and metadata structures
         free(channel_data);
         free(metadata);
     }
