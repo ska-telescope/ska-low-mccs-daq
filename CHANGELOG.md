@@ -1,5 +1,8 @@
 # Version History
 
+## Unreleased
+* Improvements to the continuous channel consumer by addressing floating-point precision loss and packet counter synchronisation issues, and upgraded memory allocation for better performance. This eliminates intermittent errors ("skipped packets") and ensures accurate data streaming, particularly over long observation periods.
+
 ## 4.5.0
 
 * [SKB-1105] Removed code to reset the sampling time in the raw station beam mode which was causing incorrect timestamps in the DADA headers.
@@ -16,7 +19,6 @@
 
 * [SKB-1090] Fixed issue related to buffer boundaries in the channelised continuous mode.
 * [JANUS-257] Using the payload_length field from the header isntead of samples value for channelised metadata.
-* Improvements to the continuous channel consumer by addressing floating-point precision loss and packet counter synchronisation issues, and upgraded memory allocation for better performance. This eliminates intermittent errors ("skipped packets") and ensures accurate data streaming, particularly over long observation periods.
 
 ## 4.3.0
 
