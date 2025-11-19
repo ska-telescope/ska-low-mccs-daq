@@ -711,17 +711,7 @@ bool IntegratedChannelisedData::processPacket()
 
     // Check if we processed all the sample
     auto total_packets = (nof_antennas / nof_included_antennas) *
-                          (nof_channels / nof_included_channels) * nof_pols * nof_tiles;
-
-    if (num_packets == total_packets)
-    {
-        if (bitwidth == 16)
-            container_16bit -> persist_container();
-        else
-            container_32bit -> persist_container();
-
-        num_packets = 0;
-    }
+                          (nof_channels / nof_included_channels) * nof_tiles;
 
     // We have processed the packet items, now comes the data
     num_packets++;
@@ -736,6 +726,15 @@ bool IntegratedChannelisedData::processPacket()
                                     start_antenna_id, (uint32_t *) (payload + payload_offset), packet_time,
                                     nof_included_channels, nof_included_antennas, payload_length);
 
+    if (num_packets == total_packets)
+    {
+        if (bitwidth == 16)
+            container_16bit -> persist_container();
+        else
+            container_32bit -> persist_container();
+
+        num_packets = 0;
+    }
 
     // Ready from packet
     ring_buffer -> pull_ready();
