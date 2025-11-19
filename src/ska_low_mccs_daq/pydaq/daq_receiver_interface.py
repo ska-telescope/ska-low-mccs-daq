@@ -100,6 +100,7 @@ class DaqReceiver:
             ("tile_id", ctypes.c_uint8),
             ("cont_channel_id", ctypes.c_uint32),
             ("nof_packets", ctypes.c_uint64),
+            ("first_packet_counter", ctypes.c_ulong),
             ("packet_counter", ctypes.c_uint32 * 2048),
             ("payload_length", ctypes.c_uint64),
             ("sync_time", ctypes.c_uint64),
