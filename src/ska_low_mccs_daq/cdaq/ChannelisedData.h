@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <unistd.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <cstring>
 #include <cmath>
@@ -22,6 +23,7 @@ struct ChannelMetadata
     uint8_t tile_id;
     uint32_t cont_channel_id;
     uint64_t nof_packets = 0;
+    uint64_t first_packet_counter = ULONG_MAX;
     uint32_t packet_counter[2048];
     uint64_t payload_length;
     uint64_t sync_time;
@@ -65,7 +67,21 @@ public:
         channel_data = (ChannelStructure *) malloc(nof_tiles * sizeof(ChannelStructure));
         metadata = (ChannelMetadata *) malloc(nof_tiles * sizeof(ChannelMetadata));
         for(unsigned i = 0; i < nof_tiles; i++) {
-            allocate_aligned((void **) &(channel_data[i].data), (size_t) CACHE_ALIGNMENT, malloc_size);
+            // allocate_aligned((void **) &(channel_data[i].data), (size_t) CACHE_ALIGNMENT, malloc_size);
+
+            // Allocate memory using mmap (try using huge pages first)
+            auto ptr = mmap(nullptr,  malloc_size,
+                            PROT_READ | PROT_WRITE,
+                            MAP_POPULATE | MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+
+            if (ptr == MAP_FAILED) {
+                // If huge pages allocation failed, use normal pages
+                ptr = (T*) mmap(nullptr,  malloc_size,
+                                PROT_READ | PROT_WRITE,
+                                MAP_POPULATE | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            }
+
+            channel_data[i].data = (T *) ptr;
 
             // Lock memory
             if (mlock(channel_data[i].data, malloc_size) == -1)
@@ -82,8 +98,14 @@ public:
     // Class Destructor
     ~ChannelDataContainer()
     {
+        // Compute the mmap'ed size
+        size_t malloc_size = nof_channels * nof_antennas * nof_pols * (size_t) nof_samples * sizeof(T);
+
+        // Unmap each buffer
         for(unsigned i = 0; i < nof_tiles; i++)
-            free(channel_data[i].data);
+            munmap(channel_data[i].data, malloc_size);
+
+        // Free channel data and metadata structures
         free(channel_data);
         free(metadata);
     }
@@ -113,6 +135,9 @@ public:
         metadata[tile_index].start_antenna_id[i] = start_antenna_id;
         metadata[tile_index].fpga_id[i] = fpga_id;
         metadata[tile_index].timestamp[i] = timestamp;
+
+        if (metadata[tile_index].first_packet_counter > packet_counter)
+            metadata[tile_index].first_packet_counter = packet_counter;
     }
 
     // Set callback function
@@ -170,12 +195,13 @@ public:
         }
 
         set_metadata(timestamp_field, packet_counter, sync_time, station_id, 
-                    payload_offset, tile_index, fpga_id, channel, payload_length, 
-                    start_antenna_id, included_channels, nof_included_antennas);
+                     payload_offset, tile_index, fpga_id, channel, payload_length, 
+                     start_antenna_id, included_channels, nof_included_antennas);
 
         // Update number of packets in container
         this->nof_packets++;
-        // Update number of packets in metadata
+
+        // Update number of packets and packet_counter in metadata
         metadata[tile_index].nof_packets++;
     }
 
@@ -184,11 +210,15 @@ public:
     {
         // Clear buffer, set all content to 0
         for(unsigned i = 0; i < nof_tiles; i++) {
-            metadata[i].nof_packets=0;
             memset(channel_data[i].data, 0, nof_channels * nof_samples * nof_antennas * nof_pols * sizeof(T));
+            metadata[i].nof_packets = 0;
+            metadata[i].first_packet_counter = ULONG_MAX;
+
+            for(unsigned j = 0; j < 2048; j++)
+                metadata[i].packet_counter[j] = 0;
         }
 
-        // Clear number of packets
+        // Clear number of packets and packet counter
         this->timestamp = DBL_MAX;
         this->nof_packets = 0;
     }
@@ -202,7 +232,7 @@ public:
             // Call callback for every tile (if buffer has some content)
             for (unsigned i = 0; i < nof_tiles; i++)
             {
-                if (metadata[i].nof_packets!=0)
+                if (metadata[i].nof_packets > nof_tiles * nof_pols * 2)
                     callback((uint32_t *)channel_data[i].data, this->timestamp,
                             static_cast<void *>(&metadata[i]));
             }
@@ -303,6 +333,17 @@ protected:
 
 private:
 
+    // Update packet counter
+    long update_packet_counter();
+
+    // Data structure to keep track of packet counter, to cater for rollover
+    // The map index is nof_tiles * nof_fpgas
+    // The map vector the following:
+    // Index 0: Reference counter
+    // Index 1: Rollover counter
+    // Index 2: Global packet counter (with rollover applied)
+    std::unordered_map<uint16_t, std::vector<unsigned long>> packet_counter_information;
+
     // Channel data container object
     ChannelDataContainer<uint16_t> **containers_16bit = nullptr;
     ChannelDataContainer<uint32_t> **containers_32bit = nullptr;
@@ -311,10 +352,8 @@ private:
     unsigned int current_container = 0;
     unsigned int current_buffer = 0;
 
-    double reference_time = 0;
-    uint32_t reference_counter = 0;
-    uint32_t rollover_counter = 0;
-    uint32_t num_packets = 0;
+    // Reference time in ns
+    uint64_t reference_time_ns = 0;
 
     // Data setup
     uint16_t nof_antennas = 0;        // Number of antennas per tile
