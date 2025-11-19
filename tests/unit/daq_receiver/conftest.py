@@ -148,6 +148,8 @@ def daq_component_manager_fixture(
         nof_tiles,
         skuid_url,
         logger,
+        "station_name_here",
+        daq_id,  # station id same as daq id
         callbacks["communication_state"],
         callbacks["component_state"],
         callbacks["received_data"],

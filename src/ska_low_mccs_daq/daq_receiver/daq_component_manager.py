@@ -117,11 +117,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
         "receiver_nof_blocks": 256,
         "receiver_nof_threads": 1,
         "directory": ".",
-        "directory_tag": ".",
+        "directory_tag": "/",
         "logging": True,
         "write_to_disk": True,
         "station_config": None,
         "station_id": 0,
+        "station_name": "",
         "max_filesize": None,
         "acquisition_duration": -1,
         "acquisition_start_time": -1,
@@ -129,7 +130,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         "observation_metadata": {},  # This is populated automatically
     }
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments, too-many-locals
     def __init__(
         self: DaqComponentManager,
         daq_id: int,
@@ -140,6 +141,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         nof_tiles: int,
         skuid_url: str,
         logger: logging.Logger,
+        station_name: str,
+        station_id: int,
         communication_state_callback: Callable[[CommunicationStatus], None],
         component_state_callback: Callable[..., None],
         received_data_callback: Callable[[str, str, str], None],
@@ -157,6 +160,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param nof_tiles: The number of tiles this DAQ will receive data from.
         :param skuid_url: The address at which a SKUID service is running.
         :param logger: the logger to be used by this object.
+        :param station_name: The name of the station this DAQ is part of.
+        :param station_id: The ID of the station this Daq is part of (Duplicates DaqID)
         :param communication_state_callback: callback to be
             called when the status of the communications channel between
             the component manager and its component changes
@@ -182,7 +187,13 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._initialised = False
         self._daq_id = str(daq_id).zfill(3)
         self._dedicated_bandpass_daq = dedicated_bandpass_daq
-        self._configuration: dict[str, Any] = {"nof_tiles": nof_tiles}
+        self._configuration: dict[str, Any] = {
+            "nof_tiles": nof_tiles,
+            "station_name": station_name,
+            "station_id": station_id,
+        }
+        self._station_name = station_name
+        self._station_id = station_id
         self._nof_tiles = nof_tiles
         if receiver_interface:
             self._configuration["receiver_interface"] = receiver_interface
