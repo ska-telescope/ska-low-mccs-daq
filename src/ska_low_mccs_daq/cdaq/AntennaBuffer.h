@@ -110,9 +110,9 @@ public:
 
     // Add data to buffer
     void add_data(uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, uint64_t timestamp_field, 
-                uint16_t station_id, uint64_t payload_offset, uint8_t antenna_0_id, uint8_t antenna_1_id, 
-                uint8_t antenna_2_id, uint8_t antenna_3_id, uint8_t nof_included_antennas, T* data_ptr, 
-                uint16_t tile, uint32_t start_sample_index, uint32_t samples, double timestamp, uint8_t fpga_id) {
+                  uint16_t station_id, uint64_t payload_offset, uint8_t antenna_0_id, uint8_t antenna_1_id, 
+                  uint8_t antenna_2_id, uint8_t antenna_3_id, uint8_t nof_included_antennas, T* data_ptr, 
+                  uint16_t tile, uint32_t start_sample_index, uint32_t samples, double timestamp, uint8_t fpga_id) {
 
         // Get current tile index
         unsigned int tile_index;
@@ -156,8 +156,8 @@ public:
         this->nof_packets++;
 
         set_metadata(tile_index, packet_counter, payload_length, sync_time, 
-        timestamp_field, station_id, fpga_id, payload_offset, antenna_0_id, 
-        antenna_1_id, antenna_2_id, antenna_3_id, nof_included_antennas);
+                     timestamp_field, station_id, fpga_id, payload_offset, antenna_0_id, 
+                     antenna_1_id, antenna_2_id, antenna_3_id, nof_included_antennas);
 
         metadata[tile_index].nof_packets++;
     }
@@ -187,9 +187,12 @@ public:
 
         // Call callback for each tile
         for(unsigned i = 0; i < nof_tiles; i++)
-            if (metadata[i].nof_packets!=0)
+            if (metadata[i].nof_packets!=0)  {
+                LOG(INFO, "Persisting buffer for tile %d with %d packets", i, metadata[i].nof_packets);
                 callback((uint32_t *) antenna_buffer_data[i].data, timestamp,
                         static_cast<void *>(&metadata[i]));
+            }
+
         clear();
     }
 
@@ -243,12 +246,16 @@ protected:
     void cleanUp() override;
 
 private:
+    static constexpr unsigned max_fpgas = 32;
+
     AntennaBufferDataContainer<uint8_t> **containers = nullptr;
     unsigned nof_containers = 4;
     unsigned current_container = 0;
-    unsigned current_buffer = 0;
+    bool current_buffer_index_set;
+    uint64_t current_buffer_index;
+    // unsigned current_buffer = 0;
 
-    int current_packet_index = -1;
+    // int current_packet_index = -1;
 
     // Antenna information object
     unsigned not_received_samples = 0;
@@ -261,6 +268,20 @@ private:
     uint8_t nof_pols = 0;
     uint16_t nof_tiles = 0;
     uint32_t nof_samples = 0;
+
+    // Global base sample
+    bool base_sample_set;
+    uint64_t base_sample;
+
+    // Discovery / warm-up state
+    unsigned expected_fpgas;
+    bool discovery_done;
+    double discovery_start_time;
+    uint32_t fpga_seen_mask;
+    unsigned active_fpgas;
+
+    std::array<uint64_t, max_fpgas> first_sample;
+    std::array<bool, max_fpgas> first_sample_set;
 };
 
 // Expose class factory for AntennaBufferData

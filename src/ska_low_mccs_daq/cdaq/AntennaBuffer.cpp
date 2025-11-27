@@ -32,6 +32,20 @@ bool AntennaBuffer::initialiseConsumer(json configuration) {
     for(unsigned i = 0; i < nof_containers; i++)
         containers[i] = new AntennaBufferDataContainer<uint8_t>(nof_tiles, nof_antennas, nof_samples, nof_pols);
 
+    // Initialise discovery and global reference variables
+    expected_fpgas = nof_tiles * 2;
+    discovery_done = false;
+    discovery_start_time = 0.0;
+    fpga_seen_mask = 0;
+    active_fpgas = 0;
+
+    first_sample.fill(0);
+    first_sample_set.fill(false);
+
+    current_buffer_index_set = false;
+    current_buffer_index = 0;
+    current_container = 0;
+
     // All done
     return true;
 }
@@ -45,8 +59,9 @@ void AntennaBuffer::setCallback(DataCallbackDynamic callback) {
 // Function called when the stream capture has finished
 void AntennaBuffer::onStreamEnd() {
     // On stream end, move backwards and persist data to disk
+    LOG(INFO, "Processing end of stream");
     for(unsigned i = 0; i < nof_containers; i++) {
-        auto index = (current_container + i + 1) % nof_containers;
+        auto index = (current_container + 1 + i) % nof_containers;
         if (containers[index]->nof_packets > 0)
             containers[index]->persist_container();
     }
@@ -87,7 +102,7 @@ bool AntennaBuffer::packetFilter(unsigned char *udp_packet) {
 // Receive packet
 bool AntennaBuffer::processPacket() {
     // Get next packet to process
-    size_t packet_size = ring_buffer -> pull_timeout(&packet, 0.1);
+    size_t packet_size = ring_buffer -> pull_timeout(&packet, 1);
 
     // Check if the request timed out
     if (packet_size == SIZE_MAX) {
@@ -174,58 +189,161 @@ bool AntennaBuffer::processPacket() {
     // packs differently one or two antennas
     uint8_t nof_effective_antennas = 2;
     uint32_t packet_samples = (uint32_t) (payload_length - payload_offset) / (nof_effective_antennas * nof_pols);
+    uint16_t global_fpga_id = tile_id * 2 + fpga_id;
 
-    // Calculate packet time
-    const int timestamp_factor = 864 * 256 / 8;    // samples per timestamp unit
-    double packet_time = sync_time + (timestamp * timestamp_factor + packet_counter * packet_samples) * timestamp_scale;
+    // Compute global sample index
+    const int timestamp_factor = 864 * 256 / 8;  // Samples per timestamp unit
+    
+    uint64_t global_sample_index = uint64_t(timestamp) * timestamp_factor + 
+                                   uint64_t(packet_counter) * packet_samples;
+    
+    double packet_time = sync_time + global_sample_index * timestamp_scale;
 
-    // Assign correct packet index
-    auto packet_index = static_cast<uint32_t>(packet_counter % (nof_samples / packet_samples));
+    // -------------------------------------------------
+    // ---------------- DISCOVERY PHASE ---------------- 
+    // -------------------------------------------------
 
-    if (current_packet_index < 0)
-        current_packet_index = packet_index;
+    if (!discovery_done) {
 
-    // If the calculated packet index is much greater than the current packet index, then this
-    // means that the packet belongs to the previous buffer (in normal circumstances. under
-    // heavy load or extreme packet loss this will not be the case, but the data will be unusable anyway)
-    if ((static_cast<int>(packet_index) - current_packet_index) > (32 * nof_tiles)) {
-        unsigned index = (current_container - 1) % nof_containers;
-        containers[index]->add_data(packet_counter, payload_length, sync_time, timestamp, 
-                                    station_id, payload_offset, antenna_0_id, antenna_1_id, 
-                                    antenna_2_id, antenna_3_id, nof_included_antennas, 
-                                    (uint8_t *) (payload + payload_offset), tile_id, 
-                                    packet_index * packet_samples, packet_samples, timestamp, fpga_id);
+        if (discovery_start_time == 0.0)
+            discovery_start_time = packet_time;
 
-        // Ready from packet
-        ring_buffer -> pull_ready();
+        // Record first sample per FPGA
+        if (global_fpga_id < max_fpgas && !first_sample_set[global_fpga_id]) {
+            first_sample[global_fpga_id] = global_sample_index;
+            first_sample_set[global_fpga_id] = true;
+            fpga_seen_mask |= (1u << global_fpga_id);
+            active_fpgas = __builtin_popcount(fpga_seen_mask);
+        }
+
+        bool all_seen = (active_fpgas >= expected_fpgas);
+        bool timeout_reached = ((packet_time - discovery_start_time) >= 1.0);
+
+        // Check if we have received the first packet from all FPGAs, 
+        // or the timeout has been reached
+        if (all_seen || timeout_reached) {
+            discovery_done = true;
+
+            // Base sample = max of all first samples (last FPGA to start)
+            uint64_t max_first = 0;
+            bool max_set = false;
+
+            for(unsigned i = 0; i < max_fpgas; i++) {
+                if (!first_sample_set[i]) continue;
+                if (!max_set || first_sample[i] > max_first) {
+                    max_first = first_sample[i];
+                    max_set   = true;
+                }
+            }
+
+            // Set base sample to the largest first sample we have seen
+            if (max_set) {
+                base_sample     = max_first;
+                base_sample_set = true;
+            }
+
+            LOG(INFO,
+                "Discovery complete: active=%u/%u mask=0x%08X base_sample=%llu timeout=%s",
+                active_fpgas, expected_fpgas, fpga_seen_mask,
+                (unsigned long long)base_sample,
+                timeout_reached ? "yes" : "no"
+            ); 
+
+            // Reset logical buffer state; we’ll process this packet below
+            current_buffer_index_set = false;
+            current_container = 0;
+        }
+        
+        if (!discovery_done) {
+            // Still in warmup, drop this packet
+            ring_buffer->pull_ready();
+            return true;
+        }
+    }
+
+    
+    // -------------------------------------------------
+    // ------------- AFTER DISCOVERY PHASE -------------
+    // -------------------------------------------------
+
+    if (!base_sample_set) {
+        ring_buffer->pull_ready();
         return true;
     }
 
-    // Check if we skipped buffer boundaries
-    if (packet_index == 0 && containers[current_container]->nof_packets >= nof_tiles * 2) {
-
-        // Advance by one container
-        current_container = (current_container + 1) % nof_containers;
-
-        // If container is not empty, persist
-        if (containers[current_container]->nof_packets > 0)
-            containers[current_container]->persist_container();
+    // Ignore anything before our chosen global start
+    if (global_sample_index < base_sample) {
+        ring_buffer->pull_ready();
+        return true;
     }
 
-    // Add packet to current container
-    containers[current_container]->add_data(packet_counter, payload_length, sync_time, timestamp, 
-                                            station_id, payload_offset, antenna_0_id, antenna_1_id, 
-                                            antenna_2_id, antenna_3_id, nof_included_antennas, 
-                                            (uint8_t *) (payload + payload_offset),
-                                            tile_id, packet_index * packet_samples,packet_samples, 
-                                            packet_time, fpga_id);
+    // Compute buffer index + packet_index
+    uint64_t sample_offset = global_sample_index - base_sample;
+    uint64_t buffer_index = sample_offset / nof_samples;
+    uint32_t packet_index = (sample_offset % nof_samples) / packet_samples;
 
-    // Ready from packet
-    ring_buffer -> pull_ready();
+    // Initialise current buffer if needed
+    if (!current_buffer_index_set) {
+        current_buffer_index = buffer_index;
+        current_buffer_index_set = true;
+        current_container = int(current_buffer_index % nof_containers);
+    }
 
-    // Update packet index
-    current_packet_index = packet_index;
+    // ----------------------------------------
+    // Packet belongs to CURRENT buffer
+    // ----------------------------------------
+    if (buffer_index == current_buffer_index) {
+        containers[current_container]->add_data(packet_counter, payload_length, sync_time, timestamp, 
+                                                station_id, payload_offset, antenna_0_id, antenna_1_id, 
+                                                antenna_2_id, antenna_3_id, nof_included_antennas, 
+                                                (uint8_t *) (payload + payload_offset), tile_id, 
+                                                packet_index * packet_samples, packet_samples, timestamp, fpga_id);
+        
+        ring_buffer->pull_ready();
+        return true;
+    }
 
-    // All done, return
+    // ----------------------------------------
+    // Late packet → goes to PREVIOUS buffer
+    // ----------------------------------------
+    if (buffer_index + 1 == current_buffer_index) {
+        int pc = (current_container - 1) % nof_containers;
+        containers[pc]->add_data(packet_counter, payload_length, sync_time, timestamp, 
+                                station_id, payload_offset, antenna_0_id, antenna_1_id, 
+                                antenna_2_id, antenna_3_id, nof_included_antennas, 
+                                (uint8_t *) (payload + payload_offset), tile_id, 
+                                packet_index * packet_samples, packet_samples, timestamp, fpga_id);
+        
+        ring_buffer->pull_ready();
+        return true;
+    }
+
+    // -----------------------------------------------------
+    //  New buffers → persist and advance forward in ring
+    // -----------------------------------------------------
+    if (buffer_index > current_buffer_index) {
+
+        // Move current container to the next one
+        current_container = (current_container + 1) % nof_containers;
+
+       // Persist old container if it contains packets
+       if (containers[current_container]->nof_packets > 0)
+            containers[current_container]->persist_container();
+
+        // Update buffer indices
+        current_buffer_index += 1;
+
+        containers[current_container]->add_data(packet_counter, payload_length, sync_time, timestamp, 
+                                                station_id, payload_offset, antenna_0_id, antenna_1_id, 
+                                                antenna_2_id, antenna_3_id, nof_included_antennas, 
+                                                (uint8_t *) (payload + payload_offset), tile_id, 
+                                                packet_index * packet_samples, packet_samples, timestamp, fpga_id);
+        
+        ring_buffer->pull_ready();
+        return true;
+    }
+
+    // If we reach here, the packet is too old. Ignore
+    ring_buffer->pull_ready();
     return true;
 }
