@@ -9,7 +9,6 @@ numpy
 gitpython
 pytz
 configparser
-future
 matplotlib
 scipy
 mongoengine
