@@ -1,8 +1,3 @@
-from __future__ import division
-
-from future import standard_library
-
-standard_library.install_aliases()
 import calendar
 import datetime
 import logging
@@ -20,7 +15,6 @@ from enum import Enum
 import matplotlib.dates as md
 import matplotlib.pyplot as plt
 import numpy as np
-from past.utils import old_div
 
 # This is used to re-map ADC channels index to the RX
 # number going into the TPM
@@ -308,8 +302,8 @@ def get_axes(ax, antenna):
             return ax[antenna], True, antenna == 0
         else:
             return (
-                ax[old_div(antenna, ax.shape[0]), antenna % ax.shape[1]],
-                (old_div(antenna, ax.shape[0])) == ax.shape[0] - 1,
+                ax[antenna // ax.shape[0], antenna % ax.shape[1]],
+                (antenna // ax.shape[0]) == ax.shape[0] - 1,
                 antenna % ax.shape[1] == 0,
             )
     else:
@@ -491,7 +485,7 @@ def antenna_coordinates():
     # Create lookup table (uses preadu mapping)
     antenna_positions = np.zeros((nof_antennas, 3))
     for i in range(nof_antennas):
-        tile_number = old_div(i, antennas_per_tile)
+        tile_number = i // antennas_per_tile
         rx_number = antenna_rx_mapping[i % antennas_per_tile] - 1
         antenna_positions[i] = antenna_mapping[tile_number][rx_number]
 

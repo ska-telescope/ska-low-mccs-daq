@@ -1,5 +1,3 @@
-from __future__ import division
-
 import logging
 
 import matplotlib.pyplot as plt
@@ -136,7 +134,7 @@ def plot_station_beam_data(conf):
             for pol in params["pols"]:
                 plt.plot(
                     frequencies,
-                    old_div(np.sum(data[pol, :, :], axis=0), params["samples"]),
+                    np.sum(data[pol, :, :], axis=0) / params["samples"],
                     label="Pol {}".format(pol),
                 )
             plt.title("Plotting {}".format(conf.plot_type.name))

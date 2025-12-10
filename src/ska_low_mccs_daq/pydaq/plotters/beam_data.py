@@ -1,5 +1,3 @@
-from __future__ import division
-
 import logging
 
 import matplotlib.pyplot as plt
@@ -128,7 +126,7 @@ def plot_beam_data(conf, integrated=False):
             for pol, col in enumerate(ax):
                 col.plot(
                     frequencies,
-                    old_div(np.sum(data[pol, :, :, 0], axis=0), params["samples"]),
+                    np.sum(data[pol, :, :, 0], axis=0) / params["samples"],
                 )
                 col.set_xlim((frequencies[0], frequencies[-1]))
                 col.set_title("Pol {}".format(pol))
@@ -151,7 +149,7 @@ def plot_beam_data(conf, integrated=False):
             for pol in params["pols"]:
                 plt.plot(
                     frequencies,
-                    old_div(np.sum(data[pol, :, :, 0], axis=1), params["samples"]),
+                    np.sum(data[pol, :, :, 0], axis=1) / params["samples"],
                     label="Pol {}".format(pol),
                 )
             plt.title("Plotting {}".format(conf.plot_type.name))

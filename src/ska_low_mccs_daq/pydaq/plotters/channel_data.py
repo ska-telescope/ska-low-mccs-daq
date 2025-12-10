@@ -1,5 +1,3 @@
-from __future__ import division
-
 import matplotlib.pyplot as plt
 
 from ..persisters import ChannelFormatFileManager, FileDAQModes
@@ -153,7 +151,7 @@ def plot_channel_data(conf, integrated=False, continuous=False):
                     axes, last_row, first_col = get_axes(ax, a)
                     axes.plot(
                         frequencies,
-                        old_div(np.sum(data[:, a, p, :], axis=1), params["samples"]),
+                        np.sum(data[:, a, p, :], axis=1) / params["samples"],
                         color=get_color(antenna),
                     )
                     axes.set_xlim((frequencies[0], frequencies[-1]))
@@ -181,7 +179,7 @@ def plot_channel_data(conf, integrated=False, continuous=False):
                 for a, antenna in enumerate(params["antennas"]):
                     plt.plot(
                         frequencies,
-                        old_div(np.sum(data[:, a, p, :], axis=1), params["samples"]),
+                        np.sum(data[:, a, p, :], axis=1) / params["samples"],
                         label="A: {}, RX: {}".format(antenna, get_rx(antenna)),
                         color=get_color(antenna),
                     )

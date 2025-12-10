@@ -1,5 +1,3 @@
-from __future__ import division
-
 import datetime
 import fnmatch
 import logging
@@ -13,7 +11,6 @@ from builtins import next, object, range, str
 
 import h5py
 from lockfile import FileLock
-from past.utils import old_div
 
 from .definitions import *
 
@@ -740,10 +737,8 @@ class AAVSFileManager(object):
         samples_per_partition = self.n_samples * self.n_blocks
 
         # Get partition number given file offset
-        start_partition = old_div(query_sample_offset, samples_per_partition)
-        end_partition = old_div(
-            (query_sample_offset + query_samples_read), (samples_per_partition + 1)
-        )
+        start_partition = query_sample_offset // samples_per_partition
+        end_partition = (query_sample_offset + query_samples_read) // (samples_per_partition + 1)
 
         # Check whether partitions exist
         if end_partition >= nof_partitions or start_partition >= nof_partitions:
