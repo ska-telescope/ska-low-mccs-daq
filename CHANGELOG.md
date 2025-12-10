@@ -1,5 +1,9 @@
 # Version History
 
+## 5.0.1
+
+* [JANUS-328] Support for Python3.12. Removed `__future__`, `future` and `past` imports which were required for Python2/3 intercompatibility, no longer necessary.
+
 ## 5.0.0
 
 * [THORN-331] Daq.Stop() now correctly calls back with result= when done.
