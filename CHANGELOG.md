@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [LOW-1956] Update ska-tango-devices chart dependency to v0.14.0
+
 ## 5.0.1
 
 * [JANUS-328] Support for Python3.12. Removed `__future__`, `future` and `past` imports which were required for Python2/3 intercompatibility, no longer necessary.
