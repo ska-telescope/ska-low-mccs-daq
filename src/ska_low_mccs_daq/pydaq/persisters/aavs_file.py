@@ -130,7 +130,7 @@ class AAVSFileManager(object):
         sample_offset=0,
         start_ts=None,
         end_ts=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Abstract method to read data from a file for a given query. To be implemented by all subclasses. Queries can be
@@ -159,7 +159,7 @@ class AAVSFileManager(object):
         buffer_timestamp=None,
         tile_id=0,
         timestamp_pad=0,
-        **kwargs
+        **kwargs,
     ):
         """
         Abstract method to append data to a file. To be implemented by all subclasses.
@@ -185,7 +185,7 @@ class AAVSFileManager(object):
         tile_id=0,
         partition_id=0,
         timestamp_pad=0,
-        **kwargs
+        **kwargs,
     ):
         """
         Abstract method to write data to a file. To be implemented by all subclasses.
@@ -254,6 +254,81 @@ class AAVSFileManager(object):
         self.station_id = station_id
         self.station_name = station_name
         self.channel_id = channel_id
+
+    def add_metadata(
+        self, metadata: dict, update_existing: bool = True, timestamp=None, tile_id=None
+    ):
+        """
+        Add or update arbitrary metadata fields in HDF5 files.
+
+        This method allows adding custom metadata fields to the observation_info group
+        of HDF5 files. It supports updating both in-memory metadata (for future file
+        partitions) and existing file partitions.
+
+        :param metadata: Dictionary of metadata key-value pairs to add/update.
+                        Keys become HDF5 attribute names, values become attribute values.
+                        Example: {"reference_frame": "ICRS", "ra": 123.45, "dec": 67.89}
+        :param update_existing: If True, updates existing file partitions with the new metadata.
+                               If False, only applies to future partitions. Default is True.
+        :param timestamp: Specific timestamp to update. If None and update_existing=True,
+                         updates all partitions of the current acquisition.
+        :param tile_id: Specific tile_id to update. If None, uses self.tile_id.
+        :return: Dictionary with update status: {"updated_partitions": int, "errors": list}
+        """
+        result = {"updated_partitions": 0, "errors": []}
+
+        # Update in-memory observation_metadata for future partitions
+        if self.observation_metadata is None:
+            self.observation_metadata = {}
+        self.observation_metadata.update(metadata)
+
+        # Update existing file partitions if requested
+        if update_existing:
+            if tile_id is None:
+                tile_id = self.tile_id
+
+            try:
+                max_partition = self.file_partitions(
+                    timestamp=timestamp, tile_id=tile_id
+                )
+
+                # Update each existing partition
+                for partition_id in range(max_partition + 1):
+                    try:
+                        file_obj = self.load_file(
+                            timestamp=timestamp,
+                            tile_id=tile_id,
+                            partition=partition_id,
+                            mode="r+",
+                        )
+
+                        if file_obj is not None:
+                            # Create observation_info group if it doesn't exist
+                            if "observation_info" not in file_obj:
+                                obs_info = file_obj.create_group("observation_info")
+                            else:
+                                obs_info = file_obj["observation_info"]
+
+                            # Add/update each metadata field
+                            for key, value in metadata.items():
+                                obs_info.attrs[key] = value
+
+                            file_obj.flush()
+                            self.close_file(file_obj)
+                            result["updated_partitions"] += 1
+                        else:
+                            result["errors"].append(
+                                f"Could not load partition {partition_id}"
+                            )
+                    except Exception as e:
+                        result["errors"].append(
+                            f"Error updating partition {partition_id}: {str(e)}"
+                        )
+
+            except Exception as e:
+                result["errors"].append(f"Error accessing file partitions: {str(e)}")
+
+        return result
 
     @staticmethod
     def time_range(low, up, leng):
@@ -369,7 +444,7 @@ class AAVSFileManager(object):
         buffer_timestamp=None,
         tile_id=0,
         beam_id=0,
-        **kwargs
+        **kwargs,
     ):
         """
         Data ingestion operation for writing/appending.
@@ -426,7 +501,7 @@ class AAVSFileManager(object):
                     buffer_timestamp=buffer_timestamp,
                     tile_id=tile_id,
                     timestamp_pad=timestamp_pad,
-                    **kwargs
+                    **kwargs,
                 )
             else:
                 return self._write_data(
@@ -437,7 +512,7 @@ class AAVSFileManager(object):
                     tile_id=tile_id,
                     partition_id=0,
                     timestamp_pad=timestamp_pad,
-                    **kwargs
+                    **kwargs,
                 )
         else:
             last_partition = self.file_partitions(timestamp=timestamp, tile_id=tile_id)
@@ -453,7 +528,7 @@ class AAVSFileManager(object):
                 tile_id=tile_id,
                 partition_id=new_partition,
                 timestamp_pad=final_timestamp + sampling_time,
-                **kwargs
+                **kwargs,
             )
 
     @staticmethod
@@ -738,7 +813,9 @@ class AAVSFileManager(object):
 
         # Get partition number given file offset
         start_partition = query_sample_offset // samples_per_partition
-        end_partition = (query_sample_offset + query_samples_read) // (samples_per_partition + 1)
+        end_partition = (query_sample_offset + query_samples_read) // (
+            samples_per_partition + 1
+        )
 
         # Check whether partitions exist
         if end_partition >= nof_partitions or start_partition >= nof_partitions:

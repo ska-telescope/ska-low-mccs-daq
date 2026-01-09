@@ -15,6 +15,7 @@ prototype for the `Square Kilometre Array`_.
    guide/usage
    guide/daq_attributes
    guide/daq_scanning
+   guide/adding_dynamic_metadata
 
 .. toctree::
    :maxdepth: 1

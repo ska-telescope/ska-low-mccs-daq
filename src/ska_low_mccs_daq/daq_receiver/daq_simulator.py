@@ -533,3 +533,36 @@ class DaqSimulator:
         :return: the current data rate in Gb/s, or None if not being monitored.
         """
         return 1.0
+
+    def add_daq_metadata(
+        self: DaqSimulator,
+        metadata: dict[str, Any],
+        update_existing: bool = True,
+        consumer_modes: Optional[list[DaqModes]] = None,
+    ) -> dict[DaqModes, dict[str, Any]]:
+        """
+        Add or update arbitrary metadata fields (simulator stub).
+
+        This is a stub implementation for the simulator that returns
+        a success response without actually updating any files.
+
+        :param metadata: Dictionary of metadata key-value pairs to add/update.
+        :param update_existing: If True, updates existing file partitions.
+        :param consumer_modes: List of specific consumer modes to update.
+
+        :return: Dictionary mapping each consumer mode to its update result.
+        """
+        # Simulate successful metadata addition for all running consumers
+        results = {}
+        modes_to_update = (
+            consumer_modes if consumer_modes else list(self._running_consumers)
+        )
+
+        for mode in modes_to_update:
+            if mode in self._running_consumers and self._running_consumers[mode]:
+                results[mode] = {
+                    "updated_partitions": 1,  # Simulate 1 partition updated
+                    "errors": [],
+                }
+
+        return results

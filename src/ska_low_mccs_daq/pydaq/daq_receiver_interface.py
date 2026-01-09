@@ -2079,6 +2079,95 @@ class DaqReceiver:
         """Return configuration dictionary"""
         return self._config
 
+    def add_daq_metadata(
+        self,
+        metadata: Dict[str, Any],
+        update_existing: bool = True,
+        consumer_modes: Optional[List[DaqModes]] = None,
+    ) -> Dict[DaqModes, Dict[str, Any]]:
+        """
+        Add or update arbitrary metadata fields in HDF5 files for running consumers.
+        
+        This method allows adding custom metadata fields (e.g., pointing information,
+        reference frames, etc.) to HDF5 files after consumers have been started. The
+        metadata is added to the observation_info group in the HDF5 files.
+        
+        Use cases:
+        - Adding pointing information (RA/Dec, Alt/Az) that becomes available after acquisition starts
+        - Adding reference frame information
+        - Adding any custom observation metadata with dynamic field names
+        
+        Example:
+            # Add pointing information in ICRS frame
+            daq.add_daq_metadata({
+                "reference_frame": "ICRS",
+                "ra": 123.456,
+                "dec": 67.890
+            })
+            
+            # Later, add Alt/Az pointing
+            daq.add_daq_metadata({
+                "reference_frame": "AltAz",
+                "altitude": 45.0,
+                "azimuth": 180.0
+            })
+        
+        :param metadata: Dictionary of metadata key-value pairs to add/update.
+                        Keys become HDF5 attribute names in the observation_info group.
+                        Values must be types supported by HDF5 attributes (strings, numbers, etc.).
+        :param update_existing: If True, updates existing file partitions with the new metadata.
+                               If False, only applies to future file partitions. Default is True.
+        :param consumer_modes: List of specific consumer modes to update. If None, updates all
+                              running consumers. Example: [DaqModes.BEAM_DATA, DaqModes.CHANNEL_DATA]
+        :return: Dictionary mapping each consumer mode to its update result.
+                Format: {DaqModes.BEAM_DATA: {"updated_partitions": 2, "errors": []}, ...}
+        """
+        results = {}
+        
+        # Update the global configuration metadata for any future consumers
+        self._config["observation_metadata"].update(metadata)
+        
+        # Determine which consumers to update
+        if consumer_modes is None:
+            # Update all running consumers
+            modes_to_update = list(self._running_consumers.keys())
+        else:
+            # Only update specified modes that are running
+            modes_to_update = [
+                mode for mode in consumer_modes if mode in self._running_consumers
+            ]
+        
+        # Update each running consumer's persister
+        for mode in modes_to_update:
+            if mode in self._persisters:
+                persister = self._persisters[mode]
+                
+                # Handle both single persisters and lists of persisters
+                persisters_to_update = (
+                    persister if isinstance(persister, list) else [persister]
+                )
+                
+                for p in persisters_to_update:
+                    if hasattr(p, "add_metadata"):
+                        try:
+                            result = p.add_metadata(
+                                metadata=metadata,
+                                update_existing=update_existing
+                            )
+                            results[mode] = result
+                        except Exception as e:
+                            results[mode] = {
+                                "updated_partitions": 0,
+                                "errors": [f"Error updating persister: {str(e)}"],
+                            }
+                    else:
+                        results[mode] = {
+                            "updated_partitions": 0,
+                            "errors": ["Persister does not support add_metadata method"],
+                        }
+        
+        return results
+
     @staticmethod
     def _get_numpy_from_ctypes(
         pointer: ctypes.POINTER, datatype: Type, nof_values: int

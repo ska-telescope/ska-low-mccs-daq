@@ -437,6 +437,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             ("DaqStatus", self.DaqStatusCommand),
             ("GetConfiguration", self.GetConfigurationCommand),
             ("StopBandpassMonitor", self.StopBandpassMonitorCommand),
+            ("AddDaqMetadata", self.AddDaqMetadataCommand),
         ]:
             self.register_command_object(
                 command_name,
@@ -1136,6 +1137,116 @@ class MccsDaqReceiver(MccsBaseDevice):
             """
             response = self._component_manager.get_configuration()
             return json.dumps(response)
+
+    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    def AddDaqMetadata(self: MccsDaqReceiver, argin: str) -> DevVarLongStringArrayType:
+        """
+        Add or update arbitrary metadata fields in HDF5 files.
+
+        Allows adding custom metadata fields (e.g., pointing information,
+        reference frames, etc.) to HDF5 files after consumers have been started.
+        The metadata is added to the observation_info group in the HDF5 files.
+
+        :param argin: A JSON string containing:
+            - "metadata": dict - Required. Key-value pairs to add/update
+
+            - "update_existing": bool - Optional. If True (default), updates
+                                        existing file partitions
+
+            - "consumer_modes": list[str] - Optional. List of consumer mode names
+                                           to update (e.g., ["BEAM_DATA"])
+                                           Defaults to all running consumers.
+
+        :return: A tuple containing a return code and a JSON string with results
+                per consumer mode.
+
+        :example:
+            >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
+            >>> # Add pointing information
+            >>> metadata_config = {
+            ...     "metadata": {
+            ...         "reference_frame": "ICRS",
+            ...         "ra": 123.456,
+            ...         "dec": 67.890
+            ...     }
+            ... }
+            >>> daq.AddDaqMetadata(json.dumps(metadata_config))
+
+            >>> # Update only specific consumers
+            >>> metadata_config = {
+            ...     "metadata": {"beam_pointing_ra": 45.0},
+            ...     "consumer_modes": ["BEAM_DATA"]
+            ... }
+            >>> daq.AddDaqMetadata(json.dumps(metadata_config))
+        """
+        handler = self.get_command_object("AddDaqMetadata")
+        (result_code, message) = handler(argin)
+        return ([result_code], [message])
+
+    class AddDaqMetadataCommand(FastCommand):
+        """Class for handling the AddDaqMetadata() command."""
+
+        SCHEMA: Final = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": {
+                "metadata": {
+                    "type": "object",
+                    "description": "Key-value pairs of metadata to add/update",
+                },
+                "update_existing": {
+                    "type": "boolean",
+                    "description": "Whether to update existing file partitions",
+                    "default": True,
+                },
+                "consumer_modes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of consumer mode names to update",
+                },
+            },
+            "required": ["metadata"],
+            "additionalProperties": False,
+        }
+
+        def __init__(
+            self: MccsDaqReceiver.AddDaqMetadataCommand,
+            component_manager: DaqComponentManager,
+            logger: Optional[logging.Logger] = None,
+        ) -> None:
+            """
+            Initialise a new AddDaqMetadataCommand instance.
+
+            :param component_manager: the device to which this command belongs.
+            :param logger: a logger for this command to use.
+            """
+            self._component_manager = component_manager
+            validator = JsonValidator("AddDaqMetadata", self.SCHEMA, logger)
+            super().__init__(logger, validator)
+
+        # pylint: disable=arguments-differ
+        def do(
+            self: MccsDaqReceiver.AddDaqMetadataCommand,
+            argin: str,
+            *args: Any,
+            **kwargs: Any,
+        ) -> tuple[ResultCode, str]:  # type: ignore[override]
+            """
+            Implement :py:meth:`.MccsDaqReceiver.AddDaqMetadata` command.
+
+            :param argin: JSON string with metadata configuration
+            :param args: Positional arg list.
+            :param kwargs: Keyword arg list.
+
+            :return: A tuple containing a return code and a JSON string
+                    with results per consumer mode.
+            """
+            params = json.loads(argin)
+            return self._component_manager.add_daq_metadata(
+                metadata=params["metadata"],
+                update_existing=params.get("update_existing", True),
+                consumer_modes=params.get("consumer_modes"),
+            )
 
     class SetConsumersCommand(FastCommand):
         """Class for handling the SetConsumersCommand(argin) command."""

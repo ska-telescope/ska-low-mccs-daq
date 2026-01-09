@@ -775,6 +775,66 @@ class DaqComponentManager(TaskExecutorComponentManager):
             )
 
     @check_communicating
+    def add_daq_metadata(
+        self: DaqComponentManager,
+        metadata: dict[str, Any],
+        update_existing: bool = True,
+        consumer_modes: Optional[list[str]] = None,
+    ) -> tuple[ResultCode, str]:
+        """
+        Add or update arbitrary metadata fields in HDF5 files for running consumers.
+
+        This method allows adding custom metadata fields (e.g., pointing information,
+        reference frames, etc.) to HDF5 files after consumers have been started.
+
+        :param metadata: Dictionary of metadata key-value pairs to add/update.
+        :param update_existing: If True (default), updates existing file partitions.
+                               If False, only applies to future partitions.
+        :param consumer_modes: List of specific consumer mode names to update
+                              (e.g., ["BEAM_DATA", "CHANNEL_DATA"]).
+                              If None, updates all running consumers.
+
+        :return: A tuple containing a return code and a JSON string with results.
+
+        :example:
+            >>> # Add pointing information
+            >>> component_manager.add_daq_metadata({
+            ...     "reference_frame": "ICRS",
+            ...     "ra": 123.456,
+            ...     "dec": 67.890
+            ... })
+        """
+        try:
+            # Convert consumer mode names to DaqModes enums if provided
+            daq_modes = None
+            if consumer_modes is not None:
+                daq_modes = []
+                for mode_name in consumer_modes:
+                    try:
+                        daq_modes.append(DaqModes[mode_name])
+                    except KeyError:
+                        return (
+                            ResultCode.REJECTED,
+                            f"Invalid consumer mode: {mode_name}",
+                        )
+
+            # Call the underlying DAQ interface method
+            results = self._daq_client.add_daq_metadata(
+                metadata=metadata,
+                update_existing=update_existing,
+                consumer_modes=daq_modes,
+            )
+
+            # Convert DaqModes keys to strings for JSON serialization
+            results_dict = {mode.name: result for mode, result in results.items()}
+
+            return (ResultCode.OK, json.dumps(results_dict))
+
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error(f"Failed to add DAQ metadata: {e}")
+            return (ResultCode.FAILED, f"Failed to add metadata: {str(e)}")
+
+    @check_communicating
     def get_status(self: DaqComponentManager) -> dict[str, Any]:
         """
         Provide status information for this MccsDaqReceiver.
