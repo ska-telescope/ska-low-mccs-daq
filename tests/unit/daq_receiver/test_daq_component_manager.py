@@ -9,10 +9,10 @@
 from __future__ import annotations
 
 import os
-import shutil
 import time
 from pathlib import Path
 
+import h5py
 import numpy as np
 import pytest
 from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
@@ -332,6 +332,7 @@ class TestDaqComponentManager:
         daq_component_manager._set_consumers_to_start(consumer_list)
         assert daq_component_manager._consumers_to_start == consumer_list
 
+    # pylint: disable=too-many-locals
     def test_start_stop_bandpass_monitor(
         self: TestDaqComponentManager,
         daq_component_manager: DaqComponentManager,
@@ -355,32 +356,19 @@ class TestDaqComponentManager:
             CommunicationStatus.NOT_ESTABLISHED
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        daq_component_manager.start_daq(
-            "INTEGRATED_CHANNEL_DATA",
-            task_callback=callbacks["task"],
-        )
-        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
-        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
-        callbacks["task"].assert_call(
-            status=TaskStatus.COMPLETED,
-            result=(ResultCode.OK, "Daq started"),
-        )
 
-        # Call start_bandpass
         _ = daq_component_manager.start_bandpass_monitor(
             task_callback=callbacks["task"]
         )
 
         callbacks["task"].assert_call(status=TaskStatus.QUEUED)
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
         callbacks["task"].assert_call(
             status=TaskStatus.COMPLETED,
             result=(ResultCode.OK, "Bandpass monitor active"),
-            lookahead=5,
         )
 
-        src_dir = Path(__file__).parent.parent.parent / "data" / "integrated-data"
-        dst_dir = src_dir.parent / "bandpass-data"
-        dst_dir.mkdir(exist_ok=True)
+        data_dir = Path(__file__).parent.parent.parent / "data" / "integrated-data"
 
         # Assert status shows bandpass monitor is active.
         status = daq_component_manager.get_status()
@@ -388,34 +376,35 @@ class TestDaqComponentManager:
 
         expected_data = np.zeros((256, 512))
         for i in range(nof_tiles * NOF_ANTENNAS_PER_TILE):
-            expected_data[i][0] = 3.01  # DC signal
-            expected_data[i][128] = 36  # Test generator on at 100Mhz
-            expected_data[i][256] = 36  # Test generator on at 200Mhz
+            expected_data[i][0] = 10 * np.log10(2)  # DC signal
+            expected_data[i][128] = 10 * np.log10(4451)  # Test generator on at 100Mhz
+            expected_data[i][256] = 10 * np.log10(4451)  # Test generator on at 200Mhz
+
+        expected_raw_data = np.zeros((256, 512))
+        for i in range(nof_tiles * NOF_ANTENNAS_PER_TILE):
+            expected_raw_data[i][0] = 2  # DC signal
+            expected_raw_data[i][128] = 4451  # Test generator on at 100Mhz
+            expected_raw_data[i][256] = 4451  # Test generator on at 200Mhz
 
         for _ in range(3):
-            # Pretend to receive bandpass data.
-            for file in src_dir.glob("*.hdf5"):
-                shutil.copy(file, dst_dir / file.name)
-
-            assert len(os.listdir(dst_dir)) == nof_tiles
-            for file in dst_dir.glob("*.hdf5"):
-                daq_component_manager._file_dump_callback(
-                    "integrated_channel", str(file)
-                )
-
-            for _ in range(8):
-                callbacks["received_data"].assert_call(
-                    "integrated_channel", Anything, Anything
-                )
+            for tile, file in enumerate(data_dir.glob("*.hdf5")):
+                # DAQ will now callback with the data directly, so we test here by
+                # pulling it from a file and sending the contents.
+                with h5py.File(file, "r") as f:
+                    data: np.ndarray = f["chan_"]["data"][:]
+                daq_component_manager.generate_bandpass(data, tile)
 
             call_args = callbacks["component_state"]._call_queue.get(timeout=5)
             args_dict = call_args[2]
-            received_x_pol_data = args_dict["x_bandpass_plot"]
-            received_y_pol_data = args_dict["y_bandpass_plot"]
+            received_x_pol_data = args_dict["x_bandpass"]
+            received_y_pol_data = args_dict["y_bandpass"]
+            received_raw_x_pol_data = args_dict["raw_x_bandpass"]
+            received_raw_y_pol_data = args_dict["raw_y_bandpass"]
 
-            np.testing.assert_allclose(received_x_pol_data, expected_data, rtol=1e-1)
-            np.testing.assert_allclose(received_y_pol_data, expected_data, rtol=1e-1)
-            assert len(os.listdir(dst_dir)) == 0
+            np.testing.assert_allclose(received_x_pol_data, expected_data, rtol=1e-5)
+            np.testing.assert_allclose(received_y_pol_data, expected_data, rtol=1e-5)
+            np.testing.assert_array_equal(received_raw_x_pol_data, expected_raw_data)
+            np.testing.assert_array_equal(received_raw_y_pol_data, expected_raw_data)
 
         assert (
             ResultCode.OK,
