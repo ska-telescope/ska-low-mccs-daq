@@ -21,6 +21,7 @@ from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
+
 @pytest.fixture(name="callbacks")
 def callbacks_fixture() -> MockCallableGroup:
     """
