@@ -21,7 +21,6 @@ from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
 
-
 @pytest.fixture(name="callbacks")
 def callbacks_fixture() -> MockCallableGroup:
     """
@@ -198,11 +197,11 @@ def mock_psutil_methods(
 
     def mock_net_io_counters(
         *args: Any, **kwargs: Any
-    ) -> dict[str, psutil._common.snetio]:
+    ) -> dict[str, psutil._ntuples.snetio]:
         nonlocal counter
         counter += 1024**3  # 1 Gb/s in bytes per second
         return {
-            mock_interface: psutil._common.snetio(
+            mock_interface: psutil._ntuples.snetio(
                 bytes_sent=counter,
                 bytes_recv=counter,
                 packets_sent=0,
@@ -212,7 +211,7 @@ def mock_psutil_methods(
                 dropin=0,
                 dropout=0,
             ),
-            "eth0": psutil._common.snetio(
+            "eth0": psutil._ntuples.snetio(
                 bytes_sent=0,
                 bytes_recv=0,
                 packets_sent=0,
