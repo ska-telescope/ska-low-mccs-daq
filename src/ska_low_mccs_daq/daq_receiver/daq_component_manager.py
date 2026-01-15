@@ -15,7 +15,6 @@ import logging
 import os
 import queue
 import random
-import re
 import threading
 from collections import deque
 from datetime import date
@@ -23,7 +22,6 @@ from pathlib import PurePath
 from time import perf_counter, sleep
 from typing import Any, Callable, Final, Optional
 
-import h5py
 import kubernetes  # type: ignore
 import numpy as np
 import psutil  # type: ignore
@@ -128,6 +126,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
         "acquisition_start_time": -1,
         "description": "",
         "observation_metadata": {},  # This is populated automatically
+        # If given, when integrated channel data is received,
+        # DAQ will callback directly with the data instead of persisting to disk.
+        "bandpass": False,
     }
 
     # pylint: disable=too-many-arguments, too-many-locals
@@ -218,10 +219,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.dir_change_result = True
 
         self._monitoring_bandpass = False
-        self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
         self._y_bandpass_plots: deque[str] = deque(maxlen=1)
         self._x_bandpass_plots: deque[str] = deque(maxlen=1)
         self._full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=float)
+        self._raw_full_station_data: np.ndarray = np.zeros(
+            shape=(512, 256, 2), dtype=int
+        )
         self._files_received_per_tile: list[int] = [0] * nof_tiles
         self._event_queue: queue.Queue[tuple[str, float]] = queue.Queue()
         threading.Thread(target=self._event_loop, name="EventLoop").start()
@@ -246,7 +249,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             power=None,
             fault=None,
         )
-        # We've bumped this to 3 workers to allow for the bandpass monitoring.
         self.start_data_rate_monitor(1)
 
     def get_external_ip(self, logger: logging.Logger) -> str:
@@ -391,13 +393,18 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.info(
                 "Auto starting INTEGRATED DATA consumer for bandpass monitoring."
             )
-            self.start_daq(modes_to_start="INTEGRATED_CHANNEL_DATA")
+            self._daq_client.start_daq(
+                [DaqModes.INTEGRATED_CHANNEL_DATA],
+                callbacks=[self.generate_bandpass],
+                diagnostic_callback=self._diagnostic_callback,
+            )
             _wait_for_status(
                 status="Running Consumers", value=str(["INTEGRATED_CHANNEL_DATA", 5])
             )
 
         # Good to go.
         self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
+        self._raw_full_station_data = np.zeros(shape=(512, 256, 2), dtype=int)
         self._files_received_per_tile = [0] * self._nof_tiles
         self._monitoring_bandpass = True
 
@@ -441,6 +448,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             new_config["append_integrated"] = False
         if config["nof_tiles"] != self._nof_tiles:
             new_config["nof_tiles"] = self._nof_tiles
+        if config["bandpass"] is not True:
+            new_config["bandpass"] = True
         return new_config
 
     def stop_communicating(self: DaqComponentManager) -> None:
@@ -595,8 +604,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if data_mode == "continuous_channel":
             pass
 
-        if data_mode == "integrated_channel" and self._monitoring_bandpass:
-            self.generate_bandpass_plots(file_name)
+        if data_mode == "integrated_channel":
+            pass
 
         if data_mode == "correlator":
             pass
@@ -647,8 +656,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             task_callback=task_callback,
         )
 
-    # flake8: noqa: C901
-    def _start_daq(
+    def _start_daq(  # noqa: C901
         self: DaqComponentManager,
         modes_to_start: str,
         task_callback: TaskCallbackType | None,
@@ -715,7 +723,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 f"{self.get_configuration()['directory_tag']}"
             )
         self._scan_in_progress = True
-        self.client_queue = queue.SimpleQueue()
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
         self._daq_client.start_daq(
             converted_modes_to_start, callbacks, self._diagnostic_callback
@@ -925,63 +932,38 @@ class DaqComponentManager(TaskExecutorComponentManager):
         )
 
     # pylint: disable = too-many-locals
-    def generate_bandpass_plots(  # noqa: C901
-        self: DaqComponentManager, filepath: str
+    def generate_bandpass(
+        self: DaqComponentManager,
+        data: np.ndarray,
+        tile_number: int,
+        **attributes: float,
     ) -> None:
         """
         Generate antenna bandpass plots.
 
-        :param filepath: the location of the data file for bandpass plots.
+        :param data: The data array containing the bandpass data for a tile.
+        :param tile_number: The tile number the data corresponds to.
+        :param attributes: any attributes to update the value for.
         """
+        for attribute_name, attribute_value in attributes.items():
+            self._attribute_callback(attribute_name, attribute_value)
         config = self.get_configuration()
         nof_channels = int(config["nof_channels"])
         nof_antennas_per_tile = int(config["nof_antennas"])
         nof_pols = int(config["nof_polarisations"])
         nof_tiles = int(config["nof_tiles"])
+        self.logger.debug(f"Processing bandpass for tile {tile_number}")
+        try:
+            self._files_received_per_tile[tile_number] += 1
+        except IndexError as e:
+            self.logger.error(
+                f"Caught exception: {e}. "
+                f"Tile {tile_number} out of bounds! "
+                f"Max tile number: {len(self._files_received_per_tile)}"
+            )
 
-        # x_pol_data: np.ndarray | None = None
-        # x_pol_data_count: int = 0
-        # y_pol_data: np.ndarray | None = None
-        # y_pol_data_count: int = 0
-
-        _filename_expression = re.compile(
-            r"channel_integ_(?P<tile>\d+)_(?P<timestamp>\d+_\d+)_0.hdf5"
-        )
-
-        self.logger.debug("Processing %s", filepath)
-
-        # Extract Tile number
-        filename = os.path.basename(os.path.abspath(filepath))
-        parts = _filename_expression.match(filename)
-
-        if parts is not None:
-            tile_number = int(parts.groupdict()["tile"])
-        if tile_number is not None:
-            try:
-                self._files_received_per_tile[tile_number] += 1
-            except IndexError as e:
-                self.logger.error(
-                    f"Caught exception: {e}. "
-                    f"Tile {tile_number} out of bounds! "
-                    f"Max tile number: {len(self._files_received_per_tile)}"
-                )
-
-        # Open newly create HDF5 file
-        with h5py.File(filepath, "r") as f:
-            # Data is in channels/antennas/pols order
-            try:
-                data: np.ndarray = f["chan_"]["data"][:]
-            # pylint: disable=broad-exception-caught
-            except Exception as e:
-                self.logger.error("Exception: %s", e)
-                return
-            try:
-                data = self._to_db(
-                    data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
-                )
-            except ValueError as ve:
-                self.logger.error("ValueError caught reshaping data, skipping: %s", ve)
-                return
+        data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
+        data_db = self._to_db(data)
 
         # Append Tile data to full station set.
         # full_station_data is made of blocks of data per TPM in TPM order.
@@ -989,59 +971,30 @@ class DaqComponentManager(TaskExecutorComponentManager):
         start_index = nof_antennas_per_tile * tile_number
         self._full_station_data[
             :, start_index : start_index + nof_antennas_per_tile, :
+        ] = data_db
+        self._raw_full_station_data[
+            :, start_index : start_index + nof_antennas_per_tile, :
         ] = data
 
-        # present = datetime.datetime.now()
-        # if interval_start is None:
-        #     interval_start = present
-
-        # TODO: This block is currently useless. Get averaging back in.
-        # Loop over polarisations (separate plots)
-        # for pol in range(nof_pols):
-        #     # Assign first data point or maintain sum of all data.
-        #     # Divide by _pol_data_count to calculate the moving average on-demand.
-        #     if pol == X_POL_INDEX:
-        #         if x_pol_data is None:
-        #             x_pol_data_count = 1
-        #             x_pol_data = full_station_data[:, :, pol]
-        #         else:
-        #             x_pol_data_count += 1
-        #             x_pol_data = x_pol_data + full_station_data[:, :, pol]
-        #     elif pol == Y_POL_INDEX:
-        #         if y_pol_data is None:
-        #             y_pol_data_count = 1
-        #             y_pol_data = full_station_data[:, :, pol]
-        #         else:
-        #             y_pol_data_count += 1
-        #             y_pol_data = y_pol_data + full_station_data[:, :, pol]
-
-        # Delete read file.
-        os.unlink(filepath)
-        # to the queue to be sent to the Tango device,
         # Assert that we've received the same number (1+) of files per tile.
         if all(self._files_received_per_tile) and (
             len(set(self._files_received_per_tile)) == 1
         ):
             x_data = self._full_station_data[:, :, X_POL_INDEX].transpose()
-            # Averaged x data (commented out for now)
-            # x_data = x_pol_data.transpose() / x_pol_data_count
             y_data = self._full_station_data[:, :, Y_POL_INDEX].transpose()
-            # Averaged y data (commented out for now)
-            # y_data = y_pol_data.transpose() / y_pol_data_count
+            raw_x_data = self._raw_full_station_data[:, :, X_POL_INDEX].transpose()
+            raw_y_data = self._raw_full_station_data[:, :, Y_POL_INDEX].transpose()
             if self._component_state_callback is not None:
                 self._component_state_callback(
-                    x_bandpass_plot=x_data, y_bandpass_plot=y_data
+                    x_bandpass=x_data,
+                    y_bandpass=y_data,
+                    raw_x_bandpass=raw_x_data,
+                    raw_y_bandpass=raw_y_data,
                 )
             self.logger.debug("Bandpasses transmitted.")
-
-            # Reset vars
-            # x_pol_data = None
-            # x_pol_data_count = 0
-            # y_pol_data = None
-            # y_pol_data_count = 0
-            # interval_start = None
             self._files_received_per_tile = [0] * nof_tiles
             self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
+            self._raw_full_station_data = np.zeros(shape=(512, 256, 2), dtype=int)
 
     @check_communicating
     def stop_bandpass_monitor(

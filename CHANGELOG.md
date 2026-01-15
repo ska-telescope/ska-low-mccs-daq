@@ -1,8 +1,10 @@
 # Version History
 
-## Unreleased
+## 5.1.0
 
 * [LOW-1956] Update ska-tango-devices chart dependency to v0.14.0
+* [THORN-380] Add raw{x,y}PolBandpass attributes for pushing uint16 bandpasses before decibelisation
+* [SKB-1162] Refactored the bandpass monitor to no longer make/delete files which was the source of the memory leak.
 
 ## 5.0.1
 

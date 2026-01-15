@@ -269,6 +269,9 @@ class DaqReceiver:
             "description": "",
             "daq_library": None,
             "observation_metadata": {},  # This is populated automatically
+            # If given, when integrated channel data is received,
+            # DAQ will callback directly with the data instead of persisting to disk.
+            "bandpass": False,
         }
 
         # Default AAVS DAQ C++ shared library path
@@ -548,34 +551,62 @@ class DaqReceiver:
 
             persister = self._persisters[DaqModes.INTEGRATED_CHANNEL_DATA]
 
-            if self._config["append_integrated"]:
-                filename = persister.ingest_data(
-                    append=True,
-                    data_ptr=values,
-                    timestamp=self._timestamps[DaqModes.INTEGRATED_CHANNEL_DATA],
-                    sampling_time=self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA],
-                    buffer_timestamp=timestamp,
-                    tile_id=tile,
-                )
-            else:
-                filename = persister.ingest_data(
-                    append=False,
-                    data_ptr=values,
-                    timestamp=timestamp,
-                    sampling_time=self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA],
-                    buffer_timestamp=timestamp,
-                    tile_id=tile,
-                )
+            if not self._config["bandpass"]:
+                if self._config["append_integrated"]:
+                    filename = persister.ingest_data(
+                        append=True,
+                        data_ptr=values,
+                        timestamp=self._timestamps[DaqModes.INTEGRATED_CHANNEL_DATA],
+                        sampling_time=self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA],
+                        buffer_timestamp=timestamp,
+                        tile_id=tile,
+                    )
+                else:
+                    filename = persister.ingest_data(
+                        append=False,
+                        data_ptr=values,
+                        timestamp=timestamp,
+                        sampling_time=self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA],
+                        buffer_timestamp=timestamp,
+                        tile_id=tile,
+                    )
 
             # Call external callback if defined
             if self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None:
-                self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
-                    "integrated_channel",
-                    filename,
-                    tile,
-                    nof_packets=nof_packets,
-                    spead_metadata=metadata,
-                )
+                if self._config["bandpass"]:
+                    values = numpy.reshape(
+                        values, 
+                        (
+                            self._config["nof_channels"], 
+                            1, 
+                            self._config["nof_antennas"] * self._config["nof_polarisations"]
+                        )
+                    )
+                    values = numpy.transpose(values, (1, 0, 2))
+                    values = numpy.reshape(
+                        values, 
+                        (
+                            1, 
+                            (
+                                self._config["nof_channels"] * 
+                                self._config["nof_antennas"] * 
+                                self._config["nof_polarisations"]
+                            )
+                        )
+                    )
+                    self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
+                        values,
+                        tile,
+                        nof_packets=nof_packets,
+                    )                    
+                else:
+                    self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
+                        "integrated_channel",
+                        filename,
+                        tile,
+                        nof_packets=nof_packets,
+                        spead_metadata=metadata,
+                    )
 
             if self._config["logging"]:
                 logging.info(

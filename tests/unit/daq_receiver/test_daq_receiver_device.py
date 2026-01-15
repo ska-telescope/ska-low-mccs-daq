@@ -15,6 +15,7 @@ import unittest.mock
 from time import sleep
 from typing import Iterator, Type, Union
 
+import numpy as np
 import pytest
 import pytest_mock
 import tango
@@ -482,6 +483,28 @@ class TestPatchedDaq:
                 """
                 self._received_data_callback(*input_data)
 
+            @command(dtype_in="DevVarShortArray")
+            def ReceiveBandpassData(
+                self: _PatchedDaqReceiver,
+                data: np.ndarray,
+            ) -> None:
+                """
+                Call to the bandpass data callback.
+
+                :param data: The data array containing the bandpass data for a station.
+                """
+                data = data.reshape(256, 512, 2)
+                x_pol_bandpass = 10 * np.log10(data[:, :, 0])
+                x_pol_bandpass[np.isneginf(x_pol_bandpass)] = 0.0
+                y_pol_bandpass = 10 * np.log10(data[:, :, 1])
+                y_pol_bandpass[np.isneginf(y_pol_bandpass)] = 0.0
+                self._component_state_callback(
+                    x_bandpass=x_pol_bandpass,
+                    y_bandpass=y_pol_bandpass,
+                    raw_y_bandpass=data[:, :, 1],
+                    raw_x_bandpass=data[:, :, 0],
+                )
+
             @command(dtype_in="DevBoolean")
             def SetBandpassDaq(self: _PatchedDaqReceiver, value: bool) -> None:
                 """
@@ -850,3 +873,74 @@ class TestPatchedDaq:
         )
         # Wait for bandpass monitor to start.
         verify_bandpass_state(device_under_test, True)
+
+    def test_receive_bandpass_data_callback(
+        self: TestPatchedDaq,
+        device_under_test: tango.DeviceProxy,
+        change_event_callbacks: MockTangoEventCallbackGroup,
+    ) -> None:
+        """
+        Test we get expected change events for bandpass attributes.
+
+        Lots of jank in here to deal with the fact `assert_change_event`
+        doesn't play well with `np.ndarray`.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param change_event_callbacks: group of Tango change event
+            callback with asynchrony support.
+        """
+        device_under_test.adminMode = AdminMode.ONLINE
+        assert device_under_test.adminMode == AdminMode.ONLINE
+        raw_x_pol_bandpass = np.zeros(shape=(256, 512), dtype=int)
+        raw_y_pol_bandpass = np.zeros(shape=(256, 512), dtype=int)
+        x_pol_bandpass = np.zeros(shape=(256, 512), dtype=float)
+        y_pol_bandpass = np.zeros(shape=(256, 512), dtype=float)
+
+        for attribute, expected_value in {
+            "rawXPolBandpass": raw_x_pol_bandpass,
+            "rawYPolBandpass": raw_y_pol_bandpass,
+            "xPolBandpass": x_pol_bandpass,
+            "yPolBandpass": y_pol_bandpass,
+        }.items():
+            device_under_test.subscribe_event(
+                attribute,
+                tango.EventType.CHANGE_EVENT,
+                change_event_callbacks[attribute],
+            )
+            received_bandpass = change_event_callbacks[
+                attribute
+            ]._callable._call_queue.get(timeout=5)
+            event: tango.EventData = received_bandpass[1][0]
+            assert event.attr_value is not None
+            np.testing.assert_array_equal(event.attr_value.value, expected_value)
+
+        raw_x_pol_bandpass[:, 128] = 1234
+        raw_y_pol_bandpass[:, 511] = 1234
+        x_pol_bandpass = 10 * np.log10(raw_x_pol_bandpass)
+        y_pol_bandpass = 10 * np.log10(raw_y_pol_bandpass)
+        x_pol_bandpass[np.isneginf(x_pol_bandpass)] = 0.0
+        y_pol_bandpass[np.isneginf(y_pol_bandpass)] = 0.0
+        device_under_test.ReceiveBandpassData(
+            np.stack(
+                [raw_x_pol_bandpass, raw_y_pol_bandpass],
+                axis=-1,
+            ).flatten()
+        )
+        received_events = {}
+        for _ in range(4):
+            attribute, event, _ = change_event_callbacks._queue.get(timeout=5)
+            received_events[attribute] = event[0].attr_value.value
+
+        for attribute, expected_value in {
+            "rawXPolBandpass": raw_x_pol_bandpass,
+            "rawYPolBandpass": raw_y_pol_bandpass,
+            "xPolBandpass": x_pol_bandpass,
+            "yPolBandpass": y_pol_bandpass,
+        }.items():
+            received_value = received_events[attribute]
+            np.testing.assert_array_almost_equal(received_value, expected_value)
+            np.testing.assert_array_almost_equal(
+                getattr(device_under_test, attribute), expected_value
+            )
