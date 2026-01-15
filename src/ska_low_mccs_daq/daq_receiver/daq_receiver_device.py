@@ -600,8 +600,8 @@ class MccsDaqReceiver(MccsBaseDevice):
         the state of the component changes.
 
         :param fault: New fault state of device.
-        :param x_bandpass: Data for a bandpass.
-        :param y_bandpass: Data for a bandpass.
+        :param x_bandpass: Data for a bandpass in dB.
+        :param y_bandpass: Data for a bandpass in dB.
         :param raw_x_bandpass: Raw data for a bandpass.
         :param raw_y_bandpass: Raw data for a bandpass.
         :param rms_plot: Data for an rms plot.

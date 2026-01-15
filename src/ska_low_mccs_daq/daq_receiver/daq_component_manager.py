@@ -126,6 +126,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         "acquisition_start_time": -1,
         "description": "",
         "observation_metadata": {},  # This is populated automatically
+        # If given, when integrated channel data is received,
+        # DAQ will callback directly with the data instead of persisting to disk.
         "bandpass": False,
     }
 
@@ -217,7 +219,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self.dir_change_result = True
 
         self._monitoring_bandpass = False
-        self.client_queue: queue.SimpleQueue[tuple[str, str, str] | None] | None = None
         self._y_bandpass_plots: deque[str] = deque(maxlen=1)
         self._x_bandpass_plots: deque[str] = deque(maxlen=1)
         self._full_station_data: np.ndarray = np.zeros(shape=(512, 256, 2), dtype=float)
@@ -248,7 +249,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             power=None,
             fault=None,
         )
-        # We've bumped this to 3 workers to allow for the bandpass monitoring.
         self.start_data_rate_monitor(1)
 
     def get_external_ip(self, logger: logging.Logger) -> str:
@@ -656,8 +656,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             task_callback=task_callback,
         )
 
-    # flake8: noqa: C901
-    def _start_daq(
+    def _start_daq(  # noqa: C901
         self: DaqComponentManager,
         modes_to_start: str,
         task_callback: TaskCallbackType | None,
@@ -724,7 +723,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 f"{self.get_configuration()['directory_tag']}"
             )
         self._scan_in_progress = True
-        self.client_queue = queue.SimpleQueue()
         callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
         self._daq_client.start_daq(
             converted_modes_to_start, callbacks, self._diagnostic_callback
@@ -934,7 +932,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         )
 
     # pylint: disable = too-many-locals
-    def generate_bandpass(  # noqa: C901
+    def generate_bandpass(
         self: DaqComponentManager,
         data: np.ndarray,
         tile_number: int,
@@ -943,7 +941,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         Generate antenna bandpass plots.
 
-        :param filepath: the location of the data file for bandpass plots.
+        :param data: The data array containing the bandpass data for a tile.
+        :param tile_number: The tile number the data corresponds to.
+        :param attributes: any attributes to update the value for.
         """
         for attribute_name, attribute_value in attributes.items():
             self._attribute_callback(attribute_name, attribute_value)

@@ -269,6 +269,8 @@ class DaqReceiver:
             "description": "",
             "daq_library": None,
             "observation_metadata": {},  # This is populated automatically
+            # If given, when integrated channel data is received,
+            # DAQ will callback directly with the data instead of persisting to disk.
             "bandpass": False,
         }
 
