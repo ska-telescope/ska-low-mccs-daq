@@ -857,6 +857,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         self.logger.debug(
             "Data of type %s has been written to file %s", data_mode, file_name
         )
+        self.logger.error(f"recevid data callback mode == {data_mode}")
         try:
             metadata_dict = json.loads(metadata)
         except Exception as e:  # pylint: disable=broad-except
@@ -882,12 +883,16 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._received_data_mode != data_mode
             or self._received_data_result != result
         ):
+            self.logger.error("push change event")
             self._received_data_mode = data_mode
             self._received_data_result = result
             self.push_change_event(
                 "dataReceivedResult",
                 (self._received_data_mode, self._received_data_result),
             )
+            self.logger.error("pushed change event")
+        else:
+            self.logger.error("no event")
 
     def _health_changed(
         self: MccsDaqReceiver, health: HealthState, health_report: str

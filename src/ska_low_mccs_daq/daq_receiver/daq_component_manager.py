@@ -565,6 +565,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param spead_metadata: C Struct containing SPEAD header fields
         :param attributes: any attributes to update the value for.
         """
+        self.logger.error(f"file dump callback data mode == {data_mode}")
         # Callbacks to call for all data modes.
         daq_mode = self._data_mode_mapping[data_mode]
         if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
