@@ -1,8 +1,8 @@
 apiVersion: v2
 description: A Helm chart for deploying the DAQ receiver on Kubernetes
 name: ska-low-mccs-daq
-version: 5.1.0
-appVersion: 5.1.0
+version: 5.2.0
+appVersion: 5.2.0
 icon: https://www.skatelescope.org/wp-content/uploads/2016/07/09545_NEW_LOGO_2014.png
 dependencies:
   - name: ska-tango-devices
