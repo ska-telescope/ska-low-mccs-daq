@@ -342,6 +342,8 @@ class MccsDaqReceiver(MccsBaseDevice):
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
         )
 
+        self.logger.error("joe start")
+
     def delete_device(self: MccsDaqReceiver) -> None:
         """Delete the device."""
         self._stopping = True
