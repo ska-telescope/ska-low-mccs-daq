@@ -59,6 +59,10 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
         "yPolBandpass",
         "rawXPolBandpass",
         "rawYPolBandpass",
+        "archivexPolBandpass",
+        "archiveyPolBandpass",
+        "archiverawXPolBandpass",
+        "archiverawYPolBandpass",
         timeout=15.0,
         # TODO: Add more event types here as the tests grow
     )

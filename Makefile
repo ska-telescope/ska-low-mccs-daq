@@ -30,7 +30,7 @@ include .make/python.mk
 
 PYTHON_LINE_LENGTH = 88
 PYTHON_TEST_FILE = tests
-PYTHON_VARS_AFTER_PYTEST = --forked -n 16
+PYTHON_VARS_AFTER_PYTEST = --forked -n auto --count 1000
 PYTHON_VARS_BEFORE_PYTEST = timeout -k 120 -s INT 3000	# 50min t/o with 2min grace
 PYTHON_VARS_BEFORE_K8S_PYTEST = timeout -k 120 -s INT 3000
 

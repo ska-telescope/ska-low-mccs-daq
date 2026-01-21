@@ -617,29 +617,61 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._x_bandpass = x_bandpass
             # TODO: Should we be pushing these
             # events with self.x_bandpass?
-            self.push_change_event("xPolBandpass", x_bandpass)
-            self.push_archive_event("xPolBandpass", x_bandpass)
+            event_time = time.time()
+            self.push_change_event(
+                "xPolBandpass", x_bandpass, event_time, tango.AttrQuality.ATTR_VALID
+            )
+            self.push_archive_event(
+                "xPolBandpass", x_bandpass, event_time, tango.AttrQuality.ATTR_VALID
+            )
 
         if y_bandpass is not None:
             if isinstance(y_bandpass, list):
                 y_bandpass = y_bandpass[0]
             self._y_bandpass = y_bandpass
-            self.push_change_event("yPolBandpass", y_bandpass)
-            self.push_archive_event("yPolBandpass", y_bandpass)
+            event_time = time.time()
+            self.push_change_event(
+                "yPolBandpass", y_bandpass, event_time, tango.AttrQuality.ATTR_VALID
+            )
+            self.push_archive_event(
+                "yPolBandpass", y_bandpass, event_time, tango.AttrQuality.ATTR_VALID
+            )
 
         if raw_x_bandpass is not None:
             if isinstance(raw_x_bandpass, list):
                 raw_x_bandpass = raw_x_bandpass[0]
             self._raw_x_bandpass = raw_x_bandpass
-            self.push_change_event("rawXPolBandpass", raw_x_bandpass)
-            self.push_archive_event("rawXPolBandpass", raw_x_bandpass)
+            event_time = time.time()
+            self.push_change_event(
+                "rawXPolBandpass",
+                raw_x_bandpass,
+                event_time,
+                tango.AttrQuality.ATTR_VALID,
+            )
+            self.push_archive_event(
+                "rawXPolBandpass",
+                raw_x_bandpass,
+                event_time,
+                tango.AttrQuality.ATTR_VALID,
+            )
 
         if raw_y_bandpass is not None:
             if isinstance(raw_y_bandpass, list):
                 raw_y_bandpass = raw_y_bandpass[0]
             self._raw_y_bandpass = raw_y_bandpass
-            self.push_change_event("rawYPolBandpass", raw_y_bandpass)
-            self.push_archive_event("rawYPolBandpass", raw_y_bandpass)
+            event_time = time.time()
+            self.push_change_event(
+                "rawYPolBandpass",
+                raw_y_bandpass,
+                event_time,
+                tango.AttrQuality.ATTR_VALID,
+            )
+            self.push_archive_event(
+                "rawYPolBandpass",
+                raw_y_bandpass,
+                event_time,
+                tango.AttrQuality.ATTR_VALID,
+            )
 
         if rms_plot is not None:
             if isinstance(rms_plot, list):
