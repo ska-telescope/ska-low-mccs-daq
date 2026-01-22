@@ -284,6 +284,10 @@ class AAVSFileManager(object):
 
         # Update existing file partitions if requested
         if update_existing:
+            # Use current observation's timestamp if not explicitly provided
+            if timestamp is None:
+                timestamp = self.timestamp
+
             if tile_id is None:
                 tile_id = self.tile_id
 

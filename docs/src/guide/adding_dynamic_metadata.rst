@@ -89,7 +89,6 @@ Example 1: Basic Usage - Adding Pointing Information
         "reference_frame": "ICRS",
         "ra": 123.456,
         "dec": 67.890,
-        "equinox": "J2000"
     })
 
     print(f"Updated {result[DaqModes.BEAM_DATA]['updated_partitions']} partition(s)")
@@ -114,7 +113,6 @@ Example 2: Dynamic Field Names Based on Reference Frame
         "reference_frame": "AltAz",
         "altitude": 45.0,
         "azimuth": 180.0,
-        "observation_site": "SKA-Low"
     })
 
     # If pointing is in Galactic coordinates:
