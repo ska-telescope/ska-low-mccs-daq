@@ -185,6 +185,7 @@ class DaqSimulator:
             "acquisition_start_time": -1,
             "description": "",
             "observation_metadata": "foo",
+            "bandpass": False,
         } | extra_config
 
         self._modes: list[DaqModes] = []

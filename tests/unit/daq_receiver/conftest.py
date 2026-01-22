@@ -55,6 +55,14 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
         "ringbuffer_occupancy",
         "lost_pushes",
         "track_lrc_command",
+        "xPolBandpass",
+        "yPolBandpass",
+        "rawXPolBandpass",
+        "rawYPolBandpass",
+        "archivexPolBandpass",
+        "archiveyPolBandpass",
+        "archiverawXPolBandpass",
+        "archiverawYPolBandpass",
         timeout=15.0,
         # TODO: Add more event types here as the tests grow
     )
@@ -198,11 +206,11 @@ def mock_psutil_methods(
 
     def mock_net_io_counters(
         *args: Any, **kwargs: Any
-    ) -> dict[str, psutil._common.snetio]:
+    ) -> dict[str, psutil._ntuples.snetio]:
         nonlocal counter
         counter += 1024**3  # 1 Gb/s in bytes per second
         return {
-            mock_interface: psutil._common.snetio(
+            mock_interface: psutil._ntuples.snetio(
                 bytes_sent=counter,
                 bytes_recv=counter,
                 packets_sent=0,
@@ -212,7 +220,7 @@ def mock_psutil_methods(
                 dropin=0,
                 dropout=0,
             ),
-            "eth0": psutil._common.snetio(
+            "eth0": psutil._ntuples.snetio(
                 bytes_sent=0,
                 bytes_recv=0,
                 packets_sent=0,
