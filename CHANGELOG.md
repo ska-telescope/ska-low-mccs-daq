@@ -1,9 +1,12 @@
 # Version History
 
+## 5.2.1
+
+* [THORN-387] Bandpasses are now pushed with the exact same time for archive and change events. Different attributes will still have slightly different times.
+
 ## 5.2.0
 
 * [SKB-1171] Devices which fail to connect to their parent device for adminmode inheritance will now retry forever, however the device will go to alarm if the connection has been failing for the timeout length, the device will go to ALARM. The timeout length defaults to 120s however is configurable through the ParentConnectionTimeout device property.
-
 
 ## 5.1.0
 

@@ -874,16 +874,19 @@ class TestPatchedDaq:
         # Wait for bandpass monitor to start.
         verify_bandpass_state(device_under_test, True)
 
+    # pylint: disable=too-many-locals
     def test_receive_bandpass_data_callback(
         self: TestPatchedDaq,
         device_under_test: tango.DeviceProxy,
         change_event_callbacks: MockTangoEventCallbackGroup,
     ) -> None:
         """
-        Test we get expected change events for bandpass attributes.
+        Test we get expected change/archive events for bandpass attributes.
 
         Lots of jank in here to deal with the fact `assert_change_event`
         doesn't play well with `np.ndarray`.
+
+        We also test that the change/archive event timing are exactly the same.
 
         :param device_under_test: fixture that provides a
             :py:class:`tango.DeviceProxy` to the device under test, in a
@@ -909,10 +912,21 @@ class TestPatchedDaq:
                 tango.EventType.CHANGE_EVENT,
                 change_event_callbacks[attribute],
             )
-            received_bandpass = change_event_callbacks[
+            device_under_test.subscribe_event(
+                attribute,
+                tango.EventType.ARCHIVE_EVENT,
+                change_event_callbacks["archive" + attribute],
+            )
+            received_change_bandpass = change_event_callbacks[
                 attribute
             ]._callable._call_queue.get(timeout=5)
-            event: tango.EventData = received_bandpass[1][0]
+            received_archive_bandpass = change_event_callbacks[
+                "archive" + attribute
+            ]._callable._call_queue.get(timeout=5)
+            event: tango.EventData = received_change_bandpass[1][0]
+            assert event.attr_value is not None
+            np.testing.assert_array_equal(event.attr_value.value, expected_value)
+            event = received_archive_bandpass[1][0]
             assert event.attr_value is not None
             np.testing.assert_array_equal(event.attr_value.value, expected_value)
 
@@ -928,19 +942,47 @@ class TestPatchedDaq:
                 axis=-1,
             ).flatten()
         )
-        received_events = {}
-        for _ in range(4):
-            attribute, event, _ = change_event_callbacks._queue.get(timeout=5)
-            received_events[attribute] = event[0].attr_value.value
+        received_change_events: dict[str, tuple[np.ndarray, tango.TimeVal]] = {}
+        received_archive_events: dict[str, tuple[np.ndarray, tango.TimeVal]] = {}
 
+        for attribute in [
+            "xPolBandpass",
+            "yPolBandpass",
+            "rawXPolBandpass",
+            "rawYPolBandpass",
+        ]:
+
+            _, received_change_bandpass, _ = change_event_callbacks[
+                attribute
+            ]._callable._call_queue.get(timeout=5)
+            _, received_archive_bandpass, _ = change_event_callbacks[
+                "archive" + attribute
+            ]._callable._call_queue.get(timeout=5)
+            received_change_events[attribute] = (
+                received_change_bandpass[0].attr_value.value,
+                received_change_bandpass[0].attr_value.time,
+            )
+            received_archive_events[attribute] = (
+                received_archive_bandpass[0].attr_value.value,
+                received_archive_bandpass[0].attr_value.time,
+            )
         for attribute, expected_value in {
             "rawXPolBandpass": raw_x_pol_bandpass,
             "rawYPolBandpass": raw_y_pol_bandpass,
             "xPolBandpass": x_pol_bandpass,
             "yPolBandpass": y_pol_bandpass,
         }.items():
-            received_value = received_events[attribute]
-            np.testing.assert_array_almost_equal(received_value, expected_value)
+            received_change_value, received_change_time = received_change_events[
+                attribute
+            ]
+            received_archive_value, received_archive_time = received_archive_events[
+                attribute
+            ]
+            np.testing.assert_array_almost_equal(received_change_value, expected_value)
             np.testing.assert_array_almost_equal(
                 getattr(device_under_test, attribute), expected_value
+            )
+            np.testing.assert_array_almost_equal(received_archive_value, expected_value)
+            np.testing.assert_equal(
+                received_archive_time.totime(), received_change_time.totime()
             )
