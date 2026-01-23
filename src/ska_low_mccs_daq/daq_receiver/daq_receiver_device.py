@@ -1237,9 +1237,8 @@ class MccsDaqReceiver(MccsBaseDevice):
             ... }
             >>> daq.AddDaqMetadata(json.dumps(metadata_config))
         """
-        kwargs = json.loads(argin)
         handler = self.get_command_object("AddDaqMetadata")
-        (result_code, message) = handler(**kwargs)
+        (result_code, message) = handler(argin)
         return ([result_code], [message])
 
     class AddDaqMetadataCommand(FastCommand):
@@ -1299,11 +1298,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             :return: A tuple containing a return code and a JSON string
                     with results per consumer mode.
             """
-            return self._component_manager.add_daq_metadata(
-                metadata=kwargs["metadata"],
-                update_existing=kwargs.get("update_existing", True),
-                consumer_modes=kwargs.get("consumer_modes"),
-            )
+            return self._component_manager.add_daq_metadata(**kwargs)
 
     class SetConsumersCommand(FastCommand):
         """Class for handling the SetConsumersCommand(argin) command."""
