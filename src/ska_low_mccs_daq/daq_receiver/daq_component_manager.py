@@ -812,6 +812,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             ... })
         """
         try:
+            self.logger.info(f"Registering additional metadata: {metadata}")
             # Convert consumer mode names to DaqModes enums if provided
             daq_modes = None
             if consumer_modes is not None:
@@ -840,6 +841,29 @@ class DaqComponentManager(TaskExecutorComponentManager):
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error(f"Failed to add DAQ metadata: {e}")
             return (ResultCode.FAILED, f"Failed to add metadata: {str(e)}")
+
+    def clear_daq_metadata(self: DaqComponentManager) -> tuple[ResultCode, str]:
+        """
+        Clear all custom observation metadata.
+
+        This method should be called between observations to ensure that metadata
+        from one observation does not carry over to the next. The observation_metadata
+        will be repopulated with standard fields (software_version, description, etc.)
+        on the next Configure command.
+
+        :return: A tuple containing a return code and a status message.
+
+        :example:
+            >>> # After observation 1 completes
+            >>> component_manager.clear_daq_metadata()
+        """
+        try:
+            self.logger.info("Clearing observation metadata")
+            self._daq_client.clear_daq_metadata()
+            return (ResultCode.OK, "Observation metadata cleared")
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error(f"Failed to clear DAQ metadata: {e}")
+            return (ResultCode.FAILED, f"Failed to clear metadata: {str(e)}")
 
     @check_communicating
     def get_status(self: DaqComponentManager) -> dict[str, Any]:

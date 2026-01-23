@@ -223,7 +223,7 @@ class DaqReceiver:
 
         # Configuration directory containing defaults for all possible parameter
         # These parameters can be overridden
-        self._config = {
+        self._config: dict[str, Any] = {
             "nof_antennas": 16,
             "nof_channels": 512,
             "nof_beams": 1,
@@ -557,7 +557,9 @@ class DaqReceiver:
                         append=True,
                         data_ptr=values,
                         timestamp=self._timestamps[DaqModes.INTEGRATED_CHANNEL_DATA],
-                        sampling_time=self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA],
+                        sampling_time=self._sampling_time[
+                            DaqModes.INTEGRATED_CHANNEL_DATA
+                        ],
                         buffer_timestamp=timestamp,
                         tile_id=tile,
                     )
@@ -566,7 +568,9 @@ class DaqReceiver:
                         append=False,
                         data_ptr=values,
                         timestamp=timestamp,
-                        sampling_time=self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA],
+                        sampling_time=self._sampling_time[
+                            DaqModes.INTEGRATED_CHANNEL_DATA
+                        ],
                         buffer_timestamp=timestamp,
                         tile_id=tile,
                     )
@@ -575,30 +579,31 @@ class DaqReceiver:
             if self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None:
                 if self._config["bandpass"]:
                     values = numpy.reshape(
-                        values, 
+                        values,
                         (
-                            self._config["nof_channels"], 
-                            1, 
-                            self._config["nof_antennas"] * self._config["nof_polarisations"]
-                        )
+                            self._config["nof_channels"],
+                            1,
+                            self._config["nof_antennas"]
+                            * self._config["nof_polarisations"],
+                        ),
                     )
                     values = numpy.transpose(values, (1, 0, 2))
                     values = numpy.reshape(
-                        values, 
+                        values,
                         (
-                            1, 
+                            1,
                             (
-                                self._config["nof_channels"] * 
-                                self._config["nof_antennas"] * 
-                                self._config["nof_polarisations"]
-                            )
-                        )
+                                self._config["nof_channels"]
+                                * self._config["nof_antennas"]
+                                * self._config["nof_polarisations"]
+                            ),
+                        ),
                     )
                     self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
                         values,
                         tile,
                         nof_packets=nof_packets,
-                    )                    
+                    )
                 else:
                     self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
                         "integrated_channel",
@@ -2075,8 +2080,8 @@ class DaqReceiver:
                     )
                 )
 
-        # Set metadata
-        self._config["observation_metadata"] = metadata
+        # Update metadata (preserve any existing custom metadata)
+        self._config["observation_metadata"].update(metadata)
 
     # ------------------------------------ HELPER FUNCTIONS ----------------------------------
 
@@ -2118,16 +2123,16 @@ class DaqReceiver:
     ) -> Dict[DaqModes, Dict[str, Any]]:
         """
         Add or update arbitrary metadata fields in HDF5 files for running consumers.
-        
+
         This method allows adding custom metadata fields (e.g., pointing information,
         reference frames, etc.) to HDF5 files after consumers have been started. The
         metadata is added to the observation_info group in the HDF5 files.
-        
+
         Use cases:
         - Adding pointing information (RA/Dec, Alt/Az) that becomes available after acquisition starts
         - Adding reference frame information
         - Adding any custom observation metadata with dynamic field names
-        
+
         Example:
             # Add pointing information in ICRS frame
             daq.add_daq_metadata({
@@ -2135,14 +2140,14 @@ class DaqReceiver:
                 "ra": 123.456,
                 "dec": 67.890
             })
-            
+
             # Later, add Alt/Az pointing
             daq.add_daq_metadata({
                 "reference_frame": "AltAz",
                 "altitude": 45.0,
                 "azimuth": 180.0
             })
-        
+
         :param metadata: Dictionary of metadata key-value pairs to add/update.
                         Keys become HDF5 attribute names in the observation_info group.
                         Values must be types supported by HDF5 attributes (strings, numbers, etc.).
@@ -2154,10 +2159,10 @@ class DaqReceiver:
                 Format: {DaqModes.BEAM_DATA: {"updated_partitions": 2, "errors": []}, ...}
         """
         results = {}
-        
+
         # Update the global configuration metadata for any future consumers
         self._config["observation_metadata"].update(metadata)
-        
+
         # Determine which consumers to update
         if consumer_modes is None:
             # Update all running consumers
@@ -2167,23 +2172,22 @@ class DaqReceiver:
             modes_to_update = [
                 mode for mode in consumer_modes if mode in self._running_consumers
             ]
-        
+
         # Update each running consumer's persister
         for mode in modes_to_update:
             if mode in self._persisters:
                 persister = self._persisters[mode]
-                
+
                 # Handle both single persisters and lists of persisters
                 persisters_to_update = (
                     persister if isinstance(persister, list) else [persister]
                 )
-                
+
                 for p in persisters_to_update:
                     if hasattr(p, "add_metadata"):
                         try:
                             result = p.add_metadata(
-                                metadata=metadata,
-                                update_existing=update_existing
+                                metadata=metadata, update_existing=update_existing
                             )
                             results[mode] = result
                         except Exception as e:
@@ -2194,10 +2198,29 @@ class DaqReceiver:
                     else:
                         results[mode] = {
                             "updated_partitions": 0,
-                            "errors": ["Persister does not support add_metadata method"],
+                            "errors": [
+                                "Persister does not support add_metadata method"
+                            ],
                         }
-        
+
         return results
+
+    def clear_daq_metadata(self) -> None:
+        """
+        Clear all custom observation metadata.
+
+        This should be called between observations to ensure metadata from one
+        observation does not carry over to the next. The metadata will be
+        repopulated with standard fields (software_version, description, etc.)
+        on the next Configure command.
+
+        Example:
+            # After observation 1 completes
+            daq.clear_daq_metadata()
+            # Configure for observation 2 - starts with fresh metadata
+            daq.populate_configuration(new_config)
+        """
+        self._config["observation_metadata"] = {}
 
     @staticmethod
     def _get_numpy_from_ctypes(

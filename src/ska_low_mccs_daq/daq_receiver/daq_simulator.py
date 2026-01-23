@@ -147,7 +147,7 @@ class DaqSimulator:
         """
         self._initialised = False
 
-        self._config = {
+        self._config: dict[str, Any] = {
             "nof_antennas": 16,
             "nof_channels": 512,
             "nof_beams": 1,
@@ -184,7 +184,7 @@ class DaqSimulator:
             "acquisition_duration": -1,
             "acquisition_start_time": -1,
             "description": "",
-            "observation_metadata": "foo",
+            "observation_metadata": {},
             "bandpass": False,
         } | extra_config
 
@@ -542,10 +542,10 @@ class DaqSimulator:
         consumer_modes: Optional[list[DaqModes]] = None,
     ) -> dict[DaqModes, dict[str, Any]]:
         """
-        Add or update arbitrary metadata fields (simulator stub).
+        Add or update arbitrary metadata fields in simulator's configuration.
 
-        This is a stub implementation for the simulator that returns
-        a success response without actually updating any files.
+        This implementation stores the metadata in the simulator's config
+        so it can be retrieved via get_configuration().
 
         :param metadata: Dictionary of metadata key-value pairs to add/update.
         :param update_existing: If True, updates existing file partitions.
@@ -553,6 +553,9 @@ class DaqSimulator:
 
         :return: Dictionary mapping each consumer mode to its update result.
         """
+        # Store the metadata in the config
+        self._config["observation_metadata"].update(metadata)
+
         # Simulate successful metadata addition for all running consumers
         results = {}
         modes_to_update = (
@@ -567,3 +570,12 @@ class DaqSimulator:
                 }
 
         return results
+
+    def clear_daq_metadata(self: DaqSimulator) -> None:
+        """
+        Clear all custom observation metadata in simulator's configuration.
+
+        This clears the observation_metadata dict so it can be verified
+        via get_configuration().
+        """
+        self._config["observation_metadata"] = {}

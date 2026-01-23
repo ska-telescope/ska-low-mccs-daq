@@ -442,6 +442,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             ("GetConfiguration", self.GetConfigurationCommand),
             ("StopBandpassMonitor", self.StopBandpassMonitorCommand),
             ("AddDaqMetadata", self.AddDaqMetadataCommand),
+            ("ClearDaqMetadata", self.ClearDaqMetadataCommand),
         ]:
             self.register_command_object(
                 command_name,
@@ -1196,6 +1197,55 @@ class MccsDaqReceiver(MccsBaseDevice):
             response = self._component_manager.get_configuration()
             return json.dumps(response)
 
+    @command(dtype_out="DevVarLongStringArray")
+    def ClearDaqMetadata(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+        """
+        Clear all custom observation metadata.
+
+        This command should be called between observations to ensure that metadata
+        from one observation does not carry over to the next. The observation_metadata
+        will be repopulated with standard fields (software_version, description, etc.)
+        on the next Configure command.
+
+        :return: A tuple containing a return code and a status message.
+
+        :example:
+            >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
+            >>> # After observation 1 completes
+            >>> daq.ClearDaqMetadata()
+        """
+        handler = self.get_command_object("ClearDaqMetadata")
+        (result_code, message) = handler()
+        return ([result_code], [message])
+
+    class ClearDaqMetadataCommand(FastCommand):
+        """Class for handling the ClearDaqMetadata() command."""
+
+        def __init__(
+            self: MccsDaqReceiver.ClearDaqMetadataCommand,
+            component_manager: DaqComponentManager,
+            logger: Optional[logging.Logger] = None,
+        ) -> None:
+            """
+            Initialise a new ClearDaqMetadataCommand instance.
+
+            :param component_manager: the device to which this command belongs.
+            :param logger: a logger for this command to use.
+            """
+            self._component_manager = component_manager
+            super().__init__(logger)
+
+        # pylint: disable=arguments-differ
+        def do(
+            self: MccsDaqReceiver.ClearDaqMetadataCommand,
+        ) -> tuple[ResultCode, str]:
+            """
+            Implement :py:meth:`.MccsDaqReceiver.ClearDaqMetadata` command.
+
+            :return: A tuple containing a return code and a status message.
+            """
+            return self._component_manager.clear_daq_metadata()
+
     @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
     def AddDaqMetadata(self: MccsDaqReceiver, argin: str) -> DevVarLongStringArrayType:
         """
@@ -1282,7 +1332,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             validator = JsonValidator("AddDaqMetadata", self.SCHEMA, logger)
             super().__init__(logger, validator)
 
-        # pylint: disable=arguments-differ
         def do(
             self: MccsDaqReceiver.AddDaqMetadataCommand,
             *args: Any,
