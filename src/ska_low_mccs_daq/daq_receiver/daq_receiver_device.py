@@ -1237,8 +1237,9 @@ class MccsDaqReceiver(MccsBaseDevice):
             ... }
             >>> daq.AddDaqMetadata(json.dumps(metadata_config))
         """
+        kwargs = json.loads(argin)
         handler = self.get_command_object("AddDaqMetadata")
-        (result_code, message) = handler(argin)
+        (result_code, message) = handler(**kwargs)
         return ([result_code], [message])
 
     class AddDaqMetadataCommand(FastCommand):
@@ -1285,25 +1286,23 @@ class MccsDaqReceiver(MccsBaseDevice):
         # pylint: disable=arguments-differ
         def do(
             self: MccsDaqReceiver.AddDaqMetadataCommand,
-            argin: str,
             *args: Any,
             **kwargs: Any,
         ) -> tuple[ResultCode, str]:  # type: ignore[override]
             """
             Implement :py:meth:`.MccsDaqReceiver.AddDaqMetadata` command.
 
-            :param argin: JSON string with metadata configuration
             :param args: Positional arg list.
-            :param kwargs: Keyword arg list.
+            :param kwargs: Keyword arg list including 'metadata',
+                          'update_existing', and optional 'consumer_modes'.
 
             :return: A tuple containing a return code and a JSON string
                     with results per consumer mode.
             """
-            params = json.loads(argin)
             return self._component_manager.add_daq_metadata(
-                metadata=params["metadata"],
-                update_existing=params.get("update_existing", True),
-                consumer_modes=params.get("consumer_modes"),
+                metadata=kwargs["metadata"],
+                update_existing=kwargs.get("update_existing", True),
+                consumer_modes=kwargs.get("consumer_modes"),
             )
 
     class SetConsumersCommand(FastCommand):
