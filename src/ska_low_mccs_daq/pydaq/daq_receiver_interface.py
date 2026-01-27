@@ -2183,25 +2183,35 @@ class DaqReceiver:
                     persister if isinstance(persister, list) else [persister]
                 )
 
+                # Initialize results for this mode
+                mode_results = {"updated_partitions": 0, "errors": []}
+
+                # Get the observation timestamp for this mode if available
+                timestamp = self._timestamps.get(mode, None)
+
                 for p in persisters_to_update:
                     if hasattr(p, "add_metadata"):
                         try:
                             result = p.add_metadata(
-                                metadata=metadata, update_existing=update_existing
+                                metadata=metadata,
+                                update_existing=update_existing,
+                                timestamp=timestamp,
                             )
-                            results[mode] = result
+                            # Accumulate results from all persisters
+                            mode_results["updated_partitions"] += result.get(
+                                "updated_partitions", 0
+                            )
+                            mode_results["errors"].extend(result.get("errors", []))
                         except Exception as e:
-                            results[mode] = {
-                                "updated_partitions": 0,
-                                "errors": [f"Error updating persister: {str(e)}"],
-                            }
+                            mode_results["errors"].append(
+                                f"Error updating persister: {str(e)}"
+                            )
                     else:
-                        results[mode] = {
-                            "updated_partitions": 0,
-                            "errors": [
-                                "Persister does not support add_metadata method"
-                            ],
-                        }
+                        mode_results["errors"].append(
+                            "Persister does not support add_metadata method"
+                        )
+
+                results[mode] = mode_results
 
         return results
 
