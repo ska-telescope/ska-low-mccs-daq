@@ -272,7 +272,7 @@ class AAVSFileManager(object):
                                If False, only applies to future partitions. Default is True.
         :param timestamp: Specific timestamp to update. If None and update_existing=True,
                          updates all partitions of the current acquisition.
-        :param tile_id: Specific tile_id to update. If None, uses self.tile_id.
+        :param tile_id: Specific tile_id to update. If None, updates all.
         :return: Dictionary with update status: {"updated_partitions": int, "errors": list}
         """
         result = {"updated_partitions": 0, "errors": []}
@@ -288,46 +288,55 @@ class AAVSFileManager(object):
             if timestamp is None:
                 timestamp = self.timestamp
 
-            if tile_id is None:
-                tile_id = self.tile_id
+            # Determine which tile IDs to update
+            if tile_id is not None:
+                # Update only the specified tile
+                tile_ids_to_update = [tile_id]
+            else:
+                # Find all tile IDs that have files for this timestamp
+                tile_ids_to_update = self._find_tile_ids_for_timestamp(timestamp)
+                if not tile_ids_to_update:
+                    # Fallback to using self.tile_id if no files found
+                    tile_ids_to_update = [self.tile_id]
 
             try:
-                max_partition = self.file_partitions(
-                    timestamp=timestamp, tile_id=tile_id
-                )
+                for tid in tile_ids_to_update:
+                    max_partition = self.file_partitions(
+                        timestamp=timestamp, tile_id=tid
+                    )
 
-                # Update each existing partition
-                for partition_id in range(max_partition + 1):
-                    try:
-                        file_obj = self.load_file(
-                            timestamp=timestamp,
-                            tile_id=tile_id,
-                            partition=partition_id,
-                            mode="r+",
-                        )
-
-                        if file_obj is not None:
-                            # Create observation_info group if it doesn't exist
-                            if "observation_info" not in file_obj:
-                                obs_info = file_obj.create_group("observation_info")
-                            else:
-                                obs_info = file_obj["observation_info"]
-
-                            # Add/update each metadata field
-                            for key, value in metadata.items():
-                                obs_info.attrs[key] = value
-
-                            file_obj.flush()
-                            self.close_file(file_obj)
-                            result["updated_partitions"] += 1
-                        else:
-                            result["errors"].append(
-                                f"Could not load partition {partition_id}"
+                    # Update each existing partition for this tile
+                    for partition_id in range(max_partition + 1):
+                        try:
+                            file_obj = self.load_file(
+                                timestamp=timestamp,
+                                tile_id=tid,
+                                partition=partition_id,
+                                mode="r+",
                             )
-                    except Exception as e:
-                        result["errors"].append(
-                            f"Error updating partition {partition_id}: {str(e)}"
-                        )
+
+                            if file_obj is not None:
+                                # Create observation_info group if it doesn't exist
+                                if "observation_info" not in file_obj:
+                                    obs_info = file_obj.create_group("observation_info")
+                                else:
+                                    obs_info = file_obj["observation_info"]
+
+                                # Add/update each metadata field
+                                for key, value in metadata.items():
+                                    obs_info.attrs[key] = value
+
+                                file_obj.flush()
+                                self.close_file(file_obj)
+                                result["updated_partitions"] += 1
+                            else:
+                                result["errors"].append(
+                                    f"Could not load tile {tid} partition {partition_id}"
+                                )
+                        except Exception as e:
+                            result["errors"].append(
+                                f"Error updating tile {tid} partition {partition_id}: {str(e)}"
+                            )
 
             except Exception as e:
                 result["errors"].append(f"Error accessing file partitions: {str(e)}")
@@ -658,6 +667,50 @@ class AAVSFileManager(object):
         else:
             ts_end = 0
         return ts_end
+
+    def _find_tile_ids_for_timestamp(self, timestamp=None):
+        """
+        Find all tile IDs that have files for the given timestamp.
+
+        :param timestamp: file timestamp to search for
+        :return: List of tile IDs that have files, or empty list if none found
+        """
+        filename_prefix, filename_mode_prefix = self.get_prefixes()
+        tile_ids = set()
+
+        if timestamp is None:
+            return []
+
+        date_time = self._get_date_time(timestamp=timestamp)
+
+        try:
+            files = next(os.walk(self.root_path))[2]
+            for file_obj in files:
+                # Match files with this timestamp
+                if (
+                    file_obj.startswith(filename_prefix + filename_mode_prefix)
+                    and f"_{date_time}_" in file_obj
+                    and file_obj.endswith(".hdf5")
+                ):
+                    # Extract tile_id from filename
+                    # Format: prefix_mode_tileid_datetime_partition.hdf5
+                    parts = file_obj.split("_")
+                    if len(filename_mode_prefix) > 0:
+                        # With mode prefix: parts[2] is tile_id
+                        tile_id_str = parts[2]
+                    else:
+                        # Without mode prefix: parts[1] is tile_id
+                        tile_id_str = parts[1]
+
+                    try:
+                        tile_ids.add(int(tile_id_str))
+                    except (ValueError, IndexError):
+                        # Skip files with invalid tile_id format
+                        continue
+        except (StopIteration, OSError):
+            pass
+
+        return sorted(list(tile_ids))
 
     def file_partitions(self, timestamp=None, tile_id=None):
         """
