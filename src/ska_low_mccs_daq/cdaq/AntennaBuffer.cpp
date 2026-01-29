@@ -217,7 +217,7 @@ bool AntennaBuffer::processPacket() {
         }
 
         bool all_seen = (active_fpgas >= expected_fpgas);
-        bool timeout_reached = ((packet_time - discovery_start_time) >= 1.0);
+        bool timeout_reached = ((packet_time - discovery_start_time) >= 1e-4);
 
         // Check if we have received the first packet from all FPGAs, 
         // or the timeout has been reached
