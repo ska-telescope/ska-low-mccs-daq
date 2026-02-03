@@ -1,5 +1,9 @@
 # Version History
 
+## 5.2.2
+
+* [THORN-398] Fix bandpasses for a fully populated station.
+
 ## 5.2.1
 
 * [THORN-387] Bandpasses are now pushed with the exact same time for archive and change events. Different attributes will still have slightly different times.
