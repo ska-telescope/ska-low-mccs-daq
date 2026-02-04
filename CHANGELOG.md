@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-399] Upgrade ska-low-mccs-common to improve Tango error event log messages, which now include device and attribute name.
+
 ## 5.2.2
 
 * [THORN-398] Fix bandpasses for a fully populated station.
