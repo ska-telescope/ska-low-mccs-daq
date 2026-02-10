@@ -68,6 +68,7 @@ timespec t1, t2;
 
 void exit_with_error(const char *message) {
     // Display error message and exit with error
+    LOG(ERROR, message);
     perror(message);
 
     // Check whether there are open files, and if so close them
@@ -159,6 +160,7 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
 
         // Buffer should go in the next file. Not implemented
         if (buffer_counter % cutoff_counter < (counter - skip) % cutoff_counter)
+            LOG(WARN, "Cannot write buffer to future file! Skipping!");
             printf("WARNING: Cannot write buffer to future file! Skipping!\n");
 
         else {
@@ -181,6 +183,7 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
 
     // Buffer belongs in the previous file. Not implemented
     else if (buffer_counter % cutoff_counter > (counter - skip) % cutoff_counter)
+        LOG(WARN, "Cannot write buffer to future file! Skipping!");
         printf("WARNING: Cannot write buffer to future file! Skipping\n");
 
     // Buffer belongs in the current file prior to current buffer
@@ -204,8 +207,7 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
     auto now = std::chrono::system_clock::now();
     auto datetime = std::chrono::system_clock::to_time_t(now);
     auto date_text = strtok(ctime(&datetime), "\n");
-    cout << date_text <<  ": Written buffer " << buffer_counter << " with " << nof_packets <<
-         " packets in " << (unsigned) (diff(t1, t2) * 1000) << "ms" << endl;
+    LOG(INFO, "%s : Written buffer %i with %i packets in %lld ms", date_text, buffer_counter, nof_packets, (unsigned) (diff(t1, t2) * 1000));
     if (external_callback != nullptr) {
         ExternalStationMetadata metadata;
         metadata.nof_packets = nof_packets;
@@ -221,6 +223,7 @@ void allocate_space(off_t offset, size_t len) {
     // Wrapper for fallocate which works on multiple files
     for(int fd: files)
         if (fallocate(fd, FALLOC_FL_ZERO_RANGE, offset, len) < 0) {
+            LOG(ERROR, "Failed to fallocate empty gap in file");
             perror("Failed to fallocate empty gap in file");
             close(fd);
             exit(EXIT_FAILURE);
@@ -279,6 +282,7 @@ static int generate_output_file(double timestamp, unsigned int frequency,
     // Tell the kernel how the file is going to be accessed (sequentially)
     posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
     posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+    LOG(INFO, "Created file %s", path.c_str());
     printf("Created file %s\n", path.c_str());
 
     // If required, generate DADA file and add to file
@@ -302,6 +306,7 @@ static int generate_output_file(double timestamp, unsigned int frequency,
 
         if (write(fd, full_header, dada_header_size) < 0)
         {
+            LOG(ERROR, "Failed to write DADA header to disk");
             perror("Failed to write DADA header to disk");
             close(fd);
             exit(EXIT_FAILURE);
@@ -497,6 +502,7 @@ static void parse_arguments(int argc, char *argv[])
     }
 
     // Display acquisition information
+    LOG(INFO, "Running acquire_station_beam with %ld samples starting from logical channel %d and saving %d channels.", nof_samples, start_channel, nof_channels);
     printf("Running acquire_station_beam with %ld samples starting from logical channel %d and saving %d channels.\n",
 		    nof_samples, start_channel, nof_channels);
 
@@ -510,9 +516,12 @@ static void parse_arguments(int argc, char *argv[])
     }
 
     if (simulate_write)
+        LOG(INFO, "Simulating disk write, nothing will be physically written to disk");
 	    printf("Simulating disk write, nothing will be physically written to disk\n");
     else
+        LOG(INFO, "Saving in directory %s with maximum file size of %ld GB", base_directory.c_str(), max_file_size_gb);
 	    printf("Saving in directory %s with maximum file size of %ld GB\n", base_directory.c_str(), max_file_size_gb);
+        LOG(INFO, "Observing source %s for %d seconds", source.c_str(), duration);
         printf("Observing source %s for %d seconds\n", source.c_str(), duration);
 }
 
