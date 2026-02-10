@@ -160,9 +160,10 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
 
         // Buffer should go in the next file. Not implemented
         if (buffer_counter % cutoff_counter < (counter - skip) % cutoff_counter)
+        {
             LOG(WARN, "Cannot write buffer to future file! Skipping!");
             printf("WARNING: Cannot write buffer to future file! Skipping!\n");
-
+        }
         else {
             // Get current position in file
             off_t current_offset = lseek(files[0], 0, SEEK_CUR);
@@ -183,8 +184,10 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
 
     // Buffer belongs in the previous file. Not implemented
     else if (buffer_counter % cutoff_counter > (counter - skip) % cutoff_counter)
+    {
         LOG(WARN, "Cannot write buffer to future file! Skipping!");
         printf("WARNING: Cannot write buffer to future file! Skipping\n");
+    }
 
     // Buffer belongs in the current file prior to current buffer
     else {
@@ -515,14 +518,16 @@ static void parse_arguments(int argc, char *argv[])
 		  << (int) (capture_start_time - std::time(nullptr)) << "s"  << std::endl;
     }
 
-    if (simulate_write)
+    if (simulate_write) {
         LOG(INFO, "Simulating disk write, nothing will be physically written to disk");
 	    printf("Simulating disk write, nothing will be physically written to disk\n");
-    else
+	    }
+    else {
         LOG(INFO, "Saving in directory %s with maximum file size of %ld GB", base_directory.c_str(), max_file_size_gb);
 	    printf("Saving in directory %s with maximum file size of %ld GB\n", base_directory.c_str(), max_file_size_gb);
         LOG(INFO, "Observing source %s for %d seconds", source.c_str(), duration);
         printf("Observing source %s for %d seconds\n", source.c_str(), duration);
+        }
 }
 
 // -----------------------------------------------------------------------------------------------------------
