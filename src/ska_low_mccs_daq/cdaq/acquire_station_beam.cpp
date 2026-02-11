@@ -310,7 +310,6 @@ static int generate_output_file(double timestamp, unsigned int frequency,
 
         free(full_header);
     }
-
     return fd;
 }
 
@@ -631,6 +630,12 @@ RESULT start_acquisition(DiagnosticCallback diagnostic_callback = nullptr, Exter
 
 // Stop raw beam acquisition
 RESULT stop_acquisition() {
+
+    // Check whether there are open files, and if so close them
+    for(int fd: files)
+        if (fd != -1)
+            close(fd);
+
     if (stopConsumer("stationdataraw") != SUCCESS) {
         LOG(ERROR, "Failed to stop station data consumser");
         return FAILURE;
