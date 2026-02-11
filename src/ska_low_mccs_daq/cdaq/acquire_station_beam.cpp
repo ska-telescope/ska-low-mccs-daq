@@ -26,6 +26,7 @@ int nof_pols = 2;
 // Acquisition parameters
 string base_directory = "/data/";
 string interface = "eth2";
+string port = "4660";
 string ip = "10.0.10.40";
 uint64_t nof_samples = 262144 * 4;
 uint32_t start_channel = 0;
@@ -587,7 +588,7 @@ RESULT start_acquisition(DiagnosticCallback diagnostic_callback = nullptr, Exter
 
     // Configure receiver
     startReceiver(interface.c_str(), ip.c_str(), 9000, 32, 64);
-    addReceiverPort(4660);
+    addReceiverPort(stoi(port.c_str()));
 
     external_callback = station_external_callback;
 
@@ -649,10 +650,10 @@ RESULT start_capture(const char* json_string, DiagnosticCallback diagnostic_call
     auto configuration = json::parse(json_string);
 
     // List of items accepted by station raw data receiver
-    std::string arguments [12] = {"base_directory", "max_file_size", "duration",
+    std::string arguments [13] = {"base_directory", "max_file_size", "duration",
                                   "nof_samples", "start_channel", "nof_channels",
                                   "interface", "ip", "source", "dada", "individual",
-                                  "capture_time"};
+                                  "capture_time", "station_beam_receiver_port"};
 
     // Check that all required arguments are present in json configuration
     for (string arg : arguments) {
@@ -669,6 +670,7 @@ RESULT start_capture(const char* json_string, DiagnosticCallback diagnostic_call
     start_channel = (uint32_t) configuration["start_channel"];
     nof_channels = (uint32_t) configuration["nof_channels"];
     interface = configuration["interface"];
+    port = configuration["station_beam_receiver_port"];
     ip = configuration["ip"];
     source = configuration["source"];
     include_dada_header = configuration["dada"];
