@@ -1,6 +1,8 @@
 # Version History
 
-## Unreleased
+## 5.3.1
+
+* [SKB-1048] Update DAQ core ref for fix to lost_pushes reporting and segfaults around Stop()
 
 ## 5.3.0
 * [JANUS-342] Add support for non default port to station beam DAQ mode
