@@ -944,7 +944,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param tile_number: The tile number the data corresponds to.
         :param attributes: any attributes to update the value for.
         """
-        self.logger.debug(f"Processing bandpass for tile {tile_number}")
         for attribute_name, attribute_value in attributes.items():
             self._attribute_callback(attribute_name, attribute_value)
         config = self.get_configuration()
@@ -952,8 +951,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         nof_antennas_per_tile = int(config["nof_antennas"])
         nof_pols = int(config["nof_polarisations"])
         nof_tiles = int(config["nof_tiles"])
-        data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
-        data_db = self._to_db(data)
+        self.logger.debug(f"Processing bandpass for tile {tile_number}")
 
         if not 0 <= tile_number < nof_tiles:
             self.logger.error(
@@ -961,6 +959,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             )
             return
 
+        data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
+        data_db = self._to_db(data)
         if self._received_this_set[tile_number]:
             missing_tiles = [
                 i for i, got in enumerate(self._received_this_set) if not got
@@ -972,6 +972,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         self._received_this_set[tile_number] = True
 
+        # Append Tile data to full station set.
+        # full_station_data is made of blocks of data per TPM in TPM order.
+        # Each block of TPM data is in port order.
         start_index = nof_antennas_per_tile * tile_number
         self._full_station_data[
             :, start_index : start_index + nof_antennas_per_tile, :
@@ -980,24 +983,21 @@ class DaqComponentManager(TaskExecutorComponentManager):
             :, start_index : start_index + nof_antennas_per_tile, :
         ] = data
         if all(self._received_this_set):
-            self._persist_bandpass()
+            x_data = self._full_station_data[:, :, X_POL_INDEX].transpose()
+            y_data = self._full_station_data[:, :, Y_POL_INDEX].transpose()
+            raw_x_data = self._raw_full_station_data[:, :, X_POL_INDEX].transpose()
+            raw_y_data = self._raw_full_station_data[:, :, Y_POL_INDEX].transpose()
+            if self._component_state_callback is not None:
+                self._component_state_callback(
+                    x_bandpass=x_data,
+                    y_bandpass=y_data,
+                    raw_x_bandpass=raw_x_data,
+                    raw_y_bandpass=raw_y_data,
+                )
+            self.logger.debug("Bandpasses transmitted.")
             self._received_this_set = [False] * nof_tiles
-
-    def _persist_bandpass(self: DaqComponentManager) -> None:
-        x_data = self._full_station_data[:, :, X_POL_INDEX].transpose()
-        y_data = self._full_station_data[:, :, Y_POL_INDEX].transpose()
-        raw_x_data = self._raw_full_station_data[:, :, X_POL_INDEX].transpose()
-        raw_y_data = self._raw_full_station_data[:, :, Y_POL_INDEX].transpose()
-        if self._component_state_callback is not None:
-            self._component_state_callback(
-                x_bandpass=x_data,
-                y_bandpass=y_data,
-                raw_x_bandpass=raw_x_data,
-                raw_y_bandpass=raw_y_data,
-            )
-        self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
-        self._raw_full_station_data = np.zeros(shape=(512, 256, 2), dtype=int)
-        self.logger.debug("Bandpasses transmitted.")
+            self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
+            self._raw_full_station_data = np.zeros(shape=(512, 256, 2), dtype=int)
 
     @check_communicating
     def stop_bandpass_monitor(
