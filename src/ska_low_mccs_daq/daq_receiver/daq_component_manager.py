@@ -225,7 +225,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._raw_full_station_data: np.ndarray = np.zeros(
             shape=(512, 256, 2), dtype=int
         )
-        self._files_received_per_tile: list[int] = [0] * nof_tiles
+        self._received_this_set = [False] * nof_tiles
         self._event_queue: queue.Queue[tuple[str, float]] = queue.Queue()
         threading.Thread(target=self._event_loop, name="EventLoop").start()
 
@@ -405,7 +405,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         # Good to go.
         self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
         self._raw_full_station_data = np.zeros(shape=(512, 256, 2), dtype=int)
-        self._files_received_per_tile = [0] * self._nof_tiles
+        self._received_this_set = [False] * self._nof_tiles
         self._monitoring_bandpass = True
 
         if task_callback:
@@ -931,7 +931,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             mode="constant",
         )
 
-    # pylint: disable = too-many-locals
     def generate_bandpass(
         self: DaqComponentManager,
         data: np.ndarray,
@@ -953,17 +952,25 @@ class DaqComponentManager(TaskExecutorComponentManager):
         nof_pols = int(config["nof_polarisations"])
         nof_tiles = int(config["nof_tiles"])
         self.logger.debug(f"Processing bandpass for tile {tile_number}")
-        try:
-            self._files_received_per_tile[tile_number] += 1
-        except IndexError as e:
+
+        if not 0 <= tile_number < nof_tiles:
             self.logger.error(
-                f"Caught exception: {e}. "
-                f"Tile {tile_number} out of bounds! "
-                f"Max tile number: {len(self._files_received_per_tile)}"
+                f"Tile {tile_number} out of bounds ({nof_tiles=}). Dropping bandpass.",
             )
+            return
 
         data = data.reshape((nof_channels, nof_antennas_per_tile, nof_pols))
         data_db = self._to_db(data)
+        if self._received_this_set[tile_number]:
+            missing_tiles = [
+                i for i, got in enumerate(self._received_this_set) if not got
+            ]
+            self.logger.warning(f"Dropping incomplete bandpass set ({missing_tiles=}).")
+            self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
+            self._raw_full_station_data = np.zeros(shape=(512, 256, 2), dtype=int)
+            self._received_this_set = [False] * nof_tiles
+
+        self._received_this_set[tile_number] = True
 
         # Append Tile data to full station set.
         # full_station_data is made of blocks of data per TPM in TPM order.
@@ -975,11 +982,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._raw_full_station_data[
             :, start_index : start_index + nof_antennas_per_tile, :
         ] = data
-
-        # Assert that we've received the same number (1+) of files per tile.
-        if all(self._files_received_per_tile) and (
-            len(set(self._files_received_per_tile)) == 1
-        ):
+        if all(self._received_this_set):
             x_data = self._full_station_data[:, :, X_POL_INDEX].transpose()
             y_data = self._full_station_data[:, :, Y_POL_INDEX].transpose()
             raw_x_data = self._raw_full_station_data[:, :, X_POL_INDEX].transpose()
@@ -992,7 +995,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     raw_y_bandpass=raw_y_data,
                 )
             self.logger.debug("Bandpasses transmitted.")
-            self._files_received_per_tile = [0] * nof_tiles
+            self._received_this_set = [False] * nof_tiles
             self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
             self._raw_full_station_data = np.zeros(shape=(512, 256, 2), dtype=int)
 

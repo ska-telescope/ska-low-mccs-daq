@@ -1,10 +1,15 @@
 # Version History
 
+## 5.3.2
+
+* [SKB-1196] Stop the bandpasses falling over on reception of a partially populated bandpass.
+
 ## 5.3.1
 
 * [SKB-1048] Update DAQ core ref for fix to lost_pushes reporting and segfaults around Stop()
 
 ## 5.3.0
+
 * [JANUS-342] Add support for non default port to station beam DAQ mode
 * [THORN-399] Upgrade ska-low-mccs-common to improve Tango error event log messages, which now include device and attribute name.
 
