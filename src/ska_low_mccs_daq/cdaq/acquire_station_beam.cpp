@@ -252,7 +252,7 @@ void write_to_file(void* data, unsigned start_sample_index) {
     }
     else {
         // Write entire buffer to file
-	    uint16_t *src = ((uint16_t *) data) + start_sample_index * nof_channels * nof_pols * sizeof(uint16_t);
+	    uint16_t *src = ((uint16_t *) data) + start_sample_index * nof_channels * nof_pols;
         if (write(files[0], src, samples_to_write * nof_channels * nof_pols * sizeof(uint16_t)) < 0)
             exit_with_error(("Failed to write buffer to disk! Exiting!"));
     }
@@ -631,11 +631,6 @@ RESULT start_acquisition(DiagnosticCallback diagnostic_callback = nullptr, Exter
 // Stop raw beam acquisition
 RESULT stop_acquisition() {
 
-    // Check whether there are open files, and if so close them
-    for(int fd: files)
-        if (fd != -1)
-            close(fd);
-
     if (stopConsumer("stationdataraw") != SUCCESS) {
         LOG(ERROR, "Failed to stop station data consumser");
         return FAILURE;
@@ -646,6 +641,11 @@ RESULT stop_acquisition() {
         return FAILURE;
     }
 
+    // Check whether there are open files, and if so close them
+    for(int fd: files)
+        if (fd != -1)
+            close(fd);
+        
     return SUCCESS;
 }
 
