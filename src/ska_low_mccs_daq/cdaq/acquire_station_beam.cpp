@@ -646,6 +646,7 @@ RESULT stop_acquisition() {
     for(int fd: files)
         if (fd != -1)
             close(fd);
+    files.clear();
         
     return SUCCESS;
 }
