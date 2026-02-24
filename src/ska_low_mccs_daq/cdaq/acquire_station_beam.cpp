@@ -205,8 +205,7 @@ void raw_station_beam_callback(void *data, double timestamp, void *metadata)
     auto now = std::chrono::system_clock::now();
     auto datetime = std::chrono::system_clock::to_time_t(now);
     auto date_text = strtok(ctime(&datetime), "\n");
-    cout << date_text <<  ": Written buffer " << buffer_counter << " with " << nof_packets <<
-         " packets in " << (unsigned) (diff(t1, t2) * 1000) << "ms" << endl;
+    LOG(DEBUG, "Written buffer %u with %u packets in %ums", buffer_counter, nof_packets, (unsigned)(diff(t1, t2) * 1000));
     if (external_callback != nullptr) {
         ExternalStationMetadata metadata;
         metadata.nof_packets = nof_packets;
@@ -232,7 +231,7 @@ void seek_to_location(off_t offset, int whence) {
     // Wrapper to lseek which works for multiple files
     for(int fd: files)
         if (lseek(fd, offset, whence) < 0){
-            LOG(WARN, "Failed to seek file to offset %lld. (Was the consumer restarted? Data will be appended.)", offset);
+            LOG(WARN, "Failed to seek file to offset %ld. (Was the consumer restarted? Data will be appended.)", offset);
             //exit_with_error("WARNING: Cannot seek file after gap allocation. Exiting\n");
         }
 }
@@ -280,7 +279,7 @@ static int generate_output_file(double timestamp, unsigned int frequency,
     // Tell the kernel how the file is going to be accessed (sequentially)
     posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
     posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
-    printf("Created file %s\n", path.c_str());
+    LOG(INFO, "Created file %s", path.c_str());
 
     // If required, generate DADA file and add to file
     if (include_dada_header) {
@@ -505,8 +504,7 @@ static void parse_arguments(int argc, char *argv[])
         auto unix_time = (std::time_t) capture_start_time;
         std::tm *tm_utc = std::gmtime(&unix_time);
         std::strftime(datetime_str, 20, "%Y/%m/%d_%H:%M", tm_utc);
-        std::cout << "Capture will start at " << datetime_str << " UTC (epoch time: " << (int) capture_start_time << ") in "
-		  << (int) (capture_start_time - std::time(nullptr)) << "s"  << std::endl;
+        LOG(INFO, "Capture will start at %s UTC (epoch time: %d) in %ds", datetime_str, (int) capture_start_time, (int) (capture_start_time - std::time(nullptr)));
     }
 
     if (simulate_write)
@@ -557,6 +555,9 @@ void test_acquire_station_beam() {
     test_call_station_beam_callback(buffer, 8);
     test_call_station_beam_callback(buffer, 7);
     test_call_station_beam_callback(buffer, 20);
+
+    // Free allocated buffer
+    free(buffer);
 }
 
 // -----------------------------------------------------------------------------------------------------------
@@ -608,7 +609,7 @@ RESULT start_acquisition(DiagnosticCallback diagnostic_callback = nullptr, Exter
     }
 
     // Workaround to avoid shared object not found, specify default location
-    std::cout << "Using AAVS DAQ library " << libaavsdaq_location << std::endl;
+    LOG(INFO, "Using AAVS DAQ library %s", libaavsdaq_location.c_str());
     auto res = loadConsumer(libaavsdaq_location.c_str(), "stationdataraw");
     if (res != SUCCESS) {
         LOG(ERROR, "Failed to load station data consumser");
