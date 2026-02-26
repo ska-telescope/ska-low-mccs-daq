@@ -708,14 +708,12 @@ class MccsDaqReceiver(MccsBaseDevice):
                     nof_channels * nof_samples / nof_samples_per_packet
                 )
             case "INTEGRATED_CHANNEL_DATA":
-                nof_tiles = int(config["nof_tiles"])
                 nof_channels = int(config["nof_channels"])
                 channels_per_packet = 32
                 nof_antennas = int(config["nof_antennas"])
                 antennas_per_packet = 8
                 expected_nof_packets = (
-                    nof_tiles
-                    * (nof_channels / channels_per_packet)
+                    (nof_channels / channels_per_packet)
                     * (nof_antennas / antennas_per_packet)
                     * 2  # This shouldn't be needed, this is a bug in Cpp DAQ.
                 )
