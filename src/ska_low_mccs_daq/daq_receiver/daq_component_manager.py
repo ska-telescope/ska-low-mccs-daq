@@ -1344,3 +1344,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param attribute_value: value of the attribute.
         """
         self._event_queue.put((attribute_name, attribute_value))
+
+    def cleanup(self: DaqComponentManager) -> None:
+        """Cleanup DAQ before deleting the component manager."""
+        if self.communication_state == CommunicationStatus.ESTABLISHED:
+            self._stop_daq()
+        self.stop_data_rate_monitor()
+        super().cleanup()

@@ -15,7 +15,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 import pytest
-from ska_control_model import CommunicationStatus, ResultCode, TaskStatus
+from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
 from ska_tango_testing.mock import MockCallableGroup
 from ska_tango_testing.mock.placeholders import Anything
 
@@ -621,6 +621,7 @@ class TestDaqComponentManager:
         callbacks["communication_state"].assert_call(
             CommunicationStatus.NOT_ESTABLISHED
         )
+        callbacks["component_state"].assert_call(power=PowerState.UNKNOWN)
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
         daq_component_manager._start_daq(
             "STATION_BEAM_DATA", task_callback=callbacks["task"]

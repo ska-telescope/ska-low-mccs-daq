@@ -382,7 +382,6 @@ class TestPatchedDaq:
         :return: a mock to be used as a component manager for the daq
             device.
         """
-        # mock_component_manager = mocker.Mock()
         mock_component_manager = unittest.mock.Mock()
         mock_component_manager.start_daq.return_value = (ResultCode.OK, "Daq started")
         mock_component_manager.stop_daq.return_value = (ResultCode.OK, "Daq stopped")
@@ -406,8 +405,10 @@ class TestPatchedDaq:
             ResultCode.OK,
             "Mock bandpass monitor stopping.",
         )
-        mock_component_manager.max_queued_tasks = 0
-        mock_component_manager.max_executing_tasks = 1
+
+        mock_component_manager._task_executor = mocker.Mock()
+        mock_component_manager._task_executor.max_queued_tasks = 10
+        mock_component_manager._task_executor.max_executing_tasks = 1
         mock_component_manager._dedicated_bandpass_daq = False
         mock_component_manager.get_status.side_effect = [
             {
@@ -442,6 +443,7 @@ class TestPatchedDaq:
         del mock_component_manager.abort_commands
         return mock_component_manager
 
+    # pylint: disable = too-many-ancestors
     @pytest.fixture(name="device_class_under_test")
     def device_class_under_test_fixture(
         self,
