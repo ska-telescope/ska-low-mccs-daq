@@ -1,5 +1,9 @@
 # Version History
 
+## 5.3.3
+
+* [THORN-413] Update ska-tango-base to 1.4.2, PyTango to 10.1.3
+
 ## 5.3.2
 
 * [SKB-1196] Stop the bandpasses falling over on reception of a partially populated bandpass.
