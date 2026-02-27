@@ -5,6 +5,8 @@ disable=
     invalid-name,  # conflicts with Tango naming conventions
     logging-fstring-interpolation,
     too-many-ancestors,
+    import-error,
+    too-few-public-methods,
 
 enable=
     useless-suppression,

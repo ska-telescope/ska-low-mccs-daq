@@ -83,7 +83,7 @@ def convert_daq_modes(consumers_to_start: str) -> list[DaqModes]:
     return []
 
 
-# pylint: disable=abstract-method,too-many-instance-attributes, too-many-public-methods
+# pylint: disable=too-many-instance-attributes, too-many-public-methods
 class DaqComponentManager(TaskExecutorComponentManager):
     """A component manager for a DaqReceiver."""
 

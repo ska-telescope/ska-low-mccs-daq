@@ -300,6 +300,8 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._buffer_counter: int
         self._skuid_url: str
         self._stopping = False
+        self._build_state: str
+        self._version_id: str
 
     def init_device(self: MccsDaqReceiver) -> None:
         """
@@ -982,7 +984,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
-        # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.DaqStatusCommand,
         ) -> str:
@@ -1180,7 +1181,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
-        # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.GetConfigurationCommand,
         ) -> str:
@@ -1209,7 +1209,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
-        # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.SetConsumersCommand, argin: str
         ) -> tuple[ResultCode, str]:
@@ -1285,7 +1284,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             self._component_manager: DaqComponentManager = component_manager
             super().__init__(logger)
 
-        # pylint: disable=arguments-differ
         def do(  # type: ignore[override]
             self: MccsDaqReceiver.StopBandpassMonitorCommand,
         ) -> tuple[ResultCode, str]:
