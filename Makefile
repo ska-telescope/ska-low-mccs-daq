@@ -5,7 +5,13 @@
 # See LICENSE.txt for more info.
 
 PROJECT = ska-low-mccs-daq
-# include .make/base.mk
+# Including base.mk gives us docs.mk when we want docs-uv.mk
+-include .make/make.mk
+-include .make/utils.mk
+-include .make/dev.mk
+-include .make/metrics.mk
+-include .make/release.mk
+-include .make/help.mk
 
 ###############################################
 # DOCS
