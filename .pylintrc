@@ -4,6 +4,7 @@ disable=
     fixme,
     invalid-name,  # conflicts with Tango naming conventions
     logging-fstring-interpolation,
+    too-many-ancestors,
 
 enable=
     useless-suppression,

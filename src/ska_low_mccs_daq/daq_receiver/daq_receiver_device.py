@@ -189,7 +189,6 @@ class MccsDaqReceiver(MccsBaseDevice):
     ReceiverInterface = device_property(
         dtype=str,
         mandatory=False,
-        # pylint: disable-next=line-too-long
         doc="The interface on which the DAQ receiver is listening for traffic.",  # noqa: E501
         default_value="",
     )
@@ -431,8 +430,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         )
 
     def init_command_objects(self: MccsDaqReceiver) -> None:
-        # pylint: disable-next=line-too-long
-        """Initialise the command handlers for commands supported by this device."""  # noqa: E501
+        """Initialise the command handlers for commands supported by this device."""
         super().init_command_objects()
 
         for command_name, command_object in [
@@ -1074,7 +1072,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         return ([result_code], [message])
 
     class ConfigureCommand(FastCommand):
-        # pylint: disable=line-too-long
         """
         Class for handling the Configure(argin) command.
 

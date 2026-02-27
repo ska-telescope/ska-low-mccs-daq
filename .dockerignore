@@ -1,3 +1,5 @@
 .devcontainer/
 **/*.pyc
 **/__pycache__/
+*.pyc
+.venv/

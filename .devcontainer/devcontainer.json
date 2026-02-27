@@ -63,6 +63,9 @@
             ]
         }
     },
-    "postCreateCommand": "sudo poetry config virtualenvs.create false && sudo poetry install",
+    "containerEnv": {
+        "UV_CACHE_DIR": "/workspaces/ska-low-mccs-daq/.uvcache"
+    },
+    "postCreateCommand": "uv sync --locked --group docs",
     "postStartCommand": "sudo chown -R daqqer:daqqer /opt/aavs && sudo chown daqqer:daqqer /src/ -R"
 }

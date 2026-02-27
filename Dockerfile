@@ -4,9 +4,10 @@
 # is highly unsatisfactory.
 # I've taken this from ska-tango-examples
 # but hopefully a better solution will be found.
-FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.5.13 AS tools
+FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.8.3 AS tools
 
 FROM artefact.skao.int/ska-build-cuda-11:0.1.3
+COPY --from=ghcr.io/astral-sh/uv:0.9.2 /uv /bin/
 
 # Create non-root user
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
@@ -17,10 +18,6 @@ RUN echo "daqqer ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/daqqer && \
 COPY --from=tools /usr/local/bin/retry /usr/local/bin/retry
 COPY --from=tools /usr/local/bin/wait-for-it.sh /usr/local/bin/wait-for-it.sh
 
-ENV POETRY_NO_INTERACTION=1
-ENV POETRY_VIRTUALENVS_IN_PROJECT=1
-ENV POETRY_VIRTUALENVS_CREATE=1
-ENV VIRTUAL_ENV=/src/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIDIA_VISIBLE_DEVICES all
@@ -33,6 +30,9 @@ ENV DAQ_INSTALL="/opt/aavs"
 
 ENV CMAKE_PREFIX_PATH="/opt/aavs:${CMAKE_PREFIX_PATH}"
 ENV LD_LIBRARY_PATH="/opt/aavs:/usr/local/lib:${LD_LIBRARY_PATH}"
+
+ENV PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH"
 
 # Install necessary packages for compiling and installing DAQ and prerequisites.
 RUN apt-get update && apt-get install -y \
@@ -48,11 +48,7 @@ RUN apt-get update && apt-get install -y \
     sudo \
     tzdata
 
-ENV POETRY_HOME=/opt/poetry
-RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | \
-    gosu root python3 - --yes --version 2.1.3
-RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
-    ln -sfn /opt/poetry/bin/poetry /usr/local/bin/poetry
+RUN ln -sfn /usr/bin/python3 /usr/bin/python
 
 # Clone and install xGPU
 WORKDIR /app/
@@ -83,11 +79,18 @@ WORKDIR /src
 
 
 EXPOSE 4660/udp
-COPY --chown=daqqer:daqqer README.md pyproject.toml poetry.lock* ./
-RUN poetry install --no-root
+COPY --chown=daqqer:daqqer pyproject.toml uv.lock ./
+#COPY --chown=daqqer:daqqer . .
 
-COPY --chown=daqqer:daqqer src ./
-RUN poetry install
+RUN uv sync --locked --no-install-project --no-dev
+# RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
+#     uv sync --locked --no-install-project --no-dev
+
+#COPY --chown=daqqer:daqqer src ./
+COPY --chown=daqqer:daqqer . .
+
+RUN uv sync --locked --no-dev
+
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
 RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/

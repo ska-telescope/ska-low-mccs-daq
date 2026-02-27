@@ -5,19 +5,15 @@
 # See LICENSE.txt for more info.
 
 PROJECT = ska-low-mccs-daq
-include .make/base.mk
+# include .make/base.mk
 
 ###############################################
 # DOCS
 ###############################################
-include .make/docs.mk
+include .make-uv/make/docs-uv.mk
 
 DOCS_SOURCEDIR=./docs/src
 DOCS_SPHINXOPTS= -W --keep-going
-
-docs-pre-build:
-	poetry config virtualenvs.create false
-	poetry install --no-root --only docs
 
 .PHONY: docs-pre-build
 
@@ -26,21 +22,18 @@ docs-pre-build:
 # PYTHON
 ###############################################
 
-include .make/python.mk
+include .make-uv/make/python-uv.mk
 
-PYTHON_LINE_LENGTH = 88
-PYTHON_TEST_FILE = tests
-PYTHON_VARS_AFTER_PYTEST = --forked -n 16
-PYTHON_VARS_BEFORE_PYTEST = timeout -k 120 -s INT 3000	# 50min t/o with 2min grace
-PYTHON_VARS_BEFORE_K8S_PYTEST = timeout -k 120 -s INT 3000
+# TODO: Not supported by ska-python-uv yet
+# PYTHON_LINE_LENGTH = 88
+# PYTHON_TEST_FILE = tests
+# PYTHON_VARS_AFTER_PYTEST = --forked -n 16
+# PYTHON_VARS_BEFORE_PYTEST = timeout -k 120 -s INT 3000	# 50min t/o with 2min grace
+# PYTHON_VARS_BEFORE_K8S_PYTEST = timeout -k 120 -s INT 3000
 
-PYTHON_SWITCHES_FOR_BLACK = --exclude=src/ska_low_mccs_daq/pydaq
-PYTHON_SWITCHES_FOR_ISORT = --skip-glob=src/ska_low_mccs_daq/pydaq
-PYTHON_SWITCHES_FOR_PYLINT = --ignore-paths=src/ska_low_mccs_daq/pydaq
-PYTHON_SWITCHES_FOR_FLAKE8 = --exclude=src/ska_low_mccs_daq/pydaq
+PYTHON_LINT_TARGET = src/ska_low_mccs_daq/daq_receiver/ tests/
 
-python-post-lint:
-	mypy --exclude src/ska_low_mccs_daq/pydaq/ --config-file mypy.ini src/ tests
+python-lint: mypy
 
 .PHONY: python-post-lint
 

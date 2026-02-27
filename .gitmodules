@@ -4,3 +4,6 @@
 [submodule "helmfile.d/.deploy"]
 	path = helmfile.d/.deploy
 	url = https://gitlab.com/ska-telescope/ska-low-deployment.git
+[submodule ".make-uv"]
+	path = .make-uv
+	url = https://gitlab.com/ska-telescope/ska-python-uv.git

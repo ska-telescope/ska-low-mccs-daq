@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-412] Migrate from Poetry to uv.
+
 ## 5.3.2
 
 * [SKB-1196] Stop the bandpasses falling over on reception of a partially populated bandpass.
