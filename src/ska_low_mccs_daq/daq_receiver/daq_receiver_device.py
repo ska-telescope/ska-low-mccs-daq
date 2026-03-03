@@ -322,22 +322,8 @@ class MccsDaqReceiver(MccsBaseDevice):
 
         device_name = f'{str(self.__class__).rsplit(".",maxsplit=1)[-1][0:-2]}'
         version = f"{device_name} Software Version: {self._version_id}"
-        properties = (
-            f"Initialised {device_name} device with properties:\n"
-            f"\tReceiverInterface: {self.ReceiverInterface}\n"
-            f"\tReceiverIp: {self.ReceiverIp}\n"
-            f"\tReceiverPorts: {self.ReceiverPorts}\n"
-            f"\tHost: {self.Host}\n"
-            f"\tPort: {self.Port}\n"
-            f"\tDaqId: {self.DaqId}\n"
-            f"\tConsumersToStart: {self.ConsumersToStart}\n"
-            f"\tSkuidUrl: {self.SkuidUrl}\n"
-            f"\tBandpassDaq: {self.BandpassDaq}\n"
-            f"\tNumberOfTiles: {self.NumberOfTiles}\n"
-            f"\tSimulationMode: {self.SimulationMode}\n"
-            f"\tStationId: {self.StationId}\n"
-            f"\tStationName: {self.StationName}\n"
-            f"\tParentTRL: {self.ParentTRL}"
+        properties = f"Initialised {device_name} device with properties:\n" + "\n".join(
+            f"\t{prop}: {value}" for prop, value in self._tango_properties.items()
         )
         self.logger.info(
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
