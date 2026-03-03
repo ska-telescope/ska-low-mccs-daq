@@ -250,6 +250,7 @@ class MccsDaqReceiver(MccsBaseDevice):
         doc="The ID of the station this DaqReceiver is associated with (Same as DaqID)",
         default_value=0,
     )
+    VerifyEvents = device_property(dtype=bool, default_value=True)
 
     # ---------------
     # Initialisation
@@ -363,8 +364,8 @@ class MccsDaqReceiver(MccsBaseDevice):
         self._health_state = (
             HealthState.UNKNOWN
         )  # InitCommand.do() does this too late.# noqa: E501
-        self.set_change_event("healthState", True, False)
-        self.set_archive_event("healthState", True, False)
+        self.set_change_event("healthState", True, self._device.VerifyEvents)
+        self.set_archive_event("healthState", True, self._device.VerifyEvents)
         self._healthful_attributes = {
             "ringbufferOccupancy": lambda: self._ringbuffer_occupancy,
             "relativeNofPacketsDiff": lambda: self._relative_nof_packets_diff,
@@ -495,52 +496,126 @@ class MccsDaqReceiver(MccsBaseDevice):
                 message indicating status. The message is for
                 information purpose only.
             """
-            self._device.set_change_event("dataReceivedResult", True, False)
-            self._device.set_archive_event("dataReceivedResult", True, False)
-            self._device.set_change_event("xPolBandpass", True, False)
-            self._device.set_archive_event("xPolBandpass", True, False)
-            self._device.set_change_event("yPolBandpass", True, False)
-            self._device.set_archive_event("yPolBandpass", True, False)
-            self._device.set_change_event("rawXPolBandpass", True, False)
-            self._device.set_archive_event("rawXPolBandpass", True, False)
-            self._device.set_change_event("rawYPolBandpass", True, False)
-            self._device.set_archive_event("rawYPolBandpass", True, False)
-            self._device.set_change_event("rmsPlot", True, False)
-            self._device.set_archive_event("rmsPlot", True, False)
-            self._device.set_change_event("nofSaturations", True, False)
-            self._device.set_archive_event("nofSaturations", True, False)
-            self._device.set_change_event("nofPackets", True, False)
-            self._device.set_archive_event("nofPackets", True, False)
-            self._device.set_change_event("relativeNofPacketsDiff", True, False)
-            self._device.set_archive_event("relativeNofPacketsDiff", True, False)
-            self._device.set_change_event("nofSamples", True, False)
-            self._device.set_archive_event("nofSamples", True, False)
-            self._device.set_change_event("relativeNofSamplesDiff", True, False)
-            self._device.set_archive_event("relativeNofSamplesDiff", True, False)
-            self._device.set_change_event("dataRate", True, False)
-            self._device.set_archive_event("dataRate", True, False)
-            self._device.set_change_event("receiveRate", True, False)
-            self._device.set_archive_event("receiveRate", True, False)
-            self._device.set_change_event("dropRate", True, False)
-            self._device.set_archive_event("dropRate", True, False)
-            self._device.set_change_event("ringbufferOccupancy", True, False)
-            self._device.set_archive_event("ringbufferOccupancy", True, False)
-            self._device.set_change_event("lostPushes", True, False)
-            self._device.set_archive_event("lostPushes", True, False)
-            self._device.set_change_event("lostPushRate", True, False)
-            self._device.set_archive_event("lostPushRate", True, False)
-            self._device.set_change_event("correlatorTimeTaken", True, False)
-            self._device.set_archive_event("correlatorTimeTaken", True, False)
-            self._device.set_change_event("correlatorSolveTime", True, False)
-            self._device.set_archive_event("correlatorSolveTime", True, False)
-            self._device.set_change_event("hostToDeviceCopyTime", True, False)
-            self._device.set_archive_event("hostToDeviceCopyTime", True, False)
-            self._device.set_change_event("deviceToHostCopyTime", True, False)
-            self._device.set_archive_event("deviceToHostCopyTime", True, False)
-            self._device.set_change_event("correlatorTimeUtil", True, False)
-            self._device.set_archive_event("correlatorTimeUtil", True, False)
-            self._device.set_change_event("bufferCounter", True, False)
-            self._device.set_archive_event("bufferCounter", True, False)
+            self._device.set_change_event(
+                "dataReceivedResult", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "dataReceivedResult", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "xPolBandpass", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "xPolBandpass", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "yPolBandpass", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "yPolBandpass", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "rawXPolBandpass", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "rawXPolBandpass", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "rawYPolBandpass", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "rawYPolBandpass", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event("rmsPlot", True, self._device.VerifyEvents)
+            self._device.set_archive_event("rmsPlot", True, self._device.VerifyEvents)
+            self._device.set_change_event(
+                "nofSaturations", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "nofSaturations", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event("nofPackets", True, self._device.VerifyEvents)
+            self._device.set_archive_event(
+                "nofPackets", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "relativeNofPacketsDiff", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "relativeNofPacketsDiff", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event("nofSamples", True, self._device.VerifyEvents)
+            self._device.set_archive_event(
+                "nofSamples", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "relativeNofSamplesDiff", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "relativeNofSamplesDiff", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event("dataRate", True, self._device.VerifyEvents)
+            self._device.set_archive_event("dataRate", True, self._device.VerifyEvents)
+            self._device.set_change_event(
+                "receiveRate", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "receiveRate", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event("dropRate", True, self._device.VerifyEvents)
+            self._device.set_archive_event("dropRate", True, self._device.VerifyEvents)
+            self._device.set_change_event(
+                "ringbufferOccupancy", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "ringbufferOccupancy", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event("lostPushes", True, self._device.VerifyEvents)
+            self._device.set_archive_event(
+                "lostPushes", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "lostPushRate", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "lostPushRate", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "correlatorTimeTaken", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "correlatorTimeTaken", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "correlatorSolveTime", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "correlatorSolveTime", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "hostToDeviceCopyTime", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "hostToDeviceCopyTime", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "deviceToHostCopyTime", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "deviceToHostCopyTime", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "correlatorTimeUtil", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "correlatorTimeUtil", True, self._device.VerifyEvents
+            )
+            self._device.set_change_event(
+                "bufferCounter", True, self._device.VerifyEvents
+            )
+            self._device.set_archive_event(
+                "bufferCounter", True, self._device.VerifyEvents
+            )
 
             return (ResultCode.OK, "Init command completed OK")
 
