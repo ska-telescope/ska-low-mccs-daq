@@ -29,6 +29,7 @@ from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskS
 from ska_ser_skuid.client import SkuidClient  # type: ignore
 from ska_tango_base.base import TaskCallbackType, check_communicating
 from ska_tango_base.executor import TaskExecutorComponentManager
+from tango import EnsureOmniThread
 
 from ..pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from .daq_simulator import DaqSimulator
@@ -1270,39 +1271,40 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._measure_data_rate = True
 
         def _measure_data_rate(interval: int) -> None:
-            self.logger.info("Starting net IO sampling.")
-            while self._measure_data_rate:
-                try:
-                    (
-                        t1_bytes_received,
-                        t1_packets_received,
-                        t1_packets_dropped,
-                    ) = self.__take_network_snapshot()
-                    t1 = perf_counter()
+            with EnsureOmniThread():
+                self.logger.info("Starting net IO sampling.")
+                while self._measure_data_rate:
+                    try:
+                        (
+                            t1_bytes_received,
+                            t1_packets_received,
+                            t1_packets_dropped,
+                        ) = self.__take_network_snapshot()
+                        t1 = perf_counter()
 
-                    sleep(interval)
+                        sleep(interval)
 
-                    (
-                        t2_bytes_received,
-                        t2_packets_received,
-                        t2_packets_dropped,
-                    ) = self.__take_network_snapshot()
-                    t2 = perf_counter()
-                    bytes_received = t2_bytes_received - t1_bytes_received
-                    packets_received = t2_packets_received - t1_packets_received
-                    packets_dropped = t2_packets_dropped - t1_packets_dropped
-                    data_rate = bytes_received / (t2 - t1)
-                    receive_rate = packets_received / (t2 - t1)
-                    drop_rate = packets_dropped / (t2 - t1)
-                    self._attribute_callback("data_rate", data_rate / 1024**3)
-                    self._attribute_callback("receive_rate", receive_rate)
-                    self._attribute_callback("drop_rate", drop_rate)
-                except Exception:  # pylint: disable=broad-exception-caught
-                    self.logger.error(
-                        "Caught error in data rate monitor.", exc_info=True
-                    )
-                    sleep(1)
-            self.logger.info("Stopped net IO sampling.")
+                        (
+                            t2_bytes_received,
+                            t2_packets_received,
+                            t2_packets_dropped,
+                        ) = self.__take_network_snapshot()
+                        t2 = perf_counter()
+                        bytes_received = t2_bytes_received - t1_bytes_received
+                        packets_received = t2_packets_received - t1_packets_received
+                        packets_dropped = t2_packets_dropped - t1_packets_dropped
+                        data_rate = bytes_received / (t2 - t1)
+                        receive_rate = packets_received / (t2 - t1)
+                        drop_rate = packets_dropped / (t2 - t1)
+                        self._attribute_callback("data_rate", data_rate / 1024**3)
+                        self._attribute_callback("receive_rate", receive_rate)
+                        self._attribute_callback("drop_rate", drop_rate)
+                    except Exception:  # pylint: disable=broad-exception-caught
+                        self.logger.error(
+                            "Caught error in data rate monitor.", exc_info=True
+                        )
+                        sleep(1)
+                self.logger.info("Stopped net IO sampling.")
 
         data_rate_thread = threading.Thread(
             target=_measure_data_rate, args=[interval], name="DataRateMonitor"
@@ -1326,13 +1328,18 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def _event_loop(self: DaqComponentManager) -> None:
         """Event loop for handling attribute updated from DAQ."""
-        while True:
-            try:
-                attribute_name, attribute_value = self._event_queue.get()
-                if self._component_state_callback is not None:
-                    self._component_state_callback(**{attribute_name: attribute_value})
-            except Exception:  # pylint: disable=broad-exception-caught
-                self.logger.warning("Caught exception in event loop.", exc_info=True)
+        with EnsureOmniThread():
+            while True:
+                try:
+                    attribute_name, attribute_value = self._event_queue.get()
+                    if self._component_state_callback is not None:
+                        self._component_state_callback(
+                            **{attribute_name: attribute_value}
+                        )
+                except Exception:  # pylint: disable=broad-exception-caught
+                    self.logger.warning(
+                        "Caught exception in event loop.", exc_info=True
+                    )
 
     def _attribute_callback(
         self: DaqComponentManager, attribute_name: str, attribute_value: float
