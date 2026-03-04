@@ -1,8 +1,12 @@
 # Version History
 
-## 5.3.3
+## 5.3.4
 
 * [THORN-413] Update ska-tango-base to 1.4.2, PyTango to 10.1.3
+
+## 5.3.3
+
+* [JANUS-343] Fix segmentation faults and file descriptor errors in Raw Station Beam DAQ mode
 
 ## 5.3.2
 

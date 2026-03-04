@@ -435,12 +435,12 @@ void StationRawDoubleBuffer::write_data(uint32_t samples,  uint32_t channel, uin
         }
 
     	// Clear buffer and start using
-        double_buffer[producer].sample_index = current_index + nof_samples / samples;
+        double_buffer[producer].sample_index = packet_counter;
         double_buffer[producer].seq_number = buffer_counter++;
 	    double_buffer[producer].sample_offset = start_sample_offset;
 
         // Unlock double buffer
-        double_buffer[consumer].mutex -> unlock();
+        double_buffer[producer].mutex -> unlock();
     }
 
     // Copy data to buffer
