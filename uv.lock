@@ -312,15 +312,6 @@ wheels = [
 ]
 
 [[package]]
-name = "docstring-parser"
-version = "0.17.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b2/9d/c3b43da9515bd270df0f80548d9944e389870713cc1fe2b8fb35fe2bcefd/docstring_parser-0.17.0.tar.gz", hash = "sha256:583de4a309722b3315439bb31d64ba3eebada841f2e2cee23b99df001434c912", size = 27442, upload-time = "2025-07-21T07:35:01.868Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/55/e2/2537ebcff11c1ee1ff17d8d0b6f4db75873e3b0fb32c2d4a2ee31ecb310a/docstring_parser-0.17.0-py3-none-any.whl", hash = "sha256:cf2569abd23dce8099b300f9b4fa8191e9582dda731fd533daf54c4551658708", size = 36896, upload-time = "2025-07-21T07:35:00.684Z" },
-]
-
-[[package]]
 name = "docutils"
 version = "0.21.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1103,24 +1094,23 @@ wheels = [
 
 [[package]]
 name = "pytango"
-version = "10.1.3"
+version = "10.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "docstring-parser" },
     { name = "numpy" },
     { name = "packaging" },
     { name = "psutil" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/64/01/a08507c56609a33e250518fa003c82e8856be7d4a1d805e37a628b7ad80e/pytango-10.1.3.tar.gz", hash = "sha256:83bde0138cae0fee22973f536691dfcb534d0012f548c1104c7ff104e3be46df", size = 2871831, upload-time = "2026-02-11T07:20:36.956Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/90/fecd8a4234ba6039baebe7a23f7a8a86eb9d90ca33926b3b5e3841d53c7f/pytango-10.0.4.tar.gz", hash = "sha256:1b85c3318ccdd2af330165e77df9a2ed60680f90083929535a94980dc3db7cf6", size = 3980409, upload-time = "2026-02-10T17:01:15.508Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/84/778367e09938683cbff6e3da3d09bd0efc610f82d423797f35fc783ffe56/pytango-10.1.3-cp310-cp310-macosx_12_0_arm64.whl", hash = "sha256:94bcec7b7204aa39f5278f65e01f34e8f53c592fe88f36b2943697f832e24cf1", size = 17419277, upload-time = "2026-02-11T07:19:18.734Z" },
-    { url = "https://files.pythonhosted.org/packages/3f/a8/3fc67e81c567e1b741cee9ebc0d67cbe871f169af24f969f2632845a580d/pytango-10.1.3-cp310-cp310-macosx_12_0_x86_64.whl", hash = "sha256:04045877cf8e0ee9578537e85b516ccc890cbcc9a66c77d602b7cd468f7ade83", size = 18555813, upload-time = "2026-02-11T07:19:21.601Z" },
-    { url = "https://files.pythonhosted.org/packages/83/56/305b87a1dce823d784c9f2527528e218d55805a2c01498f29850940b8cf3/pytango-10.1.3-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:c978f697914207caefd3b26272a3b672d6fb8e1d26c3949c2d93685dc97944e5", size = 17856823, upload-time = "2026-02-11T07:19:24.1Z" },
-    { url = "https://files.pythonhosted.org/packages/ae/17/6f7cebb6b0cf96886f7565d4c7289919da1d91ade8e7b796ca2fccb8a7c1/pytango-10.1.3-cp310-cp310-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:fcbd3bf88fb8fc6fe4ea594ea64ed2b80d11039e4a879cf637cf61e2050ef84d", size = 19642966, upload-time = "2026-02-11T07:19:26.686Z" },
-    { url = "https://files.pythonhosted.org/packages/08/dd/c6750d2cfe6ad1adafe2434077f494f1907c8f7fad660b5e5508bf81729d/pytango-10.1.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:766228aa1f7322cbf36bf02a5b54504abdc6c63593fc234534e9e3f47fa203c4", size = 18746629, upload-time = "2026-02-11T07:19:30.41Z" },
-    { url = "https://files.pythonhosted.org/packages/28/9f/002c78f7344de9435f1657297b3a5742a911c9714dcfa8ddbdbbb99dec55/pytango-10.1.3-cp310-cp310-win32.whl", hash = "sha256:3e190956d72d8d944925b17c2723e1f18b68614d45dd17720c1e9cfaea9256a5", size = 4612924, upload-time = "2026-02-11T07:19:33.259Z" },
-    { url = "https://files.pythonhosted.org/packages/dc/15/e0d200e5a9f5815086da625e46ae70906637eb790c027d9bba23ddebcb7d/pytango-10.1.3-cp310-cp310-win_amd64.whl", hash = "sha256:9e671369ca54ee7c590be16330665a8c85840318747f05e2b7095259e39e6cff", size = 5140001, upload-time = "2026-02-11T07:19:35.126Z" },
+    { url = "https://files.pythonhosted.org/packages/73/c2/2171985a0b63912f21772ed13ae3e49e89082eb269db8c7ee7258b134125/pytango-10.0.4-cp310-cp310-macosx_12_0_arm64.whl", hash = "sha256:d1ed5ff34ef80b6235480abe66c931aea7f80d96a6c516206d81460b14c31e3b", size = 21202254, upload-time = "2026-02-10T16:54:38.306Z" },
+    { url = "https://files.pythonhosted.org/packages/45/42/abf1e4cb0b806966e1d2da7b5e3a12b6cb2b5c92f35207fa5da3dfd47803/pytango-10.0.4-cp310-cp310-macosx_12_0_x86_64.whl", hash = "sha256:3d49f1e54978234c21165fe55ececc563e4293cd4de50a9e5e3d4ac4cce50890", size = 22555577, upload-time = "2026-02-10T16:54:42.336Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/ae/8cd5a3f3731f078f7f097157bba1a9c69995123dd57006fbd4c0d92a2b4c/pytango-10.0.4-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:66558a0551b0748717591a8e6fd9d13b003ba815f1483aa574596d748a932c2a", size = 20632129, upload-time = "2026-02-11T10:09:25.457Z" },
+    { url = "https://files.pythonhosted.org/packages/79/8f/16be92ea6564db44ac8e4084f1f7f087c836db528ed6972bc10078338f74/pytango-10.0.4-cp310-cp310-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:092f3682d9433f68c555adaaceb69be11116444cbf7ede43ba2d9599da349728", size = 22628947, upload-time = "2026-02-11T10:12:29.692Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/7c/ec31e29c2f0cf9efd60271126ad1e21d0d31ebefeb82f6cc9d187e9bca49/pytango-10.0.4-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:f25fcd1fe500c475acea903ecb2e9d528f5d7ef3a3f49151efe44d33b788a5c0", size = 21715360, upload-time = "2026-02-11T10:12:09.261Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/ff/80ff0c2cbb8bbb2e01d281c888e001823842448f07718c69f7f9c0cb55ab/pytango-10.0.4-cp310-cp310-win32.whl", hash = "sha256:186a1cc2342b8f2a43c302e6de02bb356fec421b01684dfa50e8668780137f61", size = 4681308, upload-time = "2026-02-10T17:01:05.741Z" },
+    { url = "https://files.pythonhosted.org/packages/13/cf/4770cdf993f49d875467168787dd2771a2b47e3b9e9d6c4d4d24fc67d22b/pytango-10.0.4-cp310-cp310-win_amd64.whl", hash = "sha256:f245354f046d25fd933669eb9de760f3849b0668a24c8e8c31819d1e20d1912f", size = 5221915, upload-time = "2026-02-10T17:00:36.686Z" },
 ]
 
 [[package]]
@@ -1524,7 +1514,7 @@ docs = [
     { name = "lockfile", specifier = "==0.12.2" },
     { name = "matplotlib", specifier = ">=3.9.2,<4.0.0" },
     { name = "numpy", specifier = ">=1.23.0,<1.30.0" },
-    { name = "pytango", specifier = ">=10.0.0,<11.0.0" },
+    { name = "pytango", specifier = ">=10.0.0,<10.1.0" },
     { name = "pyyaml", specifier = ">=6.0,<7.0" },
     { name = "ska-control-model", specifier = ">=1.0.0,<2.0.0" },
     { name = "ska-low-mccs-common", specifier = ">=4.0.0,<5.0.0" },

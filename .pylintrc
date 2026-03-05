@@ -7,6 +7,8 @@ disable=
     too-many-ancestors,
     import-error,
     too-few-public-methods,
+    arguments-differ,
+    abstract-method,
 
 enable=
     useless-suppression,
