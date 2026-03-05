@@ -180,6 +180,7 @@ class _StartBandpassMonitorCommand(SubmittedSlowCommand):
 
 
 # pylint: disable = too-many-instance-attributes, too-many-public-methods
+# pylint: disable = too-many-ancestors
 class MccsDaqReceiver(MccsBaseDevice):
     """An implementation of a MccsDaqReceiver Tango device."""
 
@@ -270,7 +271,6 @@ class MccsDaqReceiver(MccsBaseDevice):
         super().__init__(*args, **kwargs)
 
         self.component_manager: DaqComponentManager
-        self._health_state: HealthState = HealthState.UNKNOWN
         self._health_report: str = ""
         self._health_recorder: Optional[HealthRecorder]
         self._healthful_attributes: dict[str, Callable]
@@ -348,21 +348,11 @@ class MccsDaqReceiver(MccsBaseDevice):
         if self._health_recorder is not None:
             self._health_recorder.cleanup()
             self._health_recorder = None
-        self.component_manager._task_executor._executor.shutdown()
-        if (
-            self.component_manager.communication_state
-            == CommunicationStatus.ESTABLISHED
-        ):
-            self.component_manager._stop_daq()
-        self.component_manager.stop_data_rate_monitor()
         super().delete_device()
 
     def _init_state_model(self: MccsDaqReceiver) -> None:
         """Initialise the state model."""
         super()._init_state_model()
-        self._health_state = (
-            HealthState.UNKNOWN
-        )  # InitCommand.do() does this too late.# noqa: E501
         self.set_change_event("healthState", True, False)
         self.set_archive_event("healthState", True, False)
         self._healthful_attributes = {
@@ -718,14 +708,12 @@ class MccsDaqReceiver(MccsBaseDevice):
                     nof_channels * nof_samples / nof_samples_per_packet
                 )
             case "INTEGRATED_CHANNEL_DATA":
-                nof_tiles = int(config["nof_tiles"])
                 nof_channels = int(config["nof_channels"])
                 channels_per_packet = 32
                 nof_antennas = int(config["nof_antennas"])
                 antennas_per_packet = 8
                 expected_nof_packets = (
-                    nof_tiles
-                    * (nof_channels / channels_per_packet)
+                    (nof_channels / channels_per_packet)
                     * (nof_antennas / antennas_per_packet)
                     * 2  # This shouldn't be needed, this is a bug in Cpp DAQ.
                 )

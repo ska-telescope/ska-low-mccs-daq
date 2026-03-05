@@ -38,6 +38,7 @@ class TestDaqHealth:
             "track_lrc_command",
         )
 
+    # pylint: disable = too-many-ancestors
     @pytest.fixture(name="test_context")
     def test_context_fixture(self) -> Iterator[SpsTangoTestHarnessContext]:
         """
