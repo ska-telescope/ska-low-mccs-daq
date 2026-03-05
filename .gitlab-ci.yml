@@ -100,13 +100,10 @@ python-test:
   before_script:
     - '[ -f .make/python.mk ] || (echo "File python.mk not included in Makefile; exit 1")'
     - 'make help | grep python-test'
-    - poetry config virtualenvs.in-project true
-    - echo "python-build Setting.. poetry config virtualenvs.create $POETRY_CONFIG_VIRTUALENVS_CREATE"
-    - poetry config virtualenvs.create $POETRY_CONFIG_VIRTUALENVS_CREATE
     - |
       if [[ -f pyproject.toml ]]; then
-        echo "python-test: Installing with poetry";
-        time poetry install;
+        echo "python-test: Installing with uv";
+        time uv sync --locked --no-dev;
       else
         if  [[ -f requirements.txt ]]; then
           echo "python-test: Installing with pip";
