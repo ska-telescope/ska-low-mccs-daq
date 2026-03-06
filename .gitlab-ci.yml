@@ -98,7 +98,7 @@ python-test:
     job: oci-image-build
     artifacts: true
   before_script:
-    - '[ -f .make/python.mk ] || (echo "File python.mk not included in Makefile; exit 1")'
+    - '[ -f .make-uv/make/python-uv.mk ] || (echo "File python-uv.mk not included in Makefile; exit 1")'
     - 'make help | grep python-test'
     - |
       if [[ -f pyproject.toml ]]; then

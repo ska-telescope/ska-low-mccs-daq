@@ -24,7 +24,7 @@ ENV NVIDIA_VISIBLE_DEVICES all
 ENV TZ="United_Kingdom/London"
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 ENV CUDA_ARCH="sm_80"
-ENV LC_ALL="en_US.UTF-8"
+ENV LC_ALL="C"
 ENV AAVS_DAQ_SHA=68e5953acd7a778ea37278f38679e5ca30636e69
 ENV DAQ_INSTALL="/opt/aavs"
 
@@ -32,7 +32,7 @@ ENV CMAKE_PREFIX_PATH="/opt/aavs:${CMAKE_PREFIX_PATH}"
 ENV LD_LIBRARY_PATH="/opt/aavs:/usr/local/lib:${LD_LIBRARY_PATH}"
 
 ENV PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/src/.venv/bin:$PATH"
 
 # Install necessary packages for compiling and installing DAQ and prerequisites.
 RUN apt-get update && apt-get install -y \
@@ -100,6 +100,8 @@ RUN mkdir /product && chmod a+w /product/
 RUN chown daqqer:daqqer /product/ -R
 RUN chown daqqer:daqqer /app/ -R
 RUN chown daqqer:daqqer /opt/ -R
+RUN chown daqqer:daqqer /bin/ -R
+RUN chown daqqer:daqqer /src/ -R
 
 WORKDIR /app/
 

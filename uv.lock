@@ -1377,6 +1377,12 @@ wheels = [
 ]
 
 [[package]]
+name = "singleton-decorator"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/98/a8b5c919bee1152a9a1afd82014431f8db5882699754de50d1b3aba4d136/singleton-decorator-1.0.0.tar.gz", hash = "sha256:1a90ad8a8a738be591c9c167fdd677c5d4a43d1bc6b1c128227be1c5e03bee07", size = 2791, upload-time = "2017-08-10T19:52:45.903Z" }
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1400,7 +1406,7 @@ wheels = [
 
 [[package]]
 name = "ska-low-mccs-common"
-version = "4.4.5"
+version = "4.4.1"
 source = { registry = "https://artefact.skao.int/repository/pypi-internal/simple" }
 dependencies = [
     { name = "attrs" },
@@ -1419,9 +1425,9 @@ dependencies = [
     { name = "ska-tango-testing" },
     { name = "transitions" },
 ]
-sdist = { url = "https://artefact.skao.int/repository/pypi-internal/packages/ska-low-mccs-common/4.4.5/ska_low_mccs_common-4.4.5.tar.gz", hash = "sha256:94774d5d717d5ee529f36ec461a2d7a3678e9fae4e3203766612808d40350ae4" }
+sdist = { url = "https://artefact.skao.int/repository/pypi-internal/packages/ska-low-mccs-common/4.4.1/ska_low_mccs_common-4.4.1.tar.gz", hash = "sha256:920ba3489011f78b4a7bc5af6227f831f7d4767c5d0cdde6b2d256620028b7c8" }
 wheels = [
-    { url = "https://artefact.skao.int/repository/pypi-internal/packages/ska-low-mccs-common/4.4.5/ska_low_mccs_common-4.4.5-py3-none-any.whl", hash = "sha256:a22d102f0f02e413615f9b7ee72518055887ae87c5e3a9cbe4db4ea3efe12fb3" },
+    { url = "https://artefact.skao.int/repository/pypi-internal/packages/ska-low-mccs-common/4.4.1/ska_low_mccs_common-4.4.1-py3-none-any.whl", hash = "sha256:177bcc29bf458cf8d63994ecf82db2e8da2f9fcd1b3ed87e896c8dc01a2747c9" },
 ]
 
 [[package]]
@@ -1430,6 +1436,22 @@ version = "5.3.2"
 source = { editable = "." }
 
 [package.dev-dependencies]
+dependencies = [
+    { name = "gitpython" },
+    { name = "h5py" },
+    { name = "kubernetes" },
+    { name = "lockfile" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pytango" },
+    { name = "pyyaml" },
+    { name = "singleton-decorator" },
+    { name = "ska-control-model" },
+    { name = "ska-low-mccs-common" },
+    { name = "ska-ser-skuid" },
+    { name = "ska-tango-base" },
+    { name = "watchdog" },
+]
 dev = [
     { name = "black" },
     { name = "coverage" },
@@ -1480,6 +1502,22 @@ docs = [
 [package.metadata]
 
 [package.metadata.requires-dev]
+dependencies = [
+    { name = "gitpython", specifier = ">=3.1.44,<4.0.0" },
+    { name = "h5py", specifier = ">=3.12.1,<4.0.0" },
+    { name = "kubernetes", specifier = ">=33.0.0,<34.0.0" },
+    { name = "lockfile", specifier = "==0.12.2" },
+    { name = "matplotlib", specifier = ">=3.9.2,<4.0.0" },
+    { name = "numpy", specifier = ">=1.23.0" },
+    { name = "pytango", specifier = ">=10.0.0,<10.1.0" },
+    { name = "pyyaml", specifier = ">=6.0,<7.0" },
+    { name = "singleton-decorator", specifier = "==1.0.0" },
+    { name = "ska-control-model", specifier = ">=1.0.0,<2.0.0" },
+    { name = "ska-low-mccs-common", specifier = "==4.4.1" },
+    { name = "ska-ser-skuid", specifier = ">=3.3.3,<3.4.0" },
+    { name = "ska-tango-base", specifier = "==1.3.2" },
+    { name = "watchdog", specifier = ">=3.0.0,<4.0.0" },
+]
 dev = [
     { name = "black", specifier = ">=22.6.0,<23.0.0" },
     { name = "coverage", specifier = ">=6.4.2,<7.0.0" },
@@ -1513,11 +1551,11 @@ docs = [
     { name = "kubernetes", specifier = ">=33.0.0,<34.0.0" },
     { name = "lockfile", specifier = "==0.12.2" },
     { name = "matplotlib", specifier = ">=3.9.2,<4.0.0" },
-    { name = "numpy", specifier = ">=1.23.0,<1.30.0" },
+    { name = "numpy", specifier = ">=1.23.0" },
     { name = "pytango", specifier = ">=10.0.0,<10.1.0" },
     { name = "pyyaml", specifier = ">=6.0,<7.0" },
     { name = "ska-control-model", specifier = ">=1.0.0,<2.0.0" },
-    { name = "ska-low-mccs-common", specifier = ">=4.0.0,<5.0.0" },
+    { name = "ska-low-mccs-common", specifier = "==4.4.1" },
     { name = "ska-ser-skuid", specifier = ">=3.3.3,<4.0.0" },
     { name = "ska-ser-sphinx-theme", specifier = ">=0.1.1,<1.0.0" },
     { name = "ska-tango-base", specifier = "==1.3.2" },
