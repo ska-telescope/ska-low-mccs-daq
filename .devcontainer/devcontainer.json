@@ -66,6 +66,6 @@
     "containerEnv": {
         "UV_CACHE_DIR": "/workspaces/ska-low-mccs-daq/.uvcache"
     },
-    "postCreateCommand": "uv sync --locked --group docs",
+    "postCreateCommand": "uv sync --locked --group dev",
     "postStartCommand": "sudo chown -R daqqer:daqqer /opt/aavs && sudo chown daqqer:daqqer /src/ -R"
 }

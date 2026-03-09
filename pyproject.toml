@@ -36,6 +36,7 @@ dependencies = [
     "GitPython >= 3.1.44, <4.0.0",
     "kubernetes >= 33.0.0, <34.0.0",
 ]
+
 dev = [
     "pre-commit >= 2.20.0, <3.0.0",
     "pylint >= 2.17.0, <3.0.0",
