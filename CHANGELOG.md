@@ -1,5 +1,9 @@
 # Version History
 
+## 5.3.5
+
+* [THORN-461] Relax python constraint to >3.12
+
 ## 5.3.4
 
 * [THORN-413] Update ska-tango-base to 1.4.2, PyTango to 10.1.3
