@@ -39,6 +39,9 @@ include .make-uv/make/python-uv.mk
 
 PYTHON_LINT_TARGET = src/ska_low_mccs_daq/daq_receiver/ tests/
 
+python-pre-lint:
+		uv sync --frozen --group dev
+
 python-lint: mypy
 
 .PHONY: python-post-lint
