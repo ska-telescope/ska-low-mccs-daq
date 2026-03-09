@@ -53,6 +53,11 @@ include:
     - gitlab-ci/docs-build.yml
 
 
+python-lint:
+  stage: lint
+  before_script:
+    - uv sync --locked --group dev
+
 oci-image-build:
   stage: build
   before_script:
