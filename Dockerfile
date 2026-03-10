@@ -103,6 +103,6 @@ RUN chown daqqer:daqqer /opt/ -R
 # RUN chown daqqer:daqqer /bin/ -R
 # RUN chown daqqer:daqqer /src/ -R
 
-WORKDIR /app/
+WORKDIR /src/
 
 USER daqqer
