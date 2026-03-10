@@ -2,7 +2,7 @@
 
 ## 5.3.5
 
-* [THORN-461] Relax python constraint to >3.12
+* [THORN-461] Relax python constraint to <3.12
 
 ## 5.3.4
 
