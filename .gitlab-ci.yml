@@ -109,11 +109,11 @@ python-test:
       if [ -f pyproject.toml ]; then
         echo "python-test: Installing with uv";
         time uv sync --locked --no-dev;
+      elif [ -f requirements.txt ]; then
+        echo "python-test: Installing with pip";
+        time pip3 install -r requirements.txt;
       else
-        if  [ -f requirements.txt ]; then
-          echo "python-test: Installing with pip";
-          time pip3 install -r requirements.txt;
-        fi;
+        echo "python-test: No pyproject.toml or requirements.txt found, nothing to install.";
       fi;
     - mkdir /opt/aavs
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
