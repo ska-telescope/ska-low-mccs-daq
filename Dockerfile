@@ -85,9 +85,9 @@ COPY --chown=daqqer:daqqer pyproject.toml uv.lock ./
 RUN uv sync --locked --no-install-project --no-dev
 # RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
 #     uv sync --locked --no-install-project --no-dev
-
-#COPY --chown=daqqer:daqqer src ./
-COPY --chown=daqqer:daqqer . .
+COPY . .
+COPY --chown=daqqer:daqqer src/ .
+# COPY --chown=daqqer:daqqer . .
 
 RUN uv sync --locked --no-dev
 
@@ -103,6 +103,6 @@ RUN chown daqqer:daqqer /opt/ -R
 # RUN chown daqqer:daqqer /bin/ -R
 # RUN chown daqqer:daqqer /src/ -R
 
-WORKDIR /src/
+WORKDIR /app/
 
 USER daqqer
