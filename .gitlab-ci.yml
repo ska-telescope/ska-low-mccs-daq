@@ -105,7 +105,6 @@ python-test:
   before_script:
     - '[ -f .make-uv/make/python-uv.mk ] || (echo "File python-uv.mk not included in Makefile; exit 1")'
     - 'make help | grep python-test'
-    - uv sync --locked --no-dev;
     # - |
     #   if [ -f pyproject.toml ]; then
     #     echo "python-test: Installing with uv";
