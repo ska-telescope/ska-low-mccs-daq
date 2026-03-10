@@ -100,8 +100,8 @@ RUN mkdir /product && chmod a+w /product/
 RUN chown daqqer:daqqer /product/ -R
 RUN chown daqqer:daqqer /app/ -R
 RUN chown daqqer:daqqer /opt/ -R
-RUN chown daqqer:daqqer /bin/ -R
-RUN chown daqqer:daqqer /src/ -R
+# RUN chown daqqer:daqqer /bin/ -R
+# RUN chown daqqer:daqqer /src/ -R
 
 WORKDIR /app/
 
