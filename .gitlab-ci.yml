@@ -106,11 +106,11 @@ python-test:
     - '[ -f .make-uv/make/python-uv.mk ] || (echo "File python-uv.mk not included in Makefile; exit 1")'
     - 'make help | grep python-test'
     - |
-      if [[ -f pyproject.toml ]]; then
+      if [ -f pyproject.toml ]; then
         echo "python-test: Installing with uv";
         time uv sync --locked --no-dev;
       else
-        if  [[ -f requirements.txt ]]; then
+        if  [ -f requirements.txt ]; then
           echo "python-test: Installing with pip";
           time pip3 install -r requirements.txt;
         fi;
