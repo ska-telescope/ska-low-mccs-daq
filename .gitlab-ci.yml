@@ -97,7 +97,7 @@ helmfile-lint:
 #   file: 'gitlab-ci/includes/python-test.gitlab-ci.yml'
 # Any changes to these templates will NOT be reflected here.
 python-test:
-  image: $SKA_PYTHON_PYTANGO_BUILDER_IMAGE
+  image: artefact.skao.int/ska-build-python-uv:0.3.1
   stage: test
   needs:
     job: oci-image-build
@@ -105,16 +105,16 @@ python-test:
   before_script:
     - '[ -f .make-uv/make/python-uv.mk ] || (echo "File python-uv.mk not included in Makefile; exit 1")'
     - 'make help | grep python-test'
-    # - |
-    #   if [ -f pyproject.toml ]; then
-    #     echo "python-test: Installing with uv";
-    #     time uv sync --locked --no-dev;
-    #   elif [ -f requirements.txt ]; then
-    #     echo "python-test: Installing with pip";
-    #     time pip3 install -r requirements.txt;
-    #   else
-    #     echo "python-test: No pyproject.toml or requirements.txt found, nothing to install.";
-    #   fi;
+    - |
+      if [ -f pyproject.toml ]; then
+        echo "python-test: Installing with uv";
+        time uv sync --locked --no-dev;
+      elif [ -f requirements.txt ]; then
+        echo "python-test: Installing with pip";
+        time pip3 install -r requirements.txt;
+      else
+        echo "python-test: No pyproject.toml or requirements.txt found, nothing to install.";
+      fi;
     - mkdir /opt/aavs
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
     - cp -R ${CI_PROJECT_DIR}/aavs/lib/libxgpu.so /usr/local/lib/
