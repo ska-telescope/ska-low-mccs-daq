@@ -20,6 +20,7 @@ float sampling_time = 1.0 / channel_bandwidth;
 
 auto dada_header_size = 4096;
 string source = "UNKNOWN";
+string station_name = "UNKNOWN";
 int nof_bits = 8;
 int nof_pols = 2;
 
@@ -348,6 +349,7 @@ static std::string generate_dada_header(double timestamp, unsigned int frequency
     header << "OBS_OFFSET 0" << endl;
     header << "TSAMP " << fixed << setprecision(4) << (1.0 / channel_bandwidth) * 1e6 << endl;
     header << "UTC_START " << time_string << endl;
+    header << "STATION_NAME " << station_name << endl;
 
     // Additional entries to match post-processing requirements
     header << "POPULATED 1" << endl;
@@ -539,8 +541,6 @@ void test_call_station_beam_callback(uint16_t *buffer, unsigned test_counter) {
 }
 
 void test_acquire_station_beam() {
-    printf("Testing shit out\n");
-
     // Generate buffer for passing to callback
     uint16_t *buffer;
     allocate_aligned((void **) &buffer, PAGE_ALIGNMENT, nof_samples * nof_channels * nof_pols * sizeof(uint16_t));
@@ -657,10 +657,10 @@ RESULT start_capture(const char* json_string, DiagnosticCallback diagnostic_call
     auto configuration = json::parse(json_string);
 
     // List of items accepted by station raw data receiver
-    std::string arguments [13] = {"base_directory", "max_file_size", "duration",
+    std::string arguments [14] = {"base_directory", "max_file_size", "duration",
                                   "nof_samples", "start_channel", "nof_channels",
                                   "interface", "ip", "source", "dada", "individual",
-                                  "capture_time", "station_beam_receiver_port"};
+                                  "capture_time", "station_beam_receiver_port", "station_name"};
 
     // Check that all required arguments are present in json configuration
     for (string arg : arguments) {
@@ -682,6 +682,7 @@ RESULT start_capture(const char* json_string, DiagnosticCallback diagnostic_call
     source = configuration["source"];
     include_dada_header = configuration["dada"];
     individual_channel_files = configuration["individual"];
+    station_name = configuration["station_name"];
 
     base_directory = configuration["base_directory"];
     // Check that path ends with path separator

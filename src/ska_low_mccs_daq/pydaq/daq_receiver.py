@@ -1116,6 +1116,7 @@ def start_station_beam_acquisition():
         "individual": conf["station_beam_individual_channels"],
         "source": conf["station_beam_source"],
         "capture_time": conf["acquisition_start_time"],
+        "station_name": conf["station_name"],
     }
 
     # Start capture
