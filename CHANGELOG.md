@@ -1,6 +1,6 @@
 # Version History
 
-## Unreleased
+## 5.3.6
 
 * [SKB-1136] Pipe station name through to DADA header in RawStationBeam mode.
 
