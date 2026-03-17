@@ -16,17 +16,11 @@ from importlib import resources
 from typing import Any, Callable, Optional, Union
 
 import numpy as np
+import ska_tango_base as stb
 import tango
 from ska_control_model import CommunicationStatus, HealthState
 from ska_low_mccs_common import HealthRecorder, MccsBaseDevice
 from ska_tango_base.base import TaskCallbackType
-from ska_tango_base.long_running_commands import long_running_command, submit_lrc_task
-from ska_tango_base.type_hints import (
-    DevVarLongStringArrayType,
-    JSONData,
-    TaskFunctionType,
-)
-from ska_tango_base.validators import validate_json_args
 from tango.server import attribute, command, device_property
 
 from ..version import version_info
@@ -791,7 +785,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         status["Daq Health"] = health_state
         return json.dumps(status)
 
-    Start_SCHEMA: dict[str, JSONData] = {
+    Start_SCHEMA: dict[str, stb.type_hints.JSONData] = {
         "title": "ska-low-mccs-daq MccsDaqReceiver Start",
         "description": "Schema for ska-tango-base MccsDaqReceiver Start command",
         "modes_to_start": {
@@ -800,9 +794,11 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         },
     }
 
-    @long_running_command
-    @validate_json_args
-    def Start(self: MccsDaqReceiver, modes_to_start: str = "") -> TaskFunctionType:
+    @stb.long_running_commands.long_running_command
+    @stb.validators.validate_json_args
+    def Start(
+        self: MccsDaqReceiver, modes_to_start: str = ""
+    ) -> stb.type_hints.TaskFunctionType:
         """
         Start the DaqConsumers.
 
@@ -837,8 +833,8 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         return task
 
-    @long_running_command
-    def Stop(self: MccsDaqReceiver) -> TaskFunctionType:
+    @stb.long_running_commands.long_running_command
+    def Stop(self: MccsDaqReceiver) -> stb.type_hints.TaskFunctionType:
         """
         Stop the DaqReceiver.
 
@@ -866,7 +862,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         return task
 
-    Configure_SCHEMA: dict[str, JSONData] = json.loads(
+    Configure_SCHEMA: dict[str, stb.type_hints.JSONData] = json.loads(
         resources.read_text(
             "ska_low_mccs_daq.schemas.daq",
             "MccsDaq_Configure.json",
@@ -875,9 +871,11 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
     # Args in might want to be changed depending on how we choose to
     # configure the DAQ system.
+    @stb.validators.validate_json_args
     @command(dtype_in=str, dtype_out="DevVarLongStringArray")
-    @validate_json_args
-    def Configure(self: MccsDaqReceiver, **kwargs: Any) -> DevVarLongStringArrayType:
+    def Configure(
+        self: MccsDaqReceiver, **kwargs: Any
+    ) -> stb.type_hints.DevVarLongStringArrayType:
         """
         Configure the DaqReceiver.
 
@@ -916,7 +914,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
     @command(dtype_in=str, dtype_out="DevVarLongStringArray")
     def SetConsumers(
         self: MccsDaqReceiver, consumers_to_start: str
-    ) -> DevVarLongStringArrayType:
+    ) -> stb.type_hints.DevVarLongStringArrayType:
         """
         Set the default list of consumers to start.
 
@@ -940,10 +938,10 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         )
         return ([result], [message])
 
-    @long_running_command
+    @stb.long_running_commands.long_running_command
     def StartBandpassMonitor(
         self: MccsDaqReceiver,
-    ) -> TaskFunctionType:
+    ) -> stb.type_hints.TaskFunctionType:
         """
         Start monitoring antenna bandpasses.
 
@@ -970,7 +968,9 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         return task
 
     @command(dtype_out="DevVarLongStringArray")
-    def StopBandpassMonitor(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+    def StopBandpassMonitor(
+        self: MccsDaqReceiver,
+    ) -> stb.type_hints.DevVarLongStringArrayType:
         """
         Stop monitoring antenna bandpasses.
 
@@ -984,8 +984,8 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         (result_code, message) = self.component_manager.stop_bandpass_monitor()
         return ([result_code], [message])
 
-    @long_running_command
-    def StopDataRateMonitor(self: MccsDaqReceiver) -> TaskFunctionType:
+    @stb.long_running_commands.long_running_command
+    def StopDataRateMonitor(self: MccsDaqReceiver) -> stb.type_hints.TaskFunctionType:
         """
         Stop monitoring the data rate on the receiver interface.
 
@@ -1006,7 +1006,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         return task
 
-    StartDataRateMonitor_SCHEMA: dict[str, JSONData] = {
+    StartDataRateMonitor_SCHEMA: dict[str, stb.type_hints.JSONData] = {
         "title": "ska-low-mccs-daq MccsDaqReceiver StartDataRateMonitor",
         "description": "Schema for ska-tango-base MccsDaqReceiver \
             StartDataRateMonitor command",
@@ -1018,12 +1018,12 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         },
     }
 
-    @long_running_command
-    @validate_json_args
+    @stb.long_running_commands.long_running_command
+    @stb.validators.validate_json_args
     def StartDataRateMonitor(
         self: MccsDaqReceiver,
         interval: float = 0,
-    ) -> TaskFunctionType:
+    ) -> stb.type_hints.TaskFunctionType:
         """
         Start monitoring the data rate on the receiver interface.
 
@@ -1046,8 +1046,8 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         return task
 
-    @submit_lrc_task
-    def MarkDone(self: MccsDaqReceiver) -> TaskFunctionType:
+    @stb.long_running_commands.submit_lrc_task
+    def MarkDone(self: MccsDaqReceiver) -> stb.type_hints.TaskFunctionType:
         """
         Change the data dictionary to mark the end of a scan.
 
