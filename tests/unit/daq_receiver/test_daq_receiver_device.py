@@ -386,14 +386,14 @@ class TestPatchedDaq:
         mock_component_manager.start_daq.return_value = (ResultCode.OK, "Daq started")
         mock_component_manager.stop_daq.return_value = (ResultCode.OK, "Daq stopped")
         mock_component_manager.start_data_rate_monitor.return_value = (
-            TaskStatus.QUEUED,
-            "Task queued",
+            ResultCode.OK,
+            "Data rate measurement started.",
         )
         mock_component_manager.stop_data_rate_monitor.return_value = (
             TaskStatus.QUEUED,
             "Task queued",
         )
-        mock_component_manager._set_consumers_to_start.return_value = (
+        mock_component_manager.set_consumers_to_start.return_value = (
             ResultCode.OK,
             "SetConsumers command completed OK",
         )
@@ -783,7 +783,7 @@ class TestPatchedDaq:
 
         # Get the args for the next call to set consumers and assert
         # it's what we expect.
-        call_args = mock_component_manager._set_consumers_to_start.call_args
+        call_args = mock_component_manager.set_consumers_to_start.call_args
         assert call_args.args[0] == consumer_list
 
     def test_start_stop_bandpass_device(
@@ -839,7 +839,7 @@ class TestPatchedDaq:
         assert device_under_test.adminMode == AdminMode.ONLINE
         sleep(0.1)
 
-        _ = device_under_test.StartDataRateMonitor(1)
+        _ = device_under_test.StartDataRateMonitor(json.dumps({"interval": 1}))
         call_args = mock_component_manager.start_data_rate_monitor.call_args
         # A bit clunky but it gets padded with command IDs etc.
         assert call_args[0][0] == 1

@@ -242,15 +242,12 @@ class TestDaqComponentManager:
 
         # Start DAQ and check our consumer is running.
         # Need exactly 1 callback per consumer started or None. Cast for Mypy.
-        ts, message = daq_component_manager.start_daq(
+        daq_component_manager.start_daq(
             daq_modes,
             task_callback=callbacks["task_start_daq"],
         )
-        assert ts == TaskStatus.QUEUED
-        assert message == "Task queued"
 
         # TODO: May be more to tweak here.
-        callbacks["task_start_daq"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task_start_daq"].assert_call(
             status=TaskStatus.IN_PROGRESS,
         )
@@ -278,7 +275,6 @@ class TestDaqComponentManager:
         # Stop DAQ and check our consumer is not running.
         daq_component_manager.stop_daq(task_callback=callbacks["task"])
 
-        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
         callbacks["task"].assert_call(
             status=TaskStatus.COMPLETED, result=(ResultCode.OK, "Stop completed OK.")
@@ -329,7 +325,7 @@ class TestDaqComponentManager:
         :param consumer_list: A comma separated list of consumers to start.
         """
         assert daq_component_manager._consumers_to_start == ""
-        daq_component_manager._set_consumers_to_start(consumer_list)
+        daq_component_manager.set_consumers_to_start(consumer_list)
         assert daq_component_manager._consumers_to_start == consumer_list
 
     # pylint: disable=too-many-locals
@@ -361,7 +357,6 @@ class TestDaqComponentManager:
             task_callback=callbacks["task"]
         )
 
-        callbacks["task"].assert_call(status=TaskStatus.QUEUED)
         callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
         callbacks["task"].assert_call(
             status=TaskStatus.COMPLETED,
@@ -623,7 +618,7 @@ class TestDaqComponentManager:
         )
         callbacks["component_state"].assert_call(power=PowerState.UNKNOWN)
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
-        daq_component_manager._start_daq(
+        daq_component_manager.start_daq(
             "STATION_BEAM_DATA", task_callback=callbacks["task"]
         )
         daq_component_manager._file_dump_callback(

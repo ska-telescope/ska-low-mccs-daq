@@ -10,31 +10,29 @@
 from __future__ import annotations  # allow forward references in type hints
 
 import json
-import logging
+import threading
 import time
 from importlib import resources
-from typing import Any, Callable, Final, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 import tango
-from ska_control_model import CommunicationStatus, HealthState, ResultCode
+from ska_control_model import CommunicationStatus, HealthState
 from ska_low_mccs_common import HealthRecorder, MccsBaseDevice
-from ska_tango_base.base import BaseComponentManager
-from ska_tango_base.commands import (
-    CommandTrackerProtocol,
-    DeviceInitCommand,
-    FastCommand,
-    JsonValidator,
-    SubmittedSlowCommand,
+from ska_tango_base.base import TaskCallbackType
+from ska_tango_base.long_running_commands import long_running_command, submit_lrc_task
+from ska_tango_base.type_hints import (
+    DevVarLongStringArrayType,
+    JSONData,
+    TaskFunctionType,
 )
+from ska_tango_base.validators import validate_json_args
 from tango.server import attribute, command, device_property
 
 from ..version import version_info
 from .daq_component_manager import DaqComponentManager
 
 __all__ = ["MccsDaqReceiver", "main"]
-
-DevVarLongStringArrayType = tuple[list[ResultCode], list[Optional[str]]]
 
 
 def snake_to_camel(s: str) -> str:
@@ -49,140 +47,12 @@ def snake_to_camel(s: str) -> str:
     return parts[0] + "".join(word.capitalize() for word in parts[1:])
 
 
-class _StartDaqCommand(SubmittedSlowCommand):
-    """
-    Class for handling the Start command.
-
-    This command starts the DAQ device
-    to listen for UDP traffic on a specific interface.
-    """
-
-    def __init__(
-        self: _StartDaqCommand,
-        command_tracker: CommandTrackerProtocol,
-        component_manager: BaseComponentManager,
-        logger: Optional[logging.Logger] = None,
-    ) -> None:
-        """
-        Initialise a new instance.
-
-        :param command_tracker: the device's command tracker
-        :param component_manager: the component manager on which this
-            command acts.
-        :param logger: a logger for this command to use.
-        """
-        super().__init__(
-            "Start",
-            command_tracker,
-            component_manager,
-            "start_daq",
-            callback=None,
-            logger=logger,
-        )
-
-    def do(  # type: ignore[override]
-        self: _StartDaqCommand,
-        *args: Any,
-        modes_to_start: str = "",
-        **kwargs: Any,
-    ) -> tuple[ResultCode, str]:
-        """
-        Implement :py:meth:`.MccsDaqReceiver.Start` command.
-
-        :param args: unspecified positional arguments. This should be
-            empty and is provided for typehinting purposes only.
-        :param modes_to_start: A DAQ mode, must be a string
-        :param kwargs: unspecified keyword arguments. This should be
-            empty and is provided for typehinting purposes only.
-
-        :return: A tuple containing a return code and a string
-                message indicating status. The message is for
-                information purpose only.
-        """
-        assert (
-            not args and not kwargs
-        ), f"do method has unexpected arguments: {args}, {kwargs}"
-
-        return super().do(modes_to_start)
-
-
-class _StartBandpassMonitorCommand(SubmittedSlowCommand):
-    """
-    Start monitoring antenna bandpasses.
-
-        The MccsDaqReceiver will begin monitoring antenna bandpasses
-            and producing plots of the spectra.
-
-        :param argin: A json dictionary with keywords.
-            - plot_directory
-            Directory in which to store bandpass plots.
-            - monitor_rms
-            Whether or not to additionally produce RMS plots.
-            Default: False.
-            - auto_handle_daq
-            Whether DAQ should be automatically reconfigured,
-            started and stopped without user action if necessary.
-            This set to False means we expect DAQ to already
-            be properly configured and listening for traffic
-            and DAQ will not be stopped when `StopBandpassMonitor`
-            is called.
-            Default: False.
-        :return: A tuple containing a return code and a string
-            message indicating status. The message is for
-            information purpose only.
-    """
-
-    def __init__(
-        self: _StartBandpassMonitorCommand,
-        command_tracker: CommandTrackerProtocol,
-        component_manager: BaseComponentManager,
-        logger: Optional[logging.Logger] = None,
-    ) -> None:
-        """
-        Initialise a new instance.
-
-        :param command_tracker: the device's command tracker
-        :param component_manager: the component manager on which this
-            command acts.
-        :param logger: a logger for this command to use.
-        """
-        super().__init__(
-            "StartBandpassMonitor",
-            command_tracker,
-            component_manager,
-            "start_bandpass_monitor",
-            callback=None,
-            logger=logger,
-        )
-
-    def do(  # type: ignore[override]
-        self: _StartBandpassMonitorCommand,
-        *args: Any,
-        **kwargs: Any,
-    ) -> tuple[ResultCode, str]:
-        """
-        Implement :py:meth:`.MccsDaqReceiver.StartBandpassMonitor` command.
-
-        :param args: unspecified positional arguments. This should be
-            empty and is provided for typehinting purposes only.
-        :param kwargs: unspecified keyword arguments. This should be
-            empty and is provided for typehinting purposes only.
-
-        :return: A tuple containing a return code and a string
-                message indicating status. The message is for
-                information purpose only.
-        """
-        assert (
-            not args and not kwargs
-        ), f"do method has unexpected arguments: {args}, {kwargs}"
-
-        return super().do()
-
-
 # pylint: disable = too-many-instance-attributes, too-many-public-methods
 # pylint: disable = too-many-ancestors
-class MccsDaqReceiver(MccsBaseDevice):
+class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
     """An implementation of a MccsDaqReceiver Tango device."""
+
+    InitCommand = None  # type: ignore[assignment]
 
     # -----------------
     # Device Properties
@@ -341,6 +211,57 @@ class MccsDaqReceiver(MccsBaseDevice):
         self.logger.info(
             "\n%s\n%s\n%s", str(self.GetVersionInfo()), version, properties
         )
+        self.initialise_change_events()
+        self.init_completed()
+
+    def initialise_change_events(self: MccsDaqReceiver) -> None:
+        """Intialise change and archive events."""
+        self.set_change_event("dataReceivedResult", True, False)
+        self.set_archive_event("dataReceivedResult", True, False)
+        self.set_change_event("xPolBandpass", True, False)
+        self.set_archive_event("xPolBandpass", True, False)
+        self.set_change_event("yPolBandpass", True, False)
+        self.set_archive_event("yPolBandpass", True, False)
+        self.set_change_event("rawXPolBandpass", True, False)
+        self.set_archive_event("rawXPolBandpass", True, False)
+        self.set_change_event("rawYPolBandpass", True, False)
+        self.set_archive_event("rawYPolBandpass", True, False)
+        self.set_change_event("rmsPlot", True, False)
+        self.set_archive_event("rmsPlot", True, False)
+        self.set_change_event("nofSaturations", True, False)
+        self.set_archive_event("nofSaturations", True, False)
+        self.set_change_event("nofPackets", True, False)
+        self.set_archive_event("nofPackets", True, False)
+        self.set_change_event("relativeNofPacketsDiff", True, False)
+        self.set_archive_event("relativeNofPacketsDiff", True, False)
+        self.set_change_event("nofSamples", True, False)
+        self.set_archive_event("nofSamples", True, False)
+        self.set_change_event("relativeNofSamplesDiff", True, False)
+        self.set_archive_event("relativeNofSamplesDiff", True, False)
+        self.set_change_event("dataRate", True, False)
+        self.set_archive_event("dataRate", True, False)
+        self.set_change_event("receiveRate", True, False)
+        self.set_archive_event("receiveRate", True, False)
+        self.set_change_event("dropRate", True, False)
+        self.set_archive_event("dropRate", True, False)
+        self.set_change_event("ringbufferOccupancy", True, False)
+        self.set_archive_event("ringbufferOccupancy", True, False)
+        self.set_change_event("lostPushes", True, False)
+        self.set_archive_event("lostPushes", True, False)
+        self.set_change_event("lostPushRate", True, False)
+        self.set_archive_event("lostPushRate", True, False)
+        self.set_change_event("correlatorTimeTaken", True, False)
+        self.set_archive_event("correlatorTimeTaken", True, False)
+        self.set_change_event("correlatorSolveTime", True, False)
+        self.set_archive_event("correlatorSolveTime", True, False)
+        self.set_change_event("hostToDeviceCopyTime", True, False)
+        self.set_archive_event("hostToDeviceCopyTime", True, False)
+        self.set_change_event("deviceToHostCopyTime", True, False)
+        self.set_archive_event("deviceToHostCopyTime", True, False)
+        self.set_change_event("correlatorTimeUtil", True, False)
+        self.set_archive_event("correlatorTimeUtil", True, False)
+        self.set_change_event("bufferCounter", True, False)
+        self.set_archive_event("bufferCounter", True, False)
 
     def delete_device(self: MccsDaqReceiver) -> None:
         """Delete the device."""
@@ -419,120 +340,6 @@ class MccsDaqReceiver(MccsBaseDevice):
             self.BandpassDaq,
             self.SimulationMode,
         )
-
-    def init_command_objects(self: MccsDaqReceiver) -> None:
-        # pylint: disable-next=line-too-long
-        """Initialise the command handlers for commands supported by this device."""  # noqa: E501
-        super().init_command_objects()
-
-        for command_name, command_object in [
-            ("Configure", self.ConfigureCommand),
-            ("SetConsumers", self.SetConsumersCommand),
-            ("DaqStatus", self.DaqStatusCommand),
-            ("GetConfiguration", self.GetConfigurationCommand),
-            ("StopBandpassMonitor", self.StopBandpassMonitorCommand),
-        ]:
-            self.register_command_object(
-                command_name,
-                command_object(self.component_manager, self.logger),
-            )
-
-        for command_name, method_name in [
-            ("Stop", "stop_daq"),
-            ("StartDataRateMonitor", "start_data_rate_monitor"),
-            ("StopDataRateMonitor", "stop_data_rate_monitor"),
-            ("MarkDone", "mark_scan_done"),
-        ]:
-            self.register_command_object(
-                command_name,
-                SubmittedSlowCommand(
-                    command_name,
-                    self._command_tracker,
-                    self.component_manager,
-                    method_name,
-                    logger=self.logger,
-                ),
-            )
-
-        for command_name, command_class in [
-            ("Start", _StartDaqCommand),
-            ("StartBandpassMonitor", _StartBandpassMonitorCommand),
-        ]:
-            self.register_command_object(
-                command_name,
-                command_class(
-                    self._command_tracker,
-                    self.component_manager,
-                    logger=self.logger,
-                ),
-            )
-
-    class InitCommand(DeviceInitCommand):
-        """Implements device initialisation for the MccsDaqReceiver device."""
-
-        def do(
-            self: MccsDaqReceiver.InitCommand,
-            *args: Any,
-            **kwargs: Any,
-        ) -> tuple[ResultCode, str]:  # type: ignore[override]
-            """
-            Initialise the attributes and properties.
-
-            :param args: Positional arg list.
-            :param kwargs: Keyword arg list.
-
-            :return: A tuple containing a return code and a string
-                message indicating status. The message is for
-                information purpose only.
-            """
-            self._device.set_change_event("dataReceivedResult", True, False)
-            self._device.set_archive_event("dataReceivedResult", True, False)
-            self._device.set_change_event("xPolBandpass", True, False)
-            self._device.set_archive_event("xPolBandpass", True, False)
-            self._device.set_change_event("yPolBandpass", True, False)
-            self._device.set_archive_event("yPolBandpass", True, False)
-            self._device.set_change_event("rawXPolBandpass", True, False)
-            self._device.set_archive_event("rawXPolBandpass", True, False)
-            self._device.set_change_event("rawYPolBandpass", True, False)
-            self._device.set_archive_event("rawYPolBandpass", True, False)
-            self._device.set_change_event("rmsPlot", True, False)
-            self._device.set_archive_event("rmsPlot", True, False)
-            self._device.set_change_event("nofSaturations", True, False)
-            self._device.set_archive_event("nofSaturations", True, False)
-            self._device.set_change_event("nofPackets", True, False)
-            self._device.set_archive_event("nofPackets", True, False)
-            self._device.set_change_event("relativeNofPacketsDiff", True, False)
-            self._device.set_archive_event("relativeNofPacketsDiff", True, False)
-            self._device.set_change_event("nofSamples", True, False)
-            self._device.set_archive_event("nofSamples", True, False)
-            self._device.set_change_event("relativeNofSamplesDiff", True, False)
-            self._device.set_archive_event("relativeNofSamplesDiff", True, False)
-            self._device.set_change_event("dataRate", True, False)
-            self._device.set_archive_event("dataRate", True, False)
-            self._device.set_change_event("receiveRate", True, False)
-            self._device.set_archive_event("receiveRate", True, False)
-            self._device.set_change_event("dropRate", True, False)
-            self._device.set_archive_event("dropRate", True, False)
-            self._device.set_change_event("ringbufferOccupancy", True, False)
-            self._device.set_archive_event("ringbufferOccupancy", True, False)
-            self._device.set_change_event("lostPushes", True, False)
-            self._device.set_archive_event("lostPushes", True, False)
-            self._device.set_change_event("lostPushRate", True, False)
-            self._device.set_archive_event("lostPushRate", True, False)
-            self._device.set_change_event("correlatorTimeTaken", True, False)
-            self._device.set_archive_event("correlatorTimeTaken", True, False)
-            self._device.set_change_event("correlatorSolveTime", True, False)
-            self._device.set_archive_event("correlatorSolveTime", True, False)
-            self._device.set_change_event("hostToDeviceCopyTime", True, False)
-            self._device.set_archive_event("hostToDeviceCopyTime", True, False)
-            self._device.set_change_event("deviceToHostCopyTime", True, False)
-            self._device.set_archive_event("deviceToHostCopyTime", True, False)
-            self._device.set_change_event("correlatorTimeUtil", True, False)
-            self._device.set_archive_event("correlatorTimeUtil", True, False)
-            self._device.set_change_event("bufferCounter", True, False)
-            self._device.set_archive_event("bufferCounter", True, False)
-
-            return (ResultCode.OK, "Init command completed OK")
 
     # ----------
     # Callbacks
@@ -955,36 +762,11 @@ class MccsDaqReceiver(MccsBaseDevice):
     # --------
     # Commands
     # --------
-    class DaqStatusCommand(FastCommand):
-        """A class for the MccsDaqReceiver's DaqStatus() command."""
-
-        def __init__(  # type: ignore
-            self: MccsDaqReceiver.DaqStatusCommand,
-            component_manager,
-            logger: Optional[logging.Logger] = None,
-        ) -> None:
-            """
-            Initialise a new instance.
-
-            :param component_manager: the device to which this command belongs.
-            :param logger: a logger for this command to use.
-            """
-            self._component_manager: DaqComponentManager = component_manager
-            super().__init__(logger)
-
-        # pylint: disable=arguments-differ
-        def do(  # type: ignore[override]
-            self: MccsDaqReceiver.DaqStatusCommand,
-        ) -> str:
-            """
-            Stateless hook for device DaqStatus() command.
-
-            :return: The status of this Daq device.
-            """
-            return json.dumps(self._component_manager.get_status())
 
     @command(dtype_out="DevString")
-    def DaqStatus(self: MccsDaqReceiver) -> str:
+    def DaqStatus(
+        self: MccsDaqReceiver,
+    ) -> str:
         """
         Provide status information for this MccsDaqReceiver.
 
@@ -1003,25 +785,32 @@ class MccsDaqReceiver(MccsBaseDevice):
             >>> jstr = daq.DaqStatus()
             >>> dict = json.loads(jstr)
         """
-        handler = self.get_command_object("DaqStatus")
+        status = self.component_manager.get_status()
         # We append health_state to the status here.
-        status = json.loads(handler())
         health_state = [self._health_state.name, self._health_state.value]
         status["Daq Health"] = health_state
         return json.dumps(status)
 
-    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
-    def Start(
-        self: MccsDaqReceiver, argin: str = ""
-    ) -> DevVarLongStringArrayType:  # noqa: E501
+    Start_SCHEMA: dict[str, JSONData] = {
+        "title": "ska-low-mccs-daq MccsDaqReceiver Start",
+        "description": "Schema for ska-tango-base MccsDaqReceiver Start command",
+        "modes_to_start": {
+            "description": "A comma separated string of daq modes.",
+            "type": "str",
+        },
+    }
+
+    @long_running_command
+    @validate_json_args
+    def Start(self: MccsDaqReceiver, modes_to_start: str = "") -> TaskFunctionType:
         """
         Start the DaqConsumers.
 
         The MccsDaqReceiver will begin watching the interface specified in the
             configuration and will start the configured consumers.
 
-        :param argin: A json dictionary with optional keywords.
-            '{"modes_to_start"}'.
+        :param modes_to_start: A comma separated string of daq modes.
+
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
@@ -1033,16 +822,23 @@ class MccsDaqReceiver(MccsBaseDevice):
             >>> daq.Start(argin) # use specified consumers
             >>> daq.Start("") # Uses default consumers.
         """
-        if argin != "":
-            kwargs = json.loads(argin)
-        else:
-            kwargs = {}
-        handler = self.get_command_object("Start")
-        (result_code, message) = handler(**kwargs)
-        return ([result_code], [message])
 
-    @command(dtype_out="DevVarLongStringArray")
-    def Stop(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+        def task(
+            task_callback: TaskCallbackType, task_abort_event: threading.Event
+        ) -> None:
+            """Task to be queued.
+
+            :param task_callback: Update task state.
+            :param task_abort_event: Check for abort.
+            """
+            self.component_manager.start_daq(
+                modes_to_start, task_callback, task_abort_event
+            )
+
+        return task
+
+    @long_running_command
+    def Stop(self: MccsDaqReceiver) -> TaskFunctionType:
         """
         Stop the DaqReceiver.
 
@@ -1057,71 +853,37 @@ class MccsDaqReceiver(MccsBaseDevice):
             >>> daq = tango.DeviceProxy("low-mccs/daqreceiver/001")
             >>> daq.Stop()
         """
-        handler = self.get_command_object("Stop")
-        (result_code, message) = handler()
-        return ([result_code], [message])
 
-    class ConfigureCommand(FastCommand):
-        # pylint: disable=line-too-long
-        """
-        Class for handling the Configure(argin) command.
-
-        .. literalinclude:: /../../src/ska_low_mccs_daq/schemas/daq/MccsDaq_Configure.json
-           :language: json
-        """  # noqa: E501,RST303
-
-        SCHEMA: Final = json.loads(
-            resources.read_text(
-                "ska_low_mccs_daq.schemas.daq",
-                "MccsDaq_Configure.json",
-            )
-        )
-
-        def __init__(  # type: ignore
-            self: MccsDaqReceiver.ConfigureCommand,
-            component_manager,
-            logger: Optional[logging.Logger] = None,
+        def task(
+            task_callback: TaskCallbackType, task_abort_event: threading.Event
         ) -> None:
-            """
-            Initialise a new ConfigureCommand instance.
+            """Task to be queued.
 
-            :param component_manager: the device to which this command belongs.
-            :param logger: a logger for this command to use.
+            :param task_callback: Update task state.
+            :param task_abort_event: Check for abort.
             """
-            self._component_manager: DaqComponentManager = component_manager
-            validator = JsonValidator("Configure", self.SCHEMA, logger)
-            super().__init__(logger, validator)
+            self.component_manager.stop_daq(task_callback, task_abort_event)
 
-        def do(  # type: ignore[override]
-            self: MccsDaqReceiver.ConfigureCommand, *args: Any, **kwargs: Any
-        ) -> tuple[ResultCode, str]:
-            """
-            Implement MccsDaqReceiver.ConfigureCommand command functionality.
+        return task
 
-            :param args: Positional arguments. This should be empty and
-                is provided for type hinting purposes only.
-            :param kwargs: keyword arguments unpacked from the JSON
-                argument to the command.
-
-            :return: A tuple containing a return code and a string
-                message indicating status. The message is for
-                information purpose only.
-            """
-            self._component_manager.configure_daq(**kwargs)
-            return (ResultCode.OK, "Configure command completed OK")
+    Configure_SCHEMA: dict[str, JSONData] = json.loads(
+        resources.read_text(
+            "ska_low_mccs_daq.schemas.daq",
+            "MccsDaq_Configure.json",
+        )
+    )
 
     # Args in might want to be changed depending on how we choose to
     # configure the DAQ system.
-    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
-    def Configure(
-        self: MccsDaqReceiver, argin: str
-    ) -> DevVarLongStringArrayType:  # noqa: E501
+    @command(dtype_in=str, dtype_out="DevVarLongStringArray")
+    @validate_json_args
+    def Configure(self: MccsDaqReceiver, **kwargs: Any) -> DevVarLongStringArrayType:
         """
         Configure the DaqReceiver.
 
         Applies the specified configuration to the DaqReceiver.
 
-        :param argin: A JSON string containing the daq configuration to apply.
+        :param kwargs: A series of configuration values to apply
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
@@ -1134,9 +896,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             }
             >>> daq.Configure(json.dumps(daq_config))
         """
-        handler = self.get_command_object("Configure")
-
-        (result_code, message) = handler(argin)
+        (result_code, message) = self.component_manager.configure_daq(**kwargs)
         return ([result_code], [message])
 
     @command(dtype_out="DevString")
@@ -1151,82 +911,20 @@ class MccsDaqReceiver(MccsBaseDevice):
             >>> jstr = daq.GetConfiguration()
             >>> dict = json.loads(jstr)
         """
-        handler = self.get_command_object("GetConfiguration")
-        return handler()
+        return json.dumps(self.component_manager.get_configuration())
 
-    class GetConfigurationCommand(FastCommand):
-        """Class for handling the GetConfiguration() command."""
-
-        def __init__(  # type: ignore
-            self: MccsDaqReceiver.GetConfigurationCommand,
-            component_manager,
-            logger: Optional[logging.Logger] = None,
-        ) -> None:
-            """
-            Initialise a new GetConfigurationCommand instance.
-
-            :param component_manager: the device to which this command belongs.
-            :param logger: a logger for this command to use.
-            """
-            self._component_manager: DaqComponentManager = component_manager
-            super().__init__(logger)
-
-        # pylint: disable=arguments-differ
-        def do(  # type: ignore[override]
-            self: MccsDaqReceiver.GetConfigurationCommand,
-        ) -> str:
-            """
-            Implement :py:meth:`.MccsDaqReceiver.GetConfiguration` command.
-
-            :return: The configuration as received from pydaq
-            """
-            response = self._component_manager.get_configuration()
-            return json.dumps(response)
-
-    class SetConsumersCommand(FastCommand):
-        """Class for handling the SetConsumersCommand(argin) command."""
-
-        def __init__(  # type: ignore
-            self: MccsDaqReceiver.SetConsumersCommand,
-            component_manager,
-            logger: Optional[logging.Logger] = None,
-        ) -> None:
-            """
-            Initialise a new SetConsumersCommand instance.
-
-            :param component_manager: the device to which this command belongs.
-            :param logger: a logger for this command to use.
-            """
-            self._component_manager: DaqComponentManager = component_manager
-            super().__init__(logger)
-
-        # pylint: disable=arguments-differ
-        def do(  # type: ignore[override]
-            self: MccsDaqReceiver.SetConsumersCommand, argin: str
-        ) -> tuple[ResultCode, str]:
-            """
-            Implement MccsDaqReceiver.SetConsumersCommand functionality.
-
-            :param argin: A string containing a comma separated
-                list of DaqModes.
-            :return: A tuple containing a return code and a string
-                message indicating status. The message is for
-                information purpose only.
-            """
-            return self._component_manager._set_consumers_to_start(argin)
-
-    @command(dtype_in="DevString", dtype_out="DevVarLongStringArray")
+    @command(dtype_in=str, dtype_out="DevVarLongStringArray")
     def SetConsumers(
-        self: MccsDaqReceiver, argin: str
-    ) -> DevVarLongStringArrayType:  # noqa: E501
+        self: MccsDaqReceiver, consumers_to_start: str
+    ) -> DevVarLongStringArrayType:
         """
         Set the default list of consumers to start.
 
         Sets the default list of consumers to start when left unspecified in
         the `start_daq` command.
 
-        :param argin: A string containing a comma separated
-            list of DaqModes.
+        :param consumers_to_start: A string containing a comma separated
+            list of consumers.
         :return: A tuple containing a return code and a string
             message indicating status. The message is for
             information purpose only.
@@ -1237,14 +935,15 @@ class MccsDaqReceiver(MccsBaseDevice):
             >>> consumers = "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA," # noqa: E501
             >>> daq.SetConsumers(consumers)
         """
-        handler = self.get_command_object("SetConsumers")
-        (result_code, message) = handler(argin)
-        return ([result_code], [message])
+        result, message = self.component_manager.set_consumers_to_start(
+            consumers_to_start
+        )
+        return ([result], [message])
 
-    @command(dtype_out="DevVarLongStringArray")
+    @long_running_command
     def StartBandpassMonitor(
         self: MccsDaqReceiver,
-    ) -> DevVarLongStringArrayType:
+    ) -> TaskFunctionType:
         """
         Start monitoring antenna bandpasses.
 
@@ -1255,44 +954,20 @@ class MccsDaqReceiver(MccsBaseDevice):
             message indicating status. The message is for
             information purpose only.
         """
-        handler = self.get_command_object("StartBandpassMonitor")
-        (result_code, message) = handler()
-        return ([result_code], [message])
 
-    class StopBandpassMonitorCommand(FastCommand):
-        """Class for handling the StopBandpassMonitorCommand() command."""
-
-        def __init__(  # type: ignore
-            self: MccsDaqReceiver.StopBandpassMonitorCommand,
-            component_manager,
-            logger: Optional[logging.Logger] = None,
+        def task(
+            task_callback: TaskCallbackType, task_abort_event: threading.Event
         ) -> None:
+            """Task to be queued.
+
+            :param task_callback: Update task state.
+            :param task_abort_event: Check for abort.
             """
-            Initialise a new StopBandpassMonitorCommand instance.
+            self.component_manager.start_bandpass_monitor(
+                task_callback, task_abort_event
+            )
 
-            :param component_manager: the device to which this command belongs.
-            :param logger: a logger for this command to use.
-            """
-            self._component_manager: DaqComponentManager = component_manager
-            super().__init__(logger)
-
-        # pylint: disable=arguments-differ
-        def do(  # type: ignore[override]
-            self: MccsDaqReceiver.StopBandpassMonitorCommand,
-        ) -> tuple[ResultCode, str]:
-            """
-            Implement MccsDaqReceiver.SetConsumersCommand functionality.
-
-            Stop monitoring antenna bandpasses.
-
-            The MccsDaqReceiver will cease monitoring antenna bandpasses
-                and producing plots of the spectra.
-
-            :return: A tuple containing a return code and a string
-                message indicating status. The message is for
-                information purpose only.
-            """
-            return self._component_manager.stop_bandpass_monitor()
+        return task
 
     @command(dtype_out="DevVarLongStringArray")
     def StopBandpassMonitor(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
@@ -1306,12 +981,11 @@ class MccsDaqReceiver(MccsBaseDevice):
             message indicating status. The message is for
             information purpose only.
         """
-        handler = self.get_command_object("StopBandpassMonitor")
-        (result_code, message) = handler()
+        (result_code, message) = self.component_manager.stop_bandpass_monitor()
         return ([result_code], [message])
 
-    @command(dtype_out="DevVarLongStringArray")
-    def StopDataRateMonitor(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+    @long_running_command
+    def StopDataRateMonitor(self: MccsDaqReceiver) -> TaskFunctionType:
         """
         Stop monitoring the data rate on the receiver interface.
 
@@ -1319,15 +993,37 @@ class MccsDaqReceiver(MccsBaseDevice):
             message indicating status. The message is for
             information purpose only.
         """
-        handler = self.get_command_object("StopDataRateMonitor")
-        (result_code, message) = handler()
-        return ([result_code], [message])
 
-    @command(dtype_out="DevVarLongStringArray", dtype_in="DevLong")
+        def task(
+            task_callback: TaskCallbackType, task_abort_event: threading.Event
+        ) -> None:
+            """Task to be queued.
+
+            :param task_callback: Update task state.
+            :param task_abort_event: Check for abort.
+            """
+            self.component_manager.stop_data_rate_monitor(task_callback)
+
+        return task
+
+    StartDataRateMonitor_SCHEMA: dict[str, JSONData] = {
+        "title": "ska-low-mccs-daq MccsDaqReceiver StartDataRateMonitor",
+        "description": "Schema for ska-tango-base MccsDaqReceiver \
+            StartDataRateMonitor command",
+        "type": "object",
+        "properties": {
+            "interval": {
+                "type": "number",
+            },
+        },
+    }
+
+    @long_running_command
+    @validate_json_args
     def StartDataRateMonitor(
         self: MccsDaqReceiver,
-        interval: float,
-    ) -> DevVarLongStringArrayType:
+        interval: float = 0,
+    ) -> TaskFunctionType:
         """
         Start monitoring the data rate on the receiver interface.
 
@@ -1337,12 +1033,21 @@ class MccsDaqReceiver(MccsBaseDevice):
             message indicating status. The message is for
             information purpose only.
         """
-        handler = self.get_command_object("StartDataRateMonitor")
-        (result_code, message) = handler(interval)
-        return ([result_code], [message])
 
-    @command(dtype_out="DevVarLongStringArray")
-    def MarkDone(self: MccsDaqReceiver) -> DevVarLongStringArrayType:
+        def task(
+            task_callback: TaskCallbackType, task_abort_event: threading.Event
+        ) -> None:
+            """Task to be queued.
+
+            :param task_callback: Update task state.
+            :param task_abort_event: Check for abort.
+            """
+            self.component_manager.start_data_rate_monitor(task_callback=task_callback)
+
+        return task
+
+    @submit_lrc_task
+    def MarkDone(self: MccsDaqReceiver) -> TaskFunctionType:
         """
         Change the data dictionary to mark the end of a scan.
 
@@ -1350,9 +1055,7 @@ class MccsDaqReceiver(MccsBaseDevice):
             message indicating status. The message is for
             information purpose only.
         """
-        handler = self.get_command_object("MarkDone")
-        (result_code, message) = handler()
-        return ([result_code], [message])
+        return self.component_manager.mark_scan_done
 
     # ----------
     # Attributes
