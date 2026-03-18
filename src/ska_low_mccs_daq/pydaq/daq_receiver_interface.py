@@ -558,7 +558,9 @@ class DaqReceiver:
                         append=True,
                         data_ptr=values,
                         timestamp=self._timestamps[DaqModes.INTEGRATED_CHANNEL_DATA],
-                        sampling_time=self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA],
+                        sampling_time=self._sampling_time[
+                            DaqModes.INTEGRATED_CHANNEL_DATA
+                        ],
                         buffer_timestamp=timestamp,
                         tile_id=tile,
                     )
@@ -567,7 +569,9 @@ class DaqReceiver:
                         append=False,
                         data_ptr=values,
                         timestamp=timestamp,
-                        sampling_time=self._sampling_time[DaqModes.INTEGRATED_CHANNEL_DATA],
+                        sampling_time=self._sampling_time[
+                            DaqModes.INTEGRATED_CHANNEL_DATA
+                        ],
                         buffer_timestamp=timestamp,
                         tile_id=tile,
                     )
@@ -576,30 +580,31 @@ class DaqReceiver:
             if self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None:
                 if self._config["bandpass"]:
                     values = numpy.reshape(
-                        values, 
+                        values,
                         (
-                            self._config["nof_channels"], 
-                            1, 
-                            self._config["nof_antennas"] * self._config["nof_polarisations"]
-                        )
+                            self._config["nof_channels"],
+                            1,
+                            self._config["nof_antennas"]
+                            * self._config["nof_polarisations"],
+                        ),
                     )
                     values = numpy.transpose(values, (1, 0, 2))
                     values = numpy.reshape(
-                        values, 
+                        values,
                         (
-                            1, 
+                            1,
                             (
-                                self._config["nof_channels"] * 
-                                self._config["nof_antennas"] * 
-                                self._config["nof_polarisations"]
-                            )
-                        )
+                                self._config["nof_channels"]
+                                * self._config["nof_antennas"]
+                                * self._config["nof_polarisations"]
+                            ),
+                        ),
                     )
                     self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
                         values,
                         tile,
                         nof_packets=nof_packets,
-                    )                    
+                    )
                 else:
                     self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
                         "integrated_channel",
@@ -1725,6 +1730,7 @@ class DaqReceiver:
             "individual": self._config["station_beam_individual_channels"],
             "source": self._config["station_beam_source"],
             "capture_time": self._config["acquisition_start_time"],
+            "station_name": self._config["station_name"],
         }
 
         # Start capture

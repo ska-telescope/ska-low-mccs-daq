@@ -1,5 +1,9 @@
 # Version History
 
+## 5.3.6
+
+* [SKB-1136] Pipe station name through to DADA header in RawStationBeam mode.
+
 ## 5.3.5
 
 * [THORN-461] Relax python constraint to <3.12
