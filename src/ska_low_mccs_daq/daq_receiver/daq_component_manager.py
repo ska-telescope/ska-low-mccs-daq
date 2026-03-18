@@ -552,7 +552,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._daq_client.populate_configuration(merged_config)
             self._configuration = merged_config
             self.logger.info("Daq successfully reconfigured.")
-            return ResultCode.OK, "Daq reconfigured"
+            return ResultCode.OK, "Configure command completed OK"
 
         # pylint: disable=broad-except
         except Exception as e:
