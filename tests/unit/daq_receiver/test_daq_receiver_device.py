@@ -5,6 +5,7 @@
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
+# pylint: disable=too-many-lines
 """This module contains the tests of the daq receiver device."""
 from __future__ import annotations
 
@@ -13,13 +14,14 @@ import json
 import time
 import unittest.mock
 from time import sleep
-from typing import Iterator, Type, Union
+from typing import Any, Callable, Iterator, Type, Union
 
 import numpy as np
 import pytest
 import pytest_mock
 import tango
 from ska_control_model import AdminMode, HealthState, ResultCode, TaskStatus
+from ska_tango_base.base import TaskCallbackType
 from ska_tango_testing.mock.placeholders import Anything
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 from tango.server import Device, command
@@ -406,9 +408,40 @@ class TestPatchedDaq:
             "Mock bandpass monitor stopping.",
         )
 
-        mock_component_manager._task_executor = mocker.Mock()
-        mock_component_manager._task_executor.max_queued_tasks = 10
-        mock_component_manager._task_executor.max_executing_tasks = 1
+        def task_abort_event(invalue: Any) -> None:
+            """
+            Mock task abort event.
+
+            :param invalue: a generic value
+            """
+            return
+
+        def mock_task_executor(
+            task: Callable,
+            args: Any,
+            kwargs: Any,
+            is_cmd_allowed: bool,
+            task_callback: TaskCallbackType,
+        ) -> tuple[TaskStatus, str]:
+            """
+            Mock the task executor.
+
+            :param task: the task to be run
+            :param args: positional arguments to be passed to the task
+            :param kwargs: keyword arguments to be passed to the task
+            :param is_cmd_allowed: placeholder value
+            :param task_callback: task callback to be passed to the task
+
+            :returns: TaskStatus, message
+            """
+            task(task_callback, task_abort_event)
+            return (TaskStatus.QUEUED, "Task submitted successfully")
+
+        mock_executor = mocker.Mock()
+        mock_executor.submit.side_effect = mock_task_executor
+        mock_executor.max_queued_tasks = 10
+        mock_executor.max_executing_tasks = 1
+        mock_component_manager._task_executor = mock_executor
         mock_component_manager._dedicated_bandpass_daq = False
         mock_component_manager.get_status.side_effect = [
             {
@@ -809,13 +842,11 @@ class TestPatchedDaq:
         sleep(0.1)
 
         # Call start_bandpass
-        _ = device_under_test.StartBandpassMonitor()
-        _ = mock_component_manager.start_bandpass_monitor.assert_called_once_with(
-            Anything  # We get some command tracker padding in here.
-        )
-
+        result_code, _ = device_under_test.StartBandpassMonitor()
+        assert result_code == ResultCode.QUEUED
+        _ = mock_component_manager.start_bandpass_monitor.assert_called_once()
         _ = device_under_test.StopBandpassMonitor()
-        _ = mock_component_manager.stop_bandpass_monitor.assert_called_once_with()
+        _ = mock_component_manager.stop_bandpass_monitor.assert_called_once()
 
     def test_start_stop_data_rate_monitor(
         self: TestPatchedDaq,

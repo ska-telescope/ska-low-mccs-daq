@@ -1042,7 +1042,9 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             :param task_callback: Update task state.
             :param task_abort_event: Check for abort.
             """
-            self.component_manager.start_data_rate_monitor(task_callback=task_callback)
+            self.component_manager.start_data_rate_monitor(
+                interval, task_callback=task_callback
+            )
 
         return task
 

@@ -16,6 +16,7 @@ import os
 import queue
 import random
 import threading
+import time
 from collections import deque
 from datetime import date
 from pathlib import PurePath
@@ -1233,13 +1234,17 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def start_data_rate_monitor(
         self: DaqComponentManager,
+        interval: float = 0,
         task_callback: TaskCallbackType | None = None,
     ) -> None:
         """
         Start the data rate monitor on the receiver interface.
 
+        :param interval: delay before starting the data rate monitor. Defaults to 0.
         :param task_callback: Update task state, defaults to None.
         """
+        if interval > 0:
+            time.sleep(interval)
         if self._data_rate_thread.is_alive():
             if task_callback:
                 task_callback(
