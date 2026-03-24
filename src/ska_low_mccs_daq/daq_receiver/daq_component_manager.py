@@ -205,7 +205,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._configuration["receiver_ports"] = receiver_ports
         self._configuration = self.CONFIG_DEFAULTS | self._configuration
         self._received_data_callback = received_data_callback
-        self._set_consumers_to_start(consumers_to_start)
+        self.set_consumers_to_start(consumers_to_start)
         self._daq_client: DaqReceiver | DaqSimulator
         self._simulation_mode = simulation_mode
         if simulation_mode:
@@ -344,7 +344,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         return ResultCode.REJECTED, "Daq already initialised"
 
     @check_communicating
-    def _get_bandpass_running(
+    def start_bandpass_monitor(
         self: DaqComponentManager,
         task_callback: TaskCallbackType | None = None,
         task_abort_event: Optional[threading.Event] = None,
@@ -473,7 +473,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         return self._daq_client.get_configuration()
 
-    def _set_consumers_to_start(
+    def set_consumers_to_start(
         self: DaqComponentManager, consumers_to_start: str
     ) -> tuple[ResultCode, str]:
         """
@@ -543,7 +543,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._daq_client.populate_configuration(merged_config)
             self._configuration = merged_config
             self.logger.info("Daq successfully reconfigured.")
-            return ResultCode.OK, "Daq reconfigured"
+            return ResultCode.OK, "Configure command completed OK"
 
         # pylint: disable=broad-except
         except Exception as e:
@@ -628,11 +628,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._attribute_callback(attribute_name, attribute_value)
 
     @check_communicating
-    def start_daq(
+    def start_daq(  # noqa: C901
         self: DaqComponentManager,
         modes_to_start: str,
         task_callback: TaskCallbackType | None = None,
-    ) -> tuple[TaskStatus, str]:
+        task_abort_event: Optional[threading.Event] = None,
+    ) -> None:
         """
         Start data acquisition with the current configuration.
 
@@ -641,7 +642,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :param modes_to_start: A comma separated string of daq modes.
         :param task_callback: Update task state, defaults to None
+        :param task_abort_event: Check for abort, defaults to None
 
+        :raises ValueError: If an invalid DaqMode is supplied.
         :return: a task status and response message
         """
         if self._started_event.is_set():
@@ -653,29 +656,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
                         "DAQ already started, call Stop() first.",
                     ),
                 )
-            return TaskStatus.REJECTED, "DAQ already started, call Stop() first."
+            return
+
         self._started_event.set()
-        return self.submit_task(
-            self._start_daq,
-            args=[modes_to_start],
-            task_callback=task_callback,
-        )
 
-    def _start_daq(  # noqa: C901
-        self: DaqComponentManager,
-        modes_to_start: str,
-        task_callback: TaskCallbackType | None,
-        task_abort_event: Optional[threading.Event] = None,
-    ) -> None:
-        """
-        Start DAQ.
-
-        :param modes_to_start: A comma separated string of daq modes.
-        :param task_callback: Update task state, defaults to None
-        :param task_abort_event: Check for abort, defaults to None
-
-        :raises ValueError: If an invalid DaqMode is supplied.
-        """
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
         # Check data directory is in correct format, if not then reconfigure.
@@ -742,23 +726,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     @check_communicating
     def stop_daq(
-        self: DaqComponentManager,
-        task_callback: TaskCallbackType | None = None,
-    ) -> tuple[TaskStatus, str]:
-        """
-        Stop data acquisition.
-
-        :param task_callback: Update task state, defaults to None
-
-        :return: a task status and response message
-        """
-        return self.submit_task(
-            self._stop_daq,
-            task_callback=task_callback,
-        )
-
-    @check_communicating
-    def _stop_daq(
         self: DaqComponentManager,
         task_callback: TaskCallbackType | None = None,
         task_abort_event: Optional[threading.Event] = None,
@@ -889,29 +856,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             # split the path and grab the filename
             version = lib_path.split("/")[-1]
         return version
-
-    def start_bandpass_monitor(
-        self: DaqComponentManager,
-        task_callback: TaskCallbackType | None = None,
-    ) -> tuple[TaskStatus, str]:
-        """
-        Start monitoring antenna bandpasses.
-
-        The MccsDaqReceiver will begin monitoring antenna bandpasses
-            and producing plots of the spectra.
-
-        :param task_callback: Update task state, defaults to None
-
-        :return: a Taskstatus and response message
-        """
-        if self._monitoring_bandpass:
-            self.logger.info("Bandpass monitor already started.")
-            return (TaskStatus.REJECTED, "Bandpass monitor already started.")
-        self.logger.info("Starting bandpass monitor.")
-        return self.submit_task(
-            self._get_bandpass_running,
-            task_callback=task_callback,
-        )
 
     def _to_db(self: DaqComponentManager, data: np.ndarray) -> np.ndarray:
         np.seterr(divide="ignore")
@@ -1114,22 +1058,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def mark_scan_done(
         self: DaqComponentManager,
         task_callback: TaskCallbackType | None = None,
-    ) -> tuple[TaskStatus, str]:
-        """
-        Change the current path when scan is finished.
-
-        :param task_callback: Update task state, defaults to None
-
-        :return: True if successful
-        """
-        return self.submit_task(
-            self._mark_scan_done,
-            task_callback=task_callback,
-        )
-
-    def _mark_scan_done(
-        self: DaqComponentManager,
-        task_callback: TaskCallbackType | None = None,
         task_abort_event: Optional[threading.Event] = None,
     ) -> None:
         """
@@ -1296,20 +1224,34 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def start_data_rate_monitor(
         self: DaqComponentManager,
+        interval: float = 0,
         task_callback: TaskCallbackType | None = None,
-    ) -> tuple[ResultCode, str]:
+    ) -> None:
         """
         Start the data rate monitor on the receiver interface.
 
+        :param interval: delay before starting the data rate monitor. Defaults to 0.
         :param task_callback: Update task state, defaults to None.
-
-        :return: a result code and response message
         """
+        if interval != 0:
+            # TODO: THORN-496 has been created to implement this missing functionality.
+            self.logger.debug(
+                "An interval was defined, but this is not implemented in code"
+            )
         if self._data_rate_thread.is_alive():
-            return (ResultCode.REJECTED, "Already measuring data rate.")
+            if task_callback:
+                task_callback(
+                    status=TaskStatus.REJECTED,
+                    result=(ResultCode.REJECTED, "Already measuring data rate."),
+                )
+            return
         self._measure_data_rate_event.clear()
         self._data_rate_thread.start()
-        return (ResultCode.OK, "Data rate measurement started.")
+        if task_callback:
+            task_callback(
+                status=TaskStatus.COMPLETED,
+                result=(ResultCode.OK, "Data rate measurement started."),
+            )
 
     def stop_data_rate_monitor(
         self: DaqComponentManager,
@@ -1357,7 +1299,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def cleanup(self: DaqComponentManager) -> None:
         """Cleanup DAQ before deleting the component manager."""
         if self.communication_state == CommunicationStatus.ESTABLISHED:
-            self._stop_daq()
+            self.stop_daq()
         self._event_queue.put(None)
         self._event_thread.join()
         self.stop_data_rate_monitor()
