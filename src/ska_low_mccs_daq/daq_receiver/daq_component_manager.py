@@ -358,15 +358,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Check for abort, defaults to None
         """
-        if self._monitoring_bandpass:
-            self.logger.info("Bandpass monitor already started.")
-            if task_callback:
-                task_callback(
-                    status=TaskStatus.REJECTED,
-                    result="Bandpass monitor already started.",
-                )
-            return
-        self.logger.info("Starting bandpass monitor.")
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
 

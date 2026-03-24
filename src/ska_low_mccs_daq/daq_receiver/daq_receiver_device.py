@@ -18,7 +18,7 @@ from typing import Any, Callable, Optional, Union
 import numpy as np
 import ska_tango_base as stb
 import tango
-from ska_control_model import CommunicationStatus, HealthState
+from ska_control_model import CommunicationStatus, HealthState, ResultCode
 from ska_low_mccs_common import HealthRecorder, MccsBaseDevice
 from ska_tango_base.base import TaskCallbackType
 from tango.server import attribute, command, device_property
@@ -938,12 +938,12 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         )
         return ([result], [message])
 
-    @stb.long_running_commands.long_running_command
-    def StartBandpassMonitor(
+    @stb.long_running_commands.submit_lrc_task
+    def execute_StartBandpassMonitor(
         self: MccsDaqReceiver,
     ) -> stb.type_hints.TaskFunctionType:
         """
-        Start monitoring antenna bandpasses.
+        Execute start monitoring antenna bandpasses.
 
         The MccsDaqReceiver will begin monitoring antenna bandpasses
             and producing plots of the spectra.
@@ -966,6 +966,27 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             )
 
         return task
+
+    @command(dtype_out="DevVarLongStringArray")
+    def StartBandpassMonitor(
+        self: MccsDaqReceiver,
+    ) -> stb.type_hints.DevVarLongStringArrayType:
+        """
+        Start monitoring antenna bandpasses.
+
+        The MccsDaqReceiver will begin monitoring antenna bandpasses
+            and producing plots of the spectra.
+
+        :return: A tuple containing a return code and a string
+            message indicating status. The message is for
+            information purpose only.
+        """
+        if self.component_manager._monitoring_bandpass:
+            self.logger.info("Bandpass monitor already started.")
+            return ([ResultCode.REJECTED], ["Bandpass monitor already started."])
+        self.logger.info("Starting bandpass monitor.")
+
+        return self.execute_StartBandpassMonitor()
 
     @command(dtype_out="DevVarLongStringArray")
     def StopBandpassMonitor(

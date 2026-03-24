@@ -842,7 +842,8 @@ class TestPatchedDaq:
         sleep(0.1)
 
         # Call start_bandpass
-        result_code, _ = device_under_test.StartBandpassMonitor()
+        mock_component_manager._monitoring_bandpass = False
+        [result_code], _ = device_under_test.StartBandpassMonitor()
         assert result_code == ResultCode.QUEUED
         _ = mock_component_manager.start_bandpass_monitor.assert_called_once()
         _ = device_under_test.StopBandpassMonitor()
