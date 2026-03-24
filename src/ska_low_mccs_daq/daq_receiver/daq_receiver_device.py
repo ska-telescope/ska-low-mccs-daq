@@ -1006,20 +1006,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         return task
 
-    StartDataRateMonitor_SCHEMA: dict[str, stb.type_hints.JSONData] = {
-        "title": "ska-low-mccs-daq MccsDaqReceiver StartDataRateMonitor",
-        "description": "Schema for ska-tango-base MccsDaqReceiver \
-            StartDataRateMonitor command",
-        "type": "object",
-        "properties": {
-            "interval": {
-                "type": "number",
-            },
-        },
-    }
-
-    @stb.long_running_commands.long_running_command
-    @stb.validators.validate_json_args
+    @stb.long_running_commands.long_running_command(dtype_in="DevLong")
     def StartDataRateMonitor(
         self: MccsDaqReceiver,
         interval: float = 0,

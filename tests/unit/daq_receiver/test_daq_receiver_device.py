@@ -870,7 +870,7 @@ class TestPatchedDaq:
         assert device_under_test.adminMode == AdminMode.ONLINE
         sleep(0.1)
 
-        _ = device_under_test.StartDataRateMonitor(json.dumps({"interval": 1}))
+        _ = device_under_test.StartDataRateMonitor(1)
         call_args = mock_component_manager.start_data_rate_monitor.call_args
         # A bit clunky but it gets padded with command IDs etc.
         assert call_args[0][0] == 1
