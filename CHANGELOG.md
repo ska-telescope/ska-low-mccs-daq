@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-451] Remove deprecated command objects
+
 ## 5.3.6
 
 * [SKB-1136] Pipe station name through to DADA header in RawStationBeam mode.

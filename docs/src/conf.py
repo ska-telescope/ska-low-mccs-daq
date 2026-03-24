@@ -54,6 +54,8 @@ nitpick_ignore = [
     ("py:class", "pydaq.daq_receiver_interface.DaqModes"),
     ("py:class", "ska_low_mccs_daq.pydaq.daq_receiver_interface.DaqModes"),
     ("py:class", "tango.server.MccsDaqReceiverClass"),
+    ("py:class", "ska_tango_base.type_hints.TaskFunctionType"),
+    ("py:class", "ska_tango_base.type_hints.DevVarLongStringArrayType"),
     ("py:class", "DebugDeviceCommand"),
 ]
 
