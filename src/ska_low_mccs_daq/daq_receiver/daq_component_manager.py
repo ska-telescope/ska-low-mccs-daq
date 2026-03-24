@@ -16,7 +16,6 @@ import os
 import queue
 import random
 import threading
-import time
 from collections import deque
 from datetime import date
 from pathlib import PurePath
@@ -1243,8 +1242,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param interval: delay before starting the data rate monitor. Defaults to 0.
         :param task_callback: Update task state, defaults to None.
         """
-        if interval > 0:
-            time.sleep(interval)
+        if interval != 0:
+            # TODO: THORN-496 has been created to implement this missing functionality.
+            self.logger.debug(
+                "An interval was defined, but this is not implemented in code"
+            )
         if self._data_rate_thread.is_alive():
             if task_callback:
                 task_callback(
