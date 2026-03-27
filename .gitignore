@@ -61,6 +61,9 @@ testing/results/*
 # sphinx
 docs/src/_build
 
+# DIFDoc
+docs/src/device-interfaces/*-device.rst
+
 # DAQ related files
 aavs.log*
 *.hdf5

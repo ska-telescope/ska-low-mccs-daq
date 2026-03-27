@@ -3,6 +3,7 @@
 ## Unreleased
 
 * [THORN-451] Remove deprecated command objects
+* [THORN-428] Add DIFDoc tool for improved Tango interface documentation.
 
 ## 5.3.6
 
