@@ -21,6 +21,9 @@ ifneq (,$(filter $(DOCS_TARGET_ARGS),$(DOCGEN_TARGETS)))
 docs-pre-build:
 	poetry config virtualenvs.create false
 	poetry install --no-root --only docs
+	@if [ -v CI_JOB_TOKEN ]; then \
+      poetry install --only-root; \
+  	fi
 	tangodocgen --auto -o $(DOCGEN_OUTPUT_DIR)
 endif
 
