@@ -15,7 +15,14 @@ build:
     post_create_environment:
       - pip install poetry
     post_install:
-      - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH poetry install --no-root --only docs
+      - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH poetry install --no-root --with docs
+    pre_build:
+      - make docs-pre-build DOCS_TARGET_ARGS=html
+
+submodules:
+  include:
+    - .make
+  recursive: true
 
 # Build documentation in the docs/src/ directory with Sphinx
 sphinx:

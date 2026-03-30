@@ -3754,6 +3754,27 @@ url = "https://artefact.skao.int/repository/pypi-internal/simple"
 reference = "ska-nexus"
 
 [[package]]
+name = "ska-tango-difdoc"
+version = "0.5.0"
+description = "SKA Tango Device Interface Documentation Generator"
+optional = false
+python-versions = ">=3.10.0,<4.0.0"
+groups = ["docs"]
+files = [
+    {file = "ska_tango_difdoc-0.5.0-py3-none-any.whl", hash = "sha256:08f5aa5aae6888288e450671e2c817a013705880e0ecaa3de0d402c465dde635"},
+    {file = "ska_tango_difdoc-0.5.0.tar.gz", hash = "sha256:c1438a120dba630438bbb1a6f450384bd80895a061b8e56f573b70431d05d463"},
+]
+
+[package.dependencies]
+pytango = ">=9.4.2,<9.5.1 || >9.5.1,<11.0.0"
+tomli = ">=2.0.0,<3.0.0"
+
+[package.source]
+type = "legacy"
+url = "https://artefact.skao.int/repository/pypi-internal/simple"
+reference = "ska-nexus"
+
+[[package]]
 name = "ska-tango-testing"
 version = "0.8.0"
 description = "Test harness for testing SKA Tango devices"
@@ -4080,7 +4101,6 @@ description = "A lil' TOML parser"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev", "docs"]
-markers = "python_version == \"3.10\""
 files = [
     {file = "tomli-2.4.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:b5ef256a3fd497d4973c11bf142e9ed78b150d36f5773f1ca6088c230ffc5867"},
     {file = "tomli-2.4.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:5572e41282d5268eb09a697c89a7bee84fae66511f87533a6f88bd2f7b652da9"},
@@ -4130,6 +4150,7 @@ files = [
     {file = "tomli-2.4.0-py3-none-any.whl", hash = "sha256:1f776e7d669ebceb01dee46484485f43a4048746235e683bcdffacdf1fb4785a"},
     {file = "tomli-2.4.0.tar.gz", hash = "sha256:aa89c3f6c277dd275d8e243ad24f3b5e701491a860d5121f2cdd399fbb31fc9c"},
 ]
+markers = {dev = "python_version == \"3.10\""}
 
 [package.source]
 type = "legacy"
@@ -4424,4 +4445,4 @@ reference = "PyPI-public"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.12"
-content-hash = "30ff6af9b6ec3c8cbe886ab799724197a0486dd6eecd1a233222732499670680"
+content-hash = "0b22c33ab469127dc8c8dd46044b5de6fa19b09c67c67115a7d139208f2aed1e"

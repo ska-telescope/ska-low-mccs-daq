@@ -14,10 +14,18 @@ include .make/docs.mk
 
 DOCS_SOURCEDIR=./docs/src
 DOCS_SPHINXOPTS= -W --keep-going
+DOCGEN_TARGETS := html singlehtml
+DOCGEN_OUTPUT_DIR := docs/src/device-interfaces		# DIFDoc output dir
 
+ifneq (,$(filter $(DOCS_TARGET_ARGS),$(DOCGEN_TARGETS)))
 docs-pre-build:
 	poetry config virtualenvs.create false
 	poetry install --no-root --only docs
+	@if [ -v CI_JOB_TOKEN ]; then \
+      poetry install --only-root; \
+  	fi
+	tangodocgen --auto -o $(DOCGEN_OUTPUT_DIR)
+endif
 
 .PHONY: docs-pre-build
 

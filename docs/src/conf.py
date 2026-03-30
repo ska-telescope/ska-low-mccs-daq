@@ -27,7 +27,6 @@ sys.path.insert(0, os.path.abspath("../../src"))
 autodoc_mock_imports = [
     "h5py",
     "matplotlib",
-    "ska_low_mccs_daq_interface",
     "ska_tango_base",
     "ska_control_model",
     "ska_low_mccs_common",
@@ -44,7 +43,7 @@ autodoc_default_options = {
 release_filename = os.path.join("..", "..", "src", "ska_low_mccs.py")
 project = "MCCS DAQ M&C"
 author = "MCCS team"
-copyright = "2020, SKA MCCS Team"
+copyright = "2026, SKA MCCS Team"
 
 # -- General configuration ------------------------------------------------
 nitpicky = True
@@ -57,6 +56,11 @@ nitpick_ignore = [
     ("py:class", "ska_tango_base.type_hints.TaskFunctionType"),
     ("py:class", "ska_tango_base.type_hints.DevVarLongStringArrayType"),
     ("py:class", "DebugDeviceCommand"),
+    ("py:class", "DevVarLongStringArray"),
+    ("py:class", "DevString"),
+    ("py:class", "DevUShort"),
+    ("py:class", "DevVarStringArray"),
+    ("py:class", "DevVoid"),
 ]
 
 # If your documentation needs a minimal Sphinx version, state it here.

@@ -18,6 +18,12 @@ prototype for the `Square Kilometre Array`_.
 
 .. toctree::
    :maxdepth: 1
+   :caption: Device Interfaces
+
+   Device Interfaces<device-interfaces/index>
+
+.. toctree::
+   :maxdepth: 1
    :caption: API
 
    api/index
