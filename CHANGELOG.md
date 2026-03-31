@@ -1,7 +1,8 @@
 # Version History
 
-## Unreleased
+## 5.3.7
 
+* [THORN-508] Fix DAQ healthstate with Init()
 * [THORN-451] Remove deprecated command objects
 * [THORN-428] Add DIFDoc tool for improved Tango interface documentation.
 

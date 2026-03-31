@@ -172,6 +172,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         This is overridden here to change the Tango serialisation model.
         """
+        self._stopping = False
         super().init_device()
 
         self._build_state = ",".join(
