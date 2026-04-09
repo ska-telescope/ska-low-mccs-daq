@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-518] Refactor `start_daq` to allow us to avoid calling daq_client directly.
+
 ## 5.3.7
 
 * [THORN-508] Fix DAQ healthstate with Init()

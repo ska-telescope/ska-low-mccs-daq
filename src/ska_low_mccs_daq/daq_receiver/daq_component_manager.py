@@ -398,11 +398,16 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.info(
                 "Auto starting INTEGRATED DATA consumer for bandpass monitoring."
             )
-            self._daq_client.start_daq(
-                [DaqModes.INTEGRATED_CHANNEL_DATA],
-                callbacks=[self.generate_bandpass],
-                diagnostic_callback=self._diagnostic_callback,
+            self.start_daq(
+                modes_to_start="DaqModes.INTEGRATED_CHANNEL_DATA",
+                custom_callbacks=[self.generate_bandpass],
+                custom_diagnostic_callback=self._diagnostic_callback,
             )
+            # self._daq_client.start_daq(
+            #     [DaqModes.INTEGRATED_CHANNEL_DATA],
+            #     callbacks=[self.generate_bandpass],
+            #     diagnostic_callback=self._diagnostic_callback,
+            # )
             _wait_for_status(
                 status="Running Consumers", value=str(["INTEGRATED_CHANNEL_DATA", 5])
             )
@@ -631,6 +636,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
     def start_daq(  # noqa: C901
         self: DaqComponentManager,
         modes_to_start: str,
+        custom_callbacks: Optional[list[Callable[..., None]]] = None,
+        custom_diagnostic_callback: Optional[Callable[..., None]] = None,
         task_callback: TaskCallbackType | None = None,
         task_abort_event: Optional[threading.Event] = None,
     ) -> None:
@@ -641,6 +648,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         them.
 
         :param modes_to_start: A comma separated string of daq modes.
+        :param custom_callbacks: List of custom callbacks to be called, defaults to None
+        :param custom_diagnostic_callback: Custom diagnostic callback, defaults to None
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Check for abort, defaults to None
 
@@ -712,9 +721,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 f"{self.get_configuration()['directory_tag']}"
             )
         self._scan_in_progress = True
-        callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
+        callbacks = custom_callbacks or [self._file_dump_callback] * len(
+            converted_modes_to_start
+        )
+        diagnostic_callback = custom_diagnostic_callback or self._diagnostic_callback
         self._daq_client.start_daq(
-            converted_modes_to_start, callbacks, self._diagnostic_callback
+            converted_modes_to_start, callbacks, diagnostic_callback
         )
         self.logger.info("Daq listening......")
 
@@ -1177,7 +1189,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
         net = psutil.net_io_counters(pernic=True)
-        interface_stats = net[self._daq_client._config["receiver_interface"]]
+        interface_stats = net[self._configuration["receiver_interface"]]
         return (
             interface_stats.bytes_recv,
             interface_stats.packets_recv,
