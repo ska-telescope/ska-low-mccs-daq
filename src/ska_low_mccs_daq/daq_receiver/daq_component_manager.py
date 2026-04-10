@@ -1188,6 +1188,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
         return uid
 
     def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
+        if "receiver_interface" not in self._configuration:
+            self.logger.error(
+                "Cannot take network snapshot, no receiver interface set."
+            )
+            return (0, 0, 0)
         net = psutil.net_io_counters(pernic=True)
         interface_stats = net[self._configuration["receiver_interface"]]
         return (
