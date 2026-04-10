@@ -3,7 +3,7 @@
 ## Unreleased
 
 * [THORN-518] Refactor `start_daq` to allow us to avoid calling daq_client directly.
-Add check to `__take_network_snapshot` that `receiver_interface` is set, emit error log and record 0 datarate when not set.
+Add check to `__take_network_snapshot` that `receiver_interface` is set, report 0 datarate when not set.
 
 ## 5.3.7
 
