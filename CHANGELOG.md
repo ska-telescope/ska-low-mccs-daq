@@ -4,6 +4,7 @@
 
 * [THORN-518] Refactor `start_daq` to allow us to avoid calling daq_client directly.
 Add check to `__take_network_snapshot` that `receiver_interface` is set, report 0 datarate when not set.
+Update `ska-tango-devices` from 0.14.0 to 0.16.0
 
 ## 5.3.7
 
