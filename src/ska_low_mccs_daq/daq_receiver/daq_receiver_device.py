@@ -829,7 +829,9 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             :param task_abort_event: Check for abort.
             """
             self.component_manager.start_daq(
-                modes_to_start, task_callback, task_abort_event
+                modes_to_start=modes_to_start,
+                task_callback=task_callback,
+                task_abort_event=task_abort_event,
             )
 
         return task

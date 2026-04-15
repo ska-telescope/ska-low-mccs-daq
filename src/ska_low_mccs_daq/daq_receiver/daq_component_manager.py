@@ -398,11 +398,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.info(
                 "Auto starting INTEGRATED DATA consumer for bandpass monitoring."
             )
-            self._daq_client.start_daq(
-                [DaqModes.INTEGRATED_CHANNEL_DATA],
-                callbacks=[self.generate_bandpass],
-                diagnostic_callback=self._diagnostic_callback,
-            )
+            self.start_daq(modes_to_start="DaqModes.INTEGRATED_CHANNEL_DATA")
             _wait_for_status(
                 status="Running Consumers", value=str(["INTEGRATED_CHANNEL_DATA", 5])
             )
@@ -627,6 +623,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         for attribute_name, attribute_value in diagnostic_data.items():
             self._attribute_callback(attribute_name, attribute_value)
 
+    # pylint: disable = too-many-branches
     @check_communicating
     def start_daq(  # noqa: C901
         self: DaqComponentManager,
@@ -712,7 +709,13 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 f"{self.get_configuration()['directory_tag']}"
             )
         self._scan_in_progress = True
-        callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
+        config = self.get_configuration()
+        callbacks: list[Callable[..., None]]
+        if config["bandpass"]:
+            callbacks = [self.generate_bandpass]
+        else:
+            callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
+        self.logger.info(f"Using callbacks: {callbacks}")
         self._daq_client.start_daq(
             converted_modes_to_start, callbacks, self._diagnostic_callback
         )
@@ -1176,8 +1179,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
         return uid
 
     def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
+        if "receiver_interface" not in self._configuration:
+            return (0, 0, 0)
         net = psutil.net_io_counters(pernic=True)
-        interface_stats = net[self._daq_client._config["receiver_interface"]]
+        interface_stats = net[self._configuration["receiver_interface"]]
         return (
             interface_stats.bytes_recv,
             interface_stats.packets_recv,
