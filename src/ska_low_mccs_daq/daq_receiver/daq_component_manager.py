@@ -22,7 +22,6 @@ from pathlib import PurePath
 from time import perf_counter, sleep
 from typing import Any, Callable, Final, Optional
 
-import kubernetes  # type: ignore
 import numpy as np
 import psutil  # type: ignore
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
@@ -176,9 +175,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             this DaqReceiver will attempt to automatically monitor bandpasses.
         :param simulation_mode: whether or not to use a simulated backend.
         """
-        self._external_ip_override = None
-        if dedicated_bandpass_daq:
-            self._external_ip_override = self.get_external_ip(logger)
         self._power_state_lock = threading.RLock()
         self._started_event = threading.Event()
         self._power_state: Optional[PowerState] = None
@@ -255,40 +251,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             target=self._measure_data_rate, args=[1], name="DataRateMonitor"
         )
         self.start_data_rate_monitor()
-
-    def get_external_ip(self, logger: logging.Logger) -> str:
-        """
-        Get the IP of the serivice which exposes this device.
-
-        This is exceptionally ugly code, however we are not allowed initcontainers
-        in ska-tango-util. Anyhow this should be deleted once SP-5187 is finished,
-        then we don't need to use the 1G, so we don't need to attach a loadbalancer
-        to the bandpass DAQ so we don't need to grab the IP of that loadbalancer here.
-
-        :param logger: passing in the logger as we haven't yet run super().__init__().
-
-        :return: the ip of the loadbalancer service.
-        """
-        try:
-            kubernetes.config.load_incluster_config()
-            core_v1_api = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient())
-            server_hostname = os.getenv("TANGO_SERVER_PUBLISH_HOSTNAME")
-            device_hostname = os.getenv("HOSTNAME")
-            if not server_hostname or not device_hostname:
-                logger.error("Couldn't get external IP automatically.")
-                return ""
-            namespace = server_hostname.split(".")[1]
-            name = device_hostname.rsplit("-", 1)[0] + "-data"
-            svc = core_v1_api.read_namespaced_service(name=name, namespace=namespace)
-            ip = svc.status.load_balancer.ingress[0].ip
-            logger.info(f"Got external IP: {ip}")
-            return ip
-        except Exception as e:  # pylint: disable=broad-except
-            logger.error(
-                "Failed to retrieve loadbalancer IP, "
-                f"likely there is no loadbalancer service: {e}"
-            )
-            return ""
 
     def start_communicating(self: DaqComponentManager) -> None:
         """Establish communication with the DaqReceiver components."""
@@ -780,9 +742,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         # 3. Get Receiver Interface, Ports and IP (and later `Uptime`)
         receiver_interface = self._daq_client._config["receiver_interface"]
         receiver_ports = self._daq_client._config["receiver_ports"]
-        receiver_ip = (
-            self._external_ip_override or self._daq_client._config["receiver_ip"]
-        )
+        receiver_ip = self._daq_client._config["receiver_ip"]
         # 4. Compose into some format and return.
         return {
             "Running Consumers": running_consumer_list,
@@ -842,9 +802,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: receiver ip as string
         """
-        return self._external_ip_override or str(
-            self._daq_client._config["receiver_ip"]
-        )
+        return str(self._daq_client._config["receiver_ip"])
 
     @property
     def daq_library(self: DaqComponentManager) -> str:
