@@ -662,9 +662,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         try:
             # Convert string representation to DaqModes.
-            converted_modes_to_start: list[DaqModes] = convert_daq_modes(
-                modes_to_start
-            )
+            converted_modes_to_start: list[DaqModes] = convert_daq_modes(modes_to_start)
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
             raise
@@ -675,9 +673,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             DaqModes.INTEGRATED_CHANNEL_DATA not in converted_modes_to_start
             or len(converted_modes_to_start) != 1
         ):
-            rejection_message = (
-                "Bandpass mode requires only INTEGRATED_CHANNEL_DATA."
-            )
+            rejection_message = "Bandpass mode requires only INTEGRATED_CHANNEL_DATA."
             self.logger.warning(rejection_message)
             if task_callback:
                 task_callback(
