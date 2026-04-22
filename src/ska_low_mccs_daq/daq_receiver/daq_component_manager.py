@@ -659,22 +659,43 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
-        # Check data directory is in correct format, if not then reconfigure.
-        # This delays the start call by a lot if SKUID isn't there.
-        if not self._data_directory_format_adr55_compliant():
-            config = {"directory": self._construct_adr55_filepath()}
-            self.configure_daq(**config)
-            self.logger.info(
-                "Data directory automatically reconfigured to: %s", config["directory"]
-            )
+
         try:
-            # Convert string representation to DaqModes
+            # Convert string representation to DaqModes.
             converted_modes_to_start: list[DaqModes] = convert_daq_modes(
                 modes_to_start
-            )  # noqa: E501
+            )
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
             raise
+
+        config = self.get_configuration()
+        bandpass_enabled = bool(config.get("bandpass", False))
+        if bandpass_enabled and (
+            DaqModes.INTEGRATED_CHANNEL_DATA not in converted_modes_to_start
+            or len(converted_modes_to_start) != 1
+        ):
+            rejection_message = (
+                "Bandpass mode requires only INTEGRATED_CHANNEL_DATA."
+            )
+            self.logger.warning(rejection_message)
+            if task_callback:
+                task_callback(
+                    status=TaskStatus.REJECTED,
+                    result=(ResultCode.NOT_ALLOWED, rejection_message),
+                )
+            self._started_event.clear()
+            return
+
+        # Check data directory is in correct format, if not then reconfigure.
+        # This delays the start call by a lot if SKUID isn't there.
+        if not self._data_directory_format_adr55_compliant():
+            directory_config = {"directory": self._construct_adr55_filepath()}
+            self.configure_daq(**directory_config)
+            self.logger.info(
+                "Data directory automatically reconfigured to: %s",
+                directory_config["directory"],
+            )
 
         # Check that if we're asked for RAW_STATION_BEAM that it's the only mode.
         if (
@@ -709,9 +730,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 f"{self.get_configuration()['directory_tag']}"
             )
         self._scan_in_progress = True
-        config = self.get_configuration()
         callbacks: list[Callable[..., None]]
-        if config["bandpass"]:
+        if bandpass_enabled:
             callbacks = [self.generate_bandpass]
         else:
             callbacks = [self._file_dump_callback] * len(converted_modes_to_start)

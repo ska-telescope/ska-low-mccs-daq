@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-518] Correct callback handling of bandpass vs non-bandpass mode.
+
 ## 5.3.8
 
 * [THORN-518] Refactor `start_daq` to allow us to avoid calling daq_client directly.

@@ -408,6 +408,127 @@ class TestDaqComponentManager:
         status = daq_component_manager.get_status()
         assert not status["Bandpass Monitor"]
 
+    def test_start_daq_rejects_channel_data_when_bandpass_enabled(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test bandpass mode rejects CHANNEL_DATA startup.
+
+        Bandpass callback wiring is only valid for INTEGRATED_CHANNEL_DATA.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        daq_component_manager.configure_daq(**{"bandpass": True, "directory": "."})
+
+        try:
+            daq_component_manager.start_daq(
+                "DaqModes.CHANNEL_DATA",
+                task_callback=callbacks["task_start_daq"],
+            )
+
+            callbacks["task_start_daq"].assert_call(status=TaskStatus.IN_PROGRESS)
+            callbacks["task_start_daq"].assert_call(
+                status=TaskStatus.REJECTED,
+                result=(
+                    ResultCode.NOT_ALLOWED,
+                    "Bandpass mode requires only INTEGRATED_CHANNEL_DATA.",
+                ),
+            )
+            assert not daq_component_manager._started_event.is_set()
+        finally:
+            if daq_component_manager._started_event.is_set():
+                daq_component_manager.stop_daq(task_callback=callbacks["task"])
+
+    def test_start_daq_rejects_mixed_modes_when_bandpass_enabled(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test bandpass mode rejects mixed consumer startup.
+
+        This prevents callback signature mismatches for non-integrated modes.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        daq_component_manager.configure_daq(**{"bandpass": True, "directory": "."})
+
+        try:
+            daq_component_manager.start_daq(
+                "DaqModes.INTEGRATED_CHANNEL_DATA, DaqModes.CHANNEL_DATA",
+                task_callback=callbacks["task_start_daq"],
+            )
+
+            callbacks["task_start_daq"].assert_call(status=TaskStatus.IN_PROGRESS)
+            callbacks["task_start_daq"].assert_call(
+                status=TaskStatus.REJECTED,
+                result=(
+                    ResultCode.NOT_ALLOWED,
+                    "Bandpass mode requires only INTEGRATED_CHANNEL_DATA.",
+                ),
+            )
+            assert not daq_component_manager._started_event.is_set()
+        finally:
+            if daq_component_manager._started_event.is_set():
+                daq_component_manager.stop_daq(task_callback=callbacks["task"])
+
+    def test_start_daq_accepts_integrated_only_when_bandpass_enabled(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test bandpass mode accepts INTEGRATED_CHANNEL_DATA startup.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        daq_component_manager.configure_daq(**{"bandpass": True, "directory": "."})
+
+        try:
+            daq_component_manager.start_daq(
+                "DaqModes.INTEGRATED_CHANNEL_DATA",
+                task_callback=callbacks["task_start_daq"],
+            )
+
+            callbacks["task_start_daq"].assert_call(status=TaskStatus.IN_PROGRESS)
+            callbacks["task_start_daq"].assert_call(
+                status=TaskStatus.COMPLETED,
+                result=(ResultCode.OK, "Daq started"),
+            )
+            assert daq_component_manager._started_event.is_set()
+        finally:
+            if daq_component_manager._started_event.is_set():
+                daq_component_manager.stop_daq(task_callback=callbacks["task"])
+
     @pytest.mark.parametrize(
         ("directory", "outcome"),
         (
