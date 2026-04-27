@@ -1002,8 +1002,21 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if not self._monitoring_bandpass:
             self.logger.info("Cannot stop bandpass monitor before it has started.")
             return (ResultCode.REJECTED, "Bandpass monitor not yet started.")
+
+        # Use the normal stop -> configure flow so configure_daq() is not
+        # called while a scan is in progress.
+        if self._started_event.is_set() or self._scan_in_progress:
+            self.stop_daq()
+
         self._monitoring_bandpass = False
-        self.configure_daq(**{"bandpass": False})
+        result, message = self.configure_daq(**{"bandpass": False})
+        if result != ResultCode.OK:
+            self.logger.warning(
+                "Failed to disable bandpass configuration while stopping monitor: %s",
+                message,
+            )
+            return result, message
+
         self.logger.info("Bandpass monitor stopping.")
         return (ResultCode.OK, "Bandpass monitor stopping.")
 

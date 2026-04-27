@@ -541,6 +541,40 @@ class TestDaqComponentManager:
         if daq_component_manager._started_event.is_set():
             daq_component_manager.stop_daq(task_callback=callbacks["task"])
 
+    def test_stop_bandpass_monitor_clears_bandpass_during_scan(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test stop_bandpass_monitor clears bandpass flag while DAQ is running.
+
+        This prevents subsequent CHANNEL_DATA starts from keeping the
+        bandpass callback routing.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        daq_component_manager.configure_daq(**{"directory": "."})
+        daq_component_manager.start_bandpass_monitor(task_callback=callbacks["task"])
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(
+            status=TaskStatus.COMPLETED,
+            result=(ResultCode.OK, "Bandpass monitor active"),
+        )
+
+        result = daq_component_manager.stop_bandpass_monitor()
+        assert result == (ResultCode.OK, "Bandpass monitor stopping.")
+        assert daq_component_manager.get_configuration()["bandpass"] is False
+
     @pytest.mark.parametrize(
         ("directory", "outcome"),
         (
