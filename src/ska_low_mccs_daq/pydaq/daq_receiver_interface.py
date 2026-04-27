@@ -270,9 +270,6 @@ class DaqReceiver:
             "description": "",
             "daq_library": None,
             "observation_metadata": {},  # This is populated automatically
-            # If given, when integrated channel data is received,
-            # DAQ will callback directly with the data instead of persisting to disk.
-            "bandpass": False,
         }
 
         # Default AAVS DAQ C++ shared library path
@@ -344,6 +341,9 @@ class DaqReceiver:
 
         # Keep track of which data consumers are running
         self._running_consumers = {}
+
+        # Whether the integrated channel consumer is producing bandpasses
+        self._producing_bandpasses: bool = False
 
         # Placeholder for continuous and station data to skip first few buffers
         self._buffer_counter = {}
@@ -552,7 +552,7 @@ class DaqReceiver:
 
             persister = self._persisters[DaqModes.INTEGRATED_CHANNEL_DATA]
 
-            if not self._config["bandpass"]:
+            if not self._producing_bandpasses:
                 if self._config["append_integrated"]:
                     filename = persister.ingest_data(
                         append=True,
@@ -578,7 +578,7 @@ class DaqReceiver:
 
             # Call external callback if defined
             if self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None:
-                if self._config["bandpass"]:
+                if self._producing_bandpasses:
                     values = numpy.reshape(
                         values,
                         (
@@ -1298,10 +1298,11 @@ class DaqReceiver:
         logging.info("Started continuous channel data consumer")
 
     def _start_integrated_channel_data_consumer(
-        self, callback: Optional[Callable] = None
+        self, callback: Optional[Callable] = None, bandpass_mode: bool = False
     ) -> None:
         """Start integrated channel data consumer
         :param callback: Caller callback
+        :param bandpass_mode: Whether running in bandpass (raw) mode
         """
 
         # Generate configuration for raw consumer
@@ -1355,6 +1356,9 @@ class DaqReceiver:
 
         # Set external callback
         self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] = callback
+
+        # Set bandpass mode directly from parameter
+        self._producing_bandpasses = bandpass_mode
 
         logging.info("Started integrated channel data consumer")
 
@@ -1772,6 +1776,7 @@ class DaqReceiver:
     def _stop_integrated_channel_data_consumer(self) -> None:
         """Stop integrated channel data consumer"""
         self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] = None
+        self._producing_bandpasses = False
         if self._stop_consumer("integratedchannel") != self.Result.Success:
             raise Exception("Failed to stop integrated channel data consumer")
         self._running_consumers[DaqModes.INTEGRATED_CHANNEL_DATA] = False
@@ -1899,11 +1904,13 @@ class DaqReceiver:
         daq_modes: Union[DaqModes, List[DaqModes]],
         callbacks: Optional[Union[Callable, List[Callable]]] = None,
         diagnostic_callback: Optional[Callable] = None,
+        bandpass_mode: bool = False,
     ) -> None:
         """Start acquiring data for specified modes
         :param daq_modes: List of modes to start, should be from DaqModes
         :param callbacks: List of callbacks, one per mode in daq_modes
         :param diagnostic_callback: Callback for diagnostics
+        :param bandpass_mode: Whether integrated channel is in bandpass mode
         """
 
         if type(daq_modes) != list:
@@ -1931,7 +1938,9 @@ class DaqReceiver:
 
             # Running in integrated data mode
             if DaqModes.INTEGRATED_CHANNEL_DATA == mode:
-                self._start_integrated_channel_data_consumer(callbacks[i])
+                self._start_integrated_channel_data_consumer(
+                    callbacks[i], bandpass_mode
+                )
 
             # Running in continuous channel mode
             if DaqModes.CONTINUOUS_CHANNEL_DATA == mode:

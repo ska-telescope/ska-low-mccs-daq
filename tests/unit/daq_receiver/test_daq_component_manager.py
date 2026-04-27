@@ -511,12 +511,16 @@ class TestDaqComponentManager:
             modes_to_start: str,
             task_callback: TaskCallbackType | None = None,
             task_abort_event: threading.Event | None = None,
+            callbacks: list | None = None,
+            bandpass_mode: bool = False,
         ) -> None:
             start_calls.append(modes_to_start)
             original_start_daq(
                 modes_to_start,
                 task_callback=task_callback,
                 task_abort_event=task_abort_event,
+                callbacks=callbacks,
+                bandpass_mode=bandpass_mode,
             )
 
         monkeypatch.setattr(daq_component_manager, "stop_daq", tracked_stop_daq)
@@ -573,7 +577,7 @@ class TestDaqComponentManager:
 
         result = daq_component_manager.stop_bandpass_monitor()
         assert result == (ResultCode.OK, "Bandpass monitor stopping.")
-        assert daq_component_manager.get_configuration()["bandpass"] is False
+        assert not daq_component_manager.get_status()["Bandpass Monitor"]
 
     @pytest.mark.parametrize(
         ("directory", "outcome"),
