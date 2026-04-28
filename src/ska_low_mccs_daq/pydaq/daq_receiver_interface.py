@@ -579,7 +579,7 @@ class DaqReceiver:
             # Call external callback if defined
             if self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None:
                 if self._producing_bandpasses:
-                    values = numpy.reshape(
+                    values = np.reshape(
                         values,
                         (
                             self._config["nof_channels"],
@@ -588,8 +588,8 @@ class DaqReceiver:
                             * self._config["nof_polarisations"],
                         ),
                     )
-                    values = numpy.transpose(values, (1, 0, 2))
-                    values = numpy.reshape(
+                    values = np.transpose(values, (1, 0, 2))
+                    values = np.reshape(
                         values,
                         (
                             1,

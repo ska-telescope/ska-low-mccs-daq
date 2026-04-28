@@ -444,6 +444,7 @@ class DaqSimulator:
                 [DaqModes.INTEGRATED_CHANNEL_DATA],
                 [self._data_callback],
                 self._diagnostic_callback,
+                bandpass_mode=True,
             )
 
         station_name = "simulated_station_name"
