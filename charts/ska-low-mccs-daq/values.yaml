@@ -25,7 +25,7 @@ bandpassLoadBalancer:
   # Deprecated compatibility flag.
   # Default true preserves existing bandpass DAQ external Service behavior.
   # Set to false for new deployments unless external load balancer access is required.
-  enabled: false
+  enabled: true
 
 storage: {}
 #   daq-data:
