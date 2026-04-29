@@ -2,7 +2,14 @@
 
 ## Unreleased
 
-* Added a deprecated compatibility flag `bandpassLoadBalancer.enabled` for bandpass DAQ LoadBalancer Services. Default is `true` to preserve existing behaviour. New deployments should set it to `false` unless external LoadBalancer exposure is required.
+* [THORN-437] Deprecated external bandpass loadbalancer.
+  * Added a deprecated compatibility flag `bandpassLoadBalancer.enabled` for bandpass DAQ LoadBalancer Services. Default is `true` to preserve existing behaviour.
+  * New deployments should set it to `false` unless external LoadBalancer exposure is required, for example:
+
+        helm_values:
+          ska-low-mccs-daq:
+            bandpassLoadBalancer:
+              enabled: false
 
 ## 5.3.8
 
