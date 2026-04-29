@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* Added a deprecated compatibility flag `bandpassLoadBalancer.enabled` for bandpass DAQ LoadBalancer Services. Default is `true` to preserve existing behaviour. New deployments should set it to `false` unless external LoadBalancer exposure is required.
+
 ## 5.3.8
 
 * [THORN-518] Refactor `start_daq` to allow us to avoid calling daq_client directly.

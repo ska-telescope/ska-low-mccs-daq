@@ -1,3 +1,4 @@
+{{- if .Values.bandpassLoadBalancer.enabled }}
 {{- range $slug, $spec := index .Values "ska-tango-devices" "deviceServers" "daq" }}
 {{- if hasSuffix "-bandpass" $slug }}
 ---
@@ -15,5 +16,6 @@ spec:
       protocol: UDP
   selector:
     component: mccs-daq-{{$slug}}
+{{- end }}
 {{- end }}
 {{- end }}

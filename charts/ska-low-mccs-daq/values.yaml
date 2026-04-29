@@ -21,6 +21,12 @@ global:
   tango_host: databaseds-tango-base:10000
   cluster_domain: cluster.local
 
+bandpassLoadBalancer:
+  # Deprecated compatibility flag.
+  # Default true preserves existing bandpass DAQ external Service behavior.
+  # Set to false for new deployments unless external load balancer access is required.
+  enabled: false
+
 storage: {}
 #   daq-data:
 #     storage_class: nfss1  # optional but recommend; if omitted, the cluster default will be used
