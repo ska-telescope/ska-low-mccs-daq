@@ -1126,6 +1126,21 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         """
         return self.component_manager._monitoring_bandpass
 
+    @attribute(dtype="DevBoolean")
+    def bandpassLoadBalancerEnabled(self: MccsDaqReceiver) -> bool:
+        """
+        Check if bandpass DAQ has external LoadBalancer service.
+
+        This attribute indicates whether this dedicated bandpass DAQ has
+        a LoadBalancer service fronting it. Downstream devices that receive
+        data from this DAQ must check this value to determine their network
+        routing: when true, data flows via external LoadBalancer on the
+        exposed network; when false, data comes directly from the receiver.
+
+        :return: True if LoadBalancer is present and accessible, False otherwise.
+        """
+        return bool(self.component_manager._external_ip_override)
+
     @attribute(
         dtype=("str",),
         max_dim_x=2,  # Always the last result (unique_id, JSON-encoded result)
