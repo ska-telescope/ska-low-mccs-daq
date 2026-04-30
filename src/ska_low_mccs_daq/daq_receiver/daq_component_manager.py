@@ -382,7 +382,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.debug(f"Found {value} in DaqStatus[{status}]: {daq_status=}.")
 
         # Check configuration.
-        new_config = self._is_daq_configured_for_bandpass_monitoring()
+        new_config = self._prepare_bandpass_monitoring_config()
         if new_config:
             self.logger.info(
                 f"Reconfiguring DAQ for bandpass monitoring with: {new_config}"
@@ -465,7 +465,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         running_consumers = status.get("Running Consumers", [])
         return running_consumers == [["INTEGRATED_CHANNEL_DATA", 5]]
 
-    def _is_daq_configured_for_bandpass_monitoring(
+    def _prepare_bandpass_monitoring_config(
         self: DaqComponentManager,
     ) -> dict[str, Any]:
         """
