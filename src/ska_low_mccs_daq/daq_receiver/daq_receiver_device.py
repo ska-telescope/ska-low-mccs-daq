@@ -979,6 +979,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         The MccsDaqReceiver will begin monitoring antenna bandpasses
             and producing plots of the spectra.
+            Note: This will stop any running consumers (versions >= 3.5.8).
 
         :return: A tuple containing a return code and a string
             message indicating status. The message is for

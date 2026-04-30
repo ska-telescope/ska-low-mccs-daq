@@ -1,5 +1,12 @@
 # Version History
 
+## 6.0.0
+
+* [THORN-518] Fix integration issues with spshw.
+  * Correct callback handling of bandpass vs non-bandpass mode. Sometimes these were being incorrectly assigned leading to exceptions.
+  * Configuration item `bandpass` removed. We now pass a flag internally through `start_daq` to indicate whether we're starting up in bandpass mode or not (Default `False`). This avoids stale configuration issues.
+  * BandpassMonitor startup will now automatically and unconditionally stop any running consumers before restarting the `INTEGRATED_CHANNEL` consumer with the correct callback.
+
 ## 5.3.8
 
 * [THORN-518] Refactor `start_daq` to allow us to avoid calling daq_client directly.

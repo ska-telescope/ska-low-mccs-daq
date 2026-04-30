@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 from pathlib import Path
 
@@ -16,6 +17,7 @@ import h5py
 import numpy as np
 import pytest
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
+from ska_tango_base.base import TaskCallbackType
 from ska_tango_testing.mock import MockCallableGroup
 from ska_tango_testing.mock.placeholders import Anything
 
@@ -407,6 +409,175 @@ class TestDaqComponentManager:
         ) == daq_component_manager.stop_bandpass_monitor()
         status = daq_component_manager.get_status()
         assert not status["Bandpass Monitor"]
+
+    def test_start_bandpass_monitor_starts_integrated_when_not_running(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test start_bandpass_monitor starts correct consumer when not running.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        daq_component_manager.configure_daq(
+            **{
+                "directory": ".",
+                "modes_to_start": "DaqModes.CHANNEL_DATA",
+            }
+        )
+
+        daq_component_manager.start_bandpass_monitor(task_callback=callbacks["task"])
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(
+            status=TaskStatus.COMPLETED,
+            result=(ResultCode.OK, "Bandpass monitor active"),
+        )
+
+        status = daq_component_manager.get_status()
+        assert status["Bandpass Monitor"]
+        assert status["Running Consumers"] == [["INTEGRATED_CHANNEL_DATA", 5]]
+
+        if daq_component_manager.get_status()["Bandpass Monitor"]:
+            daq_component_manager.stop_bandpass_monitor()
+        if daq_component_manager._started_event.is_set():
+            daq_component_manager.stop_daq(task_callback=callbacks["task"])
+
+    def test_start_bandpass_monitor_restarts_with_integrated_only(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """
+        Test start_bandpass_monitor restarts consumers correctly.
+
+        The bandpass callback has a different signature than the file_dump
+        callback, so we have to restart even the INTEGRATED_CHANNEL_DATA mode during
+        bandpass monitoring.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        :param monkeypatch: pytest's monkeypatch fixture.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        daq_component_manager.configure_daq(**{"directory": "."})
+        daq_component_manager.start_daq(
+            "DaqModes.INTEGRATED_CHANNEL_DATA",
+            task_callback=callbacks["task_start_daq"],
+        )
+        callbacks["task_start_daq"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task_start_daq"].assert_call(
+            status=TaskStatus.COMPLETED,
+            result=(ResultCode.OK, "Daq started"),
+        )
+
+        status = daq_component_manager.get_status()
+        assert status["Running Consumers"] == [["INTEGRATED_CHANNEL_DATA", 5]]
+
+        stop_calls = 0
+        start_calls: list[str] = []
+        original_stop_daq = daq_component_manager.stop_daq
+        original_start_daq = daq_component_manager.start_daq
+
+        def tracked_stop_daq(
+            task_callback: TaskCallbackType | None = None,
+            task_abort_event: threading.Event | None = None,
+        ) -> None:
+            nonlocal stop_calls
+            stop_calls += 1
+            original_stop_daq(
+                task_callback=task_callback,
+                task_abort_event=task_abort_event,
+            )
+
+        def tracked_start_daq(
+            modes_to_start: str,
+            task_callback: TaskCallbackType | None = None,
+            task_abort_event: threading.Event | None = None,
+            callbacks: list | None = None,
+            bandpass_mode: bool = False,
+        ) -> None:
+            start_calls.append(modes_to_start)
+            original_start_daq(
+                modes_to_start,
+                task_callback=task_callback,
+                task_abort_event=task_abort_event,
+                callbacks=callbacks,
+                bandpass_mode=bandpass_mode,
+            )
+
+        monkeypatch.setattr(daq_component_manager, "stop_daq", tracked_stop_daq)
+        monkeypatch.setattr(daq_component_manager, "start_daq", tracked_start_daq)
+
+        # Now start bandpass monitor - should restart with integrated-only.
+        daq_component_manager.start_bandpass_monitor(task_callback=callbacks["task"])
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(
+            status=TaskStatus.COMPLETED,
+            result=(ResultCode.OK, "Bandpass monitor active"),
+        )
+
+        status = daq_component_manager.get_status()
+        assert status["Bandpass Monitor"]
+        assert status["Running Consumers"] == [["INTEGRATED_CHANNEL_DATA", 5]]
+        assert stop_calls == 1
+        assert start_calls == ["DaqModes.INTEGRATED_CHANNEL_DATA"]
+
+        if daq_component_manager.get_status()["Bandpass Monitor"]:
+            daq_component_manager.stop_bandpass_monitor()
+        if daq_component_manager._started_event.is_set():
+            daq_component_manager.stop_daq(task_callback=callbacks["task"])
+
+    def test_stop_bandpass_monitor_clears_bandpass_during_scan(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test stop_bandpass_monitor clears bandpass flag while DAQ is running.
+
+        This prevents subsequent CHANNEL_DATA starts from keeping the
+        bandpass callback routing.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+
+        daq_component_manager.configure_daq(**{"directory": "."})
+        daq_component_manager.start_bandpass_monitor(task_callback=callbacks["task"])
+        callbacks["task"].assert_call(status=TaskStatus.IN_PROGRESS)
+        callbacks["task"].assert_call(
+            status=TaskStatus.COMPLETED,
+            result=(ResultCode.OK, "Bandpass monitor active"),
+        )
+
+        result = daq_component_manager.stop_bandpass_monitor()
+        assert result == (ResultCode.OK, "Bandpass monitor stopping.")
+        assert not daq_component_manager.get_status()["Bandpass Monitor"]
 
     @pytest.mark.parametrize(
         ("directory", "outcome"),
