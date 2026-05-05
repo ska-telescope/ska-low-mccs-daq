@@ -127,9 +127,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         "acquisition_start_time": -1,
         "description": "",
         "observation_metadata": {},  # This is populated automatically
-        # If given, when integrated channel data is received,
-        # DAQ will callback directly with the data instead of persisting to disk.
-        "bandpass": False,
     }
 
     # pylint: disable=too-many-arguments, too-many-locals, too-many-statements
@@ -345,7 +342,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         return ResultCode.REJECTED, "Daq already initialised"
 
     @check_communicating
-    def start_bandpass_monitor(
+    def start_bandpass_monitor(  # noqa: C901
         self: DaqComponentManager,
         task_callback: TaskCallbackType | None = None,
         task_abort_event: Optional[threading.Event] = None,
@@ -386,23 +383,60 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.debug(f"Found {value} in DaqStatus[{status}]: {daq_status=}.")
 
         # Check configuration.
-        new_config = self._is_daq_configured_for_bandpass_monitoring()
+        new_config = self._prepare_bandpass_monitoring_config()
         if new_config:
             self.logger.info(
                 f"Reconfiguring DAQ for bandpass monitoring with: {new_config}"
             )
             self.configure_daq(**new_config)
 
-        # Check consumer is running.
-        if not self._is_integrated_channel_consumer_running():
-            # start consumer
+        # The bandpass callback has a different signature to the file-dump callback,
+        # so any existing consumers must be stopped before restarting in bandpass mode.
+        status = self.get_status()
+        if status.get("Running Consumers"):
             self.logger.info(
-                "Auto starting INTEGRATED DATA consumer for bandpass monitoring."
+                "Stopping currently running consumers before starting "
+                "INTEGRATED_CHANNEL_DATA for bandpass monitoring."
             )
-            self.start_daq(modes_to_start="DaqModes.INTEGRATED_CHANNEL_DATA")
-            _wait_for_status(
-                status="Running Consumers", value=str(["INTEGRATED_CHANNEL_DATA", 5])
+            self.stop_daq()
+            _wait_for_status(status="Running Consumers", value=str([]))
+            if self.get_status().get("Running Consumers"):
+                rejection_message = (
+                    "Failed to stop existing DAQ consumers before starting "
+                    "bandpass monitoring."
+                )
+                self.logger.warning(rejection_message)
+                if task_callback:
+                    task_callback(
+                        status=TaskStatus.REJECTED,
+                        result=(ResultCode.NOT_ALLOWED, rejection_message),
+                    )
+                return
+
+        self.logger.info(
+            "Auto starting INTEGRATED DATA consumer for bandpass monitoring."
+        )
+        self.start_daq(
+            modes_to_start="DaqModes.INTEGRATED_CHANNEL_DATA",
+            callbacks=[self.generate_bandpass],
+            bandpass_mode=True,
+        )
+        _wait_for_status(
+            status="Running Consumers", value=str(["INTEGRATED_CHANNEL_DATA", 5])
+        )
+        if not self._is_only_integrated_channel_consumer_running():
+            rejection_message = (
+                "Failed to start INTEGRATED_CHANNEL_DATA consumer for bandpass "
+                "monitoring. Ensure the integrated channel data consumer is "
+                "available and retry, or stop DAQ and try again."
             )
+            self.logger.warning(rejection_message)
+            if task_callback:
+                task_callback(
+                    status=TaskStatus.REJECTED,
+                    result=(ResultCode.NOT_ALLOWED, rejection_message),
+                )
+            return
 
         # Good to go.
         self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
@@ -416,27 +450,23 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 result=(ResultCode.OK, "Bandpass monitor active"),
             )
 
-    def _is_integrated_channel_consumer_running(
+    def _is_only_integrated_channel_consumer_running(
         self: DaqComponentManager, status: dict[str, Any] | None = None
     ) -> bool:
         """
-        Check if the INTEGRATED_CHANNEL_DATA consumer is running.
+        Check if only the INTEGRATED_CHANNEL_DATA consumer is running.
 
         :param status: An optional status dictionary to check.
 
-        :return: True if the consumer is running, False otherwise.
+        :return: True if only INTEGRATED_CHANNEL_DATA is running, else False.
         """
-        if status is not None:
-            return bool(
-                str(["INTEGRATED_CHANNEL_DATA", 5])
-                in str(status.get("Running Consumers"))
-            )
-        return bool(
-            str(["INTEGRATED_CHANNEL_DATA", 5])
-            in str(self.get_status().get("Running Consumers"))
-        )
+        if status is None:
+            status = self.get_status()
 
-    def _is_daq_configured_for_bandpass_monitoring(
+        running_consumers = status.get("Running Consumers", [])
+        return running_consumers == [["INTEGRATED_CHANNEL_DATA", 5]]
+
+    def _prepare_bandpass_monitoring_config(
         self: DaqComponentManager,
     ) -> dict[str, Any]:
         """
@@ -450,8 +480,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             new_config["append_integrated"] = False
         if config["nof_tiles"] != self._nof_tiles:
             new_config["nof_tiles"] = self._nof_tiles
-        if config["bandpass"] is not True:
-            new_config["bandpass"] = True
         return new_config
 
     def stop_communicating(self: DaqComponentManager) -> None:
@@ -624,13 +652,14 @@ class DaqComponentManager(TaskExecutorComponentManager):
         for attribute_name, attribute_value in diagnostic_data.items():
             self._attribute_callback(attribute_name, attribute_value)
 
-    # pylint: disable = too-many-branches
     @check_communicating
     def start_daq(  # noqa: C901
         self: DaqComponentManager,
         modes_to_start: str,
         task_callback: TaskCallbackType | None = None,
         task_abort_event: Optional[threading.Event] = None,
+        callbacks: Optional[list[Callable[..., None]]] = None,
+        bandpass_mode: bool = False,
     ) -> None:
         """
         Start data acquisition with the current configuration.
@@ -641,6 +670,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param modes_to_start: A comma separated string of daq modes.
         :param task_callback: Update task state, defaults to None
         :param task_abort_event: Check for abort, defaults to None
+        :param callbacks: Optional list of callbacks, one per mode. Defaults to
+            ``_file_dump_callback`` for each mode.
+        :param bandpass_mode: Whether to run integrated channel in bandpass mode
+            (using ``generate_bandpass`` callback). Defaults to False.
 
         :raises ValueError: If an invalid DaqMode is supplied.
         :return: a task status and response message
@@ -660,22 +693,23 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         if task_callback:
             task_callback(status=TaskStatus.IN_PROGRESS)
-        # Check data directory is in correct format, if not then reconfigure.
-        # This delays the start call by a lot if SKUID isn't there.
-        if not self._data_directory_format_adr55_compliant():
-            config = {"directory": self._construct_adr55_filepath()}
-            self.configure_daq(**config)
-            self.logger.info(
-                "Data directory automatically reconfigured to: %s", config["directory"]
-            )
+
         try:
-            # Convert string representation to DaqModes
-            converted_modes_to_start: list[DaqModes] = convert_daq_modes(
-                modes_to_start
-            )  # noqa: E501
+            # Convert string representation to DaqModes.
+            converted_modes_to_start: list[DaqModes] = convert_daq_modes(modes_to_start)
         except ValueError as e:
             self.logger.error("Value Error! Invalid DaqMode supplied! %s", e)
             raise
+
+        # Check data directory is in correct format, if not then reconfigure.
+        # This delays the start call by a lot if SKUID isn't there.
+        if not self._data_directory_format_adr55_compliant():
+            directory_config = {"directory": self._construct_adr55_filepath()}
+            self.configure_daq(**directory_config)
+            self.logger.info(
+                "Data directory automatically reconfigured to: %s",
+                directory_config["directory"],
+            )
 
         # Check that if we're asked for RAW_STATION_BEAM that it's the only mode.
         if (
@@ -710,15 +744,14 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 f"{self.get_configuration()['directory_tag']}"
             )
         self._scan_in_progress = True
-        config = self.get_configuration()
-        callbacks: list[Callable[..., None]]
-        if config["bandpass"]:
-            callbacks = [self.generate_bandpass]
-        else:
+        if callbacks is None:
             callbacks = [self._file_dump_callback] * len(converted_modes_to_start)
         self.logger.info(f"Using callbacks: {callbacks}")
         self._daq_client.start_daq(
-            converted_modes_to_start, callbacks, self._diagnostic_callback
+            converted_modes_to_start,
+            callbacks,
+            self._diagnostic_callback,
+            bandpass_mode=bandpass_mode,
         )
         self.logger.info("Daq listening......")
 
@@ -970,6 +1003,12 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if not self._monitoring_bandpass:
             self.logger.info("Cannot stop bandpass monitor before it has started.")
             return (ResultCode.REJECTED, "Bandpass monitor not yet started.")
+
+        # Use the normal stop -> configure flow so configure_daq() is not
+        # called while a scan is in progress.
+        if self._started_event.is_set() or self._scan_in_progress:
+            self.stop_daq()
+
         self._monitoring_bandpass = False
         self.logger.info("Bandpass monitor stopping.")
         return (ResultCode.OK, "Bandpass monitor stopping.")

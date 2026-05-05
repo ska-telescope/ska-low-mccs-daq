@@ -185,7 +185,6 @@ class DaqSimulator:
             "acquisition_start_time": -1,
             "description": "",
             "observation_metadata": "foo",
-            "bandpass": False,
         } | extra_config
 
         self._modes: list[DaqModes] = []
@@ -277,6 +276,7 @@ class DaqSimulator:
         modes_to_start: list[DaqModes],
         callbacks: list[Callable],
         diagnostic_callback: Optional[Callable],
+        bandpass_mode: bool = False,
     ) -> tuple[ResultCode, str]:
         """
         Start data acquisition with the current configuration.
@@ -284,6 +284,7 @@ class DaqSimulator:
         :param modes_to_start: modes to start.
         :param callbacks: callbacks for the data modes.
         :param diagnostic_callback: callback for diagnostics.
+        :param bandpass_mode: whether integrated channel is in bandpass mode.
 
         :return: a result code and status.
         """
@@ -443,6 +444,7 @@ class DaqSimulator:
                 [DaqModes.INTEGRATED_CHANNEL_DATA],
                 [self._data_callback],
                 self._diagnostic_callback,
+                bandpass_mode=True,
             )
 
         station_name = "simulated_station_name"
