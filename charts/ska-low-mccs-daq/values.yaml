@@ -53,7 +53,7 @@ receiver_egresses: {}
 image:
   registry: artefact.skao.int
   name: ska-low-mccs-daq
-  tag: 6.0.0 # defaults to chart's appVersion when empty
+  tag: 6.1.0 # defaults to chart's appVersion when empty
   pullPolicy: IfNotPresent
 
 resources:
@@ -99,7 +99,7 @@ ska-tango-devices:
       image:
         registry: artefact.skao.int
         name: ska-low-mccs-daq
-        tag: 6.0.0
+        tag: 6.1.0
         pullPolicy: IfNotPresent
       command: daq
       resources:

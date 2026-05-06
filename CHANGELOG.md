@@ -1,6 +1,6 @@
 # Version History
 
-## Unreleased
+## 6.1.0
 
 * [THORN-437] Deprecated external bandpass loadbalancer.
   * Added a deprecated compatibility flag `bandpassLoadBalancer.enabled` for bandpass DAQ LoadBalancer Services. Default is `true` to preserve existing behaviour.
