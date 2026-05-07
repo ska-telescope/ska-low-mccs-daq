@@ -1,5 +1,8 @@
 # Version History
 
+## Unreleased
+* [THORN-562] Configure Sonarqube
+
 ## 6.1.0
 
 * [THORN-437] Deprecated external bandpass loadbalancer.

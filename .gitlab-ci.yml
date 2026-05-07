@@ -53,6 +53,14 @@ include:
   # k8s
   - project: 'ska-telescope/templates-repository'
     file: 'gitlab-ci/includes/k8s.gitlab-ci.yml'
+    
+  # SonarQube code quality analysis stage
+  - project: 'ska-telescope/templates-repository'
+    file: 'gitlab-ci/includes/sonar-scan.gitlab-ci.yml'
+  
+sonar-scan:
+  script:
+    - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}" || echo "allowed to fail"
 
 
 oci-image-build:
