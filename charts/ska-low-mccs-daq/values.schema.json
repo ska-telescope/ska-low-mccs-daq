@@ -3,6 +3,17 @@
   "$comment": "schema for ska-low-mccs-daq chart values file",
   "type": "object",
   "properties": {
+    "bandpassLoadBalancer": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Deprecated compatibility flag. When true, create legacy bandpass DAQ LoadBalancer Services. Recommended false for new deployments unless external data-service exposure is required."
+        }
+      },
+      "additionalProperties": false
+    },
     "image": {
       "type": "object",
       "properties": {

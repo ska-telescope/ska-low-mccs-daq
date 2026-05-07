@@ -255,16 +255,14 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
     def get_external_ip(self, logger: logging.Logger) -> str:
         """
-        Get the IP of the serivice which exposes this device.
+        Get the IP of the service which exposes this device.
 
-        This is exceptionally ugly code, however we are not allowed initcontainers
-        in ska-tango-util. Anyhow this should be deleted once SP-5187 is finished,
-        then we don't need to use the 1G, so we don't need to attach a loadbalancer
-        to the bandpass DAQ so we don't need to grab the IP of that loadbalancer here.
+        This is a legacy compatibility path for deployments that expose a
+        bandpass DAQ service via LoadBalancer.
 
         :param logger: passing in the logger as we haven't yet run super().__init__().
 
-        :return: the ip of the loadbalancer service.
+        :return: the IP of the loadbalancer service, or empty string.
         """
         try:
             kubernetes.config.load_incluster_config()
@@ -272,7 +270,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
             server_hostname = os.getenv("TANGO_SERVER_PUBLISH_HOSTNAME")
             device_hostname = os.getenv("HOSTNAME")
             if not server_hostname or not device_hostname:
-                logger.error("Couldn't get external IP automatically.")
+                logger.warning(
+                    "Unable to determine external service IP automatically; "
+                    "falling back to configured receiver_ip."
+                )
                 return ""
             namespace = server_hostname.split(".")[1]
             name = device_hostname.rsplit("-", 1)[0] + "-data"
@@ -281,9 +282,9 @@ class DaqComponentManager(TaskExecutorComponentManager):
             logger.info(f"Got external IP: {ip}")
             return ip
         except Exception as e:  # pylint: disable=broad-except
-            logger.error(
-                "Failed to retrieve loadbalancer IP, "
-                f"likely there is no loadbalancer service: {e}"
+            logger.info(
+                "LoadBalancer service IP unavailable; falling back to configured "
+                f"receiver_ip. Details: {e}"
             )
             return ""
 

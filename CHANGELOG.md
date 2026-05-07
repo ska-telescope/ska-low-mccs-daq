@@ -1,5 +1,17 @@
 # Version History
 
+## 6.1.0
+
+* [THORN-437] Deprecated external bandpass loadbalancer.
+  * Added a deprecated compatibility flag `bandpassLoadBalancer.enabled` for bandpass DAQ LoadBalancer Services. Default is `true` to preserve existing behaviour.
+  * Added attribute `bandpassLoadBalancerEnabled` to indicate to indicate to other Tango devices which network to use.
+  * New deployments should set it to `false` unless external LoadBalancer exposure is required, for example:
+
+        helm_values:
+          ska-low-mccs-daq:
+            bandpassLoadBalancer:
+              enabled: false
+
 ## 6.0.0
 
 * [THORN-518] Fix integration issues with spshw.
