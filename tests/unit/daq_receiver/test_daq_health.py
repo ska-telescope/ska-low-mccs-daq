@@ -35,7 +35,6 @@ class TestDaqHealth:
         """
         return MockTangoEventCallbackGroup(
             "healthState",
-            "track_lrc_command",
         )
 
     # pylint: disable = too-many-ancestors
@@ -272,7 +271,6 @@ class TestDaqHealth:
         assert daq_device.state() == tango.DevState.ON
 
         execute_lrc_to_completion(
-            change_event_callbacks,
             daq_device,
             "Start",
             json.dumps({"modes_to_start": consumer}),

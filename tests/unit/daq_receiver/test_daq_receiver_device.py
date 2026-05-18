@@ -158,7 +158,6 @@ class TestMccsDaqReceiver:
         device_under_test.Configure(json.dumps(daq_config))
         # Start a consumer to check with DaqStatus.
         execute_lrc_to_completion(
-            change_event_callbacks,
             device_under_test,
             "Start",
             json.dumps({"modes_to_start": modes_to_start}),
