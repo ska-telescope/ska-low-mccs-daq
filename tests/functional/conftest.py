@@ -18,6 +18,7 @@ from typing import Any, Callable, Iterator
 import _pytest
 import pytest
 import tango
+from ska_control_model import ResultCode
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
@@ -277,7 +278,11 @@ def poll_until_consumers_stopped(daq: tango.DeviceProxy, no_of_iters: int = 5) -
 
 
 def poll_until_command_result(
-    device: tango.DeviceProxy, cmd_id: str, expected_result: str, no_of_iters: int = 5
+    device: tango.DeviceProxy,
+    cmd_id: str,
+    expected_status: str,
+    expected_result: ResultCode = ResultCode.OK,
+    no_of_iters: int = 5,
 ) -> None:
     """
     Poll until command has reached state.
@@ -285,10 +290,13 @@ def poll_until_command_result(
     This function recursively calls itself up to `no_of_iters` times.
 
     :param device: the TANGO device
-    :param expected_result: the command state we're waiting for
+    :param expected_status: the command state we're waiting for
+    :param expected_result: the command result we're waiting for.
+        Defaults to ResultCode.OK.
     :param cmd_id: The command ID we're interested in.
     :param no_of_iters: number of times to iterate
     """
+    lrc_status = None
     lrc_result = None
     lrc_finished = device.lrcFinished
     try:
@@ -296,22 +304,24 @@ def poll_until_command_result(
         for lrc_values in lrc_finished:
             lrc_values = json.loads(lrc_values)
             if lrc_values["uid"] == cmd_id:
-                lrc_result = lrc_values["status"]
+                lrc_status = lrc_values["status"]
+                lrc_result = lrc_values["result"][0]
                 break
     except ValueError as e:
-        lrc_result = e
-        # pass
-    if lrc_result == expected_result:
+        pytest.fail(f"Command {cmd_id} ran into unexpected error: {e}")
+    if lrc_status == expected_status and lrc_result == ResultCode:
         return
     if no_of_iters == 1:
         pytest.fail(
             f"Command {cmd_id} did not reach desired state: "
             f"{device.lrcFinished}\n"
-            f"Result: {lrc_result}"
+            f"Status: {lrc_status}, Result: {lrc_result}"
         )
-    if lrc_result != expected_result:
+    if lrc_status != expected_status:
         time.sleep(1)
-        poll_until_command_result(device, cmd_id, expected_result, no_of_iters - 1)
+        poll_until_command_result(
+            device, cmd_id, expected_status, expected_result, no_of_iters - 1
+        )
 
 
 # pylint: disable=inconsistent-return-statements
