@@ -42,17 +42,17 @@ def get_lrc_finished(
     return {}
 
 
-def assert_against_lrc_finished(
-    device: tango.DeviceProxy, command_id: str, status: str, timeout: float = 10.0
-) -> None:
+def wait_for_lrc_finished(
+    device: tango.DeviceProxy, command_id: str, timeout: float = 10.0
+) -> dict:
     """
-    Wait for command to finish and assert against the status.
+    Wait for command to finish and return the result.
 
     :param device: the tango device to monitor.
     :param command_id: The command_id to look for in the queue.
-    :param status: The expected status of the command in the queue.
     :param timeout: An optional time to wait in seconds.
 
+    :return: the parsed LRC finished entry.
     :raises TimeoutError: When the command failed to enter the queue in time.
     """
     completed_task = get_lrc_finished(device, command_id)
@@ -64,6 +64,21 @@ def assert_against_lrc_finished(
             raise TimeoutError(
                 f"LRC '{command_id}' not found in completed after {timeout} seconds"
             )
+    return completed_task
+
+
+def assert_against_lrc_finished(
+    device: tango.DeviceProxy, command_id: str, status: str, timeout: float = 10.0
+) -> None:
+    """
+    Wait for command to finish and assert against the status.
+
+    :param device: the tango device to monitor.
+    :param command_id: The command_id to look for in the queue.
+    :param status: The expected status of the command in the queue.
+    :param timeout: An optional time to wait in seconds.
+    """
+    completed_task = wait_for_lrc_finished(device, command_id, timeout)
     assert completed_task["status"] == status
 
 

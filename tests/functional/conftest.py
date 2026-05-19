@@ -22,6 +22,7 @@ from ska_control_model import ResultCode
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
+from tests.test_tools import wait_for_lrc_finished
 
 
 # TODO: https://github.com/pytest-dev/pytest-forked/issues/67
@@ -298,15 +299,11 @@ def poll_until_command_result(
     """
     lrc_status = None
     lrc_result = None
-    lrc_finished = device.lrcFinished
     try:
-        # Extract the result of the cmd_id.
-        for lrc_values in lrc_finished:
-            lrc_values = json.loads(lrc_values)
-            if lrc_values["uid"] == cmd_id:
-                lrc_status = lrc_values["status"]
-                lrc_result = lrc_values["result"][0]
-                break
+        lrc_values = wait_for_lrc_finished(device, cmd_id, 10)
+        if lrc_values["uid"] == cmd_id:
+            lrc_status = lrc_values["status"]
+            lrc_result = lrc_values["result"][0]
     except Exception as e:  # pylint: disable=broad-exception-caught
         pytest.fail(f"Command {cmd_id} ran into unexpected error: {e}")
     if lrc_status != expected_status or lrc_result != expected_result:
