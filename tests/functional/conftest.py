@@ -307,7 +307,7 @@ def poll_until_command_result(
                 lrc_status = lrc_values["status"]
                 lrc_result = lrc_values["result"][0]
                 break
-    except ValueError as e:
+    except Exception as e:
         pytest.fail(f"Command {cmd_id} ran into unexpected error: {e}")
     if lrc_status == expected_status and lrc_result == expected_result:
         return
