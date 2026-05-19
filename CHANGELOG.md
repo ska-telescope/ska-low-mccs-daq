@@ -1,7 +1,9 @@
 # Version History
 
-## Unreleased
+## 6.1.1
+
 * [THORN-562] Configure Sonarqube
+* [THORN-566] Fix network monitoring for bandpass DAQ
 
 ## 6.1.0
 
