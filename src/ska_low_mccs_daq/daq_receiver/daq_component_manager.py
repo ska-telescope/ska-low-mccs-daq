@@ -122,6 +122,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         "station_config": None,
         "station_id": 0,
         "station_name": "",
+        "receiver_interface": "eth0",
         "max_filesize": None,
         "acquisition_duration": -1,
         "acquisition_start_time": -1,
@@ -1219,8 +1220,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         return uid
 
     def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
-        if "receiver_interface" not in self._configuration:
-            return (0, 0, 0)
         net = psutil.net_io_counters(pernic=True)
         interface_stats = net[self._configuration["receiver_interface"]]
         return (
