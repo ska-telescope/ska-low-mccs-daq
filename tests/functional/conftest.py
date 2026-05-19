@@ -309,6 +309,12 @@ def poll_until_command_result(
                 break
     except Exception as e:  # pylint: disable=broad-exception-caught
         pytest.fail(f"Command {cmd_id} ran into unexpected error: {e}")
+    if lrc_status != expected_status or lrc_result != expected_result:
+        pytest.fail(
+            f"Command {cmd_id} did not reach desired state: "
+            f"{device.lrcFinished}\n"
+            f"Status: {lrc_status}, Result: {lrc_result}"
+        )
     if lrc_status == expected_status and lrc_result == expected_result:
         return
     if no_of_iters == 1:
