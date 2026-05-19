@@ -22,7 +22,7 @@ from ska_control_model import ResultCode
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
-from tests.test_tools import wait_for_lrc_finished
+from tests.test_tools import get_lrc_finished
 
 
 # TODO: https://github.com/pytest-dev/pytest-forked/issues/67
@@ -300,7 +300,7 @@ def poll_until_command_result(
     lrc_status = None
     lrc_result = None
     try:
-        lrc_values = wait_for_lrc_finished(device, cmd_id, 10)
+        lrc_values = get_lrc_finished(device, cmd_id)
         if lrc_values["uid"] == cmd_id:
             lrc_status = lrc_values["status"]
             lrc_result = lrc_values["result"][0]
