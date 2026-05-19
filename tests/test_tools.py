@@ -13,12 +13,13 @@ functional (BDD).
 """
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
 import tango
 from ska_control_model import AdminMode, ResultCode
-from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
+
 
 def get_lrc_finished(
     device_proxy: tango.DeviceProxy,
@@ -65,8 +66,8 @@ def assert_against_lrc_finished(
             )
     assert completed_task["status"] == status
 
+
 def execute_lrc_to_completion(
-    change_event_callbacks: MockTangoEventCallbackGroup,
     device_proxy: tango.DeviceProxy,
     command_name: str,
     command_arguments: Any,
@@ -77,8 +78,6 @@ def execute_lrc_to_completion(
     :param device_proxy: fixture that provides a
         :py:class:`tango.DeviceProxy` to the device under test, in a
         :py:class:`tango.test_context.DeviceTestContext`.
-    :param change_event_callbacks: dictionary of Tango change event
-        callbacks with asynchrony support.
     :param command_name: the name of the device command under test
     :param command_arguments: argument to the command (optional)
     """
@@ -90,6 +89,7 @@ def execute_lrc_to_completion(
     assert command_name in command_id.split("_")[-1]
 
     assert_against_lrc_finished(device_proxy, command_id, "COMPLETED")
+
 
 def retry_communication(device_proxy: tango.Deviceproxy, timeout: int = 30) -> None:
     """
