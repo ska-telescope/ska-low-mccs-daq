@@ -19,14 +19,13 @@ from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.functional.conftest import (
     expect_attribute,
-    poll_until_command_result,
     poll_until_consumer_running,
     poll_until_consumers_stopped,
     poll_until_state_change,
 )
 from tests.harness import SpsTangoTestHarnessContext
 
-from ..test_tools import retry_communication
+from ..test_tools import assert_against_lrc_finished, retry_communication
 
 scenarios("./features/daq_basic_functionality.feature")
 
@@ -157,7 +156,7 @@ def daq_device_has_no_running_consumers(
     status = json.loads(daq_receiver.DaqStatus())
     if status["Running Consumers"] != []:
         _, [cmd_id] = daq_receiver.Stop()  # Stops *all* consumers.
-        poll_until_command_result(daq_receiver, cmd_id, "COMPLETED")
+        assert_against_lrc_finished(daq_receiver, cmd_id, "COMPLETED")
 
         poll_until_consumers_stopped(daq_receiver)
 
