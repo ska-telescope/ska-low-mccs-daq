@@ -383,6 +383,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         raw_y_bandpass: Optional[np.ndarray] = None,
         rms_plot: Optional[np.ndarray] = None,
         reset_consumer_attributes: Optional[bool] = None,
+        bandpass_timestamp: Optional[float] = None,
         **kwargs: Optional[Any],
     ) -> None:
         """
@@ -398,6 +399,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         :param raw_y_bandpass: Raw data for a bandpass.
         :param rms_plot: Data for an rms plot.
         :param reset_consumer_attributes: whether to reset consumer attributes to 0.
+        :param bandpass_timestamp: Timestamp from the consumer for the bandpass data.
         :param kwargs: Other state changes of device.
         """
         if fault:
@@ -409,41 +411,50 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             self._x_bandpass = x_bandpass
             # TODO: Should we be pushing these
             # events with self.x_bandpass?
-            event_time = time.time()
             self.push_change_event(
-                "xPolBandpass", x_bandpass, event_time, tango.AttrQuality.ATTR_VALID
+                "xPolBandpass",
+                x_bandpass,
+                bandpass_timestamp,
+                tango.AttrQuality.ATTR_VALID,
             )
             self.push_archive_event(
-                "xPolBandpass", x_bandpass, event_time, tango.AttrQuality.ATTR_VALID
+                "xPolBandpass",
+                x_bandpass,
+                bandpass_timestamp,
+                tango.AttrQuality.ATTR_VALID,
             )
 
         if y_bandpass is not None:
             if isinstance(y_bandpass, list):
                 y_bandpass = y_bandpass[0]
             self._y_bandpass = y_bandpass
-            event_time = time.time()
             self.push_change_event(
-                "yPolBandpass", y_bandpass, event_time, tango.AttrQuality.ATTR_VALID
+                "yPolBandpass",
+                y_bandpass,
+                bandpass_timestamp,
+                tango.AttrQuality.ATTR_VALID,
             )
             self.push_archive_event(
-                "yPolBandpass", y_bandpass, event_time, tango.AttrQuality.ATTR_VALID
+                "yPolBandpass",
+                y_bandpass,
+                bandpass_timestamp,
+                tango.AttrQuality.ATTR_VALID,
             )
 
         if raw_x_bandpass is not None:
             if isinstance(raw_x_bandpass, list):
                 raw_x_bandpass = raw_x_bandpass[0]
             self._raw_x_bandpass = raw_x_bandpass
-            event_time = time.time()
             self.push_change_event(
                 "rawXPolBandpass",
                 raw_x_bandpass,
-                event_time,
+                bandpass_timestamp,
                 tango.AttrQuality.ATTR_VALID,
             )
             self.push_archive_event(
                 "rawXPolBandpass",
                 raw_x_bandpass,
-                event_time,
+                bandpass_timestamp,
                 tango.AttrQuality.ATTR_VALID,
             )
 
@@ -451,17 +462,16 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             if isinstance(raw_y_bandpass, list):
                 raw_y_bandpass = raw_y_bandpass[0]
             self._raw_y_bandpass = raw_y_bandpass
-            event_time = time.time()
             self.push_change_event(
                 "rawYPolBandpass",
                 raw_y_bandpass,
-                event_time,
+                bandpass_timestamp,
                 tango.AttrQuality.ATTR_VALID,
             )
             self.push_archive_event(
                 "rawYPolBandpass",
                 raw_y_bandpass,
-                event_time,
+                bandpass_timestamp,
                 tango.AttrQuality.ATTR_VALID,
             )
 

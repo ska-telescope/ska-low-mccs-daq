@@ -604,6 +604,7 @@ class DaqReceiver:
                         values,
                         tile,
                         nof_packets=nof_packets,
+                        timestamp=timestamp,
                     )
                 else:
                     self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
