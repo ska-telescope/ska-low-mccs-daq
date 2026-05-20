@@ -30,13 +30,12 @@ from ska_low_mccs_daq import MccsDaqReceiver
 from ska_low_mccs_daq.daq_receiver.daq_simulator import convert_daq_modes
 from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
 from tests.functional.conftest import (
-    poll_until_command_result,
     poll_until_consumers_running,
     poll_until_consumers_stopped,
     verify_bandpass_state,
 )
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
-from tests.test_tools import execute_lrc_to_completion
+from tests.test_tools import assert_against_lrc_finished, execute_lrc_to_completion
 
 # TODO: [MCCS-1211] Workaround for ska-tango-testing bug.
 gc.disable()
@@ -158,7 +157,6 @@ class TestMccsDaqReceiver:
         device_under_test.Configure(json.dumps(daq_config))
         # Start a consumer to check with DaqStatus.
         execute_lrc_to_completion(
-            change_event_callbacks,
             device_under_test,
             "Start",
             json.dumps({"modes_to_start": modes_to_start}),
@@ -260,7 +258,7 @@ class TestMccsDaqReceiver:
         [result_code], [cmd_id] = device_under_test.Stop()
         assert result_code == ResultCode.QUEUED
         assert "Stop" == cmd_id.split("_")[-1]
-        poll_until_command_result(device_under_test, cmd_id, "COMPLETED")
+        assert_against_lrc_finished(device_under_test, cmd_id, "COMPLETED")
         poll_until_consumers_stopped(device_under_test)
 
     def test_daqLibrary(
