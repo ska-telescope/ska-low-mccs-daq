@@ -54,7 +54,6 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
         "state",
         "ringbuffer_occupancy",
         "lost_pushes",
-        "track_lrc_command",
         "xPolBandpass",
         "yPolBandpass",
         "rawXPolBandpass",

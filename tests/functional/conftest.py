@@ -268,46 +268,12 @@ def poll_until_consumers_stopped(daq: tango.DeviceProxy, no_of_iters: int = 5) -
 
     if no_of_iters == 1:
         msg = f'Consumers not stopped: {status["Running Consumers"]}.\n'
-        msg += f"CommandResult: {daq.longRunningCommandResult}\n"
-        msg += f"CommandQueue: {daq.longRunningCommandsInQueue}\n"
+        msg += f"CommandResult: {daq.lrcFinished}\n"
+        msg += f"CommandQueue: {daq.lrcQueue}\n"
         pytest.fail(msg)
 
     sleep(2)
     return poll_until_consumers_stopped(daq, no_of_iters - 1)
-
-
-def poll_until_command_result(
-    device: tango.DeviceProxy, cmd_id: str, expected_result: str, no_of_iters: int = 5
-) -> None:
-    """
-    Poll until command has reached state.
-
-    This function recursively calls itself up to `no_of_iters` times.
-
-    :param device: the TANGO device
-    :param expected_result: the command state we're waiting for
-    :param cmd_id: The command ID we're interested in.
-    :param no_of_iters: number of times to iterate
-    """
-    lrc_result = None
-    lrc_status = device.longRunningCommandStatus
-    try:
-        # Extract the result of the cmd_id.
-        lrc_result = lrc_status[lrc_status.index(cmd_id) + 1]
-    except ValueError as e:
-        lrc_result = e
-        # pass
-    if lrc_result == expected_result:
-        return
-    if no_of_iters == 1:
-        pytest.fail(
-            f"Command {cmd_id} did not reach desired state: "
-            f"{device.longRunningCommandStatus}\n"
-            f"Result: {lrc_result}"
-        )
-    if lrc_result != expected_result:
-        time.sleep(1)
-        poll_until_command_result(device, cmd_id, expected_result, no_of_iters - 1)
 
 
 # pylint: disable=inconsistent-return-statements

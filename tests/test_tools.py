@@ -13,45 +13,76 @@ functional (BDD).
 """
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
-import pytest
 import tango
 from ska_control_model import AdminMode, ResultCode
-from ska_tango_testing.mock.placeholders import Anything
-from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
-from tango import EventType
 
 
-def wait_for_completed_command_to_clear_from_queue(
+def get_lrc_finished(
     device_proxy: tango.DeviceProxy,
-) -> None:
+    uid: str,
+) -> dict[str, Any]:
     """
-    Wait for Long Running Commands to clear from queue.
+    Return the finished LRC entry matching the given UID.
 
-    A completed command is expected to clear after 10 seconds.
+    Asserts that an entry with the given UID exists in ``lrcfinished``.
+    The returned dict can be used to make further field-level assertions.
 
     :param device_proxy: device proxy for use in the test.
+    :param uid: the UID of the LRC to look up.
+    :return: the parsed LRC finished entry.
     """
-    # base class clears after 10 seconds
-    count = 0
-    timeout = 20
+    for completed_task in device_proxy.lrcfinished:
+        completed_task = json.loads(completed_task)
+        if completed_task["uid"] == uid:
+            return completed_task
+    return {}
 
-    while device_proxy.longRunningCommandsInQueue != ():
-        time.sleep(0.5)
-        count += 1
-        if count == timeout:
-            if device_proxy.longRunningCommandsInQueue != ():
-                pytest.fail(
-                    f"LRCs still in queue after {timeout} seconds: "
-                    f"{device_proxy.dev_name()} : "
-                    f"{device_proxy.longRunningCommandsInQueue}"
-                )
+
+def wait_for_lrc_finished(
+    device: tango.DeviceProxy, command_id: str, timeout: float = 10.0
+) -> dict:
+    """
+    Wait for command to finish and return the result.
+
+    :param device: the tango device to monitor.
+    :param command_id: The command_id to look for in the queue.
+    :param timeout: An optional time to wait in seconds.
+
+    :return: the parsed LRC finished entry.
+    :raises TimeoutError: When the command failed to enter the queue in time.
+    """
+    completed_task = get_lrc_finished(device, command_id)
+    start_time = time.time()
+    while not completed_task:
+        time.sleep(0.1)
+        completed_task = get_lrc_finished(device, command_id)
+        if time.time() - start_time > timeout:
+            raise TimeoutError(
+                f"LRC '{command_id}' not found in completed after {timeout} seconds"
+            )
+    return completed_task
+
+
+def assert_against_lrc_finished(
+    device: tango.DeviceProxy, command_id: str, status: str, timeout: float = 10.0
+) -> None:
+    """
+    Wait for command to finish and assert against the status.
+
+    :param device: the tango device to monitor.
+    :param command_id: The command_id to look for in the queue.
+    :param status: The expected status of the command in the queue.
+    :param timeout: An optional time to wait in seconds.
+    """
+    completed_task = wait_for_lrc_finished(device, command_id, timeout)
+    assert completed_task["status"] == status
 
 
 def execute_lrc_to_completion(
-    change_event_callbacks: MockTangoEventCallbackGroup,
     device_proxy: tango.DeviceProxy,
     command_name: str,
     command_arguments: Any,
@@ -62,36 +93,17 @@ def execute_lrc_to_completion(
     :param device_proxy: fixture that provides a
         :py:class:`tango.DeviceProxy` to the device under test, in a
         :py:class:`tango.test_context.DeviceTestContext`.
-    :param change_event_callbacks: dictionary of Tango change event
-        callbacks with asynchrony support.
     :param command_name: the name of the device command under test
     :param command_arguments: argument to the command (optional)
     """
-    subscription_id = device_proxy.subscribe_event(
-        "longrunningcommandstatus",
-        EventType.CHANGE_EVENT,
-        change_event_callbacks["track_lrc_command"],
-    )
-    change_event_callbacks["track_lrc_command"].assert_change_event(Anything)
     [[task_status], [command_id]] = getattr(device_proxy, command_name)(
         command_arguments
     )
 
     assert task_status == ResultCode.QUEUED
     assert command_name in command_id.split("_")[-1]
-    change_event_callbacks["track_lrc_command"].assert_change_event(
-        (command_id, "STAGING")
-    )
-    change_event_callbacks["track_lrc_command"].assert_change_event(
-        (command_id, "QUEUED")
-    )
-    change_event_callbacks["track_lrc_command"].assert_change_event(
-        (command_id, "IN_PROGRESS")
-    )
-    change_event_callbacks["track_lrc_command"].assert_change_event(
-        (command_id, "COMPLETED")
-    )
-    device_proxy.unsubscribe_event(subscription_id)
+
+    assert_against_lrc_finished(device_proxy, command_id, "COMPLETED")
 
 
 def retry_communication(device_proxy: tango.Deviceproxy, timeout: int = 30) -> None:
