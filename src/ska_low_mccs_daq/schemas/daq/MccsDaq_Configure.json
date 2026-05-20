@@ -78,6 +78,11 @@
             "default": 16,
             "description": "Bit width of integrated channel data"
         },
+        "integration_lookahead_cutoff": {
+            "type": "number",
+            "default": 3.0,
+            "description": "Seconds ahead of the current integration timestamp before flushing an incomplete packet set"
+        },
         "continuous_channel_bitwidth": {
             "type": "integer",
             "default": 16,

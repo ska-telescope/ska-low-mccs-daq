@@ -239,6 +239,7 @@ class DaqReceiver:
             "nof_beam_channels": 384,
             "nof_station_samples": 262144,
             "integrated_channel_bitwidth": 16,
+            "integration_lookahead_cutoff": 3.0,
             "continuous_channel_bitwidth": 16,
             "persist_all_buffers": True,
             "append_integrated": True,
@@ -1315,6 +1316,7 @@ class DaqReceiver:
             "bitwidth": self._config["integrated_channel_bitwidth"],
             "sampling_time": 1.0 / self._config["sampling_rate"],
             "max_packet_size": self._config["receiver_frame_size"],
+            "integration_lookahead_cutoff": self._config["integration_lookahead_cutoff"],
         }
 
         # Start channel data consumer

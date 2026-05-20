@@ -147,6 +147,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         received_data_callback: Callable[[str, str, str], None],
         dedicated_bandpass_daq: bool = False,
         simulation_mode: bool = False,
+        integration_lookahead_cutoff: float = 3.0,
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -172,6 +173,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             is dedicated exclusively to monitoring bandpasses. If true then
             this DaqReceiver will attempt to automatically monitor bandpasses.
         :param simulation_mode: whether or not to use a simulated backend.
+        :param integration_lookahead_cutoff: seconds ahead of the current
+            integration timestamp before flushing an incomplete packet set.
         """
         self._external_ip_override = None
         if dedicated_bandpass_daq:
@@ -190,6 +193,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             "nof_tiles": nof_tiles,
             "station_name": station_name,
             "station_id": station_id,
+            "integration_lookahead_cutoff": integration_lookahead_cutoff,
         }
         self._station_name = station_name
         self._station_id = station_id

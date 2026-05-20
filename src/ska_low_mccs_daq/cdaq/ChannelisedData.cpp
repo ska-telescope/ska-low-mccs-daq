@@ -558,6 +558,8 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
     sampling_time = configuration["sampling_time"];
     packet_size  = configuration["max_packet_size"];
     nof_samples  = 1;
+    if (key_in_json(configuration, "integration_lookahead_cutoff"))
+        integration_lookahead_cutoff = configuration["integration_lookahead_cutoff"];
 
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t) 1024);
@@ -725,7 +727,7 @@ bool IntegratedChannelisedData::processPacket()
     }
     // Packets should arrive in bursts every few seconds; a packet from the next integration
     // arriving before total_packets is reached means at least one packet was dropped.
-    else if (integration_timestamp >= 0.0 && packet_time > integration_timestamp + 3.0)
+    else if (integration_timestamp >= 0.0 && packet_time > integration_timestamp + integration_lookahead_cutoff)
     {
         if (bitwidth == 16)
             container_16bit -> persist_container();

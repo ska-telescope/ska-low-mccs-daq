@@ -538,7 +538,7 @@ class TestPatchedDaq:
                     y_bandpass=y_pol_bandpass,
                     raw_y_bandpass=data[:, :, 1],
                     raw_x_bandpass=data[:, :, 0],
-                    bandpass_timestamp=time.time()
+                    bandpass_timestamp=time.time(),
                 )
 
             @command(dtype_in="DevBoolean")

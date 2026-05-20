@@ -105,6 +105,14 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         doc="Whether DaqReceiver should use a simulator backend.",
         default_value=False,
     )
+    IntegrationLookaheadCutoff = device_property(
+        dtype=float,
+        doc=(
+            "Seconds ahead of the current integration timestamp"
+            " before flushing an incomplete packet set."
+        ),
+        default_value=3.0,
+    )
     StationName = device_property(
         dtype=str,
         doc="The name of the station this DaqReceiver is associated with.",
@@ -334,6 +342,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             self._received_data_callback,
             self.BandpassDaq,
             self.SimulationMode,
+            self.IntegrationLookaheadCutoff,
         )
 
     # ----------
