@@ -711,23 +711,12 @@ bool IntegratedChannelisedData::processPacket()
     // TEMPORARY: Timestamp_scale may disappear, so it's hardcoded for now
     double packet_time = sync_time + timestamp * sampling_time;
 
-    // Check if we processed all the packets (happy path)
     auto total_packets = (nof_antennas / nof_included_antennas) *
                           (nof_channels / nof_included_channels) * nof_pols * nof_tiles;
 
-    if (num_packets == total_packets)
-    {
-        if (bitwidth == 16)
-            container_16bit -> persist_container();
-        else
-            container_32bit -> persist_container();
-
-        num_packets = 0;
-        integration_timestamp = -1.0;
-    }
     // Packets should arrive in bursts every few seconds; a packet from the next integration
     // arriving before total_packets is reached means at least one packet was dropped.
-    else if (integration_timestamp >= 0.0 && packet_time > integration_timestamp + integration_lookahead_cutoff)
+    if (integration_timestamp >= 0.0 && packet_time > integration_timestamp + integration_lookahead_cutoff)
     {
         if (bitwidth == 16)
             container_16bit -> persist_container();
@@ -744,15 +733,27 @@ bool IntegratedChannelisedData::processPacket()
     // We have processed the packet items, now comes the data
     num_packets++;
     if (bitwidth == 16)
-        container_16bit -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
+        container_16bit -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset,
                                     tile_id, fpga_id, start_channel_id, 0, samples_in_packet,
                                     start_antenna_id, (uint16_t *) (payload + payload_offset), packet_time,
                                     nof_included_channels, nof_included_antennas, payload_length);
     else
-        container_32bit -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset, 
+        container_32bit -> add_data(timestamp, packet_counter, sync_time, station_id, payload_offset,
                                     tile_id, fpga_id, start_channel_id, 0, samples_in_packet,
                                     start_antenna_id, (uint32_t *) (payload + payload_offset), packet_time,
                                     nof_included_channels, nof_included_antennas, payload_length);
+
+    // Persist as soon as the last packet of this integration has been added
+    if (num_packets == total_packets)
+    {
+        if (bitwidth == 16)
+            container_16bit -> persist_container();
+        else
+            container_32bit -> persist_container();
+
+        num_packets = 0;
+        integration_timestamp = -1.0;
+    }
 
 
     // Ready from packet
