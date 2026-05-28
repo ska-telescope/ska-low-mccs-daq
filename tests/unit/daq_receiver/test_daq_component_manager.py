@@ -384,12 +384,15 @@ class TestDaqComponentManager:
             expected_raw_data[i][256] = 4451  # Test generator on at 200Mhz
 
         for _ in range(3):
+            expected_timestamp = time.time()
             for tile, file in enumerate(data_dir.glob("*.hdf5")):
                 # DAQ will now callback with the data directly, so we test here by
                 # pulling it from a file and sending the contents.
                 with h5py.File(file, "r") as f:
                     data: np.ndarray = f["chan_"]["data"][:]
-                daq_component_manager.generate_bandpass(data, tile)
+                daq_component_manager.generate_bandpass(
+                    data, tile, timestamp=expected_timestamp
+                )
 
             call_args = callbacks["component_state"]._call_queue.get(timeout=5)
             args_dict = call_args[2]
@@ -397,6 +400,7 @@ class TestDaqComponentManager:
             received_y_pol_data = args_dict["y_bandpass"]
             received_raw_x_pol_data = args_dict["raw_x_bandpass"]
             received_raw_y_pol_data = args_dict["raw_y_bandpass"]
+            assert args_dict["bandpass_timestamp"] == expected_timestamp
 
             np.testing.assert_allclose(received_x_pol_data, expected_data, rtol=1e-5)
             np.testing.assert_allclose(received_y_pol_data, expected_data, rtol=1e-5)

@@ -148,6 +148,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         received_data_callback: Callable[[str, str, str], None],
         dedicated_bandpass_daq: bool = False,
         simulation_mode: bool = False,
+        integration_lookahead_cutoff: float = 3.0,
     ) -> None:
         """
         Initialise a new instance of DaqComponentManager.
@@ -173,6 +174,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             is dedicated exclusively to monitoring bandpasses. If true then
             this DaqReceiver will attempt to automatically monitor bandpasses.
         :param simulation_mode: whether or not to use a simulated backend.
+        :param integration_lookahead_cutoff: seconds ahead of the current
+            integration timestamp before flushing an incomplete packet set.
         """
         self._external_ip_override = None
         if dedicated_bandpass_daq:
@@ -191,6 +194,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             "nof_tiles": nof_tiles,
             "station_name": station_name,
             "station_id": station_id,
+            "integration_lookahead_cutoff": integration_lookahead_cutoff,
         }
         self._station_name = station_name
         self._station_id = station_id
@@ -225,6 +229,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             shape=(512, 256, 2), dtype=int
         )
         self._received_this_set = [False] * nof_tiles
+        self._bandpass_set_timestamp: Optional[float] = None
         self._event_queue: queue.Queue[tuple[str, float] | None] = queue.Queue()
         self._event_thread = threading.Thread(target=self._event_loop, name="EventLoop")
         self._event_thread.start()
@@ -922,6 +927,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self: DaqComponentManager,
         data: np.ndarray,
         tile_number: int,
+        timestamp: Optional[float] = None,
         **attributes: float,
     ) -> None:
         """
@@ -929,6 +935,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :param data: The data array containing the bandpass data for a tile.
         :param tile_number: The tile number the data corresponds to.
+        :param timestamp: Timestamp from the consumer for the data packet.
         :param attributes: any attributes to update the value for.
         """
         for attribute_name, attribute_value in attributes.items():
@@ -956,6 +963,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
             self._raw_full_station_data = np.zeros(shape=(512, 256, 2), dtype=int)
             self._received_this_set = [False] * nof_tiles
+            self._bandpass_set_timestamp = None
+
+        if not any(self._received_this_set):
+            self._bandpass_set_timestamp = timestamp
 
         self._received_this_set[tile_number] = True
 
@@ -980,9 +991,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     y_bandpass=y_data,
                     raw_x_bandpass=raw_x_data,
                     raw_y_bandpass=raw_y_data,
+                    bandpass_timestamp=self._bandpass_set_timestamp,
                 )
             self.logger.debug("Bandpasses transmitted.")
             self._received_this_set = [False] * nof_tiles
+            self._bandpass_set_timestamp = None
             self._full_station_data = np.zeros(shape=(512, 256, 2), dtype=float)
             self._raw_full_station_data = np.zeros(shape=(512, 256, 2), dtype=int)
 

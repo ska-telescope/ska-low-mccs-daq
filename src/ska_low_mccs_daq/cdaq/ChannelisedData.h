@@ -403,6 +403,8 @@ private:
     uint32_t nof_samples = 0;         // Number of time samples
     uint16_t bitwidth = 16;           // Sample bitwidth
     double sampling_time = 1.08e-6;   // Sampling time
+    double integration_timestamp = -1.0; // packet_time of earliest packet in current integration
+    double integration_lookahead_cutoff = 3.0; // Seconds ahead of integration_timestamp before flushing incomplete set
 
 };
 

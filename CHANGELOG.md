@@ -1,5 +1,12 @@
 # Version History
 
+## 6.2.0
+
+* [SPRTS-837] Bandpass events are now timestamped from the SPEAD packet timestamp rather than wall-clock time.
+* [SPRTS-837] Integrated channel data is now persisted as soon as the last packet of an integration is received, rather than waiting for the first packet of the next integration.
+* [SPRTS-837] Handle missed packets in the bandpass better. If a packet is missed for integration N, when integration N+1 comes in the partial set is persisted (then ignored by Tango), rather than adding the N+1 packet to integration N.
+* [SPRTS-837] `integration_lookahead_cutoff` device property added to configure how far ahead  'a new integration' is defined.
+
 ## 6.1.1
 
 * [THORN-562] Configure Sonarqube
