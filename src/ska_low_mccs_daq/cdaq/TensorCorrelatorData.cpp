@@ -283,14 +283,42 @@ void TensorCrossCorrelator::threadEntry()
     cu::Event eK0,   eK1;
     cu::Event eD2H0, eD2H1;
 
+    // Pre-compute stable values used every integration
+    const size_t total_m = nof_samples / 16;
+    const size_t m_stride_bytes = (size_t)nof_antennas * nof_pols * 16 * sizeof(SampleT);
+    // Minimum batch size for each incremental H2D copy (~4 MiB keeps DMA efficient)
+    const size_t batch_m = std::max(size_t(1), (4UL * 1024 * 1024) / m_stride_bytes);
+
     while (!this->stop_thread)
     {
         Buffer *buffer;
+        size_t streamed_m = 0;
+
+        // While waiting for the buffer to be marked ready, stream completed
+        // M-block rows to the GPU in batches so the bulk of the H2D transfer
+        // is spread across the integration window rather than bursting at the end.
         do
         {
             buffer = double_buffer->read_buffer();
             if (this->stop_thread)
                 return;
+
+            if (buffer == nullptr)
+            {
+                const int slot = double_buffer->get_consumer();
+                const size_t safe = double_buffer->safe_m(slot);
+                if (safe >= streamed_m + batch_m)
+                {
+                    const CUdeviceptr dev_base = devSamples_;
+                    const uint8_t *host_base =
+                        reinterpret_cast<const uint8_t *>(double_buffer->get_buffer_pointer(slot)->data);
+                    stream_.memcpyHtoDAsync(
+                        dev_base + streamed_m * m_stride_bytes,
+                        host_base + streamed_m * m_stride_bytes,
+                        (safe - streamed_m) * m_stride_bytes);
+                    streamed_m = safe;
+                }
+            }
         } while (buffer == nullptr);
 
         clock_gettime(CLOCK_MONOTONIC, &tic);
@@ -299,11 +327,18 @@ void TensorCrossCorrelator::threadEntry()
         const int channel = buffer->channel;
         const unsigned read_samples = buffer->read_samples;
         const unsigned nof_packets = buffer->nof_packets;
-        const size_t sample_bytes = (size_t)nof_samples * nof_antennas * nof_pols * sizeof(uint16_t);
         const size_t vis_bytes = sizeof(VisT) * visExt_.size;
 
+        // Copy the tail not yet streamed, then launch the kernel
         stream_.record(eH2D0);
-        stream_.memcpyHtoDAsync(devSamples_, buffer->data, sample_bytes);
+        if (streamed_m < total_m)
+        {
+            const CUdeviceptr dev_base = devSamples_;
+            stream_.memcpyHtoDAsync(
+                dev_base + streamed_m * m_stride_bytes,
+                reinterpret_cast<const uint8_t *>(buffer->data) + streamed_m * m_stride_bytes,
+                (total_m - streamed_m) * m_stride_bytes);
+        }
         stream_.record(eH2D1);
 
         stream_.record(eK0);
@@ -341,10 +376,12 @@ void TensorCrossCorrelator::threadEntry()
         }
 
         LOG(INFO,
-            "TCC ch=%d | H2D=%.3f ms | kern=%.3f ms | D2H=%.3f ms "
-            "(samples=%u, packets=%u, bytes=%.2f MiB)",
+            "TCC ch=%d | tail-H2D=%.3f ms | kern=%.3f ms | D2H=%.3f ms "
+            "(samples=%u, packets=%u, streamed=%.2f MiB, tail=%.2f MiB)",
             channel,
             h2d_ms, kern_ms, d2h_ms,
-            read_samples, nof_packets, sample_bytes / (1024.0 * 1024.0));
+            read_samples, nof_packets,
+            (double)(streamed_m * m_stride_bytes) / (1024.0 * 1024.0),
+            (double)((total_m - streamed_m) * m_stride_bytes) / (1024.0 * 1024.0));
     }
 }

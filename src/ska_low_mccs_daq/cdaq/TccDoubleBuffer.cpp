@@ -19,6 +19,9 @@ TccDoubleBuffer::TccDoubleBuffer(uint16_t na, uint32_t ns,
         double_buffer[i].data = static_cast<uint16_t *>((void *)*mem);
         pinned_.push_back(std::move(mem)); // make sure the memory isn't freed when we leave scope.
     }
+
+    // Value-initialise all watermarks to 0
+    antenna_hi_ = std::make_unique<std::atomic<uint32_t>[]>((size_t)nbuffers * nof_antennas);
 }
 
 inline void TccDoubleBuffer::copy_data(uint32_t producer_index,
@@ -33,7 +36,7 @@ inline void TccDoubleBuffer::copy_data(uint32_t producer_index,
 
     uint16_t* base = double_buffer[producer_index].data;
     uint64_t m       = start_sample_index >> 4;
-    uint32_t blocks  = samples >> 4;  
+    uint32_t blocks  = samples >> 4;
 
     for (uint32_t b = 0; b < blocks; ++b, ++m)
     {
@@ -63,6 +66,16 @@ inline void TccDoubleBuffer::copy_data(uint32_t producer_index,
         data_ptr += times_per_block * src_stride;
     }
 
+    // Advance per-antenna watermarks so the consumer can stream completed rows
+    const uint32_t final_m = static_cast<uint32_t>(start_sample_index >> 4) + blocks;
+    for (uint16_t j = 0; j < nof_included_antennas; ++j)
+    {
+        auto &hi = antenna_hi_[(size_t)producer_index * nof_antennas + start_antenna + j];
+        uint32_t cur = hi.load(std::memory_order_relaxed);
+        if (final_m > cur)
+            hi.store(final_m, std::memory_order_release);
+    }
+
     if (start_antenna == 0)
         this->double_buffer[producer_index].read_samples += samples;
     this->double_buffer[producer_index].nof_packets++;
@@ -70,4 +83,24 @@ inline void TccDoubleBuffer::copy_data(uint32_t producer_index,
     if (this->double_buffer[producer_index].ref_time > timestamp ||
         this->double_buffer[producer_index].ref_time == 0)
         this->double_buffer[producer_index].ref_time = timestamp;
+}
+
+void TccDoubleBuffer::release_buffer()
+{
+    DoubleBuffer::release_buffer(); // advances consumer to the next slot
+    // Zero watermarks for the newly-current slot before the consumer thread
+    // can call safe_m() and read stale values from the previous fill.
+    for (uint16_t r = 0; r < nof_antennas; ++r)
+        antenna_hi_[(size_t)consumer * nof_antennas + r].store(0, std::memory_order_relaxed);
+}
+
+uint32_t TccDoubleBuffer::safe_m(int buf_idx) const
+{
+    uint32_t min_m = antenna_hi_[(size_t)buf_idx * nof_antennas].load(std::memory_order_acquire);
+    for (uint16_t r = 1; r < nof_antennas; ++r)
+    {
+        uint32_t val = antenna_hi_[(size_t)buf_idx * nof_antennas + r].load(std::memory_order_acquire);
+        if (val < min_m) min_m = val;
+    }
+    return min_m;
 }
