@@ -11,16 +11,17 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
 {
     cu::init();
     // Check that all required keys are present
-    if (!(key_in_json(configuration, "nof_antennas")) &&
-        (key_in_json(configuration, "nof_channels")) &&
-        (key_in_json(configuration, "nof_fine_channels")) &&
-        (key_in_json(configuration, "nof_tiles")) &&
-        (key_in_json(configuration, "nof_samples")) &&
-        (key_in_json(configuration, "nof_pols")) &&
-        (key_in_json(configuration, "max_packet_size")))
+    if (!(key_in_json(configuration, "nof_antennas") &&
+          key_in_json(configuration, "nof_channels") &&
+          key_in_json(configuration, "nof_fine_channels") &&
+          key_in_json(configuration, "nof_tiles") &&
+          key_in_json(configuration, "nof_active_tiles") &&
+          key_in_json(configuration, "nof_samples") &&
+          key_in_json(configuration, "nof_pols") &&
+          key_in_json(configuration, "max_packet_size")))
     {
         LOG(FATAL, "Missing configuration item for TensorCorrelatorData consumer. Requires "
-                   "nof_antennas, nof_samples, nof_tiles, nof_pols, nof_channels, "
+                   "nof_antennas, nof_samples, nof_tiles, nof_active_tiles, nof_pols, nof_channels, "
                    "nof_fine_channels and max_packet_size");
         return false;
     }
@@ -33,13 +34,21 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     this->nof_pols = configuration["nof_pols"];
     this->packet_size = configuration["max_packet_size"];
     uint32_t nof_fine_channels = configuration["nof_fine_channels"];
+    uint16_t nof_active_tiles = configuration["nof_active_tiles"];
+
+    if (nof_active_tiles > this->nof_tiles)
+    {
+        LOG(FATAL, "nof_active_tiles (%u) > nof_tiles (%u)", (unsigned)nof_active_tiles, (unsigned)this->nof_tiles);
+        return false;
+    }
 
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t)32768 * this->nof_tiles);
 
     // Create cross-correlator and start
     cross_correlator = new TensorCrossCorrelator(nof_fine_channels,
-                                                 nof_tiles * nof_antennas, nof_samples, nof_pols);
+                                                 nof_tiles * nof_antennas, nof_samples, nof_pols,
+                                                 nof_active_tiles * nof_antennas);
 
     double_buffer = cross_correlator->double_buffer;
 
@@ -236,6 +245,7 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
                                              uint16_t nof_antennas,
                                              uint32_t nof_samples,
                                              uint8_t nof_pols,
+                                             uint16_t nof_active_antennas,
                                              uint8_t nbuffers)
     : device_(0), // choose GPU 0
       context_(0, device_), // primary context on device 0
@@ -252,7 +262,7 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
 {
     context_.setCurrent();
 
-    double_buffer = new TccDoubleBuffer(nof_antennas, nof_samples, nof_pols, nbuffers);
+    double_buffer = new TccDoubleBuffer(nof_antennas, nof_samples, nof_pols, nof_active_antennas, nbuffers);
 
     constexpr tcc::Format fmt = tcc::Format::i8; // TPMs produce int8 complex
     const int TPB = 16;

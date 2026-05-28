@@ -6,8 +6,10 @@
 #include <cstdlib>
 
 TccDoubleBuffer::TccDoubleBuffer(uint16_t na, uint32_t ns,
-                                 uint8_t np, uint8_t nb)
-    : DoubleBuffer(na, ns, np, nb, false)
+                                 uint8_t np, uint16_t nof_active,
+                                 uint8_t nb)
+    : DoubleBuffer(na, ns, np, nb, false),
+      nof_active_antennas_(nof_active)
 {
     cu::init();
     const size_t bytes = (size_t)nof_samples * nof_antennas * nof_pols * sizeof(uint16_t);
@@ -83,21 +85,28 @@ inline void TccDoubleBuffer::copy_data(uint32_t producer_index,
     if (this->double_buffer[producer_index].ref_time > timestamp ||
         this->double_buffer[producer_index].ref_time == 0)
         this->double_buffer[producer_index].ref_time = timestamp;
+
+    // Mark ready as soon as every antenna has written every m-block, so the
+    // consumer doesn't wait for the next-next channel's packets to arrive.
+    if (safe_m(producer_index) == nof_samples / times_per_block)
+        this->double_buffer[producer_index].ready = true;
 }
 
 void TccDoubleBuffer::release_buffer()
 {
-    DoubleBuffer::release_buffer(); // advances consumer to the next slot
-    // Zero watermarks for the newly-current slot before the consumer thread
-    // can call safe_m() and read stale values from the previous fill.
+    // Zero this slot's watermarks before returning it to the pool so the
+    // next reuse (4 integrations later) doesn't see stale total_m values
+    // and trigger a premature early-completion on the very first packet.
     for (uint16_t r = 0; r < nof_antennas; ++r)
         antenna_hi_[(size_t)consumer * nof_antennas + r].store(0, std::memory_order_relaxed);
+
+    DoubleBuffer::release_buffer(); // resets metadata and advances consumer
 }
 
 uint32_t TccDoubleBuffer::safe_m(int buf_idx) const
 {
     uint32_t min_m = antenna_hi_[(size_t)buf_idx * nof_antennas].load(std::memory_order_acquire);
-    for (uint16_t r = 1; r < nof_antennas; ++r)
+    for (uint16_t r = 1; r < nof_active_antennas_; ++r)
     {
         uint32_t val = antenna_hi_[(size_t)buf_idx * nof_antennas + r].load(std::memory_order_acquire);
         if (val < min_m) min_m = val;

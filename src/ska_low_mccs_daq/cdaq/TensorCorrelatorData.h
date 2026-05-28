@@ -44,6 +44,7 @@ public:
                           uint16_t nof_antennas,
                           uint32_t nof_samples,
                           uint8_t nof_pols,
+                          uint16_t nof_active_antennas,
                           uint8_t nbuffers = 4);
     ~TensorCrossCorrelator() override;
     TccDoubleBuffer *double_buffer;

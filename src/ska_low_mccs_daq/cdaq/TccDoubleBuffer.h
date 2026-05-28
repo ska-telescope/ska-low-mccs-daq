@@ -11,8 +11,12 @@
 class TccDoubleBuffer final : public DoubleBuffer
 {
 public:
+  // nof_active_antennas: how many antennas will actually send packets this
+  // integration. Set lower than nof_antennas when profiling with fewer TPMs
+  // than configured so safe_m() only waits for the antennas that will arrive.
   TccDoubleBuffer(uint16_t nof_antennas, uint32_t nof_samples,
-                  uint8_t nof_pols, uint8_t nbuffers = 4);
+                  uint8_t nof_pols, uint16_t nof_active_antennas,
+                  uint8_t nbuffers = 4);
 
   // Returns the highest M-block index such that every antenna has written
   // all M-blocks [0, safe_m) into buf_idx. Safe to H2D-copy up to this point.
@@ -21,6 +25,7 @@ public:
   // Resets watermarks for the newly-exposed consumer slot so safe_m() cannot
   // return stale values from the previous fill of this ring-buffer slot.
   void release_buffer() override;
+
 
 protected:
   void copy_data(uint32_t producer_index,
@@ -35,4 +40,7 @@ private:
   // antenna_hi_[buf * nof_antennas + r] = highest M-block (+1) written for
   // antenna r in buffer slot buf. Used to compute the H2D streaming watermark.
   std::unique_ptr<std::atomic<uint32_t>[]> antenna_hi_;
+
+  // Number of antennas expected to send packets; safe_m() ranges over [0, nof_active_antennas_).
+  uint16_t nof_active_antennas_;
 };
