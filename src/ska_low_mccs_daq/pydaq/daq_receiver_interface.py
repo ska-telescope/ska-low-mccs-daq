@@ -234,6 +234,7 @@ class DaqReceiver:
             "nof_channel_samples": 1024,
             "nof_correlator_samples": 1835008,
             "nof_correlator_channels": 1,
+            "nof_correlator_splits": 2,
             "continuous_period": 0,
             "nof_beam_samples": 42,
             "nof_beam_channels": 384,
@@ -1543,6 +1544,7 @@ class DaqReceiver:
             "nof_tiles": self._config["nof_tiles"],
             "nof_pols": self._config["nof_polarisations"],
             "max_packet_size": self._config["receiver_frame_size"],
+            "nof_splits": self._config["nof_correlator_splits"],
         }
 
         if (

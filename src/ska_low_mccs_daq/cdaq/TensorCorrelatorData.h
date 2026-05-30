@@ -45,6 +45,7 @@ public:
                           uint32_t nof_samples,
                           uint8_t nof_pols,
                           uint16_t nof_active_antennas,
+                          uint8_t nof_splits = 1,
                           uint8_t nbuffers = 4);
     ~TensorCrossCorrelator() override;
     TccDoubleBuffer *double_buffer;
@@ -61,6 +62,9 @@ private:
     cu::Device device_;
     cu::Context context_;
     cu::Stream stream_;
+
+    // nof_splits_ must precede samplesExt_ (init-list order = declaration order)
+    uint8_t nof_splits_;
 
     // Extents next (sizes used by buffers)
     multi_array::extent<5> samplesExt_;

@@ -35,6 +35,7 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     this->packet_size = configuration["max_packet_size"];
     uint32_t nof_fine_channels = configuration["nof_fine_channels"];
     uint16_t nof_active_tiles = configuration["nof_active_tiles"];
+    uint8_t nof_splits = configuration.contains("nof_splits") ? (uint8_t)configuration["nof_splits"] : 1;
 
     if (nof_active_tiles > this->nof_tiles)
     {
@@ -48,7 +49,7 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     // Create cross-correlator and start
     cross_correlator = new TensorCrossCorrelator(nof_fine_channels,
                                                  nof_tiles * nof_antennas, nof_samples, nof_pols,
-                                                 nof_active_tiles * nof_antennas);
+                                                 nof_active_tiles * nof_antennas, nof_splits);
 
     double_buffer = cross_correlator->double_buffer;
 
@@ -246,11 +247,13 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
                                              uint32_t nof_samples,
                                              uint8_t nof_pols,
                                              uint16_t nof_active_antennas,
+                                             uint8_t nof_splits,
                                              uint8_t nbuffers)
-    : device_(0), // choose GPU 0
-      context_(0, device_), // primary context on device 0
+    : device_(0),
+      context_(0, device_),
       stream_(),
-      samplesExt_(multi_array::extents[1][nof_samples / 16][nof_antennas][nof_pols][16]),
+      nof_splits_(nof_splits),
+      samplesExt_(multi_array::extents[1][nof_samples / nof_splits / 16][nof_antennas][nof_pols][16]),
       visExt_(multi_array::extents[1][(nof_antennas * (nof_antennas + 1)) / 2][nof_pols][nof_pols]),
       hostVis_(sizeof(VisT) * visExt_.size, 0),
       devSamples_(sizeof(SampleT) * samplesExt_.size), devVis_(sizeof(VisT) * visExt_.size),
@@ -258,24 +261,23 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
       nof_antennas(nof_antennas),
       nof_samples(nof_samples),
       nof_pols(nof_pols)
-
 {
     context_.setCurrent();
 
     double_buffer = new TccDoubleBuffer(nof_antennas, nof_samples, nof_pols, nof_active_antennas, nbuffers);
 
-    constexpr tcc::Format fmt = tcc::Format::i8; // TPMs produce int8 complex
-    const int TPB = 16;
-    if (nof_samples % TPB != 0)
-    {
-        LOG(FATAL, "nof_samples (%u) must be divisible by %d", nof_samples, TPB);
-    }
+    constexpr tcc::Format fmt = tcc::Format::i8;
+    const uint32_t samples_per_split = nof_samples / nof_splits;
+    if (nof_samples % nof_splits != 0)
+        LOG(FATAL, "nof_samples (%u) must be divisible by nof_splits (%u)", nof_samples, (unsigned)nof_splits);
+    if (samples_per_split % 16 != 0)
+        LOG(FATAL, "nof_samples/nof_splits (%u) must be divisible by 16", samples_per_split);
 
     correlator_ = std::make_unique<tcc::Correlator>(
         device_, fmt,
         /*nrReceivers*/ nof_antennas,
         /*nrChannels*/ 1,
-        /*nrSamplesPerChannel*/ nof_samples,
+        /*nrSamplesPerChannel*/ samples_per_split,
         /*nrPolarizations*/ nof_pols);
 }
 
@@ -293,20 +295,20 @@ void TensorCrossCorrelator::threadEntry()
     cu::Event eK0,   eK1;
     cu::Event eD2H0, eD2H1;
 
-    // Pre-compute stable values used every integration
     const size_t total_m = nof_samples / 16;
+    const size_t split_m = total_m / nof_splits_;
     const size_t m_stride_bytes = (size_t)nof_antennas * nof_pols * 16 * sizeof(SampleT);
-    // Minimum batch size for each incremental H2D copy (~4 MiB keeps DMA efficient)
     const size_t batch_m = std::max(size_t(1), (4UL * 1024 * 1024) / m_stride_bytes);
 
     while (!this->stop_thread)
     {
         Buffer *buffer;
-        size_t streamed_m = 0;
+        uint8_t split = 0;
+        size_t split_streamed = 0; // M-blocks H2D'd for the current split
 
-        // While waiting for the buffer to be marked ready, stream completed
-        // M-block rows to the GPU in batches so the bulk of the H2D transfer
-        // is spread across the integration window rather than bursting at the end.
+        // Stream completed M-blocks into the current split's device region while
+        // the host buffer is still filling. When a non-final split is fully loaded,
+        // fire its kernel immediately and move on to the next split.
         do
         {
             buffer = double_buffer->read_buffer();
@@ -316,17 +318,29 @@ void TensorCrossCorrelator::threadEntry()
             if (buffer == nullptr)
             {
                 const int slot = double_buffer->get_consumer();
-                const size_t safe = double_buffer->safe_m(slot);
-                if (safe >= streamed_m + batch_m)
+                const size_t global_safe = double_buffer->safe_m(slot);
+                const size_t split_start = (size_t)split * split_m;
+                const size_t split_available = (global_safe > split_start)
+                    ? std::min(global_safe - split_start, split_m)
+                    : 0;
+
+                if (split_available >= split_streamed + batch_m)
                 {
-                    const CUdeviceptr dev_base = devSamples_;
                     const uint8_t *host_base =
                         reinterpret_cast<const uint8_t *>(double_buffer->get_buffer_pointer(slot)->data);
                     stream_.memcpyHtoDAsync(
-                        dev_base + streamed_m * m_stride_bytes,
-                        host_base + streamed_m * m_stride_bytes,
-                        (safe - streamed_m) * m_stride_bytes);
-                    streamed_m = safe;
+                        (CUdeviceptr)devSamples_ + split_streamed * m_stride_bytes,
+                        host_base + (split_start + split_streamed) * m_stride_bytes,
+                        (split_available - split_streamed) * m_stride_bytes);
+                    split_streamed = split_available;
+                }
+
+                // Non-final split fully streamed: correlate and advance
+                if (split_streamed == split_m && split + 1 < nof_splits_)
+                {
+                    correlator_->launchAsync(stream_, devVis_, devSamples_, split > 0);
+                    split++;
+                    split_streamed = 0;
                 }
             }
         } while (buffer == nullptr);
@@ -339,21 +353,27 @@ void TensorCrossCorrelator::threadEntry()
         const unsigned nof_packets = buffer->nof_packets;
         const size_t vis_bytes = sizeof(VisT) * visExt_.size;
 
-        // Copy the tail not yet streamed, then launch the kernel
+        // Buffer is ready: drain remaining splits. Each iteration copies the tail
+        // not yet streamed for that split, fires the kernel, then the loop advances.
         stream_.record(eH2D0);
-        if (streamed_m < total_m)
+        for (; split < nof_splits_; split++)
         {
-            const CUdeviceptr dev_base = devSamples_;
-            stream_.memcpyHtoDAsync(
-                dev_base + streamed_m * m_stride_bytes,
-                reinterpret_cast<const uint8_t *>(buffer->data) + streamed_m * m_stride_bytes,
-                (total_m - streamed_m) * m_stride_bytes);
-        }
-        stream_.record(eH2D1);
+            const size_t split_start = (size_t)split * split_m;
+            if (split_streamed < split_m)
+            {
+                stream_.memcpyHtoDAsync(
+                    (CUdeviceptr)devSamples_ + split_streamed * m_stride_bytes,
+                    reinterpret_cast<const uint8_t *>(buffer->data) + (split_start + split_streamed) * m_stride_bytes,
+                    (split_m - split_streamed) * m_stride_bytes);
+            }
+            stream_.record(eH2D1);
 
-        stream_.record(eK0);
-        correlator_->launchAsync(stream_, devVis_, devSamples_, false);
-        stream_.record(eK1);
+            stream_.record(eK0);
+            correlator_->launchAsync(stream_, devVis_, devSamples_, split > 0);
+            stream_.record(eK1);
+
+            split_streamed = 0;
+        }
 
         stream_.record(eD2H0);
         stream_.memcpyDtoHAsync(hostVis_, devVis_, vis_bytes);
@@ -361,15 +381,13 @@ void TensorCrossCorrelator::threadEntry()
 
         stream_.synchronize();
 
-        // Read GPU timings (ms) from device timeline
+        // eH2D1/eK0/eK1 reflect the last split; eH2D0 is before all tail work
         float h2d_ms = eH2D1.elapsedTime(eH2D0);
         float kern_ms = eK1.elapsedTime(eK0);
         float d2h_ms = eD2H1.elapsedTime(eD2H0);
 
-        // Release buffer back to producer
         double_buffer->release_buffer();
 
-        // Callback
         clock_gettime(CLOCK_MONOTONIC, &toc);
         if (callback != nullptr)
         {
@@ -386,12 +404,9 @@ void TensorCrossCorrelator::threadEntry()
         }
 
         LOG(INFO,
-            "TCC ch=%d | tail-H2D=%.3f ms | kern=%.3f ms | D2H=%.3f ms "
-            "(samples=%u, packets=%u, streamed=%.2f MiB, tail=%.2f MiB)",
-            channel,
-            h2d_ms, kern_ms, d2h_ms,
-            read_samples, nof_packets,
-            (double)(streamed_m * m_stride_bytes) / (1024.0 * 1024.0),
-            (double)((total_m - streamed_m) * m_stride_bytes) / (1024.0 * 1024.0));
+            "TCC ch=%d | tail-H2D=%.3f ms | last-kern=%.3f ms | D2H=%.3f ms "
+            "(samples=%u, packets=%u, splits=%u)",
+            channel, h2d_ms, kern_ms, d2h_ms,
+            read_samples, nof_packets, (unsigned)nof_splits_);
     }
 }
