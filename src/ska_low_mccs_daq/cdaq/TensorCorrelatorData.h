@@ -78,11 +78,20 @@ private:
     std::unique_ptr<tcc::Correlator> correlator_;
     DataCallbackDynamic callback{nullptr};
 
+    // Streaming helpers
+    void copy_tail(const uint8_t *host_base, size_t split_start, size_t from, size_t to);
+    void try_stream_partial(uint8_t &split, size_t &split_streamed);
+
     // config
     uint32_t nof_channels;
     uint16_t nof_antennas;
     uint32_t nof_samples;
     uint8_t nof_pols;
+
+    // precomputed streaming constants
+    size_t split_m_;
+    size_t m_stride_bytes_;
+    size_t batch_m_;
 
     struct timespec tic{}, toc{};
 };
