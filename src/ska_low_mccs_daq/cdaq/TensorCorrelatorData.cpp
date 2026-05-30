@@ -316,7 +316,8 @@ void TensorCrossCorrelator::try_stream_partial(uint8_t &split, size_t &split_str
         ? std::min(global_safe - split_start, split_m_)
         : 0;
 
-    if (split_available >= split_streamed + batch_m_)
+    if (split_available > split_streamed &&
+        (split_available - split_streamed >= batch_m_ || split_available == split_m_))
     {
         const uint8_t *host_base =
             reinterpret_cast<const uint8_t *>(double_buffer->get_buffer_pointer(slot)->data);
