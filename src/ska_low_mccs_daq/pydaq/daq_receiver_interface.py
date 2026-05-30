@@ -234,7 +234,8 @@ class DaqReceiver:
             "nof_channel_samples": 1024,
             "nof_correlator_samples": 1835008,
             "nof_correlator_channels": 1,
-            "nof_correlator_splits": 2,
+            "nof_correlator_splits": None,
+            "nof_correlator_buffers": 4,
             "nof_correlator_active_tiles": None,
             "continuous_period": 0,
             "nof_beam_samples": 42,
@@ -1545,9 +1546,11 @@ class DaqReceiver:
             "nof_tiles": self._config["nof_tiles"],
             "nof_pols": self._config["nof_polarisations"],
             "max_packet_size": self._config["receiver_frame_size"],
-            "nof_splits": self._config["nof_correlator_splits"],
             "nof_active_tiles": self._config["nof_correlator_active_tiles"] or self._config["nof_tiles"],
+            "nbuffers": self._config["nof_correlator_buffers"],
         }
+        if self._config["nof_correlator_splits"] is not None:
+            params["nof_splits"] = self._config["nof_correlator_splits"]
 
         if (
             self._start_consumer(

@@ -54,10 +54,16 @@
             "description": "Number of channels to channelise into before correlation; used only in correlator mode"
         },
         "nof_correlator_splits": {
-            "type": "integer",
-            "default": 2,
+            "type": ["integer", "null"],
+            "default": null,
             "minimum": 1,
-            "description": "Number of segments to divide each integration into for GPU streaming; higher values reduce peak GPU memory and SM contention at the cost of more kernel launches"
+            "description": "Number of segments to divide each integration into for GPU streaming; higher values reduce peak GPU memory and overlap H2D transfers with kernel execution. If null, auto-selected as the maximum useful value (one DMA batch of ~4 MiB per split)."
+        },
+        "nof_correlator_buffers": {
+            "type": "integer",
+            "default": 4,
+            "minimum": 2,
+            "description": "Number of host-side double-buffer slots for the TC correlator; fewer buffers reduce RAM usage, enabling longer integrations (each slot is nof_correlator_samples × nof_antennas × nof_tiles × nof_polarisations × 2 bytes). Must be at least 2 to allow producer and consumer to work concurrently."
         },
         "nof_correlator_active_tiles": {
             "type": ["integer", "null"],

@@ -35,7 +35,29 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     this->packet_size = configuration["max_packet_size"];
     uint32_t nof_fine_channels = configuration["nof_fine_channels"];
     uint16_t nof_active_tiles = configuration["nof_active_tiles"];
-    uint8_t nof_splits = configuration.count("nof_splits") ? (uint8_t)configuration["nof_splits"] : 1;
+    uint8_t nbuffers = configuration.count("nbuffers") ? (uint8_t)configuration["nbuffers"] : 4;
+    if (nbuffers < 2)
+    {
+        LOG(FATAL, "nbuffers (%u) must be >= 2", (unsigned)nbuffers);
+        return false;
+    }
+
+    uint16_t nof_splits;
+    if (configuration.count("nof_splits"))
+    {
+        nof_splits = (uint16_t)configuration["nof_splits"];
+    }
+    else
+    {
+        // Each split should be at least one DMA batch (~4 MiB) so H2D streaming
+        // overlaps meaningfully with kernel execution.
+        const size_t m_stride = (size_t)nof_tiles * nof_antennas * nof_pols * 16 * sizeof(uint16_t);
+        const size_t batch_m  = std::max(size_t(1), (4UL * 1024 * 1024) / m_stride);
+        const size_t total_m  = this->nof_samples / 16;
+        nof_splits = (uint16_t)std::max(size_t(1), total_m / batch_m);
+        LOG(INFO, "nof_splits not specified: auto-selected %u (batch_m=%zu, total_m=%zu)",
+            (unsigned)nof_splits, batch_m, total_m);
+    }
 
     if (nof_active_tiles == 0 || nof_active_tiles > this->nof_tiles)
     {
@@ -55,7 +77,7 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     // Create cross-correlator and start
     cross_correlator = new TensorCrossCorrelator(nof_fine_channels,
                                                  nof_tiles * nof_antennas, nof_samples, nof_pols,
-                                                 nof_active_tiles * nof_antennas, nof_splits);
+                                                 nof_active_tiles * nof_antennas, nof_splits, nbuffers);
 
     double_buffer = cross_correlator->double_buffer;
 
@@ -253,7 +275,7 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
                                              uint32_t nof_samples,
                                              uint8_t nof_pols,
                                              uint16_t nof_active_antennas,
-                                             uint8_t nof_splits,
+                                             uint16_t nof_splits,
                                              uint8_t nbuffers)
     : device_(0),
       context_(0, device_),
@@ -307,7 +329,7 @@ void TensorCrossCorrelator::copy_tail(const uint8_t *host_base, size_t split_sta
         (to - from) * m_stride_bytes_);
 }
 
-void TensorCrossCorrelator::try_stream_partial(uint8_t &split, size_t &split_streamed)
+void TensorCrossCorrelator::try_stream_partial(uint16_t &split, size_t &split_streamed)
 {
     const int slot = double_buffer->get_consumer();
     const size_t global_safe = double_buffer->safe_m(slot);
@@ -344,7 +366,7 @@ void TensorCrossCorrelator::threadEntry()
     while (!this->stop_thread)
     {
         Buffer *buffer;
-        uint8_t split = 0;
+        uint16_t split = 0;
         size_t split_streamed = 0;
 
         do
