@@ -35,11 +35,17 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     this->packet_size = configuration["max_packet_size"];
     uint32_t nof_fine_channels = configuration["nof_fine_channels"];
     uint16_t nof_active_tiles = configuration["nof_active_tiles"];
-    uint8_t nof_splits = configuration.contains("nof_splits") ? (uint8_t)configuration["nof_splits"] : 1;
+    uint8_t nof_splits = configuration.count("nof_splits") ? (uint8_t)configuration["nof_splits"] : 1;
 
-    if (nof_active_tiles > this->nof_tiles)
+    if (nof_active_tiles == 0 || nof_active_tiles > this->nof_tiles)
     {
-        LOG(FATAL, "nof_active_tiles (%u) > nof_tiles (%u)", (unsigned)nof_active_tiles, (unsigned)this->nof_tiles);
+        LOG(FATAL, "nof_active_tiles (%u) must be in [1, nof_tiles=%u]", (unsigned)nof_active_tiles, (unsigned)this->nof_tiles);
+        return false;
+    }
+
+    if (nof_splits == 0)
+    {
+        LOG(FATAL, "nof_splits must be >= 1");
         return false;
     }
 

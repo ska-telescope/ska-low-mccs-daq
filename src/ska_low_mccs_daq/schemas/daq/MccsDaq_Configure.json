@@ -53,6 +53,18 @@
             "default": 1,
             "description": "Number of channels to channelise into before correlation; used only in correlator mode"
         },
+        "nof_correlator_splits": {
+            "type": "integer",
+            "default": 2,
+            "minimum": 1,
+            "description": "Number of segments to divide each integration into for GPU streaming; higher values reduce peak GPU memory and SM contention at the cost of more kernel launches"
+        },
+        "nof_correlator_active_tiles": {
+            "type": ["integer", "null"],
+            "default": null,
+            "minimum": 1,
+            "description": "Number of tiles expected to send packets this integration; defaults to nof_tiles. Set lower than nof_tiles when profiling with fewer TPMs than configured"
+        },
         "continuous_period": {
             "type": "integer",
             "default": 0,
