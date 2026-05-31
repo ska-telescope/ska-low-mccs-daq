@@ -218,8 +218,10 @@ class DaqReceiver:
     # Define logging callback wrapper
     LOGGER_CALLBACK = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p)
 
-    def __init__(self) -> None:
-        """Class constructor"""
+    def __init__(self, logger: Optional[logging.Logger] = None) -> None:
+        """Class constructor
+        :param logger: Logger to use; if None falls back to the module logger."""
+        self._logger = logger or logging.getLogger(__name__)
 
         # Configuration directory containing defaults for all possible parameter
         # These parameters can be overridden
@@ -369,7 +371,7 @@ class DaqReceiver:
         if self._external_diagnostic_callback is not None:
             self._external_diagnostic_callback(**diagnostics)
         elif self._config["logging"]:
-            logging.debug(
+            self._logger.debug(
                 "Received diagnostic data - occupancy: {}, lost: {}".format(
                     diagnostic.ringbuffer_occupancy, diagnostic.lost_pushes
                 )
@@ -413,7 +415,7 @@ class DaqReceiver:
             to_check = to_check.astype(int)
             rms = np.sqrt(np.mean(to_check**2, axis=1)).flatten()
             if not any(rms > self._config["raw_rms_threshold"]):
-                logging.info("RMS checking enabled, threshold not exceeded, not saving")
+                self._logger.info("RMS checking enabled, threshold not exceeded, not saving")
                 return
 
         # Persist extracted data to file
@@ -428,7 +430,7 @@ class DaqReceiver:
             )
 
         if self._config["logging"]:
-            logging.info("Received raw data for tile {}".format(tile))
+            self._logger.info("Received raw data for tile {}".format(tile))
 
     def _channel_data_callback(
         self,
@@ -458,11 +460,11 @@ class DaqReceiver:
             if tile not in list(self._buffer_counter.keys()):
                 self._buffer_counter[tile] = 1
                 if tile == 0:
-                    logging.info("Ignoring first buffer of continuous channel data")
+                    self._logger.info("Ignoring first buffer of continuous channel data")
                 return
             elif self._buffer_counter[tile] < 2:
                 if tile == 0:
-                    logging.info(
+                    self._logger.info(
                         "Ignoring additional buffer of continuous channel data"
                     )
                 self._buffer_counter[tile] += 1
@@ -544,7 +546,7 @@ class DaqReceiver:
                 )
 
             if self._config["logging"]:
-                logging.info(
+                self._logger.info(
                     "Received continuous channel data for tile {} - channel {}".format(
                         tile, channel_id
                     )
@@ -620,7 +622,7 @@ class DaqReceiver:
                     )
 
             if self._config["logging"]:
-                logging.info(
+                self._logger.info(
                     "Received integrated channel data for tile {}".format(tile)
                 )
 
@@ -644,7 +646,7 @@ class DaqReceiver:
                 )
 
             if self._config["logging"]:
-                logging.info("Received burst channel data for tile {}".format(tile))
+                self._logger.info("Received burst channel data for tile {}".format(tile))
 
     def _channel_burst_data_callback(
         self,
@@ -730,7 +732,7 @@ class DaqReceiver:
             )
 
         if self._config["logging"]:
-            logging.info("Received beam data for tile {}".format(tile))
+            self._logger.info("Received beam data for tile {}".format(tile))
 
     def _beam_integrated_data_callback(
         self,
@@ -779,7 +781,7 @@ class DaqReceiver:
         )
 
         if self._config["logging"]:
-            logging.info("Received integrated beam data for tile {}".format(tile))
+            self._logger.info("Received integrated beam data for tile {}".format(tile))
 
         # Call external callback if defined
         if self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] is not None:
@@ -878,7 +880,7 @@ class DaqReceiver:
             )
 
         if self._config["logging"]:
-            logging.info("Received correlated data for channel {}".format(channel_id))
+            self._logger.info("Received correlated data for channel {}".format(channel_id))
 
     def _tc_correlator_callback(
         self,
@@ -986,7 +988,7 @@ class DaqReceiver:
             )
 
         if self._config["logging"]:
-            logging.info("Received correlated data for channel {}".format(channel_id))
+            self._logger.info("Received correlated data for channel {}".format(channel_id))
 
     def _station_callback(
         self,
@@ -1005,10 +1007,10 @@ class DaqReceiver:
 
         if "station" not in list(self._buffer_counter.keys()):
             self._buffer_counter["station"] = 1
-            logging.info("Ignoring first integration for station")
+            self._logger.info("Ignoring first integration for station")
             return
         elif self._buffer_counter["station"] < 2:
-            logging.info("Ignoring second integration for station")
+            self._logger.info("Ignoring second integration for station")
             self._buffer_counter["station"] += 1
             return
 
@@ -1048,7 +1050,7 @@ class DaqReceiver:
             )
 
         if self._config["logging"]:
-            logging.info(
+            self._logger.info(
                 "Received station beam data (nof saturations: {}, nof_packets: {})".format(
                     nof_saturations, nof_packets
                 )
@@ -1103,7 +1105,7 @@ class DaqReceiver:
             )
 
         if self._config["logging"]:
-            logging.info("Received antenna buffer data for tile {}".format(tile))
+            self._logger.info("Received antenna buffer data for tile {}".format(tile))
 
     def _raw_station_callback(
         self,
@@ -1150,7 +1152,7 @@ class DaqReceiver:
             )
             != self.Result.Success
         ):
-            logging.info("Failed to start raw data consumer")
+            self._logger.info("Failed to start raw data consumer")
             raise Exception("Failed to start raw data consumer")
         self._running_consumers[DaqModes.RAW_DATA] = True
 
@@ -1173,7 +1175,7 @@ class DaqReceiver:
         # Set external callback
         self._external_callbacks[DaqModes.RAW_DATA] = callback
 
-        logging.info("Started raw data consumer")
+        self._logger.info("Started raw data consumer")
 
     def _start_channel_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """Start channel data consumer
@@ -1228,7 +1230,7 @@ class DaqReceiver:
         self._external_callbacks[DaqModes.CHANNEL_DATA] = callback
 
         if self._config["logging"]:
-            logging.info("Started channel data consumer")
+            self._logger.info("Started channel data consumer")
 
     def _start_continuous_channel_data_consumer(
         self, callback: Optional[Callable] = None
@@ -1300,7 +1302,7 @@ class DaqReceiver:
         # Set external callback
         self._external_callbacks[DaqModes.CONTINUOUS_CHANNEL_DATA] = callback
 
-        logging.info("Started continuous channel data consumer")
+        self._logger.info("Started continuous channel data consumer")
 
     def _start_integrated_channel_data_consumer(
         self, callback: Optional[Callable] = None, bandpass_mode: bool = False
@@ -1366,7 +1368,7 @@ class DaqReceiver:
         # Set bandpass mode directly from parameter
         self._producing_bandpasses = bandpass_mode
 
-        logging.info("Started integrated channel data consumer")
+        self._logger.info("Started integrated channel data consumer")
 
     def _start_beam_data_consumer(self, callback: Optional[Callable] = None) -> None:
         """Start beam data consumer
@@ -1418,7 +1420,7 @@ class DaqReceiver:
         # Set external callback
         self._external_callbacks[DaqModes.BEAM_DATA] = callback
 
-        logging.info("Started beam data consumer")
+        self._logger.info("Started beam data consumer")
 
     def _start_integrated_beam_data_consumer(
         self, callback: Optional[Callable] = None
@@ -1477,7 +1479,7 @@ class DaqReceiver:
         # Set external callback
         self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] = callback
 
-        logging.info("Started integrated beam data consumer")
+        self._logger.info("Started integrated beam data consumer")
 
     def _start_station_beam_data_consumer(
         self, callback: Optional[Callable] = None
@@ -1530,7 +1532,7 @@ class DaqReceiver:
         # Set external callback
         self._external_callbacks[DaqModes.STATION_BEAM_DATA] = callback
 
-        logging.info("Started station beam data consumer")
+        self._logger.info("Started station beam data consumer")
 
     def _start_tc_correlator(self, callback: Optional[Callable] = None) -> None:
         """Start TC correlator
@@ -1599,7 +1601,7 @@ class DaqReceiver:
         # Set external callback
         self._external_callbacks[DaqModes.TC_CORRELATOR_DATA] = callback
 
-        logging.info("Started TC correlator")
+        self._logger.info("Started TC correlator")
 
     def _start_correlator(self, callback: Optional[Callable] = None) -> None:
         """Start correlator
@@ -1664,7 +1666,7 @@ class DaqReceiver:
         # Set external callback
         self._external_callbacks[DaqModes.CORRELATOR_DATA] = callback
 
-        logging.info("Started correlator")
+        self._logger.info("Started correlator")
 
     def _start_antenna_buffer_data_consumer(
         self, callback: Optional[Callable] = None
@@ -1690,7 +1692,7 @@ class DaqReceiver:
             )
             != self.Result.Success
         ):
-            logging.info("Failed to start antenna buffer consumer")
+            self._logger.info("Failed to start antenna buffer consumer")
             raise Exception("Failed to start antenna buffer consumer")
         self._running_consumers[DaqModes.ANTENNA_BUFFER] = True
 
@@ -1713,7 +1715,7 @@ class DaqReceiver:
         # Set external callback
         self._external_callbacks[DaqModes.ANTENNA_BUFFER] = callback
 
-        logging.info("Started antenna buffer consumer")
+        self._logger.info("Started antenna buffer consumer")
 
     def _start_station_beam_acquisition(self):
         """Start station beam acquisition using acquire_station_beam interface"""
@@ -1749,10 +1751,10 @@ class DaqReceiver:
 
         # Start capture
         if self._start_raw_station_acquisition(params) != self.Result.Success:
-            logging.error("Failed to start raw station beam capture")
+            self._logger.error("Failed to start raw station beam capture")
             raise Exception("Failed to start raw station beam capture")
         else:
-            logging.info(f"Started raw station beam capture with {params=}")
+            self._logger.info(f"Started raw station beam capture with {params=}")
 
         self._running_consumers[DaqModes.RAW_STATION_BEAM] = True
 
@@ -1763,7 +1765,7 @@ class DaqReceiver:
             raise Exception("Failed to stop raw data consumer")
         self._running_consumers[DaqModes.RAW_DATA] = False
 
-        logging.info("Stopped raw data consumer")
+        self._logger.info("Stopped raw data consumer")
 
     def _stop_channel_data_consumer(self) -> None:
         """Stop channel data consumer"""
@@ -1772,7 +1774,7 @@ class DaqReceiver:
             raise Exception("Failed to stop channel data consumer")
         self._running_consumers[DaqModes.CHANNEL_DATA] = False
 
-        logging.info("Stopped channel data consumer")
+        self._logger.info("Stopped channel data consumer")
 
     def _stop_continuous_channel_data_consumer(self):
         """Stop continuous channel data consumer"""
@@ -1781,7 +1783,7 @@ class DaqReceiver:
             raise Exception("Failed to stop continuous channel data consumer")
         self._running_consumers[DaqModes.CONTINUOUS_CHANNEL_DATA] = False
 
-        logging.info("Stopped continuous channel data consumer")
+        self._logger.info("Stopped continuous channel data consumer")
 
     def _stop_integrated_channel_data_consumer(self) -> None:
         """Stop integrated channel data consumer"""
@@ -1791,7 +1793,7 @@ class DaqReceiver:
             raise Exception("Failed to stop integrated channel data consumer")
         self._running_consumers[DaqModes.INTEGRATED_CHANNEL_DATA] = False
 
-        logging.info("Stopped integrated channel consumer")
+        self._logger.info("Stopped integrated channel consumer")
 
     def _stop_beam_data_consumer(self) -> None:
         """Stop beam data consumer"""
@@ -1800,7 +1802,7 @@ class DaqReceiver:
             raise Exception("Failed to stop beam data consumer")
         self._running_consumers[DaqModes.BEAM_DATA] = False
 
-        logging.info("Stopped beam data consumer")
+        self._logger.info("Stopped beam data consumer")
 
     def _stop_integrated_beam_data_consumer(self) -> None:
         """Stop integrated beam data consumer"""
@@ -1809,7 +1811,7 @@ class DaqReceiver:
             raise Exception("Failed to stop integrated beam data consumer")
         self._running_consumers[DaqModes.INTEGRATED_BEAM_DATA] = False
 
-        logging.info("Stopped integrated beam data consumer")
+        self._logger.info("Stopped integrated beam data consumer")
 
     def _stop_station_beam_data_consumer(self) -> None:
         """Stop beam data consumer"""
@@ -1818,7 +1820,7 @@ class DaqReceiver:
             raise Exception("Failed to stop station beam data consumer")
         self._running_consumers[DaqModes.STATION_BEAM_DATA] = False
 
-        logging.info("Stopped station beam data consumer")
+        self._logger.info("Stopped station beam data consumer")
 
     def _stop_tc_correlator(self) -> None:
         """Stop TC correlator consumer"""
@@ -1827,7 +1829,7 @@ class DaqReceiver:
             raise Exception("Failed to stop TC correlator")
         self._running_consumers[DaqModes.TC_CORRELATOR_DATA] = False
 
-        logging.info("Stopped TC correlator")
+        self._logger.info("Stopped TC correlator")
 
     def _stop_correlator(self) -> None:
         """Stop correlator consumer"""
@@ -1836,7 +1838,7 @@ class DaqReceiver:
             raise Exception("Failed to stop correlator")
         self._running_consumers[DaqModes.CORRELATOR_DATA] = False
 
-        logging.info("Stopped correlator")
+        self._logger.info("Stopped correlator")
 
     def _stop_antenna_buffer_consumer(self) -> None:
         """Stop antenna buffer consumer"""
@@ -1845,7 +1847,7 @@ class DaqReceiver:
             raise Exception("Failed to stop antenna buffer consumer")
         self._running_consumers[DaqModes.ANTENNA_BUFFER] = False
 
-        logging.info("Stopped antenna buffer consumer")
+        self._logger.info("Stopped antenna buffer consumer")
 
     def _stop_station_beam_acquisition(self):
         """Stop acquisition of raw station beam"""
@@ -1853,7 +1855,7 @@ class DaqReceiver:
             raise Exception("Failed to stop raw station beam acquisition")
         self._running_consumers[DaqModes.RAW_STATION_BEAM] = False
 
-        logging.info("Stopped station beam capture")
+        self._logger.info("Stopped station beam capture")
 
     # ------------------------------------- INITIALISATION -----------------------------------
 
@@ -1861,7 +1863,7 @@ class DaqReceiver:
         """Initialise the libraries for acquiring the raw station beam"""
 
         # Initialise AAVS DAQ library
-        logging.info("Initialising station beam libraries")
+        self._logger.info("Initialising station beam libraries")
 
         # Initialise the DAQ library
         self._initialise_library(filepath)
@@ -1876,11 +1878,11 @@ class DaqReceiver:
         """Initialise DAQ library"""
 
         # Remove any locks
-        logging.info("Removing locks on files in output directory")
+        self._logger.info("Removing locks on files in output directory")
         os.system("rm -fr %s/*.lock" % self._config["directory"])
 
         # Initialise AAVS DAQ library
-        logging.info("Initialising library")
+        self._logger.info("Initialising library")
 
         # Initialise C++ library
         self._initialise_library(filepath)
@@ -1900,13 +1902,13 @@ class DaqReceiver:
             )
             != self.Result.Success.value
         ):
-            logging.info("Failed to start receiver")
+            self._logger.info("Failed to start receiver")
             raise Exception("Failed to start receiver")
 
         # Set receiver ports
         for port in self._config["receiver_ports"]:
             if self._call_add_receiver_port(port) != self.Result.Success.value:
-                logging.info("Failed to set receiver port %d" % port)
+                self._logger.info("Failed to set receiver port %d" % port)
                 raise Exception("Failed to set receiver port %d" % port)
 
     def start_daq(
@@ -1932,7 +1934,7 @@ class DaqReceiver:
             callbacks = [None] * len(daq_modes)
 
         if callbacks is not None and len(callbacks) != len(daq_modes):
-            logging.warning(
+            self._logger.warning(
                 "Number of callback should match number of daq_modes. Ignoring callbacks."
             )
             callbacks = []
@@ -2019,7 +2021,7 @@ class DaqReceiver:
         if self._call_stop_receiver() != self.Result.Success.value:
             raise Exception("Failed to stop receiver")
 
-        logging.info("Stopped DAQ")
+        self._logger.info("Stopped DAQ")
 
     # ------------------------------------- CONFIGURATION ------------------------------------
 
@@ -2040,7 +2042,7 @@ class DaqReceiver:
         if len(invalid_keys) != 0:
             message = f"Invalid configuration. Keys {invalid_keys} not supported."
             if self._config["logging"]:
-                logging.warning(message)
+                self._logger.warning(message)
             raise Exception(message)
 
         # Apply configuration
@@ -2050,7 +2052,7 @@ class DaqReceiver:
         # Check if data directory exists
         if not os.path.exists(self._config["directory"]):
             if self._config["logging"]:
-                logging.info(
+                self._logger.info(
                     "Specified data directory [%s] does not exist"
                     % self._config["directory"]
                 )
@@ -2072,7 +2074,7 @@ class DaqReceiver:
                     self._config["receiver_interface"]
                 )
             except IOError as e:
-                logging.error(
+                self._logger.error(
                     "Interface does not exist or could not get it's IP: {}".format(e)
                 )
                 exit()
@@ -2096,7 +2098,7 @@ class DaqReceiver:
                     self._get_station_information(self._config["station_config"])
                 )
             else:
-                logging.warning(
+                self._logger.warning(
                     "Provided station config file ({}) in invalid, ignoring.".format(
                         self._config["station_config"]
                     )
@@ -2107,13 +2109,12 @@ class DaqReceiver:
 
     # ------------------------------------ HELPER FUNCTIONS ----------------------------------
 
-    @staticmethod
-    def _get_station_information(station_config):
+    def _get_station_information(self, station_config):
         """If a station configuration file is provided, connect to
         station and get required information"""
 
         # Dictionary containing required metadata
-        logging.warning(
+        self._logger.warning(
             "Firmware version metadata is not available in standalone mode."
         )
         metadata = {"firmware_version": 0, "station_config": ""}
@@ -2123,14 +2124,13 @@ class DaqReceiver:
             metadata["station_config"] = f.read()
         return metadata
 
-    @staticmethod
-    def _get_software_version() -> int:
+    def _get_software_version(self) -> int:
         """Get current software version. This will get the latest git commit hash"""
         try:
             repo = Repo(search_parent_directories=True)
             return repo.head.commit.hexsha
         except Exception:
-            logging.warning("Could not get software git hash. Skipping")
+            self._logger.warning("Could not get software git hash. Skipping")
             return 0
 
     def get_configuration(self) -> Dict[str, Any]:
@@ -2157,17 +2157,17 @@ class DaqReceiver:
         message = message.decode()
 
         if level == self.LogLevel.Fatal.value:
-            logging.fatal(message)
+            self._logger.fatal(message)
             sys.exit()
         elif level == self.LogLevel.Error.value:
-            logging.error(message)
+            self._logger.error(message)
             sys.exit()
         elif level == self.LogLevel.Warning.value:
-            logging.warning(message)
+            self._logger.warning(message)
         elif level == self.LogLevel.Info.value:
-            logging.info(message)
+            self._logger.info(message)
         elif level == self.LogLevel.Debug.value:
-            logging.debug(message)
+            self._logger.debug(message)
 
     @staticmethod
     def _get_ip_address(interface: str) -> str:

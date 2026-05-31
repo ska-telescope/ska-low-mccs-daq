@@ -323,6 +323,8 @@ void TensorCrossCorrelator::copy_tail(const uint8_t *host_base, size_t split_sta
                                       size_t from, size_t to)
 {
     if (from >= to) return;
+    LOG(DEBUG, "TCC H2D batch: M-blocks [%zu, %zu) (split_start=%zu), %.2f KiB",
+        from, to, split_start, (double)((to - from) * m_stride_bytes_) / 1024.0);
     stream_.memcpyHtoDAsync(
         (CUdeviceptr)devSamples_ + from * m_stride_bytes_,
         host_base + (split_start + from) * m_stride_bytes_,

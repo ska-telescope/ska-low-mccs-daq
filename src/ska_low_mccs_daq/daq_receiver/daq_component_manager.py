@@ -213,7 +213,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if simulation_mode:
             self._daq_client = DaqSimulator(**self._configuration)
         else:
-            self._daq_client = DaqReceiver()
+            self._daq_client = DaqReceiver(logger)
         logger.info(f"DAQ backend in simulation mode: {simulation_mode}")
         self._skuid_url = skuid_url
         self._measure_data_rate_event: threading.Event = threading.Event()
@@ -323,7 +323,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             if self._simulation_mode:
                 self._daq_client = DaqSimulator(**self._configuration)
             else:
-                self._daq_client = DaqReceiver()
+                self._daq_client = DaqReceiver(self.logger)
             try:
                 self.logger.info(
                     "Configuring before initialising with: %s", self._configuration
