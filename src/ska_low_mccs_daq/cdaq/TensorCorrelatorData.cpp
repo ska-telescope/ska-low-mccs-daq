@@ -138,6 +138,10 @@ bool TensorCorrelatorData::processPacket()
         reference_counter = 0;
         pkts_per_integ_   = 0;
         last_integ_idx_   = UINT32_MAX;
+        // Flush the ring so the consumer can drain the current partial integration
+        // and reset its counters at the next integration boundary.
+        if (split_ring != nullptr)
+            split_ring->flush();
         return false;
     }
 
@@ -254,6 +258,8 @@ bool TensorCorrelatorData::processPacket()
     const uint32_t m_in_integ    = pkt_in_integ * blocks_in_pkt;
     const uint32_t split_idx     = m_in_integ / split_m_;
     const uint32_t m_local       = m_in_integ % split_m_;
+    const uint32_t nof_splits_in_integ = (nof_samples / 16) / split_m_;
+    const uint64_t global_split       = (uint64_t)integ_idx * nof_splits_in_integ + split_idx;
 
     if (this->nof_channels != 1)
     {
@@ -262,8 +268,8 @@ bool TensorCorrelatorData::processPacket()
         return true;
     }
 
-    // Write packet data to split ring
-    split_ring->write_data(split_idx, tile_id * nof_antennas + start_antenna_id,
+    // Write packet data to split ring (silently dropped if already consumed)
+    split_ring->write_data(global_split, tile_id * nof_antennas + start_antenna_id,
                            nof_included_antennas, m_local, blocks_in_pkt,
                            (const uint16_t *)(payload + payload_offset),
                            packet_time, (int)start_channel_id);
@@ -384,15 +390,18 @@ void TensorCrossCorrelator::threadEntry()
         for (uint32_t split = 0; split < nof_splits_; ++split)
         {
             const uint32_t slot_idx = split % split_ring->ring_size();
+            const uint64_t global_split = consumer_integ_ * nof_splits_ + split;
             size_t split_streamed = 0;
 
-            // This ring slot is being reused: confirm the previous H2D for it is
-            // complete before releasing, so the producer cannot overwrite pinned
-            // host memory while the DMA engine is still reading from it.
-            if (split >= split_ring->ring_size())
+            // Release the PREVIOUS split's slot now that its H2D is confirmed done.
+            // Releasing one split later (not ring_size later) keeps PROCESSING time
+            // to ~2ms instead of ~280ms, eliminating the window where incoming packets
+            // for the next use of that slot hit PROCESSING and get dropped.
+            if (split > 0)
             {
-                h2d_done_[slot_idx].synchronize();
-                split_ring->release_slot(split - split_ring->ring_size());
+                const uint32_t prev_slot = (split - 1) % split_ring->ring_size();
+                h2d_done_[prev_slot].synchronize();
+                split_ring->release_slot(split - 1);
             }
 
             // Poll until this split's slot is READY, streaming early while waiting
@@ -406,6 +415,10 @@ void TensorCrossCorrelator::threadEntry()
 
             SplitSlot &sl = split_ring->slot(slot_idx);
             sl.state.store(SlotState::PROCESSING, std::memory_order_release);
+
+            // Mark this split consumed before H2D so any late-arriving packets
+            // for it are permanently dropped rather than landing in a future slot.
+            split_ring->mark_consumed(global_split);
 
             if (split == 0)
             {
@@ -429,18 +442,22 @@ void TensorCrossCorrelator::threadEntry()
             stream_.record(eK1);
         }
 
+        // Release the final split's slot (all others were released one split later
+        // in the loop above; the last one has no subsequent split to trigger it).
+        const uint32_t last_slot_idx = (nof_splits_ - 1) % split_ring->ring_size();
+        h2d_done_[last_slot_idx].synchronize();
+        split_ring->release_slot(nof_splits_ - 1);
+
         stream_.record(eD2H0);
         stream_.memcpyDtoHAsync(hostVis_, devVis_, vis_bytes);
         stream_.record(eD2H1);
 
         stream_.synchronize();
 
-        // Release the final slots (last ring_size splits, or all splits if nof_splits_ <= ring_size)
-        const uint32_t tail_start = nof_splits_ > (uint32_t)split_ring->ring_size()
-                                        ? nof_splits_ - (uint32_t)split_ring->ring_size()
-                                        : 0;
-        for (uint32_t s = tail_start; s < nof_splits_; ++s)
-            split_ring->release_slot(s);
+        if (split_ring->check_and_reset())
+            consumer_integ_ = 0;
+        else
+            ++consumer_integ_;
 
         // eH2D1/eK0/eK1 reflect the last split; eH2D0 is before all tail work
         float h2d_ms = eH2D1.elapsedTime(eH2D0);

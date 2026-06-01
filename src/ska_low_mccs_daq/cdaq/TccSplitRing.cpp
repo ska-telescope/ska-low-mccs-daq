@@ -36,12 +36,16 @@ TccSplitRing::TccSplitRing(uint16_t nof_antennas, uint32_t split_m, uint8_t nof_
     antenna_hi_ = std::make_unique<std::atomic<uint32_t>[]>((size_t)ring_size_ * nof_antennas_);
 }
 
-bool TccSplitRing::write_data(uint32_t split_idx,
+bool TccSplitRing::write_data(uint64_t global_split,
                                uint16_t start_antenna, uint16_t nof_included,
                                uint32_t m_local, uint32_t blocks,
                                const uint16_t *data_ptr, double timestamp, int channel)
 {
-    const uint32_t slot_idx = split_idx % ring_size_;
+    // Drop packets for splits the consumer has already committed to processing.
+    if (global_split < consumed_up_to_.load(std::memory_order_acquire))
+        return false;
+
+    const uint32_t slot_idx = (uint32_t)(global_split % ring_size_);
     SplitSlot     &slot     = slots_[slot_idx];
 
     SlotState cur = slot.state.load(std::memory_order_acquire);
@@ -51,12 +55,16 @@ bool TccSplitRing::write_data(uint32_t split_idx,
         // Initialise metadata and watermarks BEFORE publishing FILLING.
         // The release on the CAS below acts as the publication fence: any
         // concurrent reader that observes FILLING via acquire sees clean state.
+        // Zero the data buffer so M-blocks that are never written (dropped packets)
+        // contribute zero to the correlation sum rather than stale data.
+        memset(slot.data, 0,
+               (size_t)split_m_ * nof_antennas_ * nof_pols_ * kTimesPerBlock * sizeof(uint16_t));
         for (uint16_t r = 0; r < nof_antennas_; ++r)
             antenna_hi_[slot_idx * nof_antennas_ + r].store(0, std::memory_order_relaxed);
         slot.ref_time.store(timestamp, std::memory_order_relaxed);
         slot.nof_packets.store(0, std::memory_order_relaxed);
         slot.read_samples.store(0, std::memory_order_relaxed);
-        slot.split_idx = split_idx;
+        slot.global_split = global_split;
         slot.channel   = channel;
 
         SlotState expected = SlotState::EMPTY;
@@ -72,8 +80,8 @@ bool TccSplitRing::write_data(uint32_t split_idx,
     else if (cur != SlotState::FILLING)
     {
         // READY or PROCESSING — consumer has not freed this slot yet; drop packet
-        LOG(WARN, "TccSplitRing: slot %u not free (state=%u) for split %u — dropping packet",
-            slot_idx, (unsigned)cur, split_idx);
+        LOG(WARN, "TccSplitRing: slot %u not free (state=%u) for global split %llu — dropping packet",
+            slot_idx, (unsigned)cur, (unsigned long long)global_split);
         return false;
     }
 
@@ -162,5 +170,40 @@ uint32_t TccSplitRing::safe_m(uint32_t slot_idx) const
 void TccSplitRing::release_slot(uint32_t split_idx)
 {
     const uint32_t slot_idx = split_idx % ring_size_;
-    slots_[slot_idx].state.store(SlotState::EMPTY, std::memory_order_release);
+    SlotState expected = SlotState::PROCESSING;
+    slots_[slot_idx].state.compare_exchange_strong(
+        expected, SlotState::EMPTY,
+        std::memory_order_release, std::memory_order_relaxed);
+    // If already FILLING (next integration claimed the slot), the CAS fails
+    // and the slot is left alone — the next integration's data is preserved.
+}
+
+void TccSplitRing::mark_consumed(uint64_t global_split)
+{
+    // Consumer is single-threaded so a plain store is sufficient; release
+    // ordering ensures the producer's acquire load sees the updated watermark.
+    consumed_up_to_.store(global_split + 1, std::memory_order_release);
+}
+
+void TccSplitRing::flush()
+{
+    // Force every FILLING slot to READY so the consumer can drain the current
+    // (partial) integration and exit the poll loop cleanly.
+    for (uint32_t i = 0; i < ring_size_; ++i)
+    {
+        SlotState exp = SlotState::FILLING;
+        slots_[i].state.compare_exchange_strong(exp, SlotState::READY,
+                                                std::memory_order_release,
+                                                std::memory_order_relaxed);
+    }
+    reset_pending_.store(true, std::memory_order_release);
+}
+
+bool TccSplitRing::check_and_reset()
+{
+    if (!reset_pending_.load(std::memory_order_acquire))
+        return false;
+    consumed_up_to_.store(0, std::memory_order_release);
+    reset_pending_.store(false, std::memory_order_release);
+    return true;
 }

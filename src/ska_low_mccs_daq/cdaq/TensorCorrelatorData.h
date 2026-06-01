@@ -93,6 +93,8 @@ private:
     size_t split_m_;
     size_t m_stride_bytes_;
     size_t batch_m_;
+    // Tracks the integration number so mark_consumed() can form global split indices.
+    uint64_t consumer_integ_{0};
 
     // One event per ring slot: fires when that slot's H2D copy is complete.
     // Used to defer release_slot() until the DMA engine has finished reading.
