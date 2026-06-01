@@ -61,9 +61,9 @@
         },
         "nof_correlator_buffers": {
             "type": "integer",
-            "default": 4,
+            "default": 64,
             "minimum": 2,
-            "description": "Number of host-side double-buffer slots for the TC correlator; fewer buffers reduce RAM usage, enabling longer integrations (each slot is nof_correlator_samples × nof_antennas × nof_tiles × nof_polarisations × 2 bytes). Must be at least 2 to allow producer and consumer to work concurrently."
+            "description": "Number of split-sized slots in the TC correlator host ring buffer. Each slot holds one split (~4 MiB for 256 antennas), so total host RAM is nof_correlator_buffers × ~4 MiB regardless of integration length. Larger values give more tolerance to bursty packet arrival; the default of 64 covers ~140 ms of burst headroom for a 1-second integration with 448 splits."
         },
         "nof_correlator_active_tiles": {
             "type": ["integer", "null"],

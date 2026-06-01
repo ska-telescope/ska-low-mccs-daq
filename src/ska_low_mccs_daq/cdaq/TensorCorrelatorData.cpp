@@ -35,10 +35,10 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     this->packet_size = configuration["max_packet_size"];
     uint32_t nof_fine_channels = configuration["nof_fine_channels"];
     uint16_t nof_active_tiles = configuration["nof_active_tiles"];
-    uint8_t nbuffers = configuration.count("nbuffers") ? (uint8_t)configuration["nbuffers"] : 4;
-    if (nbuffers < 2)
+    uint32_t ring_size = configuration.count("nbuffers") ? (uint32_t)configuration["nbuffers"] : 64;
+    if (ring_size < 2)
     {
-        LOG(FATAL, "nbuffers (%u) must be >= 2", (unsigned)nbuffers);
+        LOG(FATAL, "nbuffers (%u) must be >= 2", ring_size);
         return false;
     }
 
@@ -77,9 +77,10 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     // Create cross-correlator and start
     cross_correlator = new TensorCrossCorrelator(nof_fine_channels,
                                                  nof_tiles * nof_antennas, nof_samples, nof_pols,
-                                                 nof_active_tiles * nof_antennas, nof_splits, nbuffers);
+                                                 nof_active_tiles * nof_antennas, nof_splits, ring_size);
 
-    double_buffer = cross_correlator->double_buffer;
+    split_ring = cross_correlator->split_ring;
+    split_m_   = (uint32_t)cross_correlator->split_ring->split_m();
 
     // Start cross-correlator
     cross_correlator->startThread();
@@ -132,12 +133,11 @@ bool TensorCorrelatorData::processPacket()
     // Check if the request timed out
     if (packet_size == SIZE_MAX)
     {
-        // Request timed out, finish any pending writes
-        double_buffer->finish_write();
-
-        // Reset rollover counters
-        rollover_counter = 0;
+        // Request timed out, reset integration tracking
+        rollover_counter  = 0;
         reference_counter = 0;
+        pkts_per_integ_   = 0;
+        last_integ_idx_   = UINT32_MAX;
         return false;
     }
 
@@ -239,26 +239,34 @@ bool TensorCorrelatorData::processPacket()
     if (reference_counter == 0)
         reference_counter = packet_counter;
 
-    // Assigned correct packet index
-    packet_index = static_cast<uint32_t>((packet_counter - reference_counter) % (this->nof_samples / samples_in_packet));
+    // Cache packets-per-integration on first real packet
+    if (pkts_per_integ_ == 0)
+        pkts_per_integ_ = nof_samples / samples_in_packet;
 
-    if (this->nof_channels == 1)
-        // Write packet data to double buffer
-        double_buffer->write_data_single_channel(tile_id * nof_antennas + start_antenna_id,
-                                                 nof_included_antennas, start_channel_id,
-                                                 packet_index,
-                                                 samples_in_packet,
-                                                 (uint16_t *)(payload + payload_offset),
-                                                 packet_time);
+    // Compute split and local M-block index from absolute packet position
+    const uint64_t relative     = (uint64_t)(packet_counter - reference_counter);
+    const uint32_t integ_idx    = (uint32_t)(relative / pkts_per_integ_);
+    const uint32_t pkt_in_integ = (uint32_t)(relative % pkts_per_integ_);
 
-    else
-        // We have processed the packet items, send data to packet counter
-        double_buffer->write_data(tile_id * nof_antennas + start_antenna_id,
-                                  nof_included_antennas, start_channel_id,
-                                  packet_index,
-                                  samples_in_packet,
-                                  (uint16_t *)(payload + payload_offset),
-                                  packet_time);
+    if (integ_idx != last_integ_idx_) last_integ_idx_ = integ_idx;
+
+    const uint32_t blocks_in_pkt = samples_in_packet / 16;
+    const uint32_t m_in_integ    = pkt_in_integ * blocks_in_pkt;
+    const uint32_t split_idx     = m_in_integ / split_m_;
+    const uint32_t m_local       = m_in_integ % split_m_;
+
+    if (this->nof_channels != 1)
+    {
+        LOG(WARN, "TCC correlator only supports nof_channels=1 — dropping packet");
+        ring_buffer->pull_ready();
+        return true;
+    }
+
+    // Write packet data to split ring
+    split_ring->write_data(split_idx, tile_id * nof_antennas + start_antenna_id,
+                           nof_included_antennas, m_local, blocks_in_pkt,
+                           (const uint16_t *)(payload + payload_offset),
+                           packet_time, (int)start_channel_id);
 
     // Ready from packet
     ring_buffer->pull_ready();
@@ -276,7 +284,7 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
                                              uint8_t nof_pols,
                                              uint16_t nof_active_antennas,
                                              uint16_t nof_splits,
-                                             uint8_t nbuffers)
+                                             uint32_t ring_size)
     : device_(0),
       context_(0, device_),
       stream_(),
@@ -291,8 +299,6 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
       nof_pols(nof_pols)
 {
     context_.setCurrent();
-
-    double_buffer = new TccDoubleBuffer(nof_antennas, nof_samples, nof_pols, nof_active_antennas, nbuffers);
 
     constexpr tcc::Format fmt = tcc::Format::i8;
     const uint32_t samples_per_split = nof_samples / nof_splits;
@@ -310,50 +316,46 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
 
     m_stride_bytes_ = (size_t)nof_antennas * nof_pols * 16 * sizeof(SampleT);
     split_m_        = (nof_samples / 16) / nof_splits;
-    batch_m_        = std::max(size_t(1), (4UL * 1024 * 1024) / m_stride_bytes_);
+    batch_m_        = std::min(std::max(size_t(1), (4UL * 1024 * 1024) / m_stride_bytes_), split_m_);
+
+    split_ring = new TccSplitRing(nof_antennas, split_m_, nof_pols, nof_active_antennas, ring_size);
+    h2d_done_  = std::make_unique<cu::Event[]>(ring_size);
 }
 
 // Class destructor
 TensorCrossCorrelator::~TensorCrossCorrelator()
 {
-    delete double_buffer;
+    delete split_ring;
 }
 
 void TensorCrossCorrelator::copy_tail(const uint8_t *host_base, size_t split_start,
                                       size_t from, size_t to)
 {
     if (from >= to) return;
-    LOG(DEBUG, "TCC H2D batch: M-blocks [%zu, %zu) (split_start=%zu), %.2f KiB",
-        from, to, split_start, (double)((to - from) * m_stride_bytes_) / 1024.0);
     stream_.memcpyHtoDAsync(
         (CUdeviceptr)devSamples_ + from * m_stride_bytes_,
         host_base + (split_start + from) * m_stride_bytes_,
         (to - from) * m_stride_bytes_);
 }
 
-void TensorCrossCorrelator::try_stream_partial(uint16_t &split, size_t &split_streamed)
+void TensorCrossCorrelator::try_stream_partial(uint32_t split_idx, size_t &split_streamed)
 {
-    const int slot = double_buffer->get_consumer();
-    const size_t global_safe = double_buffer->safe_m(slot);
-    const size_t split_start = (size_t)split * split_m_;
-    const size_t split_available = (global_safe > split_start)
-        ? std::min(global_safe - split_start, split_m_)
-        : 0;
+    const uint32_t slot_idx = split_idx % split_ring->ring_size();
+    SplitSlot     &sl       = split_ring->slot(slot_idx);
 
-    if (split_available > split_streamed &&
-        (split_available - split_streamed >= batch_m_ || split_available == split_m_))
+    SlotState s = sl.state.load(std::memory_order_acquire);
+    if (s != SlotState::FILLING && s != SlotState::READY)
+        return;
+
+    const size_t slot_available = std::min((size_t)split_ring->safe_m(slot_idx), split_m_);
+
+    if (slot_available > split_streamed &&
+        (slot_available - split_streamed >= batch_m_ || slot_available == split_m_))
     {
         const uint8_t *host_base =
-            reinterpret_cast<const uint8_t *>(double_buffer->get_buffer_pointer(slot)->data);
-        copy_tail(host_base, split_start, split_streamed, split_available);
-        split_streamed = split_available;
-    }
-
-    if (split_streamed == split_m_ && split + 1 < nof_splits_)
-    {
-        correlator_->launchAsync(stream_, devVis_, devSamples_, split > 0);
-        split++;
-        split_streamed = 0;
+            reinterpret_cast<const uint8_t *>(sl.data);
+        copy_tail(host_base, /*split_start=*/0, split_streamed, slot_available);
+        split_streamed = slot_available;
     }
 }
 
@@ -365,41 +367,66 @@ void TensorCrossCorrelator::threadEntry()
     cu::Event eK0,   eK1;
     cu::Event eD2H0, eD2H1;
 
+    struct timespec poll_tim  = {0, 1000}; // 1 µs
+    struct timespec poll_tim2 = {};
+
     while (!this->stop_thread)
     {
-        Buffer *buffer;
-        uint16_t split = 0;
-        size_t split_streamed = 0;
-
-        do
-        {
-            buffer = double_buffer->read_buffer();
-            if (this->stop_thread)
-                return;
-            if (buffer == nullptr)
-                try_stream_partial(split, split_streamed);
-        } while (buffer == nullptr);
+        uint32_t total_read_samples = 0;
+        uint32_t total_nof_packets  = 0;
+        double   first_timestamp    = 0.0;
+        int      channel            = -1;
+        size_t   total_tail_m       = 0; // M-blocks copied as tail (not pre-streamed)
+        const size_t vis_bytes = sizeof(VisT) * visExt_.size;
 
         clock_gettime(CLOCK_MONOTONIC, &tic);
 
-        const double timestamp = buffer->ref_time;
-        const int channel = buffer->channel;
-        const unsigned read_samples = buffer->read_samples;
-        const unsigned nof_packets = buffer->nof_packets;
-        const size_t vis_bytes = sizeof(VisT) * visExt_.size;
-        const auto *data = reinterpret_cast<const uint8_t *>(buffer->data);
-
-        stream_.record(eH2D0);
-        for (; split < nof_splits_; split++)
+        for (uint32_t split = 0; split < nof_splits_; ++split)
         {
-            copy_tail(data, (size_t)split * split_m_, split_streamed, split_m_);
+            const uint32_t slot_idx = split % split_ring->ring_size();
+            size_t split_streamed = 0;
+
+            // This ring slot is being reused: confirm the previous H2D for it is
+            // complete before releasing, so the producer cannot overwrite pinned
+            // host memory while the DMA engine is still reading from it.
+            if (split >= split_ring->ring_size())
+            {
+                h2d_done_[slot_idx].synchronize();
+                split_ring->release_slot(split - split_ring->ring_size());
+            }
+
+            // Poll until this split's slot is READY, streaming early while waiting
+            do
+            {
+                if (this->stop_thread)
+                    return;
+                try_stream_partial(split, split_streamed);
+                nanosleep(&poll_tim, &poll_tim2);
+            } while (split_ring->slot(slot_idx).state.load(std::memory_order_acquire) != SlotState::READY);
+
+            SplitSlot &sl = split_ring->slot(slot_idx);
+            sl.state.store(SlotState::PROCESSING, std::memory_order_release);
+
+            if (split == 0)
+            {
+                first_timestamp = sl.ref_time.load(std::memory_order_relaxed);
+                channel         = sl.channel;
+            }
+            total_read_samples += sl.read_samples.load(std::memory_order_relaxed);
+            total_nof_packets  += sl.nof_packets.load(std::memory_order_relaxed);
+            total_tail_m       += split_m_ - split_streamed;
+
+            const auto *data = reinterpret_cast<const uint8_t *>(sl.data);
+
+            // Record only the tail copy (after packets finished) for H2D timing
+            stream_.record(eH2D0);
+            copy_tail(data, /*split_start=*/0, split_streamed, split_m_);
             stream_.record(eH2D1);
+            h2d_done_[slot_idx].record(stream_); // fires when DMA for this slot is done
 
             stream_.record(eK0);
             correlator_->launchAsync(stream_, devVis_, devSamples_, split > 0);
             stream_.record(eK1);
-
-            split_streamed = 0;
         }
 
         stream_.record(eD2H0);
@@ -408,12 +435,18 @@ void TensorCrossCorrelator::threadEntry()
 
         stream_.synchronize();
 
+        // Release the final slots (last ring_size splits, or all splits if nof_splits_ <= ring_size)
+        const uint32_t tail_start = nof_splits_ > (uint32_t)split_ring->ring_size()
+                                        ? nof_splits_ - (uint32_t)split_ring->ring_size()
+                                        : 0;
+        for (uint32_t s = tail_start; s < nof_splits_; ++s)
+            split_ring->release_slot(s);
+
         // eH2D1/eK0/eK1 reflect the last split; eH2D0 is before all tail work
         float h2d_ms = eH2D1.elapsedTime(eH2D0);
         float kern_ms = eK1.elapsedTime(eK0);
         float d2h_ms = eD2H1.elapsedTime(eD2H0);
 
-        double_buffer->release_buffer();
 
         clock_gettime(CLOCK_MONOTONIC, &toc);
         if (callback != nullptr)
@@ -424,16 +457,16 @@ void TensorCrossCorrelator::threadEntry()
                 .h2d_time = h2d_ms,
                 .kern_time = kern_ms,
                 .d2h_time = d2h_ms,
-                .nof_samples = read_samples,
-                .nof_packets = nof_packets,
+                .nof_samples = total_read_samples,
+                .nof_packets = total_nof_packets,
             };
-            callback(static_cast<void *>(hostVis_), timestamp, static_cast<void *>(&metadata));
+            callback(static_cast<void *>(hostVis_), first_timestamp, static_cast<void *>(&metadata));
         }
 
         LOG(INFO,
             "TCC ch=%d | tail-H2D=%.3f ms | last-kern=%.3f ms | D2H=%.3f ms "
             "(samples=%u, packets=%u, splits=%u)",
             channel, h2d_ms, kern_ms, d2h_ms,
-            read_samples, nof_packets, (unsigned)nof_splits_);
+            total_read_samples, total_nof_packets, (unsigned)nof_splits_);
     }
 }

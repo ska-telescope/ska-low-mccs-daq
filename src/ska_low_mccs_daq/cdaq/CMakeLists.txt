@@ -10,6 +10,7 @@ project(AAVS_DAQ C CXX)
 # Add option to compile correlator
 option(WITH_CORRELATOR "Compile cross-correlator which uses xGPU" OFF)
 option(WITH_SMALL_STATION "Compile a separate library for 48 element stations" OFF)
+option(WITH_TCC_TESTS "Compile GPU-in-the-loop tests for TensorCrossCorrelator" OFF)
 message(STATUS "Correlator compilation: ${WITH_CORRELATOR}")
 message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")
 
@@ -41,13 +42,11 @@ if (WITH_CORRELATOR)
                            CorrelatorData.h
                            StandaloneCorrelator.cpp)
     add_library(aavsdaq_tcc SHARED
-        DoubleBuffer.cpp
-        DoubleBuffer.h
         multi_array.h
+        TccSplitRing.cpp
+        TccSplitRing.h
         TensorCorrelatorData.cpp
         TensorCorrelatorData.h
-        TccDoubleBuffer.cpp
-        TccDoubleBuffer.h        
     )
 endif()
 
@@ -106,6 +105,17 @@ target_link_libraries(acquire_station_beam aavsdaq)
 install(TARGETS "aavsdaq" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 if (WITH_CORRELATOR)
   install(TARGETS aavsdaq_tcc DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+endif()
+
+if (WITH_CORRELATOR AND WITH_TCC_TESTS)
+    find_package(GTest REQUIRED)
+    enable_testing()
+    add_executable(test_tcc_gpu test_tcc_gpu.cpp)
+    target_link_libraries(test_tcc_gpu
+        aavsdaq_tcc
+        GTest::gtest
+        cudawrappers::cu)
+    add_test(NAME tcc_gpu COMMAND test_tcc_gpu)
 endif()
 
 if (WITH_SMALL_STATION)
