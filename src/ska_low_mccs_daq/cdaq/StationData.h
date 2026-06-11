@@ -111,7 +111,7 @@ class StationPersister: public RealTimeThread
 public:
     // Class constructor
     explicit StationPersister(StationDoubleBuffer *double_buffer)
-    { this -> double_buffer = double_buffer; 
+    { this -> double_buffer = double_buffer;
     }
 
     // Set callback (provided by CorrelatorData)
@@ -164,15 +164,16 @@ private:
     StationPersister *persister = nullptr;
 
     // Internal book keeping
-    unsigned long rollover_counter = 0;
-    unsigned long timestamp_rollover = 0;
-
     int packet_index = 0;
+
+    // Per-subarray rollover counters (keyed by subarray_id)
+    std::unordered_map<uint8_t, unsigned long> subarray_rollover;
+    std::unordered_map<uint8_t, unsigned long> subarray_ts_rollover;
+
     // Data setup
-    uint16_t nof_antennas = 0;        // Number of antennas per tile
     uint8_t  nof_pols = 0;            // Number of polarisations
-    uint16_t nof_tiles = 0;           // Number of tiles
-    uint16_t nof_channels = 0;        // Number of channels
+    uint16_t nof_channels = 0;        // Number of channels per subarray
+    uint16_t nof_subarrays = 1;       // Maximum number of subarrays
     uint32_t nof_samples = 0;         // Number of time samples
 
 };

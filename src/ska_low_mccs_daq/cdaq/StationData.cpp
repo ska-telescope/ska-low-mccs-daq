@@ -31,18 +31,22 @@ bool StationData::initialiseConsumer(json configuration)
     }
 
     // Set local values
-    this -> nof_channels = configuration["nof_channels"];
-    this -> nof_samples  = configuration["nof_samples"];
-    this -> nof_pols     = 2;
-    this -> packet_size  = configuration["max_packet_size"];
+    this -> nof_channels   = configuration["nof_channels"];
+    this -> nof_samples    = configuration["nof_samples"];
+    this -> nof_pols       = 2;
+    this -> packet_size    = configuration["max_packet_size"];
+    this -> nof_subarrays  = key_in_json(configuration, "nof_subarrays")
+                                 ? (uint16_t) configuration["nof_subarrays"]
+                                 : 1;
 
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t) nof_samples * 2);
 
-    // Create double buffer
-    double_buffer= new StationDoubleBuffer(nof_channels, nof_samples, nof_pols);
+    // Create double buffer with enough channels for all subarrays:
+    // channels are laid out as [subarray_0_ch0 .. subarray_0_chN | subarray_1_ch0 .. subarray_1_chN | ...]
+    double_buffer = new StationDoubleBuffer(nof_subarrays * nof_channels, nof_samples, nof_pols);
 
-    // Create and persister
+    // Create and start persister
     persister = new StationPersister(double_buffer);
     persister->startThread();
 
@@ -203,6 +207,23 @@ bool StationData::processPacket()
         }
     }
 
+    // subarray_id is 1-based; validate and compute 0-based offset
+    if (subarray_id == 0 || subarray_id > nof_subarrays) {
+        LOG(WARN, "Packet from out-of-range subarray %d dropped (nof_subarrays=%d)\n",
+            subarray_id, nof_subarrays);
+        ring_buffer->pull_ready();
+        return true;
+    }
+
+    // Initialise rollover counters on first packet from this subarray
+    if (subarray_rollover.count(subarray_id) == 0) {
+        subarray_rollover[subarray_id]    = 0;
+        subarray_ts_rollover[subarray_id] = 0;
+    }
+
+    auto& rollover_counter   = subarray_rollover[subarray_id];
+    auto& timestamp_rollover = subarray_ts_rollover[subarray_id];
+
     if (!tai_time) {
         // Check whether timestamp counter has rolled over
         if (timestamp == 0 && logical_channel_id == 0) {
@@ -229,7 +250,7 @@ bool StationData::processPacket()
     // Calculate number of samples in packet
     auto samples_in_packet = static_cast<uint32_t>((payload_length - payload_offset) / (sizeof(uint16_t) * nof_pols));
 
-    // Check whether packet counter has rolled over
+    // Check whether packet counter has rolled over (per-subarray)
     if (packet_counter == 0 && logical_channel_id == 0) {
         rollover_counter += 1;
         packet_counter += rollover_counter << 32;
@@ -240,8 +261,11 @@ bool StationData::processPacket()
         // Multiply packet_counter by rollover counts
         packet_counter += rollover_counter << 32;
 
-    // We have processed the packet items, send data to packet counter
-    double_buffer -> write_data(logical_channel_id,
+    // subarray_id is 1-based, so subarray 1 maps to channels [0, nof_channels),
+    // subarray 2 to [nof_channels, 2*nof_channels), etc.
+    uint16_t compound_channel = (subarray_id - 1) * nof_channels + logical_channel_id;
+
+    double_buffer -> write_data(compound_channel,
                                 samples_in_packet,
                                 packet_counter,
                                 reinterpret_cast<uint16_t *>(payload + payload_offset),
@@ -249,7 +273,7 @@ bool StationData::processPacket()
 
     // Ready from packet
     ring_buffer -> pull_ready();
-    
+
     metadata.beam_id[this->packet_index] = beam_id;
     metadata.frequency_id[this->packet_index] = frequency_id;
     metadata.logical_channel_id[this->packet_index] = logical_channel_id;
