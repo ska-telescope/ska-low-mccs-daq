@@ -478,8 +478,10 @@ StationBuffer* StationDoubleBuffer::read_buffer()
     // per channel for both X and Y pol
     for (unsigned i = 0; i < this->nof_channels; i++) {
         uint32_t nof_samples = this->double_buffer[this->consumer].read_samples[i];
-        this->double_buffer[this->consumer].integrators[i] /= nof_samples;
-        this->double_buffer[this->consumer].integrators[i + this->nof_channels] /= nof_samples;
+        if (nof_samples > 0) {
+            this->double_buffer[this->consumer].integrators[i] /= nof_samples;
+            this->double_buffer[this->consumer].integrators[i + this->nof_channels] /= nof_samples;
+        }
     }
 
     return &(this->double_buffer[this->consumer]);
