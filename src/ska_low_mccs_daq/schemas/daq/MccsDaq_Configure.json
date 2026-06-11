@@ -76,6 +76,7 @@
         "nof_subarrays": {
             "type": "integer",
             "default": 1,
+            "minimum": 1,
             "description": "Number of subarrays whose station beam data will be received. Channels are packed contiguously: subarray 1 occupies channels [0, nof_beam_channels), subarray 2 occupies [nof_beam_channels, 2*nof_beam_channels), etc."
         },
         "integrated_channel_bitwidth": {

@@ -238,6 +238,7 @@ class DaqReceiver:
             "nof_beam_samples": 42,
             "nof_beam_channels": 384,
             "nof_station_samples": 262144,
+            "nof_subarrays": 1,
             "integrated_channel_bitwidth": 16,
             "integration_lookahead_cutoff": 3.0,
             "continuous_channel_bitwidth": 16,
