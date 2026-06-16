@@ -74,10 +74,10 @@
             "description": "Number of station beam samples per buffer"
         },
         "nof_subarrays": {
-            "type": "integer",
-            "default": 1,
+            "type": ["integer", "null"],
+            "default": null,
             "minimum": 1,
-            "description": "Number of subarrays whose station beam data will be received. Channels are packed contiguously: subarray 1 occupies channels [0, nof_beam_channels), subarray 2 occupies [nof_beam_channels, 2*nof_beam_channels), etc."
+            "description": "Number of subarrays whose station beam data will be received. Omit or set to null for single-subarray (legacy) mode. When set, channels are packed contiguously: subarray 1 occupies channels [0, nof_beam_channels), subarray 2 occupies [nof_beam_channels, 2*nof_beam_channels), etc."
         },
         "integrated_channel_bitwidth": {
             "type": "integer",

@@ -207,12 +207,18 @@ bool StationData::processPacket()
         }
     }
 
-    // subarray_id is 1-based; validate and compute 0-based offset
-    if (subarray_id == 0 || subarray_id > nof_subarrays) {
-        LOG(WARN, "Packet from out-of-range subarray %d dropped (nof_subarrays=%d)\n",
-            subarray_id, nof_subarrays);
-        ring_buffer->pull_ready();
-        return true;
+    // In multi-subarray mode, validate subarray_id (1-based) and drop out-of-range packets.
+    // In single-subarray mode (nof_subarrays == 1), ignore subarray_id entirely — any value
+    // is accepted and routed to subarray 1.
+    if (nof_subarrays > 1) {
+        if (subarray_id == 0 || subarray_id > nof_subarrays) {
+            LOG(FATAL, "Packet from out-of-range subarray %d dropped (nof_subarrays=%d)\n",
+                subarray_id, nof_subarrays);
+            ring_buffer->pull_ready();
+            return true;
+        }
+    } else {
+        subarray_id = 1;
     }
 
     // Initialise rollover counters on first packet from this subarray
