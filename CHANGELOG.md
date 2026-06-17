@@ -1,5 +1,8 @@
 # Version History
 
+## Unreleased
+* [SDR-1687] Upgrade to PyTango 10.3.0.
+
 ## 6.2.0
 
 * [SPRTS-837] Bandpass events are now timestamped from the SPEAD packet timestamp rather than wall-clock time.
