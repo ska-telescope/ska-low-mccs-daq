@@ -6,6 +6,7 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains the tests of the daq component manager."""
+
 from __future__ import annotations
 
 import os
@@ -394,8 +395,17 @@ class TestDaqComponentManager:
                     data, tile, timestamp=expected_timestamp
                 )
 
-            call_args = callbacks["component_state"]._call_queue.get(timeout=5)
-            args_dict = call_args[2]
+            # Drain monitoring callbacks (e.g. ringbuffer_occupancy) until the
+            # bandpass one arrives.
+            deadline = time.time() + 5
+            while True:
+                remaining = max(0.1, deadline - time.time())
+                call_args = callbacks["component_state"]._call_queue.get(
+                    timeout=remaining
+                )
+                args_dict = call_args[2]
+                if "x_bandpass" in args_dict:
+                    break
             received_x_pol_data = args_dict["x_bandpass"]
             received_y_pol_data = args_dict["y_bandpass"]
             received_raw_x_pol_data = args_dict["raw_x_bandpass"]
@@ -854,8 +864,12 @@ class TestDaqComponentManager:
         )
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
 
-        default_dir = "/product/1/ska-low-mccs/scan_id/user/"
-        new_dir = f"/product/1/ska-low-mccs/{outcome}/user/"
+        # Use a process-unique path so --forked workers don't fight over the same dirs.
+        # _change_directory renames at split("/", maxsplit=5)[0:5], so "scan_id" must
+        # sit at index 4 — exactly 3 real path components from root.
+        _base = f"/tmp/daq-test-{os.getpid()}"
+        default_dir = f"{_base}/ska-low-mccs/scan_id/user/"
+        new_dir = f"{_base}/ska-low-mccs/{outcome}/user/"
 
         daq_component_manager.configure_daq(
             **{"directory": default_dir, "directory_tag": directory_tag}
