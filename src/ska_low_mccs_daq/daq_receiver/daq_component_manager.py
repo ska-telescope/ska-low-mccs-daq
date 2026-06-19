@@ -7,6 +7,7 @@
 # See LICENSE for more info.
 # pylint: disable=too-many-lines
 """This module implements component management for DaqReceivers."""
+
 from __future__ import annotations
 
 import ctypes
@@ -562,7 +563,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     self.logger.info(
                         f'directory {daq_config["directory"]} does not exist, Creating.'
                     )
-                    os.makedirs(daq_config["directory"])
+                    os.makedirs(daq_config["directory"], exist_ok=True)
                     self.logger.info(f'directory {daq_config["directory"]} created!')
 
             if "directory_tag" in daq_config:

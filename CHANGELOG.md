@@ -1,6 +1,11 @@
 # Version History
 
-## Unreleased
+## 6.3.0
+
+* [THORN-588] Integrated station beam DAQ mode now supports receiving data from multiple subarrays simultaneously.
+  * Packets from different subarrays are separated using the `subarray_id` SPEAD field (1-based).
+  * Channel data is packed contiguously per subarray: subarray 1 occupies channels `[0, nof_beam_channels)`, subarray 2 occupies `[nof_beam_channels, 2*nof_beam_channels)`, etc.
+  * New `nof_subarrays` configuration parameter (default: `1`) controls how many subarrays to expect. All subarrays are written to a single output file.
 * [SDR-1687] Upgrade to PyTango 10.3.0.
 
 ## 6.2.0
