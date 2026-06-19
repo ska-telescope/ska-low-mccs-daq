@@ -270,12 +270,13 @@ bool StationData::processPacket()
     // subarray_id is 1-based, so subarray 1 maps to channels [0, nof_channels),
     // subarray 2 to [nof_channels, 2*nof_channels), etc.
     uint16_t compound_channel = (subarray_id - 1) * nof_channels + logical_channel_id;
-
+    if (double_buffer->process_constructor == false) {
     double_buffer -> write_data(compound_channel,
                                 samples_in_packet,
                                 packet_counter,
                                 reinterpret_cast<uint16_t *>(payload + payload_offset),
                                 packet_time);
+    }
 
     // Ready from packet
     ring_buffer -> pull_ready();
@@ -306,6 +307,7 @@ bool StationData::processPacket()
 StationDoubleBuffer::StationDoubleBuffer(uint16_t nof_channels, uint32_t nof_samples, uint8_t nof_pols, uint8_t nbuffers) :
         nof_channels(nof_channels), nof_samples(nof_samples), nof_pols(nof_pols), nof_buffers(nbuffers)
 {
+    process_constructor = false;
     // Make sure that nof_buffers is a power of 2
     nof_buffers = (uint8_t) pow(2, ceil(log2(nof_buffers)));
 
@@ -545,12 +547,13 @@ void StationPersister::threadEntry()
         // Call callback if set
         metadata.nof_packets=buffer->nof_packets;
         metadata.nof_saturations=buffer->nof_saturations;
+        double_buffer->process_constructor = true;
         if (callback != nullptr) {
             callback(buffer->integrators, buffer->ref_time, static_cast<void *>(&metadata));
         }
         else
             LOG(INFO, "Received station beam");
-
+        double_buffer->process_constructor = false;
         // Ready from buffer
         double_buffer->release_buffer();
     }

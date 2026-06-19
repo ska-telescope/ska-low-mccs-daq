@@ -77,6 +77,8 @@ public:
     // Tear down
     void tearDown();
 
+    bool process_constructor = false;
+
 private:
 
     inline void process_data(int producer_index, uint16_t channel, uint32_t samples,
