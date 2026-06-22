@@ -71,6 +71,7 @@ conf = {
     "max_filesize": None,
     "acquisition_duration": -1,
     "acquisition_start_time": -1,
+    "safe_callback": False,
     "station_beam_source": "",
     "station_beam_start_channel": 0,
     "station_beam_dada": False,
@@ -946,6 +947,7 @@ def start_station_beam_data_consumer(callback=None):
         "nof_channels": conf["nof_beam_channels"],
         "nof_samples": conf["nof_station_samples"],
         "max_packet_size": conf["receiver_frame_size"],
+        "safe_callback": conf["safe_callback"],
     }
 
     if (

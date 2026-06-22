@@ -24,9 +24,10 @@ bool StationData::initialiseConsumer(json configuration)
     // Check that all required keys are present
     if (!(key_in_json(configuration, "nof_channels")) &&
         (key_in_json(configuration, "nof_samples")) &&
+        (key_in_json(configuration, "safe_callback")) &&
         (key_in_json(configuration, "max_packet_size"))) {
         LOG(FATAL, "Missing configuration item for StationData consumer. Requires "
-                "nof_channels, nof_samples and max_packet_size");
+                "nof_channels, nof_samples, safe_callback and max_packet_size");
         return false;
     }
 
@@ -38,6 +39,7 @@ bool StationData::initialiseConsumer(json configuration)
     this -> nof_subarrays  = key_in_json(configuration, "nof_subarrays")
                                  ? (uint16_t) configuration["nof_subarrays"]
                                  : 1;
+    this -> safe_callback  = configuration["safe_callback"];
 
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t) nof_samples * 2);
@@ -270,7 +272,7 @@ bool StationData::processPacket()
     // subarray_id is 1-based, so subarray 1 maps to channels [0, nof_channels),
     // subarray 2 to [nof_channels, 2*nof_channels), etc.
     uint16_t compound_channel = (subarray_id - 1) * nof_channels + logical_channel_id;
-    if (double_buffer->process_constructor == false) {
+    if (this -> safe_callback == false || double_buffer->process_constructor == false) {
     double_buffer -> write_data(compound_channel,
                                 samples_in_packet,
                                 packet_counter,
@@ -547,13 +549,13 @@ void StationPersister::threadEntry()
         // Call callback if set
         metadata.nof_packets=buffer->nof_packets;
         metadata.nof_saturations=buffer->nof_saturations;
-        double_buffer->process_constructor = true;
         if (callback != nullptr) {
+            double_buffer->process_constructor = true;
             callback(buffer->integrators, buffer->ref_time, static_cast<void *>(&metadata));
+            double_buffer->process_constructor = false;
         }
         else
             LOG(INFO, "Received station beam");
-        double_buffer->process_constructor = false;
         // Ready from buffer
         double_buffer->release_buffer();
     }
