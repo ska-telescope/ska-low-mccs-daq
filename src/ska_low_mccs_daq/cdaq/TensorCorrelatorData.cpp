@@ -11,16 +11,17 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
 {
     cu::init();
     // Check that all required keys are present
-    if (!(key_in_json(configuration, "nof_antennas")) &&
-        (key_in_json(configuration, "nof_channels")) &&
-        (key_in_json(configuration, "nof_fine_channels")) &&
-        (key_in_json(configuration, "nof_tiles")) &&
-        (key_in_json(configuration, "nof_samples")) &&
-        (key_in_json(configuration, "nof_pols")) &&
-        (key_in_json(configuration, "max_packet_size")))
+    if (!(key_in_json(configuration, "nof_antennas") &&
+          key_in_json(configuration, "nof_channels") &&
+          key_in_json(configuration, "nof_fine_channels") &&
+          key_in_json(configuration, "nof_tiles") &&
+          key_in_json(configuration, "nof_active_tiles") &&
+          key_in_json(configuration, "nof_samples") &&
+          key_in_json(configuration, "nof_pols") &&
+          key_in_json(configuration, "max_packet_size")))
     {
         LOG(FATAL, "Missing configuration item for TensorCorrelatorData consumer. Requires "
-                   "nof_antennas, nof_samples, nof_tiles, nof_pols, nof_channels, "
+                   "nof_antennas, nof_samples, nof_tiles, nof_active_tiles, nof_pols, nof_channels, "
                    "nof_fine_channels and max_packet_size");
         return false;
     }
@@ -33,13 +34,50 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     this->nof_pols = configuration["nof_pols"];
     this->packet_size = configuration["max_packet_size"];
     uint32_t nof_fine_channels = configuration["nof_fine_channels"];
+    uint16_t nof_active_tiles = configuration["nof_active_tiles"];
+    uint8_t nbuffers = configuration.count("nbuffers") ? (uint8_t)configuration["nbuffers"] : 4;
+    if (nbuffers < 2)
+    {
+        LOG(FATAL, "nbuffers (%u) must be >= 2", (unsigned)nbuffers);
+        return false;
+    }
+
+    uint16_t nof_splits;
+    if (configuration.count("nof_splits"))
+    {
+        nof_splits = (uint16_t)configuration["nof_splits"];
+    }
+    else
+    {
+        // Each split should be at least one DMA batch (~4 MiB) so H2D streaming
+        // overlaps meaningfully with kernel execution.
+        const size_t m_stride = (size_t)nof_tiles * nof_antennas * nof_pols * 16 * sizeof(uint16_t);
+        const size_t batch_m  = std::max(size_t(1), (4UL * 1024 * 1024) / m_stride);
+        const size_t total_m  = this->nof_samples / 16;
+        nof_splits = (uint16_t)std::max(size_t(1), total_m / batch_m);
+        LOG(INFO, "nof_splits not specified: auto-selected %u (batch_m=%zu, total_m=%zu)",
+            (unsigned)nof_splits, batch_m, total_m);
+    }
+
+    if (nof_active_tiles == 0 || nof_active_tiles > this->nof_tiles)
+    {
+        LOG(FATAL, "nof_active_tiles (%u) must be in [1, nof_tiles=%u]", (unsigned)nof_active_tiles, (unsigned)this->nof_tiles);
+        return false;
+    }
+
+    if (nof_splits == 0)
+    {
+        LOG(FATAL, "nof_splits must be >= 1");
+        return false;
+    }
 
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t)32768 * this->nof_tiles);
 
     // Create cross-correlator and start
     cross_correlator = new TensorCrossCorrelator(nof_fine_channels,
-                                                 nof_tiles * nof_antennas, nof_samples, nof_pols);
+                                                 nof_tiles * nof_antennas, nof_samples, nof_pols,
+                                                 nof_active_tiles * nof_antennas, nof_splits, nbuffers);
 
     double_buffer = cross_correlator->double_buffer;
 
@@ -236,11 +274,14 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
                                              uint16_t nof_antennas,
                                              uint32_t nof_samples,
                                              uint8_t nof_pols,
+                                             uint16_t nof_active_antennas,
+                                             uint16_t nof_splits,
                                              uint8_t nbuffers)
-    : device_(0), // choose GPU 0
-      context_(0, device_), // primary context on device 0
+    : device_(0),
+      context_(0, device_),
       stream_(),
-      samplesExt_(multi_array::extents[1][nof_samples / 16][nof_antennas][nof_pols][16]),
+      nof_splits_(nof_splits),
+      samplesExt_(multi_array::extents[1][nof_samples / nof_splits / 16][nof_antennas][nof_pols][16]),
       visExt_(multi_array::extents[1][(nof_antennas * (nof_antennas + 1)) / 2][nof_pols][nof_pols]),
       hostVis_(sizeof(VisT) * visExt_.size, 0),
       devSamples_(sizeof(SampleT) * samplesExt_.size), devVis_(sizeof(VisT) * visExt_.size),
@@ -248,31 +289,72 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
       nof_antennas(nof_antennas),
       nof_samples(nof_samples),
       nof_pols(nof_pols)
-
 {
     context_.setCurrent();
 
-    double_buffer = new TccDoubleBuffer(nof_antennas, nof_samples, nof_pols, nbuffers);
+    double_buffer = new TccDoubleBuffer(nof_antennas, nof_samples, nof_pols, nof_active_antennas, nbuffers);
 
-    constexpr tcc::Format fmt = tcc::Format::i8; // TPMs produce int8 complex
-    const int TPB = 16;
-    if (nof_samples % TPB != 0)
-    {
-        LOG(FATAL, "nof_samples (%u) must be divisible by %d", nof_samples, TPB);
-    }
+    constexpr tcc::Format fmt = tcc::Format::i8;
+    const uint32_t samples_per_split = nof_samples / nof_splits;
+    if (nof_samples % nof_splits != 0)
+        LOG(FATAL, "nof_samples (%u) must be divisible by nof_splits (%u)", nof_samples, (unsigned)nof_splits);
+    if (samples_per_split % 16 != 0)
+        LOG(FATAL, "nof_samples/nof_splits (%u) must be divisible by 16", samples_per_split);
 
     correlator_ = std::make_unique<tcc::Correlator>(
         device_, fmt,
         /*nrReceivers*/ nof_antennas,
         /*nrChannels*/ 1,
-        /*nrSamplesPerChannel*/ nof_samples,
+        /*nrSamplesPerChannel*/ samples_per_split,
         /*nrPolarizations*/ nof_pols);
+
+    m_stride_bytes_ = (size_t)nof_antennas * nof_pols * 16 * sizeof(SampleT);
+    split_m_        = (nof_samples / 16) / nof_splits;
+    batch_m_        = std::max(size_t(1), (4UL * 1024 * 1024) / m_stride_bytes_);
 }
 
 // Class destructor
 TensorCrossCorrelator::~TensorCrossCorrelator()
 {
     delete double_buffer;
+}
+
+void TensorCrossCorrelator::copy_tail(const uint8_t *host_base, size_t split_start,
+                                      size_t from, size_t to)
+{
+    if (from >= to) return;
+    LOG(DEBUG, "TCC H2D batch: M-blocks [%zu, %zu) (split_start=%zu), %.2f KiB",
+        from, to, split_start, (double)((to - from) * m_stride_bytes_) / 1024.0);
+    stream_.memcpyHtoDAsync(
+        (CUdeviceptr)devSamples_ + from * m_stride_bytes_,
+        host_base + (split_start + from) * m_stride_bytes_,
+        (to - from) * m_stride_bytes_);
+}
+
+void TensorCrossCorrelator::try_stream_partial(uint16_t &split, size_t &split_streamed)
+{
+    const int slot = double_buffer->get_consumer();
+    const size_t global_safe = double_buffer->safe_m(slot);
+    const size_t split_start = (size_t)split * split_m_;
+    const size_t split_available = (global_safe > split_start)
+        ? std::min(global_safe - split_start, split_m_)
+        : 0;
+
+    if (split_available > split_streamed &&
+        (split_available - split_streamed >= batch_m_ || split_available == split_m_))
+    {
+        const uint8_t *host_base =
+            reinterpret_cast<const uint8_t *>(double_buffer->get_buffer_pointer(slot)->data);
+        copy_tail(host_base, split_start, split_streamed, split_available);
+        split_streamed = split_available;
+    }
+
+    if (split_streamed == split_m_ && split + 1 < nof_splits_)
+    {
+        correlator_->launchAsync(stream_, devVis_, devSamples_, split > 0);
+        split++;
+        split_streamed = 0;
+    }
 }
 
 // Main event loop
@@ -286,11 +368,16 @@ void TensorCrossCorrelator::threadEntry()
     while (!this->stop_thread)
     {
         Buffer *buffer;
+        uint16_t split = 0;
+        size_t split_streamed = 0;
+
         do
         {
             buffer = double_buffer->read_buffer();
             if (this->stop_thread)
                 return;
+            if (buffer == nullptr)
+                try_stream_partial(split, split_streamed);
         } while (buffer == nullptr);
 
         clock_gettime(CLOCK_MONOTONIC, &tic);
@@ -299,16 +386,21 @@ void TensorCrossCorrelator::threadEntry()
         const int channel = buffer->channel;
         const unsigned read_samples = buffer->read_samples;
         const unsigned nof_packets = buffer->nof_packets;
-        const size_t sample_bytes = (size_t)nof_samples * nof_antennas * nof_pols * sizeof(uint16_t);
         const size_t vis_bytes = sizeof(VisT) * visExt_.size;
+        const auto *data = reinterpret_cast<const uint8_t *>(buffer->data);
 
         stream_.record(eH2D0);
-        stream_.memcpyHtoDAsync(devSamples_, buffer->data, sample_bytes);
-        stream_.record(eH2D1);
+        for (; split < nof_splits_; split++)
+        {
+            copy_tail(data, (size_t)split * split_m_, split_streamed, split_m_);
+            stream_.record(eH2D1);
 
-        stream_.record(eK0);
-        correlator_->launchAsync(stream_, devVis_, devSamples_, false);
-        stream_.record(eK1);
+            stream_.record(eK0);
+            correlator_->launchAsync(stream_, devVis_, devSamples_, split > 0);
+            stream_.record(eK1);
+
+            split_streamed = 0;
+        }
 
         stream_.record(eD2H0);
         stream_.memcpyDtoHAsync(hostVis_, devVis_, vis_bytes);
@@ -316,15 +408,13 @@ void TensorCrossCorrelator::threadEntry()
 
         stream_.synchronize();
 
-        // Read GPU timings (ms) from device timeline
+        // eH2D1/eK0/eK1 reflect the last split; eH2D0 is before all tail work
         float h2d_ms = eH2D1.elapsedTime(eH2D0);
         float kern_ms = eK1.elapsedTime(eK0);
         float d2h_ms = eD2H1.elapsedTime(eD2H0);
 
-        // Release buffer back to producer
         double_buffer->release_buffer();
 
-        // Callback
         clock_gettime(CLOCK_MONOTONIC, &toc);
         if (callback != nullptr)
         {
@@ -341,10 +431,9 @@ void TensorCrossCorrelator::threadEntry()
         }
 
         LOG(INFO,
-            "TCC ch=%d | H2D=%.3f ms | kern=%.3f ms | D2H=%.3f ms "
-            "(samples=%u, packets=%u, bytes=%.2f MiB)",
-            channel,
-            h2d_ms, kern_ms, d2h_ms,
-            read_samples, nof_packets, sample_bytes / (1024.0 * 1024.0));
+            "TCC ch=%d | tail-H2D=%.3f ms | last-kern=%.3f ms | D2H=%.3f ms "
+            "(samples=%u, packets=%u, splits=%u)",
+            channel, h2d_ms, kern_ms, d2h_ms,
+            read_samples, nof_packets, (unsigned)nof_splits_);
     }
 }

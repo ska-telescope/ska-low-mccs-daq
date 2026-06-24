@@ -68,8 +68,11 @@ public:
     // Get number of buffers
     int get_number_of_buffers() { return nbuffers; }
 
+    // Get current consumer index
+    int get_consumer() const { return consumer; }
+
     // Ready from buffer, mark as processed
-    void release_buffer();
+    virtual void release_buffer();
 
     // Clear double buffer
     void clear();

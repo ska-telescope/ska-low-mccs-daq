@@ -4,8 +4,8 @@ platform:
       ci-1:
         id: 1
         sps: {}
-  cluster:
-    domain: cluster.local # Necessary for AWS runners
+  # cluster:
+  #   domain: cluster.local # Necessary for AWS runners
 
 helm_values:
     ska-tango-devices:
