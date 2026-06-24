@@ -4,7 +4,6 @@
 #include "TccSplitRing.h"
 #include "DAQ.h" // LOG macro
 
-#include <algorithm>
 #include <cassert>
 
 TccSplitRing::TccSplitRing(uint16_t nof_antennas, uint32_t split_m, uint8_t nof_pols,
@@ -64,8 +63,7 @@ bool TccSplitRing::write_data(uint64_t global_split,
         slot.ref_time.store(timestamp, std::memory_order_relaxed);
         slot.nof_packets.store(0, std::memory_order_relaxed);
         slot.read_samples.store(0, std::memory_order_relaxed);
-        slot.global_split = global_split;
-        slot.channel   = channel;
+        slot.channel = channel;
 
         SlotState expected = SlotState::EMPTY;
         if (!slot.state.compare_exchange_strong(expected, SlotState::FILLING,
@@ -86,7 +84,7 @@ bool TccSplitRing::write_data(uint64_t global_split,
     }
 
     // -----------------------------------------------------------------------
-    // Scatter-write into [M][R][P][T] layout (same as TccDoubleBuffer::copy_data)
+    // Scatter-write into [M][R][P][T] layout expected by libtcc
     // -----------------------------------------------------------------------
     const size_t   m_stride   = (size_t)nof_antennas_ * nof_pols_ * kTimesPerBlock;
     const uint32_t r_stride   = nof_pols_ * kTimesPerBlock;

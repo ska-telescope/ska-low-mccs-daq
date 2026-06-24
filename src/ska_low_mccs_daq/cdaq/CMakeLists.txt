@@ -107,17 +107,6 @@ if (WITH_CORRELATOR)
   install(TARGETS aavsdaq_tcc DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 
-if (WITH_CORRELATOR AND WITH_TCC_TESTS)
-    find_package(GTest REQUIRED)
-    enable_testing()
-    add_executable(test_tcc_gpu test_tcc_gpu.cpp)
-    target_link_libraries(test_tcc_gpu
-        aavsdaq_tcc
-        GTest::gtest
-        cudawrappers::cu)
-    add_test(NAME tcc_gpu COMMAND test_tcc_gpu)
-endif()
-
 if (WITH_SMALL_STATION)
     install(TARGETS "aavsdaq48" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()

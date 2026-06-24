@@ -59,6 +59,12 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
             (unsigned)nof_splits, batch_m, total_m);
     }
 
+    if (this->nof_channels != 1)
+    {
+        LOG(FATAL, "TCC correlator only supports nof_channels=1 (got %u)", (unsigned)this->nof_channels);
+        return false;
+    }
+
     if (nof_active_tiles == 0 || nof_active_tiles > this->nof_tiles)
     {
         LOG(FATAL, "nof_active_tiles (%u) must be in [1, nof_tiles=%u]", (unsigned)nof_active_tiles, (unsigned)this->nof_tiles);
@@ -81,6 +87,7 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
 
     split_ring = cross_correlator->split_ring;
     split_m_   = (uint32_t)cross_correlator->split_ring->split_m();
+    nof_splits_per_integ_ = (this->nof_samples / 16) / split_m_;
 
     // Start cross-correlator
     cross_correlator->startThread();
@@ -137,7 +144,6 @@ bool TensorCorrelatorData::processPacket()
         rollover_counter  = 0;
         reference_counter = 0;
         pkts_per_integ_   = 0;
-        last_integ_idx_   = UINT32_MAX;
         // Flush the ring so the consumer can drain the current partial integration
         // and reset its counters at the next integration boundary.
         if (split_ring != nullptr)
@@ -252,21 +258,11 @@ bool TensorCorrelatorData::processPacket()
     const uint32_t integ_idx    = (uint32_t)(relative / pkts_per_integ_);
     const uint32_t pkt_in_integ = (uint32_t)(relative % pkts_per_integ_);
 
-    if (integ_idx != last_integ_idx_) last_integ_idx_ = integ_idx;
-
     const uint32_t blocks_in_pkt = samples_in_packet / 16;
     const uint32_t m_in_integ    = pkt_in_integ * blocks_in_pkt;
     const uint32_t split_idx     = m_in_integ / split_m_;
     const uint32_t m_local       = m_in_integ % split_m_;
-    const uint32_t nof_splits_in_integ = (nof_samples / 16) / split_m_;
-    const uint64_t global_split       = (uint64_t)integ_idx * nof_splits_in_integ + split_idx;
-
-    if (this->nof_channels != 1)
-    {
-        LOG(WARN, "TCC correlator only supports nof_channels=1 — dropping packet");
-        ring_buffer->pull_ready();
-        return true;
-    }
+    const uint64_t global_split  = (uint64_t)integ_idx * nof_splits_per_integ_ + split_idx;
 
     // Write packet data to split ring (silently dropped if already consumed)
     split_ring->write_data(global_split, tile_id * nof_antennas + start_antenna_id,

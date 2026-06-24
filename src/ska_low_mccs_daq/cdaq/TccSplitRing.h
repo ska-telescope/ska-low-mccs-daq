@@ -29,7 +29,6 @@ struct SplitSlot
     std::atomic<double>    ref_time{0.0};
     std::atomic<uint32_t>  nof_packets{0};
     std::atomic<uint32_t>  read_samples{0};
-    uint64_t               global_split = 0; // written before FILLING published; read after READY
     int                    channel      = -1; // written before FILLING published; read after READY
 };
 

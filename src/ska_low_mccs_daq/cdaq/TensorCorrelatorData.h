@@ -101,8 +101,6 @@ private:
     std::unique_ptr<cu::Event[]> h2d_done_;
 
     struct timespec tic{}, toc{};
-    struct timespec poll_tim_  = {0, 1000}; // 1 µs
-    struct timespec poll_tim2_ = {};
 };
 
 // -----------------------------------------------------------------------------
@@ -135,7 +133,7 @@ private:
     size_t   reference_counter  = 0;
     uint32_t rollover_counter   = 0;
     uint32_t pkts_per_integ_    = 0; // nof_samples / samples_in_packet (set on first packet)
-    uint32_t last_integ_idx_    = UINT32_MAX; // detect integration boundary
+    uint32_t nof_splits_per_integ_ = 0; // (nof_samples / 16) / split_m_ (precomputed)
 
     // Data setup
     uint16_t nof_antennas = 0;
