@@ -4,3 +4,22 @@ platform:
       ci-1:
         id: 1
         sps: {}
+  # cluster:
+  #   domain: cluster.local # Necessary for AWS runners
+
+helm_values:
+    ska-tango-devices:
+      devices:
+        MccsDaqReceiver:
+          low-mccs/daqreceiver/ci-1:
+            # Null ParentTRL given by platform spec, currently the only place to do this.
+            ParentTRL: ""
+          low-mccs/daqreceiver/ci-1-bandpass:
+            # Null ParentTRL given by platform spec, currently the only place to do this.
+            ParentTRL: ""
+          low-mccs/daqreceiver/real-daq-1:
+            # Null ParentTRL given by platform spec, currently the only place to do this.
+            ParentTRL: ""
+          low-mccs/daqreceiver/real-daq-1-bandpass:
+            # Null ParentTRL given by platform spec, currently the only place to do this.
+            ParentTRL: ""

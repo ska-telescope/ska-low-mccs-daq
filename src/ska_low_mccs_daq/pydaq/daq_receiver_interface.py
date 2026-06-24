@@ -243,6 +243,7 @@ class DaqReceiver:
             "nof_beam_samples": 42,
             "nof_beam_channels": 384,
             "nof_station_samples": 262144,
+            "nof_subarrays": None,
             "integrated_channel_bitwidth": 16,
             "integration_lookahead_cutoff": 3.0,
             "continuous_channel_bitwidth": 16,
@@ -1017,11 +1018,13 @@ class DaqReceiver:
         metadata = ctypes.cast(metadata, ctypes.POINTER(self.StationMetadata)).contents
         nof_packets = metadata.nof_packets
         nof_saturations = metadata.nof_saturations
-        # Extract data sent by DAQ
+
+        # Extract data sent by DAQ; buffer holds nof_subarrays * nof_beam_channels per pol
+        nof_subarrays = self._config["nof_subarrays"] or 1
         values = self._get_numpy_from_ctypes(
             data,
             np.double,
-            self._config["nof_beam_channels"] * self._config["nof_polarisations"],
+            nof_subarrays * self._config["nof_beam_channels"] * self._config["nof_polarisations"],
         )
 
         # Persist extracted data to file
@@ -1494,6 +1497,8 @@ class DaqReceiver:
             "nof_samples": self._config["nof_station_samples"],
             "max_packet_size": self._config["receiver_frame_size"],
         }
+        if self._config["nof_subarrays"] is not None:
+            params["nof_subarrays"] = self._config["nof_subarrays"]
 
         if (
             self._start_consumer(
@@ -1507,7 +1512,7 @@ class DaqReceiver:
             raise Exception("Failed to start station beam data consumer")
         self._running_consumers[DaqModes.STATION_BEAM_DATA] = True
 
-        # Create data persister
+        # Create data persister; n_chans covers all subarrays (subarray channels packed contiguously)
         beam_file_mgr = StationBeamFormatFileManager(
             root_path=self._config["directory"],
             data_type="double",
@@ -1516,7 +1521,7 @@ class DaqReceiver:
         )
 
         beam_file_mgr.set_metadata(
-            n_chans=self._config["nof_beam_channels"],
+            n_chans=(self._config["nof_subarrays"] or 1) * self._config["nof_beam_channels"],
             n_pols=self._config["nof_polarisations"],
             n_samples=1,
             station_id=self._config["station_id"],
