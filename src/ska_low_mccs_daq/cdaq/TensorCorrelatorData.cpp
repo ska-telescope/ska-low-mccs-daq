@@ -340,9 +340,9 @@ void TensorCrossCorrelator::copy_tail(const uint8_t *host_base, size_t split_sta
         (to - from) * m_stride_bytes_);
 }
 
-void TensorCrossCorrelator::try_stream_partial(uint32_t split_idx, size_t &split_streamed)
+void TensorCrossCorrelator::try_stream_partial(uint64_t global_split, size_t &split_streamed)
 {
-    const uint32_t slot_idx = split_idx % split_ring->ring_size();
+    const uint32_t slot_idx = (uint32_t)(global_split % split_ring->ring_size());
     SplitSlot     &sl       = split_ring->slot(slot_idx);
 
     SlotState s = sl.state.load(std::memory_order_acquire);
@@ -369,8 +369,7 @@ void TensorCrossCorrelator::threadEntry()
     cu::Event eK0,   eK1;
     cu::Event eD2H0, eD2H1;
 
-    struct timespec poll_tim  = {0, 1000}; // 1 µs
-    struct timespec poll_tim2 = {};
+    struct timespec poll_tim = {0, 1000}; // 1 µs
 
     while (!this->stop_thread)
     {
@@ -385,7 +384,7 @@ void TensorCrossCorrelator::threadEntry()
 
         for (uint32_t split = 0; split < nof_splits_; ++split)
         {
-            const uint32_t slot_idx = split % split_ring->ring_size();
+            const uint32_t slot_idx = (uint32_t)((consumer_integ_ * (uint64_t)nof_splits_ + split) % split_ring->ring_size());
             const uint64_t global_split = consumer_integ_ * nof_splits_ + split;
             size_t split_streamed = 0;
 
@@ -395,9 +394,9 @@ void TensorCrossCorrelator::threadEntry()
             // for the next use of that slot hit PROCESSING and get dropped.
             if (split > 0)
             {
-                const uint32_t prev_slot = (split - 1) % split_ring->ring_size();
+                const uint32_t prev_slot = (uint32_t)((global_split - 1) % split_ring->ring_size());
                 h2d_done_[prev_slot].synchronize();
-                split_ring->release_slot(split - 1);
+                split_ring->release_slot(global_split - 1);
             }
 
             // Poll until this split's slot is READY, streaming early while waiting
@@ -405,8 +404,8 @@ void TensorCrossCorrelator::threadEntry()
             {
                 if (this->stop_thread)
                     return;
-                try_stream_partial(split, split_streamed);
-                nanosleep(&poll_tim, &poll_tim2);
+                try_stream_partial(global_split, split_streamed);
+                nanosleep(&poll_tim, nullptr);
             } while (split_ring->slot(slot_idx).state.load(std::memory_order_acquire) != SlotState::READY);
 
             SplitSlot &sl = split_ring->slot(slot_idx);
@@ -440,9 +439,10 @@ void TensorCrossCorrelator::threadEntry()
 
         // Release the final split's slot (all others were released one split later
         // in the loop above; the last one has no subsequent split to trigger it).
-        const uint32_t last_slot_idx = (nof_splits_ - 1) % split_ring->ring_size();
+        const uint64_t last_global_split = consumer_integ_ * (uint64_t)nof_splits_ + (nof_splits_ - 1);
+        const uint32_t last_slot_idx = (uint32_t)(last_global_split % split_ring->ring_size());
         h2d_done_[last_slot_idx].synchronize();
-        split_ring->release_slot(nof_splits_ - 1);
+        split_ring->release_slot(last_global_split);
 
         stream_.record(eD2H0);
         stream_.memcpyDtoHAsync(hostVis_, devVis_, vis_bytes);

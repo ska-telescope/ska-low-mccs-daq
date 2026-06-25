@@ -81,7 +81,7 @@ private:
 
     // Streaming helpers
     void copy_tail(const uint8_t *host_base, size_t split_start, size_t from, size_t to);
-    void try_stream_partial(uint32_t split_idx, size_t &split_streamed);
+    void try_stream_partial(uint64_t global_split, size_t &split_streamed);
 
     // config
     uint32_t nof_channels;

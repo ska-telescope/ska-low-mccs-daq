@@ -4,8 +4,6 @@
 #include "TccSplitRing.h"
 #include "DAQ.h" // LOG macro
 
-#include <cassert>
-
 TccSplitRing::TccSplitRing(uint16_t nof_antennas, uint32_t split_m, uint8_t nof_pols,
                              uint16_t nof_active_antennas, uint32_t ring_size)
     : nof_antennas_(nof_antennas),
@@ -145,8 +143,8 @@ bool TccSplitRing::write_data(uint64_t global_split,
     // Mark READY when every active antenna has written every M-block
     if (safe_m(slot_idx) == split_m_)
     {
-        SlotState expected2 = SlotState::FILLING;
-        slot.state.compare_exchange_strong(expected2, SlotState::READY,
+        SlotState exp2 = SlotState::FILLING;
+        slot.state.compare_exchange_strong(exp2, SlotState::READY,
                                            std::memory_order_release,
                                            std::memory_order_relaxed);
     }
@@ -165,9 +163,9 @@ uint32_t TccSplitRing::safe_m(uint32_t slot_idx) const
     return min_m;
 }
 
-void TccSplitRing::release_slot(uint32_t split_idx)
+void TccSplitRing::release_slot(uint64_t global_split)
 {
-    const uint32_t slot_idx = split_idx % ring_size_;
+    const uint32_t slot_idx = (uint32_t)(global_split % ring_size_);
     SlotState expected = SlotState::PROCESSING;
     slots_[slot_idx].state.compare_exchange_strong(
         expected, SlotState::EMPTY,

@@ -76,7 +76,7 @@ public:
     SplitSlot &slot(uint32_t slot_idx) { return slots_[slot_idx]; }
 
     // Consumer: release slot after H2D has been submitted to the CUDA stream.
-    void release_slot(uint32_t split_idx);
+    void release_slot(uint64_t global_split);
 
     // Producer: called on packet-stream timeout. Forces any FILLING slots to
     // READY so the consumer can drain the current (partial) integration and
