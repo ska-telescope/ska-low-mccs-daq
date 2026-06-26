@@ -1,9 +1,8 @@
 # Version History
 
-## Unreleased
-
 ## 6.4.0
 
+* [THORN-644] Fix backward compatibility for integrated station beam multiple subarrays.
 * [JANUS-433] Added safe_callback option to station beam DAQ mode
 * [SKB-1328] A new `VerifyEvents` device property is added to set the value of [the `detect` parameter](https://tango-controls.readthedocs.io/projects/pytango/en/v10.3.0/api/server_api/attribute.html#tango.Attr.set_change_event) when declaring change and archive events using set_change_event and set_archive_event.
 * [THORN-586] TC correlator now streams data to the GPU incrementally as packets arrive rather than waiting for a full integration, reducing peak GPU memory usage and overlapping H2D transfers with kernel execution.
@@ -13,7 +12,7 @@
 
 ## 6.3.0
 
-* [THORN-588] Integrated station beam DAQ mode now supports receiving data from multiple subarrays simultaneously.
+* [THORN-615] Integrated station beam DAQ mode now supports receiving data from multiple subarrays simultaneously.
   * Packets from different subarrays are separated using the `subarray_id` SPEAD field (1-based).
   * Channel data is packed contiguously per subarray: subarray 1 occupies channels `[0, nof_beam_channels)`, subarray 2 occupies `[nof_beam_channels, 2*nof_beam_channels)`, etc.
   * New `nof_subarrays` configuration parameter (default: `1`) controls how many subarrays to expect. All subarrays are written to a single output file.
