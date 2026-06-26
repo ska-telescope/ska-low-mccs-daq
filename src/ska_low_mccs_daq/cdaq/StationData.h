@@ -77,6 +77,8 @@ public:
     // Tear down
     void tearDown();
 
+    std::atomic<bool> process_constructor {false};
+
 private:
 
     inline void process_data(int producer_index, uint16_t channel, uint32_t samples,
@@ -171,10 +173,11 @@ private:
     std::unordered_map<uint8_t, unsigned long> subarray_ts_rollover;
 
     // Data setup
-    uint8_t  nof_pols = 0;            // Number of polarisations
-    uint16_t nof_channels = 0;        // Number of channels per subarray
+    uint8_t  nof_pols      = 0;       // Number of polarisations
+    uint16_t nof_channels  = 0;       // Number of channels per subarray
     uint16_t nof_subarrays = 1;       // Maximum number of subarrays
-    uint32_t nof_samples = 0;         // Number of time samples
+    uint32_t nof_samples   = 0;       // Number of time samples
+    bool     safe_callback = false;   // Whether to pause writing data during callback
 
 };
 

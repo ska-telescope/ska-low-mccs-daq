@@ -254,6 +254,7 @@ class DaqReceiver:
             "oversampling_factor": 32.0 / 27.0,
             "receiver_ports": "4660",
             "station_beam_receiver_port": "4660",
+            "safe_callback": False,
             "receiver_interface": "eth0",
             "receiver_ip": "",
             "receiver_frame_size": 8500,
@@ -1496,6 +1497,7 @@ class DaqReceiver:
             "nof_channels": self._config["nof_beam_channels"],
             "nof_samples": self._config["nof_station_samples"],
             "max_packet_size": self._config["receiver_frame_size"],
+            "safe_callback": self._config["safe_callback"],
         }
         if self._config["nof_subarrays"] is not None:
             params["nof_subarrays"] = self._config["nof_subarrays"]
