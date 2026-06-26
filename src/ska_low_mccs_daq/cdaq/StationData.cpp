@@ -217,8 +217,6 @@ bool StationData::processPacket()
             ring_buffer->pull_ready();
             return true;
         }
-    } else {
-        subarray_id = 1;
     }
 
     // Initialise rollover counters on first packet from this subarray
@@ -269,7 +267,9 @@ bool StationData::processPacket()
 
     // subarray_id is 1-based, so subarray 1 maps to channels [0, nof_channels),
     // subarray 2 to [nof_channels, 2*nof_channels), etc.
-    uint16_t compound_channel = (subarray_id - 1) * nof_channels + logical_channel_id;
+    uint16_t compound_channel = (nof_subarrays > 1)
+        ? (subarray_id - 1) * nof_channels + logical_channel_id
+        : logical_channel_id;
 
     double_buffer -> write_data(compound_channel,
                                 samples_in_packet,
