@@ -44,6 +44,8 @@ public:
                           uint16_t nof_antennas,
                           uint32_t nof_samples,
                           uint8_t nof_pols,
+                          uint16_t nof_active_antennas,
+                          uint16_t nof_splits = 1,
                           uint8_t nbuffers = 4);
     ~TensorCrossCorrelator() override;
     TccDoubleBuffer *double_buffer;
@@ -61,6 +63,9 @@ private:
     cu::Context context_;
     cu::Stream stream_;
 
+    // nof_splits_ must precede samplesExt_ (init-list order = declaration order)
+    uint16_t nof_splits_;
+
     // Extents next (sizes used by buffers)
     multi_array::extent<5> samplesExt_;
     multi_array::extent<4> visExt_;
@@ -73,11 +78,20 @@ private:
     std::unique_ptr<tcc::Correlator> correlator_;
     DataCallbackDynamic callback{nullptr};
 
+    // Streaming helpers
+    void copy_tail(const uint8_t *host_base, size_t split_start, size_t from, size_t to);
+    void try_stream_partial(uint16_t &split, size_t &split_streamed);
+
     // config
     uint32_t nof_channels;
     uint16_t nof_antennas;
     uint32_t nof_samples;
     uint8_t nof_pols;
+
+    // precomputed streaming constants
+    size_t split_m_;
+    size_t m_stride_bytes_;
+    size_t batch_m_;
 
     struct timespec tic{}, toc{};
 };

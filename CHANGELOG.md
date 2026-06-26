@@ -3,6 +3,11 @@
 ## Unreleased
 
 * [THORN-644] Fix backward compatibility for integrated station beam multiple subarrays.
+* [SKB-1328] A new `VerifyEvents` device property is added to set the value of [the `detect` parameter](https://tango-controls.readthedocs.io/projects/pytango/en/v10.3.0/api/server_api/attribute.html#tango.Attr.set_change_event) when declaring change and archive events using set_change_event and set_archive_event.
+* [THORN-586] TC correlator now streams data to the GPU incrementally as packets arrive rather than waiting for a full integration, reducing peak GPU memory usage and overlapping H2D transfers with kernel execution.
+  * New `nof_correlator_splits` configure option controls how many segments each integration is divided into for streaming. Defaults to `null` (auto-selected as the maximum useful value, ~4 MiB per split). When set, `nof_correlator_samples` must be divisible by this value and `nof_correlator_samples / nof_correlator_splits` must be divisible by 16.
+  * New `nof_correlator_buffers` configure option controls the number of host-side double-buffer slots (default 4, minimum 2).
+  * New `nof_correlator_active_tiles` configure option allows profiling with fewer TPMs than `nof_tiles` configured.
 
 ## 6.3.0
 
