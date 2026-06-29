@@ -256,20 +256,6 @@ bool TensorCorrelatorData::processPacket()
     samples_in_packet = (uint32_t)((payload_length - payload_offset) /
                                    (nof_included_antennas * nof_pols * nof_included_channels * sizeof(uint16_t)));
 
-    // A change of channel is a fresh per-channel counter stream. Advance the monotonic
-    // base by the previous channel's integration count and reset the per-channel
-    // reference/rollover so this packet re-anchors integ_idx at 0 for the new channel.
-    // Without this, the new channel's heap counter restarting at 0 would trip the
-    // rollover detector below and add 2^24, inflating integ_idx by thousands.
-    if (last_channel_id_ != -1 && (int)start_channel_id != last_channel_id_)
-    {
-        global_split_base_ += (uint64_t)(max_local_integ_ + 1) * nof_splits_per_integ_;
-        reference_counter = 0;
-        rollover_counter = 0;
-        max_local_integ_ = 0;
-    }
-    last_channel_id_ = (int)start_channel_id;
-
     // Check whether packet counter has rolled over
     if (packet_counter == 0 && pol_id == 0)
         rollover_counter += 1;
@@ -289,11 +275,6 @@ bool TensorCorrelatorData::processPacket()
     const uint64_t relative = (uint64_t)(packet_counter - reference_counter);
     const uint32_t integ_idx = (uint32_t)(relative / pkts_per_integ_);
     const uint32_t pkt_in_integ = (uint32_t)(relative % pkts_per_integ_);
-
-    // Track the highest in-channel integration so the base can advance correctly when
-    // the channel next changes.
-    if (integ_idx > max_local_integ_)
-        max_local_integ_ = integ_idx;
 
     const uint32_t blocks_in_pkt = samples_in_packet / 16;
     const uint32_t m_in_integ = pkt_in_integ * blocks_in_pkt;

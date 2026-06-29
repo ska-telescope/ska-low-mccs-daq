@@ -135,14 +135,6 @@ private:
     uint32_t pkts_per_integ_    = 0; // nof_samples / samples_in_packet (set on first packet)
     uint32_t nof_splits_per_integ_ = 0; // (nof_samples / 16) / split_m_ (precomputed)
 
-    // Channel-transition tracking. The SPEAD heap counter restarts per channel, so the
-    // per-channel reference/rollover are reset on a channel change while global_split_base_
-    // advances by the previous channel's integration count. This keeps global_split
-    // monotonic and contiguous across channels (no false 2^24 rollover, no backward jump).
-    int      last_channel_id_   = -1; // -1 until the first packet
-    uint64_t global_split_base_ = 0;  // added to every global_split; bumped per channel
-    uint32_t max_local_integ_   = 0;  // highest in-channel integ_idx seen this channel
-
     // Data setup
     uint16_t nof_antennas = 0;
     uint8_t  nof_pols     = 0;
