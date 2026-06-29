@@ -77,6 +77,23 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
         return false;
     }
 
+    {
+        uint32_t aligned_ring = ring_size;
+        while (aligned_ring >= 2 && (nof_splits % aligned_ring) != 0)
+            --aligned_ring;
+        if (aligned_ring < 2)
+        {
+            LOG(WARN, "ring_size=%u has no divisor of nof_splits=%u in [2, ring_size]; "
+                      "leaving ring unaligned", ring_size, (unsigned)nof_splits);
+        }
+        else if (aligned_ring != ring_size)
+        {
+            LOG(INFO, "Adjusted ring_size %u -> %u so it divides nof_splits=%u "
+                      "(integration-aligned)", ring_size, aligned_ring, (unsigned)nof_splits);
+            ring_size = aligned_ring;
+        }
+    }
+
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t)32768 * this->nof_tiles);
 
@@ -324,7 +341,22 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
 }
 
 // Class destructor
-TensorCrossCorrelator::~TensorCrossCorrelator() = default;
+TensorCrossCorrelator::~TensorCrossCorrelator()
+{
+    // The CUDA context was made current in the correlator thread.  This
+    // destructor runs in the calling (main) thread, which has never called
+    // setCurrent().  Re-establish the context here so all subsequent member
+    // destructors (DeviceMemory, HostMemory, Stream, Events, Correlator) can
+    // call into the CUDA driver successfully.
+    context_.setCurrent();
+
+    // split_ring is declared before context_, so in implicit member-destruction
+    // order it would be torn down *after* context_ (cuCtxDestroy) has run.  It
+    // owns pinned cu::HostMemory, and freeing that after the context is gone
+    // throws cu::Error (invalid argument).  Release it explicitly now, while the
+    // context is still alive and current.
+    split_ring.reset();
+}
 
 void TensorCrossCorrelator::copy_tail(const uint8_t *host_base, size_t split_start,
                                       size_t from, size_t to)
