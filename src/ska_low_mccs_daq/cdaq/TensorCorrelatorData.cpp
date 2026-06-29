@@ -52,8 +52,8 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
         // Each split should be at least one DMA batch (~4 MiB) so H2D streaming
         // overlaps meaningfully with kernel execution.
         const size_t m_stride = (size_t)nof_tiles * nof_antennas * nof_pols * 16 * sizeof(uint16_t);
-        const size_t batch_m  = std::max(size_t(1), (4UL * 1024 * 1024) / m_stride);
-        const size_t total_m  = this->nof_samples / 16;
+        const size_t batch_m = std::max(size_t(1), (4UL * 1024 * 1024) / m_stride);
+        const size_t total_m = this->nof_samples / 16;
         nof_splits = (uint16_t)std::max(size_t(1), total_m / batch_m);
         LOG(INFO, "nof_splits not specified: auto-selected %u (batch_m=%zu, total_m=%zu)",
             (unsigned)nof_splits, batch_m, total_m);
@@ -84,12 +84,14 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
         if (aligned_ring < 2)
         {
             LOG(WARN, "ring_size=%u has no divisor of nof_splits=%u in [2, ring_size]; "
-                      "leaving ring unaligned", ring_size, (unsigned)nof_splits);
+                      "leaving ring unaligned",
+                ring_size, (unsigned)nof_splits);
         }
         else if (aligned_ring != ring_size)
         {
             LOG(INFO, "Adjusted ring_size %u -> %u so it divides nof_splits=%u "
-                      "(integration-aligned)", ring_size, aligned_ring, (unsigned)nof_splits);
+                      "(integration-aligned)",
+                ring_size, aligned_ring, (unsigned)nof_splits);
             ring_size = aligned_ring;
         }
     }
@@ -99,11 +101,11 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
 
     // Create cross-correlator and start
     cross_correlator = std::make_unique<TensorCrossCorrelator>(nof_fine_channels,
-                                                 nof_tiles * nof_antennas, nof_samples, nof_pols,
-                                                 nof_active_tiles * nof_antennas, nof_splits, ring_size);
+                                                               nof_tiles * nof_antennas, nof_samples, nof_pols,
+                                                               nof_active_tiles * nof_antennas, nof_splits, ring_size);
 
     split_ring = cross_correlator->split_ring.get();
-    split_m_   = (uint32_t)cross_correlator->split_ring->split_m();
+    split_m_ = (uint32_t)cross_correlator->split_ring->split_m();
     nof_splits_per_integ_ = (this->nof_samples / 16) / split_m_;
 
     // Start cross-correlator
@@ -157,9 +159,9 @@ bool TensorCorrelatorData::processPacket()
     if (packet_size == SIZE_MAX)
     {
         // Request timed out, reset integration tracking
-        rollover_counter  = 0;
+        rollover_counter = 0;
         reference_counter = 0;
-        pkts_per_integ_   = 0;
+        pkts_per_integ_ = 0;
         // Flush the ring so the consumer can drain the current partial integration
         // and reset its counters at the next integration boundary.
         if (split_ring != nullptr)
@@ -270,20 +272,20 @@ bool TensorCorrelatorData::processPacket()
         pkts_per_integ_ = nof_samples / samples_in_packet;
 
     // Compute split and local M-block index from absolute packet position
-    const uint64_t relative     = (uint64_t)(packet_counter - reference_counter);
-    const uint32_t integ_idx    = (uint32_t)(relative / pkts_per_integ_);
+    const uint64_t relative = (uint64_t)(packet_counter - reference_counter);
+    const uint32_t integ_idx = (uint32_t)(relative / pkts_per_integ_);
     const uint32_t pkt_in_integ = (uint32_t)(relative % pkts_per_integ_);
 
     const uint32_t blocks_in_pkt = samples_in_packet / 16;
-    const uint32_t m_in_integ    = pkt_in_integ * blocks_in_pkt;
-    const uint32_t split_idx     = m_in_integ / split_m_;
-    const uint32_t m_local       = m_in_integ % split_m_;
-    const uint64_t global_split  = (uint64_t)integ_idx * nof_splits_per_integ_ + split_idx;
+    const uint32_t m_in_integ = pkt_in_integ * blocks_in_pkt;
+    const uint32_t split_idx = m_in_integ / split_m_;
+    const uint32_t m_local = m_in_integ % split_m_;
+    const uint64_t global_split = (uint64_t)integ_idx * nof_splits_per_integ_ + split_idx;
 
     // Write packet data to split ring (silently dropped if already consumed)
     split_ring->write_data(global_split, tile_id * nof_antennas + start_antenna_id,
                            nof_included_antennas, m_local, blocks_in_pkt,
-                           reinterpret_cast<const uint16_t*>(payload + payload_offset),
+                           reinterpret_cast<const uint16_t *>(payload + payload_offset),
                            packet_time, (int)start_channel_id);
 
     // Ready from packet
@@ -333,11 +335,11 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
         /*nrPolarizations*/ nof_pols);
 
     m_stride_bytes_ = (size_t)nof_antennas * nof_pols * 16 * sizeof(SampleT);
-    split_m_        = (nof_samples / 16) / nof_splits;
-    batch_m_        = std::min(std::max(size_t(1), (4UL * 1024 * 1024) / m_stride_bytes_), split_m_);
+    split_m_ = (nof_samples / 16) / nof_splits;
+    batch_m_ = std::min(std::max(size_t(1), (4UL * 1024 * 1024) / m_stride_bytes_), split_m_);
 
     split_ring = std::make_unique<TccSplitRing>(nof_antennas, split_m_, nof_pols, nof_active_antennas, ring_size);
-    h2d_done_  = std::make_unique<cu::Event[]>(ring_size);
+    h2d_done_ = std::make_unique<cu::Event[]>(ring_size);
 }
 
 // Class destructor
@@ -361,7 +363,8 @@ TensorCrossCorrelator::~TensorCrossCorrelator()
 void TensorCrossCorrelator::copy_tail(const uint8_t *host_base, size_t split_start,
                                       size_t from, size_t to)
 {
-    if (from >= to) return;
+    if (from >= to)
+        return;
     stream_.memcpyHtoDAsync(
         (CUdeviceptr)devSamples_ + from * m_stride_bytes_,
         host_base + (split_start + from) * m_stride_bytes_,
@@ -371,7 +374,7 @@ void TensorCrossCorrelator::copy_tail(const uint8_t *host_base, size_t split_sta
 void TensorCrossCorrelator::try_stream_partial(uint64_t global_split, size_t &split_streamed)
 {
     const uint32_t slot_idx = (uint32_t)(global_split % split_ring->ring_size());
-    SplitSlot     &sl       = split_ring->get_slot(slot_idx);
+    SplitSlot &sl = split_ring->get_slot(slot_idx);
 
     SlotState s = sl.state.load(std::memory_order_acquire);
     if (s != SlotState::FILLING && s != SlotState::READY)
@@ -394,7 +397,7 @@ void TensorCrossCorrelator::threadEntry()
 {
     context_.setCurrent();
     cu::Event eH2D0, eH2D1;
-    cu::Event eK0,   eK1;
+    cu::Event eK0, eK1;
     cu::Event eD2H0, eD2H1;
 
     struct timespec poll_tim = {0, 1000}; // 1 µs
@@ -402,9 +405,9 @@ void TensorCrossCorrelator::threadEntry()
     while (!this->stop_thread)
     {
         uint32_t total_read_samples = 0;
-        uint32_t total_nof_packets  = 0;
-        double   first_timestamp    = 0.0;
-        int      channel            = -1;
+        uint32_t total_nof_packets = 0;
+        double first_timestamp = 0.0;
+        int channel = -1;
         const size_t vis_bytes = sizeof(VisT) * visExt_.size;
 
         clock_gettime(CLOCK_MONOTONIC, &tic);
@@ -445,10 +448,10 @@ void TensorCrossCorrelator::threadEntry()
             if (split == 0)
             {
                 first_timestamp = sl.ref_time.load(std::memory_order_relaxed);
-                channel         = sl.channel;
+                channel = sl.channel;
             }
             total_read_samples += sl.read_samples.load(std::memory_order_relaxed);
-            total_nof_packets  += sl.nof_packets.load(std::memory_order_relaxed);
+            total_nof_packets += sl.nof_packets.load(std::memory_order_relaxed);
 
             const auto *data = reinterpret_cast<const uint8_t *>(sl.data);
 
@@ -486,13 +489,12 @@ void TensorCrossCorrelator::threadEntry()
         float kern_ms = eK1.elapsedTime(eK0);
         float d2h_ms = eD2H1.elapsedTime(eD2H0);
 
-
         clock_gettime(CLOCK_MONOTONIC, &toc);
         if (callback != nullptr)
         {
             TensorCorrelatorMetadata metadata = {
-                .channel_id  = static_cast<unsigned int>(channel),
-                .time_taken  = ELAPSED_MS(tic, toc),
+                .channel_id = static_cast<unsigned int>(channel),
+                .time_taken = ELAPSED_MS(tic, toc),
                 .h2d_time = h2d_ms,
                 .kern_time = kern_ms,
                 .d2h_time = d2h_ms,
