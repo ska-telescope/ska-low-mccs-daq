@@ -256,9 +256,15 @@ bool TensorCorrelatorData::processPacket()
     samples_in_packet = (uint32_t)((payload_length - payload_offset) /
                                    (nof_included_antennas * nof_pols * nof_included_channels * sizeof(uint16_t)));
 
-    // Check whether packet counter has rolled over
-    if (packet_counter == 0 && pol_id == 0)
+    // The 24-bit heap counter is shared by all tiles, so a wrap must be counted
+    // exactly once. The old "packet_counter == 0 && pol_id == 0" test fired once per
+    // tile at counter 0 (nof_tiles times per wrap, and nof_tiles times at startup),
+    // inflating the integration index by (nof_tiles-1)<<24. Detect a genuine wrap as
+    // a high->low transition of the raw counter instead.
+    const uint32_t raw24 = packet_counter; // low 24 bits; rollover not yet applied
+    if (last_raw24_ > 0xC00000u && raw24 < 0x400000u)
         rollover_counter += 1;
+    last_raw24_ = raw24;
 
     // Multiply packet_counter by rollover counts
     packet_counter += rollover_counter << 24;

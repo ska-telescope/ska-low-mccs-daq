@@ -135,6 +135,8 @@ private:
     uint32_t pkts_per_integ_    = 0; // nof_samples / samples_in_packet (set on first packet)
     uint32_t nof_splits_per_integ_ = 0; // (nof_samples / 16) / split_m_ (precomputed)
 
+    uint32_t last_raw24_        = 0;  // previous raw 24-bit heap counter, for wrap detection
+
     // Data setup
     uint16_t nof_antennas = 0;
     uint8_t  nof_pols     = 0;
