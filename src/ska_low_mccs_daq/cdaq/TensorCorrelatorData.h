@@ -49,7 +49,7 @@ public:
                           uint32_t ring_size  = 64);
     ~TensorCrossCorrelator() override;
 
-    TccSplitRing *split_ring;
+    std::unique_ptr<TccSplitRing> split_ring;
     void setCallback(DataCallbackDynamic cb) { callback = cb; }
 
 protected:
@@ -127,7 +127,7 @@ protected:
 
 private:
     TccSplitRing           *split_ring      = nullptr;
-    TensorCrossCorrelator  *cross_correlator = nullptr;
+    std::unique_ptr<TensorCrossCorrelator> cross_correlator;
 
     // Absolute packet counter tracking for integration/split mapping
     size_t   reference_counter  = 0;

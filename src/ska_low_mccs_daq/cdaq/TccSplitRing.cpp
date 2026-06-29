@@ -38,6 +38,9 @@ bool TccSplitRing::write_data(uint64_t global_split,
                                uint32_t m_local, uint32_t blocks,
                                const uint16_t *data_ptr, double timestamp, int channel)
 {
+    if (data_ptr == nullptr)
+        return false;
+
     // Drop packets for splits the consumer has already committed to processing.
     if (global_split < consumed_up_to_.load(std::memory_order_acquire))
         return false;

@@ -81,11 +81,11 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     initialiseRingBuffer(packet_size, (size_t)32768 * this->nof_tiles);
 
     // Create cross-correlator and start
-    cross_correlator = new TensorCrossCorrelator(nof_fine_channels,
+    cross_correlator = std::make_unique<TensorCrossCorrelator>(nof_fine_channels,
                                                  nof_tiles * nof_antennas, nof_samples, nof_pols,
                                                  nof_active_tiles * nof_antennas, nof_splits, ring_size);
 
-    split_ring = cross_correlator->split_ring;
+    split_ring = cross_correlator->split_ring.get();
     split_m_   = (uint32_t)cross_correlator->split_ring->split_m();
     nof_splits_per_integ_ = (this->nof_samples / 16) / split_m_;
 
@@ -101,9 +101,8 @@ void TensorCorrelatorData::cleanUp()
 {
     // Stop cross correlator thread
     cross_correlator->stop();
-
-    // Destroy instances
-    delete cross_correlator;
+    split_ring = nullptr;
+    cross_correlator.reset();
 }
 
 // Set callback
@@ -267,7 +266,7 @@ bool TensorCorrelatorData::processPacket()
     // Write packet data to split ring (silently dropped if already consumed)
     split_ring->write_data(global_split, tile_id * nof_antennas + start_antenna_id,
                            nof_included_antennas, m_local, blocks_in_pkt,
-                           (const uint16_t *)(payload + payload_offset),
+                           reinterpret_cast<const uint16_t*>(payload + payload_offset),
                            packet_time, (int)start_channel_id);
 
     // Ready from packet
@@ -320,15 +319,12 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
     split_m_        = (nof_samples / 16) / nof_splits;
     batch_m_        = std::min(std::max(size_t(1), (4UL * 1024 * 1024) / m_stride_bytes_), split_m_);
 
-    split_ring = new TccSplitRing(nof_antennas, split_m_, nof_pols, nof_active_antennas, ring_size);
+    split_ring = std::make_unique<TccSplitRing>(nof_antennas, split_m_, nof_pols, nof_active_antennas, ring_size);
     h2d_done_  = std::make_unique<cu::Event[]>(ring_size);
 }
 
 // Class destructor
-TensorCrossCorrelator::~TensorCrossCorrelator()
-{
-    delete split_ring;
-}
+TensorCrossCorrelator::~TensorCrossCorrelator() = default;
 
 void TensorCrossCorrelator::copy_tail(const uint8_t *host_base, size_t split_start,
                                       size_t from, size_t to)
