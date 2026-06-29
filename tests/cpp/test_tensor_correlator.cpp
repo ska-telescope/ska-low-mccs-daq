@@ -14,7 +14,12 @@
 #include <vector>
 
 #include "DAQ.h"
-#include "TensorCorrelatorData.h"
+// The .cpp is #included directly (single TU) rather than declared via its
+// header so the extern "C" consumer factory defined in TensorCorrelatorData.h
+// (the pattern every cdaq consumer header uses, relied on by dlsym) is emitted
+// exactly once. Compiling TensorCorrelatorData.cpp as a separate object as well
+// would define that factory twice and break linking. Mirrors test_raw_data_consumer.
+#include "TensorCorrelatorData.cpp"  // NOLINT(bugprone-suspicious-include)
 #include "spead_test_util.h"
 
 namespace {

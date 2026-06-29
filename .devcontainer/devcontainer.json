@@ -10,6 +10,14 @@
         "--cap-add=SYS_NICE",
         "--cap-add=SYS_ADMIN"
     ],
+    // Pass the host GPU into the container so the CUDA/TCC tests can run. The
+    // image already carries CUDA 11.8 (new enough to JIT modern archs such as
+    // sm_89 via NVRTC); it only needs a device. "optional" attaches the GPU when
+    // the host has one and the NVIDIA container runtime is installed, and still
+    // lets the container open on machines without a GPU.
+    "hostRequirements": {
+        "gpu": "optional"
+    },
     "portsAttributes": {
         "4660": {
             "label": "DAQ Port"
@@ -55,6 +63,8 @@
                 "ms-python.flake8",
                 "ms-python.isort",
                 "matangover.mypy",
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
                 "lextudio.restructuredtext",
                 "trond-snekvik.simple-rst",
                 "davidanson.vscode-markdownlint",
