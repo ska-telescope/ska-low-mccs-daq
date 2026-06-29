@@ -339,7 +339,7 @@ void TensorCrossCorrelator::copy_tail(const uint8_t *host_base, size_t split_sta
 void TensorCrossCorrelator::try_stream_partial(uint64_t global_split, size_t &split_streamed)
 {
     const uint32_t slot_idx = (uint32_t)(global_split % split_ring->ring_size());
-    SplitSlot     &sl       = split_ring->slot(slot_idx);
+    SplitSlot     &sl       = split_ring->get_slot(slot_idx);
 
     SlotState s = sl.state.load(std::memory_order_acquire);
     if (s != SlotState::FILLING && s != SlotState::READY)
@@ -373,7 +373,6 @@ void TensorCrossCorrelator::threadEntry()
         uint32_t total_nof_packets  = 0;
         double   first_timestamp    = 0.0;
         int      channel            = -1;
-        size_t   total_tail_m       = 0; // M-blocks copied as tail (not pre-streamed)
         const size_t vis_bytes = sizeof(VisT) * visExt_.size;
 
         clock_gettime(CLOCK_MONOTONIC, &tic);
@@ -402,9 +401,9 @@ void TensorCrossCorrelator::threadEntry()
                     return;
                 try_stream_partial(global_split, split_streamed);
                 nanosleep(&poll_tim, nullptr);
-            } while (split_ring->slot(slot_idx).state.load(std::memory_order_acquire) != SlotState::READY);
+            } while (split_ring->get_slot(slot_idx).state.load(std::memory_order_acquire) != SlotState::READY);
 
-            SplitSlot &sl = split_ring->slot(slot_idx);
+            SplitSlot &sl = split_ring->get_slot(slot_idx);
             sl.state.store(SlotState::PROCESSING, std::memory_order_release);
 
             // Mark this split consumed before H2D so any late-arriving packets
@@ -418,7 +417,6 @@ void TensorCrossCorrelator::threadEntry()
             }
             total_read_samples += sl.read_samples.load(std::memory_order_relaxed);
             total_nof_packets  += sl.nof_packets.load(std::memory_order_relaxed);
-            total_tail_m       += split_m_ - split_streamed;
 
             const auto *data = reinterpret_cast<const uint8_t *>(sl.data);
 

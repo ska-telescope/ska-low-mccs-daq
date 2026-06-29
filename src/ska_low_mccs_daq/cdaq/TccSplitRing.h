@@ -73,7 +73,7 @@ public:
     uint32_t safe_m(uint32_t slot_idx) const;
 
     // Consumer: direct slot access for early-streaming host pointer.
-    SplitSlot &slot(uint32_t slot_idx) { return slots_[slot_idx]; }
+    SplitSlot &get_slot(uint32_t slot_idx) { return slots_[slot_idx]; }
 
     // Consumer: release slot after H2D has been submitted to the CUDA stream.
     void release_slot(uint64_t global_split);
