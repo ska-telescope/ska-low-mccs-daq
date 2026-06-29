@@ -35,6 +35,10 @@ include:
   - project: 'ska-telescope/templates-repository'
     file: 'gitlab-ci/includes/oci-image.gitlab-ci.yml'
 
+  # C++ tests
+  - project: 'ska-telescope/templates-repository'
+    file: 'gitlab-ci/includes/cpp-test.gitlab-ci.yml'
+
   # Docs pages
   - project: 'ska-telescope/templates-repository'
     file: 'gitlab-ci/includes/docs.gitlab-ci.yml'
@@ -62,6 +66,11 @@ include:
 sonar-scan:
   script:
     - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}" || echo "allowed to fail"
+
+cpp-test:
+  rules:
+    - exists:
+        - 'tests/cpp/**/*'
 
 
 oci-image-build:
