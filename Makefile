@@ -221,6 +221,25 @@ cpp-do-test:
 
 
 ###############################################
+# GPU C++ TESTS
+###############################################
+
+GPU_CPP_BUILD_DIR := build/gpu-cpp-tests
+
+gpu-cpp-pre-test:
+	mkdir -p $(GPU_CPP_BUILD_DIR)
+	cd $(GPU_CPP_BUILD_DIR) && cmake $(CURDIR)/tests/cpp -DBUILD_GPU_TESTS=ON
+	$(MAKE) -C $(GPU_CPP_BUILD_DIR) --no-print-directory test_tensor_correlator
+
+gpu-cpp-do-test:
+	cd $(GPU_CPP_BUILD_DIR) && ctest -V -R TensorCorrelator
+
+gpu-cpp-test: gpu-cpp-pre-test gpu-cpp-do-test  ## build and run the GPU TCC correlator tests (requires CUDA + GPU)
+
+.PHONY: gpu-cpp-test gpu-cpp-pre-test gpu-cpp-do-test
+
+
+###############################################
 # PRIVATE
 ###############################################
 

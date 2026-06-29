@@ -46,6 +46,16 @@ FetchContent_Declare(
 FetchContent_GetProperties(aavs_daq)
 if(NOT aavs_daq_POPULATED)
     FetchContent_Populate(aavs_daq)
+    # Patch RealTimeThread to fall back to SCHED_OTHER when SCHED_FIFO is
+    # unavailable (no CAP_SYS_NICE), so the GPU correlator thread starts in
+    # unprivileged containers and CI environments.
+    set(_rt_h "${aavs_daq_SOURCE_DIR}/src/RealTimeThread.h")
+    file(READ "${_rt_h}" _rt_content)
+    string(REPLACE
+        "            // Create thread\n            ret = pthread_create(&_thread, &attr, threadEntryFunc, this);\n\n            // Reset scheduling"
+        "            // Create thread\n            ret = pthread_create(&_thread, &attr, threadEntryFunc, this);\n\n            // Fall back to default scheduling if SCHED_FIFO is unavailable (e.g. no CAP_SYS_NICE)\n            if (ret != 0) {\n                pthread_attr_init(&attr);\n                ret = pthread_create(&_thread, &attr, threadEntryFunc, this);\n                if (ret != 0)\n                    perror(\"Failed to create thread with fallback scheduling\");\n            }\n\n            // Reset scheduling"
+        _rt_content "${_rt_content}")
+    file(WRITE "${_rt_h}" "${_rt_content}")
 endif()
 set(AAVS_DAQ_SRC ${aavs_daq_SOURCE_DIR}/src)
 
