@@ -244,5 +244,5 @@ followed by:
 
   helmfile -e '<platform_spec>' sync
 
-Finally when you call daq_proxy.adminMode = AdminMode.ONLINE,
+Finally when you call ``daq_proxy.adminMode = AdminMode.ONLINE``,
 you should see the tango_device connecting to the external DAQ.
