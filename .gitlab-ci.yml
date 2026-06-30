@@ -82,7 +82,7 @@ gpu-cpp-test:
 
 gpu-nvidia-smi:
   stage: test
-  image: $SKA_PYTHON_PYTANGO_BUILDER_IMAGE
+  image: artefact.skao.int/ska-build-cuda-11:0.1.3
   tags:
     - ska-gpu-a100
   rules:
