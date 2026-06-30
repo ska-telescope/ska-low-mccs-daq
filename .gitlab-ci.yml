@@ -72,6 +72,12 @@ cpp-test:
     - exists:
         - 'tests/cpp/**/*'
 
+gpu-cpp-test:
+  extends: cpp-test
+  tags:
+    - ska-gpu-a100
+  rules:
+    - when: manual
 
 oci-image-build:
   stage: build
