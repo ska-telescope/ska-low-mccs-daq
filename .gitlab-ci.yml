@@ -73,8 +73,12 @@ cpp-test:
         - 'tests/cpp/**/*'
 
 gpu-cpp-test:
-  image: $SKA_PYTHON_PYTANGO_BUILDER_IMAGE
+  image: $IMAGE_TAG
+  needs:
+    - job: oci-image-build
+      artifacts: true
   extends: cpp-test
+  before_script: []
   tags:
     - ska-gpu-a100
   rules:
@@ -82,7 +86,11 @@ gpu-cpp-test:
 
 gpu-nvidia-smi:
   stage: test
-  image: artefact.skao.int/ska-build-cuda-11:0.1.3
+  image: $IMAGE_TAG
+  needs:
+    - job: oci-image-build
+      artifacts: true
+  before_script: []
   tags:
     - ska-gpu-a100
   rules:
@@ -91,8 +99,6 @@ gpu-nvidia-smi:
     - nvidia-smi
 
 oci-image-build:
-  rules:
-    - when: never
   stage: build
   before_script:
     - '[ -f .make/oci.mk ] || (echo "File oci.mk not included in Makefile; exit 1")'
