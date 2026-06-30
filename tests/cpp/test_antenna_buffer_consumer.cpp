@@ -79,10 +79,50 @@ public:
     using AntennaBuffer::processPacket;
     using AntennaBuffer::onStreamEnd;
     using AntennaBuffer::packetFilter;
+    using AntennaBuffer::cleanUp;
 
     // ring_buffer is protected in DataConsumer; expose a push for the test.
     bool push(std::vector<uint8_t> &pkt) { return ring_buffer->push(pkt.data(), pkt.size()); }
 };
+
+// ── Free helpers (used by both fixture tests and standalone tests) ────────────
+
+// A 16-byte payload: antenna 0 → bytes 1..8, antenna 1 → bytes 9..16.
+static std::vector<uint8_t> make_payload()
+{
+    std::vector<uint8_t> p(NOF_ANT / 2 * PACKET_SAMPLES * NOF_POLS);
+    for (size_t i = 0; i < p.size(); ++i)
+        p[i] = static_cast<uint8_t>(i + 1);
+    return p;
+}
+
+// Build a valid antenna-buffer SPEAD packet. Defaults give packet_index 0.
+// NB: the mode item (0x2004) is placed first — packetFilter scans slot [0,
+// nitems) and the final slot is not scanned, so the mode must not be last.
+static std::vector<uint8_t> make_antenna_packet(uint32_t packet_counter,
+                                                 uint8_t fpga_id,
+                                                 std::vector<uint8_t> payload,
+                                                 uint8_t tile_id = 3,
+                                                 uint16_t station_id = 17,
+                                                 uint64_t mode = 0xC)
+{
+    const uint64_t tile_info    = (uint64_t(tile_id) << 32) |
+                                  (uint64_t(station_id) << 16) | fpga_id;
+    const uint64_t antenna_info = uint64_t(10) | (uint64_t(11) << 8) |
+                                  (uint64_t(12) << 16) | (uint64_t(13) << 24) |
+                                  (uint64_t(4) << 32);  // nof_included_antennas = 4
+    return SpeadPacket()
+        .item(ID_MODE,         mode)
+        .item(ID_HEAP_COUNTER, packet_counter)
+        .item(ID_PAYLOAD_LEN,  payload.size())
+        .item(ID_SYNC_TIME,    1000)
+        .item(ID_TIMESTAMP,    5)
+        .item(ID_ANTENNA_INFO, antenna_info)
+        .item(ID_TILE_INFO,    tile_info)
+        .item(ID_PAYLOAD_OFF,  0)
+        .payload(std::move(payload))
+        .build();
+}
 
 // ── Fixture ──────────────────────────────────────────────────────────────────
 
@@ -104,7 +144,7 @@ protected:
     }
     void TearDown() override { attachLogger(nullptr); }
 
-    // Build a valid antenna-buffer packet. Defaults give packet_index 0.
+    // Delegate to the free function so existing tests need no changes.
     static std::vector<uint8_t> make_packet(uint32_t packet_counter,
                                             uint8_t fpga_id,
                                             std::vector<uint8_t> payload,
@@ -112,38 +152,12 @@ protected:
                                             uint16_t station_id = 17,
                                             uint64_t mode = 0xC)
     {
-        const uint64_t tile_info = (uint64_t(tile_id) << 32) |
-                                   (uint64_t(station_id) << 16) | fpga_id;
-        const uint64_t antenna_info = uint64_t(10) | (uint64_t(11) << 8) |
-                                      (uint64_t(12) << 16) | (uint64_t(13) << 24) |
-                                      (uint64_t(4) << 32);  // nof_included_antennas = 4
-        // NB: the mode item (0x2004) is placed first. packetFilter scans item
-        // slots [0, nitems) — slot 0 is the header and the final item slot is
-        // not scanned — so the mode marker must not be last.
-        return SpeadPacket()
-            .item(ID_MODE, mode)
-            .item(ID_HEAP_COUNTER, packet_counter)
-            .item(ID_PAYLOAD_LEN, payload.size())  // payload_offset = 0
-            .item(ID_SYNC_TIME, 1000)
-            .item(ID_TIMESTAMP, 5)
-            .item(ID_ANTENNA_INFO, antenna_info)
-            .item(ID_TILE_INFO, tile_info)
-            .item(ID_PAYLOAD_OFF, 0)
-            .payload(std::move(payload))
-            .build();
+        return make_antenna_packet(packet_counter, fpga_id, std::move(payload),
+                                   tile_id, station_id, mode);
     }
 
     TestableAntennaBuffer consumer_;
 };
-
-// A 16-byte payload: antenna 0 -> bytes 1..8, antenna 1 -> bytes 9..16.
-static std::vector<uint8_t> make_payload()
-{
-    std::vector<uint8_t> p(NOF_ANT / 2 * PACKET_SAMPLES * NOF_POLS);
-    for (size_t i = 0; i < p.size(); ++i)
-        p[i] = static_cast<uint8_t>(i + 1);
-    return p;
-}
 
 // ── packetFilter ─────────────────────────────────────────────────────────────
 
@@ -245,4 +259,139 @@ TEST_F(AntennaBufferConsumerTest, MultiplePacketsAccumulateInContainer)
     // Both FPGA halves were written.
     EXPECT_EQ(g_capture.data[0 * ANT_STRIDE], payload[0]);
     EXPECT_EQ(g_capture.data[2 * ANT_STRIDE], payload[0]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Additional coverage
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── initialiseConsumer error path (lines 15-17) ───────────────────────────────
+// The guard fires when "nof_antennas" is absent but all other required keys are
+// present (the first key is negated, the rest are AND-ed — the logic is inverted
+// for that one key, but the path is real and must be exercised).
+TEST(AntennaBufferInitTest, InitialiseConsumerReturnsFalseWhenNofAntennasMissing)
+{
+    attachLogger([](int, const char *) {});
+    TestableAntennaBuffer consumer;
+    json config = {
+        // "nof_antennas" intentionally omitted
+        {"nof_samples",     8},
+        {"nof_tiles",       1},
+        {"max_packet_size", 512},
+    };
+    EXPECT_FALSE(consumer.initialiseConsumer(config));
+    attachLogger(nullptr);
+}
+
+// ── cleanUp (lines 56-60) ─────────────────────────────────────────────────────
+// cleanUp() is never called via stop() in these tests; call it directly.
+// ~DataConsumer() is empty so there is no double-free risk.
+TEST_F(AntennaBufferConsumerTest, CleanUpReleasesContainersWithoutCrash)
+{
+    consumer_.cleanUp();
+}
+
+// ── packetFilter: no mode item → return false (line 84) ──────────────────────
+// A structurally valid SPEAD packet that contains no 0x2004 item at all; the
+// scan loop exhausts all items without returning, so falls through to line 84.
+TEST_F(AntennaBufferConsumerTest, PacketFilterReturnsFalseWhenNoModeItem)
+{
+    auto payload = make_payload();
+    auto pkt = SpeadPacket()
+        .item(ID_HEAP_COUNTER, 0)
+        .item(ID_PAYLOAD_LEN, payload.size())
+        .item(ID_SYNC_TIME,   1000)
+        .item(ID_TIMESTAMP,   5)
+        .payload(std::move(payload))
+        .build();
+    EXPECT_FALSE(consumer_.packetFilter(pkt.data()));
+}
+
+// ── processPacket: default switch branch (lines 167-168) ─────────────────────
+// Add an unknown item ID (0xAAAA) to the packet. processPacket will hit the
+// default: case and emit a LOG(INFO) for the unrecognised item.
+TEST_F(AntennaBufferConsumerTest, ProcessPacketHandlesUnknownSpeadItemGracefully)
+{
+    const uint64_t tile_info    = (uint64_t(3) << 32) | (uint64_t(17) << 16);
+    const uint64_t antenna_info = uint64_t(10) | (uint64_t(11) << 8) |
+                                  (uint64_t(12) << 16) | (uint64_t(13) << 24) |
+                                  (uint64_t(4) << 32);
+    auto payload = make_payload();
+    auto pkt = SpeadPacket()
+        .item(ID_MODE,         0xC)
+        .item(ID_HEAP_COUNTER, 0)
+        .item(ID_PAYLOAD_LEN,  payload.size())
+        .item(ID_SYNC_TIME,    1000)
+        .item(ID_TIMESTAMP,    5)
+        .item(0xAAAA,          0xDEAD)  // unknown → default: + LOG(INFO)
+        .item(ID_ANTENNA_INFO, antenna_info)
+        .item(ID_TILE_INFO,    tile_info)
+        .item(ID_PAYLOAD_OFF,  0)
+        .payload(std::move(payload))
+        .build();
+    ASSERT_TRUE(consumer_.push(pkt));
+    EXPECT_TRUE(consumer_.processPacket());
+    consumer_.onStreamEnd();
+    EXPECT_EQ(g_capture.calls, 1);
+}
+
+// ── processPacket: container advance on packet_index==0 (lines 208, 211-212) ─
+// packet_index = pc % 2 (NOF_SAMPLES=8, PACKET_SAMPLES=4, N=2).
+// All even pc values give index=0; advance fires when nof_packets >= nof_tiles*2 = 2.
+// With 4 containers, cycling through them all (9 packets total) wraps current
+// back to container 0, which by then holds 2 packets — triggering the persist
+// at line 211-212.  Steps: c[0] fills (2 pkts), advances to c[1] (no persist),
+// c[1] fills, advances to c[2] (no persist), c[2] fills, advances to c[3] (no
+// persist), c[3] fills, advances to c[0] → c[0].nof_packets=2 > 0 → PERSIST.
+TEST_F(AntennaBufferConsumerTest, ContainerAdvancesAndPersistsOnPacketIndex0Overflow)
+{
+    for (unsigned i = 0; i < 9; ++i) {
+        auto p = make_packet(/*pc=*/i * 2, /*fpga=*/0, make_payload());
+        ASSERT_TRUE(consumer_.push(p));
+        consumer_.processPacket();
+    }
+    EXPECT_GE(g_capture.calls, 1);
+}
+
+// ── processPacket: late packet routing (lines 192-201) ───────────────────────
+// A packet is "late" when its packet_index exceeds the current index by more
+// than 32*nof_tiles — it wraps and belongs to the previous container.
+// With nof_samples=256 and 4 samples/packet, N=64 (packet_index = pc % 64).
+// pc=1 → index=1 (sets current_packet_index=1).
+// pc=34 → index=34; 34-1=33 > 32*1 → late packet, routed to containers[3].
+TEST(AntennaBufferLatePacketTest, LatePacketIsRoutedToPreviousContainer)
+{
+    attachLogger([](int, const char *) {});
+    g_capture = Capture{};
+
+    TestableAntennaBuffer consumer;
+    json config = {
+        {"nof_antennas", 4},
+        {"nof_samples",  256},
+        {"nof_tiles",    1},
+        {"max_packet_size", 512},
+    };
+    ASSERT_TRUE(consumer.initialiseConsumer(config));
+    consumer.setCallback(capturing_callback);
+
+    // p0: pc=1, index=1.  Sets current_packet_index=1.
+    auto p0   = make_antenna_packet(1,  /*fpga=*/0, make_payload());
+    // late: pc=34, index=34.  34-1=33 > 32 → routed to containers[3].
+    auto late = make_antenna_packet(34, /*fpga=*/0, make_payload());
+
+    ASSERT_TRUE(consumer.push(p0));   consumer.processPacket();
+    ASSERT_TRUE(consumer.push(late)); consumer.processPacket();
+
+    // onStreamEnd flushes all non-empty containers (current + previous).
+    consumer.onStreamEnd();
+    EXPECT_GE(g_capture.calls, 1);
+    attachLogger(nullptr);
+}
+
+// ── Factory function (AntennaBuffer.h line 267) ───────────────────────────────
+TEST(AntennaBufferFactoryTest, AntennabufferFactoryReturnsNonNull)
+{
+    DataConsumer *c = antennabuffer();
+    ASSERT_NE(c, nullptr);
+    delete c;
 }

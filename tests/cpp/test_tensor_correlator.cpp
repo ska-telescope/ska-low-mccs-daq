@@ -67,6 +67,25 @@ public:
         return ring_buffer->push(const_cast<uint8_t *>(pkt.data()), pkt.size());
     }
 
+    // Push pkt only once the split ring slot for global_split is EMPTY.
+    // When ring_size < nof_splits the ring cycles multiple times per integration;
+    // the producer must wait for the GPU thread to release a slot before reusing it.
+    bool pushPacketWhenReady(const std::vector<uint8_t> &pkt, uint64_t global_split,
+                             int timeout_ms = 2000)
+    {
+        if (split_ring)
+        {
+            const uint32_t slot_idx = (uint32_t)(global_split % split_ring->ring_size());
+            for (int i = 0; i * 100 < timeout_ms * 1000; ++i)
+            {
+                if (split_ring->get_slot(slot_idx).state.load(std::memory_order_acquire) == SlotState::EMPTY)
+                    break;
+                std::this_thread::sleep_for(std::chrono::microseconds(100));
+            }
+        }
+        return pushPacket(pkt) && processPacket();
+    }
+
     void setCapturingCallback(std::function<void(void *, double, void *)> fn)
     {
         s_fn_ = std::move(fn);
@@ -253,6 +272,10 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiSplit)
     constexpr int N_POL = 2;
     constexpr int N_SAMPLES = 256 * 16;
     constexpr int N_SPLITS = 64;
+    // Ring is 4× smaller than the number of splits, so each integration cycles
+    // through the ring 4 times — matching the production scenario where the GPU
+    // thread releases and reuses slots mid-integration.
+    constexpr int RING_SIZE = N_SPLITS / 4;
     constexpr int N_BASELINES = N_ANT * (N_ANT + 1) / 2;
 
     json config = {
@@ -265,6 +288,7 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiSplit)
         {"nof_pols", N_POL},
         {"max_packet_size", 9000},
         {"nof_splits", N_SPLITS},
+        {"nbuffers", RING_SIZE},
     };
 
     TestableTensorCorrelator c;
@@ -278,23 +302,37 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiSplit)
         vis_out.assign(v, v + N_BASELINES * N_POL * N_POL);
         got.store(true, std::memory_order_release); });
 
-    // Each packet carries half the integration's samples (N_SAMPLES/N_SPLITS = 128).
-    // heap_counter 0 → split 0, heap_counter 1 → split 1.
+    // Payload layout: [samples_per_pkt][N_ANT][N_POL] of uint16_t (complex<int8_t>).
+    // Antenna r carries amplitude (r+1)*SIGNAL at phase r*π/2, so each antenna
+    // sits on a different axis of the complex plane:
+    //   ant 0: ( SIGNAL,        0)   phase   0°
+    //   ant 1: (      0,  2*SIGNAL)  phase  90°
+    //   ant 2: (-3*SIGNAL,     0)   phase 180°
+    //   ant 3: (      0, -4*SIGNAL)  phase 270°
+    // This produces distinct, genuinely complex cross-correlation values for
+    // most baselines.
+    const int ant_re[N_ANT] = {SIGNAL, 2 * SIGNAL, 3 * SIGNAL, 4 * SIGNAL};
+    const int ant_im[N_ANT] = {4 * SIGNAL, 3 * SIGNAL, 2 * SIGNAL, SIGNAL};
+
     const int samples_per_pkt = N_SAMPLES / N_SPLITS;
     const size_t payload_bytes = (size_t)samples_per_pkt * N_ANT * N_POL * sizeof(uint16_t);
     std::vector<uint8_t> payload_data(payload_bytes);
     for (size_t i = 0; i < payload_bytes; i += 2)
     {
-        payload_data[i] = static_cast<uint8_t>(SIGNAL);
-        payload_data[i + 1] = 0;
+        const int ant = (i / 2 / N_POL) % N_ANT;
+        payload_data[i] = static_cast<uint8_t>(ant_re[ant]);
+        payload_data[i + 1] = static_cast<uint8_t>(ant_im[ant]);
     }
 
     const uint64_t chan_info = (uint64_t(1) << 16) | uint64_t(N_ANT);
 
+    // pushPacketWhenReady blocks until the target slot is EMPTY before writing.
+    // For pkt_idx < RING_SIZE all slots start EMPTY; for later packets the GPU
+    // thread must have released the slot before the producer can fill it again.
     for (int pkt_idx = 0; pkt_idx < N_SPLITS; ++pkt_idx)
     {
         auto pkt = SpeadPacket()
-                       .item(0x0001, pkt_idx) // heap_counter = pkt_idx (→ split pkt_idx)
+                       .item(0x0001, pkt_idx)
                        .item(0x0004, payload_bytes)
                        .item(0x1027, 0)
                        .item(0x1600, 0)
@@ -304,8 +342,7 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiSplit)
                        .item(0x3300, 0)
                        .payload(payload_data)
                        .build();
-        ASSERT_TRUE(c.pushPacket(pkt));
-        ASSERT_TRUE(c.processPacket());
+        ASSERT_TRUE(c.pushPacketWhenReady(pkt, (uint64_t)pkt_idx));
     }
 
     for (int i = 0; i < 500 && !got.load(std::memory_order_acquire); ++i)
@@ -315,14 +352,31 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiSplit)
 
     ASSERT_TRUE(got.load()) << "callback never fired within 5 s";
 
-    // TCC accumulates across splits: total = N_SAMPLES * SIGNAL^2 + 0i
-    const int32_t expected_re = (int32_t)N_SAMPLES * SIGNAL * SIGNAL;
-    for (int bl = 0; bl < N_BASELINES; ++bl)
-        for (int py = 0; py < N_POL; ++py)
-            for (int px = 0; px < N_POL; ++px)
-            {
-                auto v = vis_out[(bl * N_POL + py) * N_POL + px];
-                EXPECT_EQ(v.real(), expected_re) << "bl=" << bl << " py=" << py << " px=" << px;
-                EXPECT_EQ(v.imag(), 0) << "bl=" << bl << " py=" << py << " px=" << px;
-            }
+    // TCC computes V_{rx,ry} = sum_t conj(s_rx[t]) * s_ry[t]  (rx >= ry).
+    // With constant DC signals: vis[bl(rx,ry)] = N_SAMPLES * conj(s[rx]) * s[ry]
+    //   real part: N_SAMPLES * (re_rx*re_ry + im_rx*im_ry)
+    //   imag part: N_SAMPLES * (re_rx*im_ry - im_rx*re_ry)
+    // Baseline ordering: bl = rx*(rx+1)/2 + ry, rx >= ry.
+    int bl = 0;
+    for (int rx = 0; rx < N_ANT; ++rx)
+    {
+        for (int ry = 0; ry <= rx; ++ry, ++bl)
+        {
+            const int32_t expected_re = (int32_t)N_SAMPLES *
+                                        (ant_re[rx] * ant_re[ry] + ant_im[rx] * ant_im[ry]);
+            const int32_t expected_im = (int32_t)N_SAMPLES *
+                                        (ant_re[rx] * ant_im[ry] - ant_im[rx] * ant_re[ry]);
+            for (int py = 0; py < N_POL; ++py)
+                for (int px = 0; px < N_POL; ++px)
+                {
+                    auto v = vis_out[(bl * N_POL + py) * N_POL + px];
+                    EXPECT_EQ(v.real(), expected_re)
+                        << "bl=" << bl << " rx=" << rx << " ry=" << ry
+                        << " py=" << py << " px=" << px;
+                    EXPECT_EQ(v.imag(), expected_im)
+                        << "bl=" << bl << " rx=" << rx << " ry=" << ry
+                        << " py=" << py << " px=" << px;
+                }
+        }
+    }
 }

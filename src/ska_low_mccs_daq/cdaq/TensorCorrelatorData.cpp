@@ -161,6 +161,7 @@ bool TensorCorrelatorData::processPacket()
         // Request timed out, reset integration tracking
         rollover_counter = 0;
         reference_counter = 0;
+        reference_counter_set_ = false;
         pkts_per_integ_ = 0;
         // Flush the ring so the consumer can drain the current partial integration
         // and reset its counters at the next integration boundary.
@@ -269,9 +270,18 @@ bool TensorCorrelatorData::processPacket()
     // Multiply packet_counter by rollover counts
     packet_counter += rollover_counter << 24;
 
-    // Update packet index
-    if (reference_counter == 0)
+    // Latch the first packet's counter as the integration reference.
+    // Must use a separate flag — reference_counter=0 is a valid value when the
+    // first packet has heap_counter=0, so the old "== 0" sentinel was ambiguous:
+    // the second packet (counter=1) would see reference_counter==0 and overwrite
+    // it, making that packet map to split 0 (which was already consumed), and
+    // shifting every subsequent packet down by one split, leaving the last split
+    // unpopulated and the GPU thread stalled.
+    if (!reference_counter_set_)
+    {
         reference_counter = packet_counter;
+        reference_counter_set_ = true;
+    }
 
     // Cache packets-per-integration on first real packet
     if (pkts_per_integ_ == 0)

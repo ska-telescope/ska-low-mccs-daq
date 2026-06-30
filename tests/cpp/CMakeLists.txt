@@ -105,11 +105,18 @@ add_aavsdaq_test(test_raw_data)
 add_aavsdaq_test(test_channelised_data)
 add_aavsdaq_test(test_beamformed_data)
 add_aavsdaq_test(test_antenna_buffer)
+add_aavsdaq_test(test_double_buffer)
+add_aavsdaq_test(test_station_data)
+add_aavsdaq_test(test_station_data_raw)
 
 # ── Per-mode consumer (processPacket / SPEAD-parsing) tests ──────────────────────
 # These #include the mode .cpp directly (single TU), so no extra source is linked.
 add_aavsdaq_test(test_raw_data_consumer)
 add_aavsdaq_test(test_antenna_buffer_consumer)
+add_aavsdaq_test(test_beamformed_data_consumer)
+add_aavsdaq_test(test_channelised_data_consumer)
+add_aavsdaq_test(test_station_data_consumer)
+add_aavsdaq_test(test_station_data_raw_consumer)
 
 # ── aavs-daq core tests (ring buffer + C API entry points) ───────────────────────
 add_aavsdaq_test(test_ring_buffer)
