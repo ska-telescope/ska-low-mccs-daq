@@ -211,7 +211,6 @@ cpp-do-test:
 	    gcovr \
 	        --root $(CURDIR)/src/ska_low_mccs_daq/cdaq \
 	        --object-directory $(CURDIR)/$(CPP_BUILD_DIR) \
-	        --filter='.*(TccSplitRing\.cpp|RawData\.(cpp|h)|ChannelisedData\.h|BeamformedData\.h|AntennaBuffer\.(cpp|h))' \
 	        --txt | tee $(CPP_BUILD_DIR)/gcov/coverage_rates.txt; \
 	else \
 	    echo "gcovr not found — skipping coverage (install with: pip install gcovr)"; \
