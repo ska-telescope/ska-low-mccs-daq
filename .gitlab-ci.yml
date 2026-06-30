@@ -79,6 +79,15 @@ gpu-cpp-test:
   rules:
     - when: manual
 
+gpu-nvidia-smi:
+  stage: test
+  tags:
+    - ska-gpu-a100
+  rules:
+    - when: manual
+  script:
+    - nvidia-smi
+
 oci-image-build:
   stage: build
   before_script:
