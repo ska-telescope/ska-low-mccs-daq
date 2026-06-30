@@ -73,23 +73,20 @@ cpp-test:
         - 'tests/cpp/**/*'
 
 gpu-cpp-test:
-  image: $IMAGE_TAG
-  needs:
-    - job: oci-image-build
-      artifacts: true
+  image: artefact.skao.int/ska-build-cuda-11:0.1.3
   extends: cpp-test
-  before_script: []
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends build-essential cmake git make
   tags:
     - ska-gpu-a100
   rules:
     - when: manual
+  script:
+    - make gpu-cpp-test
 
 gpu-nvidia-smi:
   stage: test
-  image: $IMAGE_TAG
-  needs:
-    - job: oci-image-build
-      artifacts: true
+  image: artefact.skao.int/ska-build-cuda-11:0.1.3
   before_script: []
   tags:
     - ska-gpu-a100
@@ -100,6 +97,8 @@ gpu-nvidia-smi:
 
 oci-image-build:
   stage: build
+  rules:
+    - when: never
   before_script:
     - '[ -f .make/oci.mk ] || (echo "File oci.mk not included in Makefile; exit 1")'
     - 'make help | grep oci-build-all'
