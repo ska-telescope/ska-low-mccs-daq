@@ -119,22 +119,6 @@ pushd third_party || exit
     popd
   fi
 
-  # Install CudaWrapper
-  if [[ ! -d "cudawrappers" ]]; then
-    git clone https://github.com/nlesc-recruit/cudawrappers
-
-    pushd cudawrappers || exit
-      if [[ ! -d build ]]; then
-        mkdir build
-      fi
-
-        pushd build || exit
-        cmake -DCMAKE_INSTALL_PREFIX=$DAQ_INSTALL -DCMAKE_INSTALL_LIBDIR=lib -S .. -B build || exit
-        make -C build || exit
-        make -C build install || exit
-      popd
-    popd
-  fi
 popd
 
 # Install C++ src
