@@ -9,12 +9,18 @@ fi
 # AAVS install directory. DO NOT CHANGE!
 export DAQ_INSTALL=/opt/aavs
 COMPILE_CORRELATOR=ON
+COMPILE_TCC=ON
 
-# Check if compiling correlator
+# Check if compiling correlators
 if [ $COMPILE_CORRELATOR == ON ]; then
-    echo "============ COMPILING CORRELATOR ==========="
+    echo "============ COMPILING XGPU CORRELATOR ==========="
 else
-    echo "========== NOT COMPILING CORRELATOR ========="
+    echo "========== NOT COMPILING XGPU CORRELATOR ========="
+fi
+if [ $COMPILE_TCC == ON ]; then
+    echo "============ COMPILING TCC CORRELATOR ==========="
+else
+    echo "========== NOT COMPILING TCC CORRELATOR ========="
 fi
 
 echo -e "\n==== Configuring AAVS System  ====\n"
@@ -127,7 +133,7 @@ if [ ! -d build ]; then
 fi
 
 pushd build || exit
-  cmake -DCMAKE_INSTALL_PREFIX=$DAQ_INSTALL -DWITH_CORRELATOR=$COMPILE_CORRELATOR -DCMAKE_INSTALL_LIBDIR=lib ../cdaq || exit
+  cmake -DCMAKE_INSTALL_PREFIX=$DAQ_INSTALL -DWITH_CORRELATOR=$COMPILE_CORRELATOR -DWITH_TCC=$COMPILE_TCC -DCMAKE_INSTALL_LIBDIR=lib ../cdaq || exit
   make -B -j4 install || exit
 popd
 
