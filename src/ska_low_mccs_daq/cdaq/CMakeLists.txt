@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 
 # Add include and lib directories
 link_directories(/usr/local /usr/lib/x86_64-linux-gnu/lib ${DAQ_DIRECTORY}/lib)
@@ -68,8 +68,31 @@ if (WITH_CORRELATOR)
     # Link required libraries
 
     find_package(CUDAToolkit REQUIRED)
-    find_package(cudawrappers REQUIRED)
-    find_package(libtcc REQUIRED)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES 80)
+    endif()
+    enable_language(CUDA)
+
+    # Build the Tensor-Core-Correlator (and the cudawrappers dependency it pulls
+    # in) from source, pinned to the same commit the Docker image builds against.
+    # Defines the `tcc`, `cudawrappers::cu` and `cudawrappers::nvrtc` targets.
+    include(FetchContent)
+    set(BUILD_TESTING OFF CACHE BOOL "Disable TCC's bundled test suite" FORCE)
+    FetchContent_Declare(
+        tensor_core_correlator
+        GIT_REPOSITORY https://git.astron.nl/RD/tensor-core-correlator.git
+        GIT_TAG        00a9b7b2f826bc3eac26a5368f4a604e33061e6e
+    )
+    FetchContent_MakeAvailable(tensor_core_correlator)
+
+    # TCC's CMake assumes it is the top-level project: it derives the `tcc`
+    # target's public include path from ${CMAKE_SOURCE_DIR}, which resolves to
+    # THIS project (not the TCC tree) when built as a FetchContent subproject.
+    # Point it at the real TCC source/binary roots so its own sources and ours
+    # can resolve "libtcc/..." and TCC-Config.h.
+    target_include_directories(tcc PUBLIC
+        $<BUILD_INTERFACE:${tensor_core_correlator_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${tensor_core_correlator_BINARY_DIR}>)
 
     target_link_libraries(aavsdaq_tcc daq tcc cudawrappers::cu cudawrappers::nvrtc)
     target_link_libraries(aavsdaq daq xgpu ${CMAKE_THREAD_LIBS_INIT})

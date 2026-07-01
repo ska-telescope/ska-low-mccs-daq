@@ -60,15 +60,6 @@ RUN git clone https://github.com/GPU-correlators/xGPU.git /app/xGPU/
 WORKDIR /app/xGPU/src/
 RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
-# Clone and install TensorCoreCorrelator
-WORKDIR /app/
-RUN git clone https://git.astron.nl/RD/tensor-core-correlator.git
-WORKDIR /app/tensor-core-correlator/
-# The TCC is under active development and doesn't follow semver, so pin to a commit.
-RUN git checkout 00a9b7b2f826bc3eac26a5368f4a604e33061e6e
-RUN cmake -S . -B build
-RUN make -C build
-RUN make -C build install
 
 # Install AAVS DAQ
 RUN mkdir /app/aavs-system/ && mkdir /app/aavs-system/pydaq && mkdir /app/aavs-system/cdaq
