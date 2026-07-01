@@ -2613,6 +2613,34 @@ if __name__ == "__main__":
     )
     parser.add_option(
         "",
+        "--correlator_active_tiles",
+        action="store",
+        dest="nof_correlator_active_tiles",
+        type="int",
+        default=None,
+        help="Number of active tiles to correlate with the TCC correlator "
+        "[default: nof_tiles]",
+    )
+    parser.add_option(
+        "",
+        "--correlator_buffers",
+        action="store",
+        dest="nof_correlator_buffers",
+        type="int",
+        default=4,
+        help="Number of buffers used by the TCC correlator [default: 4]",
+    )
+    parser.add_option(
+        "",
+        "--correlator_splits",
+        action="store",
+        dest="nof_correlator_splits",
+        type="int",
+        default=None,
+        help="Number of splits used by the TCC correlator [default: None]",
+    )
+    parser.add_option(
+        "",
         "--sampling_time",
         action="store",
         dest="sampling_time",
@@ -2845,6 +2873,15 @@ if __name__ == "__main__":
         help="Perform correlator [default: False]",
     )
     parser.add_option(
+        "-J",
+        "--tc_correlator",
+        action="store_true",
+        dest="tc_correlator",
+        default=False,
+        help="Perform correlation using the Tensor-Core-Correlator (TCC) "
+        "[default: False]",
+    )
+    parser.add_option(
         "-A",
         "--antenna_buffer",
         action="store_true",
@@ -2973,6 +3010,7 @@ if __name__ == "__main__":
             "continuous_channel",
             "integrated_channel",
             "correlator",
+            "tc_correlator",
             "antenna_buffer",
             "raw_station_beam",
         ]
@@ -2992,6 +3030,7 @@ if __name__ == "__main__":
             config.read_channel_data,
             config.read_raw_data,
             config.correlator,
+            config.tc_correlator,
             config.antenna_buffer,
             config.continuous_channel,
             config.integrated_beam,
@@ -3009,6 +3048,7 @@ if __name__ == "__main__":
             config.read_channel_data,
             config.read_raw_data,
             config.correlator,
+            config.tc_correlator,
             config.continuous_channel,
             config.integrated_beam,
             config.integrated_channel,
@@ -3050,6 +3090,9 @@ if __name__ == "__main__":
 
     if config.correlator:
         modes_to_start.append(DaqModes.CORRELATOR_DATA)
+
+    if config.tc_correlator:
+        modes_to_start.append(DaqModes.TC_CORRELATOR_DATA)
 
     if config.antenna_buffer:
         modes_to_start.append(DaqModes.ANTENNA_BUFFER)
