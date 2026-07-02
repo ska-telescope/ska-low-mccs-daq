@@ -192,6 +192,35 @@ helmfile-lint: telmodel-deps
 
 
 ###############################################
+# C++ TESTS
+###############################################
+
+include .make/cpp.mk
+
+CPP_BUILD_DIR := build/cpp-tests
+
+cpp-pre-test:
+	mkdir -p $(CPP_BUILD_DIR)
+	cd $(CPP_BUILD_DIR) && cmake $(CURDIR)/tests/cpp
+	$(MAKE) -C $(CPP_BUILD_DIR) --no-print-directory
+
+cpp-do-test:
+	mkdir -p $(CPP_BUILD_DIR)/gcov
+	cd $(CPP_BUILD_DIR) && ctest -V
+	@if command -v gcovr >/dev/null 2>&1; then \
+	    gcovr \
+	        --root $(CURDIR)/src/ska_low_mccs_daq/cdaq \
+	        --object-directory $(CURDIR)/$(CPP_BUILD_DIR) \
+	        --filter='.*TccSplitRing\.cpp' \
+	        --txt | tee $(CPP_BUILD_DIR)/gcov/coverage_rates.txt; \
+	else \
+	    echo "gcovr not found — skipping coverage (install with: pip install gcovr)"; \
+	fi
+
+.PHONY: cpp-test cpp-pre-test cpp-do-test cpp-post-test
+
+
+###############################################
 # PRIVATE
 ###############################################
 

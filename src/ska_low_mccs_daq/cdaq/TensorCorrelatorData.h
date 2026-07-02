@@ -14,7 +14,7 @@
 #include <complex>
 
 #include "DAQ.h"
-#include "TccDoubleBuffer.h"
+#include "TccSplitRing.h"
 
 #include <cudawrappers/nvrtc.hpp>
 #include "libtcc/Correlator.h"
@@ -46,9 +46,10 @@ public:
                           uint8_t nof_pols,
                           uint16_t nof_active_antennas,
                           uint16_t nof_splits = 1,
-                          uint8_t nbuffers = 4);
+                          uint32_t ring_size  = 64);
     ~TensorCrossCorrelator() override;
-    TccDoubleBuffer *double_buffer;
+
+    std::unique_ptr<TccSplitRing> split_ring;
     void setCallback(DataCallbackDynamic cb) { callback = cb; }
 
 protected:
@@ -80,7 +81,7 @@ private:
 
     // Streaming helpers
     void copy_tail(const uint8_t *host_base, size_t split_start, size_t from, size_t to);
-    void try_stream_partial(uint16_t &split, size_t &split_streamed);
+    void try_stream_partial(uint64_t global_split, size_t &split_streamed);
 
     // config
     uint32_t nof_channels;
@@ -92,6 +93,12 @@ private:
     size_t split_m_;
     size_t m_stride_bytes_;
     size_t batch_m_;
+    // Tracks the integration number so mark_consumed() can form global split indices.
+    uint64_t consumer_integ_{0};
+
+    // One event per ring slot: fires when that slot's H2D copy is complete.
+    // Used to defer release_slot() until the DMA engine has finished reading.
+    std::unique_ptr<cu::Event[]> h2d_done_;
 
     struct timespec tic{}, toc{};
 };
@@ -119,22 +126,22 @@ protected:
     void cleanUp() override;
 
 private:
-    // Pointer to Double Buffer
-    TccDoubleBuffer *double_buffer;
+    TccSplitRing           *split_ring      = nullptr;
+    std::unique_ptr<TensorCrossCorrelator> cross_correlator;
 
-    // Pointer to CrossCorrelator;
-    TensorCrossCorrelator *cross_correlator;
-
-    // Reference packet counter
-    size_t reference_counter = 0;
-    uint32_t rollover_counter = 0;
+    // Absolute packet counter tracking for integration/split mapping
+    size_t   reference_counter  = 0;
+    uint32_t rollover_counter   = 0;
+    uint32_t pkts_per_integ_    = 0; // nof_samples / samples_in_packet (set on first packet)
+    uint32_t nof_splits_per_integ_ = 0; // (nof_samples / 16) / split_m_ (precomputed)
 
     // Data setup
-    uint16_t nof_antennas = 0; // Number of antennas per tile
-    uint8_t nof_pols = 0;      // Number of polarisations
-    uint16_t nof_tiles = 0;    // Number of tiles
-    uint16_t nof_channels = 0; // Number of channels
-    uint32_t nof_samples = 0;  // Number of time samples
+    uint16_t nof_antennas = 0;
+    uint8_t  nof_pols     = 0;
+    uint16_t nof_tiles    = 0;
+    uint16_t nof_channels = 0;
+    uint32_t nof_samples  = 0;
+    uint32_t split_m_     = 0; // M-blocks per split (copy from correlator for processPacket)
 };
 
 // Expose class factory for birales
