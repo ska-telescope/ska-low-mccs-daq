@@ -158,7 +158,12 @@ bool TensorCorrelatorData::processPacket()
     {
         // Request timed out, reset integration tracking
         rollover_counter  = 0;
+        // Clear the wrap-detection history too: there is no "previous packet" for
+        // the next stream, so a stale high value must not make the first packet
+        // (if it starts near counter 0) look like a wrap.
+        last_raw24_       = 0;
         reference_counter = 0;
+        reference_counter_set_ = false;
         pkts_per_integ_   = 0;
         // Flush the ring so the consumer can drain the current partial integration
         // and reset its counters at the next integration boundary.
@@ -254,16 +259,32 @@ bool TensorCorrelatorData::processPacket()
     samples_in_packet = (uint32_t)((payload_length - payload_offset) /
                                    (nof_included_antennas * nof_pols * nof_included_channels * sizeof(uint16_t)));
 
-    // Check whether packet counter has rolled over
-    if (packet_counter == 0 && pol_id == 0)
+    // The 24-bit heap counter is emitted per TPM but synchronised across tiles, so
+    // at a wrap every tile presents a counter-0 packet. The old
+    // "packet_counter == 0 && pol_id == 0" test fired once per tile at counter 0
+    // (nof_tiles times per wrap, and nof_tiles times at startup), inflating the
+    // integration index by (nof_tiles-1)<<24. Detect a genuine wrap as a high->low
+    // transition of the raw counter instead, so it is counted once per wrap.
+    const uint32_t raw24 = packet_counter; // low 24 bits; rollover not yet applied
+    if (last_raw24_ > 0xC00000u && raw24 < 0x400000u)
         rollover_counter += 1;
+    last_raw24_ = raw24;
 
     // Multiply packet_counter by rollover counts
     packet_counter += rollover_counter << 24;
 
-    // Update packet index
-    if (reference_counter == 0)
+    // Latch the first packet's counter as the integration reference.
+    // Must use a separate flag — reference_counter=0 is a valid value when the
+    // first packet has heap_counter=0, so the old "== 0" sentinel was ambiguous:
+    // the second packet (counter=1) would see reference_counter==0 and overwrite
+    // it, making that packet map to split 0 (which was already consumed), and
+    // shifting every subsequent packet down by one split, leaving the last split
+    // unpopulated and the GPU thread stalled.
+    if (!reference_counter_set_)
+    {
         reference_counter = packet_counter;
+        reference_counter_set_ = true;
+    }
 
     // Cache packets-per-integration on first real packet
     if (pkts_per_integ_ == 0)
@@ -405,6 +426,7 @@ void TensorCrossCorrelator::threadEntry()
         uint32_t total_nof_packets  = 0;
         double   first_timestamp    = 0.0;
         int      channel            = -1;
+        bool     abandon            = false; // set if a stream reset arrives mid-integration
         const size_t vis_bytes = sizeof(VisT) * visExt_.size;
 
         clock_gettime(CLOCK_MONOTONIC, &tic);
@@ -426,14 +448,31 @@ void TensorCrossCorrelator::threadEntry()
                 split_ring->release_slot(global_split - 1);
             }
 
-            // Poll until this split's slot is READY, streaming early while waiting
-            do
+            // Poll until this split's slot is READY, streaming early while waiting.
+            // If it is still EMPTY when the producer requests a reset (stream break
+            // or timeout), the rest of this integration will never arrive: abandon
+            // it, restart numbering at 0 and clear the consumed watermark. Otherwise
+            // the consumer would wait forever for a split that never comes, and the
+            // next stream (which the producer re-maps to global_split 0) would be
+            // dropped by the stale watermark, dead-locking the pipeline.
+            for (;;)
             {
                 if (this->stop_thread)
                     return;
+                const SlotState st = split_ring->get_slot(slot_idx).state.load(std::memory_order_acquire);
+                if (st == SlotState::READY)
+                    break;
+                if (st == SlotState::EMPTY && split_ring->check_and_reset())
+                {
+                    consumer_integ_ = 0;
+                    abandon = true;
+                    break;
+                }
                 try_stream_partial(global_split, split_streamed);
                 nanosleep(&poll_tim, nullptr);
-            } while (split_ring->get_slot(slot_idx).state.load(std::memory_order_acquire) != SlotState::READY);
+            }
+            if (abandon)
+                break;
 
             SplitSlot &sl = split_ring->get_slot(slot_idx);
             sl.state.store(SlotState::PROCESSING, std::memory_order_release);
@@ -462,6 +501,13 @@ void TensorCrossCorrelator::threadEntry()
             correlator_->launchAsync(stream_, devVis_, devSamples_, split > 0);
             stream_.record(eK1);
         }
+
+        // A reset was observed mid-integration (see the poll loop): consumer_integ_
+        // is already back to 0 and the watermark cleared. Skip delivery and restart -
+        // splits processed so far were released by the release-prev logic, and the
+        // stale device accumulation is overwritten by the next split-0 launch.
+        if (abandon)
+            continue;
 
         // Release the final split's slot (all others were released one split later
         // in the loop above; the last one has no subsequent split to trigger it).

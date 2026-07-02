@@ -134,6 +134,8 @@ private:
     uint32_t rollover_counter   = 0;
     uint32_t pkts_per_integ_    = 0; // nof_samples / samples_in_packet (set on first packet)
     uint32_t nof_splits_per_integ_ = 0; // (nof_samples / 16) / split_m_ (precomputed)
+    uint32_t last_raw24_        = 0;  // previous raw 24-bit heap counter, for wrap detection
+    bool     reference_counter_set_ = false; // true once reference_counter has been latched
 
     // Data setup
     uint16_t nof_antennas = 0;
