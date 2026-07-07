@@ -46,25 +46,9 @@ FetchContent_Declare(
 FetchContent_GetProperties(aavs_daq)
 if(NOT aavs_daq_POPULATED)
     FetchContent_Populate(aavs_daq)
-    # Patch RealTimeThread to fall back to SCHED_OTHER when SCHED_FIFO is
-    # unavailable (no CAP_SYS_NICE), so the GPU correlator thread starts in
-    # unprivileged CI environments.
-    set(_rt_h "${aavs_daq_SOURCE_DIR}/src/RealTimeThread.h")
-    file(READ "${_rt_h}" _rt_content)
-    string(REPLACE
-        "            // Create thread\n            ret = pthread_create(&_thread, &attr, threadEntryFunc, this);\n\n            // Reset scheduling"
-        "            // Create thread\n            ret = pthread_create(&_thread, &attr, threadEntryFunc, this);\n\n            // Fall back to default scheduling if SCHED_FIFO is unavailable (e.g. no CAP_SYS_NICE)\n            if (ret != 0) {\n                pthread_attr_init(&attr);\n                ret = pthread_create(&_thread, &attr, threadEntryFunc, this);\n                if (ret != 0)\n                    perror(\"Failed to create thread with fallback scheduling\");\n            }\n\n            // Reset scheduling"
-        _rt_content "${_rt_content}")
-    # string(REPLACE) silently no-ops if the search text is absent (e.g. upstream
-    # reworded/reformatted at the pinned SHA). Fail loudly rather than shipping a
-    # binary that dies with an opaque pthread_create EPERM in unprivileged CI.
-    string(FIND "${_rt_content}" "Fall back to default scheduling" _patched)
-    if(_patched EQUAL -1)
-        message(FATAL_ERROR "RealTimeThread.h SCHED_FIFO-fallback patch did not apply "
-                            "(search text not found in ${_rt_h}); the pinned aavs-daq "
-                            "source may have changed — update the string(REPLACE) block.")
-    endif()
-    file(WRITE "${_rt_h}" "${_rt_content}")
+    # Patch RealTimeThread for the SCHED_FIFO-unavailable fallback (see the module
+    # for the why and the exact before/after).
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/PatchRealTimeThread.cmake)
 endif()
 set(AAVS_DAQ_SRC ${aavs_daq_SOURCE_DIR}/src)
 
@@ -183,12 +167,9 @@ if(_build_gpu)
 
     # Compiles the real TensorCorrelatorData against the fetched cudawrappers/libtcc
     # — the cudawrappers stub used by test_tcc_split_ring is NOT on this target's path.
-    # test_tensor_correlator.cpp #includes TensorCorrelatorData.cpp directly (see
-    # the comment there), so it is NOT listed as a separate source — doing so would
-    # define the extern "C" factory in its header twice. TccSplitRing.cpp has no
-    # such header-defined symbol and is compiled normally.
     add_executable(test_tensor_correlator
         test_tensor_correlator.cpp
+        ${CDAQ_SRC}/TensorCorrelatorData.cpp
         ${CDAQ_SRC}/TccSplitRing.cpp
     )
     target_include_directories(test_tensor_correlator BEFORE PRIVATE ${AAVS_DAQ_SRC})

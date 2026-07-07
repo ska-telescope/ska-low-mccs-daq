@@ -21,19 +21,7 @@
 #include <vector>
 
 #include "DAQ.h"
-// The .cpp is #included directly (single TU) rather than declared via its
-// header so the extern "C" consumer factory defined in TensorCorrelatorData.h
-// (the pattern every cdaq consumer header uses, relied on by dlsym) is emitted
-// exactly once. Compiling TensorCorrelatorData.cpp as a separate object as well
-// would define that factory twice and break linking. Mirrors test_raw_data_consumer.
-//
-// split_ring is private in TensorCorrelatorData, but TestableTensorCorrelator below
-// needs it for split-ring backpressure (pushPacketWhenReady). Promote private ->
-// protected for this test translation unit only, so the test can subclass and reach
-// it without widening the production header's access. Scoped to the include below.
-#define private protected
-#include "TensorCorrelatorData.cpp"
-#undef private
+#include "TensorCorrelatorData.h"
 #include "spead_test_util.h"
 
 namespace

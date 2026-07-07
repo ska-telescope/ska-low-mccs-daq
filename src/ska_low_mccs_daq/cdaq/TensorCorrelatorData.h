@@ -125,8 +125,9 @@ protected:
     // Override cleanup method
     void cleanUp() override;
 
+    TccSplitRing *split_ring = nullptr;
+
 private:
-    TccSplitRing           *split_ring      = nullptr;
     std::unique_ptr<TensorCrossCorrelator> cross_correlator;
 
     // Absolute packet counter tracking for integration/split mapping
@@ -147,6 +148,6 @@ private:
 };
 
 // Expose class factory for birales
-extern "C" DataConsumer *tensorcorrelator() { return new TensorCorrelatorData; }
+extern "C" DataConsumer *tensorcorrelator();
 
 #endif // AAVS_DAQ_CORRELATOR_H

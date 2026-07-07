@@ -426,8 +426,11 @@ void TensorCrossCorrelator::threadEntry()
         uint32_t total_nof_packets  = 0;
         double   first_timestamp    = 0.0;
         int      channel            = -1;
-        bool     abandon            = false; // set if a stream reset arrives mid-integration
         const size_t vis_bytes = sizeof(VisT) * visExt_.size;
+
+        uint64_t last_global_split = 0;
+        uint32_t last_slot_idx     = 0;
+        float    h2d_ms = 0.f, kern_ms = 0.f, d2h_ms = 0.f;
 
         clock_gettime(CLOCK_MONOTONIC, &tic);
 
@@ -464,15 +467,16 @@ void TensorCrossCorrelator::threadEntry()
                     break;
                 if (st == SlotState::EMPTY && split_ring->check_and_reset())
                 {
+                    // Stream reset mid-integration: restart numbering at 0 and skip
+                    // delivery of this partial integration. goto leaves both the poll
+                    // loop and the split loop at once - break would exit only the poll
+                    // loop, and a flag propagated up would need a check per loop level.
                     consumer_integ_ = 0;
-                    abandon = true;
-                    break;
+                    goto next_integration;
                 }
                 try_stream_partial(global_split, split_streamed);
                 nanosleep(&poll_tim, nullptr);
             }
-            if (abandon)
-                break;
 
             SplitSlot &sl = split_ring->get_slot(slot_idx);
             sl.state.store(SlotState::PROCESSING, std::memory_order_release);
@@ -502,17 +506,10 @@ void TensorCrossCorrelator::threadEntry()
             stream_.record(eK1);
         }
 
-        // A reset was observed mid-integration (see the poll loop): consumer_integ_
-        // is already back to 0 and the watermark cleared. Skip delivery and restart -
-        // splits processed so far were released by the release-prev logic, and the
-        // stale device accumulation is overwritten by the next split-0 launch.
-        if (abandon)
-            continue;
-
         // Release the final split's slot (all others were released one split later
         // in the loop above; the last one has no subsequent split to trigger it).
-        const uint64_t last_global_split = consumer_integ_ * (uint64_t)nof_splits_ + (nof_splits_ - 1);
-        const uint32_t last_slot_idx = (uint32_t)(last_global_split % split_ring->ring_size());
+        last_global_split = consumer_integ_ * (uint64_t)nof_splits_ + (nof_splits_ - 1);
+        last_slot_idx     = (uint32_t)(last_global_split % split_ring->ring_size());
         h2d_done_[last_slot_idx].synchronize();
         split_ring->release_slot(last_global_split);
 
@@ -528,10 +525,9 @@ void TensorCrossCorrelator::threadEntry()
             ++consumer_integ_;
 
         // eH2D1/eK0/eK1 reflect the last split; eH2D0 is before all tail work
-        float h2d_ms = eH2D1.elapsedTime(eH2D0);
-        float kern_ms = eK1.elapsedTime(eK0);
-        float d2h_ms = eD2H1.elapsedTime(eD2H0);
-
+        h2d_ms = eH2D1.elapsedTime(eH2D0);
+        kern_ms = eK1.elapsedTime(eK0);
+        d2h_ms = eD2H1.elapsedTime(eD2H0);
 
         clock_gettime(CLOCK_MONOTONIC, &toc);
         if (callback != nullptr)
@@ -553,5 +549,9 @@ void TensorCrossCorrelator::threadEntry()
             "(samples=%u, packets=%u, splits=%u)",
             channel, h2d_ms, kern_ms, d2h_ms,
             total_read_samples, total_nof_packets, (unsigned)nof_splits_);
+
+    next_integration:;
     }
 }
+
+extern "C" DataConsumer *tensorcorrelator() { return new TensorCorrelatorData; }
