@@ -117,39 +117,3 @@ class PCAPReplayer:
         """
         self._logger.debug(f"Sending packet {packet}")
         sendp(packet, iface=self._interface, verbose=False)
-
-
-
-if __name__ == '__main__':
-
-    logger = logging.getLogger()
-    # logger.setLevel(logging.DEBUG)
-
-    interface = "eth0"  # Replace with your interface name
-
-    pcap_replayer = PCAPReplayer(
-        "tests/data/pcap-data/channel_integ_96_192.pcap",
-        interface=interface,
-        ip_address="0.0.0.0",
-        logger=logger)
-
-    with ThreadPoolExecutor(max_workers=1) as executor:
-
-        print("Starting")
-        
-        future = executor.submit(pcap_replayer)
-
-        print("Doing other stuff")
-
-        def packet_handler(packet):
-            print(packet)
-
-        sniff(iface=interface, prn=packet_handler, store=0)
-
-        print(future.result())
-
-        print("Finish")
-
-
-
-
