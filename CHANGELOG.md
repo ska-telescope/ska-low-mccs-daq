@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [SKB-1328] Restrict the `VerifyEvents` property to archive events only. Change events revert to their previous behaviour of always being pushed (detect=False).
+
 ## 6.4.1
 
 * [SKB-1444] Undo TCC optimisations until such a point they can be fully verified on production.
