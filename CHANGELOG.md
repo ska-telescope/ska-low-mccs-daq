@@ -1,5 +1,9 @@
 # Version History
 
+## 6.4.1
+
+* [SKB-1328] Restrict the `VerifyEvents` property to archive events only. Change events revert to their previous behaviour of always being pushed (detect=False).
+
 ## 6.4.0
 
 * [THORN-644] Fix backward compatibility for integrated station beam multiple subarrays.
