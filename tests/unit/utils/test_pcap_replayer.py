@@ -41,7 +41,7 @@ def interface_fixture() -> str:
     :returns: The network interface
 
     """
-    return "eth0"
+    return "lo"
 
 
 @pytest.fixture(name="ip_address")
@@ -52,7 +52,7 @@ def ip_address_fixture() -> str:
     :returns: The destination ip address.
 
     """
-    return "0.0.0.0"
+    return "127.0.0.1"
 
 
 @pytest.fixture(name="mac_address")
