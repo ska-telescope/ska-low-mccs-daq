@@ -96,7 +96,7 @@ public:
     }
 
     // Class Destructor
-    ~ChannelDataContainer()
+    virtual ~ChannelDataContainer()
     {
         // Compute the mmap'ed size
         size_t malloc_size = nof_channels * nof_antennas * nof_pols * (size_t) nof_samples * sizeof(T);
@@ -232,7 +232,7 @@ public:
             // Call callback for every tile (if buffer has some content)
             for (unsigned i = 0; i < nof_tiles; i++)
             {
-                if (metadata[i].nof_packets >= nof_tiles * nof_pols * 2)
+                if (metadata[i].nof_packets >= min_packets_for_callback())
                     callback((uint32_t *)channel_data[i].data, this->timestamp,
                             static_cast<void *>(&metadata[i]));
             }
@@ -247,7 +247,12 @@ public:
 public:
     uint32_t nof_packets = 0;
 
-private:
+protected:
+    virtual uint64_t min_packets_for_callback() const
+    {
+        return (uint64_t) nof_tiles * nof_pols * 2;
+    }
+
     // Parameters
     uint16_t nof_tiles;
     uint16_t nof_antennas;
@@ -268,6 +273,22 @@ private:
 
     // Callback function
     DataCallbackDynamic callback = nullptr;
+};
+
+template <class T> class IntegratedChannelDataContainer : public ChannelDataContainer<T>
+{
+public:
+    // Inherit the base constructor
+    using ChannelDataContainer<T>::ChannelDataContainer;
+
+    // A complete integration is 32 packets per TPM
+    static constexpr uint64_t PACKETS_PER_TILE = 32;
+
+protected:
+    uint64_t min_packets_for_callback() const override
+    {
+        return PACKETS_PER_TILE;
+    }
 };
 
 // This class is responsible for consuming channel SPEAD packets coming out of TPMs

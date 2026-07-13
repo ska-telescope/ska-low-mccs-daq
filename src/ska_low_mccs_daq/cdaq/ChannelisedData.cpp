@@ -566,11 +566,11 @@ bool IntegratedChannelisedData::initialiseConsumer(json configuration)
 
     // Create channel container
     if (bitwidth == 16)
-        container_16bit = new ChannelDataContainer<uint16_t>(nof_tiles, nof_antennas, nof_samples,
-                                                             nof_channels, nof_pols);
+        container_16bit = new IntegratedChannelDataContainer<uint16_t>(nof_tiles, nof_antennas, nof_samples,
+                                                                       nof_channels, nof_pols);
     else if (bitwidth == 32)
-        container_32bit = new ChannelDataContainer<uint32_t>(nof_tiles, nof_antennas, nof_samples,
-                                                             nof_channels, nof_pols);
+        container_32bit = new IntegratedChannelDataContainer<uint32_t>(nof_tiles, nof_antennas, nof_samples,
+                                                                       nof_channels, nof_pols);
     else
         LOG(FATAL, "Unsupported integrated channelised bitwidth %d", bitwidth);
 
