@@ -13,14 +13,10 @@ This module provides functionality to replay PCAP files using scapy.
 
 
 from typing import Any
-from getmac import get_mac_address # type: ignore
-from concurrent.futures import ThreadPoolExecutor
+from getmac import get_mac_address  # type: ignore
 import os
-import asyncio
 import logging
 import scapy.utils
-import scapy.sendrecv
-import time
 from scapy.layers.inet import IP, UDP, Ether
 from scapy.sendrecv import sendp, sniff
 from scapy.utils import rdpcap, wrpcap
@@ -35,11 +31,12 @@ class PCAPReplayer:
     """
 
     def __init__(
-            self, 
-            filename: str, 
-            interface: str, 
-            ip_address: str, 
-            logger: logging.Logger | None = None) -> None:
+        self,
+        filename: str,
+        interface: str,
+        ip_address: str,
+        logger: logging.Logger | None = None,
+    ) -> None:
         """
         Initialise the PCAP Replayer.
 
@@ -59,7 +56,7 @@ class PCAPReplayer:
         self._mac_address = get_mac_address(interface=interface)
 
     def __call__(self) -> None:
-        """ Replay the PCAP file. """
+        """Replay the PCAP file."""
         # For each packet, prepare it for DAQ and then re-send it
         for packet in self._read_pcap_file():
             self._send_packet(self._prepare_packet(packet))
@@ -70,6 +67,8 @@ class PCAPReplayer:
 
         :returns: The packets from the PCAP file.
 
+        :raises FileNotFoundError: If the PCAP file is not found.
+
         """
         # Check if the file exists
         if not os.path.exists(self._filename):
@@ -77,7 +76,7 @@ class PCAPReplayer:
 
         # Output some debug info
         self._logger.debug(f"Reading PCAP file {self._filename}")
-        
+
         # Return the packets from the PCAP file
         return rdpcap(self._filename)
 
@@ -108,7 +107,7 @@ class PCAPReplayer:
         # Return the modifed packet
         return packet
 
-    def _send_packet(self, packet: Any):
+    def _send_packet(self, packet: Any) -> None:
         """
         Resent the PCAP packet.
 
