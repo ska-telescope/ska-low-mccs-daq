@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdio>
 
-// Test stub for the DAQ library LOG macro used by TccSplitRing.cpp.
+// Test stub for the DAQ library LOG macro used by TccDoubleBuffer.cpp.
 
 #define INFO  0
 #define WARN  1

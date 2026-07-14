@@ -41,11 +41,13 @@ if (WITH_CORRELATOR)
                            CorrelatorData.h
                            StandaloneCorrelator.cpp)
     add_library(aavsdaq_tcc SHARED
+        DoubleBuffer.cpp
+        DoubleBuffer.h
         multi_array.h
-        TccSplitRing.cpp
-        TccSplitRing.h
         TensorCorrelatorData.cpp
         TensorCorrelatorData.h
+        TccDoubleBuffer.cpp
+        TccDoubleBuffer.h        
     )
 endif()
 

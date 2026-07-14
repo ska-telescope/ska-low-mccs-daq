@@ -53,24 +53,6 @@
             "default": 1,
             "description": "Number of channels to channelise into before correlation; used only in correlator mode"
         },
-        "nof_correlator_splits": {
-            "type": ["integer", "null"],
-            "default": null,
-            "minimum": 1,
-            "description": "Number of segments to divide each integration into for GPU streaming; higher values reduce peak GPU memory and overlap H2D transfers with kernel execution. If null, auto-selected as the maximum useful value (one DMA batch of ~4 MiB per split). When set, nof_correlator_samples must be divisible by this value, and nof_correlator_samples / nof_correlator_splits must also be divisible by 16."
-        },
-        "nof_correlator_buffers": {
-            "type": "integer",
-            "default": 64,
-            "minimum": 2,
-            "description": "Number of split-sized slots in the TC correlator host ring buffer. Each slot holds one split (~4 MiB for 256 antennas), so total host RAM is nof_correlator_buffers × ~4 MiB regardless of integration length. Larger values give more tolerance to bursty packet arrival; the default of 64 covers ~140 ms of burst headroom for a 1-second integration with 448 splits."
-        },
-        "nof_correlator_active_tiles": {
-            "type": ["integer", "null"],
-            "default": null,
-            "minimum": 1,
-            "description": "Number of tiles expected to send packets this integration; defaults to nof_tiles. Set lower than nof_tiles when profiling with fewer TPMs than configured"
-        },
         "continuous_period": {
             "type": "integer",
             "default": 0,

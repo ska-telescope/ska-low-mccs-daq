@@ -14,7 +14,7 @@
 #include <complex>
 
 #include "DAQ.h"
-#include "TccSplitRing.h"
+#include "TccDoubleBuffer.h"
 
 #include <cudawrappers/nvrtc.hpp>
 #include "libtcc/Correlator.h"
@@ -44,12 +44,9 @@ public:
                           uint16_t nof_antennas,
                           uint32_t nof_samples,
                           uint8_t nof_pols,
-                          uint16_t nof_active_antennas,
-                          uint16_t nof_splits = 1,
-                          uint32_t ring_size  = 64);
+                          uint8_t nbuffers = 4);
     ~TensorCrossCorrelator() override;
-
-    std::unique_ptr<TccSplitRing> split_ring;
+    TccDoubleBuffer *double_buffer;
     void setCallback(DataCallbackDynamic cb) { callback = cb; }
 
 protected:
@@ -64,9 +61,6 @@ private:
     cu::Context context_;
     cu::Stream stream_;
 
-    // nof_splits_ must precede samplesExt_ (init-list order = declaration order)
-    uint16_t nof_splits_;
-
     // Extents next (sizes used by buffers)
     multi_array::extent<5> samplesExt_;
     multi_array::extent<4> visExt_;
@@ -79,26 +73,11 @@ private:
     std::unique_ptr<tcc::Correlator> correlator_;
     DataCallbackDynamic callback{nullptr};
 
-    // Streaming helpers
-    void copy_tail(const uint8_t *host_base, size_t split_start, size_t from, size_t to);
-    void try_stream_partial(uint64_t global_split, size_t &split_streamed);
-
     // config
     uint32_t nof_channels;
     uint16_t nof_antennas;
     uint32_t nof_samples;
     uint8_t nof_pols;
-
-    // precomputed streaming constants
-    size_t split_m_;
-    size_t m_stride_bytes_;
-    size_t batch_m_;
-    // Tracks the integration number so mark_consumed() can form global split indices.
-    uint64_t consumer_integ_{0};
-
-    // One event per ring slot: fires when that slot's H2D copy is complete.
-    // Used to defer release_slot() until the DMA engine has finished reading.
-    std::unique_ptr<cu::Event[]> h2d_done_;
 
     struct timespec tic{}, toc{};
 };
@@ -126,22 +105,22 @@ protected:
     void cleanUp() override;
 
 private:
-    TccSplitRing           *split_ring      = nullptr;
-    std::unique_ptr<TensorCrossCorrelator> cross_correlator;
+    // Pointer to Double Buffer
+    TccDoubleBuffer *double_buffer;
 
-    // Absolute packet counter tracking for integration/split mapping
-    size_t   reference_counter  = 0;
-    uint32_t rollover_counter   = 0;
-    uint32_t pkts_per_integ_    = 0; // nof_samples / samples_in_packet (set on first packet)
-    uint32_t nof_splits_per_integ_ = 0; // (nof_samples / 16) / split_m_ (precomputed)
+    // Pointer to CrossCorrelator;
+    TensorCrossCorrelator *cross_correlator;
+
+    // Reference packet counter
+    size_t reference_counter = 0;
+    uint32_t rollover_counter = 0;
 
     // Data setup
-    uint16_t nof_antennas = 0;
-    uint8_t  nof_pols     = 0;
-    uint16_t nof_tiles    = 0;
-    uint16_t nof_channels = 0;
-    uint32_t nof_samples  = 0;
-    uint32_t split_m_     = 0; // M-blocks per split (copy from correlator for processPacket)
+    uint16_t nof_antennas = 0; // Number of antennas per tile
+    uint8_t nof_pols = 0;      // Number of polarisations
+    uint16_t nof_tiles = 0;    // Number of tiles
+    uint16_t nof_channels = 0; // Number of channels
+    uint32_t nof_samples = 0;  // Number of time samples
 };
 
 // Expose class factory for birales
