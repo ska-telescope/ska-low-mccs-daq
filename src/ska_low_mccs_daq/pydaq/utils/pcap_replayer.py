@@ -66,17 +66,22 @@ class PCAPReplayer:
                 f"got '{self._mac_address}'"
             )
 
-        # The cached filename
+        # Prepare the packets and set the cached filename
         self._cached_filename = self._prepare_cached_pcap_file(self._filename)
 
     def __call__(self) -> None:
         """Replay the PCAP file."""
         # For each packet, prepare it for DAQ and then re-send it
-        for packet in self._read_pcap_file(self._cached_filename):
-            self._send_packet(packet)
+        sendp(
+            self._read_pcap_file(self._cached_filename),
+            iface=self._interface,
+            verbose=False,
+            inter=0,
+        )
 
     def _prepare_cached_pcap_file(self, filename: str) -> str:
         """
+
         Prepare the cached PCAP file.
 
         :param filename: The PCAP file to read
