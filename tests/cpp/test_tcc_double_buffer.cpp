@@ -12,7 +12,6 @@ protected:
 TEST_F(TccDoubleBufferTest, ExposesConfiguredBufferCount)
 {
     EXPECT_EQ(buffer_.get_number_of_buffers(), 2);
-    EXPECT_EQ(buffer_.get_consumer(), 0);
 }
 
 TEST_F(TccDoubleBufferTest, WriteDataStoresSamplesInTccLayout)

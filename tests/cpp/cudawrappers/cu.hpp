@@ -3,7 +3,7 @@
 #include <cstring>
 
 // Test stub - replaces pinned GPU memory with plain heap allocation so that
-// TccSplitRing unit tests run without a CUDA device.
+// TccDoubleBuffer unit tests run without a CUDA device.
 
 #define CU_MEMHOSTALLOC_WRITECOMBINED 0x04u
 
