@@ -12,14 +12,15 @@ This module provides functionality to replay PCAP files using scapy.
 """
 
 
-from typing import Any
-from getmac import get_mac_address  # type: ignore
-import os
 import logging
-import scapy.utils
+import os
+from typing import Any
+
+from getmac import get_mac_address  # type: ignore
 from scapy.layers.inet import IP, UDP, Ether
-from scapy.sendrecv import sendp, sniff
-from scapy.utils import rdpcap, wrpcap
+from scapy.sendrecv import sendp
+from scapy.utils import rdpcap
+from scapy.plist import PacketList
 
 
 class PCAPReplayer:
@@ -45,6 +46,8 @@ class PCAPReplayer:
         :param ip_address: The IP address to send to
         :param logger: The logger object.
 
+        :raises RuntimeError: If mac address of interface is None
+
         """
         # Set the input parameters
         self._filename = filename
@@ -68,7 +71,7 @@ class PCAPReplayer:
         for packet in self._read_pcap_file():
             self._send_packet(self._prepare_packet(packet))
 
-    def _read_pcap_file(self) -> Any:
+    def _read_pcap_file(self) -> PacketList:
         """
         Read the PCAP file.
 
