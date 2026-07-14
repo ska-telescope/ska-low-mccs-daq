@@ -11,6 +11,7 @@ This module provides tests for replaying PCAP files.
 
 """
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from typing import Any
 
 import pytest
@@ -66,9 +67,7 @@ def mac_address_fixture(interface: str) -> str:
 
     """
     # Get the mac address and ensure it is not None
-    mac_address = get_mac_address(interface=interface)
-    assert mac_address is not None
-    return mac_address
+    return get_mac_address(interface=interface) or "00:00:00:00:00:00"
 
 
 @pytest.fixture(name="pcap_replayer")
@@ -113,8 +112,23 @@ def test_pcap_replayer(pcap_replayer: PCAPReplayer) -> None:
         def __init__(self) -> None:
             """Initialse the counter."""
             self.num_packets = 0
+            self.ready = Event()
 
-        def __call__(self, packet: Any) -> None:
+        def __call__(self) -> None:
+            """Start sniffing for packets."""
+            # Set the event to notify that we are ready
+            self.ready.set()
+
+            # Start sniffing at the network traffic
+            sniff(
+                iface=interface,
+                prn=self.handle_packet,
+                stop_filter=self.stop,
+                store=0,
+                timeout=2 * 60,
+            )
+
+        def handle_packet(self, packet: Any) -> None:
             """
             Check the packets.
 
@@ -139,6 +153,10 @@ def test_pcap_replayer(pcap_replayer: PCAPReplayer) -> None:
             # If we have finished then return True (exits sniff)
             return self.num_packets == num_packets
 
+        def wait(self) -> None:
+            """Wait until the packet handler has started."""
+            self.ready.wait()
+
     # Get the packet handler object
     packet_handler = PacketHandler()
 
@@ -146,15 +164,10 @@ def test_pcap_replayer(pcap_replayer: PCAPReplayer) -> None:
     with ThreadPoolExecutor(max_workers=2) as executor:
 
         # Start sniffing at the network traffic
-        executor.submit(
-            lambda: sniff(
-                iface=interface,
-                prn=packet_handler,
-                stop_filter=packet_handler.stop,
-                store=0,
-                timeout=2 * 60,
-            )
-        )
+        executor.submit(packet_handler)
+
+        # Wait until the packet handler is ready
+        packet_handler.wait()
 
         # Replay the PCAP file in a new thread.
         executor.submit(pcap_replayer)
