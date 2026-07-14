@@ -71,7 +71,9 @@ class PCAPReplayer:
 
     def __call__(self) -> None:
         """Replay the PCAP file."""
-        # For each packet, prepare it for DAQ and then re-send it
+        # For each packet, prepare it for DAQ and then re-send it. NOTE We may
+        # be able to get more performance using conf.L2socket directly but need
+        # to be careful about missing packets.
         sendp(
             self._read_pcap_file(self._cached_filename),
             iface=self._interface,
