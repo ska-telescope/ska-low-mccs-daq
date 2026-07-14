@@ -55,6 +55,13 @@ class PCAPReplayer:
         # Get the mac address
         self._mac_address = get_mac_address(interface=interface)
 
+        # Ensure that the mac address is not None
+        if self._mac_address is None:
+            raise RuntimeError(
+                f"Interface '{interface}' must have valid mac address, "
+                f"got '{self._mac_address}'"
+            )
+
     def __call__(self) -> None:
         """Replay the PCAP file."""
         # For each packet, prepare it for DAQ and then re-send it
