@@ -14,13 +14,14 @@ This module provides functionality to replay PCAP files using scapy.
 
 import logging
 import os
+from tempfile import NamedTemporaryFile
 from typing import Any
 
 from getmac import get_mac_address  # type: ignore
 from scapy.layers.inet import IP, UDP, Ether
-from scapy.sendrecv import sendp
-from scapy.utils import rdpcap
 from scapy.plist import PacketList
+from scapy.sendrecv import sendp
+from scapy.utils import PcapWriter, rdpcap
 
 
 class PCAPReplayer:
@@ -65,15 +66,36 @@ class PCAPReplayer:
                 f"got '{self._mac_address}'"
             )
 
+        # The cached filename
+        self._cached_filename = self._prepare_cached_pcap_file(self._filename)
+
     def __call__(self) -> None:
         """Replay the PCAP file."""
         # For each packet, prepare it for DAQ and then re-send it
-        for packet in self._read_pcap_file():
-            self._send_packet(self._prepare_packet(packet))
+        for packet in self._read_pcap_file(self._cached_filename):
+            self._send_packet(packet)
 
-    def _read_pcap_file(self) -> PacketList:
+    def _prepare_cached_pcap_file(self, filename: str) -> str:
+        """
+        Prepare the cached PCAP file.
+
+        :param filename: The PCAP file to read
+
+        :returns: The prepared PCAP filename.
+
+        """
+        # Open a temporary file, read the PCAP file and then, for each packet,
+        # prepare it for DAQ and save it to the cached file
+        with NamedTemporaryFile(delete=False) as outfile, PcapWriter(outfile) as writer:
+            for packet in self._read_pcap_file(filename):
+                writer.write(self._prepare_packet(packet))
+            return outfile.name
+
+    def _read_pcap_file(self, filename: str) -> PacketList:
         """
         Read the PCAP file.
+
+        :param filename: The PCAP file to read
 
         :returns: The packets from the PCAP file.
 
@@ -81,14 +103,14 @@ class PCAPReplayer:
 
         """
         # Check if the file exists
-        if not os.path.exists(self._filename):
-            raise FileNotFoundError(f"PCAP file not found: {self._filename}")
+        if not os.path.exists(filename):
+            raise FileNotFoundError(f"PCAP file not found: {filename}")
 
         # Output some debug info
-        self._logger.debug(f"Reading PCAP file {self._filename}")
+        self._logger.debug(f"Reading PCAP file {filename}")
 
         # Return the packets from the PCAP file
-        return rdpcap(self._filename)
+        return rdpcap(filename)
 
     def _prepare_packet(self, packet: Any) -> Any:
         """
@@ -124,5 +146,4 @@ class PCAPReplayer:
         :param packet: The PCAP packet.
 
         """
-        self._logger.debug(f"Sending packet {packet}")
         sendp(packet, iface=self._interface, verbose=False)
