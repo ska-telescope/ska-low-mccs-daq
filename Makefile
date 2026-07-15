@@ -206,12 +206,11 @@ cpp-pre-test:
 
 cpp-do-test:
 	mkdir -p $(CPP_BUILD_DIR)/gcov
-	cd $(CPP_BUILD_DIR) && ctest -V
+	cd $(CPP_BUILD_DIR) && ctest
 	@if command -v gcovr >/dev/null 2>&1; then \
 	    gcovr \
 	        --root $(CURDIR)/src/ska_low_mccs_daq/cdaq \
 	        --object-directory $(CURDIR)/$(CPP_BUILD_DIR) \
-	        --filter='.*TccSplitRing\.cpp' \
 	        --txt | tee $(CPP_BUILD_DIR)/gcov/coverage_rates.txt; \
 	else \
 	    echo "gcovr not found — skipping coverage (install with: pip install gcovr)"; \
