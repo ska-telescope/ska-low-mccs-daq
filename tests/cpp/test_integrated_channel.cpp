@@ -91,10 +91,10 @@ namespace
     {
         const size_t n = (size_t)nof_channels * nof_antennas * nof_pols;
         std::vector<uint16_t> samples(n);
-        for (int c = 0; c < nof_channels; ++c)
+        for (size_t c = 0; c < nof_channels; ++c)
             for (int a = 0; a < nof_antennas; ++a)
                 for (int p = 0; p < nof_pols; ++p)
-                    samples[((size_t)c * nof_antennas + a) * nof_pols + p] =
+                    samples[(c * nof_antennas + a) * nof_pols + p] =
                         sample_value(gen, tile, start_channel + c, start_antenna + a, p);
 
         std::vector<uint8_t> bytes(n * sizeof(uint16_t));
