@@ -72,6 +72,30 @@ cpp-test:
     - exists:
         - 'tests/cpp/**/*'
 
+gpu-cpp-test:
+  image: artefact.skao.int/ska-build-cuda-11:0.1.3
+  extends: cpp-test
+  before_script:
+    - DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends build-essential cmake git make gcovr
+  tags:
+    - ska-gpu-a100
+  rules:
+    - changes:
+        - src/ska_low_mccs_daq/cdaq/TensorCorrelatorData.cpp
+        - src/ska_low_mccs_daq/cdaq/TensorCorrelatorData.h
+        - tests/cpp/test_tensor_correlator.cpp
+        - tests/cpp/CMakeLists.txt
+        - tests/cpp/spead_test_util.h
+      when: on_success
+    - when: manual
+      allow_failure: true
+  script:
+    - make gpu-cpp-test
+  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+\.\d+%)/'
+  artifacts:
+    paths:
+      - build/gpu-cpp-tests/gcov/coverage_rates.txt
+
 
 oci-image-build:
   stage: build
