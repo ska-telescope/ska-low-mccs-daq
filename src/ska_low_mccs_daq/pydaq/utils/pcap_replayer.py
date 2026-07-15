@@ -93,10 +93,12 @@ class PCAPReplayer:
         """
         # Open a temporary file, read the PCAP file and then, for each packet,
         # prepare it for DAQ and save it to the cached file
+        cached_filename = ""
         with NamedTemporaryFile(delete=False) as outfile, PcapWriter(outfile) as writer:
             for packet in self._read_pcap_file(filename):
                 writer.write(self._prepare_packet(packet))
-            return outfile.name
+            cached_filename = outfile.name
+        return cached_filename
 
     def _read_pcap_file(self, filename: str) -> PacketList:
         """

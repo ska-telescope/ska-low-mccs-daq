@@ -110,12 +110,17 @@ def test_pcap_replayer(pcap_replayer: PCAPReplayer) -> None:
     """
     # Get some attributes from the pcap_replayer
     pcap_filename = pcap_replayer._filename
+    cached_pcap_filename = pcap_replayer._cached_filename
     interface = pcap_replayer._interface
     ip_address = pcap_replayer._ip_address
     mac_address = pcap_replayer._mac_address
 
     # Get the expected number of packets
     num_packets = len(rdpcap(pcap_filename))
+    num_packets_cached = len(rdpcap(cached_pcap_filename))
+
+    # Ensure number of packets is the same in cached file
+    assert num_packets == num_packets_cached
 
     # Handle the packets as they arrive. Count them and check the destination
     # IP and MAC address are the ones we expect.
