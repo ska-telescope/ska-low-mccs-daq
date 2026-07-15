@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-610] Added a class to replay PCAP files
+
 ## 6.4.1
 
 * [SKB-1444] Undo TCC optimisations until such a point they can be fully verified on production.
