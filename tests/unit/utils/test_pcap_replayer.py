@@ -16,12 +16,11 @@ from typing import Any
 
 import pytest
 import pytest_mock
-from getmac import get_mac_address  # type: ignore
 from scapy.layers.inet import IP, Ether
 from scapy.sendrecv import sniff
 from scapy.utils import rdpcap
 
-from ska_low_mccs_daq.pydaq.utils.pcap_replayer import PCAPReplayer
+from ska_low_mccs_daq.pydaq.utils.pcap_replayer import PCAPReplayer, get_mac_address
 
 
 @pytest.fixture(name="pcap_filename")
@@ -58,18 +57,21 @@ def ip_address_fixture() -> str:
 
 
 @pytest.fixture(name="mock_mac_address")
-def mock_mac_address_fixture(mocker: pytest_mock.MockerFixture, interface: str) -> str:
+def mock_mac_address_fixture(
+    mocker: pytest_mock.MockerFixture, ip_address: str, interface: str
+) -> str:
     """
     Get the destination mac address.
 
     :param mocker: The pytest mocker.
+    :param ip_address: The IP address.
     :param interface: The network interface.
 
     :returns: The mac address.
 
     """
     # Get the mac address
-    mac_address = get_mac_address(interface=interface) or "00:00:00:00:00:00"
+    mac_address = get_mac_address(ip_address, interface) or "00:00:00:00:00:00"
 
     # Replace get_mac_address with a mock
     mock_get_mac_address = mocker.patch(

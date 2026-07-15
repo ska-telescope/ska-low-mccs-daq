@@ -17,11 +17,31 @@ import os
 from tempfile import NamedTemporaryFile
 from typing import Any
 
-from getmac import get_mac_address  # type: ignore
+from scapy.layers.l2 import ARP
 from scapy.layers.inet import IP, UDP, Ether
 from scapy.plist import PacketList
-from scapy.sendrecv import sendp
+from scapy.sendrecv import sendp, srp1
 from scapy.utils import PcapWriter, rdpcap
+
+
+def get_mac_address(ip_address: str, interface: str) -> str:
+    """
+    Get the mac address directly from IP and interface.
+
+    :param ip_address: The destination ip address.
+    :param interface: The network interface.
+
+    :returns: The mac address.
+
+    """
+    # Construct the request
+    request = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=ip_address)
+
+    # Get the answer from the destination
+    answered = srp1(request, iface=interface, timeout=1, verbose=False)
+
+    # If we have an answer, get the mac address
+    return answered[Ether].src if answered else "00:00:00:00:00:00"
 
 
 class PCAPReplayer:
@@ -57,7 +77,7 @@ class PCAPReplayer:
         self._logger = logger or logging.getLogger()
 
         # Get the mac address
-        self._mac_address = get_mac_address(interface=interface)
+        self._mac_address = get_mac_address(ip_address, interface)
 
         # Ensure that the mac address is not None
         if self._mac_address is None:
