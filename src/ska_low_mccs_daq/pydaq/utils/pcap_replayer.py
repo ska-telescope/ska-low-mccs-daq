@@ -57,6 +57,7 @@ class PCAPReplayer:
         filename: str,
         interface: str,
         ip_address: str,
+        delay: float = 1e-4,
         logger: logging.Logger | None = None,
     ) -> None:
         """
@@ -65,6 +66,7 @@ class PCAPReplayer:
         :param filename: The PCAP filename.
         :param interface: The interface to send to
         :param ip_address: The IP address to send to
+        :param delay: The delay between packets
         :param logger: The logger object.
 
         :raises RuntimeError: If mac address of interface is None
@@ -74,6 +76,7 @@ class PCAPReplayer:
         self._filename = filename
         self._interface = interface
         self._ip_address = ip_address
+        self._delay = delay
         self._logger = logger or logging.getLogger()
 
         # Get the mac address
@@ -93,12 +96,13 @@ class PCAPReplayer:
         """Replay the PCAP file."""
         # For each packet, prepare it for DAQ and then re-send it. NOTE We may
         # be able to get more performance using conf.L2socket directly but need
-        # to be careful about missing packets.
+        # to be careful about missing packets. Likewise setting inter=0 may
+        # result in missed packets so we have a small delay
         sendp(
             self._read_pcap_file(self._cached_filename),
             iface=self._interface,
             verbose=False,
-            inter=0,
+            inter=self._delay,
         )
 
     def _prepare_cached_pcap_file(self, filename: str) -> str:

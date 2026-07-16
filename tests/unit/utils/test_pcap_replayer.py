@@ -10,14 +10,16 @@ Test the PCAP Replayer Utility.
 This module provides tests for replaying PCAP files.
 
 """
-from concurrent.futures import ThreadPoolExecutor
+import time
 from threading import Event
 from typing import Any
 
 import pytest
 import pytest_mock
+from scapy.arch import get_if_list
 from scapy.layers.inet import IP, Ether
-from scapy.sendrecv import sniff
+from scapy.plist import PacketList
+from scapy.sendrecv import AsyncSniffer
 from scapy.utils import rdpcap
 
 from ska_low_mccs_daq.pydaq.utils.pcap_replayer import PCAPReplayer, get_mac_address
@@ -42,6 +44,10 @@ def interface_fixture() -> str:
     :returns: The network interface
 
     """
+    for iface in get_if_list():
+        if iface not in ["lo"]:
+            return iface
+    pytest.fail("No physical network interface found")
     return "lo"
 
 
@@ -114,12 +120,13 @@ def test_pcap_replayer(pcap_replayer: PCAPReplayer) -> None:
     pcap_filename = pcap_replayer._filename
     cached_pcap_filename = pcap_replayer._cached_filename
     interface = pcap_replayer._interface
-    ip_address = pcap_replayer._ip_address
-    mac_address = pcap_replayer._mac_address
 
-    # Get the expected number of packets
+    # Read the packets
+    packets = rdpcap(cached_pcap_filename)
+
+    # Get the expected number of packets for both files
     num_packets = len(rdpcap(pcap_filename))
-    num_packets_cached = len(rdpcap(cached_pcap_filename))
+    num_packets_cached = len(packets)
 
     # Ensure number of packets is the same in cached file
     assert num_packets == num_packets_cached
@@ -131,55 +138,73 @@ def test_pcap_replayer(pcap_replayer: PCAPReplayer) -> None:
 
         def __init__(self) -> None:
             """Initialse the counter."""
+            # Start sniffing at the network traffic. When sniffing is started
+            # set the event to trigger the replay.
             self.num_packets = 0
             self.ready = Event()
-
-        def __call__(self) -> None:
-            """Start sniffing for packets."""
-            # Start sniffing at the network traffic. When sniffing is started
-            # set the event to trigger the replay. When the number of packets
-            # received is as expected then exit the sniffer. Also timeout after
-            # 2 minutes if we don't receive the expected packets.
-            sniff(
+            self.sniffer = AsyncSniffer(
                 iface=interface,
                 started_callback=self.ready.set,
                 prn=self.handle_packet,
-                stop_filter=lambda p: self.num_packets == num_packets,
-                store=0,
-                timeout=2 * 60,
             )
+            self.sniffer.start()
 
         def handle_packet(self, packet: Any) -> None:
             """
-            Check the packets.
+            Handle the sniffed packets.
 
-            :param packet: The packet.
+            :param packet: The packet to handle
 
             """
-            if IP in packet:
-                assert packet[IP].dst == ip_address
-            if Ether in packet:
-                assert packet[Ether].dst == mac_address
             self.num_packets += 1
+
+        def stop(self) -> PacketList | None:
+            """
+            Stop the sniffing.
+
+            :returns: The captured packets.
+
+            """
+            # Wait for 5 seconds and check for number of packets. This is to ensure
+            # that we give enough time to wait for the expected number of packets
+            # before stopping sniffing
+            start_time = time.time()
+            while time.time() - start_time < 2 * 60:
+                if packet_handler.num_packets >= num_packets:
+                    break
+                time.sleep(0.1)
+
+            # Now stop sniffing
+            return self.sniffer.stop()
 
         def wait(self) -> None:
             """Wait until the packet handler has started."""
-            self.ready.wait()
+            # Wait until sniffing has started
+            assert self.ready.wait(timeout=2 * 60)
+
+            # Then just wait for a second for good measure
+            time.sleep(1)
 
     # Get the packet handler object
     packet_handler = PacketHandler()
 
-    # Create a thread pool executor in which to run the PCAP replayer
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    # Wait until the packet handler is ready
+    packet_handler.wait()
 
-        # Start sniffing at the network traffic
-        executor.submit(packet_handler)
+    # Replay the PCAP file in a new thread.
+    pcap_replayer()
 
-        # Wait until the packet handler is ready
-        packet_handler.wait()
+    # Get the captured packets
+    captured = packet_handler.stop()
 
-        # Replay the PCAP file in a new thread.
-        executor.submit(pcap_replayer)
+    # Check we get some captured packets
+    assert captured is not None
+
+    # Compare each packet
+    for a, b in zip(packets, captured):
+        assert a[Ether].dst == b[Ether].dst
+        assert a[IP].dst == b[IP].dst
+        assert a[IP].proto == b[IP].proto
 
     # Check the number of packets
-    assert num_packets == packet_handler.num_packets
+    assert len(captured) == num_packets
