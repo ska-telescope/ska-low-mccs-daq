@@ -53,14 +53,14 @@ namespace
     // channel, antenna, pol, or left over from a previous integration - gives a
     // mismatching value. Each slot is compared against its own recomputed value,
     // so wrapping past 16 bits is harmless.
-    uint16_t sample_value(int gen, int tile, int channel, int antenna, int pol)
+    uint16_t sample_value(size_t gen, size_t tile, size_t channel, size_t antenna, size_t pol)
     {
-        return (uint16_t)(1
-                          + gen * BIGGEST_NUMBER
-                          + tile * BIGGER_NUMBER
-                          + channel * BIG_NUMBER
-                          + antenna * SMALL_NUMBER
-                          + pol);
+        return 1
+               + gen * BIGGEST_NUMBER
+               + tile * BIGGER_NUMBER
+               + channel * BIG_NUMBER
+               + antenna * SMALL_NUMBER
+               + pol;
     }
 
     // Pack item 0x2002 (antenna/channel info):
@@ -85,15 +85,15 @@ namespace
     // Build the payload for one packet: [nof_channels][nof_antennas][nof_pols] of
     // uint16_t, each element stamped with sample_value() for its global
     // coordinate.
-    std::vector<uint8_t> make_payload(int gen, int tile,
-                                      int start_channel, int nof_channels,
-                                      int start_antenna, int nof_antennas, int nof_pols)
+    std::vector<uint8_t> make_payload(size_t gen, size_t tile,
+                                      size_t start_channel, size_t nof_channels,
+                                      size_t start_antenna, size_t nof_antennas, size_t nof_pols)
     {
-        const size_t n = (size_t)nof_channels * nof_antennas * nof_pols;
+        const size_t n = nof_channels * nof_antennas * nof_pols;
         std::vector<uint16_t> samples(n);
         for (size_t c = 0; c < nof_channels; ++c)
-            for (int a = 0; a < nof_antennas; ++a)
-                for (int p = 0; p < nof_pols; ++p)
+            for (size_t a = 0; a < nof_antennas; ++a)
+                for (size_t p = 0; p < nof_pols; ++p)
                     samples[(c * nof_antennas + a) * nof_pols + p] =
                         sample_value(gen, tile, start_channel + c, start_antenna + a, p);
 
@@ -215,18 +215,18 @@ TEST(IntegratedChannelFilterTest, RejectsOtherModes)
 class BandpassDeliveryTest : public ::testing::Test
 {
 protected:
-    static constexpr int NOF_TILES = 16;
-    static constexpr int NOF_CHANNELS = 512;   // coarse channels 0..511
-    static constexpr int NOF_ANTENNAS = 16;    // per tile
-    static constexpr int NOF_POLS = 2;
-    static constexpr int ANT_PER_PKT = 8;      // 8 antennas per packet
-    static constexpr int CH_PER_PKT = 64;      // -> 8 channel groups over 512
-    static constexpr int NOF_ANT_GROUPS = NOF_ANTENNAS / ANT_PER_PKT; // 2
-    static constexpr int NOF_CH_GROUPS = NOF_CHANNELS / CH_PER_PKT;   // 8
-    static constexpr int PKTS_PER_TILE = NOF_ANT_GROUPS * NOF_CH_GROUPS * NOF_POLS; // 32
-    static constexpr int PKTS_PER_INTEGRATION = PKTS_PER_TILE * NOF_TILES;          // 512
+    static constexpr size_t NOF_TILES = 16;
+    static constexpr size_t NOF_CHANNELS = 512;   // coarse channels 0..511
+    static constexpr size_t NOF_ANTENNAS = 16;    // per tile
+    static constexpr size_t NOF_POLS = 2;
+    static constexpr size_t ANT_PER_PKT = 8;      // 8 antennas per packet
+    static constexpr size_t CH_PER_PKT = 64;      // -> 8 channel groups over 512
+    static constexpr size_t NOF_ANT_GROUPS = NOF_ANTENNAS / ANT_PER_PKT; // 2
+    static constexpr size_t NOF_CH_GROUPS = NOF_CHANNELS / CH_PER_PKT;   // 8
+    static constexpr size_t PKTS_PER_TILE = NOF_ANT_GROUPS * NOF_CH_GROUPS * NOF_POLS; // 32
+    static constexpr size_t PKTS_PER_INTEGRATION = PKTS_PER_TILE * NOF_TILES;          // 512
     static constexpr size_t BUFFER_ELEMS =
-        (size_t)NOF_CHANNELS * NOF_ANTENNAS * NOF_POLS; // 16384 uint16_t per tile
+        NOF_CHANNELS * NOF_ANTENNAS * NOF_POLS; // 16384 uint16_t per tile
 
     json config()
     {
@@ -242,9 +242,9 @@ protected:
     }
 
     // Delivered-buffer index for a (channel, antenna, pol) sample.
-    static size_t buf_index(int channel, int antenna, int pol)
+    static size_t buf_index(size_t channel, size_t antenna, size_t pol)
     {
-        return ((size_t)channel * NOF_ANTENNAS + antenna) * NOF_POLS + pol;
+        return (channel * NOF_ANTENNAS + antenna) * NOF_POLS + pol;
     }
 
     // Feed one complete integration (all tiles) sharing a single timestamp so it
@@ -253,14 +253,14 @@ protected:
     // group) is sent once per pol - so the payload spans both pols and the two
     // pol packets carry identical content, matching the consumer's
     // total_packets *= nof_pols accounting. Returns the number of packets fed.
-    int feed_full_integration(TestableIntegratedChannel &c, int gen,
-                              uint64_t timestamp, uint32_t &counter)
+    size_t feed_full_integration(TestableIntegratedChannel &c, size_t gen,
+                                 uint64_t timestamp, uint32_t &counter)
     {
-        int fed = 0;
-        for (int tile = 0; tile < NOF_TILES; ++tile)
-            for (int ag = 0; ag < NOF_ANT_GROUPS; ++ag)
-                for (int cg = 0; cg < NOF_CH_GROUPS; ++cg)
-                    for (int pol = 0; pol < NOF_POLS; ++pol)
+        size_t fed = 0;
+        for (size_t tile = 0; tile < NOF_TILES; ++tile)
+            for (size_t ag = 0; ag < NOF_ANT_GROUPS; ++ag)
+                for (size_t cg = 0; cg < NOF_CH_GROUPS; ++cg)
+                    for (size_t pol = 0; pol < NOF_POLS; ++pol)
                     {
                         const uint16_t sc = (uint16_t)(cg * CH_PER_PKT);
                         const uint8_t sa = (uint8_t)(ag * ANT_PER_PKT);
@@ -278,12 +278,12 @@ protected:
     // Assert one delivered buffer holds the complete, correctly-placed spectrum
     // for `tile` in integration `gen`. Stops after the first mismatch to avoid
     // flooding output.
-    void expect_full_spectrum(const std::vector<uint16_t> &data, int gen, int tile)
+    void expect_full_spectrum(const std::vector<uint16_t> &data, size_t gen, size_t tile)
     {
         ASSERT_EQ(data.size(), BUFFER_ELEMS) << "tile " << tile << " buffer wrong size";
-        for (int ch = 0; ch < NOF_CHANNELS; ++ch)
-            for (int a = 0; a < NOF_ANTENNAS; ++a)
-                for (int p = 0; p < NOF_POLS; ++p)
+        for (size_t ch = 0; ch < NOF_CHANNELS; ++ch)
+            for (size_t a = 0; a < NOF_ANTENNAS; ++a)
+                for (size_t p = 0; p < NOF_POLS; ++p)
                 {
                     const uint16_t expected = sample_value(gen, tile, ch, a, p);
                     const uint16_t actual = data[buf_index(ch, a, p)];
@@ -301,14 +301,14 @@ TEST_F(BandpassDeliveryTest, OneIntegrationFiresOneCallbackPerTile)
     c.setCapturingCallback(BUFFER_ELEMS); // after initialiseConsumer: needs the container
 
     uint32_t counter = 0;
-    const int fed = feed_full_integration(c, /*gen=*/0, /*timestamp=*/1000, counter);
+    const size_t fed = feed_full_integration(c, /*gen=*/0, /*timestamp=*/1000, counter);
     ASSERT_EQ(fed, PKTS_PER_INTEGRATION) << "test harness fed the wrong packet count";
 
     c.cleanUp();
 
     // Exactly one callback per tile.
     auto &d = TestableIntegratedChannel::deliveries();
-    ASSERT_EQ((int)d.size(), NOF_TILES) << "expected one callback per tile for a full integration";
+    ASSERT_EQ(d.size(), NOF_TILES) << "expected one callback per tile for a full integration";
 
     // Every tile 0..15 delivered exactly once, each having received a full
     // PACKETS_PER_TILE integration whose samples all land in the right slot.
@@ -317,11 +317,11 @@ TEST_F(BandpassDeliveryTest, OneIntegrationFiresOneCallbackPerTile)
     {
         ASSERT_LT(del.tile_id, NOF_TILES) << "callback reported an out-of-range tile id";
         per_tile[del.tile_id]++;
-        EXPECT_EQ(del.nof_packets, (uint64_t)PKTS_PER_TILE)
+        EXPECT_EQ(del.nof_packets, PKTS_PER_TILE)
             << "tile " << (int)del.tile_id << " delivered a partial integration";
         expect_full_spectrum(del.data, /*gen=*/0, del.tile_id);
     }
-    for (int tile = 0; tile < NOF_TILES; ++tile)
+    for (size_t tile = 0; tile < NOF_TILES; ++tile)
         EXPECT_EQ(per_tile[tile], 1) << "tile " << tile << " was not delivered exactly once";
 }
 
@@ -337,7 +337,7 @@ TEST_F(BandpassDeliveryTest, BackToBackIntegrationsFirePerTileEachTime)
     uint32_t counter = 0;
     feed_full_integration(c, /*gen=*/0, /*timestamp=*/1000, counter);
 
-    ASSERT_EQ((int)d.size(), NOF_TILES) << "first integration: expected one callback per tile";
+    ASSERT_EQ(d.size(), NOF_TILES) << "first integration: expected one callback per tile";
     for (const auto &del : d)
         expect_full_spectrum(del.data, /*gen=*/0, del.tile_id);
 
@@ -347,16 +347,16 @@ TEST_F(BandpassDeliveryTest, BackToBackIntegrationsFirePerTileEachTime)
     d.clear();
     feed_full_integration(c, /*gen=*/1, /*timestamp=*/2000, counter);
 
-    ASSERT_EQ((int)d.size(), NOF_TILES) << "second integration: expected one callback per tile";
+    ASSERT_EQ(d.size(), NOF_TILES) << "second integration: expected one callback per tile";
     std::vector<int> per_tile(NOF_TILES, 0);
     for (const auto &del : d)
     {
         ASSERT_LT(del.tile_id, NOF_TILES);
         per_tile[del.tile_id]++;
-        EXPECT_EQ(del.nof_packets, (uint64_t)PKTS_PER_TILE);
+        EXPECT_EQ(del.nof_packets, PKTS_PER_TILE);
         expect_full_spectrum(del.data, /*gen=*/1, del.tile_id);
     }
-    for (int tile = 0; tile < NOF_TILES; ++tile)
+    for (size_t tile = 0; tile < NOF_TILES; ++tile)
         EXPECT_EQ(per_tile[tile], 1) << "tile " << tile << " not delivered in second integration";
 }
 
@@ -371,11 +371,11 @@ TEST_F(BandpassDeliveryTest, IncompleteIntegrationDoesNotFire)
     // Feed one short of a full integration: (512 - 1) packets. total_packets is
     // never reached so persist_container() is not invoked.
     uint32_t counter = 0;
-    int fed = 0;
-    for (int tile = 0; tile < NOF_TILES && fed < PKTS_PER_INTEGRATION - 1; ++tile)
-        for (int ag = 0; ag < NOF_ANT_GROUPS && fed < PKTS_PER_INTEGRATION - 1; ++ag)
-            for (int cg = 0; cg < NOF_CH_GROUPS && fed < PKTS_PER_INTEGRATION - 1; ++cg)
-                for (int pol = 0; pol < NOF_POLS && fed < PKTS_PER_INTEGRATION - 1; ++pol)
+    size_t fed = 0;
+    for (size_t tile = 0; tile < NOF_TILES && fed < PKTS_PER_INTEGRATION - 1; ++tile)
+        for (size_t ag = 0; ag < NOF_ANT_GROUPS && fed < PKTS_PER_INTEGRATION - 1; ++ag)
+            for (size_t cg = 0; cg < NOF_CH_GROUPS && fed < PKTS_PER_INTEGRATION - 1; ++cg)
+                for (size_t pol = 0; pol < NOF_POLS && fed < PKTS_PER_INTEGRATION - 1; ++pol)
                 {
                     const uint16_t sc = (uint16_t)(cg * CH_PER_PKT);
                     const uint8_t sa = (uint8_t)(ag * ANT_PER_PKT);
@@ -408,7 +408,7 @@ TEST_F(BandpassDeliveryTest, IncompleteIntegrationDoesNotFire)
 // before total_packets is reached, forcing the partial set to be persisted.
 TEST_F(BandpassDeliveryTest, TileBelowPacketThresholdIsExcluded)
 {
-    constexpr int EXPECTED_PACKETS_PER_TILE = 32; // firmware: 32 packets complete a TPM integration
+    constexpr size_t EXPECTED_PACKETS_PER_TILE = 32; // firmware: 32 packets complete a TPM integration
     constexpr int FULL_TILE = 3;      // gets EXPECTED_PACKETS_PER_TILE     -> should fire
     constexpr int SHORT_TILE = 7;     // gets one packet short              -> excluded
     constexpr int TRIGGER_TILE = 11;  // only carries the flush-triggering packet
@@ -423,9 +423,9 @@ TEST_F(BandpassDeliveryTest, TileBelowPacketThresholdIsExcluded)
 
     // Feed n packets to one tile, all in the same integration (shared timestamp).
     uint32_t counter = 0;
-    auto feed_tile = [&](int tile, int n, uint64_t timestamp)
+    auto feed_tile = [&](size_t tile, size_t n, uint64_t timestamp)
     {
-        for (int i = 0; i < n; ++i)
+        for (size_t i = 0; i < n; ++i)
         {
             const uint16_t sc = (uint16_t)((i % NOF_CH_GROUPS) * CH_PER_PKT);
             auto pkt = make_data_packet(
@@ -457,7 +457,7 @@ TEST_F(BandpassDeliveryTest, TileBelowPacketThresholdIsExcluded)
     // Exactly the tile that reached the threshold was delivered; the short tile
     // (and the trigger tile, still mid-integration) were not.
     const auto &d = TestableIntegratedChannel::deliveries();
-    ASSERT_EQ((int)d.size(), 1) << "only the tile at/above PACKETS_PER_TILE should be delivered";
+    ASSERT_EQ(d.size(), 1u) << "only the tile at/above PACKETS_PER_TILE should be delivered";
     EXPECT_EQ((int)d[0].tile_id, FULL_TILE);
-    EXPECT_EQ(d[0].nof_packets, (uint64_t)EXPECTED_PACKETS_PER_TILE);
+    EXPECT_EQ(d[0].nof_packets, EXPECTED_PACKETS_PER_TILE);
 }
