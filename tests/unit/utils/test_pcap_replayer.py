@@ -76,8 +76,8 @@ def mock_mac_address_fixture(
     :returns: The mac address.
 
     """
-    # Get the mac address
-    mac_address = get_mac_address(ip_address, interface) or "00:00:00:00:00:00"
+    # Use a fixed MAC address for consistent testing
+    mac_address = "00:00:00:00:00:00"
 
     # Replace get_mac_address with a mock
     mock_get_mac_address = mocker.patch(
