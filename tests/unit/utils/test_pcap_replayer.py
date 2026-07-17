@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 import pytest_mock
 from scapy.arch import get_if_list
-from scapy.layers.inet import IP, Ether
+from scapy.layers.inet import IP, UDP, Ether
 from scapy.plist import PacketList
 from scapy.sendrecv import AsyncSniffer
 from scapy.utils import rdpcap
@@ -44,6 +44,9 @@ def interface_fixture() -> str:
     :returns: The network interface
 
     """
+    # Sniffing on loopback results in 2x number of packets being detected and
+    # filtering in CI seems to cause issues so let's ensure we use "eth0" or
+    # whatever the physical network interface is
     for iface in get_if_list():
         if iface not in ["lo"]:
             return iface
@@ -146,7 +149,7 @@ def test_pcap_replayer(pcap_replayer: PCAPReplayer) -> None:
                 iface=interface,
                 started_callback=self.ready.set,
                 prn=self.handle_packet,
-                filter="udp",
+                lfilter=lambda packet: UDP in packet,
             )
             self.sniffer.start()
 
