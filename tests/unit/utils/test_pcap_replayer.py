@@ -22,7 +22,7 @@ from scapy.plist import PacketList
 from scapy.sendrecv import AsyncSniffer
 from scapy.utils import rdpcap
 
-from ska_low_mccs_daq.pydaq.utils.pcap_replayer import PCAPReplayer, get_mac_address
+from ska_low_mccs_daq.pydaq.utils.pcap_replayer import PCAPReplayer
 
 
 @pytest.fixture(name="pcap_filename")
@@ -146,6 +146,7 @@ def test_pcap_replayer(pcap_replayer: PCAPReplayer) -> None:
                 iface=interface,
                 started_callback=self.ready.set,
                 prn=self.handle_packet,
+                filter="udp",
             )
             self.sniffer.start()
 
