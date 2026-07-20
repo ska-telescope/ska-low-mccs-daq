@@ -429,9 +429,9 @@ private:
 
 };
 
-// Expose class factory for ChannelisedData
-extern "C" DataConsumer *burstchannel() { return new ChannelisedData; }
-extern "C" DataConsumer *continuouschannel() { return new ContinuousChannelisedData; }
-extern "C" DataConsumer *integratedchannel() { return new IntegratedChannelisedData; }
+// Expose class factories for ChannelisedData
+extern "C" DataConsumer *burstchannel();
+extern "C" DataConsumer *continuouschannel();
+extern "C" DataConsumer *integratedchannel();
 
 #endif //AAVS_DAQ_CHANNELISEDDATA_H
