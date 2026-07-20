@@ -43,9 +43,11 @@ public:
         std::memcpy(buf.data(), &header, sizeof(header));
 
         // Item pointers occupy slots 1..nitems.
-        for (size_t k = 0; k < nitems; ++k)
-            SPEAD_SET_ITEM(buf.data(), k + 1,
-                           SPEAD_ITEM_BUILD(SPEAD_IMMEDIATEADDR, items_[k].first, items_[k].second));
+        for (size_t k = 0; k < nitems; ++k) {
+            const uint64_t item = htonll(
+                SPEAD_ITEM_BUILD(SPEAD_IMMEDIATEADDR, items_[k].first, items_[k].second));
+            std::memcpy(buf.data() + (k + 1) * SPEAD_ITEMLEN, &item, sizeof(item));
+        }
 
         if (!payload_.empty())
             std::memcpy(buf.data() + header_and_items, payload_.data(), payload_.size());

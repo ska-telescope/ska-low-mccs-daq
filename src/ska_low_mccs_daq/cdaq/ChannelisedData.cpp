@@ -3,15 +3,12 @@
 //
 
 #include "ChannelisedData.h"
-
-
-#include "ChannelisedData.h"
 #include "SPEAD.h"
 
 // Class factories exposed for dynamic loading (declared in ChannelisedData.h).
-extern "C" DataConsumer *burstchannel() { return new ChannelisedData; }
-extern "C" DataConsumer *continuouschannel() { return new ContinuousChannelisedData; }
-extern "C" DataConsumer *integratedchannel() { return new IntegratedChannelisedData; }
+DataConsumer *burstchannel() { return new ChannelisedData; }
+DataConsumer *continuouschannel() { return new ContinuousChannelisedData; }
+DataConsumer *integratedchannel() { return new IntegratedChannelisedData; }
 
 // Initialise ChannelisedData
 bool ChannelisedData::initialiseConsumer(json configuration)
