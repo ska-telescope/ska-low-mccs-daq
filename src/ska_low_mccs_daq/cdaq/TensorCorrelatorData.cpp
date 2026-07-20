@@ -350,4 +350,4 @@ void TensorCrossCorrelator::threadEntry()
 }
 
 // Class factory for birales
-extern "C" DataConsumer *tensorcorrelator() { return new TensorCorrelatorData; }
+DataConsumer *tensorcorrelator() { return new TensorCorrelatorData; }

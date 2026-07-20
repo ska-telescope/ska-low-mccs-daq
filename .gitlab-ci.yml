@@ -83,7 +83,8 @@ gpu-cpp-test:
     - changes:
         - src/ska_low_mccs_daq/cdaq/TensorCorrelatorData.cpp
         - src/ska_low_mccs_daq/cdaq/TensorCorrelatorData.h
-        - tests/cpp/test_tensor_correlator.cpp
+        - tests/cpp/gpu_tests/**/*
+        - tests/cpp/cmake/**/*
         - tests/cpp/CMakeLists.txt
         - tests/cpp/spead_test_util.h
       when: on_success

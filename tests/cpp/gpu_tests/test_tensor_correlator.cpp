@@ -55,9 +55,9 @@ namespace
     // the (integ+1) base keeps the first integration's time strictly positive so
     // it never trips the "belongs to previous buffer" (ref_time > timestamp) path
     // against a freshly-initialised buffer (ref_time == 0).
-    uint64_t ts_for(int integ, int nof_samples)
+    uint64_t ts_for(size_t integ, size_t nof_samples)
     {
-        return (uint64_t)(integ + 1) * (uint64_t)nof_samples * 4;
+        return (integ + 1) * nof_samples * 4;
     }
 
     // Mode marker lives at SPEAD item slot 5 (packetFilter reads SPEAD_ITEM(pkt, 5)
@@ -101,9 +101,9 @@ public:
     // finish_write() and flushes the pending buffer(s) to the GPU thread. Stops
     // as soon as `done` is satisfied or the deadline passes.
     template <class Pred>
-    void driveUntil(Pred done, int timeout_ms = 5000)
+    void driveUntil(Pred done, size_t timeout_ms = 5000)
     {
-        for (int i = 0; i * 10 < timeout_ms && !done(); ++i)
+        for (size_t i = 0; i * 10 < timeout_ms && !done(); ++i)
         {
             processPacket(); // empty ring -> pull_timeout -> finish_write()
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -203,10 +203,10 @@ TEST_F(TensorCorrelatorGpuTest, InitialiseConsumerAllocatesGpuCorrelator)
 TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTrip)
 {
     constexpr int8_t SIGNAL = 10;
-    constexpr int N_ANT = 4;
-    constexpr int N_POL = 2;
-    constexpr int N_SAMPLES = 256;
-    constexpr int N_BASELINES = N_ANT * (N_ANT + 1) / 2;
+    constexpr size_t N_ANT = 4;
+    constexpr size_t N_POL = 2;
+    constexpr size_t N_SAMPLES = 256;
+    constexpr size_t N_BASELINES = N_ANT * (N_ANT + 1) / 2;
 
     json config = {
         {"nof_antennas", N_ANT},
@@ -227,15 +227,17 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTrip)
     // dereferences cross_correlator which is only set by initialiseConsumer.
     std::vector<std::complex<int32_t>> vis_out;
     std::atomic<bool> got{false};
-    c.setCapturingCallback([&](void *data, double, void *)
-                           {
-        auto *v = static_cast<std::complex<int32_t> *>(data);
-        vis_out.assign(v, v + N_BASELINES * N_POL * N_POL);
-        got.store(true, std::memory_order_release); });
+    c.setCapturingCallback(
+        [&](void *data, double, void *){
+            auto *v = static_cast<std::complex<int32_t> *>(data);
+            vis_out.assign(v, v + N_BASELINES * N_POL * N_POL);
+            got.store(true, std::memory_order_release); 
+        }
+    );
 
     // Payload: N_SAMPLES × N_ANT × N_POL × uint16_t
     // Each uint16_t = complex<int8_t>(SIGNAL, 0): low byte = real, high byte = imag.
-    const size_t payload_bytes = (size_t)N_SAMPLES * N_ANT * N_POL * sizeof(uint16_t);
+    const size_t payload_bytes = N_SAMPLES * N_ANT * N_POL * sizeof(uint16_t);
     std::vector<uint8_t> payload_data(payload_bytes);
     for (size_t i = 0; i < payload_bytes; i += 2)
     {
@@ -270,9 +272,9 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTrip)
 
     // vis[baseline][polY][polX] = N_SAMPLES * SIGNAL^2 + 0i for all entries.
     const int32_t expected_re = (int32_t)N_SAMPLES * SIGNAL * SIGNAL;
-    for (int bl = 0; bl < N_BASELINES; ++bl)
-        for (int py = 0; py < N_POL; ++py)
-            for (int px = 0; px < N_POL; ++px)
+    for (size_t bl = 0; bl < N_BASELINES; ++bl)
+        for (size_t py = 0; py < N_POL; ++py)
+            for (size_t px = 0; px < N_POL; ++px)
             {
                 auto v = vis_out[(bl * N_POL + py) * N_POL + px];
                 EXPECT_EQ(v.real(), expected_re) << "bl=" << bl << " py=" << py << " px=" << px;
@@ -291,12 +293,12 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTrip)
 TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiPacket)
 {
     constexpr int8_t SIGNAL = 10;
-    constexpr int N_ANT = 4;
-    constexpr int N_POL = 2;
-    constexpr int N_SAMPLES = 256 * 16;
-    constexpr int N_PKTS = 64;
-    constexpr int SAMPLES_PER_PKT = N_SAMPLES / N_PKTS; // 64 samples/packet
-    constexpr int N_BASELINES = N_ANT * (N_ANT + 1) / 2;
+    constexpr size_t N_ANT = 4;
+    constexpr size_t N_POL = 2;
+    constexpr size_t N_SAMPLES = 256 * 16;
+    constexpr size_t N_PKTS = 64;
+    constexpr size_t SAMPLES_PER_PKT = N_SAMPLES / N_PKTS; // 64 samples/packet
+    constexpr size_t N_BASELINES = N_ANT * (N_ANT + 1) / 2;
 
     json config = {
         {"nof_antennas", N_ANT},
@@ -314,11 +316,13 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiPacket)
 
     std::vector<std::complex<int32_t>> vis_out;
     std::atomic<bool> got{false};
-    c.setCapturingCallback([&](void *data, double, void *)
-                           {
-        auto *v = static_cast<std::complex<int32_t> *>(data);
-        vis_out.assign(v, v + N_BASELINES * N_POL * N_POL);
-        got.store(true, std::memory_order_release); });
+    c.setCapturingCallback(
+        [&](void *data, double, void *){
+            auto *v = static_cast<std::complex<int32_t> *>(data);
+            vis_out.assign(v, v + N_BASELINES * N_POL * N_POL);
+            got.store(true, std::memory_order_release);
+        }
+    );
 
     // Payload layout: [SAMPLES_PER_PKT][N_ANT][N_POL] of uint16_t (complex<int8_t>).
     // Each antenna carries a constant complex sample with a distinct (real, imag),
@@ -331,11 +335,11 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiPacket)
     const int ant_re[N_ANT] = {SIGNAL, 2 * SIGNAL, 3 * SIGNAL, 4 * SIGNAL};
     const int ant_im[N_ANT] = {4 * SIGNAL, 3 * SIGNAL, 2 * SIGNAL, SIGNAL};
 
-    const size_t payload_bytes = (size_t)SAMPLES_PER_PKT * N_ANT * N_POL * sizeof(uint16_t);
+    const size_t payload_bytes = SAMPLES_PER_PKT * N_ANT * N_POL * sizeof(uint16_t);
     std::vector<uint8_t> payload_data(payload_bytes);
     for (size_t i = 0; i < payload_bytes; i += 2)
     {
-        const int ant = (i / 2 / N_POL) % N_ANT;
+        const size_t ant = (i / 2 / N_POL) % N_ANT;
         payload_data[i] = static_cast<uint8_t>(ant_re[ant]);
         payload_data[i + 1] = static_cast<uint8_t>(ant_im[ant]);
     }
@@ -343,7 +347,7 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiPacket)
     const uint64_t chan_info = (uint64_t(1) << 16) | uint64_t(N_ANT);
     const uint64_t ts = ts_for(0, N_SAMPLES); // same timestamp: all one integration
 
-    for (int pkt_idx = 0; pkt_idx < N_PKTS; ++pkt_idx)
+    for (size_t pkt_idx = 0; pkt_idx < N_PKTS; ++pkt_idx)
     {
         auto pkt = SpeadPacket()
                        .item(0x0001, pkt_idx)
@@ -370,17 +374,17 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiPacket)
     //   real part: N_SAMPLES * (re_rx*re_ry + im_rx*im_ry)
     //   imag part: N_SAMPLES * (re_rx*im_ry - im_rx*re_ry)
     // Baseline ordering: bl = rx*(rx+1)/2 + ry, rx >= ry.
-    int bl = 0;
-    for (int rx = 0; rx < N_ANT; ++rx)
+    size_t bl = 0;
+    for (size_t rx = 0; rx < N_ANT; ++rx)
     {
-        for (int ry = 0; ry <= rx; ++ry, ++bl)
+        for (size_t ry = 0; ry <= rx; ++ry, ++bl)
         {
             const int32_t expected_re = (int32_t)N_SAMPLES *
                                         (ant_re[rx] * ant_re[ry] + ant_im[rx] * ant_im[ry]);
             const int32_t expected_im = (int32_t)N_SAMPLES *
                                         (ant_re[rx] * ant_im[ry] - ant_im[rx] * ant_re[ry]);
-            for (int py = 0; py < N_POL; ++py)
-                for (int px = 0; px < N_POL; ++px)
+            for (size_t py = 0; py < N_POL; ++py)
+                for (size_t px = 0; px < N_POL; ++px)
                 {
                     auto v = vis_out[(bl * N_POL + py) * N_POL + px];
                     EXPECT_EQ(v.real(), expected_re)
@@ -420,12 +424,12 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTripMultiPacket)
 TEST_F(TensorCorrelatorGpuTest, RandomNoiseYieldsLowCorrelation)
 {
     constexpr int A = 64;              // noise amplitude: int8 samples drawn from [-A, A]
-    constexpr int N_ANT = 64;
-    constexpr int N_POL = 2;
-    constexpr int N_SAMPLES = 65536;   // closest power of two to 50k
-    constexpr int SAMPLES_PER_PKT = 32; // payload = 32*64*2*2 = 8192 B < max_packet_size
-    constexpr int N_PKTS = N_SAMPLES / SAMPLES_PER_PKT; // 2048 packets / integration
-    constexpr int N_BASELINES = N_ANT * (N_ANT + 1) / 2;
+    constexpr size_t N_ANT = 64;
+    constexpr size_t N_POL = 2;
+    constexpr size_t N_SAMPLES = 65536;   // closest power of two to 50k
+    constexpr size_t SAMPLES_PER_PKT = 32; // payload = 32*64*2*2 = 8192 B < max_packet_size
+    constexpr size_t N_PKTS = N_SAMPLES / SAMPLES_PER_PKT; // 2048 packets / integration
+    constexpr size_t N_BASELINES = N_ANT * (N_ANT + 1) / 2;
 
     json config = {
         {"nof_antennas", N_ANT},
@@ -465,10 +469,10 @@ TEST_F(TensorCorrelatorGpuTest, RandomNoiseYieldsLowCorrelation)
     // Payload per packet: SAMPLES_PER_PKT × N_ANT × N_POL × uint16_t. Refilled
     // with fresh randoms every packet, so the whole integration is an
     // independent noise stream per (packet, sample, antenna, pol).
-    const size_t payload_bytes = (size_t)SAMPLES_PER_PKT * N_ANT * N_POL * sizeof(uint16_t);
+    const size_t payload_bytes = SAMPLES_PER_PKT * N_ANT * N_POL * sizeof(uint16_t);
     std::vector<uint8_t> payload_data(payload_bytes);
 
-    for (int pkt_idx = 0; pkt_idx < N_PKTS; ++pkt_idx)
+    for (size_t pkt_idx = 0; pkt_idx < N_PKTS; ++pkt_idx)
     {
         for (size_t i = 0; i < payload_bytes; i += 2)
         {
@@ -496,16 +500,16 @@ TEST_F(TensorCorrelatorGpuTest, RandomNoiseYieldsLowCorrelation)
 
     ASSERT_TRUE(got.load()) << "callback never fired within 5 s";
 
-    auto vis_at = [&](int bl, int py, int px)
+    auto vis_at = [&](size_t bl, size_t py, size_t px)
     { return vis_out[(bl * N_POL + py) * N_POL + px]; };
-    auto bl_index = [](int rx, int ry)
+    auto bl_index = [](size_t rx, size_t ry)
     { return rx * (rx + 1) / 2 + ry; };
 
     // Auto-correlation power for antenna a, pol p: diagonal baseline bl(a,a),
     // entry [p][p]. Must be large and positive (noise carries real power).
     double auto_pow[N_ANT][N_POL];
-    for (int a = 0; a < N_ANT; ++a)
-        for (int p = 0; p < N_POL; ++p)
+    for (size_t a = 0; a < N_ANT; ++a)
+        for (size_t p = 0; p < N_POL; ++p)
         {
             auto v = vis_at(bl_index(a, a), p, p);
             EXPECT_GT(v.real(), 0) << "auto power ant=" << a << " pol=" << p;
@@ -516,19 +520,19 @@ TEST_F(TensorCorrelatorGpuTest, RandomNoiseYieldsLowCorrelation)
     const double noise_floor = 1.0 / std::sqrt((double)N_SAMPLES);
     // |rho| is Rayleigh, so the largest of the M cross coefficients checked is
     // ~noise_floor*sqrt(ln M); allow a safety factor above that expected maximum.
-    const size_t M = (size_t)(N_ANT * (N_ANT - 1) / 2) * N_POL * N_POL;
+    const size_t M = (N_ANT * (N_ANT - 1) / 2) * N_POL * N_POL;
     const double tol = 4.0 * noise_floor * std::sqrt(std::log((double)M));
 
     // Cross baselines (rx != ry): every normalised coefficient must sit within the
     // derived noise-floor tolerance for every pol combination.
     double max_rho = 0.0, sum_sq = 0.0;
     size_t count = 0;
-    for (int rx = 0; rx < N_ANT; ++rx)
-        for (int ry = 0; ry < rx; ++ry)
+    for (size_t rx = 0; rx < N_ANT; ++rx)
+        for (size_t ry = 0; ry < rx; ++ry)
         {
-            const int bl = bl_index(rx, ry);
-            for (int py = 0; py < N_POL; ++py)
-                for (int px = 0; px < N_POL; ++px)
+            const size_t bl = bl_index(rx, ry);
+            for (size_t py = 0; py < N_POL; ++py)
+                for (size_t px = 0; px < N_POL; ++px)
                 {
                     auto v = vis_at(bl, py, px);
                     const double mag = std::abs(std::complex<double>(v.real(), v.imag()));
@@ -568,13 +572,13 @@ TEST_F(TensorCorrelatorGpuTest, BackToBackIntegrations)
 {
     constexpr int8_t SIGNAL_A = 7;
     constexpr int8_t SIGNAL_B = 11;
-    constexpr int N_ANT = 4;
-    constexpr int N_POL = 2;
-    constexpr int N_SAMPLES = 256 * 16;                   // per integration
-    constexpr int N_PKTS = 64;                            // packets per integration
-    constexpr int SAMPLES_PER_PKT = N_SAMPLES / N_PKTS;   // 64 samples/packet
-    constexpr int N_BASELINES = N_ANT * (N_ANT + 1) / 2;
-    const size_t vis_len = (size_t)N_BASELINES * N_POL * N_POL;
+    constexpr size_t N_ANT = 4;
+    constexpr size_t N_POL = 2;
+    constexpr size_t N_SAMPLES = 256 * 16;                // per integration
+    constexpr size_t N_PKTS = 64;                         // packets per integration
+    constexpr size_t SAMPLES_PER_PKT = N_SAMPLES / N_PKTS; // 64 samples/packet
+    constexpr size_t N_BASELINES = N_ANT * (N_ANT + 1) / 2;
+    const size_t vis_len = N_BASELINES * N_POL * N_POL;
 
     json config = {
         {"nof_antennas", N_ANT},   {"nof_channels", 1},     {"nof_fine_channels", 1},
@@ -595,13 +599,13 @@ TEST_F(TensorCorrelatorGpuTest, BackToBackIntegrations)
         ncb.fetch_add(1, std::memory_order_release); });
 
     const uint64_t chan_info = (uint64_t(1) << 16) | uint64_t(N_ANT);
-    const size_t payload_bytes = (size_t)SAMPLES_PER_PKT * N_ANT * N_POL * sizeof(uint16_t);
+    const size_t payload_bytes = SAMPLES_PER_PKT * N_ANT * N_POL * sizeof(uint16_t);
 
     // Two integrations of N_PKTS packets each. heap counters run 0..2*N_PKTS-1:
     // counters [0,N_PKTS) map (mod N_PKTS) to integ 0's sample offsets, and
     // [N_PKTS,2N) map to integ 1's. The advancing per-integration timestamp is
     // what tells the double buffer that integ 1 is a new integration.
-    for (int integ = 0; integ < 2; ++integ)
+    for (size_t integ = 0; integ < 2; ++integ)
     {
         const uint8_t sig = (integ == 0) ? (uint8_t)SIGNAL_A : (uint8_t)SIGNAL_B;
         std::vector<uint8_t> payload(payload_bytes);
@@ -612,9 +616,9 @@ TEST_F(TensorCorrelatorGpuTest, BackToBackIntegrations)
         }
         const uint64_t ts = ts_for(integ, N_SAMPLES);
 
-        for (int s = 0; s < N_PKTS; ++s)
+        for (size_t s = 0; s < N_PKTS; ++s)
         {
-            const int counter = integ * N_PKTS + s;
+            const size_t counter = integ * N_PKTS + s;
             auto pkt = SpeadPacket()
                            .item(0x0001, counter)
                            .item(0x0004, payload_bytes)
@@ -663,11 +667,11 @@ TEST_F(TensorCorrelatorGpuTest, BackToBackIntegrations)
 TEST_F(TensorCorrelatorGpuTest, PartialIntegrationFlushesRatherThanHangs)
 {
     constexpr int8_t SIGNAL = 10;
-    constexpr int N_ANT = 4;
-    constexpr int N_POL = 2;
-    constexpr int N_SAMPLES = 256;
-    constexpr int HALF = N_SAMPLES / 2; // samples actually delivered
-    constexpr int N_BASELINES = N_ANT * (N_ANT + 1) / 2;
+    constexpr size_t N_ANT = 4;
+    constexpr size_t N_POL = 2;
+    constexpr size_t N_SAMPLES = 256;
+    constexpr size_t HALF = N_SAMPLES / 2; // samples actually delivered
+    constexpr size_t N_BASELINES = N_ANT * (N_ANT + 1) / 2;
 
     json config = {
         {"nof_antennas", N_ANT},   {"nof_channels", 1},     {"nof_fine_channels", 1},
@@ -691,7 +695,7 @@ TEST_F(TensorCorrelatorGpuTest, PartialIntegrationFlushesRatherThanHangs)
     // One packet carrying only HALF the integration's samples (heap_counter 0):
     // samples_in_packet=HALF => nof_samples/samples_in_packet=2, and the second
     // (counter 1) packet is deliberately never sent, leaving the buffer half-filled.
-    const size_t payload_bytes = (size_t)HALF * N_ANT * N_POL * sizeof(uint16_t);
+    const size_t payload_bytes = HALF * N_ANT * N_POL * sizeof(uint16_t);
     std::vector<uint8_t> payload(payload_bytes);
     for (size_t i = 0; i < payload_bytes; i += 2)
     {
@@ -724,7 +728,7 @@ TEST_F(TensorCorrelatorGpuTest, PartialIntegrationFlushesRatherThanHangs)
     // every entry is HALF * SIGNAL^2 + 0i (constant DC signal, identical on all
     // antennas).
     const int32_t expected_re = (int32_t)HALF * SIGNAL * SIGNAL;
-    for (size_t k = 0; k < (size_t)N_BASELINES * N_POL * N_POL; ++k)
+    for (size_t k = 0; k < N_BASELINES * N_POL * N_POL; ++k)
     {
         EXPECT_EQ(vis_out[k].real(), expected_re) << "entry " << k;
         EXPECT_EQ(vis_out[k].imag(), 0) << "entry " << k;
@@ -738,12 +742,12 @@ TEST_F(TensorCorrelatorGpuTest, PartialIntegrationFlushesRatherThanHangs)
 // (N_TILES * ANT_PER_TILE)-receiver integration and correlate across tiles.
 TEST_F(TensorCorrelatorGpuTest, MultiTileVisibilityRoundTrip)
 {
-    constexpr int N_TILES = 2;
-    constexpr int ANT_PER_TILE = 2;
-    constexpr int N_RECV = N_TILES * ANT_PER_TILE; // 4 receivers total
-    constexpr int N_POL = 2;
-    constexpr int N_SAMPLES = 256;
-    constexpr int N_BASELINES = N_RECV * (N_RECV + 1) / 2;
+    constexpr size_t N_TILES = 2;
+    constexpr size_t ANT_PER_TILE = 2;
+    constexpr size_t N_RECV = N_TILES * ANT_PER_TILE; // 4 receivers total
+    constexpr size_t N_POL = 2;
+    constexpr size_t N_SAMPLES = 256;
+    constexpr size_t N_BASELINES = N_RECV * (N_RECV + 1) / 2;
 
     json config = {
         {"nof_antennas", ANT_PER_TILE}, {"nof_channels", 1},           {"nof_fine_channels", 1},
@@ -767,15 +771,15 @@ TEST_F(TensorCorrelatorGpuTest, MultiTileVisibilityRoundTrip)
 
     // 1 channel, start_antenna 0, ANT_PER_TILE antennas per tile.
     const uint64_t chan_info = (uint64_t(1) << 16) | uint64_t(ANT_PER_TILE);
-    const size_t payload_bytes = (size_t)N_SAMPLES * ANT_PER_TILE * N_POL * sizeof(uint16_t);
+    const size_t payload_bytes = N_SAMPLES * ANT_PER_TILE * N_POL * sizeof(uint16_t);
     const uint64_t ts = ts_for(0, N_SAMPLES); // both tiles share one integration
 
-    for (int tile = 0; tile < N_TILES; ++tile)
+    for (size_t tile = 0; tile < N_TILES; ++tile)
     {
         std::vector<uint8_t> payload(payload_bytes);
         for (size_t i = 0; i < payload_bytes; i += 2)
         {
-            const int ant = (int)((i / 2 / N_POL) % ANT_PER_TILE);
+            const size_t ant = (i / 2 / N_POL) % ANT_PER_TILE;
             payload[i] = (uint8_t)recv_amp[tile * ANT_PER_TILE + ant]; // real
             payload[i + 1] = 0; // imag
         }
@@ -803,14 +807,14 @@ TEST_F(TensorCorrelatorGpuTest, MultiTileVisibilityRoundTrip)
     // Constant real signals: vis[bl(gx,gy)] = N_SAMPLES * amp[gx] * amp[gy] + 0i
     // for every pol pair. Correct values on cross-tile baselines (gx and gy in
     // different tiles) confirm both tiles landed at the right receiver offsets.
-    auto bl_index = [](int gx, int gy) { return gx * (gx + 1) / 2 + gy; };
-    for (int gx = 0; gx < N_RECV; ++gx)
-        for (int gy = 0; gy <= gx; ++gy)
+    auto bl_index = [](size_t gx, size_t gy) { return gx * (gx + 1) / 2 + gy; };
+    for (size_t gx = 0; gx < N_RECV; ++gx)
+        for (size_t gy = 0; gy <= gx; ++gy)
         {
-            const int bl = bl_index(gx, gy);
+            const size_t bl = bl_index(gx, gy);
             const int32_t expected_re = (int32_t)N_SAMPLES * recv_amp[gx] * recv_amp[gy];
-            for (int py = 0; py < N_POL; ++py)
-                for (int px = 0; px < N_POL; ++px)
+            for (size_t py = 0; py < N_POL; ++py)
+                for (size_t px = 0; px < N_POL; ++px)
                 {
                     auto v = vis_out[(bl * N_POL + py) * N_POL + px];
                     EXPECT_EQ(v.real(), expected_re) << "bl=" << bl << " gx=" << gx << " gy=" << gy;
@@ -831,11 +835,11 @@ TEST_F(TensorCorrelatorGpuTest, NewIntegrationAfterBreakIsDelivered)
 {
     constexpr int8_t SIG_X = 5;
     constexpr int8_t SIG_Y = 7;
-    constexpr int N_ANT = 4;
-    constexpr int N_POL = 2;
-    constexpr int N_SAMPLES = 256;
-    constexpr int N_BASELINES = N_ANT * (N_ANT + 1) / 2;
-    const size_t vis_len = (size_t)N_BASELINES * N_POL * N_POL;
+    constexpr size_t N_ANT = 4;
+    constexpr size_t N_POL = 2;
+    constexpr size_t N_SAMPLES = 256;
+    constexpr size_t N_BASELINES = N_ANT * (N_ANT + 1) / 2;
+    const size_t vis_len = N_BASELINES * N_POL * N_POL;
 
     json config = {
         {"nof_antennas", N_ANT},   {"nof_channels", 1},     {"nof_fine_channels", 1},
@@ -854,7 +858,7 @@ TEST_F(TensorCorrelatorGpuTest, NewIntegrationAfterBreakIsDelivered)
         results.emplace_back(v, v + vis_len);
         ncb.fetch_add(1, std::memory_order_release); });
 
-    const size_t payload_bytes = (size_t)N_SAMPLES * N_ANT * N_POL * sizeof(uint16_t);
+    const size_t payload_bytes = N_SAMPLES * N_ANT * N_POL * sizeof(uint16_t);
 
     // Send one full single-packet integration on the given channel, fresh counter 0.
     auto send_integration = [&](uint16_t channel, uint8_t sig)
@@ -884,7 +888,7 @@ TEST_F(TensorCorrelatorGpuTest, NewIntegrationAfterBreakIsDelivered)
     ASSERT_EQ(ncb.load(), 1) << "first integration never delivered";
 
     // A few more empty-ring timeouts to be sure both sides have fully reset.
-    for (int i = 0; i < 3; ++i)
+    for (size_t i = 0; i < 3; ++i)
     {
         c.processPacket();
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
