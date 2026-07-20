@@ -57,7 +57,7 @@ class PCAPReplayer:
         filename: str,
         interface: str,
         ip_address: str,
-        delay: float = 1e-4,
+        delay: float = 0,
         logger: logging.Logger | None = None,
     ) -> None:
         """

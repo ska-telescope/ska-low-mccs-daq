@@ -113,7 +113,7 @@ def pcap_replayer_fixture(
     :returns: The PCAPReplayer object.
 
     """
-    return PCAPReplayer(pcap_filename, interface, ip_address)
+    return PCAPReplayer(pcap_filename, interface, ip_address, delay=1e-4)
 
 
 def test_pcap_replayer(pcap_replayer: PCAPReplayer, mock_mac_address: str) -> None:
@@ -183,7 +183,7 @@ def test_pcap_replayer(pcap_replayer: PCAPReplayer, mock_mac_address: str) -> No
             # that we give enough time to wait for the expected number of packets
             # before stopping sniffing
             start_time = time.time()
-            while time.time() - start_time < 10:  # 2 * 60:
+            while time.time() - start_time < 2 * 60:
                 if packet_handler.num_packets >= num_packets:
                     break
                 time.sleep(0.1)
@@ -220,5 +220,6 @@ def test_pcap_replayer(pcap_replayer: PCAPReplayer, mock_mac_address: str) -> No
         assert a[IP].dst == b[IP].dst
         assert a[IP].proto == b[IP].proto
 
-    # Check the number of packets
-    assert len(captured) == num_packets
+    # Check the number of packets. Since we use UDP which is inherently
+    # unreliable we accept some packet loss (10%) in this test.
+    assert len(captured) >= 0.9 * num_packets
