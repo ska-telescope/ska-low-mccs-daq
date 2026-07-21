@@ -3,6 +3,7 @@
 ## Unreleased
 
 * [THORN-610] Added a class to replay PCAP files
+* [THORN-667] Fixed flaky PCAP test
 
 ## 6.4.1
 
