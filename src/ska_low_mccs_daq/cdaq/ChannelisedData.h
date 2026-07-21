@@ -152,10 +152,6 @@ public:
                   uint16_t start_antenna_id, T *data_ptr, double timestamp, uint16_t included_channels,
                   uint16_t nof_included_antennas, uint64_t payload_length, uint32_t cont_channel_id = 0)
     {
-        if (tile >= nof_tiles) {
-            LOG(WARN, "Cannot process tile %d, channel consumer configured for %d tiles", tile, nof_tiles);
-            return;
-        }
         // Get current tile index
         unsigned int tile_index;
         if (tile_map.find(tile) != tile_map.end())
@@ -163,6 +159,10 @@ public:
         else {
             tile_index = (unsigned int) tile_map.size();
 
+            if (tile_index == nof_tiles) {
+                LOG(WARN, "Cannot process tile %d, channel consumer configured for %d tiles", tile, nof_tiles);
+                return;
+            }
 
             tile_map[tile] = tile_index;
             channel_data[tile_index].tile = tile;
