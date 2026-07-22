@@ -124,6 +124,6 @@ private:
 };
 
 // Expose class factory for birales
-extern "C" DataConsumer *tensorcorrelator() { return new TensorCorrelatorData; }
+extern "C" DataConsumer *tensorcorrelator();
 
 #endif // AAVS_DAQ_CORRELATOR_H

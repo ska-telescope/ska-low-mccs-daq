@@ -348,3 +348,6 @@ void TensorCrossCorrelator::threadEntry()
             read_samples, nof_packets, sample_bytes / (1024.0 * 1024.0));
     }
 }
+
+// Class factory for birales
+DataConsumer *tensorcorrelator() { return new TensorCorrelatorData; }
