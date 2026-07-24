@@ -712,7 +712,7 @@ bool IntegratedChannelisedData::processPacket()
     double packet_time = sync_time + timestamp * sampling_time;
 
     auto total_packets = (nof_antennas / nof_included_antennas) *
-                          (nof_channels / nof_included_channels) * nof_pols * nof_tiles;
+                          (nof_channels / nof_included_channels) * nof_tiles;
 
     // Packets should arrive in bursts every few seconds; a packet from the next integration
     // arriving before total_packets is reached means at least one packet was dropped.
