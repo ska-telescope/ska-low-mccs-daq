@@ -10,9 +10,9 @@
 // ── When the callback fires ──────────────────────────────────────────────────
 // processPacket() persists the container as soon as the whole integration has
 // arrived:
-//   total_packets = (nof_antennas      / nof_included_antennas)
-//                 * (nof_channels      / nof_included_channels)
-//                 * nof_pols * nof_tiles
+//   total_packets = (nof_antennas / nof_included_antennas)
+//                 * (nof_channels / nof_included_channels)
+//                 * nof_tiles
 // and persist_container() then calls the callback for each tile whose packet
 // count reached IntegratedChannelDataContainer::PACKETS_PER_TILE (32). So a
 // complete integration across N tiles yields exactly N callbacks.
@@ -205,10 +205,10 @@ TEST(IntegratedChannelFilterTest, RejectsOtherModes)
 // ── Bandpass delivery: one callback per tile, carrying the right samples ───────
 //
 // The scenario the bandpass monitor runs against: 16 TPMs, coarse channels
-// 0..511, each packet carrying 8 antennas. With nof_antennas=16 / 8-per-packet
-// (2 antenna groups), nof_channels=512 / 64-per-packet (8 channel groups) and
-// nof_pols=2, one full integration is
-//     per tile  = (16/8) * (512/64) * 2         = 32 packets  (== PACKETS_PER_TILE)
+// 0..511. Each packet carries 8 antennas, 32 channels and both polarisations in
+// its payload. With nof_antennas=16 / 8-per-packet (2 antenna groups) and
+// nof_channels=512 / 32-per-packet (16 channel groups), one full integration is
+//     per tile  = (16/8) * (512/32)             = 32 packets  (== PACKETS_PER_TILE)
 //     total     = 32 * 16 tiles                 = 512 packets
 // so feeding exactly 512 packets must complete the integration and deliver one
 // callback for each of the 16 tiles, each carrying that tile's full spectrum.
@@ -219,11 +219,11 @@ protected:
     static constexpr size_t NOF_CHANNELS = 512;   // coarse channels 0..511
     static constexpr size_t NOF_ANTENNAS = 16;    // per tile
     static constexpr size_t NOF_POLS = 2;
-    static constexpr size_t ANT_PER_PKT = 8;      // 8 antennas per packet
-    static constexpr size_t CH_PER_PKT = 64;      // -> 8 channel groups over 512
+    static constexpr size_t ANT_PER_PKT = 8;      // 8 antennas per packet -> 2 antenna groups
+    static constexpr size_t CH_PER_PKT = 32;      // 32 channels per packet -> 16 channel groups
     static constexpr size_t NOF_ANT_GROUPS = NOF_ANTENNAS / ANT_PER_PKT; // 2
-    static constexpr size_t NOF_CH_GROUPS = NOF_CHANNELS / CH_PER_PKT;   // 8
-    static constexpr size_t PKTS_PER_TILE = NOF_ANT_GROUPS * NOF_CH_GROUPS * NOF_POLS; // 32
+    static constexpr size_t NOF_CH_GROUPS = NOF_CHANNELS / CH_PER_PKT;   // 16
+    static constexpr size_t PKTS_PER_TILE = NOF_ANT_GROUPS * NOF_CH_GROUPS; // 32 (== PACKETS_PER_TILE)
     static constexpr size_t PKTS_PER_INTEGRATION = PKTS_PER_TILE * NOF_TILES;          // 512
     static constexpr size_t BUFFER_ELEMS =
         NOF_CHANNELS * NOF_ANTENNAS * NOF_POLS; // 16384 uint16_t per tile
@@ -249,10 +249,8 @@ protected:
 
     // Feed one complete integration (all tiles) sharing a single timestamp so it
     // is treated as one integration, with samples stamped for integration `gen`.
-    // Note: the pol axis is a packet dimension here - each (antenna group, channel
-    // group) is sent once per pol - so the payload spans both pols and the two
-    // pol packets carry identical content, matching the consumer's
-    // total_packets *= nof_pols accounting. Returns the number of packets fed.
+    // One packet per (antenna group, channel group); pols are interleaved within
+    // each payload. Returns the number of packets fed.
     size_t feed_full_integration(TestableIntegratedChannel &c, size_t gen,
                                  uint64_t timestamp, uint32_t &counter)
     {
@@ -260,18 +258,16 @@ protected:
         for (size_t tile = 0; tile < NOF_TILES; ++tile)
             for (size_t ag = 0; ag < NOF_ANT_GROUPS; ++ag)
                 for (size_t cg = 0; cg < NOF_CH_GROUPS; ++cg)
-                    for (size_t pol = 0; pol < NOF_POLS; ++pol)
-                    {
-                        const uint16_t sc = (uint16_t)(cg * CH_PER_PKT);
-                        const uint8_t sa = (uint8_t)(ag * ANT_PER_PKT);
-                        auto pkt = make_data_packet(
-                            counter++, timestamp, sc, CH_PER_PKT, sa, ANT_PER_PKT, (uint8_t)tile,
-                            make_payload(gen, tile, sc, CH_PER_PKT, sa, ANT_PER_PKT, NOF_POLS));
-                        EXPECT_TRUE(c.feed(pkt)) << "feed failed at tile=" << tile
-                                                 << " ant_group=" << ag << " ch_group=" << cg
-                                                 << " pol=" << pol;
-                        ++fed;
-                    }
+                {
+                    const uint16_t sc = (uint16_t)(cg * CH_PER_PKT);
+                    const uint8_t sa = (uint8_t)(ag * ANT_PER_PKT);
+                    auto pkt = make_data_packet(
+                        counter++, timestamp, sc, CH_PER_PKT, sa, ANT_PER_PKT, (uint8_t)tile,
+                        make_payload(gen, tile, sc, CH_PER_PKT, sa, ANT_PER_PKT, NOF_POLS));
+                    EXPECT_TRUE(c.feed(pkt)) << "feed failed at tile=" << tile
+                                             << " ant_group=" << ag << " ch_group=" << cg;
+                    ++fed;
+                }
         return fed;
     }
 
@@ -375,16 +371,15 @@ TEST_F(BandpassDeliveryTest, IncompleteIntegrationDoesNotFire)
     for (size_t tile = 0; tile < NOF_TILES && fed < PKTS_PER_INTEGRATION - 1; ++tile)
         for (size_t ag = 0; ag < NOF_ANT_GROUPS && fed < PKTS_PER_INTEGRATION - 1; ++ag)
             for (size_t cg = 0; cg < NOF_CH_GROUPS && fed < PKTS_PER_INTEGRATION - 1; ++cg)
-                for (size_t pol = 0; pol < NOF_POLS && fed < PKTS_PER_INTEGRATION - 1; ++pol)
-                {
-                    const uint16_t sc = (uint16_t)(cg * CH_PER_PKT);
-                    const uint8_t sa = (uint8_t)(ag * ANT_PER_PKT);
-                    auto pkt = make_data_packet(
-                        counter++, /*timestamp=*/1000, sc, CH_PER_PKT, sa, ANT_PER_PKT, (uint8_t)tile,
-                        make_payload(0, tile, sc, CH_PER_PKT, sa, ANT_PER_PKT, NOF_POLS));
-                    ASSERT_TRUE(c.feed(pkt));
-                    ++fed;
-                }
+            {
+                const uint16_t sc = (uint16_t)(cg * CH_PER_PKT);
+                const uint8_t sa = (uint8_t)(ag * ANT_PER_PKT);
+                auto pkt = make_data_packet(
+                    counter++, /*timestamp=*/1000, sc, CH_PER_PKT, sa, ANT_PER_PKT, (uint8_t)tile,
+                    make_payload(0, tile, sc, CH_PER_PKT, sa, ANT_PER_PKT, NOF_POLS));
+                ASSERT_TRUE(c.feed(pkt));
+                ++fed;
+            }
     ASSERT_EQ(fed, PKTS_PER_INTEGRATION - 1);
 
     c.cleanUp();
