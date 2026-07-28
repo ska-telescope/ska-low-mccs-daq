@@ -1,5 +1,9 @@
 # Version History
 
+## 7.0.1
+
+* [SKB-1471] Fix bandpasses being persisted 15s late, fix bandpass DAQ healthstate
+
 ## 7.0.0
 
 * [THORN-648] Change build scripts such that TCC is build in cmakelists rather than the Dockerfile such that it can be easily used by users not using the Tango device. Breaking changes to people using the WITH_CORRELATOR option as that no longer links TCC, only xGPU.
