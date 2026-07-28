@@ -541,7 +541,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
                 expected_nof_packets = (
                     (nof_channels / channels_per_packet)
                     * (nof_antennas / antennas_per_packet)
-                    * 2  # This shouldn't be needed, this is a bug in Cpp DAQ.
                 )
             case "CORRELATOR_DATA":
                 # Using this as xGPU requires 16 tiles hardcoded,
