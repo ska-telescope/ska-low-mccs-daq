@@ -538,9 +538,8 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
                 channels_per_packet = 32
                 nof_antennas = int(config["nof_antennas"])
                 antennas_per_packet = 8
-                expected_nof_packets = (
-                    (nof_channels / channels_per_packet)
-                    * (nof_antennas / antennas_per_packet)
+                expected_nof_packets = (nof_channels / channels_per_packet) * (
+                    nof_antennas / antennas_per_packet
                 )
             case "CORRELATOR_DATA":
                 # Using this as xGPU requires 16 tiles hardcoded,
