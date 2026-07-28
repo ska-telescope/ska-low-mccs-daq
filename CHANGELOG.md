@@ -1,5 +1,10 @@
 # Version History
 
+## 7.0.1
+
+* [SKB-1471] Fix bandpasses being persisted 15s late, fix bandpass DAQ healthstate
+* [SKB-1328] Restrict the `VerifyEvents` property to archive events only. Change events revert to their previous behaviour of always being pushed (detect=False).
+
 ## 7.0.0
 
 * [THORN-648] Change build scripts such that TCC is build in cmakelists rather than the Dockerfile such that it can be easily used by users not using the Tango device. Breaking changes to people using the WITH_CORRELATOR option as that no longer links TCC, only xGPU.

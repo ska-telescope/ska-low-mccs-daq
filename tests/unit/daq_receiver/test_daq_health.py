@@ -6,6 +6,7 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains the tests of the daq receiver device."""
+
 from __future__ import annotations
 
 import json
@@ -186,13 +187,13 @@ class TestDaqHealth:
             (
                 "INTEGRATED_CHANNEL_DATA",
                 "nof_packets",
-                int(2 * 512 / 32 * 16 / 8 * 0.5),
+                int(512 / 32 * 16 / 8 * 0.5),
                 HealthState.FAILED,
             ),
             (
                 "INTEGRATED_CHANNEL_DATA",
                 "nof_packets",
-                int(2 * 512 / 32 * 16 / 8 * 0.95),
+                int(512 / 32 * 16 / 8 * 0.95),
                 HealthState.DEGRADED,
             ),
             (
