@@ -88,6 +88,8 @@ gpu-cpp-test:
         - tests/cpp/cmake/**/*
         - tests/cpp/CMakeLists.txt
         - tests/cpp/spead_test_util.h
+        # Shared with the product build. Holds the aavs-daq and TCC pins.
+        - src/ska_low_mccs_daq/cdaq/cmake/**/*
       when: on_success
     - when: manual
       allow_failure: true

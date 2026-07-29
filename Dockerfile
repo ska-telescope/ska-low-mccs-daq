@@ -28,31 +28,30 @@ ENV TZ="United_Kingdom/London"
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 ENV CUDA_ARCH="sm_80"
 ENV LC_ALL="en_US.UTF-8"
-ENV AAVS_DAQ_SHA=68e5953acd7a778ea37278f38679e5ca30636e69
 ENV DAQ_INSTALL="/opt/aavs"
 
 ENV CMAKE_PREFIX_PATH="/opt/aavs:${CMAKE_PREFIX_PATH}"
-ENV LD_LIBRARY_PATH="/opt/aavs:/usr/local/lib:${LD_LIBRARY_PATH}"
+ENV LD_LIBRARY_PATH="/opt/aavs/lib:/usr/local/lib:${LD_LIBRARY_PATH}"
 
-# Install necessary packages for compiling and installing DAQ and prerequisites.
+# The base image lacks only cmake, libcap2-bin (setcap), libnuma-dev (libdaq
+# links -lnuma), sudo (used by .devcontainer) and tzdata. The rest are listed to
+# keep the toolchain this build needs explicit.
 RUN apt-get update && apt-get install -y \
     build-essential \
     ca-certificates \
     cmake \
     curl \
     git \
-    gosu \
     libcap2-bin \
+    libnuma-dev \
     make \
-    pkg-config \
     sudo \
     tzdata
 
-ENV POETRY_HOME=/opt/poetry
-RUN curl -sSL --retry 3 --connect-timeout 15 https://install.python-poetry.org | \
-    gosu root python3 - --yes --version 2.1.3
-RUN ln -sfn /usr/bin/python3 /usr/bin/python && \
-    ln -sfn /opt/poetry/bin/poetry /usr/local/bin/poetry
+# The base image already has Poetry 2.1.3, under /root/.local, which the
+# secure_path of sudo does not cover. The link makes `sudo poetry` work, which is
+# how daqqer reaches it, because /root is 0700. Runtime does not use Poetry.
+RUN ln -sfn /root/.local/bin/poetry /usr/local/bin/poetry
 
 # Clone and install xGPU
 WORKDIR /app/
@@ -61,13 +60,17 @@ WORKDIR /app/xGPU/src/
 RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install
 
 
-# Install AAVS DAQ
-RUN mkdir /app/aavs-system/ && mkdir /app/aavs-system/pydaq && mkdir /app/aavs-system/cdaq
-COPY --chown=daqqer:daqqer /src/ska_low_mccs_daq/pydaq  /app/aavs-system/pydaq/
+# Install AAVS DAQ. The cdaq build fetches and builds the DAQ core (libdaq) at
+# the commit cdaq/cmake/AavsDaqSource.cmake pins, and installs it with the cdaq
+# libraries into ${DAQ_INSTALL}, where the ctypes loader of pydaq finds them.
+RUN mkdir -p /app/aavs-system/cdaq
 COPY --chown=daqqer:daqqer /src/ska_low_mccs_daq/cdaq /app/aavs-system/cdaq/
-COPY --chown=daqqer:daqqer deploy.sh cdaq_requirements.pip /app/aavs-system/
-WORKDIR /app/aavs-system
-RUN ["/bin/bash", "-c", "source /app/aavs-system/deploy.sh"]
+WORKDIR /app/aavs-system/build
+RUN cmake /app/aavs-system/cdaq \
+        -DCMAKE_INSTALL_PREFIX="${DAQ_INSTALL}" \
+        -DWITH_CORRELATOR=ON \
+        -DWITH_TCC=ON \
+    && make -j8 install
 
 WORKDIR /src
 
@@ -80,14 +83,18 @@ RUN poetry install --no-root
 COPY --chown=daqqer:daqqer src ./
 RUN poetry install
 RUN setcap cap_net_raw,cap_ipc_lock,cap_sys_nice,cap_sys_admin,cap_kill+ep /usr/bin/python3.10
+
+# daqqer writes in its working directory, because the default output `directory`
+# of the DAQ is "." and the DAQ creates directories below it. /product is the
+# ADR-55 mount point, a volume with fsGroup 1000 at runtime, so only the mount
+# point itself needs this.
 RUN chmod a+w /app/
 RUN mkdir /product && chmod a+w /product/
 
-# Ensure root doesn't own things it shouldn't
-# There should be a way to avoid this, but it works for now.
-RUN chown daqqer:daqqer /product/ -R
-RUN chown daqqer:daqqer /app/ -R
-RUN chown daqqer:daqqer /opt/ -R
+# Root installs the libraries daqqer loads from /opt/aavs. Change the owner so a
+# devcontainer can rebuild them in place. The build trees under /app stay
+# root-owned, because a recursive chown would only add another image layer.
+RUN chown daqqer:daqqer /opt/aavs -R
 
 WORKDIR /app/
 
