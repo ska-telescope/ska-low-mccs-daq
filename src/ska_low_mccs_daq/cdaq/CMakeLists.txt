@@ -100,6 +100,21 @@ if (WITH_TCC)
     # Defines the `tcc`, `cudawrappers::cu` and `cudawrappers::nvrtc` targets.
     include(FetchContent)
     set(BUILD_TESTING OFF CACHE BOOL "Disable TCC's bundled test suite" FORCE)
+
+    # TCC declares its own cudawrappers dependency as `GIT_TAG main`, so pinning
+    # TCC alone does not pin what gets built: on 2026-07-29 a cudawrappers commit
+    # ("Expand CUDA driver API coverage") started using CUDA 12 green-context and
+    # async-notification APIs, which the CUDA 11.8 toolkit in our base image does
+    # not have, and the image build broke with no change on our side. FetchContent
+    # honours the FIRST declaration of a dependency, so declaring it here - before
+    # TCC's own declaration is reached - overrides that floating tag. 1.0.0 is the
+    # last release before the CUDA 12 requirement; bump it only alongside the CUDA
+    # version of the base image.
+    FetchContent_Declare(
+        cudawrappers
+        GIT_REPOSITORY https://github.com/nlesc-recruit/cudawrappers.git
+        GIT_TAG        1.0.0
+    )
     FetchContent_Declare(
         tensor_core_correlator
         GIT_REPOSITORY https://git.astron.nl/RD/tensor-core-correlator.git

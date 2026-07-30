@@ -7,6 +7,13 @@ include(FetchContent)
 # tensor-core-correlator git checkout). 
 # TCC's own test suite is disabled - we only want the library targets.
 set(BUILD_TESTING OFF CACHE BOOL "Disable TCC's bundled test suite" FORCE)
+
+# Pin cudawrappers to the same version as we have to pin to in the dockerfile.
+FetchContent_Declare(
+    cudawrappers
+    GIT_REPOSITORY https://github.com/nlesc-recruit/cudawrappers.git
+    GIT_TAG        1.0.0
+)
 FetchContent_Declare(
     tensor_core_correlator
     GIT_REPOSITORY https://git.astron.nl/RD/tensor-core-correlator.git
