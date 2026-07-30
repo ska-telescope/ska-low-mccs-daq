@@ -10,7 +10,10 @@ Test the PCAP Replayer Utility.
 This module provides tests for replaying PCAP files.
 
 """
+
+import os
 import time
+from pathlib import Path
 from threading import Event
 from typing import Any
 
@@ -25,6 +28,31 @@ from scapy.utils import rdpcap
 
 from ska_low_mccs_daq.pydaq.utils.pcap_replayer import PCAPReplayer
 
+PCAP_NAME = "channel_integ_96_192.pcap"
+
+# In CI the PCAP is injected into the job pod from the BAR "runner-artefacts"
+# repository, via the KUBERNETES_POD_ANNOTATIONS_* variables on the
+# python-test job in .gitlab-ci.yml. The injector unpacks the artefact's
+# assets into this directory.
+INJECTED_PCAP_DIR = Path("/mnt/artefact")
+
+# Local runs use a copy of the PCAP that the developer has fetched from BAR.
+LOCAL_PCAP_DIR = Path("tests/data/pcap-data")
+
+
+def _find_pcap_file() -> Path | None:
+    """
+    Find the PCAP file, preferring the copy injected by the runner.
+
+    :returns: The path to the PCAP file, or None if it was not found.
+
+    """
+    for directory in (INJECTED_PCAP_DIR, LOCAL_PCAP_DIR):
+        pcap_path = directory / PCAP_NAME
+        if pcap_path.is_file():
+            return pcap_path
+    return None
+
 
 @pytest.fixture(name="pcap_filename")
 def pcap_filename_fixture() -> str:
@@ -34,7 +62,25 @@ def pcap_filename_fixture() -> str:
     :returns: The PCAP filename
 
     """
-    return "tests/data/pcap-data/channel_integ_96_192.pcap"
+    pcap_path = _find_pcap_file()
+
+    if pcap_path is None:
+        searched = ", ".join(
+            str(directory / PCAP_NAME)
+            for directory in (INJECTED_PCAP_DIR, LOCAL_PCAP_DIR)
+        )
+        message = (
+            f"PCAP test data not found. Searched: {searched}. "
+            f"Download {PCAP_NAME} from the BAR runner-artefacts repository "
+            "and place it in tests/data/pcap-data, or set PCAP_DATA_DIR."
+        )
+        # Under CI the PCAP should have been injected into the pod, so a
+        # missing file means injection is broken.
+        if os.environ.get("CI"):
+            pytest.fail(message)
+        pytest.skip(message)
+
+    return str(pcap_path)
 
 
 @pytest.fixture(name="interface")
