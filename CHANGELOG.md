@@ -1,5 +1,10 @@
 # Version History
 
+## 7.0.2
+
+* [THORN-686] Pin CudaWrappers to 1.0.0 to fix TCC build vs CUDA 11. TCC always
+pulls in latest main of CudaWrappers by default.
+
 ## 7.0.1
 
 * [SKB-1471] Fix bandpasses being persisted 15s late, fix bandpass DAQ healthstate
