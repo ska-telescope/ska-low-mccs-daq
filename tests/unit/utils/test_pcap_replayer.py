@@ -72,7 +72,7 @@ def pcap_filename_fixture() -> str:
         message = (
             f"PCAP test data not found. Searched: {searched}. "
             f"Download {PCAP_NAME} from the BAR runner-artefacts repository "
-            "and place it in tests/data/pcap-data, or set PCAP_DATA_DIR."
+            "and place it in tests/data/pcap-data."
         )
         # Under CI the PCAP should have been injected into the pod, so a
         # missing file means injection is broken.
