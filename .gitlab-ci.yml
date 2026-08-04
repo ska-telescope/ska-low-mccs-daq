@@ -140,6 +140,16 @@ helmfile-lint:
 python-test:
   image: $SKA_K8S_TOOLS_BUILD_DEPLOY
   stage: test
+  tags:
+    - ${SKA_DEFAULT_RUNNER}
+  # Inject the PCAP replayer test data from the BAR runner-artefacts
+  # repository. The injector unpacks the artefact's assets into /mnt/artefact
+  # in the job pod. (see tests/unit/utils/test_pcap_replayer.py) inject-size is
+  # the uncompressed size of the artefact (the PCAP is ~1.15MiB currently).
+  # Increase the size if the artefact grows, or the injector will fail to unpack it.
+  variables:
+    KUBERNETES_POD_ANNOTATIONS_1: "cicd.skao.int/inject-artefact=ska-low-mccs-daq-test-data:0.1.0"
+    KUBERNETES_POD_ANNOTATIONS_2: "cicd.skao.int/inject-size=16Mi"
   needs:
     job: oci-image-build
     artifacts: true

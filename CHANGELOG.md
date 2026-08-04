@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-606] Update the PCAP tests to pull from BAR in the CI rather than a locally checked in pcap. Eventually these files will get too large to check in, future PCAPs should be uploaded to BAR as a new version of ``ska-low-mccs-daq-test-data``
+
 ## 7.0.2
 
 * [THORN-686] Pin CudaWrappers to 1.0.0 to fix TCC build vs CUDA 11. TCC always

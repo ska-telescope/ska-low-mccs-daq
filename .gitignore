@@ -70,3 +70,6 @@ aavs.log*
 
 # Keep hdf5s used for testing
 !tests/data/integrated-data/*.hdf5
+
+# PCAP test data: fetched from BAR runner-artefacts, injected in CI
+tests/data/pcap-data/*.pcap
