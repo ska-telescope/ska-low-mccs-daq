@@ -73,11 +73,17 @@
             "default": 262144,
             "description": "Number of station beam samples per buffer"
         },
-        "nof_subarrays": {
-            "type": ["integer", "null"],
+        "subarray_ids": {
+            "type": ["array", "null"],
             "default": null,
-            "minimum": 1,
-            "description": "Number of subarrays whose station beam data will be received. Omit or set to null for single-subarray (legacy) mode. When set, channels are packed contiguously: subarray 1 occupies channels [0, nof_beam_channels), subarray 2 occupies [nof_beam_channels, 2*nof_beam_channels), etc."
+            "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "IDs of the subarrays whose station beam data will be received, matched against the subarray_id SPEAD field; packets from any other subarray are dropped. Omit or set to null for single-subarray (legacy) mode, in which subarray_id is ignored. Channels are packed contiguously in the order given: the first ID occupies channels [0, nof_beam_channels), the second occupies [nof_beam_channels, 2*nof_beam_channels), etc."
         },
         "integrated_channel_bitwidth": {
             "type": "integer",

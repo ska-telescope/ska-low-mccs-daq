@@ -240,7 +240,7 @@ class DaqReceiver:
             "nof_beam_samples": 42,
             "nof_beam_channels": 384,
             "nof_station_samples": 262144,
-            "nof_subarrays": None,
+            "subarray_ids": None,
             "integrated_channel_bitwidth": 16,
             "integration_lookahead_cutoff": 3.0,
             "continuous_channel_bitwidth": 16,
@@ -1018,7 +1018,7 @@ class DaqReceiver:
         nof_saturations = metadata.nof_saturations
 
         # Extract data sent by DAQ; buffer holds nof_subarrays * nof_beam_channels per pol
-        nof_subarrays = self._config["nof_subarrays"] or 1
+        nof_subarrays = len(self._config["subarray_ids"] or []) or 1
         values = self._get_numpy_from_ctypes(
             data,
             np.double,
@@ -1496,8 +1496,9 @@ class DaqReceiver:
             "max_packet_size": self._config["receiver_frame_size"],
             "safe_callback": self._config["safe_callback"],
         }
-        if self._config["nof_subarrays"] is not None:
-            params["nof_subarrays"] = self._config["nof_subarrays"]
+        subarray_ids = self._config["subarray_ids"]
+        if subarray_ids:
+            params["subarray_ids"] = list(subarray_ids)
 
         if (
             self._start_consumer(
@@ -1520,7 +1521,7 @@ class DaqReceiver:
         )
 
         beam_file_mgr.set_metadata(
-            n_chans=(self._config["nof_subarrays"] or 1) * self._config["nof_beam_channels"],
+            n_chans=(len(subarray_ids or []) or 1) * self._config["nof_beam_channels"],
             n_pols=self._config["nof_polarisations"],
             n_samples=1,
             station_id=self._config["station_id"],

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* [SKB-1500] The station beam `nof_subarrays` configure option is replaced by `subarray_ids`, a list of the subarray IDs to receive (e.g. `[3, 4]`). IDs are matched against the `subarray_id` SPEAD field and packets from any other subarray are dropped; previously IDs had to be a contiguous 1-based range. Channels are still packed contiguously, in the order the IDs are given: the first ID occupies channels `[0, nof_beam_channels)`, the second `[nof_beam_channels, 2*nof_beam_channels)`, etc. Omitting the option keeps the single-subarray behaviour of ignoring `subarray_id`. This is a breaking change for anyone setting `nof_subarrays`.
 * [THORN-606] Update the PCAP tests to pull from BAR in the CI rather than a locally checked in pcap. Eventually these files will get too large to check in, future PCAPs should be uploaded to BAR as a new version of ``ska-low-mccs-daq-test-data``
 
 ## 7.0.2

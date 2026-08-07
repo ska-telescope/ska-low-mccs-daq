@@ -172,10 +172,14 @@ private:
     std::unordered_map<uint8_t, unsigned long> subarray_rollover;
     std::unordered_map<uint8_t, unsigned long> subarray_ts_rollover;
 
+    // Channel slot assigned to each configured subarray ID. Empty in single-subarray
+    // (legacy) mode, where subarray_id is ignored and everything goes to slot 0.
+    std::unordered_map<uint8_t, uint16_t> subarray_slots;
+
     // Data setup
     uint8_t  nof_pols      = 0;       // Number of polarisations
     uint16_t nof_channels  = 0;       // Number of channels per subarray
-    uint16_t nof_subarrays = 1;       // Maximum number of subarrays
+    uint16_t nof_subarrays = 1;       // Number of subarrays being received
     uint32_t nof_samples   = 0;       // Number of time samples
     bool     safe_callback = false;   // Whether to pause writing data during callback
 
