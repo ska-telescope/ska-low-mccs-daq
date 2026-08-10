@@ -230,17 +230,6 @@ releases:
       - .deploy/helmfile.d/templates/globals.yaml.gotmpl
 {{- end}}
 
-{{- $_skuid_provided := dig "platform" "cluster" "services" "skuid" "url" "" .Values}}
-{{- $skuid_provided := dig "overrides" "cluster" "services" "skuid" "url" $_skuid_provided .Values}}
-{{- if not $skuid_provided}}
-  - name: ska-ser-skuid
-    namespace: {{.Namespace | default "ska-low-mccs"}}
-    chart: skao/ska-ser-skuid
-    version: ~3.3.3
-    values:
-      - .deploy/helmfile.d/templates/skuid.yaml
-{{- end}}
-
 {{- $_jupyterhub_provided := dig "platform" "cluster" "services" "jupyterhub" false .Values}}
 {{- $jupyterhub_provided := dig "overrides" "cluster" "services" "jupyterhub" $_jupyterhub_provided .Values}}
 {{- if not $jupyterhub_provided}}

@@ -6,6 +6,7 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module defined a pytest harness for testing the MCCS daq_receiver module."""
+
 from __future__ import annotations
 
 import logging
@@ -67,16 +68,6 @@ def change_event_callbacks_fixture() -> MockTangoEventCallbackGroup:
     )
 
 
-@pytest.fixture(name="skuid_url")
-def skuid_url_fixture() -> str:
-    """
-    Return an url to use to access SKUID.
-
-    :return: A SKUID url.
-    """
-    return ""
-
-
 @pytest.fixture(name="test_context")
 def test_context_fixture(
     daq_id: int,
@@ -126,7 +117,6 @@ def nof_tiles_fixture() -> int:
 def daq_component_manager_fixture(
     test_context: SpsTangoTestHarnessContext,
     daq_id: int,
-    skuid_url: str,
     logger: logging.Logger,
     callbacks: MockCallableGroup,
     mock_interface: str,
@@ -137,7 +127,6 @@ def daq_component_manager_fixture(
 
     :param test_context: the context in which the tests are running.
     :param daq_id: the ID of the daq receiver
-    :param skuid_url: An address where SKUID can be contacted.
     :param logger: the logger to be used by this object.
     :param callbacks: a dictionary from which callbacks with asynchrony
         support can be accessed.
@@ -153,7 +142,6 @@ def daq_component_manager_fixture(
         "",
         "",
         nof_tiles,
-        skuid_url,
         logger,
         "station_name_here",
         daq_id,  # station id same as daq id

@@ -85,11 +85,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
     ConsumersToStart = device_property(
         dtype=str, doc="The default consumer list to start.", default_value=""
     )
-    SkuidUrl = device_property(
-        dtype=str,
-        doc="The location of a running SKUID service.",
-        default_value="",
-    )
     BandpassDaq = device_property(
         dtype=bool,
         doc="Whether this DaqReceiver is a dedicated bandpass monitor.",
@@ -176,7 +171,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self._device_to_host_copy_time: float
         self._correlator_time_util: float | None
         self._buffer_counter: int
-        self._skuid_url: str
         self._stopping = False
 
     def init_device(self: MccsDaqReceiver) -> None:
@@ -208,7 +202,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             f"\tPort: {self.Port}\n"
             f"\tDaqId: {self.DaqId}\n"
             f"\tConsumersToStart: {self.ConsumersToStart}\n"
-            f"\tSkuidUrl: {self.SkuidUrl}\n"
             f"\tBandpassDaq: {self.BandpassDaq}\n"
             f"\tNumberOfTiles: {self.NumberOfTiles}\n"
             f"\tSimulationMode: {self.SimulationMode}\n"
@@ -338,7 +331,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             self.ReceiverPorts,
             self.ConsumersToStart,
             self.NumberOfTiles,
-            self.SkuidUrl,
             self.logger,
             self.StationName,
             self.StationId,
@@ -919,7 +911,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             }
             >>> daq.Configure(json.dumps(daq_config))
         """
-        (result_code, message) = self.component_manager.configure_daq(**kwargs)
+        result_code, message = self.component_manager.configure_daq(**kwargs)
         return ([result_code], [message])
 
     @command(dtype_out="DevString")
@@ -1028,7 +1020,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             message indicating status. The message is for
             information purpose only.
         """
-        (result_code, message) = self.component_manager.stop_bandpass_monitor()
+        result_code, message = self.component_manager.stop_bandpass_monitor()
         return ([result_code], [message])
 
     @stb.long_running_commands.long_running_command
