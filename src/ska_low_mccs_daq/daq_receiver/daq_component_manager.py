@@ -1172,7 +1172,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if eb_id is None:
             eb_id = self._get_eb_id()
         if scan_id is None:
-            scan_id = self._get_scan_id()
+            scan_id = str(self._get_scan_id())
         existing_directory = self.get_configuration()["directory"]
         # Replace any double slashes with just one in case
         # `existing_directory` begins with one.
@@ -1182,7 +1182,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             )
         )
 
-    def _get_scan_id(self: DaqComponentManager) -> str:
+    def _get_scan_id(self: DaqComponentManager) -> int:
         """
         Get a unique scan ID from SKUID.
 

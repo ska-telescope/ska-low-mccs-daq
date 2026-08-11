@@ -16,6 +16,9 @@ from importlib import resources
 from typing import Any, Callable, Optional, Union
 
 import numpy as np
+
+# This is imported, and used in PyTango, 10.3.1 has a bug around numpy < 2.0.0
+import numpy.typing  # pylint: disable=unused-import
 import ska_tango_base as stb
 import tango
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
@@ -742,11 +745,13 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self.logger.debug(f"Health changed to {health.name}: {health_report}")
         if self._stopping:
             return
-        if self._health_state != health:
-            self._health_state = health
-            self._health_report = health_report
-            self.push_change_event("healthState", health)
-            self.push_archive_event("healthState", health)
+        if health == HealthState.UNKNOWN:
+            # report_health() does not support UNKNOWN; the HealthRecorder
+            # reports it when it has no attribute state to evaluate, which we
+            # treat as a failure to determine health.
+            health = HealthState.FAILED
+        self._health_report = health_report
+        self.report_health(health, [] if health == HealthState.OK else [health_report])
 
     def _attr_conf_changed(self: MccsDaqReceiver, attribute_name: str) -> None:
         """
@@ -780,7 +785,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         Provide status information for this MccsDaqReceiver.
 
         This method returns status as a json string with entries for:
-            - Daq Health: [HealthState.name: str, HealthState.value: int]
             - Running Consumers: [DaqMode.name: str, DaqMode.value: int]
             - Receiver Interface: "Interface Name": str
             - Receiver Ports: [Port_List]: list[int]
@@ -795,9 +799,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             >>> dict = json.loads(jstr)
         """
         status = self.component_manager.get_status()
-        # We append health_state to the status here.
-        health_state = [self._health_state.name, self._health_state.value]
-        status["Daq Health"] = health_state
         return json.dumps(status)
 
     Start_SCHEMA: dict[str, stb.type_hints.JSONData] = {
