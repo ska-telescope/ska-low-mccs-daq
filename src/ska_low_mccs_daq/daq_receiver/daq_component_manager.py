@@ -1196,7 +1196,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: A unique execution block ID.
         """
-        return mint_skuid(EntityType.EB, form="long")
+        return mint_skuid(EntityType.EB)
 
     def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
         net = psutil.net_io_counters(pernic=True)
