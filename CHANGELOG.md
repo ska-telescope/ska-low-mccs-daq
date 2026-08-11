@@ -1,7 +1,11 @@
 # Version History
 
-## Unreleased
+## 8.0.0
 
+* [THORN-689] Remove SkuidURL property from MccsDaqReceiver, we now use the python API and don't need to talk to an external service.
+* [THORN-689] EB IDs are generated according to ADR-129 - BREAKING for regex checking on old EB ID.
+* [THORN-689] Update PyTango 10.3.0->10.3.1
+* [THORN-689] Update ska-tango-base 1.4.2->1.6.1, this comes with a breaking-ish change. The default healthstate is now FAILED until we read attributes.
 * [THORN-606] Update the PCAP tests to pull from BAR in the CI rather than a locally checked in pcap. Eventually these files will get too large to check in, future PCAPs should be uploaded to BAR as a new version of ``ska-low-mccs-daq-test-data``
 
 ## 7.0.2

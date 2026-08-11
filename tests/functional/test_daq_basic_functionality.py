@@ -6,6 +6,7 @@
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
 """This module contains the tests of the daq basic functionality."""
+
 from __future__ import annotations
 
 import json
@@ -105,29 +106,29 @@ def check_daq_is_disable(
     assert daq_receiver.state() == tango.DevState.DISABLE
 
 
-@given("the DAQ is in health state UNKNOWN")
-def assert_daq_is_unknown_health(
+@given("the DAQ is in health state FAILED")
+def assert_daq_is_failed_health(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Assert that daq receiver is in health mode unknown.
+    Assert that daq receiver is in health mode failed.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    if daq_receiver.healthState != HealthState.UNKNOWN:
-        pytest.fail("Initial conditions not met, health state not unknown")
+    if daq_receiver.healthState != HealthState.FAILED:
+        pytest.fail("Initial conditions not met, health state not failed")
 
 
-@then("the DAQ is in health state UNKNOWN")
-def check_daq_is_unknown_health(
+@then("the DAQ is in health state FAILED")
+def check_daq_is_failed_health(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Check that daq receiver is in health mode unknown.
+    Check that daq receiver is in health mode failed.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    expect_attribute(daq_receiver, "healthState", HealthState.UNKNOWN)
+    expect_attribute(daq_receiver, "healthState", HealthState.FAILED)
 
 
 @given("the DAQ is in adminMode OFFLINE")
