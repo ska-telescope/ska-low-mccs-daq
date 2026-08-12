@@ -15,10 +15,8 @@ import json
 import logging
 import os
 import queue
-import random
 import threading
 from collections import deque
-from datetime import date
 from pathlib import PurePath
 from time import perf_counter, sleep
 from typing import Any, Callable, Final, Optional
@@ -27,7 +25,7 @@ import kubernetes  # type: ignore
 import numpy as np
 import psutil  # type: ignore
 from ska_control_model import CommunicationStatus, PowerState, ResultCode, TaskStatus
-from ska_ser_skuid.client import SkuidClient  # type: ignore
+from ska_ser_skuid import LOW_SCAN, EntityType, get_scan_id, mint_skuid
 from ska_tango_base.base import TaskCallbackType, check_communicating
 from ska_tango_base.executor import TaskExecutorComponentManager
 from tango import EnsureOmniThread
@@ -140,7 +138,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         receiver_ports: str,
         consumers_to_start: str,
         nof_tiles: int,
-        skuid_url: str,
         logger: logging.Logger,
         station_name: str,
         station_id: int,
@@ -160,7 +157,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param receiver_ports: The port this DaqReceiver is to watch.
         :param consumers_to_start: The default consumers to be started.
         :param nof_tiles: The number of tiles this DAQ will receive data from.
-        :param skuid_url: The address at which a SKUID service is running.
         :param logger: the logger to be used by this object.
         :param station_name: The name of the station this DAQ is part of.
         :param station_id: The ID of the station this Daq is part of (Duplicates DaqID)
@@ -216,7 +212,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
         else:
             self._daq_client = DaqReceiver(logger)
         logger.info(f"DAQ backend in simulation mode: {simulation_mode}")
-        self._skuid_url = skuid_url
         self._measure_data_rate_event: threading.Event = threading.Event()
         self._data_rate: float | None = None
 
@@ -709,7 +704,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             raise
 
         # Check data directory is in correct format, if not then reconfigure.
-        # This delays the start call by a lot if SKUID isn't there.
         if not self._data_directory_format_adr55_compliant():
             directory_config = {"directory": self._construct_adr55_filepath()}
             self.configure_daq(**directory_config)
@@ -1178,7 +1172,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if eb_id is None:
             eb_id = self._get_eb_id()
         if scan_id is None:
-            scan_id = self._get_scan_id()
+            scan_id = str(self._get_scan_id())
         existing_directory = self.get_configuration()["directory"]
         # Replace any double slashes with just one in case
         # `existing_directory` begins with one.
@@ -1188,27 +1182,13 @@ class DaqComponentManager(TaskExecutorComponentManager):
             )
         )
 
-    def _get_scan_id(self: DaqComponentManager) -> str:
+    def _get_scan_id(self: DaqComponentManager) -> int:
         """
         Get a unique scan ID from SKUID.
 
         :return: A unique scan ID.
         """
-        if self._skuid_url:
-            try:
-                skuid_client = SkuidClient(self._skuid_url)
-                uid = skuid_client.fetch_scan_id()
-                return uid
-            except Exception as e:  # pylint: disable=broad-except
-                # Usually when SKUID isn't available.
-                self.logger.warning(
-                    "Could not retrieve scan_id from SKUID: %s. "
-                    "Using a locally produced scan_id.",
-                    e,
-                )
-        random_seq = str(random.randint(1, 999999999999999)).rjust(15, "0")
-        uid = f"scan-local-{random_seq}"
-        return uid
+        return get_scan_id(LOW_SCAN)
 
     def _get_eb_id(self: DaqComponentManager) -> str:
         """
@@ -1216,22 +1196,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         :return: A unique execution block ID.
         """
-        if self._skuid_url:
-            try:
-                skuid_client = SkuidClient(self._skuid_url)
-                uid = skuid_client.fetch_skuid("eb")
-                return uid
-            except Exception as e:  # pylint: disable=broad-except
-                # Usually when SKUID isn't available.
-                self.logger.warning(
-                    "Could not retrieve eb_id from SKUID: %s. "
-                    "Using a locally produced eb_id.",
-                    e,
-                )
-        random_seq = str(random.randint(1, 999999999)).rjust(9, "0")
-        today = date.today().strftime("%Y%m%d")
-        uid = f"eb-local-{today}-{random_seq}"
-        return uid
+        return mint_skuid(EntityType.EB)
 
     def __take_network_snapshot(self: DaqComponentManager) -> tuple[int, int, int]:
         net = psutil.net_io_counters(pernic=True)

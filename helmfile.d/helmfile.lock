@@ -1,14 +1,11 @@
-version: 1.1.0
+version: 1.3.0
 dependencies:
   - name: jupyterhub
     repository: https://jupyterhub.github.io/helm-chart
     version: 3.1.0
-  - name: ska-ser-skuid
-    repository: https://artefact.skao.int/repository/helm-internal
-    version: 3.3.3
   - name: ska-tango-base
     repository: https://artefact.skao.int/repository/helm-internal
-    version: 0.4.23
+    version: 0.4.24
   - name: ska-tango-tangogql
     repository: https://artefact.skao.int/repository/helm-internal
     version: 1.3.12
@@ -24,5 +21,5 @@ dependencies:
   - name: ska-tango-taranta-dashboard-pvc
     repository: https://artefact.skao.int/repository/helm-internal
     version: 1.4.1
-digest: sha256:2b323294c1280156e389f4a55edfd322a2764c761124e9a92a352fa143ab7198
-generated: "2025-08-21T13:22:18.758650955+08:00"
+digest: sha256:544c44b7b8b426d63ae425dffde280ae42acd5fa9d5a29760dff3c223bd88cee
+generated: "2026-08-10T17:37:32.079236119+01:00"

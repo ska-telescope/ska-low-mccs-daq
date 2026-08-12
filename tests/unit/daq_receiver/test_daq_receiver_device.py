@@ -7,6 +7,7 @@
 # See LICENSE for more info.
 # pylint: disable=too-many-lines
 """This module contains the tests of the daq receiver device."""
+
 from __future__ import annotations
 
 import gc
@@ -77,8 +78,8 @@ class TestMccsDaqReceiver:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks.assert_change_event("healthState", HealthState.UNKNOWN)
-        assert device_under_test.healthState == HealthState.UNKNOWN
+        change_event_callbacks.assert_change_event("healthState", HealthState.FAILED)
+        assert device_under_test.healthState == HealthState.FAILED
 
     @pytest.mark.parametrize(
         "modes_to_start, expected_consumers, daq_interface, daq_ports, daq_ip",
@@ -133,7 +134,7 @@ class TestMccsDaqReceiver:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
+        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
         # Set adminMode so we can control device.
         device_under_test.adminMode = AdminMode.ONLINE
         device_under_test.subscribe_event(
@@ -164,8 +165,6 @@ class TestMccsDaqReceiver:
 
         # Check status.
         status = json.loads(device_under_test.DaqStatus())
-        # Check health is OK (as it must be to do this test)
-        assert status["Daq Health"] == [HealthState.OK.name, HealthState.OK.value]
         # Check the consumers we specified to run are in this list.
         assert status["Running Consumers"] == [
             [consumer.name, consumer.value] for consumer in expected_consumers
@@ -327,7 +326,7 @@ class TestMccsDaqReceiver:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
+        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
         device_under_test.adminMode = AdminMode.ONLINE
         assert device_under_test.adminMode == AdminMode.ONLINE
         change_event_callbacks["state"].assert_change_event(tango.DevState.UNKNOWN)
@@ -443,21 +442,18 @@ class TestPatchedDaq:
         mock_component_manager._dedicated_bandpass_daq = False
         mock_component_manager.get_status.side_effect = [
             {
-                "Daq Health": [HealthState.OK.name, HealthState.OK.value],
                 "Running Consumers": [[]],
                 "Receiver Interface": "eth0",
                 "Receiver IP": ["123.456.789.000"],
                 "Bandpass Monitor": False,
             },
             {
-                "Daq Health": [HealthState.OK.name, HealthState.OK.value],
                 "Running Consumers": [["INTEGRATED_CHANNEL_DATA", 5]],
                 "Receiver Interface": "eth0",
                 "Receiver IP": ["123.456.789.000"],
                 "Bandpass Monitor": False,
             },
             {
-                "Daq Health": [HealthState.OK.name, HealthState.OK.value],
                 "Running Consumers": [["INTEGRATED_CHANNEL_DATA", 5]],
                 "Receiver Interface": "eth0",
                 "Receiver IP": ["123.456.789.000"],

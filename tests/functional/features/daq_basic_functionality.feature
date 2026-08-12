@@ -6,16 +6,16 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         Given this test is running against station <expected_station>
         And the DAQ is available
         And the DAQ is in the DISABLE state
-        And the DAQ is in health state UNKNOWN
+        And the DAQ is in health state FAILED
         And the DAQ is in adminMode OFFLINE
         When I set adminMode to ONLINE
         Then the DAQ is in the ON state
         And the DAQ is in health state OK
 
         Examples:
-            | expected_station  |
-            | ci-1              |
-            | real-daq-1        |
+            | expected_station |
+            | ci-1             |
+            | real-daq-1       |
 
 
     Scenario Outline: Turning the DAQ off
@@ -26,12 +26,12 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in adminMode ONLINE
         When I set adminMode to OFFLINE
         Then the DAQ is in the DISABLE state
-        And the DAQ is in health state UNKNOWN
+        And the DAQ is in health state FAILED
 
         Examples:
-            | expected_station  |
-            | ci-1              |
-            | real-daq-1        |
+            | expected_station |
+            | ci-1             |
+            | real-daq-1       |
 
     @XTP-21184
     Scenario Outline: Configuring the DAQ to raw data
@@ -46,9 +46,9 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in raw data mode
 
         Examples:
-            | expected_station  |
-            | ci-1              |
-            | real-daq-1        |
+            | expected_station |
+            | ci-1             |
+            | real-daq-1       |
 
     @XTP-21185
     Scenario Outline: Configuring the DAQ to channelised data
@@ -63,9 +63,9 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in channelised data mode
 
         Examples:
-            | expected_station  |
-            | ci-1              |
-            | real-daq-1        |
+            | expected_station |
+            | ci-1             |
+            | real-daq-1       |
 
 # @XTP-21186 @xfail
 # Scenario: Applying the calibration values

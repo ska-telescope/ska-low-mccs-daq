@@ -49,12 +49,14 @@ receiver_egresses: {}
 #   1:
 #     ip: 10.11.12.13  # required: this is the IP address of an external DAQ receiver
 #     port: 50050  # optional: defaults to 50051
+mccs_anchor: &mccs_anchor
+  image:
+    registry: artefact.skao.int
+    name: ska-low-mccs-daq
+    tag: 8.0.0 # defaults to chart's appVersion when empty
+    pullPolicy: IfNotPresent
 
-image:
-  registry: artefact.skao.int
-  name: ska-low-mccs-daq
-  tag: 7.0.2 # defaults to chart's appVersion when empty
-  pullPolicy: IfNotPresent
+<<: *mccs_anchor
 
 resources:
   requests:
@@ -96,11 +98,7 @@ ska-tango-devices:
     daq:
       metadata:
         component: daq
-      image:
-        registry: artefact.skao.int
-        name: ska-low-mccs-daq
-        tag: 7.0.2
-        pullPolicy: IfNotPresent
+      <<: *mccs_anchor
       command: daq
       resources:
         requests:
