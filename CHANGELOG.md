@@ -1,5 +1,9 @@
 # Version History
 
+## 9.0.0
+
+* [SKB-1500] The station beam `nof_subarrays` configure option is replaced by `subarray_ids`, a list of the subarray IDs to receive (e.g. `[3, 4]`). This is a breaking change for anyone setting `nof_subarrays`.
+
 ## 8.0.0
 
 * [THORN-689] Remove SkuidURL property from MccsDaqReceiver, we now use the python API and don't need to talk to an external service.

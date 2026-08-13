@@ -36,16 +36,29 @@ bool StationData::initialiseConsumer(json configuration)
     this -> nof_samples    = configuration["nof_samples"];
     this -> nof_pols       = 2;
     this -> packet_size    = configuration["max_packet_size"];
-    this -> nof_subarrays  = key_in_json(configuration, "nof_subarrays")
-                                 ? (uint16_t) configuration["nof_subarrays"]
-                                 : 1;
     this -> safe_callback  = configuration["safe_callback"];
+
+    // Assign a channel slot to each configured subarray ID, in the order given.
+    // Omit "subarray_ids" for single-subarray (legacy) mode.
+    subarray_slots.clear();
+    if (key_in_json(configuration, "subarray_ids") && configuration["subarray_ids"].is_array()) {
+        uint16_t slot = 0;
+        for (auto &entry : configuration["subarray_ids"]) {
+            auto subarray_id = (uint8_t) entry;
+            if (subarray_slots.count(subarray_id) != 0) {
+                LOG(FATAL, "Duplicate subarray ID %d in subarray_ids\n", subarray_id);
+                return false;
+            }
+            subarray_slots[subarray_id] = slot++;
+        }
+    }
+    this -> nof_subarrays = subarray_slots.empty() ? 1 : (uint16_t) subarray_slots.size();
 
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t) nof_samples * 2);
 
     // Create double buffer with enough channels for all subarrays:
-    // channels are laid out as [subarray_0_ch0 .. subarray_0_chN | subarray_1_ch0 .. subarray_1_chN | ...]
+    // channels are laid out as [slot_0_ch0 .. slot_0_chN | slot_1_ch0 .. slot_1_chN | ...]
     double_buffer = new StationDoubleBuffer(nof_subarrays * nof_channels, nof_samples, nof_pols);
 
     // Create and start persister
@@ -209,16 +222,18 @@ bool StationData::processPacket()
         }
     }
 
-    // In multi-subarray mode, validate subarray_id (1-based) and drop out-of-range packets.
-    // In single-subarray mode (nof_subarrays == 1), ignore subarray_id entirely — any value
-    // is accepted and routed to subarray 1.
-    if (nof_subarrays > 1) {
-        if (subarray_id == 0 || subarray_id > nof_subarrays) {
-            LOG(FATAL, "Packet from out-of-range subarray %d dropped (nof_subarrays=%d)\n",
-                subarray_id, nof_subarrays);
+    // In multi-subarray mode, look up the channel slot for this packet's subarray and
+    // drop packets from subarrays which were not configured. In single-subarray (legacy)
+    // mode, ignore subarray_id entirely — any value is accepted and routed to slot 0.
+    uint16_t subarray_slot = 0;
+    if (!subarray_slots.empty()) {
+        auto slot = subarray_slots.find(subarray_id);
+        if (slot == subarray_slots.end()) {
+            LOG(FATAL, "Packet from unconfigured subarray %d dropped\n", subarray_id);
             ring_buffer->pull_ready();
             return true;
         }
+        subarray_slot = slot -> second;
     }
 
     // Initialise rollover counters on first packet from this subarray
@@ -267,11 +282,9 @@ bool StationData::processPacket()
         // Multiply packet_counter by rollover counts
         packet_counter += rollover_counter << 32;
 
-    // subarray_id is 1-based, so subarray 1 maps to channels [0, nof_channels),
-    // subarray 2 to [nof_channels, 2*nof_channels), etc.
-    uint16_t compound_channel = (nof_subarrays > 1)
-        ? (subarray_id - 1) * nof_channels + logical_channel_id
-        : logical_channel_id;
+    // Slots follow the order of the configured subarray IDs, so the first ID maps to
+    // channels [0, nof_channels), the second to [nof_channels, 2*nof_channels), etc.
+    uint16_t compound_channel = subarray_slot * nof_channels + logical_channel_id;
 
     if (this -> safe_callback == false || double_buffer->process_constructor == false) {
         double_buffer -> write_data(compound_channel,
