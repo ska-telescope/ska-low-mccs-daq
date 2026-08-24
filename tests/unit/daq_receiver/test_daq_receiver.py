@@ -5,6 +5,7 @@ import socket
 import struct
 import tempfile
 import time
+from threading import Event
 from typing import Any
 
 import h5py
@@ -201,6 +202,7 @@ def launch_daq_receiver() -> tuple:
     """
     # The callback will append packets to this list
     received_packets = []
+    received_event = Event()
 
     def packet_received_callback(*args: list, **kwargs: dict) -> None:
 
@@ -216,6 +218,9 @@ def launch_daq_receiver() -> tuple:
         packet_data.update(kwargs)
         received_packets.append(packet_data)
         logger.info(f"  Packet received! Total: {len(received_packets)}")
+
+        # Set the received event so we exit the test
+        received_event.set()
 
     logger = logging.getLogger(__name__)
 
@@ -274,13 +279,16 @@ def launch_daq_receiver() -> tuple:
         daq._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA] is not None
     ), "DAQ callback is not registered"
 
+    # Verify the consumer is running
+    assert daq._running_consumers.get(DaqModes.INTEGRATED_CHANNEL_DATA, False)
+
     # Print some info
     logger.info("DAQ receiver started.")
     logger.info(f"Listening on {config['receiver_ip']}:{config['receiver_ports'][0]}")
     logger.info(f"Output directory: {temp_dir}")
 
     # Return the daq and temp dir
-    return daq, temp_dir, received_packets
+    return daq, temp_dir, received_packets, received_event
 
 
 def test_daq_receiver() -> None:
@@ -289,16 +297,18 @@ def test_daq_receiver() -> None:
     logging.basicConfig(format="%(message)s", level=logging.INFO)
 
     # Start DAQ Receiver
-    daq, temp_dir, received_packets = launch_daq_receiver()
+    daq, temp_dir, received_packets, received_event = launch_daq_receiver()
 
-    # Give DAQ time to start
+    # Give DAQ time to start. This is a bad sleep that is guaranteed to result
+    # in the test being flaky but there is currently no "ready" check we can
+    # perform for the daq receiver.
     time.sleep(2)
 
     # Send test packets
     packets_sent, expected_channel_data = send_test_packets()
 
     # Give some time for packets to be processed
-    time.sleep(2)
+    received_event.wait(30)
 
     # Clean up
     daq.stop_daq()
