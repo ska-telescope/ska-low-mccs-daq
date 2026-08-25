@@ -14,6 +14,8 @@ This module provides functionality to replay PCAP files using scapy.
 
 import logging
 import os
+import socket
+import time
 from tempfile import NamedTemporaryFile
 from typing import Any
 
@@ -22,26 +24,8 @@ from scapy.layers.inet import IP, UDP, Ether
 from scapy.plist import PacketList
 from scapy.sendrecv import sendp, srp1
 from scapy.utils import PcapWriter, rdpcap
+from scapy.all import raw
 
-
-def get_mac_address(ip_address: str, interface: str) -> str:
-    """
-    Get the mac address directly from IP and interface.
-
-    :param ip_address: The destination ip address.
-    :param interface: The network interface.
-
-    :returns: The mac address.
-
-    """
-    # Construct the request
-    request = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=ip_address)
-
-    # Get the answer from the destination
-    answered = srp1(request, iface=interface, timeout=1, verbose=False)
-
-    # If we have an answer, get the mac address
-    return answered[Ether].src if answered else "00:00:00:00:00:00"
 
 
 class PCAPReplayer:
@@ -55,8 +39,8 @@ class PCAPReplayer:
     def __init__(
         self,
         filename: str,
-        interface: str,
-        ip_address: str,
+        host: str,
+        port: int,
         delay: float = 0,
         logger: logging.Logger | None = None,
     ) -> None:
@@ -74,36 +58,44 @@ class PCAPReplayer:
         """
         # Set the input parameters
         self._filename = filename
-        self._interface = interface
-        self._ip_address = ip_address
+        self._host = host
+        self._port = port
         self._delay = delay
         self._logger = logger or logging.getLogger()
-
-        # Get the mac address
-        self._mac_address = get_mac_address(ip_address, interface)
-
-        # Ensure that the mac address is not None
-        if self._mac_address is None:
-            raise RuntimeError(
-                f"Interface '{interface}' must have valid mac address, "
-                f"got '{self._mac_address}'"
-            )
 
         # Prepare the packets and set the cached filename
         self._cached_filename = self._prepare_cached_pcap_file(self._filename)
 
     def __call__(self) -> None:
         """Replay the PCAP file."""
-        # For each packet, prepare it for DAQ and then re-send it. NOTE We may
-        # be able to get more performance using conf.L2socket directly but need
-        # to be careful about missing packets. Likewise setting inter=0 may
-        # result in missed packets so we have a small delay
-        sendp(
-            self._read_pcap_file(self._cached_filename),
-            iface=self._interface,
-            verbose=False,
-            inter=self._delay,
-        )
+        # For each packet, prepare it for DAQ and then re-send it. NOTE We set
+        # a small delay to be careful about missing packets.
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        for packet in self._read_pcap_file(self._cached_filename):
+            sock.sendto(raw(self._extract_payload(packet)), (self._host, self._port))
+            if self._delay > 0:
+                time.sleep(self._delay)
+
+
+    def _extract_payload(self, packet):
+        """
+        Extract the payload from the packet.
+
+        :param packet: The packet.
+
+        :returns: The payload.
+
+        """
+        if UDP in packet:
+            payload = packet[UDP].payload
+        elif IP in packet:
+            payload = packet[IP].payload
+        elif Ether in packet:
+            payload = packet[Ether].payload
+        else:
+            payload = packet
+        return payload
+
 
     def _prepare_cached_pcap_file(self, filename: str) -> str:
         """
@@ -156,27 +148,15 @@ class PCAPReplayer:
         """
         # Output some debug info
         self._logger.debug(
-            f"Preparing packet with destination IP={self._ip_address} "
-            f"and MAC address={self._mac_address}"
+            f"Preparing packet with destination IP={self._host}"
         )
 
         # Modify the destination IP and MAC address of the the packet
         if IP in packet:
-            packet[IP].dst = self._ip_address
+            packet[IP].dst = self._host
             del packet[IP].chksum
         if UDP in packet:
             del packet[UDP].chksum
-        if Ether in packet:
-            packet[Ether].dst = self._mac_address
 
         # Return the modifed packet
         return packet
-
-    def _send_packet(self, packet: Any) -> None:
-        """
-        Resent the PCAP packet.
-
-        :param packet: The PCAP packet.
-
-        """
-        sendp(packet, iface=self._interface, verbose=False)

@@ -5,14 +5,71 @@ import socket
 import struct
 import tempfile
 import time
+from pathlib import Path
 from threading import Event
 from typing import Any
 
 import h5py
 import numpy as np
+import pytest
 
 from ska_low_mccs_daq.pydaq.daq_receiver import get_conf
 from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes, DaqReceiver
+from ska_low_mccs_daq.pydaq.utils.pcap_replayer import PCAPReplayer
+
+PCAP_NAME = "channel_integ_96_192.pcap"
+
+# In CI the PCAP is injected into the job pod from the BAR "runner-artefacts"
+# repository, via the KUBERNETES_POD_ANNOTATIONS_* variables on the
+# python-test job in .gitlab-ci.yml. The injector unpacks the artefact's
+# assets into this directory.
+INJECTED_PCAP_DIR = Path("/mnt/artefact")
+
+# Local runs use a copy of the PCAP that the developer has fetched from BAR.
+LOCAL_PCAP_DIR = Path("tests/data/pcap-data")
+
+
+def _find_pcap_file() -> Path | None:
+    """
+    Find the PCAP file, preferring the copy injected by the runner.
+
+    :returns: The path to the PCAP file, or None if it was not found.
+
+    """
+    for directory in (INJECTED_PCAP_DIR, LOCAL_PCAP_DIR):
+        pcap_path = directory / PCAP_NAME
+        if pcap_path.is_file():
+            return pcap_path
+    return None
+
+
+@pytest.fixture(name="pcap_filename")
+def pcap_filename_fixture() -> str:
+    """
+    Get the PCAP filename.
+
+    :returns: The PCAP filename
+
+    """
+    pcap_path = _find_pcap_file()
+
+    if pcap_path is None:
+        searched = ", ".join(
+            str(directory / PCAP_NAME)
+            for directory in (INJECTED_PCAP_DIR, LOCAL_PCAP_DIR)
+        )
+        message = (
+            f"PCAP test data not found. Searched: {searched}. "
+            f"Download {PCAP_NAME} from the BAR runner-artefacts repository "
+            "and place it in tests/data/pcap-data."
+        )
+        # Under CI the PCAP should have been injected into the pod, so a
+        # missing file means injection is broken.
+        if os.environ.get("CI"):
+            pytest.fail(message)
+        pytest.skip(message)
+
+    return str(pcap_path)
 
 
 # pylint: disable=too-many-arguments, too-many-locals
@@ -114,7 +171,7 @@ def create_spead_packet(
     return packet
 
 
-def send_test_packets(host: str = "127.0.0.1", port: int = 4660) -> tuple:
+def send_test_packets_simulated(host: str = "127.0.0.1", port: int = 4660) -> tuple:
     """Send test SPEAD packets using manual packet creation.
 
     For integrated channel data, the DAQ expects a complete set of packets:
@@ -132,8 +189,15 @@ def send_test_packets(host: str = "127.0.0.1", port: int = 4660) -> tuple:
     # Create a socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+    # The expected non zero channels
+    expected_non_zero_channels = [0, 96, 160, 192, 224, 288, 352, 480]
+
     # Generate some random values
-    payloads = np.random.randint(0, 65535, size=(2, 256, 16, 2), dtype=np.uint16)
+    payloads = np.zeros(shape=(512, 16, 2), dtype=np.uint16)
+    payloads[expected_non_zero_channels, :, :] = np.random.randint(
+        0, 65535, size=(len(expected_non_zero_channels), 16, 2), dtype=np.uint16
+    )
+    payloads = payloads.reshape((2, 256, 16, 2))
 
     # Get the current unix time to use as a timestamp
     unix_epoch_time = int(time.time())
@@ -162,8 +226,7 @@ def send_test_packets(host: str = "127.0.0.1", port: int = 4660) -> tuple:
                 )
 
                 # Add payload (simulated integrated channel data)
-                # For 1 antenna, 256 channels, 2 pols = 1*256*2 = 512 values,
-                # 16-bit each = 1024 bytes
+                # For 1 antenna, 256 channels, 2 pols = 512 values
                 packet += payloads[channel_range, :, antenna, :].flatten().tobytes()
                 sock.sendto(packet, (host, port))
                 packets_sent += 1
@@ -189,13 +252,71 @@ def send_test_packets(host: str = "127.0.0.1", port: int = 4660) -> tuple:
     sock.close()
     logger.info(f"Finished sending packets. Total sent: {packets_sent}/{total_packets}")
 
+    # Ensure all packets were sent
+    assert packets_sent == total_packets
+
     # Return the packets sent and expected payloads
-    return packets_sent, payloads
+    return (
+        packets_sent,  # packets_sent
+        1,  # num_tiles
+        1,  # num_files
+        packets_sent,  # num_packets_per_file
+        expected_non_zero_channels,
+    )
 
 
-def launch_daq_receiver() -> tuple:
+def send_test_packets_pcap_file(host: str = "127.0.0.1", port: int = 4660) -> tuple:
+    """Send test SPEAD packets using manual packet creation.
+
+    For integrated channel data, the DAQ expects a complete set of packets:
+    - 16 antennas * 2 channel packets (0-255, 256-511) = 32 packets total
+
+    :param host: Destination host
+    :param port: Destination port
+
+    :returns: Number of packets successfully sent, expected payload
+
+    """
+    pcap_filename = str(LOCAL_PCAP_DIR / PCAP_NAME)
+    pcap_replayer = PCAPReplayer(pcap_filename, host, port, delay=1e-4)
+    pcap_replayer()
+    return (
+        1024,  # packets_sent
+        8,  # num_tiles
+        32,  # num_files
+        32,  # num_packets_per_file
+        [0, 96, 160, 192, 224, 288, 352, 480],  # expected_non_zero_channels
+    )
+
+
+def send_test_packets(source: str, host: str = "127.0.0.1", port: int = 4660) -> tuple:
+    """Send test SPEAD packets using manual packet creation.
+
+    For integrated channel data, the DAQ expects a complete set of packets:
+    - 16 antennas * 2 channel packets (0-255, 256-511) = 32 packets total
+
+    :param source: The source of the packets
+    :param host: Destination host
+    :param port: Destination port
+
+    :returns: Number of packets successfully sent, expected payload
+
+    """
+    match source:
+        case "simulated":
+            return send_test_packets_simulated(host, port)
+        case "pcap_file":
+            return send_test_packets_pcap_file(host, port)
+        case _:
+            assert False, f"Unknown source {source}"
+
+
+def launch_daq_receiver(nof_tiles: int, expected_num_files: int) -> tuple:
     """
     Launch a DAQ receiver.
+
+    :param nof_tiles: The number of tiles
+    :param expected_num_files: The expected number of files to wait for
 
     :returns: The daq receiver, temp directory and received packets
 
@@ -220,7 +341,8 @@ def launch_daq_receiver() -> tuple:
         logger.info(f"  Packet received! Total: {len(received_packets)}")
 
         # Set the received event so we exit the test
-        received_event.set()
+        if len(received_packets) == expected_num_files:
+            received_event.set()
 
     logger = logging.getLogger(__name__)
 
@@ -251,7 +373,7 @@ def launch_daq_receiver() -> tuple:
             "nof_channels": 512,  # Match receiver default
             "nof_polarisations": 2,  # Match receiver default
             "station_id": 0,  # Match receiver default
-            "nof_tiles": 1,  # Match receiver default
+            "nof_tiles": nof_tiles,
             "integration_lookahead_cutoff": 3.0,  # For IntegratedChannelisedData
         }
     )
@@ -291,13 +413,32 @@ def launch_daq_receiver() -> tuple:
     return daq, temp_dir, received_packets, received_event
 
 
-def test_daq_receiver() -> None:
-    """Test the DAQ receiver."""
+# @pytest.mark.parametrize("source", ["pcap_file"])
+@pytest.mark.parametrize("source", ["simulated", "pcap_file"])
+def test_daq_receiver(source: str) -> None:
+    """
+    Test the DAQ receiver.
+
+    :param source: The source of packets
+
+    """
     # Configure some logging to aid debugging
     logging.basicConfig(format="%(message)s", level=logging.INFO)
 
+    match source:
+        case "simulated":
+            expected_num_files = 1
+            num_tiles = 1
+        case "pcap_file":
+            expected_num_files = 32
+            num_tiles = 8
+        case _:
+            assert False, f"Expected simulated or pcap_file, got {source}"
+
     # Start DAQ Receiver
-    daq, temp_dir, received_packets, received_event = launch_daq_receiver()
+    daq, temp_dir, received_sets_of_packets, received_event = launch_daq_receiver(
+        num_tiles, expected_num_files
+    )
 
     # Give DAQ time to start. This is a bad sleep that is guaranteed to result
     # in the test being flaky but there is currently no "ready" check we can
@@ -305,37 +446,62 @@ def test_daq_receiver() -> None:
     time.sleep(2)
 
     # Send test packets
-    packets_sent, expected_channel_data = send_test_packets()
+    (
+        packets_sent,
+        expected_num_tiles,
+        expected_num_files,
+        expected_packets_per_file,
+        expected_non_zero_channels,
+    ) = send_test_packets(source)
 
     # Give some time for packets to be processed
-    received_event.wait(30)
+    assert received_event.wait(10)
 
     # Clean up
     daq.stop_daq()
 
-    # Ensure that we have 32 sent packets
-    assert packets_sent == 32, f"Expected 32 sent packets, got {packets_sent}"
+    # Ensure that we have the expected number of sent packets
+    expected_packets = expected_packets_per_file * expected_num_files
     assert (
-        len(received_packets) == 1
-    ), f"Expected 1 set of packets recieved via callback, got {(received_packets)}"
-    assert received_packets[0]["nof_packets"] == 32
-    assert received_packets[0]["mode"] == "integrated_channel"
-    assert received_packets[0]["tile"] == 0
+        packets_sent == expected_packets
+    ), f"Expected {expected_packets} sent packets, got {packets_sent}"
 
-    # Get the filename
-    filename = received_packets[0]["filename"]
+    # Ensure that we have the expected number of output files
+    assert len(received_sets_of_packets) == expected_num_files, (
+        f"Expected {expected_num_files} sets of packets recieved via callback, "
+        f"got {len(received_sets_of_packets)}"
+    )
 
-    # Check if any files were created in the output directory
+    # Ensure we have the correct values in the received packets
+    assert all(
+        p["nof_packets"] == expected_packets_per_file for p in received_sets_of_packets
+    )
+    assert all(p["mode"] == "integrated_channel" for p in received_sets_of_packets)
+    assert {p["tile"] for p in received_sets_of_packets} == set(
+        range(expected_num_tiles)
+    )
+
+    # Ensure the directory exists
     assert os.path.exists(temp_dir), f"Directory {temp_dir} does not exist"
     files_created = os.listdir(temp_dir)
-    assert len(files_created) == 1, f"Expected 1 file created, got {files_created}"
-    assert filename == os.path.join(temp_dir, files_created[0])
 
-    # Get the filename and read the channel data
-    handle = h5py.File(filename)
-    observed_channel_data = handle["chan_"]["data"][:].flatten().tolist()
+    # Ensure that the set of found files is the same as expected
+    assert {p["filename"] for p in received_sets_of_packets} == {
+        os.path.join(temp_dir, f) for f in files_created
+    }
 
-    # Ensure that the data is in the expected order
-    expected_channel_data = expected_channel_data.flatten().tolist()
-    assert len(observed_channel_data) == len(expected_channel_data)
-    assert all(a == b for a, b in zip(observed_channel_data, expected_channel_data))
+    # Create an array with the expected channels containing non zero elements
+    expected_non_zero_data = np.zeros((512, 16, 2), dtype=bool)
+    expected_non_zero_data[expected_non_zero_channels, :, :] = True
+
+    # Loop through the files
+    for filename in (p["filename"] for p in received_sets_of_packets):
+
+        # Read the channel data
+        handle = h5py.File(filename)
+        observed_data = handle["chan_"]["data"][:].reshape(512, 16, 2)
+
+        # Check the channels which we expect to be non zero or zero
+        assert np.all(
+            (observed_data != 0) == expected_non_zero_data
+        ), f"File {filename} does not match expected pattern of zeros/non-zeros"
