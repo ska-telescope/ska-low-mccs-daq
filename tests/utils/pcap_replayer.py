@@ -17,15 +17,11 @@ import os
 import socket
 import time
 from tempfile import NamedTemporaryFile
-from typing import Any
 
-from scapy.layers.l2 import ARP
+from scapy.all import Packet, Raw, raw
 from scapy.layers.inet import IP, UDP, Ether
 from scapy.plist import PacketList
-from scapy.sendrecv import sendp, srp1
 from scapy.utils import PcapWriter, rdpcap
-from scapy.all import raw
-
 
 
 class PCAPReplayer:
@@ -48,12 +44,10 @@ class PCAPReplayer:
         Initialise the PCAP Replayer.
 
         :param filename: The PCAP filename.
-        :param interface: The interface to send to
-        :param ip_address: The IP address to send to
+        :param host: The IP address to send to
+        :param port: The port
         :param delay: The delay between packets
         :param logger: The logger object.
-
-        :raises RuntimeError: If mac address of interface is None
 
         """
         # Set the input parameters
@@ -76,8 +70,7 @@ class PCAPReplayer:
             if self._delay > 0:
                 time.sleep(self._delay)
 
-
-    def _extract_payload(self, packet):
+    def _extract_payload(self, packet: Packet) -> Raw:
         """
         Extract the payload from the packet.
 
@@ -95,7 +88,6 @@ class PCAPReplayer:
         else:
             payload = packet
         return payload
-
 
     def _prepare_cached_pcap_file(self, filename: str) -> str:
         """
@@ -137,7 +129,7 @@ class PCAPReplayer:
         # Return the packets from the PCAP file
         return rdpcap(filename)
 
-    def _prepare_packet(self, packet: Any) -> Any:
+    def _prepare_packet(self, packet: Packet) -> Packet:
         """
         Prepare the packet to be resent.
 
@@ -147,9 +139,7 @@ class PCAPReplayer:
 
         """
         # Output some debug info
-        self._logger.debug(
-            f"Preparing packet with destination IP={self._host}"
-        )
+        self._logger.debug(f"Preparing packet with destination IP={self._host}")
 
         # Modify the destination IP and MAC address of the the packet
         if IP in packet:

@@ -10,11 +10,10 @@
 from __future__ import annotations
 
 import json
-from typing import Callable, Iterator
 
 import pytest
 import tango
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 from ska_control_model import AdminMode, HealthState
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
@@ -24,59 +23,10 @@ from tests.functional.conftest import (
     poll_until_consumers_stopped,
     poll_until_state_change,
 )
-from tests.harness import SpsTangoTestHarnessContext
 
 from ..test_tools import assert_against_lrc_finished, retry_communication
 
 scenarios("./features/daq_basic_functionality.feature")
-
-
-@given(
-    parsers.cfparse("this test is running against station {expected_station}"),
-    target_fixture="test_context",
-)
-def running_context_fixture(
-    functional_test_context_generator: Callable,
-    expected_station: str,
-) -> Iterator[SpsTangoTestHarnessContext]:
-    """
-    Yield the a context containing devices from a specific station.
-
-    :param functional_test_context_generator: a callable to generate
-        a context.
-    :param expected_station: the name of the station to test against.
-
-    :yield: the DAQ receiver device
-    """
-    yield from functional_test_context_generator(expected_station)
-
-
-@pytest.fixture(name="daq_receiver_device")
-def daq_receiver_fixture(
-    test_context: SpsTangoTestHarnessContext,
-) -> Iterator[tango.DeviceProxy]:
-    """
-    Yield the DAQ receiver device under test.
-
-    :param test_context: the context in which the test is running.
-
-    :yield: the DAQ receiver device
-    """
-    yield test_context.get_daq_device()
-
-
-@given("the DAQ is available", target_fixture="daq_receiver")
-def daq_receiver_is_available(
-    daq_receiver_device: tango.DeviceProxy,
-) -> tango.DeviceProxy:
-    """
-    Return the daq_receiver device.
-
-    :param daq_receiver_device: a test harness for tango devices
-
-    :return: A proxy to the daq_receiver device.
-    """
-    return daq_receiver_device
 
 
 @given("the DAQ is in the DISABLE state")
@@ -162,19 +112,6 @@ def daq_device_has_no_running_consumers(
         poll_until_consumers_stopped(daq_receiver)
 
 
-@given("the DAQ is in adminMode ONLINE")
-def daq_device_is_in_admin_mode_online(
-    daq_receiver: tango.DeviceProxy,
-) -> None:
-    """
-    Assert that daq receiver is in admin mode ONLINE.
-
-    :param daq_receiver: The daq_receiver fixture to use.
-    """
-    retry_communication(daq_receiver)
-    assert daq_receiver.adminMode == AdminMode.ONLINE
-
-
 @when("I set adminMode to ONLINE")
 def set_admin_mode_online(
     daq_receiver: tango.DeviceProxy,
@@ -234,44 +171,6 @@ def check_daq_is_healthy(
         )
         daq_receiver.unsubscribe_event(subscription_id)
     assert daq_receiver.healthstate == HealthState.OK
-
-
-@given("the DAQ is in the ON state")
-def daq_device_is_on(
-    daq_receiver: tango.DeviceProxy,
-) -> None:
-    """
-    Assert that daq receiver is ON.
-
-    :param daq_receiver: The daq_receiver fixture to use.
-    """
-    if daq_receiver.state() != tango.DevState.ON:
-        retry_communication(daq_receiver)
-        poll_until_state_change(daq_receiver, tango.DevState.ON)
-    assert daq_receiver.state() == tango.DevState.ON
-
-
-@given("the DAQ is in health state OK")
-def daq_device_is_online_health(
-    daq_receiver: tango.DeviceProxy, change_event_callbacks: MockTangoEventCallbackGroup
-) -> None:
-    """
-    Assert that daq receiver is in health mode OK.
-
-    :param daq_receiver: The daq_receiver fixture to use.
-    :param change_event_callbacks: A change event callback group.
-    """
-    if daq_receiver.healthState != HealthState.OK:
-        subcription_id = daq_receiver.subscribe_event(
-            "healthstate",
-            tango.EventType.CHANGE_EVENT,
-            change_event_callbacks["device_healthstate"],
-        )
-        change_event_callbacks["device_healthstate"].assert_change_event(
-            HealthState.OK, lookahead=2
-        )
-        daq_receiver.unsubscribe_event(subcription_id)
-        assert daq_receiver.healthstate == HealthState.OK
 
 
 @when("I send the Start command with raw data")

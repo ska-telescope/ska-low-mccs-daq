@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any
+from typing import Any, Callable
 
 import tango
 from ska_control_model import AdminMode, ResultCode
@@ -40,6 +40,42 @@ def get_lrc_finished(
         if completed_task["uid"] == uid:
             return completed_task
     return {}
+
+
+def wait_for_condition(
+    condition_func: Callable[[], bool], timeout: float = 120, poll_interval: float = 0.1
+) -> bool:
+    """
+    Wait for condition with a timeout.
+
+    :param condition_func: The condition function
+    :param timeout: The timeout in seconds
+    :param poll_interval: The polling interval
+    :returns: True/False if all condition is satisfied.
+
+    """
+    start_time = time.time()
+    while True:
+
+        # Test the condition
+        try:
+            if condition_func():
+                return True
+        except (
+            tango.ConnectionFailed,
+            tango.DevFailed,
+            tango.CommunicationFailed,
+        ):
+            pass
+
+        # Break if time exceeds the timeout
+        if time.time() - start_time >= timeout:
+            break
+
+        # Sleep for the poll interval
+        time.sleep(poll_interval)
+
+    return False
 
 
 def wait_for_lrc_finished(

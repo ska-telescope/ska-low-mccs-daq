@@ -6,3 +6,5 @@ pyyaml==6.0
 ska-control-model==1.1.1
 ska-tango-testing==0.7.3
 pytango==10.0.0
+scapy==2.7.0
+pytest-mock==3.11.1

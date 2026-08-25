@@ -23,7 +23,7 @@ from scapy.plist import PacketList
 from scapy.sendrecv import AsyncSniffer
 from scapy.utils import rdpcap
 
-from ska_low_mccs_daq.pydaq.utils.pcap_replayer import PCAPReplayer
+from tests.utils.pcap_replayer import PCAPReplayer
 
 PCAP_NAME = "channel_integ_96_192.pcap"
 

@@ -15,7 +15,7 @@ import pytest
 
 from ska_low_mccs_daq.pydaq.daq_receiver import get_conf
 from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes, DaqReceiver
-from ska_low_mccs_daq.pydaq.utils.pcap_replayer import PCAPReplayer
+from tests.utils.pcap_replayer import PCAPReplayer
 
 PCAP_NAME = "channel_integ_96_192.pcap"
 
