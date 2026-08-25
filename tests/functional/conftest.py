@@ -82,10 +82,20 @@ def exported_daq_fixture(true_context: bool) -> list[tango.DeviceProxy]:
     return []
 
 
+@pytest.fixture(name="test_context_config")
+def test_context_config_fixture() -> dict:
+    """
+    Return the test context config.
+
+    :returns: The test context config.
+
+    """
+    return {}
+
+
 @pytest.fixture(name="functional_test_context_generator")
 def functional_test_context_generator_fixture(
-    true_context: bool,
-    daq_id: int,
+    true_context: bool, daq_id: int, test_context_config: dict
 ) -> Callable:
     """
     Return a callable to generate a context containing the device/s under test.
@@ -93,6 +103,7 @@ def functional_test_context_generator_fixture(
     :param true_context: whether to test against an existing Tango
         deployment
     :param daq_id: the ID of the daq receiver
+    :param test_context_config: Configure the test context
 
     :return: a callable to generate context containing the devices under test
     """
@@ -104,6 +115,7 @@ def functional_test_context_generator_fixture(
             harness.set_lmc_daq_device(
                 daq_id,
                 address=None,  # dynamically get address of DAQ instance
+                **test_context_config,
             )
 
         with harness as context:

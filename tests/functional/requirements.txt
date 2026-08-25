@@ -8,3 +8,4 @@ ska-tango-testing==0.7.3
 pytango==10.0.0
 scapy==2.7.0
 pytest-mock==3.11.1
+filelock==3.32.4

@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-614] Added tests using pcap replayer to ensure daq recieves packets.
+
 ## 9.0.0
 
 * [SKB-1500] The station beam `nof_subarrays` configure option is replaced by `subarray_ids`, a list of the subarray IDs to receive (e.g. `[3, 4]`). This is a breaking change for anyone setting `nof_subarrays`.

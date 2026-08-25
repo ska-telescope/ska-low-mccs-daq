@@ -8,7 +8,7 @@
 
 import json
 import os.path
-import time
+from threading import Event
 from typing import Generator
 
 import pytest
@@ -30,6 +30,17 @@ INJECTED_PCAP_DIR = "/mnt/artefact"
 LOCAL_PCAP_DIR = "tests/data/pcap-data"
 
 
+@pytest.fixture(name="test_context_config")
+def context_generator_config_override() -> dict:
+    """
+    Return the test context config.
+
+    :returns: The test context config.
+
+    """
+    return {"receiver_interface": "lo", "number_of_tiles": 8, "simulation_mode": False}
+
+
 @pytest.fixture(name="bandpass_test_pcap_filename")
 def bandpass_test_pcap_filename_fixture() -> str | None:
     """
@@ -45,18 +56,29 @@ def bandpass_test_pcap_filename_fixture() -> str | None:
     return None
 
 
-@pytest.fixture(name="ip_address")
-def ip_address_fixture() -> str:
+@pytest.fixture(name="daq_host")
+def daq_host_fixture(true_context: bool, daq_receiver_device: tango.DeviceProxy) -> str:
     """
-    Get the destination IP address.
+    Get the destination host.
 
-    :returns: The destination ip address.
+    :param true_context: Is this a true context.
+    :param daq_receiver_device: The daq device
+
+    :returns: The destination host.
 
     """
-    return "127.0.0.1"
+    # Get the daq name
+    name = daq_receiver_device.name().split("/")[2]
+
+    # Return the host
+    return (
+        f"mccs-daq-daq-{name}-data.ska-low-mccs-daq.svc.cluster.local"
+        if true_context
+        else "127.0.0.1"
+    )
 
 
-@pytest.fixture(name="port")
+@pytest.fixture(name="daq_port")
 def port_fixture() -> int:
     """
     Get the destination port.
@@ -70,20 +92,20 @@ def port_fixture() -> int:
 @pytest.fixture(name="pcap_replayer")
 def pcap_replayer_fixture(
     bandpass_test_pcap_filename: str,
-    ip_address: str,
-    port: int,
+    daq_host: str,
+    daq_port: int,
 ) -> PCAPReplayer:
     """
     Get the PCAPReplayer object.
 
     :param bandpass_test_pcap_filename: The PCAP filename.
-    :param ip_address: The IP address.
-    :param port: The port.
+    :param daq_host: The DAQ host.
+    :param daq_port: The DAQ port.
 
     :returns: The PCAPReplayer object.
 
     """
-    return PCAPReplayer(bandpass_test_pcap_filename, ip_address, port, delay=1e-3)
+    return PCAPReplayer(bandpass_test_pcap_filename, daq_host, daq_port, delay=1e-3)
 
 
 @given("the bandpass test PCAP file is available")
@@ -102,103 +124,89 @@ def check_bandpass_test_pcap_file_is_available(
         pytest.skip("Test requires PCAP files from BAR")
 
 
-@given("the DAQ ParentConnectionTimeout is disabled")
-def disable_daq_parent_connection_timeout(
-    daq_receiver: tango.DeviceProxy,
-) -> Generator:
+def restart_the_daq_device(daq_receiver_device: tango.DeviceProxy) -> None:
     """
-    Disable the DAQ parent connection timeout.
-
-    We do this because if the parent connection timesout then the device will
-    go into an alarm state and when running the tests the parent device
-    SpsStation may not be available.
-
-    :param daq_receiver: The daq receiver device proxy
-
-    :yields: Control
-
-    """
-    # Get the admin device
-    admin_device = tango.DeviceProxy(daq_receiver.adm_name())
-
-    # Get current attribute configuration
-    attr_config = daq_receiver.get_attribute_config("parentConnectionFailed")
-
-    # Get the initial value
-    max_alarm = attr_config.max_alarm
-
-    try:
-
-        # Update max_alarm
-        attr_config.max_alarm = "2"
-
-        # Write back the configuration
-        daq_receiver.set_attribute_config(attr_config)
-
-        # Restart the server
-        admin_device.RestartServer()
-
-        # Wait for the device to be available
-        wait_for_condition(lambda: (daq_receiver.ping(), True)[1])
-
-        yield
-
-    finally:
-
-        # Frequently get "Failed to connect to device... The last connection
-        # request was done less than 1000 ms ago". Therefore add a sleep for
-        # 1000 ms to ensure this doesn't happen
-        time.sleep(1)
-
-        # Get current attribute configuration
-        attr_config = daq_receiver.get_attribute_config("parentConnectionFailed")
-
-        # Reset the max_alarm
-        attr_config.max_alarm = max_alarm
-
-        # Write back the configuration
-        daq_receiver.set_attribute_config(attr_config)
-
-        # Restart the server
-        admin_device.RestartServer()
-
-        # Wait for the device to be available
-        wait_for_condition(lambda: (daq_receiver.ping(), True)[1])
-
-
-@given("the DAQ NumberOfTiles is set to 8")
-def set_daq_number_of_tiles_to_8(
-    daq_receiver_device: tango.DeviceProxy,
-) -> None:
-    """
-    Set the number of tiles to 8 in the DAQ receiver.
+    Restart the DAQ receiver device.
 
     :param daq_receiver_device: The DAQ receiver device.
 
     """
-    daq_receiver_device.put_property({"NumberOfTiles": 8})
-
-
-@given("the DAQ has been restarted")
-def restart_the_daq_device(daq_receiver: tango.DeviceProxy) -> None:
-    """
-    Restart the DAQ receiver device.
-
-    :param daq_receiver: The DAQ receiver device.
-
-    """
     # Get the admin device
-    admin_device = tango.DeviceProxy(daq_receiver.adm_name())
+    admin_device = tango.DeviceProxy(daq_receiver_device.adm_name())
 
     # Restart the server
     admin_device.RestartServer()
 
     # Wait for the device to be available
-    wait_for_condition(lambda: (daq_receiver.ping(), True)[1])
+    assert wait_for_condition(lambda: (daq_receiver_device.ping(), True)[1])
 
 
-@given("the DAQ is configured to receive channelised data")
-def check_daq_is_configured_to_receive_channelised_data(
+@given("the DAQ is configured to receive data")
+def configure_the_daq(
+    true_context: bool,
+    daq_receiver_device: tango.DeviceProxy,
+) -> Generator:
+    """
+    Configure the DAQ.
+
+    We do this because if the parent connection timesout then the device will
+    go into an alarm state and when running the tests the parent device
+    SpsStation may not be available.
+
+    :param true_context: Is this a true context
+    :param daq_receiver_device: The daq receiver device proxy
+
+    :yields: Control
+
+    """
+    # Only try to reset properties in a true context
+    if true_context:
+
+        # Get the current properties
+        parent_trl = daq_receiver_device.ParentTRL
+        number_of_tiles = daq_receiver_device.get_property("NumberOfTiles")[
+            "NumberOfTiles"
+        ]
+        simulation_mode = daq_receiver_device.get_property("SimulationMode")[
+            "SimulationMode"
+        ]
+
+        try:
+            # Set ParentTRL to empty string to disable parent connection This
+            # prevents the ModeInheritor from attempting to connect to a parent and
+            # thus prevents parentConnectionFailed from being set to True. Also set
+            # the number of tiles to 8 and turn simulation mode off.
+            daq_receiver_device.put_property(
+                {"ParentTRL": "", "NumberOfTiles": 8, "SimulationMode": False}
+            )
+
+            # Restart the daq device
+            restart_the_daq_device(daq_receiver_device)
+
+            # Yield control
+            yield
+
+        finally:
+
+            # Restore the original ParentTRL value
+            daq_receiver_device.put_property(
+                {
+                    "ParentTRL": parent_trl,
+                    "NumberOfTiles": number_of_tiles,
+                    "SimulationMode": simulation_mode,
+                }
+            )
+
+            # Restart the daq device
+            restart_the_daq_device(daq_receiver_device)
+
+    else:
+
+        yield
+
+
+@given("the DAQ start command has been called")
+def call_the_daq_start_command(
     daq_receiver_device: tango.DeviceProxy,
 ) -> Generator:
     """
@@ -239,6 +247,53 @@ def check_daq_is_configured_to_receive_channelised_data(
         assert len(daq_receiver_device.runningConsumers) == 0
 
 
+@given(
+    "we are subscribed to changes to the received results attribute",
+    target_fixture="data_received_results_subscription",
+)
+def subscribe_to_data_received_results(daq_receiver_device: tango.DeviceProxy) -> tuple:
+    """
+    Subscribe to the data received results.
+
+    :param daq_receiver_device: The DAQ device.
+
+    :returns: The subscription info.
+
+    """
+    # Setup the check
+    expected_number_of_files = 32
+
+    # Create an event to check
+    received_results_event = Event()
+
+    # Callback for data received events
+    received_results = []
+
+    def on_data_received(event: tango.EventData) -> None:
+        result = event.attr_value.value
+
+        # If the result is found then increment
+        if result[0] == "integrated_channel":
+            received_results.append(result)
+
+        # If we have the expected number of results set the event to exit
+        if len(received_results) >= expected_number_of_files:
+            received_results_event.set()
+
+    # Subscribe to changes
+    subscription_id = daq_receiver_device.subscribe_event(
+        "dataReceivedResult", tango.EventType.CHANGE_EVENT, on_data_received
+    )
+
+    # Return the subscription info
+    return (
+        subscription_id,
+        received_results_event,
+        received_results,
+        expected_number_of_files,
+    )
+
+
 @when("we replay the bandpass PCAP file to the DAQ")
 def replay_the_bandpass_pcap_file_to_the_daq(pcap_replayer: PCAPReplayer) -> None:
     """
@@ -251,20 +306,47 @@ def replay_the_bandpass_pcap_file_to_the_daq(pcap_replayer: PCAPReplayer) -> Non
 
 
 @then("the DAQ should receive the bandpass data")
-def check_daq_received_the_bandpass_data(
-    daq_receiver_device: tango.DeviceProxy,
+def wait_for_expected_number_of_received_results(
+    daq_receiver_device: tango.DeviceProxy, data_received_results_subscription: tuple
 ) -> None:
     """
-    Check the DAQ received the data.
+    Wait for the DAQ to receive the data.
 
-    :param daq_receiver_device: The DAQ receiver device.
+    :param daq_receiver_device: The DAQ receiver device
+    :param data_received_results_subscription: The subscription details
 
     """
+    # Setup the check
+    timeout = 30
+
+    # Get the subscription details
+    (
+        subscription_id,
+        received_results_event,
+        received_results,
+        expected_number_of_files,
+    ) = data_received_results_subscription
+
+    # Wait for the event to be set
+    assert received_results_event.wait(
+        timeout
+    ), f"Timed out waiting for results, got {len(received_results)}"
+
+    # Ensure we have the correct number of results
+    assert len(received_results) == expected_number_of_files
+
+    # Unsubscribe
+    daq_receiver_device.unsubscribe_event(subscription_id)
 
 
 @scenario(
     "features/daq_pcap_bandpass.feature",
     "Validate bandpass test using PCAP replay",
 )
-def test_validate_bandpass_using_pcap_replay() -> None:
-    """Validate the bandpass using PCAP replay."""
+def test_validate_bandpass_using_pcap_replay(global_test_lock: Generator) -> None:
+    """
+    Validate the bandpass using PCAP replay.
+
+    :param global_test_lock: The global test lock
+
+    """

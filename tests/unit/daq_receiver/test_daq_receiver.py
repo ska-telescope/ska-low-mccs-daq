@@ -5,9 +5,8 @@ import socket
 import struct
 import tempfile
 import time
-from pathlib import Path
 from threading import Event
-from typing import Any
+from typing import Any, Generator
 
 import h5py
 import numpy as np
@@ -16,60 +15,6 @@ import pytest
 from ska_low_mccs_daq.pydaq.daq_receiver import get_conf
 from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from tests.utils.pcap_replayer import PCAPReplayer
-
-PCAP_NAME = "channel_integ_96_192.pcap"
-
-# In CI the PCAP is injected into the job pod from the BAR "runner-artefacts"
-# repository, via the KUBERNETES_POD_ANNOTATIONS_* variables on the
-# python-test job in .gitlab-ci.yml. The injector unpacks the artefact's
-# assets into this directory.
-INJECTED_PCAP_DIR = Path("/mnt/artefact")
-
-# Local runs use a copy of the PCAP that the developer has fetched from BAR.
-LOCAL_PCAP_DIR = Path("tests/data/pcap-data")
-
-
-def _find_pcap_file() -> Path | None:
-    """
-    Find the PCAP file, preferring the copy injected by the runner.
-
-    :returns: The path to the PCAP file, or None if it was not found.
-
-    """
-    for directory in (INJECTED_PCAP_DIR, LOCAL_PCAP_DIR):
-        pcap_path = directory / PCAP_NAME
-        if pcap_path.is_file():
-            return pcap_path
-    return None
-
-
-@pytest.fixture(name="pcap_filename")
-def pcap_filename_fixture() -> str:
-    """
-    Get the PCAP filename.
-
-    :returns: The PCAP filename
-
-    """
-    pcap_path = _find_pcap_file()
-
-    if pcap_path is None:
-        searched = ", ".join(
-            str(directory / PCAP_NAME)
-            for directory in (INJECTED_PCAP_DIR, LOCAL_PCAP_DIR)
-        )
-        message = (
-            f"PCAP test data not found. Searched: {searched}. "
-            f"Download {PCAP_NAME} from the BAR runner-artefacts repository "
-            "and place it in tests/data/pcap-data."
-        )
-        # Under CI the PCAP should have been injected into the pod, so a
-        # missing file means injection is broken.
-        if os.environ.get("CI"):
-            pytest.fail(message)
-        pytest.skip(message)
-
-    return str(pcap_path)
 
 
 # pylint: disable=too-many-arguments, too-many-locals
@@ -171,7 +116,29 @@ def create_spead_packet(
     return packet
 
 
-def send_test_packets_simulated(host: str = "127.0.0.1", port: int = 4660) -> tuple:
+@pytest.fixture(name="daq_host")
+def daq_host_fixture() -> str:
+    """
+    Get the DAQ host.
+
+    :returns: The DAQ host
+
+    """
+    return "127.0.0.1"
+
+
+@pytest.fixture(name="daq_port")
+def daq_port_fixture() -> int:
+    """
+    Get the DAQ port.
+
+    :returns: The DAQ port
+
+    """
+    return 4660
+
+
+def send_test_packets_simulated(host: str, port: int) -> tuple:
     """Send test SPEAD packets using manual packet creation.
 
     For integrated channel data, the DAQ expects a complete set of packets:
@@ -265,20 +232,20 @@ def send_test_packets_simulated(host: str = "127.0.0.1", port: int = 4660) -> tu
     )
 
 
-def send_test_packets_pcap_file(host: str = "127.0.0.1", port: int = 4660) -> tuple:
+def send_test_packets_pcap_file(filename: str, host: str, port: int) -> tuple:
     """Send test SPEAD packets using manual packet creation.
 
     For integrated channel data, the DAQ expects a complete set of packets:
     - 16 antennas * 2 channel packets (0-255, 256-511) = 32 packets total
 
+    :param filename: The PCAP filename
     :param host: Destination host
     :param port: Destination port
 
     :returns: Number of packets successfully sent, expected payload
 
     """
-    pcap_filename = str(LOCAL_PCAP_DIR / PCAP_NAME)
-    pcap_replayer = PCAPReplayer(pcap_filename, host, port, delay=1e-4)
+    pcap_replayer = PCAPReplayer(filename, host, port, delay=1e-4)
     pcap_replayer()
     return (
         1024,  # packets_sent
@@ -289,13 +256,14 @@ def send_test_packets_pcap_file(host: str = "127.0.0.1", port: int = 4660) -> tu
     )
 
 
-def send_test_packets(source: str, host: str = "127.0.0.1", port: int = 4660) -> tuple:
+def send_test_packets(source: str, filename: str, host: str, port: int) -> tuple:
     """Send test SPEAD packets using manual packet creation.
 
     For integrated channel data, the DAQ expects a complete set of packets:
     - 16 antennas * 2 channel packets (0-255, 256-511) = 32 packets total
 
     :param source: The source of the packets
+    :param filename: The pcap filename
     :param host: Destination host
     :param port: Destination port
 
@@ -306,7 +274,7 @@ def send_test_packets(source: str, host: str = "127.0.0.1", port: int = 4660) ->
         case "simulated":
             return send_test_packets_simulated(host, port)
         case "pcap_file":
-            return send_test_packets_pcap_file(host, port)
+            return send_test_packets_pcap_file(filename, host, port)
         case _:
             assert False, f"Unknown source {source}"
 
@@ -413,18 +381,28 @@ def launch_daq_receiver(nof_tiles: int, expected_num_files: int) -> tuple:
     return daq, temp_dir, received_packets, received_event
 
 
-# @pytest.mark.parametrize("source", ["pcap_file"])
 @pytest.mark.parametrize("source", ["simulated", "pcap_file"])
-def test_daq_receiver(source: str) -> None:
+def test_daq_receiver(
+    global_test_lock: Generator,
+    source: str,
+    pcap_filename: str,
+    daq_host: str,
+    daq_port: int,
+) -> None:
     """
     Test the DAQ receiver.
 
+    :param global_test_lock: The global test lock
     :param source: The source of packets
+    :param pcap_filename: The pcap filename
+    :param daq_host: The daq host
+    :param daq_port: The daq port
 
     """
     # Configure some logging to aid debugging
     logging.basicConfig(format="%(message)s", level=logging.INFO)
 
+    # Get the expected nun files and tiles
     match source:
         case "simulated":
             expected_num_files = 1
@@ -452,7 +430,7 @@ def test_daq_receiver(source: str) -> None:
         expected_num_files,
         expected_packets_per_file,
         expected_non_zero_channels,
-    ) = send_test_packets(source)
+    ) = send_test_packets(source, pcap_filename, daq_host, daq_port)
 
     # Give some time for packets to be processed
     assert received_event.wait(10)
@@ -475,6 +453,9 @@ def test_daq_receiver(source: str) -> None:
     # Ensure we have the correct values in the received packets
     assert all(
         p["nof_packets"] == expected_packets_per_file for p in received_sets_of_packets
+    ), (
+        f"Expected {expected_packets_per_file}, "
+        f"got {[p['nof_packets'] for p in received_sets_of_packets]}"
     )
     assert all(p["mode"] == "integrated_channel" for p in received_sets_of_packets)
     assert {p["tile"] for p in received_sets_of_packets} == set(
