@@ -139,6 +139,8 @@ class SpsTangoTestHarness:
         daq_id: int,
         address: tuple[str, int] | None,
         receiver_interface: str | None = None,
+        number_of_tiles: int = 1,
+        simulation_mode: bool = True,
         consumers_to_start: list[str] | None = None,
         logging_level: int = int(LoggingLevel.DEBUG),
         device_class: type[Device] | str = "ska_low_mccs_daq.MccsDaqReceiver",
@@ -152,6 +154,8 @@ class SpsTangoTestHarness:
             It is a tuple of hostname or IP address, and port.
         :param receiver_interface: The interface on which the DAQ receiver
             is listening for traffic.
+        :param number_of_tiles: The number of tiles
+        :param simulation_mode: The simulation mode
         :param consumers_to_start: list of consumers to start.
         :param logging_level: the Tango device's default logging level.
         :param device_class: The device class to use.
@@ -175,7 +179,8 @@ class SpsTangoTestHarness:
             Host=host,
             ConsumersToStart=consumers_to_start,
             LoggingLevelDefault=logging_level,
-            SimulationMode=True,
+            SimulationMode=simulation_mode,
+            NumberOfTiles=number_of_tiles,
         )
 
     def set_bandpass_daq_device(  # pylint: disable=too-many-arguments

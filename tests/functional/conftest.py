@@ -19,9 +19,13 @@ from typing import Any, Callable, Iterator
 import _pytest
 import pytest
 import tango
+from pytest_bdd import given, parsers
+from ska_control_model import AdminMode, HealthState
 from ska_tango_testing.mock.tango import MockTangoEventCallbackGroup
 
 from tests.harness import SpsTangoTestHarness, SpsTangoTestHarnessContext
+
+from ..test_tools import retry_communication
 
 
 # TODO: https://github.com/pytest-dev/pytest-forked/issues/67
@@ -78,10 +82,20 @@ def exported_daq_fixture(true_context: bool) -> list[tango.DeviceProxy]:
     return []
 
 
+@pytest.fixture(name="test_context_config")
+def test_context_config_fixture() -> dict:
+    """
+    Return the test context config.
+
+    :returns: The test context config.
+
+    """
+    return {}
+
+
 @pytest.fixture(name="functional_test_context_generator")
 def functional_test_context_generator_fixture(
-    true_context: bool,
-    daq_id: int,
+    true_context: bool, daq_id: int, test_context_config: dict
 ) -> Callable:
     """
     Return a callable to generate a context containing the device/s under test.
@@ -89,6 +103,7 @@ def functional_test_context_generator_fixture(
     :param true_context: whether to test against an existing Tango
         deployment
     :param daq_id: the ID of the daq receiver
+    :param test_context_config: Configure the test context
 
     :return: a callable to generate context containing the devices under test
     """
@@ -100,6 +115,7 @@ def functional_test_context_generator_fixture(
             harness.set_lmc_daq_device(
                 daq_id,
                 address=None,  # dynamically get address of DAQ instance
+                **test_context_config,
             )
 
         with harness as context:
@@ -357,3 +373,114 @@ def verify_bandpass_state(daq_device: tango.DeviceProxy, state: bool) -> None:
         time.sleep(1)
         time_elapsed += 1
     assert daq_status["Bandpass Monitor"] == state
+
+
+@given(
+    parsers.cfparse("this test is running against station {expected_station}"),
+    target_fixture="test_context",
+)
+def running_context_fixture(
+    functional_test_context_generator: Callable,
+    expected_station: str,
+) -> Iterator[SpsTangoTestHarnessContext]:
+    """
+    Yield the a context containing devices from a specific station.
+
+    :param functional_test_context_generator: a callable to generate
+        a context.
+    :param expected_station: the name of the station to test against.
+
+    :yield: the DAQ receiver device
+    """
+    yield from functional_test_context_generator(expected_station)
+
+
+@pytest.fixture(name="daq_receiver_device")
+def daq_receiver_fixture(
+    test_context: SpsTangoTestHarnessContext,
+) -> Iterator[tango.DeviceProxy]:
+    """
+    Yield the DAQ receiver device under test.
+
+    :param test_context: the context in which the test is running.
+
+    :yield: the DAQ receiver device
+    """
+    yield test_context.get_daq_device()
+
+
+@given("the DAQ is available", target_fixture="daq_receiver")
+def daq_receiver_is_available(
+    daq_receiver_device: tango.DeviceProxy,
+) -> tango.DeviceProxy:
+    """
+    Return the daq_receiver device.
+
+    :param daq_receiver_device: a test harness for tango devices
+
+    :return: A proxy to the daq_receiver device.
+    """
+    return daq_receiver_device
+
+
+@given("the DAQ is in the ON state")
+def daq_device_is_on(
+    daq_receiver: tango.DeviceProxy,
+) -> None:
+    """
+    Assert that daq receiver is ON.
+
+    :param daq_receiver: The daq_receiver fixture to use.
+    """
+    start_time = time.time()
+    while True:
+        try:
+            if daq_receiver.state() != tango.DevState.ON:
+                retry_communication(daq_receiver)
+                poll_until_state_change(daq_receiver, tango.DevState.ON)
+        except (
+            tango.ConnectionFailed,
+            tango.DevFailed,
+            tango.CommunicationFailed,
+        ):
+            pass
+        if time.time() - start_time >= 10:
+            break
+        time.sleep(1)
+    assert daq_receiver.state() == tango.DevState.ON
+
+
+@given("the DAQ is in health state OK")
+def daq_device_is_online_health(
+    daq_receiver: tango.DeviceProxy, change_event_callbacks: MockTangoEventCallbackGroup
+) -> None:
+    """
+    Assert that daq receiver is in health mode OK.
+
+    :param daq_receiver: The daq_receiver fixture to use.
+    :param change_event_callbacks: A change event callback group.
+    """
+    if daq_receiver.healthState != HealthState.OK:
+        subcription_id = daq_receiver.subscribe_event(
+            "healthstate",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["device_healthstate"],
+        )
+        change_event_callbacks["device_healthstate"].assert_change_event(
+            HealthState.OK, lookahead=2
+        )
+        daq_receiver.unsubscribe_event(subcription_id)
+        assert daq_receiver.healthstate == HealthState.OK
+
+
+@given("the DAQ is in adminMode ONLINE")
+def daq_device_is_in_admin_mode_online(
+    daq_receiver: tango.DeviceProxy,
+) -> None:
+    """
+    Assert that daq receiver is in admin mode ONLINE.
+
+    :param daq_receiver: The daq_receiver fixture to use.
+    """
+    retry_communication(daq_receiver)
+    assert daq_receiver.adminMode == AdminMode.ONLINE
