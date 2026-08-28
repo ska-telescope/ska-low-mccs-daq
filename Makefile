@@ -143,8 +143,9 @@ k8s-do-test:
 		--for=condition=ready --timeout=$(K8S_TIMEOUT)
 	kubectl -n $(KUBE_NAMESPACE) cp tests/ ska-low-mccs-k8s-test-runner:$(K8S_TEST_RUNNER_WORKING_DIRECTORY)/tests
 
-	# Copy the artefact directory containing test files
-	@ [ -d /mnt/artefact ] && kubectl -n $(KUBE_NAMESPACE) cp /mnt/artefact ska-low-mccs-k8s-test-runner:/mnt/artefact || true
+	@ [ -f /mnt/artefact/channel_integ_96_192.pcap ] && kubectl -n $(KUBE_NAMESPACE) \
+		cp /mnt/artefact/channel_integ_96_192.pcap \
+		ska-low-mccs-k8s-test-runner:$(K8S_TEST_RUNNER_WORKING_DIRECTORY)/tests/data/pcap-data || true
 
 	@kubectl -n $(KUBE_NAMESPACE) exec ska-low-mccs-k8s-test-runner -- bash -c \
 		"cd $(K8S_TEST_RUNNER_WORKING_DIRECTORY) && \
