@@ -142,6 +142,10 @@ k8s-do-test:
 	kubectl -n $(KUBE_NAMESPACE) wait pod ska-low-mccs-k8s-test-runner \
 		--for=condition=ready --timeout=$(K8S_TIMEOUT)
 	kubectl -n $(KUBE_NAMESPACE) cp tests/ ska-low-mccs-k8s-test-runner:$(K8S_TEST_RUNNER_WORKING_DIRECTORY)/tests
+
+	# Copy the artefact directory containing test files
+	@ [ -d /mnt/artefact ] && kubectl -n $(KUBE_NAMESPACE) cp /mnt/artefact ska-low-mccs-k8s-test-runner:/mnt/artefact || true
+
 	@kubectl -n $(KUBE_NAMESPACE) exec ska-low-mccs-k8s-test-runner -- bash -c \
 		"cd $(K8S_TEST_RUNNER_WORKING_DIRECTORY) && \
 		mkdir -p build/reports && \
