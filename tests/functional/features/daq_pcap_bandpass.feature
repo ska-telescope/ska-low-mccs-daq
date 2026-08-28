@@ -14,6 +14,7 @@ Feature: DAQ PCAP bandpass test
         And we are subscribed to changes to the received results attribute
         When we replay the bandpass PCAP file to the DAQ
         Then the DAQ should receive the bandpass data
+        And the DAQ should write data to the expected channels
 
         Examples:
             | expected_station    |

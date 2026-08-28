@@ -11,6 +11,8 @@ import os.path
 from threading import Event
 from typing import Generator
 
+import h5py
+import numpy as np
 import pytest
 import tango
 from pytest_bdd import given, scenario, then, when
@@ -228,6 +230,12 @@ def call_the_daq_start_command(
                 daq_receiver_device, command_id, "COMPLETED", 60
             )
 
+        # Configure the device to use append_integrated False
+        [status], _ = daq_receiver_device.Configure(
+            json.dumps({"append_integrated": False})
+        )
+        assert status == 0
+
         # Start the DAQ receiver to receive channelised data
         _, [command_id] = daq_receiver_device.Start(
             json.dumps({"modes_to_start": "INTEGRATED_CHANNEL_DATA"})
@@ -337,6 +345,52 @@ def wait_for_expected_number_of_received_results(
 
     # Unsubscribe
     daq_receiver_device.unsubscribe_event(subscription_id)
+
+
+@then("the DAQ should write data to the expected channels")
+def check_daq_writes_data_to_the_expected_channels(
+    true_context: bool, daq_receiver_device: tango.DeviceProxy
+) -> None:
+    """
+    Check the DAQ writes the data to the expected channels.
+
+    :param true_context: Are we in a true context.
+    :param daq_receiver_device: The DAQ recevier device
+
+    """
+    # We can only run this in a non-true context
+    if not true_context:
+
+        # The expected non zero channels
+        expected_non_zero_channels = [0, 96, 160, 192, 224, 288, 352, 480]
+
+        # Get the directory
+        directory = json.loads(daq_receiver_device.GetConfiguration())["directory"]
+
+        # Ensure the directory exists
+        assert os.path.exists(directory), f"Directory {directory} does not exist"
+        files_created = os.listdir(directory)
+
+        # Create an array with the expected channels containing non zero elements
+        expected_non_zero_data = np.zeros((512, 16, 2), dtype=bool)
+        expected_non_zero_data[expected_non_zero_channels, :, :] = True
+
+        # Loop through the files
+        for filename in (os.path.join(directory, f) for f in files_created):
+
+            # Read the channel data
+            handle = h5py.File(filename)
+            observed_data = handle["chan_"]["data"][:]
+            assert len(observed_data.flatten()) == 512 * 16 * 2, (
+                f"File {filename} does not have the correct size: ",
+                f"expected {512*16*2}, got {len(observed_data.flatten())}",
+            )
+            observed_data = observed_data.reshape(512, 16, 2)
+
+            # Check the channels which we expect to be non zero or zero
+            assert np.all(
+                (observed_data != 0) == expected_non_zero_data
+            ), f"File {filename} does not match expected pattern of zeros/non-zeros"
 
 
 @scenario(

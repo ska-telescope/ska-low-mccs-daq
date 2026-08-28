@@ -9,3 +9,4 @@ pytango==10.0.0
 scapy==2.7.0
 pytest-mock==3.11.1
 filelock==3.32.4
+h5py==3.12.1
