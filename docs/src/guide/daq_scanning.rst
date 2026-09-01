@@ -28,9 +28,9 @@ The following is a list of available modes:
 - INTEGRATED_BEAM_DATA
 - INTEGRATED_CHANNEL_DATA
 - STATION_BEAM_DATA
-- CORRELATOR_DATA
 - ANTENNA_BUFFER
 - RAW_STATION_BEAM
+- TC_CORRELATOR_DATA
 
 .. Caution::
     RAW_STATION_BEAM will raise an error and reject the command when started alongside other modes.

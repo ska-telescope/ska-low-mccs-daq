@@ -13,7 +13,7 @@
 #include <mutex>
 
 /* This class implements a double buffering system between the channel_data thread, which reads SPEAD packets
- * from the ring buffer and the xGPU thread, which perform cross-correlation on the GPU. Locks are only required
+ * from the ring buffer and the correlator thread, which performs cross-correlation on the GPU. Locks are only required
  * at the buffer level, since writes are guaranteed to be non-conflicting (data is partitioned across packets)
  * and read will read in the entire buffer
  */

@@ -282,58 +282,6 @@ void test_integrated_channel_data()
     }
 }
 
-void test_correlator_data()
-{
-    LOG(INFO, "Testing Correlator");
-
-    for(unsigned i = 0; i < 10; i++) {
-
-        // Telescope information
-        const char *ip = "10.0.10.201";
-
-        startReceiver("eth3:1", ip, 9000, 32, 64);
-        addReceiverPort(7200);
-
-        // Set parameters
-        json j = {
-                {"nof_channels",      1},
-                {"nof_fine_channels", 1},
-                {"nof_antennas",      16},
-                {"nof_tiles",         16},
-                {"nof_samples",       1835008},
-                {"nof_pols",          2},
-                {"max_packet_size",   9000}
-        };
-
-        if (loadConsumer("libaavsdaq.so", "correlator") != SUCCESS) {
-            LOG(ERROR, "Failed to load correlator data conumser");
-            return;
-        }
-
-        if (initialiseConsumer("correlator", j.dump().c_str()) != SUCCESS) {
-            LOG(ERROR, "Failed to initialise correlator data conumser");
-            return;
-        }
-
-        if (startConsumer("correlator", nullptr) != SUCCESS) {
-            LOG(ERROR, "Failed to start correlator data conumser");
-            return;
-        }
-
-        sleep(200);
-
-        if (stopConsumer("correlator") != SUCCESS) {
-            LOG(ERROR, "Failed to stop integrated  channel data conumser");
-            return;
-        }
-
-        if (stopReceiver() != SUCCESS) {
-            LOG(ERROR, "Failed to stop receiver");
-            return;
-        }
-    }
-}
-
 void test_station_data()
 {
     LOG(INFO, "Testing Station Data");
@@ -617,7 +565,6 @@ int main()
 //    test_burst_channel_data();
 //    test_continuous_channel_data();
 //    test_integrated_channel_data();
-//    test_correlator_data();
 //    test_station_data();
 //    test_multi();
 //    test_antenna_buffer_data();

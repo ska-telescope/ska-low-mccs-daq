@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* [THORN-708] Removed the legacy xGPU correlator in favour of the ASTRON Tensor-Core-Correlator (TCC). BREAKING: the `CORRELATOR_DATA` DAQ mode, the `correlator` consumer, the `-K`/`--correlator` CLI flag and the `WITH_CORRELATOR`/`WITH_SMALL_STATION` CMake options are gone. Use `TC_CORRELATOR_DATA`, the `tensorcorrelator` consumer, `-J`/`--tc_correlator` and `WITH_TCC` instead.
 * [THORN-614] Added tests using pcap replayer to ensure daq recieves packets.
 
 ## 9.0.0

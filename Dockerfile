@@ -53,15 +53,6 @@ RUN apt-get update && apt-get install -y \
 # how daqqer reaches it, because /root is 0700. Runtime does not use Poetry.
 RUN ln -sfn /root/.local/bin/poetry /usr/local/bin/poetry
 
-# Clone and install xGPU. ldconfig is needed because libaavsdaq.so links
-# libxgpu.so from /usr/local/lib, and the setcap below puts the loader in secure
-# mode, where it ignores LD_LIBRARY_PATH and uses only the cache and rpaths.
-WORKDIR /app/
-RUN git clone https://github.com/GPU-correlators/xGPU.git /app/xGPU/
-WORKDIR /app/xGPU/src/
-RUN make NFREQUENCY=1 NTIME=1835008 NTIME_PIPE=16384 install && ldconfig
-
-
 # Install AAVS DAQ. The cdaq build fetches and builds the DAQ core (libdaq) at
 # the commit cdaq/cmake/AavsDaqSource.cmake pins, and installs it with the cdaq
 # libraries into ${DAQ_INSTALL}, where the ctypes loader of pydaq finds them.
@@ -70,7 +61,6 @@ COPY --chown=daqqer:daqqer /src/ska_low_mccs_daq/cdaq /app/aavs-system/cdaq/
 WORKDIR /app/aavs-system/build
 RUN cmake /app/aavs-system/cdaq \
         -DCMAKE_INSTALL_PREFIX="${DAQ_INSTALL}" \
-        -DWITH_CORRELATOR=ON \
         -DWITH_TCC=ON \
     && make -j8 install
 

@@ -28,7 +28,6 @@ class DaqModes(IntEnum):
     INTEGRATED_BEAM_DATA = 4
     INTEGRATED_CHANNEL_DATA = 5
     STATION_BEAM_DATA = 6
-    CORRELATOR_DATA = 7
     ANTENNA_BUFFER = 8
     RAW_STATION_BEAM = 10
     TC_CORRELATOR_DATA = 11
@@ -127,14 +126,6 @@ class DaqReceiver:
             ("station_id", ctypes.c_uint16),
             ("fpga_id", ctypes.c_uint8 * 128),
             ("payload_offset", ctypes.c_uint64),
-        ]
-
-    class CorrelatorMetadata(ctypes.Structure):
-        _fields_ = [
-            ("channel_id", ctypes.c_uint),
-            ("time_taken", ctypes.c_double),
-            ("nof_samples", ctypes.c_uint),
-            ("nof_packets", ctypes.c_uint),
         ]
 
     class TensorCorrelatorMetadata(ctypes.Structure):
@@ -308,9 +299,6 @@ class DaqReceiver:
             ),
             DaqModes.STATION_BEAM_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._station_callback
-            ),
-            DaqModes.CORRELATOR_DATA: self.DYNAMIC_DATA_CALLBACK(
-                self._correlator_callback
             ),
             DaqModes.ANTENNA_BUFFER: self.DYNAMIC_DATA_CALLBACK(
                 self._antenna_buffer_callback
@@ -788,99 +776,6 @@ class DaqReceiver:
                 "integrated_beam", filename, tile, spead_metadata=metadata
             )
 
-    def _correlator_callback(
-        self,
-        data: ctypes.POINTER,
-        timestamp: float,
-        metadata: ctypes.POINTER,
-    ) -> None:
-        """Correlated data callback
-        :param data: Received data
-        :param timestamp: Timestamp of first sample in data
-        :param metadata: Pointer to the metadata associated with the callback.
-        """
-
-        if not self._config["write_to_disk"]:
-            return
-
-        metadata = ctypes.cast(
-            metadata, ctypes.POINTER(self.CorrelatorMetadata)
-        ).contents
-        channel_id = metadata.channel_id
-        time_taken = metadata.time_taken
-        nof_samples = metadata.nof_samples
-        nof_packets = metadata.nof_packets
-
-        # Extract data sent by DAQ
-        nof_antennas = self._config["nof_tiles"] * self._config["nof_antennas"]
-        nof_baselines = int((nof_antennas + 1) * 0.5 * nof_antennas)
-        nof_stokes = (
-            self._config["nof_polarisations"] * self._config["nof_polarisations"]
-        )
-        nof_channels = 1
-
-        values = self._get_numpy_from_ctypes(
-            data, np.complex64, nof_channels * nof_baselines * nof_stokes
-        )
-
-        # The correlator reorders the matrix in lower triangular form, this needs to be converted
-        # to upper triangular form to be compatible with the rest of the system
-        data = np.reshape(np.conj(values), (nof_baselines, nof_stokes))
-        grid = np.zeros((nof_antennas, nof_antennas, nof_stokes), dtype=np.complex64)
-
-        counter = 0
-        for i in range(nof_antennas):
-            for j in range(i + 1):
-                grid[j, i, :] = data[counter, :]
-                counter += 1
-
-        values = np.zeros(nof_baselines * nof_stokes, dtype=np.complex64)
-
-        counter = 0
-        for i in range(nof_antennas):
-            for j in range(i, nof_antennas):
-                values[counter * nof_stokes : (counter + 1) * nof_stokes] = grid[
-                    i, j, :
-                ]
-                counter += 1
-
-        # Persist extracted data to file
-        persister = self._persisters[DaqModes.CORRELATOR_DATA]
-        if self._config["nof_correlator_channels"] == 1:
-
-            if DaqModes.CORRELATOR_DATA not in list(self._timestamps.keys()):
-                self._timestamps[DaqModes.CORRELATOR_DATA] = timestamp
-
-            filename = persister.ingest_data(
-                append=True,
-                data_ptr=values,
-                timestamp=self._timestamps[DaqModes.CORRELATOR_DATA],
-                sampling_time=self._sampling_time[DaqModes.CORRELATOR_DATA],
-                buffer_timestamp=timestamp,
-                channel_id=channel_id,
-            )
-        else:
-            filename = persister.ingest_data(
-                append=False,
-                data_ptr=values,
-                timestamp=timestamp,
-                sampling_time=self._sampling_time[DaqModes.CORRELATOR_DATA],
-                channel_id=channel_id,
-            )
-
-        # Call external callback if defined
-        if self._external_callbacks[DaqModes.CORRELATOR_DATA] is not None:
-            self._external_callbacks[DaqModes.CORRELATOR_DATA](
-                "correlator",
-                filename,
-                nof_packets=nof_packets,
-                nof_samples=nof_samples,
-                correlator_time_taken=time_taken,
-            )
-
-        if self._config["logging"]:
-            self._logger.info("Received correlated data for channel {}".format(channel_id))
-
     def _tc_correlator_callback(
         self,
         data: ctypes.POINTER,
@@ -928,8 +823,8 @@ class DaqReceiver:
         # to upper triangular form to be compatible with the rest of the system
         data = np.reshape(values, (nof_baselines, nof_stokes))
 
-        # Reshape data such that XY/YX stokes are inverted. This is to be consistent with xGPU
-        # and the rest of the calibration architecture
+        # Reshape data such that XY/YX stokes are inverted. This is to be consistent
+        # with the stokes ordering the calibration architecture expects.
         data[:, [1, 2]] = data[:, [2, 1]]
         grid = np.zeros((nof_antennas, nof_antennas, nof_stokes), dtype=np.complex64)
 
@@ -1604,71 +1499,6 @@ class DaqReceiver:
 
         self._logger.info("Started TC correlator")
 
-    def _start_correlator(self, callback: Optional[Callable] = None) -> None:
-        """Start correlator
-        :param callback: Caller callback
-        """
-
-        # Generate configuration for raw consumer
-        params = {
-            "nof_channels": self._config["nof_correlator_channels"],
-            "nof_fine_channels": 1,
-            "nof_samples": self._config["nof_correlator_samples"],
-            "nof_antennas": self._config["nof_antennas"],
-            "nof_tiles": self._config["nof_tiles"],
-            "nof_pols": self._config["nof_polarisations"],
-            "max_packet_size": self._config["receiver_frame_size"],
-        }
-
-        if (
-            self._start_consumer(
-                "correlator",
-                params,
-                self._callbacks[DaqModes.CORRELATOR_DATA],
-                dynamic_callback=True,
-            )
-            != self.Result.Success
-        ):
-            raise Exception("Failed to start correlator")
-        self._running_consumers[DaqModes.CORRELATOR_DATA] = True
-
-        # Create data persister
-        corr_file = CorrelationFormatFileManager(
-            root_path=self._config["directory"],
-            data_type="complex64",
-            observation_metadata=self._config["observation_metadata"],
-        )
-
-        nof_baselines = int(
-            (self._config["nof_tiles"] * self._config["nof_antennas"] + 1)
-            * 0.5
-            * self._config["nof_tiles"]
-            * self._config["nof_antennas"]
-        )
-
-        corr_file.set_metadata(
-            n_chans=1,
-            n_pols=self._config["nof_polarisations"],
-            n_samples=1,
-            n_antennas=self._config["nof_tiles"] * self._config["nof_antennas"],
-            n_stokes=self._config["nof_polarisations"]
-            * self._config["nof_polarisations"],
-            n_baselines=nof_baselines,
-            station_id=self._config["station_id"],
-            station_name=self._config["station_name"],
-        )
-        self._persisters[DaqModes.CORRELATOR_DATA] = corr_file
-
-        # Set sampling time
-        self._sampling_time[DaqModes.CORRELATOR_DATA] = self._config[
-            "nof_correlator_samples"
-        ] / float(self._config["sampling_rate"])
-
-        # Set external callback
-        self._external_callbacks[DaqModes.CORRELATOR_DATA] = callback
-
-        self._logger.info("Started correlator")
-
     def _start_antenna_buffer_data_consumer(
         self, callback: Optional[Callable] = None
     ) -> None:
@@ -1832,15 +1662,6 @@ class DaqReceiver:
 
         self._logger.info("Stopped TC correlator")
 
-    def _stop_correlator(self) -> None:
-        """Stop correlator consumer"""
-        self._external_callbacks[DaqModes.CORRELATOR_DATA] = None
-        if self._stop_consumer("correlator") != self.Result.Success:
-            raise Exception("Failed to stop correlator")
-        self._running_consumers[DaqModes.CORRELATOR_DATA] = False
-
-        self._logger.info("Stopped correlator")
-
     def _stop_antenna_buffer_consumer(self) -> None:
         """Stop antenna buffer consumer"""
         self._external_callbacks[DaqModes.ANTENNA_BUFFER] = None
@@ -1975,10 +1796,6 @@ class DaqReceiver:
             if DaqModes.STATION_BEAM_DATA == mode:
                 self._start_station_beam_data_consumer(callbacks[i])
 
-            # Running in correlator mode
-            if DaqModes.CORRELATOR_DATA == mode:
-                self._start_correlator(callbacks[i])
-
             # Running in antenna buffer mode
             if DaqModes.ANTENNA_BUFFER == mode:
                 self._start_antenna_buffer_data_consumer(callbacks[i])
@@ -2007,7 +1824,6 @@ class DaqReceiver:
             DaqModes.INTEGRATED_BEAM_DATA: self._stop_integrated_beam_data_consumer,
             DaqModes.INTEGRATED_CHANNEL_DATA: self._stop_integrated_channel_data_consumer,
             DaqModes.STATION_BEAM_DATA: self._stop_station_beam_data_consumer,
-            DaqModes.CORRELATOR_DATA: self._stop_correlator,
             DaqModes.ANTENNA_BUFFER: self._stop_antenna_buffer_consumer,
             DaqModes.RAW_STATION_BEAM: self._stop_station_beam_acquisition,
             DaqModes.TC_CORRELATOR_DATA: self._stop_tc_correlator,
@@ -2831,14 +2647,6 @@ if __name__ == "__main__":
         help="Read integrated channel data[default: False]",
     )
     parser.add_option(
-        "-K",
-        "--correlator",
-        action="store_true",
-        dest="correlator",
-        default=False,
-        help="Perform correlator [default: False]",
-    )
-    parser.add_option(
         "-J",
         "--tc_correlator",
         action="store_true",
@@ -2975,7 +2783,6 @@ if __name__ == "__main__":
             "read_channel_data",
             "continuous_channel",
             "integrated_channel",
-            "correlator",
             "tc_correlator",
             "antenna_buffer",
             "raw_station_beam",
@@ -2995,7 +2802,6 @@ if __name__ == "__main__":
             config.read_beam_data,
             config.read_channel_data,
             config.read_raw_data,
-            config.correlator,
             config.tc_correlator,
             config.antenna_buffer,
             config.continuous_channel,
@@ -3013,7 +2819,6 @@ if __name__ == "__main__":
             config.read_beam_data,
             config.read_channel_data,
             config.read_raw_data,
-            config.correlator,
             config.tc_correlator,
             config.continuous_channel,
             config.integrated_beam,
@@ -3053,9 +2858,6 @@ if __name__ == "__main__":
 
     if config.station_beam:
         modes_to_start.append(DaqModes.STATION_BEAM_DATA)
-
-    if config.correlator:
-        modes_to_start.append(DaqModes.CORRELATOR_DATA)
 
     if config.tc_correlator:
         modes_to_start.append(DaqModes.TC_CORRELATOR_DATA)

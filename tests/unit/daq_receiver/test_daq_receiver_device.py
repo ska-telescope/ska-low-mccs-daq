@@ -673,12 +673,12 @@ class TestPatchedDaq:
             ),
             (
                 (
-                    "correlator",
+                    "tc_correlator",
                     "file_name",
                     json.dumps({}),
                 ),
                 {
-                    "data_mode": "correlator",
+                    "data_mode": "tc_correlator",
                     "file_name": "file_name",
                     "metadata": {},
                 },
@@ -781,7 +781,7 @@ class TestPatchedDaq:
             "DaqModes.INTEGRATED_BEAM_DATA",
             "DaqModes.INTEGRATED_CHANNEL_DATA",
             "DaqModes.STATION_BEAM_DATA",
-            "DaqModes.CORRELATOR_DATA",
+            "DaqModes.TC_CORRELATOR_DATA",
             "DaqModes.ANTENNA_BUFFER",
             "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,",
         ),

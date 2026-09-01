@@ -116,7 +116,6 @@ oci-image-build:
     - '(docker exec --user root daq-build-container sh -c "env | grep -i lib") >> build.env'
     - '(docker exec --user root daq-build-container sh -c "env | grep -i path") >> build.env'
     - docker cp -a daq-build-container:/opt/aavs ${CI_PROJECT_DIR}/aavs
-    - docker cp -a daq-build-container:/usr/local/lib/libxgpu.so ${CI_PROJECT_DIR}/aavs/lib
     - docker stop daq-build-container
     - docker rm daq-build-container
   artifacts:
@@ -173,7 +172,6 @@ python-test:
       fi;
     - mkdir /opt/aavs
     - cp -R ${CI_PROJECT_DIR}/aavs /opt/
-    - cp -R ${CI_PROJECT_DIR}/aavs/lib/libxgpu.so /usr/local/lib/
     - ls -lR /opt/aavs
   script:
     - make python-test;

@@ -30,12 +30,12 @@ This is a separate shared library that implements AAVS-specific consumers. There
 - Integrated channel data consumer - Processes integrated spectra per antenna (TPM must be configured to send this data)
 - Tile beam data consumer - Processes beamformed data transmitted after the tile beamformer, so all TPMs send this (``send_beam_data``)
 - Integrated beam data consumer - Processes integrated tile beamformed data (TPM must be configured to send this data)
-- Correlator consumer - Processes either continuous or burst channelised data, used xGPU to correlate this to generate correlation matrices
+- Correlator consumer - Processes either continuous or burst channelised data, using the ASTRON Tensor-Core-Correlator (TCC) to correlate this to generate correlation matrices
 - Station beam consumer - Processes the station beam
 - Raw station beam consumer - Processes the raw station beam
 - Integrated station beam consumer - Integrated the received station beam
 
-All consumers have internal buffering to cater for out of order packet arrival, and most have an N-buffer system to deal with late-arriving packets belonging to previous buffers. In general, there is 1 thread performing packet reception and another thread running the consumer. The correlator has an additional thread that interacts with xGPU. The consumers are parametrizable with a JSON string. An external callback can be provided to a callback that is called when a buffer is filled. The signature of this callback is:
+All consumers have internal buffering to cater for out of order packet arrival, and most have an N-buffer system to deal with late-arriving packets belonging to previous buffers. In general, there is 1 thread performing packet reception and another thread running the consumer. The correlator has an additional thread that interacts with TCC. The consumers are parametrizable with a JSON string. An external callback can be provided to a callback that is called when a buffer is filled. The signature of this callback is:
 
 .. code-block:: cpp
 
@@ -139,7 +139,7 @@ This section provides command-line examples on acquiring data from AAVS stations
 | To send: Station must be configured with ``beam_integration_time != 1``
 | An integrated partial beam spectrum from each tile is received every ``beam_integration_time``.
 
-| To receive: ``daq_receiver_interface.py -i eth3 -d . -K -t 16 --correlator_samples=1835008``
+| To receive: ``daq_receiver_interface.py -i eth3 -d . -J -t 16 --correlator_samples=1835008``
 | To send: ``station.send_channelised_data(1835008)`` or ``station.send_channelised_data_continuous(204)``
 | Run real-time correlator on the stream of incoming channelised voltages.
 
@@ -351,16 +351,9 @@ The AAVS DAQ library:
 - ``git clone https://gitlab.com/ska-telescope/aavs-system.git``
 - ``cd aavs-system/src``
 - ``mkdir build; cd build``
-- ``cmake -DCMAKE_INSTALL_PREFIX=install_path -DDAQ_DIRECTORY=daq_core_path -DWITH_CORRELATOR=[ON|OFF]``
+- ``cmake -DCMAKE_INSTALL_PREFIX=install_path -DDAQ_DIRECTORY=daq_core_path -DWITH_TCC=[ON|OFF]``
 
-Note that to compile with the correlator option (``-DWITH_CORRELATOR=ON``), xGPU has to be installed and configured appropriately:
-
-- Make sure that CUDA is installed and set up correctly
-- ``git clone https://github.com/GPU-correlators/xGPU.git``
-- ``cd src``
-- In ``xgpu_info.h`` change ``NFREQUENCY`` from 10 to 1, ``NTIME`` from 1024 to 1835008 (this can change depending on the integration time required), and ``NTIME_PIPE`` from 128 to 16384
-- In ``Makefile`` change ``CUDA_ARCH`` to the GPU architecture being used (will generate more optimised code for the hardware)
-- ``[sudo] make install``
+The correlator option (``-DWITH_TCC=ON``) builds ``libaavsdaq_tcc.so`` against the ASTRON Tensor-Core-Correlator. TCC and cudawrappers are fetched and built from source at the commit ``cdaq/cmake/FetchTensorCorrelator.cmake`` pins, so the only prerequisite is a working CUDA toolkit. Set ``-DCMAKE_CUDA_ARCHITECTURES`` to the GPU architecture in use (it defaults to ``80``).
 
 The PyDAQ library:
 

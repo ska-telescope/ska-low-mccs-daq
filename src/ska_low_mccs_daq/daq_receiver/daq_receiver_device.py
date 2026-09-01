@@ -536,11 +536,10 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
                 expected_nof_packets = (nof_channels / channels_per_packet) * (
                     nof_antennas / antennas_per_packet
                 )
-            case "CORRELATOR_DATA":
-                # Using this as xGPU requires 16 tiles hardcoded,
-                # but we'll still only get this many packets.
-                # So for environments with less that 16 tiles, the
-                # config would give an incorrect calculation.
+            case "TC_CORRELATOR_DATA":
+                # The device property rather than the configured nof_tiles,
+                # which is fixed at 16 and would give an incorrect
+                # calculation for environments with fewer tiles.
                 nof_tiles = self.NumberOfTiles
                 nof_samples = int(config["nof_correlator_samples"])
                 samples_per_packet = 256
@@ -570,7 +569,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
     def _update_relative_nof_samples(self, abs_nof_samples: int) -> None:
         config = self.component_manager.get_configuration()
         match self.component_manager.running_consumers[0][0]:
-            case "CORRELATOR_DATA":
+            case "TC_CORRELATOR_DATA":
                 expected_nof_samples = int(config["nof_correlator_samples"])
             case _:
                 self.logger.debug(
@@ -590,7 +589,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
     def _update_correlator_time_util(self, correlator_time_taken: float) -> None:
         config = self.component_manager.get_configuration()
-        if self.component_manager.running_consumers[0][0] != "CORRELATOR_DATA":
+        if self.component_manager.running_consumers[0][0] != "TC_CORRELATOR_DATA":
             self.logger.debug(
                 "Received correlator_time_taken for unsupported DAQ mode, "
                 "ignoring for health monitoring."
@@ -711,7 +710,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             if "additional_info" in metadata_dict:
                 if data_mode == "station":
                     event_value["amount_of_data"] = metadata_dict["additional_info"]
-                elif data_mode != "correlator":
+                elif data_mode != "tc_correlator":
                     event_value["tile"] = metadata_dict["additional_info"]
         else:
             self.logger.info(f"No metadata found for {data_mode=}, {file_name=}")
@@ -1328,18 +1327,18 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         dtype="DevFloat",
         doc=(
             "The amount of time taken to complete the last",
-            " correlation in xGPU/TCC. If this is increasing likely ",
+            " correlation in TCC. If this is increasing likely ",
             "the GPU is under contention.",
         ),
         unit="ms",
     )
     def correlatorTimeTaken(self: MccsDaqReceiver) -> float:
         """
-        Return the time taken for the last correlation in xGPU in ms.
+        Return the time taken for the last correlation in TCC in ms.
 
         if this is increasing likely the GPU is under contention.
 
-        :return: the time taken for the last correlation in xGPU in ms.
+        :return: the time taken for the last correlation in TCC in ms.
         """
         return self._correlator_time_taken
 
@@ -1402,7 +1401,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         dtype="DevFloat",
         doc=(
             "The time taken to complete the last ",
-            "correlation in xGPU relative to available time given nof_samples.",
+            "correlation in TCC relative to available time given nof_samples.",
         ),
         max_warning=50.0,
         max_alarm=90.0,

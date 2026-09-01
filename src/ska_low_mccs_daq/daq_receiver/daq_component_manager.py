@@ -237,7 +237,6 @@ class DaqComponentManager(TaskExecutorComponentManager):
             "burst_channel": DaqModes.CHANNEL_DATA,
             "burst_beam": DaqModes.BEAM_DATA,
             "integrated_beam": DaqModes.INTEGRATED_BEAM_DATA,
-            "correlator": DaqModes.CORRELATOR_DATA,
             "tc_correlator": DaqModes.TC_CORRELATOR_DATA,
             "station": DaqModes.STATION_BEAM_DATA,
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
@@ -599,7 +598,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         # Callbacks to call for all data modes.
         daq_mode = self._data_mode_mapping[data_mode]
-        if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
+        if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.TC_CORRELATOR_DATA}:
             metadata = self._daq_client._persisters[daq_mode].get_metadata(
                 tile_id=additional_info
             )
@@ -639,7 +638,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if data_mode == "integrated_channel":
             pass
 
-        if data_mode == "correlator":
+        if data_mode == "tc_correlator":
             pass
 
     def _diagnostic_callback(

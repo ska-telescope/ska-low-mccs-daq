@@ -269,8 +269,8 @@ def start_all_consumers(
     """
     Start all available consumers.
 
-    This starts all consumers except for CORRELATOR_DATA as it is
-    unavailable.
+    This starts all consumers except for TC_CORRELATOR_DATA, which
+    needs a GPU.
 
     :param daq_receiver: A proxy to the MccsDaqReceiver device under test.
     :param all_available_consumers: A list of all DaqModes/consumers.

@@ -45,7 +45,6 @@ Feature: Daq Status Reporting
             | 'CONTINUOUS_CHANNEL_DATA' | ci-1         |
             | 'INTEGRATED_BEAM_DATA'    | ci-1         |
             | 'STATION_BEAM_DATA'       | ci-1         |
-            | 'CORRELATOR_DATA'         | ci-1         |
             | 'ANTENNA_BUFFER'          | ci-1         |
             | 'RAW_DATA'                | real-daq-1   |
             | 'CHANNEL_DATA'            | real-daq-1   |
@@ -53,7 +52,6 @@ Feature: Daq Status Reporting
             | 'CONTINUOUS_CHANNEL_DATA' | real-daq-1   |
             | 'INTEGRATED_BEAM_DATA'    | real-daq-1   |
             | 'STATION_BEAM_DATA'       | real-daq-1   |
-            #        |   'CORRELATOR_DATA'           |            real-daq-1         | # bug MCCS-1810 and needs GPU.
             | 'ANTENNA_BUFFER'          | real-daq-1   |
 
     @forked

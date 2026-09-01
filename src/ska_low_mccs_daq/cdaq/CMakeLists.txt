@@ -13,15 +13,10 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # sources include. Every library below links to it.
 include(FetchAavsDaq)
 
-# Add options to compile the two independent correlators. Each pulls in its
-# own GPU dependency (xGPU vs Tensor-Core-Correlator/cudawrappers) and neither
-# requires the other, so they can be built alone or together.
-option(WITH_CORRELATOR "Compile cross-correlator which uses xGPU" OFF)
+# The correlator is built as its own library, because it is the only part of
+# this project that needs a GPU toolchain (Tensor-Core-Correlator/cudawrappers).
 option(WITH_TCC "Compile Tensor-Core-Correlator (TCC) GPU correlator" OFF)
-option(WITH_SMALL_STATION "Compile a separate library for 48 element stations" OFF)
-message(STATUS "xGPU correlator compilation: ${WITH_CORRELATOR}")
 message(STATUS "TCC correlator compilation: ${WITH_TCC}")
-message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")
 
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 
@@ -42,18 +37,7 @@ set(AAVS_FILES RawData.cpp
         AntennaBuffer.cpp
         AntennaBuffer.h)
 
-# Add xGPU cross-correlator sources if required (needs xgpu.h / libxgpu)
-if (WITH_CORRELATOR)
-    add_definitions(-DWITH_CORRELATOR)
-    list(APPEND AAVS_FILES DoubleBuffer.cpp
-                           DoubleBuffer.h
-                           CorrelatorData.cpp
-                           CorrelatorData.h
-                           StandaloneCorrelator.cpp)
-endif()
-
-# Add the TCC correlator library if required. Independent of WITH_CORRELATOR:
-# only needs the CUDA toolkit, not xgpu.h/libxgpu.
+# Add the TCC correlator library if required.
 if (WITH_TCC)
     add_definitions(-DWITH_TCC)
     add_library(aavsdaq_tcc SHARED
@@ -80,20 +64,9 @@ set(STATION_BEAM_FILES StationDataRaw.cpp
 add_library(aavsdaq SHARED ${AAVS_FILES})
 
 # Compile AAVSDAQ library
-if (WITH_CORRELATOR)
-    target_link_libraries(aavsdaq daq xgpu ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(aavsdaq daq ${CMAKE_THREAD_LIBS_INIT})
 
-    if (WITH_SMALL_STATION)
-        # Compile a different library using xgpu for 48 antennas
-        add_library(aavsdaq48 SHARED ${AAVS_FILES} )
-        target_link_libraries(aavsdaq48 daq xgpu48 ${MAKE_THREAD_LIBS_INIT})
-    endif()
-else()
-    target_link_libraries(aavsdaq daq ${CMAKE_THREAD_LIBS_INIT})
-endif()
-
-# Build and link the TCC correlator library. Independent of WITH_CORRELATOR:
-# only needs a CUDA toolkit, never touches xgpu.h/libxgpu.
+# Build and link the TCC correlator library.
 if (WITH_TCC)
     find_package(CUDAToolkit REQUIRED)
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
@@ -126,11 +99,7 @@ target_link_libraries(aavsstationbeam aavsdaq ${MAKE_THREAD_LIBS_INIT})
 # these libraries instead of taking it from a system-wide install. Python dlopens
 # libaavsdaq.so by absolute path, so give them an $ORIGIN rpath rather than rely
 # on LD_LIBRARY_PATH, as for aavsdaq_tcc above.
-set(_daq_libs aavsdaq aavsstationbeam)
-if (WITH_SMALL_STATION AND WITH_CORRELATOR)
-    list(APPEND _daq_libs aavsdaq48)
-endif()
-set_target_properties(${_daq_libs} PROPERTIES
+set_target_properties(aavsdaq aavsstationbeam PROPERTIES
     BUILD_WITH_INSTALL_RPATH FALSE
     INSTALL_RPATH "$ORIGIN")
 
@@ -156,8 +125,4 @@ if (WITH_TCC)
   # and not a plain DESTINATION, which would also install the PUBLIC_HEADER files
   # of tcc. Those resolve against this directory, and cdaq has no such headers.
   install(TARGETS tcc LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-endif()
-
-if (WITH_SMALL_STATION)
-    install(TARGETS "aavsdaq48" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()

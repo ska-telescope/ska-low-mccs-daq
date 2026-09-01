@@ -112,7 +112,7 @@ Consumer Diagnostics
 
     1. For the station beam consumer this is dependent on the integration time, the higher the integation time
        the more packets we expect per integration. (nof_station_samples * nof_channels / 2048)
-    2. For the xGPU correlator data consumer, this at the moment should be 1835008/128 per TPM as each packet contains 128 samples, and nof samples is fixed to 1835008. 
+    2. For the TCC correlator data consumer, this is 1835008/128 per TPM at the default integration of 1835008 samples, as each packet contains 128 samples. 
        Note: there is some odd behaviour with this attribute at the beginning/end of a frequency sweep which is not yet understood.
     3. For the integrated channel data consumer (bandpasses), should be 32 packets per TPM sending data as each packet contains data for 8 antennas and 32 channels.
 
@@ -134,10 +134,9 @@ Consumer Diagnostics
 
    Total number of data samples received in the last callback from the running consumer.
 
-   For the xGPU correlator data consumer, this at the moment should be 1835008 as the correlator is fixed to this integration period.
+   For the TCC correlator this is variable, as the integration time can be changed. It matches the configured
+   ``nof_correlator_samples``, 1835008 by default.
    Note: there is some odd behaviour with this attribute at the beginning/end of a frequency sweep which is not yet understood.
-
-   For the TCC correlator this is variable as the integration time can be changed. 
    
 .. attribute:: relativeNofSamplesDiff
 
@@ -154,7 +153,7 @@ Consumer Diagnostics
 
    **Unit:** milliseconds (ms)  
 
-   Time taken to complete the last correlation in xGPU or TCC, measured in milliseconds.
+   Time taken to complete the last correlation in TCC, measured in milliseconds.
    A rising trend may indicate GPU contention or performance bottlenecks.
 
 .. attribute:: hostToDeviceCopyTime
@@ -196,7 +195,7 @@ Consumer Diagnostics
 
    **Unit:** percentage  
 
-   Time taken to complete the last correlation in xGPU, compared to how long we have available, given current DAQ configuration.
+   Time taken to complete the last correlation in TCC, compared to how long we have available, given current DAQ configuration.
 
    E.g For a correlation of 1835008 samples, the sampling time is 1835008/925925.925 seconds. This means the TPMs will spend about 2 seconds per channel.
    The consumer loads those samples into a buffer, then once the next channel arrives it moves to the next buffer. This means the consumer rotates through buffers
