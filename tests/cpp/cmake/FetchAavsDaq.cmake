@@ -6,8 +6,8 @@ include(AavsDaqSource)
 # detail). Only the test binaries need it, as they run unprivileged on CI.
 include(PatchRealTimeThread)
 
-# STATIC and without libnuma, unlike the shared libdaq.so the product build
-# installs, because nothing dlopens this one.
+# STATIC, unlike the shared libdaq.so the product build installs, because
+# nothing dlopens this one.
 add_library(aavsdaq STATIC ${AAVS_DAQ_SOURCES})
 target_include_directories(aavsdaq PUBLIC ${AAVS_DAQ_SRC})
 target_link_libraries(aavsdaq PUBLIC pthread dl)

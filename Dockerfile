@@ -33,9 +33,9 @@ ENV DAQ_INSTALL="/opt/aavs"
 ENV CMAKE_PREFIX_PATH="/opt/aavs:${CMAKE_PREFIX_PATH}"
 ENV LD_LIBRARY_PATH="/opt/aavs/lib:/usr/local/lib:${LD_LIBRARY_PATH}"
 
-# The base image lacks only cmake, libcap2-bin (setcap), libnuma-dev (libdaq
-# links -lnuma), sudo (used by .devcontainer) and tzdata. The rest are listed to
-# keep the toolchain this build needs explicit.
+# The base image lacks only cmake, libcap2-bin (setcap), sudo (used by
+# .devcontainer) and tzdata. The rest are listed to keep the toolchain this build
+# needs explicit.
 RUN apt-get update && apt-get install -y \
     build-essential \
     ca-certificates \
@@ -43,7 +43,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     libcap2-bin \
-    libnuma-dev \
     make \
     sudo \
     tzdata

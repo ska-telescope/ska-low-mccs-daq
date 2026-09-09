@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
 
-# Add include and lib directories
-link_directories(/usr/local /usr/lib/x86_64-linux-gnu/lib)
-include_directories(/usr/lib/x86_64-linux-gnu/include ${CMAKE_INSTALL_PREFIX}/include)
-
 project(AAVS_DAQ C CXX)
 
 # The helper modules are in cmake/. This makes include(<name>) find them.
@@ -22,8 +18,6 @@ option(WITH_SMALL_STATION "Compile a separate library for 48 element stations" O
 message(STATUS "xGPU correlator compilation: ${WITH_CORRELATOR}")
 message(STATUS "TCC correlator compilation: ${WITH_TCC}")
 message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")
-
-link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 
 # CMAKE compilation flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx2 -g")
@@ -107,11 +101,10 @@ if (WITH_TCC)
 
     target_link_libraries(aavsdaq_tcc daq tcc cudawrappers::cu cudawrappers::nvrtc)
 
-    # tcc is built from source here (not a system install under /usr/local/lib
-    # like before), so it must be installed and made findable at runtime.
-    # aavsdaq_tcc.so is dlopen'd from Python by absolute path (no LD_LIBRARY_PATH
-    # guarantee), so give it an $ORIGIN rpath and install libtcc.so right next to
-    # it, rather than relying on ldconfig/LD_LIBRARY_PATH covering the install dir.
+    # tcc is built from source here, so libtcc.so has to be installed and
+    # findable at runtime. aavsdaq_tcc.so is dlopen'd from Python by absolute
+    # path, with no LD_LIBRARY_PATH guarantee, so it carries an $ORIGIN rpath and
+    # libtcc.so installs right beside it (see the install rules below).
     set_target_properties(aavsdaq_tcc PROPERTIES
         BUILD_WITH_INSTALL_RPATH FALSE
         INSTALL_RPATH "$ORIGIN")
@@ -122,10 +115,9 @@ add_library(aavsstationbeam SHARED ${STATION_BEAM_FILES})
 set_target_properties(aavsstationbeam PROPERTIES PUBLIC_HEADER "acquire_station_beam.h")
 target_link_libraries(aavsstationbeam aavsdaq ${MAKE_THREAD_LIBS_INIT})
 
-# This project now builds libdaq.so (see FetchAavsDaq) and installs it beside
-# these libraries instead of taking it from a system-wide install. Python dlopens
-# libaavsdaq.so by absolute path, so give them an $ORIGIN rpath rather than rely
-# on LD_LIBRARY_PATH, as for aavsdaq_tcc above.
+# This project builds libdaq.so (see FetchAavsDaq) and installs it beside these
+# libraries. Python dlopens libaavsdaq.so by absolute path, so they need an
+# $ORIGIN rpath to resolve libdaq.so, as aavsdaq_tcc does above.
 set(_daq_libs aavsdaq aavsstationbeam)
 if (WITH_SMALL_STATION AND WITH_CORRELATOR)
     list(APPEND _daq_libs aavsdaq48)
@@ -151,10 +143,11 @@ target_link_libraries(acquire_station_beam aavsdaq)
 install(TARGETS "aavsdaq" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 if (WITH_TCC)
   install(TARGETS aavsdaq_tcc DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-  # libtcc.so has no system-wide install now (see FetchTensorCorrelator), so it
-  # goes beside aavsdaq_tcc.so for the $ORIGIN rpath to find. LIBRARY DESTINATION
-  # and not a plain DESTINATION, which would also install the PUBLIC_HEADER files
-  # of tcc. Those resolve against this directory, and cdaq has no such headers.
+  # libtcc.so goes beside aavsdaq_tcc.so for its $ORIGIN rpath to find, because
+  # FetchTensorCorrelator builds it from source and installs it nowhere else.
+  # LIBRARY DESTINATION and not a plain DESTINATION, which would also install the
+  # PUBLIC_HEADER files of tcc. Those resolve against this directory, and cdaq has
+  # no such headers.
   install(TARGETS tcc LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 
