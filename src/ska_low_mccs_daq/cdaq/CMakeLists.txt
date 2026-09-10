@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.18)
 
-# Add include and lib directories
-link_directories(/usr/local /usr/lib/x86_64-linux-gnu/lib ${DAQ_DIRECTORY}/lib)
-include_directories(/usr/lib/x86_64-linux-gnu/include ${CMAKE_INSTALL_PREFIX}/include)
-include_directories(${DAQ_DIRECTORY}/include)
-
 project(AAVS_DAQ C CXX)
+
+# The helper modules are in cmake/. This makes include(<name>) find them.
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
+# Defines the `daq` target, which supplies libdaq.so and the DAQ headers these
+# sources include. Every library below links to it.
+include(FetchAavsDaq)
 
 # Add options to compile the two independent correlators. Each pulls in its
 # own GPU dependency (xGPU vs Tensor-Core-Correlator/cudawrappers) and neither
@@ -16,8 +18,6 @@ option(WITH_SMALL_STATION "Compile a separate library for 48 element stations" O
 message(STATUS "xGPU correlator compilation: ${WITH_CORRELATOR}")
 message(STATUS "TCC correlator compilation: ${WITH_TCC}")
 message(STATUS "48-element station compilation: ${WITH_SMALL_STATION}")
-
-link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 
 # CMAKE compilation flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -D_REENTRANT -fPIC -funroll-loops -O3 -msse4 -mavx2 -g")
@@ -95,49 +95,16 @@ if (WITH_TCC)
     endif()
     enable_language(CUDA)
 
-    # Build the Tensor-Core-Correlator (and the cudawrappers dependency it pulls
-    # in) from source, pinned to the same commit the Docker image builds against.
-    # Defines the `tcc`, `cudawrappers::cu` and `cudawrappers::nvrtc` targets.
-    include(FetchContent)
-    set(BUILD_TESTING OFF CACHE BOOL "Disable TCC's bundled test suite" FORCE)
-
-    # TCC declares its own cudawrappers dependency as `GIT_TAG main`, so pinning
-    # TCC alone does not pin what gets built: on 2026-07-29 a cudawrappers commit
-    # ("Expand CUDA driver API coverage") started using CUDA 12 green-context and
-    # async-notification APIs, which the CUDA 11.8 toolkit in our base image does
-    # not have, and the image build broke with no change on our side. FetchContent
-    # honours the FIRST declaration of a dependency, so declaring it here - before
-    # TCC's own declaration is reached - overrides that floating tag. 1.0.0 is the
-    # last release before the CUDA 12 requirement; bump it only alongside the CUDA
-    # version of the base image.
-    FetchContent_Declare(
-        cudawrappers
-        GIT_REPOSITORY https://github.com/nlesc-recruit/cudawrappers.git
-        GIT_TAG        1.0.0
-    )
-    FetchContent_Declare(
-        tensor_core_correlator
-        GIT_REPOSITORY https://git.astron.nl/RD/tensor-core-correlator.git
-        GIT_TAG        00a9b7b2f826bc3eac26a5368f4a604e33061e6e
-    )
-    FetchContent_MakeAvailable(tensor_core_correlator)
-
-    # TCC's CMake assumes it is the top-level project: it derives the `tcc`
-    # target's public include path from ${CMAKE_SOURCE_DIR}, which resolves to
-    # THIS project (not the TCC tree) when built as a FetchContent subproject.
-    # Point it at the real TCC source/binary roots so its own sources and ours
-    # can resolve "libtcc/..." and TCC-Config.h.
-    target_include_directories(tcc PUBLIC
-        $<BUILD_INTERFACE:${tensor_core_correlator_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${tensor_core_correlator_BINARY_DIR}>)
+    # Builds the `tcc`, `cudawrappers::cu` and `cudawrappers::nvrtc` targets
+    # from source at a pinned commit.
+    include(FetchTensorCorrelator)
 
     target_link_libraries(aavsdaq_tcc daq tcc cudawrappers::cu cudawrappers::nvrtc)
 
-    # tcc is built from source here (not a system install under /usr/local/lib
-    # like before), so it must be installed and made findable at runtime.
-    # aavsdaq_tcc.so is dlopen'd from Python by absolute path (no LD_LIBRARY_PATH
-    # guarantee), so give it an $ORIGIN rpath and install libtcc.so right next to
-    # it, rather than relying on ldconfig/LD_LIBRARY_PATH covering the install dir.
+    # tcc is built from source here, so libtcc.so has to be installed and
+    # findable at runtime. aavsdaq_tcc.so is dlopen'd from Python by absolute
+    # path, with no LD_LIBRARY_PATH guarantee, so it carries an $ORIGIN rpath and
+    # libtcc.so installs right beside it (see the install rules below).
     set_target_properties(aavsdaq_tcc PROPERTIES
         BUILD_WITH_INSTALL_RPATH FALSE
         INSTALL_RPATH "$ORIGIN")
@@ -147,6 +114,17 @@ endif()
 add_library(aavsstationbeam SHARED ${STATION_BEAM_FILES})
 set_target_properties(aavsstationbeam PROPERTIES PUBLIC_HEADER "acquire_station_beam.h")
 target_link_libraries(aavsstationbeam aavsdaq ${MAKE_THREAD_LIBS_INIT})
+
+# This project builds libdaq.so (see FetchAavsDaq) and installs it beside these
+# libraries. Python dlopens libaavsdaq.so by absolute path, so they need an
+# $ORIGIN rpath to resolve libdaq.so, as aavsdaq_tcc does above.
+set(_daq_libs aavsdaq aavsstationbeam)
+if (WITH_SMALL_STATION AND WITH_CORRELATOR)
+    list(APPEND _daq_libs aavsdaq48)
+endif()
+set_target_properties(${_daq_libs} PROPERTIES
+    BUILD_WITH_INSTALL_RPATH FALSE
+    INSTALL_RPATH "$ORIGIN")
 
 # Install raw station beam library
 install(TARGETS "aavsstationbeam"
@@ -165,11 +143,11 @@ target_link_libraries(acquire_station_beam aavsdaq)
 install(TARGETS "aavsdaq" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 if (WITH_TCC)
   install(TARGETS aavsdaq_tcc DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-  # libtcc.so has no system-wide install of its own anymore (see FetchContent
-  # above) — install it next to aavsdaq_tcc.so so its $ORIGIN rpath finds it.
-  # LIBRARY DESTINATION (not a bare DESTINATION) so CMake doesn't also try to
-  # install tcc's PUBLIC_HEADER files here — those resolve relative to *this*
-  # directory's scope, not TCC's, and cdaq has no such headers.
+  # libtcc.so goes beside aavsdaq_tcc.so for its $ORIGIN rpath to find, because
+  # FetchTensorCorrelator builds it from source and installs it nowhere else.
+  # LIBRARY DESTINATION and not a plain DESTINATION, which would also install the
+  # PUBLIC_HEADER files of tcc. Those resolve against this directory, and cdaq has
+  # no such headers.
   install(TARGETS tcc LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 

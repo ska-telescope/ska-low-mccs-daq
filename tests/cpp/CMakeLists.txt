@@ -13,8 +13,11 @@ set(CDAQ_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../../src/ska_low_mccs_daq/cdaq)
 set(TEST_CPP_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CDAQ_SRC} ${TEST_CPP_ROOT})
 
-# Our helper modules live in cmake/; make them resolvable by include(<name>).
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+# The helper modules are in cmake/. This makes include(<name>) find them.
+# AavsDaqSource and FetchTensorCorrelator come from ${CDAQ_SRC}/cmake, because
+# they are shared with the product build and the Docker build copies only cdaq/
+# into the image. The test directory is searched first.
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake ${CDAQ_SRC}/cmake)
 
 enable_testing()
 
