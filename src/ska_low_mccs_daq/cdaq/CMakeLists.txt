@@ -112,10 +112,4 @@ target_link_libraries(acquire_station_beam aavsdaq)
 install(TARGETS "aavsdaq" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 if (WITH_TCC)
   install(TARGETS aavsdaq_tcc DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-  # libtcc.so goes beside aavsdaq_tcc.so for its $ORIGIN rpath to find, because
-  # FetchTensorCorrelator builds it from source and installs it nowhere else.
-  # LIBRARY DESTINATION and not a plain DESTINATION, which would also install the
-  # PUBLIC_HEADER files of tcc. Those resolve against this directory, and cdaq has
-  # no such headers.
-  install(TARGETS tcc LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
