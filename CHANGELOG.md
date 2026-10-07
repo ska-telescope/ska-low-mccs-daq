@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-752] Update CODEOWNERS.
+
 ## 9.0.1
 
 * [THORN-614] Added tests using pcap replayer to ensure daq recieves packets.
