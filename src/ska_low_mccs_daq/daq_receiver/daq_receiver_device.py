@@ -218,6 +218,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self.initialise_change_events()
         self.init_completed()
 
+    # pylint: disable = too-many-statements
     def initialise_change_events(self: MccsDaqReceiver) -> None:
         """Intialise change and archive events."""
         self.set_change_event("dataReceivedResult", True, False)
