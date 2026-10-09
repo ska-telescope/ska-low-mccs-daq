@@ -5,14 +5,17 @@
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
+# pylint: disable=too-many-lines
 """This module contains the tests of the daq component manager."""
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 import h5py
 import numpy as np
@@ -29,7 +32,7 @@ from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes
 NOF_ANTENNAS_PER_TILE = 16
 
 
-class TestDaqComponentManager:
+class TestDaqComponentManager:  # pylint: disable=too-many-public-methods
     """Tests of the Daq Receiver component manager."""
 
     def test_communication(
@@ -803,6 +806,9 @@ class TestDaqComponentManager:
         )
         callbacks["component_state"].assert_call(power=PowerState.UNKNOWN)
         callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        callbacks["component_state"].assert_call(
+            receiver_ip=Anything, receiver_ports=Anything
+        )
         daq_component_manager.start_daq(
             "STATION_BEAM_DATA", task_callback=callbacks["task"]
         )
@@ -825,6 +831,157 @@ class TestDaqComponentManager:
             under test.
         """
         assert daq_component_manager.daq_library == "libaavsdaq.so"
+
+    def test_receiver_destination_reported(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test that the advertised receiver destination is reported.
+
+        It is reported once communication is established, which covers the
+        DAQ pod restarting.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        callbacks["component_state"].assert_call(
+            receiver_ip=daq_component_manager.get_receiver_ip,
+            receiver_ports=[
+                int(port) for port in daq_component_manager.get_receiver_ports
+            ],
+            lookahead=5,
+        )
+
+    @pytest.mark.parametrize(
+        ("receiver_ports", "expected_ports"),
+        [
+            pytest.param(5005, [5005], id="int"),
+            pytest.param("5006", [5006], id="string"),
+            pytest.param(["5009", 5010], [5009, 5010], id="list of strings and ints"),
+        ],
+    )
+    def test_configured_receiver_ports_are_ints(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+        receiver_ports: Any,
+        expected_ports: list[int],
+    ) -> None:
+        """
+        Test that receiver ports are configured as ints, however they are given.
+
+        The DAQ backend binds to the ports as given, so they must be ints by
+        the time they reach it. What is reported must match.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        :param receiver_ports: the receiver ports to configure.
+        :param expected_ports: the receiver ports expected.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.ESTABLISHED, lookahead=2
+        )
+
+        result = daq_component_manager.configure_daq(
+            receiver_ip="10.2.3.4", receiver_ports=receiver_ports
+        )
+
+        assert result[0] == ResultCode.OK
+        assert daq_component_manager._daq_client._config["receiver_ports"] == (
+            expected_ports
+        )
+        assert daq_component_manager.get_status()["Receiver Ports"] == expected_ports
+        assert daq_component_manager.get_receiver_port_numbers == expected_ports
+
+    # pylint: disable-next=too-many-arguments
+    def test_receiver_ports_property_reported_as_ints(
+        self: TestDaqComponentManager,
+        daq_id: int,
+        logger: logging.Logger,
+        callbacks: MockCallableGroup,
+        mock_interface: str,
+        nof_tiles: int,
+    ) -> None:
+        """
+        Test that receiver ports given as a device property are reported as ints.
+
+        The ReceiverPorts property may list several ports, comma-separated.
+
+        :param daq_id: the ID of the daq receiver
+        :param logger: the logger to be used by this object.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        :param mock_interface: the mock interface to use for the DAQ handler.
+        :param nof_tiles: number of tiles to configure the DAQ with.
+        """
+        daq_component_manager = DaqComponentManager(
+            daq_id,
+            mock_interface,
+            "10.3.4.5",
+            "5011,5012",
+            "",
+            nof_tiles,
+            logger,
+            "station_name_here",
+            daq_id,
+            callbacks["communication_state"],
+            callbacks["component_state"],
+            callbacks["received_data"],
+            simulation_mode=True,
+        )
+
+        daq_component_manager.start_communicating()
+        try:
+            callbacks["component_state"].assert_call(
+                receiver_ip="10.3.4.5", receiver_ports=[5011, 5012], lookahead=5
+            )
+            assert daq_component_manager.get_status()["Receiver Ports"] == [
+                5011,
+                5012,
+            ]
+        finally:
+            daq_component_manager.stop_communicating()
+
+    def test_communication_established_when_destination_cannot_be_reported(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test that failing to report the destination doesn't stop communication.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+
+        def component_state_changed(**state_change: Any) -> None:
+            if "receiver_ip" in state_change:
+                raise OverflowError("Value is too large.")
+
+        daq_component_manager._component_state_callback = component_state_changed
+
+        daq_component_manager.start_communicating()
+
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.ESTABLISHED, lookahead=2
+        )
+        assert (
+            daq_component_manager.communication_state == CommunicationStatus.ESTABLISHED
+        )
 
     @pytest.mark.parametrize(
         ("directory_tag", "outcome"),

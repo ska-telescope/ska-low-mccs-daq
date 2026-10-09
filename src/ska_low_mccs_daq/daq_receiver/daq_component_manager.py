@@ -40,6 +40,26 @@ X_POL_INDEX = 0
 Y_POL_INDEX = 1
 
 
+def _port_numbers(ports: Any) -> list[int]:
+    """
+    Return receiver ports as a list of ints.
+
+    The DAQ backend binds to the ports as given, and only converts a single
+    string of comma-separated ports to ints, so ports must be ints before
+    they reach it.
+
+    :param ports: the ports as given: an int, a string of one or more
+        comma-separated ports, or a list of ints and strings.
+
+    :return: the ports as ints.
+    """
+    if isinstance(ports, str):
+        ports = ports.split(",")
+    elif isinstance(ports, int):
+        ports = [ports]
+    return [int(port) for port in ports]
+
+
 class NumpyEncoder(json.JSONEncoder):
     """Converts numpy types to JSON."""
 
@@ -201,7 +221,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         if receiver_ip:
             self._configuration["receiver_ip"] = receiver_ip
         if receiver_ports:
-            self._configuration["receiver_ports"] = receiver_ports
+            self._configuration["receiver_ports"] = _port_numbers(receiver_ports)
         self._configuration = self.CONFIG_DEFAULTS | self._configuration
         self._received_data_callback = received_data_callback
         self.set_consumers_to_start(consumers_to_start)
@@ -298,6 +318,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self._update_communication_state(CommunicationStatus.NOT_ESTABLISHED)
         self.initialise(self._configuration)
         self._update_communication_state(CommunicationStatus.ESTABLISHED)
+        if self._initialised:
+            self._report_receiver_destination()
         if self._dedicated_bandpass_daq:
             self.start_bandpass_monitor()
 
@@ -566,6 +588,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     daq_config["directory_tag"]
                 )
 
+            if "receiver_ports" in daq_config:
+                # The backend binds to the ports as given, so they must be ints.
+                daq_config["receiver_ports"] = _port_numbers(
+                    daq_config["receiver_ports"]
+                )
             merged_config = self._configuration | daq_config
             self._daq_client.populate_configuration(merged_config)
             self._configuration = merged_config
@@ -880,6 +907,37 @@ class DaqComponentManager(TaskExecutorComponentManager):
         return self._external_ip_override or str(
             self._daq_client._config["receiver_ip"]
         )
+
+    @property
+    @check_communicating
+    def get_receiver_port_numbers(self: DaqComponentManager) -> list[int]:
+        """
+        Provide the ports used by the receiver, as ints.
+
+        :return: the receiver ports.
+        """
+        return [int(port) for port in self.get_receiver_ports]
+
+    def _report_receiver_destination(self: DaqComponentManager) -> None:
+        """
+        Report the destination this DAQ advertises for receiving data.
+
+        It is reported when communication is established, which covers the
+        DAQ pod restarting.
+
+        A failure to report it is logged rather than raised, so that it
+        doesn't stop communication being established.
+        """
+        if self._component_state_callback is None:
+            return
+        try:
+            self._component_state_callback(
+                receiver_ip=self.get_receiver_ip,
+                receiver_ports=self.get_receiver_port_numbers,
+            )
+        # pylint: disable=broad-except
+        except Exception:
+            self.logger.exception("Failed to report the receiver destination.")
 
     @property
     def daq_library(self: DaqComponentManager) -> str:

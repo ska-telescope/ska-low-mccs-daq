@@ -188,6 +188,74 @@ class TestMccsDaqReceiver:
 
         assert device_under_test.isBandpassMonitorRunning is not None
 
+    def test_receiver_destination_published(
+        self: TestMccsDaqReceiver,
+        device_under_test: tango.DeviceProxy,
+        change_event_callbacks: MockTangoEventCallbackGroup,
+    ) -> None:
+        """
+        Test that the DAQ publishes its destination when communication is established.
+
+        Downstream devices (SpsStation) route tile data to whatever IP and
+        port the DAQ advertises, so the pushed values must match the
+        receiverIP and receiverPorts attributes, and DaqStatus.
+
+        The subscription is made while the DAQ is offline, when its
+        destination can't be read, so the values can only arrive by being
+        pushed.
+
+        :param device_under_test: fixture that provides a
+            :py:class:`tango.DeviceProxy` to the device under test, in a
+            :py:class:`tango.test_context.DeviceTestContext`.
+        :param change_event_callbacks: group of Tango change event callbacks
+            with asynchony support.
+        """
+        destination_callbacks = MockTangoEventCallbackGroup(
+            "receiverIP", "receiverPorts", timeout=3.0, assert_no_error=False
+        )
+        for attribute_name in ("receiverIP", "receiverPorts"):
+            device_under_test.subscribe_event(
+                attribute_name,
+                tango.EventType.CHANGE_EVENT,
+                destination_callbacks[attribute_name],
+            )
+
+        device_under_test.adminMode = AdminMode.ONLINE
+        device_under_test.subscribe_event(
+            "state",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["state"],
+        )
+        change_event_callbacks["state"].assert_change_event(
+            tango.DevState.ON, consume_nonmatches=True, lookahead=5
+        )
+
+        def pushed_value(attribute_name: str) -> Any:
+            """
+            Return the first value pushed for an attribute.
+
+            Error events, from reading the attribute while the DAQ was
+            offline, are skipped.
+
+            :param attribute_name: the attribute.
+
+            :return: the first value pushed.
+            """
+            callback = destination_callbacks[attribute_name]
+            value = callback.assert_change_event(Anything)["attribute_value"]
+            if value is None:
+                value = callback.assert_change_event(Anything)["attribute_value"]
+            return value
+
+        ip = pushed_value("receiverIP")
+        ports = list(pushed_value("receiverPorts"))
+        assert device_under_test.receiverIP == ip
+        assert list(device_under_test.receiverPorts) == ports
+        status = json.loads(device_under_test.DaqStatus())
+        assert status["Receiver IP"] == [ip]
+        # DaqStatus reports ports as configured, which may be strings.
+        assert [int(port) for port in status["Receiver Ports"]] == ports
+
     @pytest.mark.parametrize(
         "daq_modes",
         ("DaqModes.CHANNEL_DATA, DaqModes.BEAM_DATA, DaqModes.RAW_DATA", "1, 2, 0"),

@@ -266,6 +266,10 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self.set_archive_event("correlatorTimeUtil", True, self.VerifyEvents)
         self.set_change_event("bufferCounter", True, False)
         self.set_archive_event("bufferCounter", True, self.VerifyEvents)
+        self.set_change_event("receiverIP", True, False)
+        self.set_archive_event("receiverIP", True, self.VerifyEvents)
+        self.set_change_event("receiverPorts", True, False)
+        self.set_archive_event("receiverPorts", True, self.VerifyEvents)
 
     def delete_device(self: MccsDaqReceiver) -> None:
         """Delete the device."""
@@ -393,6 +397,8 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         rms_plot: Optional[np.ndarray] = None,
         reset_consumer_attributes: Optional[bool] = None,
         bandpass_timestamp: Optional[float] = None,
+        receiver_ip: Optional[str] = None,
+        receiver_ports: Optional[list[int]] = None,
         **kwargs: Optional[Any],
     ) -> None:
         """
@@ -409,6 +415,8 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         :param rms_plot: Data for an rms plot.
         :param reset_consumer_attributes: whether to reset consumer attributes to 0.
         :param bandpass_timestamp: Timestamp from the consumer for the bandpass data.
+        :param receiver_ip: The IP address this DAQ advertises for receiving data.
+        :param receiver_ports: The ports this DAQ advertises for receiving data.
         :param kwargs: Other state changes of device.
         """
         if fault:
@@ -493,6 +501,14 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         if reset_consumer_attributes:
             self._reset_consumer_attributes()
+
+        if receiver_ip is not None:
+            self.push_change_event("receiverIP", receiver_ip)
+            self.push_archive_event("receiverIP", receiver_ip)
+
+        if receiver_ports is not None:
+            self.push_change_event("receiverPorts", receiver_ports)
+            self.push_archive_event("receiverPorts", receiver_ports)
 
         if kwargs is not None:
             for attribute_name, attribute_value in kwargs.items():
@@ -1122,7 +1138,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         :return: [Port_List]: list[int]
         """
-        return [int(port) for port in self.component_manager.get_receiver_ports]
+        return self.component_manager.get_receiver_port_numbers
 
     @attribute(dtype="DevString")
     def receiverIP(self: MccsDaqReceiver) -> str:

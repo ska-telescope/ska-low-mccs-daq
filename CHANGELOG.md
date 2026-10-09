@@ -3,6 +3,8 @@
 ## Unreleased
 
 * [THORN-752] Update CODEOWNERS.
+* [SKB-1621] `receiverIP` and `receiverPorts` now push change and archive events, so that downstream devices (SpsStation) can follow the destination DAQs advertise.
+  * Events are pushed when communication is established, if the DAQ initialised successfully.
 
 ## 9.0.1
 

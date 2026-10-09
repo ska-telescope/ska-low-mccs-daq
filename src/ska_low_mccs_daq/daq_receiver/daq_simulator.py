@@ -337,7 +337,7 @@ class DaqSimulator:
         """
         config: dict[str, Any] = self._config.copy()
         try:
-            port = cast(int, config["receiver_ports"])
+            port = int(config["receiver_ports"])
         except ValueError:
             pass
         except TypeError:
