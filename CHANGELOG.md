@@ -1,7 +1,9 @@
 # Version History
 
-## Unreleased
+## 9.0.2
 
+* [LOW-2103] Update ska-tango-devices to 0.17.0. This version fixes per-device-server labels, allowing us to label station-specific K8s resources with their station name.
+* [LOW-2103] Use CLUSTER_DOMAIN for aws migration.
 * [THORN-752] Update CODEOWNERS.
 
 ## 9.0.1
