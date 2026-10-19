@@ -1,6 +1,6 @@
 # Version History
 
-## Unreleased
+## 9.1.0
 
 * [SKB-1621] `receiverIP` and `receiverPorts` now push change and archive events, so that downstream devices (SpsStation) can follow the destination DAQs advertise.
   * Events are pushed when communication is established, if the DAQ initialised successfully.
