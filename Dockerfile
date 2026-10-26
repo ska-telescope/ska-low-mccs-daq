@@ -4,9 +4,9 @@
 # is highly unsatisfactory.
 # I've taken this from ska-tango-examples
 # but hopefully a better solution will be found.
-FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.5.13 AS tools
+FROM artefact.skao.int/ska-tango-images-tango-dsconfig:1.9.2 AS tools
 
-FROM artefact.skao.int/ska-build-cuda-11:0.1.3
+FROM artefact.skao.int/ska-build-cuda-11:1.1.4
 
 # Create non-root user
 RUN useradd --create-home --home-dir /home/daqqer daqqer && mkdir /etc/sudoers.d/
