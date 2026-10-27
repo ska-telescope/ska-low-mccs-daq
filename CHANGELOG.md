@@ -1,5 +1,9 @@
 # Version History
 
+## 9.0.3
+
+* [THORN-773] Update base images. ska-python to 1.1.4, tango-dsconfig to 1.9.2, build-python-uv to 0.4.1.
+
 ## 9.0.2
 
 * [LOW-2103] Update ska-tango-devices to 0.17.0. This version fixes per-device-server labels, allowing us to label station-specific K8s resources with their station name.
