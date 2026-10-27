@@ -1,5 +1,9 @@
 # Version History
 
+## 10.0.0
+
+* [THORN-746] Remove the legacy module-level DAQ API `ska_low_mccs_daq.pydaq.daq_receiver`. This is a breaking change for anyone importing it or running it as a script. Use the `DaqReceiver` class from `ska_low_mccs_daq.pydaq.daq_receiver_interface` instead.
+
 ## 9.0.3
 
 * [THORN-773] Update base images. ska-python to 1.1.4, tango-dsconfig to 1.9.2, build-python-uv to 0.4.1.

@@ -12,7 +12,6 @@ import h5py
 import numpy as np
 import pytest
 
-from ska_low_mccs_daq.pydaq.daq_receiver import get_conf
 from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes, DaqReceiver
 from tests.utils.pcap_replayer import PCAPReplayer
 
@@ -320,12 +319,11 @@ def launch_daq_receiver(nof_tiles: int, expected_num_files: int) -> tuple:
     # Create a temporary directory for DAQ output
     temp_dir = tempfile.mkdtemp(prefix="daq_test_")
 
-    # Get default configuration
-    config = get_conf()
+    # Create DAQ receiver
+    daq = DaqReceiver()
 
-    # It seems that get_conf() produces a configuration with invalid keys.
-    # Therefore, we need to remove tsamp, should this be sampling_time?
-    config.pop("tsamp", None)
+    # Get default configuration
+    config = dict(daq.get_configuration())
 
     # Update configuration for local testing
     config.update(
@@ -345,9 +343,6 @@ def launch_daq_receiver(nof_tiles: int, expected_num_files: int) -> tuple:
             "integration_lookahead_cutoff": 3.0,  # For IntegratedChannelisedData
         }
     )
-
-    # Create DAQ receiver
-    daq = DaqReceiver()
 
     # Apply configuration
     daq.populate_configuration(config)
