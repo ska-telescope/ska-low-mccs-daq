@@ -29,7 +29,7 @@ from tango.server import Device, command
 
 from ska_low_mccs_daq import MccsDaqReceiver
 from ska_low_mccs_daq.daq_receiver.daq_simulator import convert_daq_modes
-from ska_low_mccs_daq.pydaq.daq_receiver import DaqModes
+from ska_low_mccs_daq.pydaq.daq_receiver_interface import DaqModes
 from tests.functional.conftest import (
     poll_until_consumers_running,
     poll_until_consumers_stopped,
