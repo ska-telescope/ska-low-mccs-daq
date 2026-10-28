@@ -145,9 +145,16 @@ bool RawData::processPacket()
                 sync_time = SPEAD_ITEM_ADDR(item);
                 break;
             }
+            case 0x1028: // Timestamp HI
+            {
+                timestamp = (SPEAD_ITEM_ADDR(item) & 0x7FF) << 40;
+                uint64_t TAI_2000 = 946684768 - 5; // Unix time of TAI 2000, including extra leap seconds
+                sync_time = TAI_2000;
+                break;
+            }
             case 0x1600: // Timestamp
             {
-                timestamp = SPEAD_ITEM_ADDR(item);
+                timestamp += SPEAD_ITEM_ADDR(item);
                 break;
             }
             case 0x2000: // Antenna information

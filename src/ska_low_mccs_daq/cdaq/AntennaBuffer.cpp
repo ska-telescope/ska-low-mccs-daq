@@ -102,6 +102,7 @@ bool AntennaBuffer::processPacket() {
     uint64_t payload_length = 0;
     uint64_t sync_time = 0;
     uint64_t timestamp = 0;
+    uint64_t timestamp_factor = 864 * 256 / 8;
     uint8_t nof_included_antennas = 0;
     uint8_t antenna_0_id = 0, antenna_1_id = 0, antenna_2_id = 0, antenna_3_id = 0;
     uint8_t tile_id = 0;
@@ -134,9 +135,17 @@ bool AntennaBuffer::processPacket() {
                 sync_time = SPEAD_ITEM_ADDR(item);
                 break;
             }
+            case 0x1028: // Timestamp HI
+            {
+                timestamp = (SPEAD_ITEM_ADDR(item) & 0x7FF) << 40;
+                uint64_t TAI_2000 = 946684768 - 5; // Unix time of TAI 2000, including extra leap seconds
+                sync_time = TAI_2000;
+                timestamp_factor = 864;
+                break;
+            }
             case 0x1600: // Timestamp
             {
-                timestamp = SPEAD_ITEM_ADDR(item);
+                timestamp += SPEAD_ITEM_ADDR(item);
                 break;
             }
             case 0x2006: // Antenna information
@@ -176,7 +185,6 @@ bool AntennaBuffer::processPacket() {
     uint32_t packet_samples = (uint32_t) (payload_length - payload_offset) / (nof_effective_antennas * nof_pols);
 
     // Calculate packet time
-    const int timestamp_factor = 864 * 256 / 8;    // samples per timestamp unit
     double packet_time = sync_time + (timestamp * timestamp_factor + packet_counter * packet_samples) * timestamp_scale;
 
     // Assign correct packet index
