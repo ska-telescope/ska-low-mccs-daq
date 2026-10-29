@@ -1,5 +1,9 @@
 # Version History
 
+## 10.1.0
+
+* [JANUS-487] Update the DAQ to the new SPEAD header format
+
 ## 10.0.2
 
 * [SPRTS-1332] Update the Tensor-Core-Correlator to the latest master (13e1433). This includes the upstream fix for visibility overflows with i8 input.
