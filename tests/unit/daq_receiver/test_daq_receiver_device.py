@@ -930,12 +930,12 @@ class TestPatchedDaq:
         x_pol_bandpass = np.zeros(shape=(256, 512), dtype=float)
         y_pol_bandpass = np.zeros(shape=(256, 512), dtype=float)
 
-        for attribute, expected_value in {
-            "rawXPolBandpass": raw_x_pol_bandpass,
-            "rawYPolBandpass": raw_y_pol_bandpass,
-            "xPolBandpass": x_pol_bandpass,
-            "yPolBandpass": y_pol_bandpass,
-        }.items():
+        for attribute in [
+            "rawXPolBandpass",
+            "rawYPolBandpass",
+            "xPolBandpass",
+            "yPolBandpass",
+        ]:
             device_under_test.subscribe_event(
                 attribute,
                 tango.EventType.CHANGE_EVENT,
@@ -952,12 +952,14 @@ class TestPatchedDaq:
             received_archive_bandpass = change_event_callbacks[
                 "archive" + attribute
             ]._callable._call_queue.get(timeout=5)
-            event: tango.EventData = received_change_bandpass[1][0]
-            assert event.attr_value is not None
-            np.testing.assert_array_equal(event.attr_value.value, expected_value)
-            event = received_archive_bandpass[1][0]
-            assert event.attr_value is not None
-            np.testing.assert_array_equal(event.attr_value.value, expected_value)
+            # No bandpass has been received yet
+            for event in (
+                received_change_bandpass[1][0],
+                received_archive_bandpass[1][0],
+            ):
+                assert event.attr_value is not None
+                assert event.attr_value.quality == tango.AttrQuality.ATTR_INVALID
+                assert event.attr_value.value is None
 
         raw_x_pol_bandpass[:, 128] = 1234
         raw_y_pol_bandpass[:, 511] = 1234
@@ -1014,4 +1016,8 @@ class TestPatchedDaq:
             np.testing.assert_array_almost_equal(received_archive_value, expected_value)
             np.testing.assert_equal(
                 received_archive_time.totime(), received_change_time.totime()
+            )
+            np.testing.assert_equal(
+                device_under_test.read_attribute(attribute).time.totime(),
+                received_change_time.totime(),
             )
