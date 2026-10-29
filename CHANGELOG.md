@@ -1,5 +1,9 @@
 # Version History
 
+## 10.1.0
+
+* [JANUS-487] Update the DAQ to the new SPEAD header format
+
 ## 10.0.0
 
 * [THORN-746] Remove the legacy module-level DAQ API `ska_low_mccs_daq.pydaq.daq_receiver`. This is a breaking change for anyone importing it or running it as a script. Use the `DaqReceiver` class from `ska_low_mccs_daq.pydaq.daq_receiver_interface` instead.
