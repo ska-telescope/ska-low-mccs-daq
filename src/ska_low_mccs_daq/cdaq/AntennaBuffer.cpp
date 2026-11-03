@@ -102,6 +102,8 @@ bool AntennaBuffer::processPacket() {
     uint64_t payload_length = 0;
     uint64_t sync_time = 0;
     uint64_t timestamp = 0;
+    // timestamp_factor = 864 * 256 / 8 is only used for firmware < 13.0.0,
+    // it is overwritten to 864 for  firmware >= 13.0.0
     uint64_t timestamp_factor = 864 * 256 / 8;
     uint8_t nof_included_antennas = 0;
     uint8_t antenna_0_id = 0, antenna_1_id = 0, antenna_2_id = 0, antenna_3_id = 0;
