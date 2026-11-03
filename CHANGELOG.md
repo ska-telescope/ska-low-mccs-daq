@@ -2,7 +2,7 @@
 
 ## 10.1.0
 
-* [JANUS-487] Update the DAQ to the new SPEAD header format
+* [JANUS-487] Updated the DAQ to support the 51-bit LMC SPEAD header timestamp (ECP-260158). Backward compatibility is maintained, the DAQ can differentiate and decode the new format as well as the previous `sync time` and 40-bit `timestamp` format. 
 
 ## 10.0.2
 
