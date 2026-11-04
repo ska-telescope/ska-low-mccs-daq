@@ -18,12 +18,13 @@ from typing import Any, Callable, Optional, Union
 import numpy as np
 
 # This is imported, and used in PyTango, 10.3.1 has a bug around numpy < 2.0.0
-import numpy.typing  # pylint: disable=unused-import
+import numpy.typing
 import ska_tango_base as stb
 import tango
 from ska_control_model import CommunicationStatus, HealthState, ResultCode
 from ska_low_mccs_common import HealthRecorder, MccsBaseDevice
 from ska_tango_base.base import TaskCallbackType
+from ska_tango_base.software_bus import AttrSignal, attribute_from_signal
 from tango.server import attribute, command, device_property
 
 from ..version import version_info
@@ -50,6 +51,11 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
     """An implementation of a MccsDaqReceiver Tango device."""
 
     InitCommand = None  # type: ignore[assignment]
+
+    x_bandpass_signal = AttrSignal[numpy.typing.NDArray[np.float32]]()
+    y_bandpass_signal = AttrSignal[numpy.typing.NDArray[np.float32]]()
+    raw_x_bandpass_signal = AttrSignal[numpy.typing.NDArray[np.uint16]]()
+    raw_y_bandpass_signal = AttrSignal[numpy.typing.NDArray[np.uint16]]()
 
     # -----------------
     # Device Properties
@@ -151,10 +157,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self._healthful_attributes: dict[str, Callable]
         self._received_data_mode: str
         self._received_data_result: str
-        self._x_bandpass: np.ndarray
-        self._y_bandpass: np.ndarray
-        self._raw_x_bandpass: np.ndarray
-        self._raw_y_bandpass: np.ndarray
         self._rms_plot: np.ndarray
         self._nof_saturations: int | None
         self._nof_packets: int
@@ -297,10 +299,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self._health_report = ""
         self._received_data_mode = ""
         self._received_data_result = ""
-        self._x_bandpass = np.zeros(shape=(256, 512), dtype=float)
-        self._y_bandpass = np.zeros(shape=(256, 512), dtype=float)
-        self._raw_x_bandpass = np.zeros(shape=(256, 512), dtype=int)
-        self._raw_y_bandpass = np.zeros(shape=(256, 512), dtype=int)
         self._rms_plot = np.zeros(shape=(256, 512), dtype=float)
         self._nof_saturations = None
         self._nof_packets = 0
@@ -382,14 +380,14 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         elif communication_state == CommunicationStatus.ESTABLISHED:
             self._component_state_callback(reset_consumer_attributes=True)
 
-    # pylint: disable=too-many-arguments, too-many-branches, too-many-statements
+    # pylint: disable=too-many-arguments, too-many-branches
     def _component_state_callback(  # noqa: C901
         self: MccsDaqReceiver,
         fault: Optional[bool] = None,
-        x_bandpass: Optional[np.ndarray] = None,
-        y_bandpass: Optional[np.ndarray] = None,
-        raw_x_bandpass: Optional[np.ndarray] = None,
-        raw_y_bandpass: Optional[np.ndarray] = None,
+        x_bandpass: numpy.typing.NDArray[np.float32] | None = None,
+        y_bandpass: numpy.typing.NDArray[np.float32] | None = None,
+        raw_x_bandpass: numpy.typing.NDArray[np.uint16] | None = None,
+        raw_y_bandpass: numpy.typing.NDArray[np.uint16] | None = None,
         rms_plot: Optional[np.ndarray] = None,
         reset_consumer_attributes: Optional[bool] = None,
         bandpass_timestamp: Optional[float] = None,
@@ -415,78 +413,38 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             self.op_state_model.perform_action("component_fault")
 
         if x_bandpass is not None:
-            if isinstance(x_bandpass, list):
-                x_bandpass = x_bandpass[0]
-            self._x_bandpass = x_bandpass
-            # TODO: Should we be pushing these
-            # events with self.x_bandpass?
-            self.push_change_event(
-                "xPolBandpass",
-                x_bandpass,
-                bandpass_timestamp,
-                tango.AttrQuality.ATTR_VALID,
-            )
-            self.push_archive_event(
-                "xPolBandpass",
+            assert bandpass_timestamp is not None
+            self.x_bandpass_signal = (
                 x_bandpass,
                 bandpass_timestamp,
                 tango.AttrQuality.ATTR_VALID,
             )
 
         if y_bandpass is not None:
-            if isinstance(y_bandpass, list):
-                y_bandpass = y_bandpass[0]
-            self._y_bandpass = y_bandpass
-            self.push_change_event(
-                "yPolBandpass",
-                y_bandpass,
-                bandpass_timestamp,
-                tango.AttrQuality.ATTR_VALID,
-            )
-            self.push_archive_event(
-                "yPolBandpass",
+            assert bandpass_timestamp is not None
+            self.y_bandpass_signal = (
                 y_bandpass,
                 bandpass_timestamp,
                 tango.AttrQuality.ATTR_VALID,
             )
 
         if raw_x_bandpass is not None:
-            if isinstance(raw_x_bandpass, list):
-                raw_x_bandpass = raw_x_bandpass[0]
-            self._raw_x_bandpass = raw_x_bandpass
-            self.push_change_event(
-                "rawXPolBandpass",
-                raw_x_bandpass,
-                bandpass_timestamp,
-                tango.AttrQuality.ATTR_VALID,
-            )
-            self.push_archive_event(
-                "rawXPolBandpass",
+            assert bandpass_timestamp is not None
+            self.raw_x_bandpass_signal = (
                 raw_x_bandpass,
                 bandpass_timestamp,
                 tango.AttrQuality.ATTR_VALID,
             )
 
         if raw_y_bandpass is not None:
-            if isinstance(raw_y_bandpass, list):
-                raw_y_bandpass = raw_y_bandpass[0]
-            self._raw_y_bandpass = raw_y_bandpass
-            self.push_change_event(
-                "rawYPolBandpass",
-                raw_y_bandpass,
-                bandpass_timestamp,
-                tango.AttrQuality.ATTR_VALID,
-            )
-            self.push_archive_event(
-                "rawYPolBandpass",
+            assert bandpass_timestamp is not None
+            self.raw_y_bandpass_signal = (
                 raw_y_bandpass,
                 bandpass_timestamp,
                 tango.AttrQuality.ATTR_VALID,
             )
 
         if rms_plot is not None:
-            if isinstance(rms_plot, list):
-                rms_plot = rms_plot[0]
             self._rms_plot = rms_plot
             self.push_change_event("rmsPlot", rms_plot)
             self.push_archive_event("rmsPlot", rms_plot)
@@ -1171,57 +1129,37 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         """
         return self._received_data_mode, self._received_data_result
 
-    @attribute(
+    xPolBandpass = attribute_from_signal(  # noqa: N815
+        x_bandpass_signal,
         dtype=(("DevFloat",),),
         max_dim_x=512,  # Channels
         max_dim_y=256,  # Antennas
+        doc="The last block of x-polarised bandpass data.",
     )
-    def xPolBandpass(self: MccsDaqReceiver) -> np.ndarray:
-        """
-        Read the last bandpass data for the x-polarisation.
 
-        :return: The last block of x-polarised bandpass data.
-        """
-        return self._x_bandpass
-
-    @attribute(
+    yPolBandpass = attribute_from_signal(  # noqa: N815
+        y_bandpass_signal,
         dtype=(("DevFloat",),),
         max_dim_x=512,  # Channels
         max_dim_y=256,  # Antennas
+        doc="The last block of y-polarised bandpass data.",
     )
-    def yPolBandpass(self: MccsDaqReceiver) -> np.ndarray:
-        """
-        Read the last bandpass data for the y-polarisation.
 
-        :return: The last block of y-polarised bandpass data.
-        """
-        return self._y_bandpass
-
-    @attribute(
+    rawXPolBandpass = attribute_from_signal(  # noqa: N815
+        raw_x_bandpass_signal,
         dtype=(("DevUShort",),),
         max_dim_x=512,  # Channels
         max_dim_y=256,  # Antennas
+        doc="The last block of raw x-polarised bandpass data.",
     )
-    def rawXPolBandpass(self: MccsDaqReceiver) -> np.ndarray:
-        """
-        Read the last raw bandpass data for the x-polarisation.
 
-        :return: The last block of raw x-polarised bandpass data.
-        """
-        return self._raw_x_bandpass
-
-    @attribute(
+    rawYPolBandpass = attribute_from_signal(  # noqa: N815
+        raw_y_bandpass_signal,
         dtype=(("DevUShort",),),
         max_dim_x=512,  # Channels
         max_dim_y=256,  # Antennas
+        doc="The last block of raw y-polarised bandpass data.",
     )
-    def rawYPolBandpass(self: MccsDaqReceiver) -> np.ndarray:
-        """
-        Read the last raw bandpass data for the y-polarisation.
-
-        :return: The last block of raw y-polarised bandpass data.
-        """
-        return self._raw_y_bandpass
 
     @attribute(
         dtype=(("DevFloat",),),

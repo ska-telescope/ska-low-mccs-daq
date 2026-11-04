@@ -15,6 +15,31 @@ import sphinx.builders.linkcheck
 import sphinx.builders.texinfo
 import sphinx.builders.text
 import sphinx.ext.autodoc
+from sphinx.ext.autodoc.mock import _MockObject
+
+# Sphinx's autodoc unconditionally skips any class member where ismock() is
+# True (it checks for __sphinx_mock__).  _MockObject carries that flag, so
+# returning one for attribute_from_signal() calls means those attributes are
+# silently dropped from the generated docs.
+#
+# Returning a property instead means Sphinx uses PropertyDocumenter: it shows
+# only the description with no "= <value>" repr.
+_mock_call = _MockObject.__call__
+
+
+def _call_mock(self, *args, **kwargs):
+    # attribute_from_signal(signal, ..., doc="...") and similar descriptor
+    # factories. Return a property (not a _MockObject) so that Sphinx's
+    # ismock() check does NOT fire and the attribute is included in the docs.
+    # TODO: put spshw's typed workaround for this into common or ska-tango-base
+    if "doc" in kwargs:
+        stub = property(lambda self: None)
+        stub.__doc__ = kwargs["doc"]
+        return stub
+    return _mock_call(self, *args, **kwargs)
+
+
+_MockObject.__call__ = _call_mock
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
