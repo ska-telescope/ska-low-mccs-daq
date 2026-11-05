@@ -1,7 +1,7 @@
 [tool.poetry]
 include = ["MANIFEST.skao.int"]
 name = "ska-low-mccs-daq"
-version = "10.0.0"
+version = "10.0.1"
 description = "Data acquisition for the SKA-Low Monitoring, Control and Calibration Subsystem (MCCS)"
 license = "BSD-3-Clause"
 authors = ["MCCS team"]
@@ -19,7 +19,7 @@ url = 'https://pypi.org/simple'
 python = ">=3.10, <3.12"
 pytango = "^10.3.0"
 ska-tango-base = "^1.6.1"
-ska-low-mccs-common = "^4.7.0"
+ska-low-mccs-common = "^4.10.1"
 ska-ser-skuid = "^6.0.0"
 numpy = "^1.23.0"
 PyYAML = "^6.0"
