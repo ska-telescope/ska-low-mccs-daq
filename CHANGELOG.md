@@ -3,6 +3,7 @@
 ## 10.0.1
 
 * [SKB-1660] Update ska-low-mccs-common to 4.10.1. HealthRecorder now calls its health callback on every monitored attribute event, so Tango change detection decides which events to push.
+* [SKB-1660] The DAQ receiver no longer logs a debug message on every health evaluation.
 * [SKB-1663] Cache the bandpass acquisition timestamps together with the bandpass data.
 
 ## 10.0.0

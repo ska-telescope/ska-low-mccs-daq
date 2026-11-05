@@ -690,17 +690,15 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self: MccsDaqReceiver, health: HealthState, health_report: str
     ) -> None:
         """
-        Handle change in this device's health state.
+        Handle an evaluation of this device's health.
 
-        This is a callback hook, called whenever the HealthModel's
-        evaluated health state changes. It is responsible for updating
-        the tango side of things i.e. making sure the attribute is up to
-        date, and events are pushed.
+        The HealthRecorder calls this hook on every event from a monitored
+        attribute. It reports health every time, and Tango change detection
+        suppresses repeated values.
 
-        :param health: the new health value
+        :param health: the evaluated health value
         :param health_report: the health report
         """
-        self.logger.debug(f"Health changed to {health.name}: {health_report}")
         if self._stopping:
             return
         if health == HealthState.UNKNOWN:
