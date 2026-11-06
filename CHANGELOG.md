@@ -1,5 +1,9 @@
 # Version History
 
+## 10.0.2
+
+* [SPRTS-1332] Update the Tensor-Core-Correlator to the latest master (13e1433). This includes the upstream fix for visibility overflows with i8 input.
+
 ## 10.0.1
 
 * [SKB-1660] Update ska-low-mccs-common to 4.10.1. HealthRecorder now calls its health callback on every monitored attribute event, so Tango change detection decides which events to push.
