@@ -1,5 +1,11 @@
 # Version History
 
+## 10.0.1
+
+* [SKB-1660] Update ska-low-mccs-common to 4.10.1. HealthRecorder now calls its health callback on every monitored attribute event, so Tango change detection decides which events to push.
+* [SKB-1660] The DAQ receiver no longer logs a debug message on every health evaluation.
+* [SKB-1663] Cache the bandpass acquisition timestamps together with the bandpass data.
+
 ## 10.0.0
 
 * [THORN-746] Remove the legacy module-level DAQ API `ska_low_mccs_daq.pydaq.daq_receiver`. This is a breaking change for anyone importing it or running it as a script. Use the `DaqReceiver` class from `ska_low_mccs_daq.pydaq.daq_receiver_interface` instead.
