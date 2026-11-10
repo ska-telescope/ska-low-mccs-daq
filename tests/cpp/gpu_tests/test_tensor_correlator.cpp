@@ -25,14 +25,17 @@
 // packet_index = (counter - reference) % (nof_samples / samples_in_packet), to
 // successive sample offsets in one buffer.
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
 #include <complex>
+#include <cstdint>
 #include <cuda_runtime.h>
 #include <functional>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <thread>
 #include <vector>
@@ -907,4 +910,137 @@ TEST_F(TensorCorrelatorGpuTest, NewIntegrationAfterBreakIsDelivered)
         EXPECT_EQ(results[1][k].real(), exp_y) << "post-break integration entry " << k;
         EXPECT_EQ(results[1][k].imag(), 0) << "post-break integration entry " << k;
     }
+}
+
+// Regression test for SPRTS-1332. TCC accumulates i8 visibilities in int32
+// tensor-core accumulators. Before TCC 55fd54f the i8 MMA had no .satfinite
+// modifier, so a sum above INT32_MAX wrapped round to a large negative value. A
+// strong source then gave negative auto power and visibilities with the wrong
+// sign. With the fix, each accumulator clamps at INT32_MAX or INT32_MIN.
+//
+// Each antenna carries a constant full-scale sample. The sample is +-127 in
+// each part, because conj_perm cannot negate -128 in int8. Each baseline then
+// adds one fixed term per sample to its real accumulator and one fixed term to
+// its imaginary accumulator. Each term is 0 or +-2*127^2 = +-32258. The terms
+// for one accumulator all have the same sign, so the clamp is exact and the
+// expected value is clamp(N_SAMPLES * term). The four antennas give baselines
+// that overflow upwards and downwards in the real part and in the imaginary
+// part.
+//
+// N_SAMPLES * 32258 is about 1.97 * INT32_MAX. That is past the limit but
+// below 2^32, so a wrapped result has the opposite sign to the clamped result
+// and the test fails clearly if the fix goes away.
+TEST_F(TensorCorrelatorGpuTest, OverflowingAccumulatorsSaturate)
+{
+    constexpr size_t N_ANT = 4;
+    constexpr size_t N_POL = 2;
+    constexpr size_t N_SAMPLES = 131072;
+    constexpr size_t SAMPLES_PER_PKT = 512; // payload = 512*4*2*2 = 8192 B < max_packet_size
+    constexpr size_t N_PKTS = N_SAMPLES / SAMPLES_PER_PKT;
+    constexpr size_t N_BASELINES = N_ANT * (N_ANT + 1) / 2;
+
+    json config = {
+        {"nof_antennas", N_ANT},   {"nof_channels", 1},     {"nof_fine_channels", 1},
+        {"nof_tiles", 1},          {"nof_active_tiles", 1}, {"nof_samples", N_SAMPLES},
+        {"nof_pols", N_POL},       {"max_packet_size", 9000},
+    };
+
+    TestableTensorCorrelator c;
+    ASSERT_TRUE(c.initialiseConsumer(config));
+
+    std::vector<std::complex<int32_t>> vis_out;
+    std::atomic<bool> got{false};
+    c.setCapturingCallback([&](void *data, double, void *)
+                           {
+        auto *v = static_cast<std::complex<int32_t> *>(data);
+        vis_out.assign(v, v + N_BASELINES * N_POL * N_POL);
+        got.store(true, std::memory_order_release); });
+
+    // Per sample, with rx >= ry, the terms are as follows.
+    //   ant 0 x ant 0 to ant 3 x ant 3 (auto)   re +32258   im 0
+    //   ant 1 x ant 0                           re -32258   im 0
+    //   ant 2 x ant 0                           re 0        im +32258
+    //   ant 3 x ant 0                           re 0        im -32258
+    //   ant 2 x ant 1                           re 0        im -32258
+    //   ant 3 x ant 1                           re 0        im +32258
+    //   ant 3 x ant 2                           re -32258   im 0
+    const int ant_re[N_ANT] = {127, -127, 127, -127};
+    const int ant_im[N_ANT] = {127, -127, -127, 127};
+
+    const size_t payload_bytes = SAMPLES_PER_PKT * N_ANT * N_POL * sizeof(uint16_t);
+    std::vector<uint8_t> payload(payload_bytes);
+    for (size_t i = 0; i < payload_bytes; i += 2)
+    {
+        const size_t ant = (i / 2 / N_POL) % N_ANT;
+        payload[i] = static_cast<uint8_t>(static_cast<int8_t>(ant_re[ant]));     // real
+        payload[i + 1] = static_cast<uint8_t>(static_cast<int8_t>(ant_im[ant])); // imag
+    }
+
+    const uint64_t chan_info = (uint64_t(1) << 16) | uint64_t(N_ANT);
+    const uint64_t ts = ts_for(0, N_SAMPLES); // one integration
+
+    for (size_t pkt_idx = 0; pkt_idx < N_PKTS; ++pkt_idx)
+    {
+        auto pkt = SpeadPacket()
+                       .item(0x0001, pkt_idx)
+                       .item(0x0004, payload_bytes)
+                       .item(0x1027, 0)
+                       .item(0x1600, ts)
+                       .item(0x2004, 0x4)
+                       .item(0x2002, chan_info)
+                       .item(0x2001, 0)
+                       .item(0x3300, 0)
+                       .payload(payload)
+                       .build();
+        ASSERT_TRUE(c.feed(pkt));
+    }
+
+    c.driveUntil([&] { return got.load(std::memory_order_acquire); });
+
+    c.cleanUp();
+
+    ASSERT_TRUE(got.load()) << "callback never fired within 5 s";
+
+    // Compute the exact sum in 64 bits, then clamp it to the int32 range.
+    auto saturate = [](int64_t v)
+    {
+        return static_cast<int32_t>(std::clamp<int64_t>(v,
+                                                        std::numeric_limits<int32_t>::min(),
+                                                        std::numeric_limits<int32_t>::max()));
+    };
+
+    // The sign convention for the imaginary part is the same as in
+    // VisibilityRoundTripMultiPacket.
+    size_t bl = 0;
+    size_t nof_saturated = 0;
+    for (size_t rx = 0; rx < N_ANT; ++rx)
+    {
+        for (size_t ry = 0; ry <= rx; ++ry, ++bl)
+        {
+            const int64_t exact_re = (int64_t)N_SAMPLES *
+                                     (ant_re[rx] * ant_re[ry] + ant_im[rx] * ant_im[ry]);
+            const int64_t exact_im = (int64_t)N_SAMPLES *
+                                     (ant_re[rx] * ant_im[ry] - ant_im[rx] * ant_re[ry]);
+            const int32_t expected_re = saturate(exact_re);
+            const int32_t expected_im = saturate(exact_im);
+            nof_saturated += (expected_re != exact_re) + (expected_im != exact_im);
+
+            for (size_t py = 0; py < N_POL; ++py)
+                for (size_t px = 0; px < N_POL; ++px)
+                {
+                    auto v = vis_out[(bl * N_POL + py) * N_POL + px];
+                    EXPECT_EQ(v.real(), expected_re)
+                        << "bl=" << bl << " rx=" << rx << " ry=" << ry
+                        << " py=" << py << " px=" << px << " exact=" << exact_re;
+                    EXPECT_EQ(v.imag(), expected_im)
+                        << "bl=" << bl << " rx=" << rx << " ry=" << ry
+                        << " py=" << py << " px=" << px << " exact=" << exact_im;
+                }
+        }
+    }
+
+    // Every baseline overflows in exactly one part. This guards the test
+    // itself, so that a change to the signals or to N_SAMPLES cannot make it
+    // pass without any overflow.
+    EXPECT_EQ(nof_saturated, N_BASELINES);
 }

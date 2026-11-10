@@ -79,7 +79,7 @@ gpu-cpp-test:
   before_script:
     - DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends build-essential cmake git make gcovr
   tags:
-    - ska-gpu-a100
+    - ska-dp-gpu-a100
   rules:
     - changes:
         - src/ska_low_mccs_daq/cdaq/TensorCorrelatorData.cpp
