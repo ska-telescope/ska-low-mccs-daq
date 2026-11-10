@@ -1,8 +1,12 @@
 # Version History
 
-## 10.0.3
+## 10.1.1
 
 * [THORN-806] Update RtD config so docs are built and published properly
+
+## 10.1.0
+
+* [JANUS-487] Updated the DAQ to support the 51-bit LMC SPEAD header timestamp (ECP-260158). Backward compatibility is maintained, the DAQ can differentiate and decode the new format as well as the previous `sync time` and 40-bit `timestamp` format. 
 
 ## 10.0.2
 
