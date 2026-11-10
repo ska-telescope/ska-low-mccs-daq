@@ -1,8 +1,8 @@
 # Version History
 
-## Unreleased
+## 10.0.3
 
-* [THORN-806] Update RtD config.
+* [THORN-806] Update RtD config so docs are built and published properly
 
 ## 10.0.2
 
