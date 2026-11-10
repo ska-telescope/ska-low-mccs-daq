@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-806] Update RtD config.
+
 ## 10.0.2
 
 * [SPRTS-1332] Update the Tensor-Core-Correlator to the latest master (13e1433). This includes the upstream fix for visibility overflows with i8 input.
