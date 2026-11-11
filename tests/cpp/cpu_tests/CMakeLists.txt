@@ -12,3 +12,13 @@ add_executable(test_integrated_channel
 target_include_directories(test_integrated_channel BEFORE PRIVATE ${AAVS_DAQ_SRC})
 target_link_libraries(test_integrated_channel PRIVATE GTest::gtest_main aavsdaq)
 gtest_discover_tests(test_integrated_channel)
+
+# ── Double buffer test ───────────────────────────────────────────────────────────
+# The base DoubleBuffer needs no CUDA, so its station ID tracking is tested here.
+add_executable(test_double_buffer
+    test_double_buffer.cpp
+    ${CDAQ_SRC}/DoubleBuffer.cpp
+)
+target_include_directories(test_double_buffer BEFORE PRIVATE ${AAVS_DAQ_SRC})
+target_link_libraries(test_double_buffer PRIVATE GTest::gtest_main aavsdaq)
+gtest_discover_tests(test_double_buffer)

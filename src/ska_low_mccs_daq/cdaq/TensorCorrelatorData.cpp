@@ -218,7 +218,9 @@ bool TensorCorrelatorData::processPacket()
                                                  packet_index,
                                                  samples_in_packet,
                                                  (uint16_t *)(payload + payload_offset),
-                                                 packet_time);
+                                                 packet_time,
+                                                 tile_id,
+                                                 station_id);
 
     else
         // We have processed the packet items, send data to packet counter
@@ -227,7 +229,9 @@ bool TensorCorrelatorData::processPacket()
                                   packet_index,
                                   samples_in_packet,
                                   (uint16_t *)(payload + payload_offset),
-                                  packet_time);
+                                  packet_time,
+                                  tile_id,
+                                  station_id);
 
     // Ready from packet
     ring_buffer->pull_ready();
@@ -306,6 +310,9 @@ void TensorCrossCorrelator::threadEntry()
         const int channel = buffer->channel;
         const unsigned read_samples = buffer->read_samples;
         const unsigned nof_packets = buffer->nof_packets;
+        // Copy the station IDs now, because the producer reuses the buffer after release_buffer
+        uint16_t station_ids[MAX_TILES];
+        std::memcpy(station_ids, buffer->station_ids, sizeof(station_ids));
         const size_t sample_bytes = (size_t)nof_samples * nof_antennas * nof_pols * sizeof(uint16_t);
         const size_t vis_bytes = sizeof(VisT) * visExt_.size;
 
@@ -344,6 +351,7 @@ void TensorCrossCorrelator::threadEntry()
                 .nof_samples = read_samples,
                 .nof_packets = nof_packets,
             };
+            std::memcpy(metadata.station_ids, station_ids, sizeof(station_ids));
             callback(static_cast<void *>(hostVis_), timestamp, static_cast<void *>(&metadata));
         }
 

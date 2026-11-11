@@ -106,7 +106,8 @@ namespace
     std::vector<uint8_t> make_data_packet(uint32_t counter, uint64_t timestamp,
                                           uint16_t start_channel, uint8_t nof_channels,
                                           uint8_t start_antenna, uint8_t nof_antennas,
-                                          uint8_t tile_id, std::vector<uint8_t> payload)
+                                          uint8_t tile_id, std::vector<uint8_t> payload,
+                                          uint16_t station_id = 0)
     {
         return SpeadPacket()
             .item(0x0001, counter)                    // heap counter
@@ -115,7 +116,7 @@ namespace
             .item(0x1600, timestamp)                  // timestamp
             .item(0x2004, MODE_INTEGRATED_CHANNEL)    // capture mode (slot 5)
             .item(0x2002, chan_info(start_channel, nof_channels, start_antenna, nof_antennas))
-            .item(0x2001, tpm_info(tile_id))          // tile info
+            .item(0x2001, tpm_info(tile_id, station_id)) // tile info
             .item(0x3300, 0)                          // payload offset
             .payload(std::move(payload))
             .build();
@@ -149,6 +150,7 @@ public:
     {
         uint8_t               tile_id;
         uint64_t              nof_packets; // packets that landed in this tile's integration
+        uint16_t              station_id;  // SPEAD station ID reported for this tile
         std::vector<uint16_t> data;        // a copy of the delivered tile buffer
     };
 
@@ -169,7 +171,7 @@ private:
         // the buffer immediately after the callback returns.
         auto *m = static_cast<ChannelMetadata *>(meta);
         auto *buf = static_cast<uint16_t *>(data); // integrated samples are uint16_t
-        s_deliveries_.push_back({m->tile_id, m->nof_packets,
+        s_deliveries_.push_back({m->tile_id, m->nof_packets, m->station_id,
                                  std::vector<uint16_t>(buf, buf + s_buffer_elems_)});
     }
     static inline std::vector<Delivery> s_deliveries_;
@@ -241,6 +243,9 @@ protected:
         };
     }
 
+    // A distinct station ID per tile, so a test can tell the tiles' metadata apart.
+    static uint16_t station_for(size_t tile) { return (uint16_t)(300 + tile); }
+
     // Delivered-buffer index for a (channel, antenna, pol) sample.
     static size_t buf_index(size_t channel, size_t antenna, size_t pol)
     {
@@ -263,7 +268,8 @@ protected:
                     const uint8_t sa = (uint8_t)(ag * ANT_PER_PKT);
                     auto pkt = make_data_packet(
                         counter++, timestamp, sc, CH_PER_PKT, sa, ANT_PER_PKT, (uint8_t)tile,
-                        make_payload(gen, tile, sc, CH_PER_PKT, sa, ANT_PER_PKT, NOF_POLS));
+                        make_payload(gen, tile, sc, CH_PER_PKT, sa, ANT_PER_PKT, NOF_POLS),
+                        station_for(tile));
                     EXPECT_TRUE(c.feed(pkt)) << "feed failed at tile=" << tile
                                              << " ant_group=" << ag << " ch_group=" << cg;
                     ++fed;
@@ -315,6 +321,8 @@ TEST_F(BandpassDeliveryTest, OneIntegrationFiresOneCallbackPerTile)
         per_tile[del.tile_id]++;
         EXPECT_EQ(del.nof_packets, PKTS_PER_TILE)
             << "tile " << (int)del.tile_id << " delivered a partial integration";
+        EXPECT_EQ(del.station_id, station_for(del.tile_id))
+            << "tile " << (int)del.tile_id << " delivered the wrong station ID";
         expect_full_spectrum(del.data, /*gen=*/0, del.tile_id);
     }
     for (size_t tile = 0; tile < NOF_TILES; ++tile)
