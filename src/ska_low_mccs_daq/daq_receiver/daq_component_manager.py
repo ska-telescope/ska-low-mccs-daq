@@ -195,6 +195,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         }
         self._station_name = station_name
         self._station_id = station_id
+        self._received_station_ids: dict[Any, int] = {}
         self._nof_tiles = nof_tiles
         if receiver_interface:
             self._configuration["receiver_interface"] = receiver_interface
@@ -584,6 +585,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         file_name: str,
         additional_info: Optional[str] = None,
         spead_metadata: Optional[ctypes.Structure] = None,
+        station_ids: Optional[dict[Any, int]] = None,
         **attributes: float,
     ) -> None:
         """
@@ -595,6 +597,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param file_name: The filename written
         :param additional_info: Any additional information/metadata.
         :param spead_metadata: C Struct containing SPEAD header fields
+        :param station_ids: The station ID in the SPEAD headers of the data,
+            keyed by the tile that sent it.
         :param attributes: any attributes to update the value for.
         """
         # Callbacks to call for all data modes.
@@ -616,6 +620,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         for attribute_name, attribute_value in attributes.items():
             self._attribute_callback(attribute_name, attribute_value)
+
+        self._record_station_ids(station_ids)
 
         # Call additional callbacks per data mode if needed.
         if data_mode == "read_raw_data":
@@ -641,6 +647,26 @@ class DaqComponentManager(TaskExecutorComponentManager):
 
         if data_mode == "correlator":
             pass
+
+    def _record_station_ids(
+        self: DaqComponentManager, station_ids: Optional[dict[Any, int]]
+    ) -> None:
+        """
+        Record the SPEAD station IDs received from each tile.
+
+        Each tile keeps its own entry, so tiles that disagree give a stable
+        set of IDs.
+
+        :param station_ids: the station ID in the SPEAD headers of the data,
+            keyed by the tile that sent it, or None if the data mode does not
+            carry one. Station beam data has no tile, so its key is None.
+        """
+        if station_ids is None:
+            return
+        self._received_station_ids.update(station_ids)
+        self._attribute_callback(
+            "received_station_ids", sorted(set(self._received_station_ids.values()))
+        )
 
     def _diagnostic_callback(
         self: DaqComponentManager,
@@ -783,6 +809,8 @@ class DaqComponentManager(TaskExecutorComponentManager):
         self._receiver_started = False
         self._scan_in_progress = False
         self._started_event.clear()
+        self._received_station_ids.clear()
+        self._attribute_callback("received_station_ids", [])
         if self._component_state_callback:
             self._component_state_callback(reset_consumer_attributes=True)
         if task_callback:
@@ -923,6 +951,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
         data: np.ndarray,
         tile_number: int,
         timestamp: Optional[float] = None,
+        station_ids: Optional[dict[Any, int]] = None,
         **attributes: float,
     ) -> None:
         """
@@ -931,10 +960,13 @@ class DaqComponentManager(TaskExecutorComponentManager):
         :param data: The data array containing the bandpass data for a tile.
         :param tile_number: The tile number the data corresponds to.
         :param timestamp: Timestamp from the consumer for the data packet.
+        :param station_ids: The station ID in the SPEAD headers of the data,
+            keyed by the tile that sent it.
         :param attributes: any attributes to update the value for.
         """
         for attribute_name, attribute_value in attributes.items():
             self._attribute_callback(attribute_name, attribute_value)
+        self._record_station_ids(station_ids)
         config = self.get_configuration()
         nof_channels = int(config["nof_channels"])
         nof_antennas_per_tile = int(config["nof_antennas"])
@@ -1309,7 +1341,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                     )
 
     def _attribute_callback(
-        self: DaqComponentManager, attribute_name: str, attribute_value: float
+        self: DaqComponentManager, attribute_name: str, attribute_value: Any
     ) -> None:
         """
         Record changes in attributes from DAQ.

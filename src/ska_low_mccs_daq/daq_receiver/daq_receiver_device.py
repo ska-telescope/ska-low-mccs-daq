@@ -176,6 +176,8 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self._device_to_host_copy_time: float
         self._correlator_time_util: float | None
         self._buffer_counter: int
+        self._receiving_data_for_station: str | None
+        self._receiving_data_for_station_quality: tango.AttrQuality
         self._stopping = False
 
     def init_device(self: MccsDaqReceiver) -> None:
@@ -268,6 +270,8 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self.set_archive_event("correlatorTimeUtil", True, self.VerifyEvents)
         self.set_change_event("bufferCounter", True, False)
         self.set_archive_event("bufferCounter", True, self.VerifyEvents)
+        self.set_change_event("receivingDataForStation", True, False)
+        self.set_archive_event("receivingDataForStation", True, self.VerifyEvents)
 
     def delete_device(self: MccsDaqReceiver) -> None:
         """Delete the device."""
@@ -288,6 +292,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             "relativeNofSamplesDiff": lambda: self._relative_nof_samples_diff,
             "correlatorTimeUtil": lambda: self._correlator_time_util,
             "lostPushRate": lambda: self._lost_push_rate,
+            "receivingDataForStation": lambda: self._receiving_data_for_station,
         }
         self._health_recorder = HealthRecorder(
             self.get_name(),
@@ -318,6 +323,8 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self._device_to_host_copy_time = 0.0
         self._correlator_time_util = None
         self._buffer_counter = 0
+        self._receiving_data_for_station = None
+        self._receiving_data_for_station_quality = tango.AttrQuality.ATTR_VALID
 
     def create_component_manager(self: MccsDaqReceiver) -> DaqComponentManager:
         """
@@ -391,6 +398,7 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         rms_plot: Optional[np.ndarray] = None,
         reset_consumer_attributes: Optional[bool] = None,
         bandpass_timestamp: Optional[float] = None,
+        received_station_ids: Optional[list[int]] = None,
         **kwargs: Optional[Any],
     ) -> None:
         """
@@ -407,6 +415,8 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         :param rms_plot: Data for an rms plot.
         :param reset_consumer_attributes: whether to reset consumer attributes to 0.
         :param bandpass_timestamp: Timestamp from the consumer for the bandpass data.
+        :param received_station_ids: The distinct station IDs in the SPEAD
+            headers of the data being received.
         :param kwargs: Other state changes of device.
         """
         if fault:
@@ -451,6 +461,9 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         if reset_consumer_attributes:
             self._reset_consumer_attributes()
+
+        if received_station_ids is not None:
+            self._update_receiving_data_for_station(received_station_ids)
 
         if kwargs is not None:
             for attribute_name, attribute_value in kwargs.items():
@@ -579,7 +592,33 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self.push_change_event("lostPushRate", self._lost_push_rate)
         self.push_archive_event("lostPushRate", self._lost_push_rate)
 
+    def _update_receiving_data_for_station(self, station_ids: list[int]) -> None:
+        """
+        Compare the received station IDs with the configured station ID.
+
+        The attribute goes to ALARM if any received ID differs from the
+        configured one. The HealthRecorder then reports the device as FAILED.
+        A configured ID of 0 means that no station is configured, so no
+        comparison is done.
+
+        :param station_ids: the distinct station IDs in the SPEAD headers.
+        """
+        expected = int(self.component_manager.get_configuration()["station_id"])
+        quality = tango.AttrQuality.ATTR_VALID
+        if expected and any(station_id != expected for station_id in station_ids):
+            quality = tango.AttrQuality.ATTR_ALARM
+        value = ""
+        if station_ids:
+            received = ", ".join(str(station_id) for station_id in station_ids)
+            value = f"{received} (expected {expected})"
+        self._receiving_data_for_station = value
+        self._receiving_data_for_station_quality = quality
+        self.push_change_event("receivingDataForStation", value, time.time(), quality)
+        self.push_archive_event("receivingDataForStation", value, time.time(), quality)
+
     def _reset_consumer_attributes(self) -> None:
+        self._update_receiving_data_for_station([])
+
         self._nof_saturations = 0
         self.push_change_event("nofSaturations", 0)
         self.push_archive_event("nofSaturations", 0)
@@ -1454,6 +1493,32 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         :return: the rate at which pushes to the ringbuffer are being lost.
         """
         return self._lost_push_rate
+
+    @attribute(
+        dtype="DevString",
+        doc=(
+            "The station IDs in the SPEAD headers of the received data, "
+            "followed by the configured station ID. "
+            "ALARM if any received ID differs from the configured ID."
+        ),
+    )
+    def receivingDataForStation(
+        self: MccsDaqReceiver,
+    ) -> tuple[str, float, tango.AttrQuality] | None:
+        """
+        Return the station IDs of the received data and the configured ID.
+
+        :return: the value, the time and the quality, or None before
+            communication is established. The quality is ALARM if any
+            received ID differs from the configured ID.
+        """
+        if self._receiving_data_for_station is None:
+            return None
+        return (
+            self._receiving_data_for_station,
+            time.time(),
+            self._receiving_data_for_station_quality,
+        )
 
     @attribute(
         dtype="DevLong",
