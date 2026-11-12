@@ -1,5 +1,9 @@
 # Version History
 
+## 10.2.0
+
+* [THORN-808] Add the `receivingDataForStation` attribute. It shows the station IDs in the SPEAD headers of the received data, and the configured station ID. It goes to ALARM, and healthState goes to FAILED, when the DAQ receives data for a different station.
+
 ## 10.1.0
 
 * [JANUS-487] Updated the DAQ to support the 51-bit LMC SPEAD header timestamp (ECP-260158). Backward compatibility is maintained, the DAQ can differentiate and decode the new format as well as the previous `sync time` and 40-bit `timestamp` format. 

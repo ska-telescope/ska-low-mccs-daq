@@ -217,7 +217,9 @@ bool CorrelatorData::processPacket()
                                                  packet_index,
                                                  samples_in_packet,
                                                  (uint16_t * )(payload + payload_offset),
-                                                 packet_time);
+                                                 packet_time,
+                                                 tile_id,
+                                                 station_id);
     
     else 
         // We have processed the packet items, send data to packet counter
@@ -226,7 +228,9 @@ bool CorrelatorData::processPacket()
                                   packet_index,
                                   samples_in_packet,
                                   (uint16_t * )(payload + payload_offset),
-                                  packet_time);
+                                  packet_time,
+                                  tile_id,
+                                  station_id);
 
     // Ready from packet
     ring_buffer -> pull_ready();

@@ -32,6 +32,7 @@ struct TensorCorrelatorMetadata
     double d2h_time;
     uint nof_samples;
     uint nof_packets;
+    uint16_t station_ids[MAX_TILES]; // SPEAD station ID per tile ID, 0 if no packet came from that tile
 };
 
 // -----------------------------------------------------------------------------

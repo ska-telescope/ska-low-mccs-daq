@@ -26,7 +26,9 @@ TEST_F(TccDoubleBufferTest, WriteDataStoresSamplesInTccLayout)
                        /*start_sample_index=*/0,
                        /*samples=*/16,
                        payload.data(),
-                       /*timestamp=*/1.0);
+                       /*timestamp=*/1.0,
+                       /*tile_id=*/0,
+                       /*station_id=*/345);
 
     Buffer *slot = buffer_.get_buffer_pointer(0);
     ASSERT_NE(slot, nullptr);
@@ -34,6 +36,8 @@ TEST_F(TccDoubleBufferTest, WriteDataStoresSamplesInTccLayout)
     EXPECT_EQ(slot->read_samples, 16u);
     EXPECT_EQ(slot->nof_packets, 1u);
     EXPECT_DOUBLE_EQ(slot->ref_time, 1.0);
+    EXPECT_EQ(slot->station_ids[0], 345u);
+    EXPECT_EQ(slot->station_ids[1], 0u);
 
     // For one antenna, one 16-sample block, data is laid out as:
     // [pol0 times 0..15] followed by [pol1 times 0..15].
@@ -50,7 +54,9 @@ TEST_F(TccDoubleBufferTest, FinishWriteMarksCurrentBufferReady)
                        /*start_sample_index=*/0,
                        /*samples=*/16,
                        payload.data(),
-                       /*timestamp=*/2.0);
+                       /*timestamp=*/2.0,
+                       /*tile_id=*/0,
+                       /*station_id=*/0);
 
     buffer_.finish_write();
 

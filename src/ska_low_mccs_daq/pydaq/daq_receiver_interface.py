@@ -146,6 +146,9 @@ class DaqReceiver:
             ("d2h_time", ctypes.c_double),
             ("nof_samples", ctypes.c_uint),
             ("nof_packets", ctypes.c_uint),
+            # SPEAD station ID per tile ID (MAX_TILES in DoubleBuffer.h), 0 if
+            # no packet came from that tile
+            ("station_ids", ctypes.c_uint16 * 256),
         ]
 
     class StationMetadata(ctypes.Structure):
@@ -425,7 +428,11 @@ class DaqReceiver:
         # Call external callback if defined
         if self._external_callbacks[DaqModes.RAW_DATA] is not None:
             self._external_callbacks[DaqModes.RAW_DATA](
-                "burst_raw", filename, tile, spead_metadata=metadata
+                "burst_raw",
+                filename,
+                tile,
+                spead_metadata=metadata,
+                station_ids={tile: metadata.station_id},
             )
 
         if self._config["logging"]:
@@ -542,6 +549,7 @@ class DaqReceiver:
                     tile,
                     nof_packets=nof_packets,
                     spead_metadata=metadata,
+                    station_ids={tile: metadata.station_id},
                 )
 
             if self._config["logging"]:
@@ -610,6 +618,7 @@ class DaqReceiver:
                         tile,
                         nof_packets=nof_packets,
                         timestamp=timestamp,
+                        station_ids={tile: metadata.station_id},
                     )
                 else:
                     self._external_callbacks[DaqModes.INTEGRATED_CHANNEL_DATA](
@@ -618,6 +627,7 @@ class DaqReceiver:
                         tile,
                         nof_packets=nof_packets,
                         spead_metadata=metadata,
+                        station_ids={tile: metadata.station_id},
                     )
 
             if self._config["logging"]:
@@ -642,6 +652,7 @@ class DaqReceiver:
                     tile,
                     nof_packets=nof_packets,
                     spead_metadata=metadata,
+                    station_ids={tile: metadata.station_id},
                 )
 
             if self._config["logging"]:
@@ -727,7 +738,11 @@ class DaqReceiver:
         # Call external callback if defined
         if self._external_callbacks[DaqModes.BEAM_DATA] is not None:
             self._external_callbacks[DaqModes.BEAM_DATA](
-                "burst_beam", filename, tile, spead_metadata=metadata
+                "burst_beam",
+                filename,
+                tile,
+                spead_metadata=metadata,
+                station_ids={tile: metadata.station_id},
             )
 
         if self._config["logging"]:
@@ -785,7 +800,11 @@ class DaqReceiver:
         # Call external callback if defined
         if self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA] is not None:
             self._external_callbacks[DaqModes.INTEGRATED_BEAM_DATA](
-                "integrated_beam", filename, tile, spead_metadata=metadata
+                "integrated_beam",
+                filename,
+                tile,
+                spead_metadata=metadata,
+                station_ids={tile: metadata.station_id},
             )
 
     def _correlator_callback(
@@ -984,6 +1003,11 @@ class DaqReceiver:
                 host_to_device_copy_time=h2d_time,
                 correlator_solve_time=kern_time,
                 device_to_host_copy_time=d2h_time,
+                station_ids={
+                    tile: station_id
+                    for tile, station_id in enumerate(metadata.station_ids)
+                    if station_id != 0
+                },
             )
 
         if self._config["logging"]:
@@ -1048,6 +1072,7 @@ class DaqReceiver:
                 nof_packets=nof_packets,
                 nof_saturations=nof_saturations,
                 spead_metadata=metadata,
+                station_ids={None: metadata.station_id},
             )
 
         if self._config["logging"]:
@@ -1102,7 +1127,11 @@ class DaqReceiver:
         # Call external callback if defined
         if self._external_callbacks[DaqModes.ANTENNA_BUFFER] is not None:
             self._external_callbacks[DaqModes.ANTENNA_BUFFER](
-                "antenna_buffer", filename, tile, spead_metadata=metadata
+                "antenna_buffer",
+                filename,
+                tile,
+                spead_metadata=metadata,
+                station_ids={tile: metadata.station_id},
             )
 
         if self._config["logging"]:

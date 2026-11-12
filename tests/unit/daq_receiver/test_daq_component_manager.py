@@ -13,6 +13,7 @@ import os
 import threading
 import time
 from pathlib import Path
+from unittest.mock import MagicMock, call, patch
 
 import h5py
 import numpy as np
@@ -813,6 +814,59 @@ class TestDaqComponentManager:
         callbacks["component_state"].assert_call(ringbuffer_occupancy=Anything)
         callbacks["component_state"].assert_call(nof_packets=49152)
         callbacks["component_state"].assert_call(nof_saturations=53)
+
+    def test_received_station_ids(
+        self: TestDaqComponentManager,
+        daq_component_manager: DaqComponentManager,
+        callbacks: MockCallableGroup,
+    ) -> None:
+        """
+        Test that the received station IDs go out as one set for all tiles.
+
+        The station ID must not be forwarded as an attribute.
+
+        :param daq_component_manager: the daq receiver component manager
+            under test.
+        :param callbacks: a dictionary from which callbacks with
+            asynchrony support can be accessed.
+        """
+        daq_component_manager.start_communicating()
+        callbacks["communication_state"].assert_call(
+            CommunicationStatus.NOT_ESTABLISHED
+        )
+        callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+        persisters = MagicMock()
+        persisters.__getitem__.return_value.get_metadata.return_value = {}
+        daq_component_manager._daq_client._persisters = persisters
+        bandpass = np.zeros((1, 512 * NOF_ANTENNAS_PER_TILE * 2))
+
+        with patch.object(daq_component_manager, "_attribute_callback") as attr_cb:
+            # Station beam data has no tile.
+            daq_component_manager._file_dump_callback(
+                "station",
+                "some/existing/file",
+                nof_packets=49152,
+                station_ids={None: 345},
+            )
+            for tile, station_id in [(0, 345), (1, 352), (0, 345), (1, 345)]:
+                daq_component_manager.generate_bandpass(
+                    bandpass, tile, timestamp=1.0, station_ids={tile: station_id}
+                )
+            # The correlator reports every tile in one callback.
+            daq_component_manager._file_dump_callback(
+                "tc_correlator",
+                "some/existing/file",
+                station_ids={0: 345, 1: 352, 2: 360},
+            )
+            daq_component_manager.stop_daq()
+
+        assert call("nof_packets", 49152) in attr_cb.call_args_list
+        assert "station_ids" not in [c.args[0] for c in attr_cb.call_args_list]
+        assert [
+            c.args[1]
+            for c in attr_cb.call_args_list
+            if c.args[0] == "received_station_ids"
+        ] == [[345], [345], [345, 352], [345, 352], [345], [345, 352, 360], []]
 
     def test_get_daq_library_name(
         self: TestDaqComponentManager,

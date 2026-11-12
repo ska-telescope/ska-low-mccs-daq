@@ -210,6 +210,7 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTrip)
     constexpr size_t N_POL = 2;
     constexpr size_t N_SAMPLES = 256;
     constexpr size_t N_BASELINES = N_ANT * (N_ANT + 1) / 2;
+    constexpr uint64_t STATION_ID = 345;
 
     json config = {
         {"nof_antennas", N_ANT},
@@ -229,11 +230,13 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTrip)
     // setCapturingCallback must come after initialiseConsumer: setCallback
     // dereferences cross_correlator which is only set by initialiseConsumer.
     std::vector<std::complex<int32_t>> vis_out;
+    uint16_t station_out = 0;
     std::atomic<bool> got{false};
     c.setCapturingCallback(
-        [&](void *data, double, void *){
+        [&](void *data, double, void *meta){
             auto *v = static_cast<std::complex<int32_t> *>(data);
             vis_out.assign(v, v + N_BASELINES * N_POL * N_POL);
+            station_out = static_cast<TensorCorrelatorMetadata *>(meta)->station_ids[0];
             got.store(true, std::memory_order_release); 
         }
     );
@@ -258,7 +261,7 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTrip)
                    .item(0x1600, ts_for(0, N_SAMPLES))    // timestamp
                    .item(0x2004, 0x4)                     // capture_mode: burst channel
                    .item(0x2002, chan_info)               // channel/antenna info
-                   .item(0x2001, 0)                       // tpm_info: tile=0, station=0
+                   .item(0x2001, STATION_ID << 16)        // tpm_info: tile=0, station=STATION_ID
                    .item(0x3300, 0)                       // sample_offset
                    .payload(payload_data)
                    .build();
@@ -272,6 +275,7 @@ TEST_F(TensorCorrelatorGpuTest, VisibilityRoundTrip)
     c.cleanUp(); // stop GPU thread before assertions (and before c is destroyed)
 
     ASSERT_TRUE(got.load()) << "callback never fired within 5 s";
+    EXPECT_EQ(station_out, STATION_ID);
 
     // vis[baseline][polY][polX] = N_SAMPLES * SIGNAL^2 + 0i for all entries.
     const int32_t expected_re = (int32_t)N_SAMPLES * SIGNAL * SIGNAL;
@@ -762,15 +766,21 @@ TEST_F(TensorCorrelatorGpuTest, MultiTileVisibilityRoundTrip)
     ASSERT_TRUE(c.initialiseConsumer(config));
 
     std::vector<std::complex<int32_t>> vis_out;
+    std::vector<uint16_t> station_out;
     std::atomic<bool> got{false};
-    c.setCapturingCallback([&](void *data, double, void *)
+    c.setCapturingCallback([&](void *data, double, void *meta)
                            {
         auto *v = static_cast<std::complex<int32_t> *>(data);
         vis_out.assign(v, v + N_BASELINES * N_POL * N_POL);
+        auto *m = static_cast<TensorCorrelatorMetadata *>(meta);
+        station_out.assign(m->station_ids, m->station_ids + N_TILES + 1);
         got.store(true, std::memory_order_release); });
 
     // Distinct real amplitude per global receiver g = tile*ANT_PER_TILE + ant.
     const int recv_amp[N_RECV] = {3, 5, 7, 11};
+
+    // Each tile sends a different station ID, so the metadata must keep both.
+    const uint64_t station_id[N_TILES] = {345, 352};
 
     // 1 channel, start_antenna 0, ANT_PER_TILE antennas per tile.
     const uint64_t chan_info = (uint64_t(1) << 16) | uint64_t(ANT_PER_TILE);
@@ -786,7 +796,8 @@ TEST_F(TensorCorrelatorGpuTest, MultiTileVisibilityRoundTrip)
             payload[i] = (uint8_t)recv_amp[tile * ANT_PER_TILE + ant]; // real
             payload[i + 1] = 0; // imag
         }
-        const uint64_t tpm_info = ((uint64_t)tile << 32); // tile_id at bits[39:32], pol_id 0
+        // tile_id at bits[39:32], station_id at bits[31:16], pol_id 0
+        const uint64_t tpm_info = ((uint64_t)tile << 32) | (station_id[tile] << 16);
         auto pkt = SpeadPacket()
                        .item(0x0001, 0) // heap_counter = 0 (both tiles, same time-chunk)
                        .item(0x0004, payload_bytes)
@@ -806,6 +817,9 @@ TEST_F(TensorCorrelatorGpuTest, MultiTileVisibilityRoundTrip)
     c.cleanUp();
 
     ASSERT_TRUE(got.load()) << "callback never fired; multi-tile assembly did not complete";
+
+    // The entry after the last tile is 0, because no packet came from that tile.
+    EXPECT_EQ(station_out, (std::vector<uint16_t>{345, 352, 0}));
 
     // Constant real signals: vis[bl(gx,gy)] = N_SAMPLES * amp[gx] * amp[gy] + 0i
     // for every pol pair. Correct values on cross-tile baselines (gx and gy in

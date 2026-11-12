@@ -202,3 +202,18 @@ Consumer Diagnostics
    The consumer loads those samples into a buffer, then once the next channel arrives it moves to the next buffer. This means the consumer rotates through buffers
    at a rate dependent on how long we are sampling for. If the correlator takes longer than the time we are sampling for, eventually once we run out of buffers,
    the consumer will rotate back to buffers which have not yet been solved, and we drop channels from the frequency sweep.
+
+.. attribute:: receivingDataForStation
+
+   **Type:** DevString
+
+   The station IDs in the SPEAD headers of the received data, followed by the configured station ID.
+   For example, ``352 (expected 345)``. The value is empty when the DAQ has received no data since its consumers started.
+
+   Every consumer except the raw station beam and xGPU correlator consumers reports the station ID.
+   The DAQ keeps the last ID from each tile, so the value shows every station that any tile sends data for.
+   The value is cleared when the consumers stop.
+
+   The quality is ALARM if any received ID differs from the configured station ID. This makes the healthState of the DAQ FAILED.
+   The configured station ID comes from the ``StationId`` device property, or from ``station_id`` in the Configure command.
+   If the configured station ID is 0, no comparison is done.
