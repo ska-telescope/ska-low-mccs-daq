@@ -214,20 +214,23 @@ bool RawData::processPacket()
     uint32_t nof_samples = (uint32_t) (payload_length - payload_offset) /
                            (nof_antennas * nof_pols * (bitwidth / 8));
 
-    // Update number of received samples, counted per antenna like nof_required_samples
-    nof_received_samples += nof_samples * nof_antennas;
-
     // We have processed the packet items, now comes the data
     uint32_t index = (packet_counter * nof_samples) % samples_per_buffer;
     double packet_time = sync_time + timestamp * sampling_time;
+    bool accepted;
     if (bitwidth == 16)
-        addToContainer(container_16bit, packet_counter, payload_length, sync_time, timestamp, station_id,
-                       fpga_id, payload_offset, tile_id, start_antenna_id, index, nof_samples, nof_antennas,
-                       payload, packet_time);
+        accepted = addToContainer(container_16bit, packet_counter, payload_length, sync_time, timestamp,
+                                  station_id, fpga_id, payload_offset, tile_id, start_antenna_id, index,
+                                  nof_samples, nof_antennas, payload, packet_time);
     else
-        addToContainer(container, packet_counter, payload_length, sync_time, timestamp, station_id,
-                       fpga_id, payload_offset, tile_id, start_antenna_id, index, nof_samples, nof_antennas,
-                       payload, packet_time);
+        accepted = addToContainer(container, packet_counter, payload_length, sync_time, timestamp,
+                                  station_id, fpga_id, payload_offset, tile_id, start_antenna_id, index,
+                                  nof_samples, nof_antennas, payload, packet_time);
+
+    // Update number of received samples, counted per antenna like nof_required_samples.
+    // Packets the container dropped do not count towards a full buffer
+    if (accepted)
+        nof_received_samples += nof_samples * nof_antennas;
 
     // Ready from packet
     ring_buffer -> pull_ready();
@@ -241,13 +244,13 @@ bool RawData::processPacket()
 }
 
 // Add a packet's samples to the container of the configured bitwidth
-template <class T> void RawData::addToContainer(AntennaDataContainer<T> *container, uint32_t packet_counter,
+template <class T> bool RawData::addToContainer(AntennaDataContainer<T> *container, uint32_t packet_counter,
     uint64_t payload_length, uint64_t sync_time, uint64_t timestamp, uint16_t station_id,
     uint8_t fpga_id, uint64_t payload_offset, uint8_t tile_id, uint8_t start_antenna_id,
     uint32_t index, uint32_t nof_samples, uint8_t nof_included_antennas, uint8_t *payload,
     double packet_time)
 {
-    container -> add_data(packet_counter, payload_length, sync_time, timestamp, station_id, fpga_id,
-                          payload_offset, tile_id, start_antenna_id, index, nof_samples,
-                          nof_included_antennas, reinterpret_cast<T *>(payload + payload_offset), packet_time);
+    return container -> add_data(packet_counter, payload_length, sync_time, timestamp, station_id, fpga_id,
+                                 payload_offset, tile_id, start_antenna_id, index, nof_samples,
+                                 nof_included_antennas, reinterpret_cast<T *>(payload + payload_offset), packet_time);
 }

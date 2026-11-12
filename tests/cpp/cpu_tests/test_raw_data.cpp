@@ -301,6 +301,44 @@ TEST_P(RawDataDeliveryTest, DropsAntennasOutOfRange)
     c.cleanUp();
 }
 
+// Dropped packets do not count towards a full buffer. A synchronised stream
+// with a dropped packet of the same size in the middle (antennas out of range,
+// then a tile beyond nof_tiles) is delivered once, complete, after its last
+// valid packet; counting the dropped packets would save a partial buffer early.
+TEST_P(RawDataDeliveryTest, DroppedPacketsDoNotCompleteBuffer)
+{
+    TestableRawData c;
+    init(c);
+    constexpr size_t SAMPLES_PER_PKT = 4;
+    const size_t nof_pkts = SAMPLES / SAMPLES_PER_PKT;
+    for (size_t t = 0; t < NOF_TILES; ++t)
+        for (size_t f = 0; f < NOF_FPGAS; ++f)
+            for (size_t k = 0; k < nof_pkts; ++k)
+            {
+                size_t a0 = f * antennas_per_fpga();
+                ASSERT_TRUE(c.feed(make_packet(
+                    1, k, SYNC_TIME, TIMESTAMP, a0, antennas_per_fpga(), t, f,
+                    make_payload(bitwidth(), t, a0, antennas_per_fpga(), k * SAMPLES_PER_PKT,
+                                 SAMPLES_PER_PKT, nof_pols()))));
+                if (k != 0 || f != 0)
+                    continue;
+                // After tile 0's first packet: antennas past the configured range
+                if (t == 0)
+                    ASSERT_TRUE(c.feed(make_packet(
+                        1, 1, SYNC_TIME, TIMESTAMP, nof_antennas(), antennas_per_fpga(), 0, 0,
+                        make_payload(bitwidth(), 0, nof_antennas(), antennas_per_fpga(),
+                                     SAMPLES_PER_PKT, SAMPLES_PER_PKT, nof_pols()))));
+                // After tile 1's first packet (both tiles now mapped): a third tile
+                else
+                    ASSERT_TRUE(c.feed(make_packet(
+                        1, 1, SYNC_TIME, TIMESTAMP, 0, antennas_per_fpga(), NOF_TILES, 0,
+                        make_payload(bitwidth(), NOF_TILES, 0, antennas_per_fpga(),
+                                     SAMPLES_PER_PKT, SAMPLES_PER_PKT, nof_pols()))));
+            }
+    check_deliveries();
+    c.cleanUp();
+}
+
 INSTANTIATE_TEST_SUITE_P(BitwidthAndPols, RawDataDeliveryTest,
                          ::testing::Combine(::testing::Values(8, 16), ::testing::Values(1, 2)),
                          [](const auto &info) {

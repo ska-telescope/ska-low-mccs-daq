@@ -89,8 +89,8 @@ public:
             metadata[tile_index].nof_antennas = nof_included_antennas;
         }
 
-    // Add data to buffer
-    void add_data(uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, 
+    // Add data to buffer, returning false if the packet was dropped
+    bool add_data(uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time,
         uint64_t timestamp_field, uint16_t station_id, uint8_t fpga_id, uint64_t payload_offset, 
         uint8_t tile, uint8_t start_antenna, uint32_t start_sample_index, uint32_t nsamp, 
         uint8_t nof_included_antennas, T *data_ptr, double timestamp)
@@ -104,7 +104,7 @@ public:
 
             if (tile_index == nof_tiles) {
                 fprintf(stderr, "Cannot process tile %d, antenna consumer configured for %d tiles\n", tile, nof_tiles);
-                return;
+                return false;
             }
 
             tile_map[tile] = tile_index;
@@ -115,7 +115,7 @@ public:
         if (start_antenna + nof_included_antennas > nof_antennas) {
             fprintf(stderr, "Dropping raw packet for antennas %d-%d, antenna consumer configured for %d antennas\n",
                     start_antenna, start_antenna + nof_included_antennas - 1, nof_antennas);
-            return;
+            return false;
         }
 
         // Burst raw data
@@ -161,6 +161,7 @@ public:
         station_id, fpga_id, payload_offset, start_antenna, nof_included_antennas);
 
         metadata[tile_index].nof_packets++;
+        return true;
     }
 
     //  Clear buffer and antenna information
@@ -243,7 +244,7 @@ protected:
 private:
 
     // Add a packet's samples to the container
-    template <class T> void addToContainer(AntennaDataContainer<T> *container, uint32_t packet_counter,
+    template <class T> bool addToContainer(AntennaDataContainer<T> *container, uint32_t packet_counter,
         uint64_t payload_length, uint64_t sync_time, uint64_t timestamp, uint16_t station_id,
         uint8_t fpga_id, uint64_t payload_offset, uint8_t tile_id, uint8_t start_antenna_id,
         uint32_t index, uint32_t nof_samples, uint8_t nof_included_antennas, uint8_t *payload,
