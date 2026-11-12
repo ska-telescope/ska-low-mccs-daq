@@ -38,6 +38,12 @@
             "default": -1,
             "description": "Only save raw data if RMS exceeds provided threshold; -1 disables thresholding"
         },
+        "raw_data_bitwidth": {
+            "type": "integer",
+            "enum": [8, 16],
+            "default": 8,
+            "description": "Bit width of raw antenna data samples"
+        },
         "nof_channel_samples": {
             "type": "integer",
             "default": 1024,

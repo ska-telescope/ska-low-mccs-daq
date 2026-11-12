@@ -5,15 +5,18 @@
 #include "RawData.h"
 #include "SPEAD.h"
 
+// Expose class factory
+extern "C" DataConsumer *rawdata() { return new RawData; }
+
 // Initialise raw data consumer
 bool RawData::initialiseConsumer(json configuration)
 {
     // Check that all required keys are present
-    if (!(key_in_json(configuration, "nof_antennas")) &&
-        (key_in_json(configuration, "samples_per_buffer")) &&
-        (key_in_json(configuration, "nof_tiles")) &&
-        (key_in_json(configuration, "nof_pols")) &&
-        (key_in_json(configuration, "max_packet_size"))) {
+    if (!(key_in_json(configuration, "nof_antennas") &&
+          key_in_json(configuration, "samples_per_buffer") &&
+          key_in_json(configuration, "nof_tiles") &&
+          key_in_json(configuration, "nof_pols") &&
+          key_in_json(configuration, "max_packet_size"))) {
         LOG(FATAL, "Missing configuration item for RawData consumer. Requires "
                 "nof_antennas, samples_per_buffer, nof_tiles, nof_pols and max_packet_size");
         return false;
@@ -26,11 +29,25 @@ bool RawData::initialiseConsumer(json configuration)
     this -> nof_pols           = configuration["nof_pols"];
     this -> packet_size        = configuration["max_packet_size"];
 
+    // Optional: sample bitwidth (8 or 16) and SPEAD timestamp tick
+    if (key_in_json(configuration, "bitwidth"))
+        this -> bitwidth = configuration["bitwidth"];
+    if (key_in_json(configuration, "sampling_time"))
+        this -> sampling_time = configuration["sampling_time"];
+
+    if (bitwidth != 8 && bitwidth != 16) {
+        LOG(FATAL, "Unsupported raw data bitwidth %d, must be 8 or 16", bitwidth);
+        return false;
+    }
+
     // Create ring buffer
     initialiseRingBuffer(packet_size, (size_t) 4096 * nof_tiles);
 
     // Create antenna container
-    container = new AntennaDataContainer<uint8_t>(nof_tiles, nof_antennas, samples_per_buffer, nof_pols);
+    if (bitwidth == 16)
+        container_16bit = new AntennaDataContainer<int16_t>(nof_tiles, nof_antennas, samples_per_buffer, nof_pols);
+    else
+        container = new AntennaDataContainer<uint8_t>(nof_tiles, nof_antennas, samples_per_buffer, nof_pols);
 
     // Calculate total number of required samples per buffer
     nof_required_samples = nof_tiles * nof_antennas * samples_per_buffer;
@@ -42,7 +59,10 @@ bool RawData::initialiseConsumer(json configuration)
 // Set callback
 void RawData::setCallback(DataCallbackDynamic callback)
 {
-    this -> container -> setCallback(callback);
+    if (bitwidth == 16)
+        container_16bit -> setCallback(callback);
+    else
+        container -> setCallback(callback);
 }
 
 // Function called when a burst stream capture has finished
@@ -53,7 +73,10 @@ void RawData::onStreamEnd()
         return;
 
     // Persist container
-    container->persist_container();
+    if (bitwidth == 16)
+        container_16bit -> persist_container();
+    else
+        container -> persist_container();
 
     // Clear number of received samples
     nof_received_samples = 0;
@@ -61,6 +84,9 @@ void RawData::onStreamEnd()
 
 void RawData::cleanUp() {
     delete container;
+    delete container_16bit;
+    container = nullptr;
+    container_16bit = nullptr;
 }
 
 // Packet filter
@@ -184,20 +210,24 @@ bool RawData::processPacket()
         }
     }
 
-    // Read timestamp scale value
-    double timestamp_scale = 1.08e-6;
+    // Calculate number of samples per antenna in packet
+    uint32_t nof_samples = (uint32_t) (payload_length - payload_offset) /
+                           (nof_antennas * nof_pols * (bitwidth / 8));
 
-    // Calculate number of samples in packet
-    uint32_t nof_samples = (uint32_t) (payload_length - payload_offset) / (nof_antennas * nof_pols);
-
-    // Update number of received samples
-    nof_received_samples += nof_samples;
+    // Update number of received samples, counted per antenna like nof_required_samples
+    nof_received_samples += nof_samples * nof_antennas;
 
     // We have processed the packet items, now comes the data
     uint32_t index = (packet_counter * nof_samples) % samples_per_buffer;
-    container -> add_data(packet_counter, payload_length, sync_time, timestamp, station_id, fpga_id, 
-                        payload_offset, tile_id, start_antenna_id, index, nof_samples,
-                        nof_antennas, payload + payload_offset, sync_time + timestamp * timestamp_scale);
+    double packet_time = sync_time + timestamp * sampling_time;
+    if (bitwidth == 16)
+        addToContainer(container_16bit, packet_counter, payload_length, sync_time, timestamp, station_id,
+                       fpga_id, payload_offset, tile_id, start_antenna_id, index, nof_samples, nof_antennas,
+                       payload, packet_time);
+    else
+        addToContainer(container, packet_counter, payload_length, sync_time, timestamp, station_id,
+                       fpga_id, payload_offset, tile_id, start_antenna_id, index, nof_samples, nof_antennas,
+                       payload, packet_time);
 
     // Ready from packet
     ring_buffer -> pull_ready();
@@ -208,4 +238,16 @@ bool RawData::processPacket()
 
     // All done, return
     return true;
+}
+
+// Add a packet's samples to the container of the configured bitwidth
+template <class T> void RawData::addToContainer(AntennaDataContainer<T> *container, uint32_t packet_counter,
+    uint64_t payload_length, uint64_t sync_time, uint64_t timestamp, uint16_t station_id,
+    uint8_t fpga_id, uint64_t payload_offset, uint8_t tile_id, uint8_t start_antenna_id,
+    uint32_t index, uint32_t nof_samples, uint8_t nof_included_antennas, uint8_t *payload,
+    double packet_time)
+{
+    container -> add_data(packet_counter, payload_length, sync_time, timestamp, station_id, fpga_id,
+                          payload_offset, tile_id, start_antenna_id, index, nof_samples,
+                          nof_included_antennas, reinterpret_cast<T *>(payload + payload_offset), packet_time);
 }

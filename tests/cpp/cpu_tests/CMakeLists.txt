@@ -22,3 +22,13 @@ add_executable(test_double_buffer
 target_include_directories(test_double_buffer BEFORE PRIVATE ${AAVS_DAQ_SRC})
 target_link_libraries(test_double_buffer PRIVATE GTest::gtest_main aavsdaq)
 gtest_discover_tests(test_double_buffer)
+
+# ── Raw antenna data consumer test ───────────────────────────────────────────────
+# Drives RawData's processPacket()/callback path for 8-bit and 16-bit samples.
+add_executable(test_raw_data
+    test_raw_data.cpp
+    ${CDAQ_SRC}/RawData.cpp
+)
+target_include_directories(test_raw_data BEFORE PRIVATE ${AAVS_DAQ_SRC})
+target_link_libraries(test_raw_data PRIVATE GTest::gtest_main aavsdaq)
+gtest_discover_tests(test_raw_data)
