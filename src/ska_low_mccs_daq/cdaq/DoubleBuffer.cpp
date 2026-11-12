@@ -33,6 +33,7 @@ DoubleBuffer::DoubleBuffer(uint16_t nof_antennas, uint32_t nof_samples,
         double_buffer[i].index = -1;
         double_buffer[i].read_samples = 0;
         double_buffer[i].nof_packets = 0;
+        reset_station_ids(i);
         double_buffer[i].nof_antennas  = nof_antennas;
         double_buffer[i].nof_samples = nof_samples;
         double_buffer[i].nof_pols  = nof_pols;
@@ -77,7 +78,7 @@ DoubleBuffer::~DoubleBuffer()
 // Write data to buffer
 void DoubleBuffer::write_data(uint16_t start_antenna, uint16_t nof_included_antennas, uint16_t channel,
                               uint32_t start_sample_index, uint32_t samples,
-                              uint16_t *data_ptr, double timestamp)
+                              uint16_t *data_ptr, double timestamp, uint8_t tile_id, uint16_t station_id)
 {
     // Check if we are receiving a packet from a previous channel, if so place in previous buffer
     if (this -> double_buffer[this->producer].channel > channel)
@@ -85,6 +86,7 @@ void DoubleBuffer::write_data(uint16_t start_antenna, uint16_t nof_included_ante
         int local_producer = (this -> producer == 0) ? this->nbuffers - 1 : (this->producer - 1);
         this->copy_data(local_producer, start_antenna, nof_included_antennas, (uint64_t) start_sample_index * samples, 
                         samples, data_ptr, timestamp);
+        this->record_station_id(local_producer, tile_id, station_id);
         return;
     }
 
@@ -130,12 +132,13 @@ void DoubleBuffer::write_data(uint16_t start_antenna, uint16_t nof_included_ante
     // Copy data to buffer
     this->copy_data(producer, start_antenna, nof_included_antennas, (uint64_t) start_sample_index * samples, 
                     samples, data_ptr, timestamp);
+    this->record_station_id(producer, tile_id, station_id);
 }
 
 // Write data to buffer
 void DoubleBuffer::write_data_single_channel(uint16_t start_antenna, uint16_t nof_included_antennas, uint16_t channel,
                                              uint32_t packet_index, uint32_t samples,
-                              uint16_t *data_ptr, double timestamp)
+                              uint16_t *data_ptr, double timestamp, uint8_t tile_id, uint16_t station_id)
 {
     // Adding to previous buffer
     if (this -> double_buffer[this->producer].ref_time > timestamp)
@@ -144,6 +147,7 @@ void DoubleBuffer::write_data_single_channel(uint16_t start_antenna, uint16_t no
         this->copy_data(local_producer, start_antenna, nof_included_antennas,
                         (uint64_t) packet_index * samples, samples, data_ptr,  timestamp);
         this->double_buffer[local_producer].index = packet_index;
+        this->record_station_id(local_producer, tile_id, station_id);
         return;
     }
 
@@ -193,11 +197,23 @@ void DoubleBuffer::write_data_single_channel(uint16_t start_antenna, uint16_t no
         this->double_buffer[this -> producer].ref_time = DBL_MAX;
         this->double_buffer[this -> producer].read_samples = 0;
         this->double_buffer[this -> producer].nof_packets = 0;
+        this->reset_station_ids(this -> producer);
         this->double_buffer[this -> producer].mutex -> unlock();
     }
 
     // Copy data to buffer
     this->copy_data(producer, start_antenna, nof_included_antennas, (uint64_t) packet_index * samples, samples, data_ptr, timestamp);
+    this->record_station_id(producer, tile_id, station_id);
+}
+
+void DoubleBuffer::record_station_id(uint32_t index, uint8_t tile_id, uint16_t station_id)
+{
+    this->double_buffer[index].station_ids[tile_id] = station_id;
+}
+
+void DoubleBuffer::reset_station_ids(uint32_t index)
+{
+    memset(this->double_buffer[index].station_ids, 0, sizeof(this->double_buffer[index].station_ids));
 }
 
 inline void DoubleBuffer::copy_data(uint32_t producer_index, uint16_t start_antenna, uint16_t nof_included_antennas,
@@ -274,6 +290,7 @@ void DoubleBuffer::release_buffer()
     this->double_buffer[this->consumer].ref_time = DBL_MAX;
     this->double_buffer[this->consumer].read_samples = 0;
     this->double_buffer[this->consumer].nof_packets = 0;
+    this->reset_station_ids(this->consumer);
     this->double_buffer[this->consumer].mutex -> unlock();
 
     // Move consumer pointer
@@ -292,6 +309,7 @@ void DoubleBuffer::clear()
       double_buffer[i].nof_antennas  = nof_antennas;
       double_buffer[i].nof_samples = nof_samples;
       double_buffer[i].nof_pols  = nof_pols;
+      reset_station_ids(i);
       memset(double_buffer[i].data, 0, nof_samples * nof_antennas *
              nof_pols * sizeof(uint16_t));
   }

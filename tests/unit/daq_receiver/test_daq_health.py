@@ -38,11 +38,24 @@ class TestDaqHealth:
             "healthState",
         )
 
+    @pytest.fixture(name="station_id")
+    def station_id_fixture(self) -> int:
+        """
+        Return the ID of the station that the DAQ serves.
+
+        :return: the station ID.
+        """
+        return 345
+
     # pylint: disable = too-many-ancestors
     @pytest.fixture(name="test_context")
-    def test_context_fixture(self) -> Iterator[SpsTangoTestHarnessContext]:
+    def test_context_fixture(
+        self, station_id: int
+    ) -> Iterator[SpsTangoTestHarnessContext]:
         """
         Return the device class under test.
+
+        :param station_id: the ID of the station that the DAQ serves.
 
         :yields: a test harness context.
         """
@@ -61,7 +74,10 @@ class TestDaqHealth:
 
         test_harness = SpsTangoTestHarness()
         test_harness.set_lmc_daq_device(
-            1, address=None, device_class=_PatchedDaqReceiver
+            1,
+            address=None,
+            device_class=_PatchedDaqReceiver,
+            station_id=station_id,
         )
 
         with test_harness as test_harness_context:
@@ -106,6 +122,88 @@ class TestDaqHealth:
         daq_device.CallComponentCallback(json.dumps({"ringbuffer_occupancy": 0}))
         change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
         assert daq_device.state() == tango.DevState.ON
+
+    def test_wrong_station(
+        self,
+        test_context: SpsTangoTestHarnessContext,
+        change_event_callbacks: MockTangoEventCallbackGroup,
+    ) -> None:
+        """
+        Test that data for the wrong station makes the device FAILED.
+
+        :param test_context: The test context fixture.
+        :param change_event_callbacks: The change event callbacks fixture.
+        """
+        daq_device = test_context.get_daq_device()
+        daq_device.subscribe_event(
+            "healthState",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["healthState"],
+        )
+        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        daq_device.adminmode = 0
+        change_event_callbacks["healthState"].assert_change_event(
+            HealthState.OK, lookahead=2, consume_nonmatches=True
+        )
+
+        daq_device.CallComponentCallback(json.dumps({"received_station_ids": [345]}))
+        change_event_callbacks["healthState"].assert_not_called()
+        reading = daq_device.read_attribute("receivingDataForStation")
+        assert reading.value == "345 (expected 345)"
+        assert reading.quality == tango.AttrQuality.ATTR_VALID
+
+        daq_device.CallComponentCallback(json.dumps({"received_station_ids": [352]}))
+        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        reading = daq_device.read_attribute("receivingDataForStation")
+        assert reading.value == "352 (expected 345)"
+        assert reading.quality == tango.AttrQuality.ATTR_ALARM
+        assert "receivingdataforstation" in daq_device.healthReport
+        assert "352 (expected 345)" in daq_device.healthReport
+
+        # One tile sends the right station ID and one sends the wrong ID.
+        daq_device.CallComponentCallback(
+            json.dumps({"received_station_ids": [345, 352]})
+        )
+        change_event_callbacks["healthState"].assert_not_called()
+        reading = daq_device.read_attribute("receivingDataForStation")
+        assert reading.value == "345, 352 (expected 345)"
+        assert reading.quality == tango.AttrQuality.ATTR_ALARM
+
+        daq_device.CallComponentCallback(json.dumps({"received_station_ids": []}))
+        change_event_callbacks["healthState"].assert_change_event(HealthState.OK)
+        reading = daq_device.read_attribute("receivingDataForStation")
+        assert reading.value == ""
+        assert reading.quality == tango.AttrQuality.ATTR_VALID
+
+    @pytest.mark.parametrize("station_id", [0])
+    def test_no_station_configured(
+        self,
+        test_context: SpsTangoTestHarnessContext,
+        change_event_callbacks: MockTangoEventCallbackGroup,
+    ) -> None:
+        """
+        Test that no station check is done when no station is configured.
+
+        :param test_context: The test context fixture.
+        :param change_event_callbacks: The change event callbacks fixture.
+        """
+        daq_device = test_context.get_daq_device()
+        daq_device.subscribe_event(
+            "healthState",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["healthState"],
+        )
+        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        daq_device.adminmode = 0
+        change_event_callbacks["healthState"].assert_change_event(
+            HealthState.OK, lookahead=2, consume_nonmatches=True
+        )
+
+        daq_device.CallComponentCallback(json.dumps({"received_station_ids": [352]}))
+        change_event_callbacks["healthState"].assert_not_called()
+        reading = daq_device.read_attribute("receivingDataForStation")
+        assert reading.value == "352 (expected 0)"
+        assert reading.quality == tango.AttrQuality.ATTR_VALID
 
     def test_attribute_config(
         self,

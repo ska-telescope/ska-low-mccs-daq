@@ -18,6 +18,9 @@
  * and read will read in the entire buffer
  */
 
+// The SPEAD tile ID field is 8 bits wide, so tile IDs are always lower than this
+constexpr uint16_t MAX_TILES = 256;
+
 // Represents a single buffer in the double (or more) buffering system
 struct Buffer
 {
@@ -27,6 +30,7 @@ struct Buffer
     bool       ready;        // Specifies whether the buffer is ready to be processed
     uint32_t   read_samples; //Number of actual samples in the buffer
     uint32_t   nof_packets; // Number of packets
+    uint16_t   station_ids[MAX_TILES]; // SPEAD station ID per tile ID, 0 if no packet came from that tile
     uint16_t   *data;         // Pointer to the buffer itself
     uint16_t   nof_antennas;     // Number of antennas in buffer
     uint32_t   nof_samples;     // Number of samples in buffer
@@ -49,12 +53,12 @@ public:
     // Write data to buffer
     void write_data(uint16_t start_antenna, uint16_t nof_included_antennas, uint16_t channel,
                     uint32_t start_sample_index, uint32_t samples,
-                    uint16_t *data_ptr, double timestamp);
+                    uint16_t *data_ptr, double timestamp, uint8_t tile_id, uint16_t station_id);
 
     // Write data to buffer (use when processing a single channel continuously
     void write_data_single_channel(uint16_t start_antenna, uint16_t nof_included_antennas, uint16_t channel, uint32_t packet_index,
                     uint32_t samples,
-                    uint16_t *data_ptr, double timestamp);
+                    uint16_t *data_ptr, double timestamp, uint8_t tile_id, uint16_t station_id);
 
     // Finish write
     void finish_write();
@@ -75,6 +79,14 @@ public:
     void clear();
 
 protected:
+
+    // Record the station ID of a packet against the tile that sent it.
+    // A buffer holds packets from many tiles, so one ID per buffer would hide a
+    // tile that sends a different station ID.
+    void record_station_id(uint32_t index, uint8_t tile_id, uint16_t station_id);
+
+    // Mark every tile of a buffer as not having sent a packet.
+    void reset_station_ids(uint32_t index);
 
     virtual inline void copy_data(uint32_t producer_index, uint16_t start_antenna, uint16_t nof_included_antennas,
                           uint64_t start_sample_index, uint32_t samples, uint16_t *data_ptr, double timestamp);

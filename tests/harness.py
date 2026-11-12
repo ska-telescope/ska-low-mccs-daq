@@ -144,6 +144,7 @@ class SpsTangoTestHarness:
         consumers_to_start: list[str] | None = None,
         logging_level: int = int(LoggingLevel.DEBUG),
         device_class: type[Device] | str = "ska_low_mccs_daq.MccsDaqReceiver",
+        station_id: int = 0,
     ) -> None:
         """
         Add a DAQ Tango device to the test harness.
@@ -161,6 +162,8 @@ class SpsTangoTestHarness:
         :param device_class: The device class to use.
             This may be used to override the usual device class,
             for example with a patched subclass.
+        :param station_id: The ID of the station that the DAQ serves.
+            0 means that no station is configured.
         """
         if consumers_to_start is None:
             consumers_to_start = ["DaqModes.INTEGRATED_CHANNEL_DATA"]
@@ -175,6 +178,7 @@ class SpsTangoTestHarness:
             get_lmc_daq_name(self._station_label),
             device_class,
             DaqId=daq_id,
+            StationId=station_id,
             ReceiverInterface=receiver_interface,
             Host=host,
             ConsumersToStart=consumers_to_start,
