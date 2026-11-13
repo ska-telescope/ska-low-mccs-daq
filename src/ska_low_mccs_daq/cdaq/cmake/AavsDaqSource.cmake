@@ -10,8 +10,8 @@ include(FetchContent)
 set(FETCHCONTENT_SOURCE_DIR_AAVS_DAQ "" CACHE PATH "" FORCE)
 FetchContent_Declare(
     aavs_daq
-    GIT_REPOSITORY https://bitbucket.org/aavslmc/aavs-daq.git
-    GIT_TAG        fix-failed-consumer
+    GIT_REPOSITORY https://gitlab.com/ska-telescope/aavs-daq.git
+    GIT_TAG        1.2.2
 )
 # This populates the source and defines no targets. The repository root of
 # aavs-daq holds no CMakeLists.txt, because its build files are in src/, so
