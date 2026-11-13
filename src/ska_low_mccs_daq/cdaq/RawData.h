@@ -89,8 +89,8 @@ public:
             metadata[tile_index].nof_antennas = nof_included_antennas;
         }
 
-    // Add data to buffer
-    void add_data(uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time, 
+    // Add data to buffer, returning false if the packet was dropped
+    bool add_data(uint32_t packet_counter, uint64_t payload_length, uint64_t sync_time,
         uint64_t timestamp_field, uint16_t station_id, uint8_t fpga_id, uint64_t payload_offset, 
         uint8_t tile, uint8_t start_antenna, uint32_t start_sample_index, uint32_t nsamp, 
         uint8_t nof_included_antennas, T *data_ptr, double timestamp)
@@ -104,13 +104,20 @@ public:
 
             if (tile_index == nof_tiles) {
                 fprintf(stderr, "Cannot process tile %d, antenna consumer configured for %d tiles\n", tile, nof_tiles);
-                return;
+                return false;
             }
 
             tile_map[tile] = tile_index;
             antenna_data[tile_index].tile = tile;
             metadata[tile_index].tile_id = tile;
         }
+        // Drop packets whose antennas do not fit in the buffer
+        if (start_antenna + nof_included_antennas > nof_antennas) {
+            fprintf(stderr, "Dropping raw packet for antennas %d-%d, antenna consumer configured for %d antennas\n",
+                    start_antenna, start_antenna + nof_included_antennas - 1, nof_antennas);
+            return false;
+        }
+
         // Burst raw data
         if (nof_included_antennas == 1)
         {
@@ -134,12 +141,11 @@ public:
                          start_sample_index * nof_pols;
 
                 for(unsigned i = 0; i < nsamp ; i++)
-                {
-                    *ptr = data_ptr[i * nof_included_antennas * nof_pols + a * nof_pols];
-                    ptr++;
-                    *ptr = data_ptr[i * nof_included_antennas * nof_pols + a * nof_pols + 1];
-                    ptr++;
-                }
+                    for(unsigned p = 0; p < nof_pols; p++)
+                    {
+                        *ptr = data_ptr[i * nof_included_antennas * nof_pols + a * nof_pols + p];
+                        ptr++;
+                    }
 
             }
         }
@@ -155,6 +161,7 @@ public:
         station_id, fpga_id, payload_offset, start_antenna, nof_included_antennas);
 
         metadata[tile_index].nof_packets++;
+        return true;
     }
 
     //  Clear buffer and antenna information
@@ -223,7 +230,7 @@ public:
 
 protected:
     // Packet filtering function to be passed to network thread
-    inline bool packetFilter(unsigned char* udp_packet) override;
+    bool packetFilter(unsigned char* udp_packet) override;
 
     // Grab SPEAD packet from buffer and process
     bool processPacket() override;
@@ -236,8 +243,16 @@ protected:
 
 private:
 
-    // AntennaInformation object
+    // Add a packet's samples to the container
+    template <class T> bool addToContainer(AntennaDataContainer<T> *container, uint32_t packet_counter,
+        uint64_t payload_length, uint64_t sync_time, uint64_t timestamp, uint16_t station_id,
+        uint8_t fpga_id, uint64_t payload_offset, uint8_t tile_id, uint8_t start_antenna_id,
+        uint32_t index, uint32_t nof_samples, uint8_t nof_included_antennas, uint8_t *payload,
+        double packet_time);
+
+    // AntennaInformation objects, one of which is used depending on the bitwidth
     AntennaDataContainer<uint8_t> *container = nullptr;
+    AntennaDataContainer<int16_t> *container_16bit = nullptr;
     unsigned int nof_received_samples = 0;
     unsigned int nof_required_samples = 0;
 
@@ -248,10 +263,12 @@ private:
     uint16_t nof_tiles = 0;           // Number of tiles
     uint16_t nof_channels = 0;        // Number of channels
     uint32_t nof_samples = 0;         // Number of time samples
+    uint8_t  bitwidth = 8;            // Bits per sample (8 or 16)
+    double   sampling_time = 1.08e-6; // Seconds per SPEAD timestamp tick
 
 };
 
 // Expose class factory for birales
-extern "C" DataConsumer *rawdata() { return new RawData; }
+extern "C" DataConsumer *rawdata();
 
 #endif //AAVS_DAQ_RAWDATA_H

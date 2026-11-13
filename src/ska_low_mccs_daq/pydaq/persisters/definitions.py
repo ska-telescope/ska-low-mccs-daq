@@ -35,6 +35,7 @@ DATA_TYPE_MAP = {
     "complex64": numpy.complex64,
     "uint16": numpy.uint16,
     "int8": numpy.int8,
+    "int16": numpy.int16,
     "uint8": numpy.uint8,
     "uint32": numpy.uint32,
     "double": numpy.double,

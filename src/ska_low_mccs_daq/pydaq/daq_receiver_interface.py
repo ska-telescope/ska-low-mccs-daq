@@ -236,6 +236,7 @@ class DaqReceiver:
             "nof_tiles": 1,
             "nof_raw_samples": 32768,
             "raw_rms_threshold": -1,
+            "raw_data_bitwidth": 8,
             "nof_channel_samples": 1024,
             "nof_correlator_samples": 1835008,
             "nof_correlator_channels": 1,
@@ -401,7 +402,8 @@ class DaqReceiver:
             * self._config["nof_polarisations"]
             * self._config["nof_raw_samples"]
         )
-        values = self._get_numpy_from_ctypes(data, np.int8, nof_values)
+        dtype = np.int16 if self._config["raw_data_bitwidth"] == 16 else np.int8
+        values = self._get_numpy_from_ctypes(data, dtype, nof_values)
 
         # If we have threshold enabled, then calculate RMS and only save if the threshold is not exceeded
         if self._config["raw_rms_threshold"] > -1:
@@ -1170,6 +1172,8 @@ class DaqReceiver:
             "nof_tiles": self._config["nof_tiles"],
             "nof_pols": self._config["nof_polarisations"],
             "max_packet_size": self._config["receiver_frame_size"],
+            "bitwidth": self._config["raw_data_bitwidth"],
+            "sampling_time": 1.0 / self._config["sampling_rate"],
         }
 
         # Start raw data consumer
@@ -1189,6 +1193,7 @@ class DaqReceiver:
         # Create data persister
         raw_file = RawFormatFileManager(
             root_path=self._config["directory"],
+            data_type="int16" if self._config["raw_data_bitwidth"] == 16 else "int8",
             daq_mode=FileDAQModes.Burst,
             observation_metadata=self._config["observation_metadata"],
         )
@@ -2672,6 +2677,15 @@ if __name__ == "__main__":
         default=0,
         help="Number of elapsed seconds between successive dumps of continuous "
         "channel data [default: 0 (dump everything)",
+    )
+    parser.add_option(
+        "",
+        "--raw_data_bitwidth",
+        action="store",
+        dest="raw_data_bitwidth",
+        type=int,
+        default=8,
+        help="Bit width of raw antenna data, 8 or 16 [default: 8]",
     )
     parser.add_option(
         "",
