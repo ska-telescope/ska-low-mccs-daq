@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from typing import Any, Iterator
 
 import numpy as np
@@ -220,3 +221,43 @@ def mock_psutil_methods(
         }
 
     monkeypatch.setattr(psutil, "net_io_counters", mock_net_io_counters)
+
+
+@pytest.fixture(autouse=True)
+def redirect_root_directories(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """
+    Put the DAQ data directories under a temporary directory.
+
+    The ADR-55 data directory starts at ``/product``. In deployment the
+    container infrastructure makes it, and outside a container only root
+    can make it. This fixture keeps the configured paths as they are, and
+    moves only the filesystem calls that the DaqComponentManager makes.
+
+    :param monkeypatch: pytest's monkeypatch fixture.
+    :param tmp_path: a temporary directory for this test.
+    """
+    roots = ("/product", "/plot")
+
+    def local(path: Any) -> Any:
+        text = os.fspath(path)
+        if any(text == root or text.startswith(f"{root}/") for root in roots):
+            return f"{tmp_path}{text}"
+        return path
+
+    exists, makedirs, rename = os.path.exists, os.makedirs, os.rename
+    monkeypatch.setattr(os.path, "exists", lambda path: exists(local(path)))
+    monkeypatch.setattr(
+        os,
+        "makedirs",
+        lambda path, *args, **kwargs: makedirs(local(path), *args, **kwargs),
+    )
+    monkeypatch.setattr(
+        os,
+        "rename",
+        lambda src, dst, *args, **kwargs: rename(
+            local(src), local(dst), *args, **kwargs
+        ),
+    )

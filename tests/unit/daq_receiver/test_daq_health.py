@@ -100,7 +100,7 @@ class TestDaqHealth:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
         assert daq_device.state() == tango.DevState.DISABLE
 
         daq_device.adminmode = 0
@@ -140,7 +140,7 @@ class TestDaqHealth:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
         daq_device.adminmode = 0
         change_event_callbacks["healthState"].assert_change_event(
             HealthState.OK, lookahead=2, consume_nonmatches=True
@@ -193,7 +193,7 @@ class TestDaqHealth:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
         daq_device.adminmode = 0
         change_event_callbacks["healthState"].assert_change_event(
             HealthState.OK, lookahead=2, consume_nonmatches=True
@@ -222,7 +222,7 @@ class TestDaqHealth:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
         change_event_callbacks["healthState"].assert_not_called()
         assert daq_device.state() == tango.DevState.DISABLE
 
@@ -358,7 +358,7 @@ class TestDaqHealth:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
         change_event_callbacks["healthState"].assert_not_called()
         assert daq_device.state() == tango.DevState.DISABLE
 
