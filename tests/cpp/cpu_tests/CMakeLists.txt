@@ -32,3 +32,13 @@ add_executable(test_raw_data
 target_include_directories(test_raw_data BEFORE PRIVATE ${AAVS_DAQ_SRC})
 target_link_libraries(test_raw_data PRIVATE GTest::gtest_main aavsdaq)
 gtest_discover_tests(test_raw_data)
+
+# ── Consumer lifecycle test ──────────────────────────────────────────────────────
+# Drives the aavs-daq C API (loadConsumer, initialiseConsumer) with fake consumers.
+# ENABLE_EXPORTS lets loadConsumer find the fake consumer factories in the test
+# executable by dlsym.
+add_executable(test_consumer_lifecycle test_consumer_lifecycle.cpp)
+target_include_directories(test_consumer_lifecycle BEFORE PRIVATE ${AAVS_DAQ_SRC})
+target_link_libraries(test_consumer_lifecycle PRIVATE GTest::gtest_main aavsdaq)
+set_target_properties(test_consumer_lifecycle PROPERTIES ENABLE_EXPORTS ON)
+gtest_discover_tests(test_consumer_lifecycle)
