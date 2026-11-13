@@ -1,4 +1,4 @@
-# Fetches the AAVS DAQ source at the commit this project pins, defined here and
+# Fetches the AAVS DAQ source at the version this project pins, defined here and
 # nowhere else. Only the source is populated, because the product build
 # (FetchAavsDaq) makes a shared libdaq.so from it and the C++ tests
 # (tests/cpp/cmake/FetchAavsDaq.cmake) patch it into a static library.
@@ -10,8 +10,8 @@ include(FetchContent)
 set(FETCHCONTENT_SOURCE_DIR_AAVS_DAQ "" CACHE PATH "" FORCE)
 FetchContent_Declare(
     aavs_daq
-    GIT_REPOSITORY https://gitlab.com/ska-telescope/aavs-daq.git
-    GIT_TAG        68e5953acd7a778ea37278f38679e5ca30636e69
+    GIT_REPOSITORY https://bitbucket.org/aavslmc/aavs-daq.git
+    GIT_TAG        fix-failed-consumer
 )
 # This populates the source and defines no targets. The repository root of
 # aavs-daq holds no CMakeLists.txt, because its build files are in src/, so
