@@ -1,5 +1,9 @@
 # Version History
 
+## 10.2.1
+
+* [THORN-806] Update RtD config so docs are built and published properly
+
 ## 10.2.0
 
 * [THORN-808] Add the `receivingDataForStation` attribute. It shows the station IDs in the SPEAD headers of the received data, and the configured station ID. It goes to ALARM, and healthState goes to FAILED, when the DAQ receives data for a different station.
