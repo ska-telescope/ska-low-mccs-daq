@@ -34,14 +34,16 @@ bool TensorCorrelatorData::initialiseConsumer(json configuration)
     this->packet_size = configuration["max_packet_size"];
     uint32_t nof_fine_channels = configuration["nof_fine_channels"];
 
-    // Create ring buffer
-    initialiseRingBuffer(packet_size, (size_t)32768 * this->nof_tiles);
-
-    // Create cross-correlator and start
+    // Create the cross-correlator before the ring buffer. Its GPU allocations are the
+    // likeliest to fail (for example out of GPU memory), and when they throw no ring
+    // buffer exists yet to leak.
     cross_correlator = new TensorCrossCorrelator(nof_fine_channels,
                                                  nof_tiles * nof_antennas, nof_samples, nof_pols);
 
     double_buffer = cross_correlator->double_buffer;
+
+    // Create ring buffer
+    initialiseRingBuffer(packet_size, (size_t)32768 * this->nof_tiles);
 
     // Start cross-correlator
     cross_correlator->startThread();
@@ -263,8 +265,6 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
 {
     context_.setCurrent();
 
-    double_buffer = new TccDoubleBuffer(nof_antennas, nof_samples, nof_pols, nbuffers);
-
     constexpr tcc::Format fmt = tcc::Format::i8; // TPMs produce int8 complex
     const int TPB = 16;
     if (nof_samples % TPB != 0)
@@ -278,6 +278,10 @@ TensorCrossCorrelator::TensorCrossCorrelator(uint32_t nof_fine_channels,
         /*nrChannels*/ 1,
         /*nrSamplesPerChannel*/ nof_samples,
         /*nrPolarizations*/ nof_pols);
+
+    // Allocate the double buffer last. The destructor does not run when the
+    // constructor throws, so a double buffer allocated before a throw would leak.
+    double_buffer = new TccDoubleBuffer(nof_antennas, nof_samples, nof_pols, nbuffers);
 }
 
 // Class destructor
