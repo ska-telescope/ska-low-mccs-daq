@@ -94,6 +94,8 @@ public:
         return ring_buffer->push(const_cast<uint8_t *>(pkt.data()), pkt.size());
     }
 
+    bool hasRingBuffer() const { return ring_buffer != nullptr; }
+
     // Push one packet and hand it straight to processPacket()
     bool feed(const std::vector<uint8_t> &pkt)
     {
@@ -185,6 +187,37 @@ TEST_F(TensorCorrelatorGpuTest, InitialiseConsumerAllocatesGpuCorrelator)
     // Smoke test: building the TCC correlator + CUDA context must succeed on a GPU.
     EXPECT_TRUE(c.initialiseConsumer(config));
     c.cleanUp(); // stop the GPU thread before c is destroyed
+}
+
+// A GPU allocation that fails must leave nothing allocated, because the consumer
+// is deleted without cleanUp and the next start makes a new one. The device
+// samples buffer here needs about 550 GB (2^31 samples x 64 receivers x 2 pols x
+// 2 bytes), which no GPU has. The visibility buffers scale only with receivers,
+// so they stay small.
+TEST_F(TensorCorrelatorGpuTest, FailedGpuAllocationLeavesNoRingBuffer)
+{
+    json config = {
+        {"nof_antennas", 4},
+        {"nof_channels", 1},
+        {"nof_fine_channels", 1},
+        {"nof_tiles", 1},
+        {"nof_active_tiles", 1},
+        {"nof_samples", 256},
+        {"nof_pols", 2},
+        {"max_packet_size", 9000},
+    };
+
+    TestableTensorCorrelator failed;
+    json too_big = config;
+    too_big["nof_tiles"] = 16;
+    too_big["nof_samples"] = 1u << 31;
+    EXPECT_THROW(failed.initialiseConsumer(too_big), cu::Error);
+    EXPECT_FALSE(failed.hasRingBuffer());
+
+    // The GPU is still usable by a new consumer after the failure.
+    TestableTensorCorrelator retried;
+    EXPECT_TRUE(retried.initialiseConsumer(config));
+    retried.cleanUp();
 }
 
 // Visibility round-trip: push one SPEAD channelised-data packet carrying a
