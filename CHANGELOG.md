@@ -1,5 +1,12 @@
 # Version History
 
+## 10.2.2
+
+* [THORN-809] Update aavs-daq to 1.2.2. This brings in https://bitbucket.org/aavslmc/aavs-daq/pull-requests/8. Before this fix, if a consumer failed to start, you had to kill the pod before you could try again.
+* [THORN-809] Fix a ring buffer memory leak when the TCC consumer failed to start.
+* [THORN-809] Fix the scan ID handling in the station consumers. They read the scan ID as 32 bits, but the SPEAD header item is 48 bits.
+* [THORN-809] Add missing `break` statements to two SPEAD header item cases. Without them, the code for the next item also ran and wrote a wrong value into its field.
+
 ## 10.2.1
 
 * [THORN-806] Update RtD config so docs are built and published properly
