@@ -334,6 +334,7 @@ bool IntegratedBeamformedData::processPacket()
             case 0x1600: // Timestamp
             {
                 timestamp += SPEAD_ITEM_ADDR(item);
+                break;
             }
             case 0x2005: // Antenna and Channel information
             {
