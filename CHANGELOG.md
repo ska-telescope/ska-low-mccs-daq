@@ -6,6 +6,7 @@
 * [THORN-809] Fix a ring buffer memory leak when the TCC consumer failed to start.
 * [THORN-809] Fix the scan ID handling in the station consumers. They read the scan ID as 32 bits, but the SPEAD header item is 48 bits.
 * [THORN-809] Add missing `break` statements to two SPEAD header item cases. Without them, the code for the next item also ran and wrote a wrong value into its field.
+* [THORN-812] Update PyTango to 10.3.2.
 
 ## 10.2.1
 

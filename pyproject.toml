@@ -17,7 +17,7 @@ url = 'https://pypi.org/simple'
 
 [tool.poetry.dependencies]
 python = ">=3.10, <3.12"
-pytango = "^10.3.0"
+pytango = "^10.3.2"
 ska-tango-base = "^1.6.1"
 ska-low-mccs-common = "^4.10.1"
 ska-ser-skuid = "^6.0.0"
@@ -72,7 +72,7 @@ ska-ser-sphinx-theme = "^0.1.1"
 ska-ser-skuid = "^6.0.0"
 ska-tango-base = "^1.4.2"
 ska-low-mccs-common = "^4.0.0"
-pytango = "^10.0.0"
+pytango = "^10.3.2"
 sphinxcontrib-plantuml = "^0.25"
 ska-control-model = "^1.0.0"
 numpy = "^1.23.0"

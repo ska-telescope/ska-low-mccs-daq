@@ -5,7 +5,7 @@ pytest-repeat==0.9.4
 pyyaml==6.0
 ska-control-model==1.1.1
 ska-tango-testing==0.7.3
-pytango==10.0.0
+pytango==10.3.2
 scapy==2.7.0
 pytest-mock==3.11.1
 filelock==3.32.4
