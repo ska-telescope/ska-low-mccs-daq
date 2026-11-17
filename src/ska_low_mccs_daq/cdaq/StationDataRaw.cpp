@@ -148,7 +148,7 @@ bool StationRawData::processPacket()
     uint32_t payload_offset = 0;
     double timestamp_scale = 1.0e-8;  // new time format
     double sampling_time = 1.08e-6;
-    uint32_t scan_id = 0;
+    uint64_t scan_id = 0;
 
     // Get the number of items and get a pointer to the packet payload
     auto nofitems = (unsigned short) SPEAD_GET_NITEMS(hdr);
@@ -215,9 +215,9 @@ bool StationRawData::processPacket()
                 nof_contributing_antennas = (uint16_t) (val & 0xFFFF);
                 break;
             }
-            case 0x3010: // Scan ID. 
+            case 0x3010: // Scan ID, the full 48-bit item value
             {
-		scan_id = (uint32_t) SPEAD_ITEM_ADDR(item);
+                scan_id = SPEAD_ITEM_ADDR(item);
                 break;
             }
             case 0x3300: // Payload offset
