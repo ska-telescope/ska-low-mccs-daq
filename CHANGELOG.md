@@ -1,5 +1,9 @@
 # Version History
 
+## Unreleased
+
+* [THORN-812] Update PyTango to 10.3.2.
+
 ## 10.2.1
 
 * [THORN-806] Update RtD config so docs are built and published properly
