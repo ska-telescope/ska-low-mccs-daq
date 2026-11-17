@@ -6,7 +6,7 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         Given this test is running against station <expected_station>
         And the DAQ is available
         And the DAQ is in the DISABLE state
-        And the DAQ is in health state FAILED
+        And the DAQ is in health state UNKNOWN
         And the DAQ is in adminMode OFFLINE
         When I set adminMode to ONLINE
         Then the DAQ is in the ON state
@@ -26,7 +26,7 @@ Feature: DAQ functionality As a developer, I want to be able to configure the DA
         And the DAQ is in adminMode ONLINE
         When I set adminMode to OFFLINE
         Then the DAQ is in the DISABLE state
-        And the DAQ is in health state FAILED
+        And the DAQ is in health state UNKNOWN
 
         Examples:
             | expected_station |

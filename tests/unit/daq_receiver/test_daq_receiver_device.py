@@ -78,8 +78,8 @@ class TestMccsDaqReceiver:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks.assert_change_event("healthState", HealthState.FAILED)
-        assert device_under_test.healthState == HealthState.FAILED
+        change_event_callbacks.assert_change_event("healthState", HealthState.UNKNOWN)
+        assert device_under_test.healthState == HealthState.UNKNOWN
 
     @pytest.mark.parametrize(
         "modes_to_start, expected_consumers, daq_interface, daq_ports, daq_ip",
@@ -134,7 +134,7 @@ class TestMccsDaqReceiver:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
         # Set adminMode so we can control device.
         device_under_test.adminMode = AdminMode.ONLINE
         device_under_test.subscribe_event(
@@ -326,7 +326,7 @@ class TestMccsDaqReceiver:
             tango.EventType.CHANGE_EVENT,
             change_event_callbacks["healthState"],
         )
-        change_event_callbacks["healthState"].assert_change_event(HealthState.FAILED)
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
         device_under_test.adminMode = AdminMode.ONLINE
         assert device_under_test.adminMode == AdminMode.ONLINE
         change_event_callbacks["state"].assert_change_event(tango.DevState.UNKNOWN)

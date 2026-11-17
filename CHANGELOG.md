@@ -1,5 +1,10 @@
 # Version History
 
+## Unreleased
+
+* [THORN-810] Use the MccsBaseDevice method publish_health for pushing health events.
+* [THORN-810] Update ska-low-mccs-common to 4.11.0.
+
 ## 10.2.2
 
 * [THORN-809] Update aavs-daq to 1.2.2. This brings in https://bitbucket.org/aavslmc/aavs-daq/pull-requests/8. Before this fix, if a consumer failed to start, you had to kill the pod before you could try again.

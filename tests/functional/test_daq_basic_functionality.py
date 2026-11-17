@@ -56,29 +56,29 @@ def check_daq_is_disable(
     assert daq_receiver.state() == tango.DevState.DISABLE
 
 
-@given("the DAQ is in health state FAILED")
-def assert_daq_is_failed_health(
+@given("the DAQ is in health state UNKNOWN")
+def assert_daq_is_unknown_health(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Assert that daq receiver is in health mode failed.
+    Assert that the health of the daq receiver is unknown.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    if daq_receiver.healthState != HealthState.FAILED:
-        pytest.fail("Initial conditions not met, health state not failed")
+    if daq_receiver.healthState != HealthState.UNKNOWN:
+        pytest.fail("Initial conditions not met, health state not unknown")
 
 
-@then("the DAQ is in health state FAILED")
-def check_daq_is_failed_health(
+@then("the DAQ is in health state UNKNOWN")
+def check_daq_is_unknown_health(
     daq_receiver: tango.DeviceProxy,
 ) -> None:
     """
-    Check that daq receiver is in health mode failed.
+    Check that the health of the daq receiver is unknown.
 
     :param daq_receiver: The daq_receiver fixture to use.
     """
-    expect_attribute(daq_receiver, "healthState", HealthState.FAILED)
+    expect_attribute(daq_receiver, "healthState", HealthState.UNKNOWN)
 
 
 @given("the DAQ is in adminMode OFFLINE")

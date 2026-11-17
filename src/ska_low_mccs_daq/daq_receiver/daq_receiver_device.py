@@ -21,7 +21,7 @@ import numpy as np
 import numpy.typing
 import ska_tango_base as stb
 import tango
-from ska_control_model import CommunicationStatus, HealthState, ResultCode
+from ska_control_model import CommunicationStatus, ResultCode
 from ska_low_mccs_common import HealthRecorder, MccsBaseDevice
 from ska_tango_base.base import TaskCallbackType
 from ska_tango_base.software_bus import AttrSignal, attribute_from_signal
@@ -152,7 +152,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         super().__init__(*args, **kwargs)
 
         self.component_manager: DaqComponentManager
-        self._health_report: str = ""
         self._health_recorder: Optional[HealthRecorder]
         self._healthful_attributes: dict[str, Callable]
         self._received_data_mode: str
@@ -178,7 +177,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         self._buffer_counter: int
         self._receiving_data_for_station: str | None
         self._receiving_data_for_station_quality: tango.AttrQuality
-        self._stopping = False
 
     def init_device(self: MccsDaqReceiver) -> None:
         """
@@ -186,7 +184,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
         This is overridden here to change the Tango serialisation model.
         """
-        self._stopping = False
         super().init_device()
 
         self._build_state = ",".join(
@@ -275,7 +272,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
 
     def delete_device(self: MccsDaqReceiver) -> None:
         """Delete the device."""
-        self._stopping = True
         if self._health_recorder is not None:
             self._health_recorder.cleanup()
             self._health_recorder = None
@@ -284,8 +280,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
     def _init_state_model(self: MccsDaqReceiver) -> None:
         """Initialise the state model."""
         super()._init_state_model()
-        self.set_change_event("healthState", True, False)
-        self.set_archive_event("healthState", True, self.VerifyEvents)
         self._healthful_attributes = {
             "ringbufferOccupancy": lambda: self._ringbuffer_occupancy,
             "relativeNofPacketsDiff": lambda: self._relative_nof_packets_diff,
@@ -298,10 +292,9 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
             self.get_name(),
             self.logger,
             attributes=list(self._healthful_attributes.keys()),
-            health_callback=self._health_changed,
+            health_callback=self.publish_health,
             attr_conf_callback=self._attr_conf_changed,
         )
-        self._health_report = ""
         self._received_data_mode = ""
         self._received_data_result = ""
         self._rms_plot = np.zeros(shape=(256, 512), dtype=float)
@@ -724,29 +717,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
                 "dataReceivedResult",
                 (self._received_data_mode, self._received_data_result),
             )
-
-    def _health_changed(
-        self: MccsDaqReceiver, health: HealthState, health_report: str
-    ) -> None:
-        """
-        Handle an evaluation of this device's health.
-
-        The HealthRecorder calls this hook on every event from a monitored
-        attribute. It reports health every time, and Tango change detection
-        suppresses repeated values.
-
-        :param health: the evaluated health value
-        :param health_report: the health report
-        """
-        if self._stopping:
-            return
-        if health == HealthState.UNKNOWN:
-            # report_health() does not support UNKNOWN; the HealthRecorder
-            # reports it when it has no attribute state to evaluate, which we
-            # treat as a failure to determine health.
-            health = HealthState.FAILED
-        self._health_report = health_report
-        self.report_health(health, [] if health == HealthState.OK else [health_report])
 
     def _attr_conf_changed(self: MccsDaqReceiver, attribute_name: str) -> None:
         """
@@ -1210,15 +1180,6 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
         :return: The last block of rms data.
         """
         return self._rms_plot
-
-    @attribute(dtype="DevString")
-    def healthReport(self: MccsDaqReceiver) -> str:
-        """
-        Get the health report.
-
-        :return: the health report.
-        """
-        return self._health_report
 
     @attribute(
         dtype="DevLong",
