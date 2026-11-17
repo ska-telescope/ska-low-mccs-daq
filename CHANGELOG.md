@@ -3,6 +3,7 @@
 ## Unreleased
 
 * [THORN-810] Use the MccsBaseDevice method publish_health for pushing health events.
+* [THORN-810] Update ska-low-mccs-common to 4.11.0.
 
 ## 10.2.2
 

@@ -19,7 +19,7 @@ url = 'https://pypi.org/simple'
 python = ">=3.10, <3.12"
 pytango = "^10.3.2"
 ska-tango-base = "^1.6.1"
-ska-low-mccs-common = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-common.git", branch = "thorn-810" }
+ska-low-mccs-common = "^4.11.0"
 ska-ser-skuid = "^6.0.0"
 numpy = "^1.23.0"
 PyYAML = "^6.0"
@@ -71,7 +71,7 @@ sphinx-autodoc-typehints = "^2.0.0"
 ska-ser-sphinx-theme = "^0.1.1"
 ska-ser-skuid = "^6.0.0"
 ska-tango-base = "^1.4.2"
-ska-low-mccs-common = { git = "https://gitlab.com/ska-telescope/mccs/ska-low-mccs-common.git", branch = "thorn-810" }
+ska-low-mccs-common = "^4.11.0"
 pytango = "^10.3.2"
 sphinxcontrib-plantuml = "^0.25"
 ska-control-model = "^1.0.0"
