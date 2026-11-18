@@ -456,7 +456,7 @@ inline void StationDoubleBuffer::process_data(int producer_index, uint16_t chann
     auto *ptr = reinterpret_cast<complex8_t *>(data_ptr);
     double *buffer_x = this->double_buffer[producer_index].integrators;
     double *buffer_y = this->double_buffer[producer_index].integrators + nof_channels;
-    double acc_x = 0.0, acc_y = 0.0;
+    uint32_t acc_x = 0, acc_y = 0;
     uint32_t sat_local = 0;
     uint32_t read_samples = 0;
 
@@ -474,8 +474,8 @@ inline void StationDoubleBuffer::process_data(int producer_index, uint16_t chann
         sat_local += saturated;
         uint32_t not_saturated = 1 - saturated;
 
-        acc_x += not_saturated * static_cast<double>(x.real * x.real + x.imag * x.imag);
-        acc_y += not_saturated * static_cast<double>(y.real * y.real + y.imag * y.imag);
+        acc_x += not_saturated * static_cast<uint32_t>(x.real * x.real + x.imag * x.imag);
+        acc_y += not_saturated * static_cast<uint32_t>(y.real * y.real + y.imag * y.imag);
         read_samples += not_saturated;
     }
     buffer_x[channel] += acc_x;
