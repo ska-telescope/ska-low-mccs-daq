@@ -474,8 +474,8 @@ inline void StationDoubleBuffer::process_data(int producer_index, uint16_t chann
         sat_local += saturated;
         uint32_t not_saturated = 1 - saturated;
 
-        acc_x += not_saturated * static_cast<uint32_t>(x.real * x.real + x.imag * x.imag);
-        acc_y += not_saturated * static_cast<uint32_t>(y.real * y.real + y.imag * y.imag);
+        acc_x += not_saturated * static_cast<uint16_t>(x.real * x.real + x.imag * x.imag);
+        acc_y += not_saturated * static_cast<uint16_t>(y.real * y.real + y.imag * y.imag);
         read_samples += not_saturated;
     }
     buffer_x[channel] += acc_x;
