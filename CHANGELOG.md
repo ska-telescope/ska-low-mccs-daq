@@ -4,6 +4,7 @@
 
 * [THORN-810] Use the MccsBaseDevice method publish_health for pushing health events.
 * [THORN-810] Update ska-low-mccs-common to 4.11.0.
+* [THORN-815] Use integer accumulators for each packet in the station beam consumer, so the compiler vectorises the loop.
 
 ## 10.2.2
 
