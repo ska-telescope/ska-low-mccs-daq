@@ -7,6 +7,7 @@
 
 #include <chrono>
 #include <complex>
+#include <cstddef>
 #include <cstdint>
 #include <cuda_runtime.h>
 #include <functional>
@@ -17,6 +18,12 @@
 
 #include "StationCorrelatorData.h"
 #include "spead_test_util.h"
+
+// DaqReceiver.StationCorrelatorMetadata in pydaq/daq_receiver_interface.py has the same
+// layout. Change both together.
+static_assert(sizeof(StationCorrelatorMetadata) == 104, "update DaqReceiver.StationCorrelatorMetadata");
+static_assert(offsetof(StationCorrelatorMetadata, substation_ids) == 56,
+              "update DaqReceiver.StationCorrelatorMetadata");
 
 namespace
 {

@@ -32,6 +32,26 @@ class DaqModes(IntEnum):
     ANTENNA_BUFFER = 8
     RAW_STATION_BEAM = 10
     TC_CORRELATOR_DATA = 11
+    STATION_CORRELATOR_DATA = 12
+
+
+def tcc_upper_triangular_order(nof_receivers: int) -> np.ndarray:
+    """Return indices that put TCC baselines in upper-triangular order.
+
+    TCC stores baseline (x, y), x >= y, at x * (x + 1) / 2 + y. Upper-triangular
+    baseline (i, j), i <= j, is TCC baseline (j, i).
+
+    :param nof_receivers: Number of correlator inputs
+    :return: Index array for the TCC baseline axis
+    """
+    return np.array(
+        [
+            j * (j + 1) // 2 + i
+            for i in range(nof_receivers)
+            for j in range(i, nof_receivers)
+        ],
+        dtype=np.intp,
+    )
 
 
 class DaqReceiver:
@@ -151,6 +171,25 @@ class DaqReceiver:
             ("station_ids", ctypes.c_uint16 * 256),
         ]
 
+    class StationCorrelatorMetadata(ctypes.Structure):
+        """Same layout as StationCorrelatorMetadata in cdaq/StationCorrelatorData.h (104 bytes)"""
+
+        _fields_ = [
+            ("time_taken", ctypes.c_double),
+            ("h2d_time", ctypes.c_double),
+            ("kern_time", ctypes.c_double),
+            ("d2h_time", ctypes.c_double),
+            ("scan_id", ctypes.c_uint64),
+            ("nof_samples", ctypes.c_uint32),
+            ("nof_packets", ctypes.c_uint32),
+            ("station_id", ctypes.c_uint16),
+            ("start_channel", ctypes.c_uint16),
+            ("nof_channels", ctypes.c_uint16),
+            ("nof_substations", ctypes.c_uint16),
+            # STATION_CORRELATOR_MAX_SUBSTATIONS in StationCorrelatorData.h
+            ("substation_ids", ctypes.c_uint8 * 48),
+        ]
+
     class StationMetadata(ctypes.Structure):
         _fields_ = [
             ("nof_packets", ctypes.c_uint32),
@@ -200,6 +239,9 @@ class DaqReceiver:
 
     # --------------------------------------------------------------------------------------
 
+    # Consumers built into libaavsdaq_tcc.so rather than libaavsdaq.so
+    _TCC_CONSUMERS = (b"tensorcorrelator", b"stationcorrelator")
+
     # Define consumer data callback wrapper
     DATA_CALLBACK = ctypes.CFUNCTYPE(
         None,
@@ -245,6 +287,10 @@ class DaqReceiver:
             "nof_beam_channels": 384,
             "nof_station_samples": 262144,
             "subarray_ids": None,
+            "station_correlator_substation_ids": None,
+            "station_correlator_start_channel": 0,
+            "nof_station_correlator_channels": 8,
+            "nof_station_correlator_samples": 917504,
             "integrated_channel_bitwidth": 16,
             "integration_lookahead_cutoff": 3.0,
             "continuous_channel_bitwidth": 16,
@@ -324,6 +370,9 @@ class DaqReceiver:
             ),
             DaqModes.TC_CORRELATOR_DATA: self.DYNAMIC_DATA_CALLBACK(
                 self._tc_correlator_callback
+            ),
+            DaqModes.STATION_CORRELATOR_DATA: self.DYNAMIC_DATA_CALLBACK(
+                self._station_correlator_callback
             ),
         }
 
@@ -1015,6 +1064,72 @@ class DaqReceiver:
         if self._config["logging"]:
             self._logger.info("Received correlated data for channel {}".format(channel_id))
 
+    def _station_correlator_callback(
+        self,
+        data: ctypes.POINTER,
+        timestamp: float,
+        metadata: ctypes.POINTER,
+    ) -> None:
+        """Write the correlated substation beams of one integration
+        :param data: Visibilities, [channel][baseline][pol][pol] of complex int32
+        :param timestamp: Time of the first sample in the integration
+        :param metadata: StationCorrelatorMetadata"""
+
+        if not self._config["write_to_disk"]:
+            return
+
+        metadata = ctypes.cast(metadata, ctypes.POINTER(self.StationCorrelatorMetadata)).contents
+        nof_substations = metadata.nof_substations
+        nof_channels = metadata.nof_channels
+        nof_baselines = nof_substations * (nof_substations + 1) // 2
+        nof_stokes = 4  # Station beams are always dual polarisation
+
+        # Read the (re, im) interleaved int32 pairs and convert to complex64
+        ints = self._get_numpy_from_ctypes(
+            data, np.int32, 2 * nof_channels * nof_baselines * nof_stokes
+        )
+        values = (ints[0::2] + 1j * ints[1::2]).astype(np.complex64)
+        values = np.reshape(values, (nof_channels, nof_baselines, nof_stokes))
+
+        # Put the baselines in upper-triangular order and swap XY and YX, as
+        # _tc_correlator_callback does
+        values = values[:, self._station_correlator_baseline_order][:, :, [0, 2, 1, 3]]
+
+        # Persist, appending every integration to one file
+        if DaqModes.STATION_CORRELATOR_DATA not in self._timestamps:
+            self._timestamps[DaqModes.STATION_CORRELATOR_DATA] = timestamp
+
+        filename = self._persisters[DaqModes.STATION_CORRELATOR_DATA].ingest_data(
+            append=True,
+            data_ptr=values,
+            timestamp=self._timestamps[DaqModes.STATION_CORRELATOR_DATA],
+            sampling_time=self._sampling_time[DaqModes.STATION_CORRELATOR_DATA],
+            buffer_timestamp=timestamp,
+            channel_id=metadata.start_channel,
+        )
+
+        # Call external callback if defined
+        if self._external_callbacks[DaqModes.STATION_CORRELATOR_DATA] is not None:
+            self._external_callbacks[DaqModes.STATION_CORRELATOR_DATA](
+                "station_correlator",
+                filename,
+                nof_packets=metadata.nof_packets,
+                nof_samples=metadata.nof_samples,
+                correlator_time_taken=metadata.time_taken,
+                host_to_device_copy_time=metadata.h2d_time,
+                correlator_solve_time=metadata.kern_time,
+                device_to_host_copy_time=metadata.d2h_time,
+                # Station beam data has no tile, so the station ID is keyed by None
+                station_ids={None: metadata.station_id},
+            )
+
+        if self._config["logging"]:
+            self._logger.info(
+                "Received station correlator data for {} substations, {} channels".format(
+                    nof_substations, nof_channels
+                )
+            )
+
     def _station_callback(
         self,
         data: ctypes.POINTER,
@@ -1638,6 +1753,76 @@ class DaqReceiver:
 
         self._logger.info("Started TC correlator")
 
+    def _start_station_correlator(self, callback: Optional[Callable] = None) -> None:
+        """Start the station beam correlator consumer
+        :param callback: Caller callback
+        """
+        substation_ids = self._config["station_correlator_substation_ids"]
+        if not substation_ids:
+            raise Exception(
+                "station_correlator_substation_ids must list the substations to correlate"
+            )
+        substation_ids = [int(substation_id) for substation_id in substation_ids]
+        nof_substations = len(substation_ids)
+        start_channel = self._config["station_correlator_start_channel"]
+        nof_channels = self._config["nof_station_correlator_channels"]
+
+        # Set up everything the callback uses before the consumer starts
+        self._station_correlator_baseline_order = tcc_upper_triangular_order(nof_substations)
+
+        # Create data persister. The observation metadata records the substation
+        # IDs and the frequency ID of channel 0.
+        corr_file = CorrelationFormatFileManager(
+            root_path=self._config["directory"],
+            data_type="complex64",
+            observation_metadata={
+                **self._config["observation_metadata"],
+                "substation_ids": substation_ids,
+                "start_channel": start_channel,
+            },
+        )
+        corr_file.set_metadata(
+            n_chans=nof_channels,
+            n_pols=2,
+            n_samples=1,
+            n_antennas=nof_substations,
+            n_stokes=4,
+            n_baselines=nof_substations * (nof_substations + 1) // 2,
+            station_id=self._config["station_id"],
+            station_name=self._config["station_name"],
+        )
+        self._persisters[DaqModes.STATION_CORRELATOR_DATA] = corr_file
+
+        # Set sampling time
+        self._sampling_time[DaqModes.STATION_CORRELATOR_DATA] = self._config[
+            "nof_station_correlator_samples"
+        ] / float(self._config["sampling_rate"])
+
+        # Set external callback
+        self._external_callbacks[DaqModes.STATION_CORRELATOR_DATA] = callback
+
+        params = {
+            "substation_ids": substation_ids,
+            "start_channel": start_channel,
+            "nof_channels": nof_channels,
+            "nof_samples": self._config["nof_station_correlator_samples"],
+            "max_packet_size": self._config["receiver_frame_size"],
+        }
+
+        if (
+            self._start_consumer(
+                "stationcorrelator",
+                params,
+                self._callbacks[DaqModes.STATION_CORRELATOR_DATA],
+                dynamic_callback=True,
+            )
+            != self.Result.Success
+        ):
+            raise Exception("Failed to start station correlator")
+        self._running_consumers[DaqModes.STATION_CORRELATOR_DATA] = True
+
+        self._logger.info("Started station correlator")
+
     def _start_correlator(self, callback: Optional[Callable] = None) -> None:
         """Start correlator
         :param callback: Caller callback
@@ -1866,6 +2051,15 @@ class DaqReceiver:
 
         self._logger.info("Stopped TC correlator")
 
+    def _stop_station_correlator(self) -> None:
+        """Stop station beam correlator consumer"""
+        self._external_callbacks[DaqModes.STATION_CORRELATOR_DATA] = None
+        if self._stop_consumer("stationcorrelator") != self.Result.Success:
+            raise Exception("Failed to stop station correlator")
+        self._running_consumers[DaqModes.STATION_CORRELATOR_DATA] = False
+
+        self._logger.info("Stopped station correlator")
+
     def _stop_correlator(self) -> None:
         """Stop correlator consumer"""
         self._external_callbacks[DaqModes.CORRELATOR_DATA] = None
@@ -2025,6 +2219,10 @@ class DaqReceiver:
             if DaqModes.TC_CORRELATOR_DATA == mode:
                 self._start_tc_correlator(callbacks[i])
 
+            # Running in station beam correlator mode
+            if DaqModes.STATION_CORRELATOR_DATA == mode:
+                self._start_station_correlator(callbacks[i])
+
     def stop_daq(self) -> None:
         """Stop DAQ"""
 
@@ -2045,6 +2243,7 @@ class DaqReceiver:
             DaqModes.ANTENNA_BUFFER: self._stop_antenna_buffer_consumer,
             DaqModes.RAW_STATION_BEAM: self._stop_station_beam_acquisition,
             DaqModes.TC_CORRELATOR_DATA: self._stop_tc_correlator,
+            DaqModes.STATION_CORRELATOR_DATA: self._stop_station_correlator,
         }
 
         # Stop all running consumers
@@ -2100,6 +2299,12 @@ class DaqReceiver:
         if type(self._config["receiver_ports"]) is not list:
             self._config["receiver_ports"] = [
                 int(x) for x in self._config["receiver_ports"].split(",")
+            ]
+
+        # Substation IDs can be given as a comma-separated string (command line)
+        if isinstance(self._config["station_correlator_substation_ids"], str):
+            self._config["station_correlator_substation_ids"] = [
+                int(x) for x in self._config["station_correlator_substation_ids"].split(",")
             ]
 
         # Check if an IP address was provided, and if not get the assigned address to the interface
@@ -2451,11 +2656,11 @@ class DaqReceiver:
         # Change str type
         consumer = consumer.encode()
 
-        # Load consumer
+        # Load consumer. The TCC consumers are in their own library.
         res = self._daq_library.loadConsumer(
             (
                 self._tcc_correlator_path
-                if consumer == b"tensorcorrelator"
+                if consumer in self._TCC_CONSUMERS
                 else self._daq_library_path
             ),
             consumer,
@@ -2609,6 +2814,45 @@ if __name__ == "__main__":
         type="int",
         default=1835008,
         help="Number of channel samples for correlation per buffer [default: 1835008]",
+    )
+    parser.add_option(
+        "",
+        "--station_correlator_substations",
+        action="store",
+        dest="station_correlator_substation_ids",
+        default=None,
+        help="Comma-separated substation IDs to correlate with --station_correlator, "
+        "in correlator input order [default: None]",
+    )
+    parser.add_option(
+        "",
+        "--station_correlator_start_channel",
+        action="store",
+        dest="station_correlator_start_channel",
+        type="int",
+        default=0,
+        help="Frequency ID of the first channel to correlate with --station_correlator "
+        "[default: 0]",
+    )
+    parser.add_option(
+        "",
+        "--station_correlator_channels",
+        action="store",
+        dest="nof_station_correlator_channels",
+        type="int",
+        default=8,
+        help="Number of frequency channels to correlate with --station_correlator "
+        "[default: 8]",
+    )
+    parser.add_option(
+        "",
+        "--station_correlator_samples",
+        action="store",
+        dest="nof_station_correlator_samples",
+        type="int",
+        default=917504,
+        help="Samples per --station_correlator integration, a multiple of 2048 "
+        "[default: 917504, about 1 s]",
     )
     parser.add_option(
         "",
@@ -2891,6 +3135,15 @@ if __name__ == "__main__":
         "[default: False]",
     )
     parser.add_option(
+        "",
+        "--station_correlator",
+        action="store_true",
+        dest="station_correlator",
+        default=False,
+        help="Correlate the substation beams of one station using the "
+        "Tensor-Core-Correlator (TCC) [default: False]",
+    )
+    parser.add_option(
         "-A",
         "--antenna_buffer",
         action="store_true",
@@ -3020,6 +3273,7 @@ if __name__ == "__main__":
             "integrated_channel",
             "correlator",
             "tc_correlator",
+            "station_correlator",
             "antenna_buffer",
             "raw_station_beam",
         ]
@@ -3040,6 +3294,7 @@ if __name__ == "__main__":
             config.read_raw_data,
             config.correlator,
             config.tc_correlator,
+            config.station_correlator,
             config.antenna_buffer,
             config.continuous_channel,
             config.integrated_beam,
@@ -3058,6 +3313,7 @@ if __name__ == "__main__":
             config.read_raw_data,
             config.correlator,
             config.tc_correlator,
+            config.station_correlator,
             config.continuous_channel,
             config.integrated_beam,
             config.integrated_channel,
@@ -3102,6 +3358,9 @@ if __name__ == "__main__":
 
     if config.tc_correlator:
         modes_to_start.append(DaqModes.TC_CORRELATOR_DATA)
+
+    if config.station_correlator:
+        modes_to_start.append(DaqModes.STATION_CORRELATOR_DATA)
 
     if config.antenna_buffer:
         modes_to_start.append(DaqModes.ANTENNA_BUFFER)
