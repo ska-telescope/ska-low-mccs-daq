@@ -36,3 +36,15 @@ target_link_libraries(test_tensor_correlator PRIVATE
     GTest::gtest_main aavsdaq
     cudawrappers::cu cudawrappers::nvrtc tcc CUDA::cudart)
 gtest_discover_tests(test_tensor_correlator)
+
+# ── Station beam correlator test ─────────────────────────────────────────────────────────
+# Compiles StationCorrelatorData against the fetched cudawrappers/libtcc, as above.
+add_executable(test_station_correlator
+    test_station_correlator.cpp
+    ${CDAQ_SRC}/StationCorrelatorData.cpp
+)
+target_include_directories(test_station_correlator PRIVATE ${AAVS_DAQ_SRC})
+target_link_libraries(test_station_correlator PRIVATE
+    GTest::gtest_main aavsdaq
+    cudawrappers::cu cudawrappers::nvrtc tcc CUDA::cudart)
+gtest_discover_tests(test_station_correlator)

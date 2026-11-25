@@ -239,10 +239,10 @@ gpu-cpp-pre-test:
 	mkdir -p $(GPU_CPP_BUILD_DIR)
 	mkdir -p $(GPU_CPP_BUILD_DIR)/gcov
 	cd $(GPU_CPP_BUILD_DIR) && cmake $(CURDIR)/tests/cpp -DBUILD_GPU_TESTS=ON
-	$(MAKE) -C $(GPU_CPP_BUILD_DIR) --no-print-directory test_tensor_correlator
+	$(MAKE) -C $(GPU_CPP_BUILD_DIR) --no-print-directory test_tensor_correlator test_station_correlator
 
 gpu-cpp-do-test:
-	cd $(GPU_CPP_BUILD_DIR) && ctest --output-on-failure -R TensorCorrelator
+	cd $(GPU_CPP_BUILD_DIR) && ctest --output-on-failure -R 'TensorCorrelator|StationCorrelator'
 	@if command -v gcovr >/dev/null 2>&1; then \
 	    gcovr \
 	        --root $(CURDIR)/src/ska_low_mccs_daq/cdaq \

@@ -58,6 +58,8 @@ if (WITH_TCC)
         TensorCorrelatorData.h
         TccDoubleBuffer.cpp
         TccDoubleBuffer.h
+        StationCorrelatorData.cpp
+        StationCorrelatorData.h
     )
 endif()
 
