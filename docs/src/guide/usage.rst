@@ -34,6 +34,7 @@ This is a separate shared library that implements AAVS-specific consumers. There
 - Station beam consumer - Processes the station beam
 - Raw station beam consumer - Processes the raw station beam
 - Integrated station beam consumer - Integrated the received station beam
+- Station beam correlator consumer - Correlates the substation beams of one station on the GPU with the Tensor-Core-Correlator
 
 All consumers have internal buffering to cater for out of order packet arrival, and most have an N-buffer system to deal with late-arriving packets belonging to previous buffers. In general, there is 1 thread performing packet reception and another thread running the consumer. The correlator has an additional thread that interacts with xGPU. The consumers are parametrizable with a JSON string. An external callback can be provided to a callback that is called when a buffer is filled. The signature of this callback is:
 

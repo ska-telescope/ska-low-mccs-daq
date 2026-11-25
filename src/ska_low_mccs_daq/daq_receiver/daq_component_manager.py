@@ -106,6 +106,10 @@ class DaqComponentManager(TaskExecutorComponentManager):
         "nof_beam_samples": 42,
         "nof_beam_channels": 384,
         "nof_station_samples": 262144,
+        "station_correlator_substation_ids": None,
+        "station_correlator_start_channel": 0,
+        "nof_station_correlator_channels": 8,
+        "nof_station_correlator_samples": 917504,
         "append_integrated": True,
         "sampling_time": 1.1325,
         "sampling_rate": (800e6 / 2.0) * (32.0 / 27.0) / 512.0,
@@ -240,6 +244,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             "integrated_beam": DaqModes.INTEGRATED_BEAM_DATA,
             "correlator": DaqModes.CORRELATOR_DATA,
             "tc_correlator": DaqModes.TC_CORRELATOR_DATA,
+            "station_correlator": DaqModes.STATION_CORRELATOR_DATA,
             "station": DaqModes.STATION_BEAM_DATA,
             "antenna_buffer": DaqModes.ANTENNA_BUFFER,
         }
@@ -603,7 +608,11 @@ class DaqComponentManager(TaskExecutorComponentManager):
         """
         # Callbacks to call for all data modes.
         daq_mode = self._data_mode_mapping[data_mode]
-        if daq_mode not in {DaqModes.STATION_BEAM_DATA, DaqModes.CORRELATOR_DATA}:
+        if daq_mode not in {
+            DaqModes.STATION_BEAM_DATA,
+            DaqModes.CORRELATOR_DATA,
+            DaqModes.STATION_CORRELATOR_DATA,
+        }:
             metadata = self._daq_client._persisters[daq_mode].get_metadata(
                 tile_id=additional_info
             )

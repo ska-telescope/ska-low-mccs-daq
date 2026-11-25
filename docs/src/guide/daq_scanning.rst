@@ -31,9 +31,16 @@ The following is a list of available modes:
 - CORRELATOR_DATA
 - ANTENNA_BUFFER
 - RAW_STATION_BEAM
+- TC_CORRELATOR_DATA
+- STATION_CORRELATOR_DATA
 
 .. Caution::
     RAW_STATION_BEAM will raise an error and reject the command when started alongside other modes.
+
+.. Note::
+    STATION_CORRELATOR_DATA correlates the substation beams of one station on the GPU with the
+    Tensor-Core-Correlator. Set ``station_correlator_substation_ids`` before you start it, and send the
+    CSP station beam of the station to the DAQ.
 
 ---------------------------
 Configuring MccsDaqReceiver

@@ -91,6 +91,38 @@
             "uniqueItems": true,
             "description": "IDs of the subarrays whose station beam data will be received, matched against the subarray_id SPEAD field; packets from any other subarray are dropped. Omit or set to null for single-subarray (legacy) mode, in which subarray_id is ignored. Channels are packed contiguously in the order given: the first ID occupies channels [0, nof_beam_channels), the second occupies [nof_beam_channels, 2*nof_beam_channels), etc."
         },
+        "station_correlator_substation_ids": {
+            "type": ["array", "null"],
+            "default": null,
+            "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+            },
+            "minItems": 1,
+            "maxItems": 48,
+            "uniqueItems": true,
+            "description": "Substation IDs to correlate in STATION_CORRELATOR_DATA mode, in correlator input order. Required for STATION_CORRELATOR_DATA mode."
+        },
+        "station_correlator_start_channel": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Frequency ID of the first channel correlated in STATION_CORRELATOR_DATA mode"
+        },
+        "nof_station_correlator_channels": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 8,
+            "description": "Number of frequency channels correlated in STATION_CORRELATOR_DATA mode"
+        },
+        "nof_station_correlator_samples": {
+            "type": "integer",
+            "minimum": 2048,
+            "multipleOf": 2048,
+            "default": 917504,
+            "description": "Samples in one STATION_CORRELATOR_DATA integration, a multiple of 2048. The default is about 1 s."
+        },
         "integrated_channel_bitwidth": {
             "type": "integer",
             "default": 16,

@@ -377,3 +377,59 @@ class TestDaqHealth:
         daq_device.CallComponentCallback(json.dumps({attribute: expected_value}))
 
         change_event_callbacks["healthState"].assert_change_event(expected_health)
+
+    @pytest.mark.parametrize(
+        ["fraction_received", "expected_health"],
+        [(0.5, HealthState.FAILED), (0.95, HealthState.DEGRADED)],
+    )
+    def test_station_correlator_packet_health(
+        self,
+        test_context: SpsTangoTestHarnessContext,
+        change_event_callbacks: MockTangoEventCallbackGroup,
+        fraction_received: float,
+        expected_health: HealthState,
+    ) -> None:
+        """
+        Test that missing station correlator packets degrade health.
+
+        Each integration expects one packet per substation and channel for
+        every 2048 samples.
+
+        :param test_context: The test context fixture.
+        :param change_event_callbacks: The change event callbacks fixture.
+        :param fraction_received: The fraction of expected packets received.
+        :param expected_health: The expected health state.
+        """
+        daq_device = test_context.get_daq_device()
+        daq_device.subscribe_event(
+            "healthState",
+            tango.EventType.CHANGE_EVENT,
+            change_event_callbacks["healthState"],
+        )
+        change_event_callbacks["healthState"].assert_change_event(HealthState.UNKNOWN)
+
+        daq_device.adminmode = 0
+        change_event_callbacks["healthState"].assert_change_event(
+            HealthState.OK, lookahead=2, consume_nonmatches=True
+        )
+
+        daq_device.Configure(
+            json.dumps(
+                {
+                    "station_correlator_substation_ids": [1, 2],
+                    "nof_station_correlator_channels": 8,
+                    "nof_station_correlator_samples": 917504,
+                }
+            )
+        )
+        execute_lrc_to_completion(
+            daq_device,
+            "Start",
+            json.dumps({"modes_to_start": "STATION_CORRELATOR_DATA"}),
+        )
+        expected_nof_packets = 2 * 8 * 917504 / 2048
+        daq_device.CallComponentCallback(
+            json.dumps({"nof_packets": int(expected_nof_packets * fraction_received)})
+        )
+
+        change_event_callbacks["healthState"].assert_change_event(expected_health)

@@ -685,6 +685,18 @@ class TestPatchedDaq:
             ),
             (
                 (
+                    "station_correlator",
+                    "file_name",
+                    json.dumps({}),
+                ),
+                {
+                    "data_mode": "station_correlator",
+                    "file_name": "file_name",
+                    "metadata": {},
+                },
+            ),
+            (
+                (
                     "antenna_buffer",
                     "file_name",
                     json.dumps(
@@ -783,6 +795,7 @@ class TestPatchedDaq:
             "DaqModes.STATION_BEAM_DATA",
             "DaqModes.CORRELATOR_DATA",
             "DaqModes.ANTENNA_BUFFER",
+            "DaqModes.STATION_CORRELATOR_DATA",
             "DaqModes.INTEGRATED_BEAM_DATA,ANTENNA_BUFFER, BEAM_DATA,",
         ),
     )

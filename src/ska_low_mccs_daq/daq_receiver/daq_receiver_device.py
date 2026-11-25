@@ -515,6 +515,17 @@ class MccsDaqReceiver(MccsBaseDevice[DaqComponentManager]):
                     * (nof_samples / samples_per_packet)
                     * (nof_antennas / antennas_per_packet)
                 )
+            case "STATION_CORRELATOR_DATA":
+                # One packet per substation and channel for every 2048 samples
+                nof_substations = len(config["station_correlator_substation_ids"] or [])
+                expected_nof_packets = (
+                    nof_substations
+                    * int(config["nof_station_correlator_channels"])
+                    * int(config["nof_station_correlator_samples"])
+                    / 2048
+                )
+                if expected_nof_packets == 0:
+                    return
             case _:
                 self.logger.debug(
                     "Received nof_packets for unsupported DAQ mode, "

@@ -1,4 +1,4 @@
-"""Tests for the station beam correlator mode of DaqReceiver.
+"""Tests for the station beam correlator mode.
 
 Mocks replace the C++ consumer, so these tests do not need the DAQ libraries or
 a GPU.
@@ -13,7 +13,10 @@ from unittest import mock
 import h5py
 import numpy as np
 import pytest
+from ska_control_model import CommunicationStatus
+from ska_tango_testing.mock import MockCallableGroup
 
+from ska_low_mccs_daq.daq_receiver import DaqComponentManager
 from ska_low_mccs_daq.pydaq.daq_receiver_interface import (
     DaqModes,
     DaqReceiver,
@@ -296,3 +299,37 @@ def test_callback_writes_upper_triangular_visibilities(daq: DaqReceiver) -> None
         observation = f["observation_info"].attrs
         assert list(observation["substation_ids"]) == SUBSTATION_IDS
         assert observation["start_channel"] == START_CHANNEL
+
+
+def test_component_manager_handles_station_correlator_data(
+    daq_component_manager: DaqComponentManager,
+    callbacks: MockCallableGroup,
+) -> None:
+    """
+    Test the file dump callback for the station correlator mode.
+
+    :param daq_component_manager: the daq receiver component manager under test.
+    :param callbacks: a dictionary from which callbacks with asynchrony support
+        can be accessed.
+    """
+    daq_component_manager.start_communicating()
+    callbacks["communication_state"].assert_call(CommunicationStatus.NOT_ESTABLISHED)
+    callbacks["communication_state"].assert_call(CommunicationStatus.ESTABLISHED)
+    persisters = mock.MagicMock()
+    persisters.__getitem__.return_value.get_metadata.return_value = {}
+    daq_component_manager._daq_client._persisters = persisters
+
+    with mock.patch.object(daq_component_manager, "_attribute_callback") as attr_cb:
+        # Station beam data has no tile, so the station ID is keyed by None
+        daq_component_manager._file_dump_callback(
+            "station_correlator",
+            "some/existing/file",
+            nof_packets=7168,
+            correlator_time_taken=12.5,
+            station_ids={None: 345},
+        )
+
+    persisters.__getitem__.assert_called_with(DaqModes.STATION_CORRELATOR_DATA)
+    assert mock.call("nof_packets", 7168) in attr_cb.call_args_list
+    assert mock.call("correlator_time_taken", 12.5) in attr_cb.call_args_list
+    assert mock.call("received_station_ids", [345]) in attr_cb.call_args_list
