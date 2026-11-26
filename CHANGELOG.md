@@ -6,6 +6,7 @@
 * [THORN-810] Update ska-low-mccs-common to 4.11.0.
 * [THORN-815] Use integer accumulators for each packet in the station beam consumer, so the compiler vectorises the loop.
 * [THORN-821] Add the STATION_CORRELATOR_DATA mode. It correlates the substation beams of one station with the Tensor-Core-Correlator (TCC).
+* [THORN-821] The STATION_CORRELATOR_DATA mode correlates each integration in chunks of at most 32768 samples, which cannot overflow the int32 sums of TCC, and adds the chunks in int64. Before, a strong signal over the default 917504 samples overflowed, for example 100+0j gave an autocorrelation of 9175040000. The callback now receives complex int64 visibilities.
 
 ## 10.2.2
 

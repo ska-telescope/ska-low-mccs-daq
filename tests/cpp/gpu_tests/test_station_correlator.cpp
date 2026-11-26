@@ -48,10 +48,15 @@ namespace
         return (uint16_t)((uint8_t)(int8_t)re | ((uint16_t)(uint8_t)(int8_t)im << 8));
     }
 
-    // Index of (channel, sample, receiver, pol) in the TCC layout [C][T/16][R][P][16]
-    size_t tcc_index(size_t c, size_t s, size_t r, size_t p, size_t nof_r, size_t nof_samples)
+    // Index of (channel, sample, receiver, pol) in the buffer layout [Q][C][Tq/16][R][P][16],
+    // with Q chunks of Tq samples. Each chunk is one TCC input [C][Tq/16][R][P][16].
+    size_t tcc_index(size_t c, size_t s, size_t r, size_t p, size_t nof_r, size_t nof_samples,
+                     size_t nof_c)
     {
-        return ((((c * (nof_samples / TPB) + s / TPB) * nof_r + r) * NP + p) * TPB) + s % TPB;
+        const size_t tq = station_correlator_chunk_samples((uint32_t)nof_samples);
+        const size_t q = s / tq;
+        const size_t sq = s % tq;
+        return (((((q * nof_c + c) * (tq / TPB) + sq / TPB) * nof_r + r) * NP + p) * TPB) + sq % TPB;
     }
 
     // Payload of one packet ([T][P] of complex 8-bit) from a function of sample and pol
@@ -166,13 +171,13 @@ TEST_F(StationCorrelatorDoubleBufferTest, WritesPacketInTccLayout)
     // The packet fills samples [SPP, 2*SPP) of receiver 1, channel 2
     for (size_t s : {size_t(0), size_t(15), size_t(16), size_t(SPP - 1)})
         for (size_t p = 0; p < NP; ++p)
-            EXPECT_EQ(b->data[tcc_index(2, SPP + s, 1, p, R, NS)], pack((int)(s % 120) + 1, (int)p + 1))
+            EXPECT_EQ(b->data[tcc_index(2, SPP + s, 1, p, R, NS, C)], pack((int)(s % 120) + 1, (int)p + 1))
                 << "s=" << s << " p=" << p;
 
     // Nothing else was written
-    EXPECT_EQ(b->data[tcc_index(2, 0, 1, 0, R, NS)], 0u);
-    EXPECT_EQ(b->data[tcc_index(2, SPP, 0, 0, R, NS)], 0u);
-    EXPECT_EQ(b->data[tcc_index(1, SPP, 1, 0, R, NS)], 0u);
+    EXPECT_EQ(b->data[tcc_index(2, 0, 1, 0, R, NS, C)], 0u);
+    EXPECT_EQ(b->data[tcc_index(2, SPP, 0, 0, R, NS, C)], 0u);
+    EXPECT_EQ(b->data[tcc_index(1, SPP, 1, 0, R, NS, C)], 0u);
 }
 
 TEST_F(StationCorrelatorDoubleBufferTest, LatePacketGoesToPreviousBuffer)
@@ -186,7 +191,7 @@ TEST_F(StationCorrelatorDoubleBufferTest, LatePacketGoesToPreviousBuffer)
     ASSERT_NE(first, nullptr);
     EXPECT_EQ(first->index.load(), 10u);
     EXPECT_EQ(first->nof_packets, 2u);
-    EXPECT_EQ(first->data[tcc_index(0, SPP, 0, 0, R, NS)], pack(1, 1));
+    EXPECT_EQ(first->data[tcc_index(0, SPP, 0, 0, R, NS, C)], pack(1, 1));
     buffer_->release_buffer();
 
     StationCorrelatorBuffer *second = buffer_->read_buffer();
@@ -244,6 +249,34 @@ TEST_F(StationCorrelatorDoubleBufferTest, JumpAheadStartsNewWindowWithoutOverrun
     EXPECT_EQ(second->nof_packets, 2u);
 }
 
+// An integration longer than one TCC launch is stored as chunks. Each chunk is
+// a contiguous TCC input of all channels.
+TEST_F(StationCorrelatorDoubleBufferTest, LongIntegrationIsStoredInChunks)
+{
+    constexpr uint32_t NS_LONG = 32 * SPP; // two chunks of 16 packets
+    ASSERT_EQ(station_correlator_chunk_samples(NS_LONG), 16 * SPP);
+    StationCorrelatorDoubleBuffer long_buffer(R, C, NS_LONG, 4);
+
+    // The first packet of the second chunk, for receiver 1 and channel 2
+    auto data = payload();
+    const uint64_t counter = 32 * 100 + 16; // window 3200, packet 16
+    long_buffer.write_data(1, 2, SPP, counter, data.data(), TAI_2000 + counter * PACKET_PERIOD,
+                           SCAN_ID, STATION_ID);
+    long_buffer.finish_write();
+    StationCorrelatorBuffer *b = long_buffer.read_buffer();
+    ASSERT_NE(b, nullptr);
+    EXPECT_EQ(b->index.load(), 3200u);
+
+    // It starts the second chunk, after the whole first chunk of every channel
+    const size_t first_chunk_size = (size_t)C * 16 * SPP * R * NP;
+    const size_t start = tcc_index(2, 16 * SPP, 1, 0, R, NS_LONG, C);
+    EXPECT_GE(start, first_chunk_size);
+    EXPECT_EQ(b->data[start], pack(1, 1));
+    EXPECT_EQ(b->data[tcc_index(2, 16 * SPP + 17, 1, 1, R, NS_LONG, C)], pack(18, 2));
+    // The first chunk is empty
+    EXPECT_EQ(b->data[tcc_index(2, 0, 1, 0, R, NS_LONG, C)], 0u);
+}
+
 TEST_F(StationCorrelatorDoubleBufferTest, ReleaseClearsBufferForReuse)
 {
     // Fill window 10 through every buffer once, so the buffer is reused
@@ -266,8 +299,8 @@ TEST_F(StationCorrelatorDoubleBufferTest, ReleaseClearsBufferForReuse)
     EXPECT_EQ(b->index.load(), 100u);
     EXPECT_EQ(b->nof_packets, 1u);
     // The earlier packet's samples were cleared, so a missing packet correlates as zero
-    EXPECT_EQ(b->data[tcc_index(2, 0, 1, 0, R, NS)], 0u);
-    EXPECT_EQ(b->data[tcc_index(1, 0, 0, 0, R, NS)], pack(1, 1));
+    EXPECT_EQ(b->data[tcc_index(2, 0, 1, 0, R, NS, C)], 0u);
+    EXPECT_EQ(b->data[tcc_index(1, 0, 0, 0, R, NS, C)], pack(1, 1));
 }
 
 // ── StationCorrelatorData consumer ──────────────────────────────────────────────────────
@@ -328,7 +361,7 @@ private:
 // One delivered integration
 struct Integration
 {
-    std::vector<std::complex<int32_t>> vis; // [C][B][P][P]
+    std::vector<std::complex<int64_t>> vis; // [C][B][P][P]
     double timestamp;
     StationCorrelatorMetadata metadata;
 };
@@ -341,9 +374,9 @@ public:
     {
         c.setCapturingCallback([this, nof_vis](void *data, double ts, void *meta)
                                {
-            auto *v = static_cast<std::complex<int32_t> *>(data);
+            auto *v = static_cast<std::complex<int64_t> *>(data);
             std::lock_guard<std::mutex> lock(mutex_);
-            items_.push_back({std::vector<std::complex<int32_t>>(v, v + nof_vis), ts,
+            items_.push_back({std::vector<std::complex<int64_t>>(v, v + nof_vis), ts,
                               *static_cast<StationCorrelatorMetadata *>(meta)}); });
     }
 
@@ -385,6 +418,24 @@ namespace
         return ((c * nof_baselines + x * (x + 1) / 2 + y) * NP + py) * NP + px;
     }
 } // namespace
+
+// The chunk is the largest whole number of packets that divides the integration and
+// fits in one TCC launch
+TEST(StationCorrelatorChunkTest, ChunkDividesIntegrationAndFitsInOneLaunch)
+{
+    EXPECT_EQ(station_correlator_chunk_samples(917504), 16 * SPP); // default, 28 chunks
+    EXPECT_EQ(station_correlator_chunk_samples(2 * SPP), 2 * SPP);  // one chunk
+    EXPECT_EQ(station_correlator_chunk_samples(SPP), SPP);
+    EXPECT_EQ(station_correlator_chunk_samples(24 * SPP), 12 * SPP);
+    EXPECT_EQ(station_correlator_chunk_samples(17 * SPP), SPP); // 17 is prime
+    for (uint32_t packets = 1; packets <= 600; ++packets)
+    {
+        const uint32_t chunk = station_correlator_chunk_samples(packets * SPP);
+        EXPECT_EQ((packets * SPP) % chunk, 0u) << "packets=" << packets;
+        EXPECT_EQ(chunk % SPP, 0u) << "packets=" << packets;
+        EXPECT_LE(chunk, STATION_CORRELATOR_MAX_SAMPLES_PER_LAUNCH) << "packets=" << packets;
+    }
+}
 
 TEST(StationCorrelatorFilterTest, AcceptsStationBeamPackets)
 {
@@ -582,7 +633,7 @@ TEST_F(StationCorrelatorGpuTest, UnconfiguredPacketsAreIgnored)
 
     EXPECT_EQ(in.metadata.nof_packets, 4u);
     // Only the configured packets are correlated. |3+4j|^2 = 25 for each sample.
-    EXPECT_EQ(in.vis[vis_index(1, 1, 1, 0, 0, R)].real(), (int32_t)(25 * NS));
+    EXPECT_EQ(in.vis[vis_index(1, 1, 1, 0, 0, R)].real(), (int64_t)(25 * NS));
 
     c.cleanUp();
 }
@@ -613,9 +664,9 @@ TEST_F(StationCorrelatorGpuTest, MissingPacketsCorrelateAsZero)
     EXPECT_EQ(in.metadata.nof_packets, 3u);
     for (size_t p = 0; p < NP; ++p)
     {
-        EXPECT_EQ(in.vis[vis_index(0, 0, 0, p, p, R)].real(), (int32_t)NS) << "p=" << p;
-        EXPECT_EQ(in.vis[vis_index(0, 1, 1, p, p, R)].real(), (int32_t)SPP) << "p=" << p;
-        EXPECT_EQ(in.vis[vis_index(0, 1, 0, p, p, R)].real(), (int32_t)SPP) << "p=" << p;
+        EXPECT_EQ(in.vis[vis_index(0, 0, 0, p, p, R)].real(), (int64_t)NS) << "p=" << p;
+        EXPECT_EQ(in.vis[vis_index(0, 1, 1, p, p, R)].real(), (int64_t)SPP) << "p=" << p;
+        EXPECT_EQ(in.vis[vis_index(0, 1, 0, p, p, R)].real(), (int64_t)SPP) << "p=" << p;
     }
 
     c.cleanUp();
@@ -648,9 +699,53 @@ TEST_F(StationCorrelatorGpuTest, BackToBackIntegrations)
     {
         Integration in = got.at(i);
         EXPECT_DOUBLE_EQ(in.timestamp, TAI_2000 + (BASE + i * NPKT) * PACKET_PERIOD) << "i=" << i;
-        EXPECT_EQ(in.vis[vis_index(0, 0, 0, 0, 0, R)].real(), (int32_t)((i + 1) * (i + 1) * NS))
+        EXPECT_EQ(in.vis[vis_index(0, 0, 0, 0, 0, R)].real(), (int64_t)((i + 1) * (i + 1) * NS))
             << "i=" << i;
         EXPECT_EQ(in.metadata.nof_packets, NPKT);
+    }
+
+    c.cleanUp();
+}
+
+// A strong signal over the default integration does not fit in int32. The consumer
+// correlates chunks that cannot overflow, and adds them in int64.
+TEST_F(StationCorrelatorGpuTest, HighAmplitudeDefaultIntegrationDoesNotOverflow)
+{
+    constexpr size_t R = 2, C = 1, NS = 917504, NPKT = NS / SPP;
+    constexpr size_t NVIS = C * (R * (R + 1) / 2) * NP * NP;
+    constexpr uint64_t BASE = 10 * NPKT;
+
+    TestableStationCorrelator c;
+    ASSERT_TRUE(c.initialiseConsumer(station_config({1, 2}, 100, C, NS)));
+    Collector got(c, NVIS);
+
+    // Substation 1 is a constant 100+0j. Substation 2 is the largest valid sample,
+    // -127-127j, which gives a product of 32258 for each sample. Do not use -128.
+    // The firmware uses it to flag dropped data, and TCC cannot negate it in int8.
+    auto strong = make_payload([](size_t, size_t)
+                               { return std::complex<int>(100, 0); });
+    auto largest = make_payload([](size_t, size_t)
+                                { return std::complex<int>(-127, -127); });
+    for (size_t k = 0; k < NPKT; ++k)
+    {
+        ASSERT_TRUE(c.feed(make_station_packet(BASE + k, 1, 100, strong)));
+        ASSERT_TRUE(c.feed(make_station_packet(BASE + k, 2, 100, largest)));
+    }
+
+    c.driveUntil([&] { return got.size() >= 1; }, 60000);
+    ASSERT_EQ(got.size(), 1u);
+    Integration in = got.at(0);
+    EXPECT_EQ(in.metadata.nof_samples, NS);
+
+    const int64_t n = NS;
+    for (size_t p = 0; p < NP; ++p)
+    {
+        // 9175040000 and 29596844032, both above the int32 limit
+        EXPECT_EQ(in.vis[vis_index(0, 0, 0, p, p, R)], std::complex<int64_t>(10000 * n, 0)) << "p=" << p;
+        EXPECT_EQ(in.vis[vis_index(0, 1, 1, p, p, R)], std::complex<int64_t>(32258 * n, 0)) << "p=" << p;
+        // vis(1, 0) = sum(v0 * conj(v1)) = 100 * (-127 + 127j) for each sample
+        EXPECT_EQ(in.vis[vis_index(0, 1, 0, p, p, R)], std::complex<int64_t>(-12700 * n, 12700 * n))
+            << "p=" << p;
     }
 
     c.cleanUp();

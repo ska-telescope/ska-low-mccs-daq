@@ -273,6 +273,7 @@ StationCorrelatorDoubleBuffer::StationCorrelatorDoubleBuffer(uint16_t nof_substa
       nof_substations(nof_substations),
       nof_channels(nof_channels),
       nof_samples(nof_samples),
+      chunk_samples(station_correlator_chunk_samples(nof_samples)),
       nbuffers(nbuffers),
       buffer_bytes_((size_t)nof_channels * nof_samples * nof_substations *
                     STATION_CORRELATOR_NOF_POLS * sizeof(uint16_t))
@@ -391,13 +392,18 @@ inline void StationCorrelatorDoubleBuffer::copy_data(int index, uint16_t substat
     constexpr uint32_t NP = STATION_CORRELATOR_NOF_POLS;
     StationCorrelatorBuffer &buffer = buffers_[index];
 
-    // The buffer layout is [C][M][R][P][T] with T = 16. Each uint16_t is one
-    // complex 8-bit sample.
-    const uint64_t m_stride = (uint64_t)nof_substations * NP * TPB; // stride per m
-    const uint64_t c_stride = (uint64_t)(nof_samples / TPB) * m_stride; // stride per channel
-    uint16_t *base = buffer.data + channel * c_stride + (uint64_t)substation * NP * TPB;
+    // The buffer layout is [Q][C][M][R][P][T] with T = 16 and M = chunk_samples / 16.
+    // Each uint16_t is one complex 8-bit sample. A packet starts at a multiple of
+    // the packet length, and the chunk length is a whole number of packets, so the
+    // packet is inside one chunk.
+    const uint64_t m_stride = (uint64_t)nof_substations * NP * TPB;     // stride per m
+    const uint64_t c_stride = (uint64_t)(chunk_samples / TPB) * m_stride; // stride per channel
+    const uint64_t q_stride = (uint64_t)nof_channels * c_stride;        // stride per chunk
+    const uint64_t chunk = start_sample / chunk_samples;
+    uint16_t *base = buffer.data + chunk * q_stride + channel * c_stride +
+                     (uint64_t)substation * NP * TPB;
 
-    uint64_t m = start_sample / TPB;
+    uint64_t m = (start_sample % chunk_samples) / TPB;
     const uint32_t blocks = samples / TPB;
 
     // Split each block of 16 samples into one stripe for each polarisation. The
@@ -475,21 +481,25 @@ void StationCorrelatorDoubleBuffer::release_buffer()
 // STATION CROSS CORRELATOR (GPU THREAD)
 // -------------------------------------------------------------------------------------------------------------
 
-// Class constructor (as TensorCrossCorrelator, with nrChannels > 1)
+// Class constructor (as TensorCrossCorrelator, with nrChannels > 1). TCC is compiled
+// for one chunk, and runs once for each chunk of an integration.
 StationCrossCorrelator::StationCrossCorrelator(uint16_t nof_substations, uint16_t nof_channels,
                                            uint32_t nof_samples, uint8_t nbuffers)
-    : device_(0),           // choose GPU 0
+    : nof_substations(nof_substations),
+      nof_channels(nof_channels),
+      chunk_samples(station_correlator_chunk_samples(nof_samples)),
+      nof_chunks(nof_samples / chunk_samples),
+      device_(0),           // choose GPU 0
       context_(0, device_), // primary context on device 0
       stream_(),
-      samplesExt_(multi_array::extents[nof_channels][nof_samples / STATION_CORRELATOR_TIMES_PER_BLOCK]
+      samplesExt_(multi_array::extents[nof_channels][chunk_samples / STATION_CORRELATOR_TIMES_PER_BLOCK]
                                       [nof_substations][STATION_CORRELATOR_NOF_POLS][STATION_CORRELATOR_TIMES_PER_BLOCK]),
       visExt_(multi_array::extents[nof_channels][(nof_substations * (nof_substations + 1)) / 2]
                                   [STATION_CORRELATOR_NOF_POLS][STATION_CORRELATOR_NOF_POLS]),
       hostVis_(sizeof(VisT) * visExt_.size, 0),
-      devSamples_(sizeof(SampleT) * samplesExt_.size),
+      devSamples_(sizeof(SampleT) * samplesExt_.size * nof_chunks),
       devVis_(sizeof(VisT) * visExt_.size),
-      nof_substations(nof_substations),
-      nof_channels(nof_channels)
+      visSum_(visExt_.size)
 {
     context_.setCurrent();
 
@@ -497,7 +507,7 @@ StationCrossCorrelator::StationCrossCorrelator(uint16_t nof_substations, uint16_
         device_, tcc::Format::i8, // TPMs produce int8 complex
         /*nrReceivers*/ nof_substations,
         /*nrChannels*/ nof_channels,
-        /*nrSamplesPerChannel*/ nof_samples,
+        /*nrSamplesPerChannel*/ chunk_samples,
         /*nrPolarizations*/ STATION_CORRELATOR_NOF_POLS);
 
     // Allocate the double buffer last. The destructor does not run when the
@@ -538,26 +548,44 @@ void StationCrossCorrelator::threadEntry()
         const uint64_t scan_id = buffer->scan_id;
         const uint16_t station_id = buffer->station_id;
         const size_t sample_bytes = double_buffer->buffer_bytes();
+        const size_t chunk_bytes = sample_bytes / nof_chunks;
         const size_t vis_bytes = sizeof(VisT) * visExt_.size;
 
         stream_.record(eH2D0);
         stream_.memcpyHtoDAsync(devSamples_, buffer->data, sample_bytes);
         stream_.record(eH2D1);
 
-        stream_.record(eK0);
-        correlator_->launchAsync(stream_, devVis_, devSamples_, false);
-        stream_.record(eK1);
+        // Correlate each chunk, and add its int32 visibilities in int64. One chunk
+        // cannot overflow int32 (see STATION_CORRELATOR_MAX_SAMPLES_PER_LAUNCH), but
+        // the whole integration can.
+        std::fill(visSum_.begin(), visSum_.end(), VisSumT(0, 0));
+        const VisT *vis = static_cast<const VisT *>(static_cast<void *>(hostVis_));
+        float kern_ms = 0;
+        float d2h_ms = 0;
+        for (uint32_t chunk = 0; chunk < nof_chunks; ++chunk)
+        {
+            // A view of this chunk's samples in the device buffer
+            cu::DeviceMemory chunk_samples_dev(devSamples_, chunk * chunk_bytes, chunk_bytes);
 
-        stream_.record(eD2H0);
-        stream_.memcpyDtoHAsync(hostVis_, devVis_, vis_bytes);
-        stream_.record(eD2H1);
+            stream_.record(eK0);
+            correlator_->launchAsync(stream_, devVis_, chunk_samples_dev, false);
+            stream_.record(eK1);
 
-        stream_.synchronize();
+            stream_.record(eD2H0);
+            stream_.memcpyDtoHAsync(hostVis_, devVis_, vis_bytes);
+            stream_.record(eD2H1);
 
-        // Read GPU timings (ms) from device timeline
+            stream_.synchronize();
+            kern_ms += eK1.elapsedTime(eK0);
+            d2h_ms += eD2H1.elapsedTime(eD2H0);
+
+            for (size_t i = 0; i < visSum_.size(); ++i)
+                visSum_[i] = VisSumT(visSum_[i].real() + vis[i].real(),
+                                     visSum_[i].imag() + vis[i].imag());
+        }
+
+        // Read the copy time (ms) from the device timeline
         float h2d_ms = eH2D1.elapsedTime(eH2D0);
-        float kern_ms = eK1.elapsedTime(eK0);
-        float d2h_ms = eD2H1.elapsedTime(eD2H0);
 
         // Release buffer back to producer
         double_buffer->release_buffer();
@@ -577,14 +605,14 @@ void StationCrossCorrelator::threadEntry()
                                               ((uint64_t)nof_substations * nof_channels));
             metadata.nof_packets = nof_packets;
             metadata.station_id = station_id;
-            callback(static_cast<void *>(hostVis_), timestamp, static_cast<void *>(&metadata));
+            callback(static_cast<void *>(visSum_.data()), timestamp, static_cast<void *>(&metadata));
         }
 
         LOG(INFO,
             "Station correlator | H2D=%.3f ms | kern=%.3f ms | D2H=%.3f ms "
-            "(packets=%u, bytes=%.2f MiB)",
+            "(packets=%u, chunks=%u, bytes=%.2f MiB)",
             h2d_ms, kern_ms, d2h_ms,
-            nof_packets, sample_bytes / (1024.0 * 1024.0));
+            nof_packets, nof_chunks, sample_bytes / (1024.0 * 1024.0));
     }
 }
 

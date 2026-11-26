@@ -79,10 +79,12 @@ def deliver(daq: DaqReceiver, tcc_vis: np.ndarray, timestamp: float) -> None:
     Call the station correlator callback as the C++ consumer does.
 
     :param daq: the DaqReceiver whose callback to call.
-    :param tcc_vis: visibilities in TCC order, [channel][baseline][stokes].
+    :param tcc_vis: visibilities in TCC order, [channel][baseline][stokes], with
+        integer real and imaginary parts.
     :param timestamp: integration timestamp.
     """
-    ints = np.empty(2 * tcc_vis.size, dtype=np.int32)
+    # The consumer delivers interleaved (re, im) int64 values
+    ints = np.empty(2 * tcc_vis.size, dtype=np.int64)
     ints[0::2] = tcc_vis.real.ravel()
     ints[1::2] = tcc_vis.imag.ravel()
 
@@ -299,6 +301,34 @@ def test_callback_writes_upper_triangular_visibilities(daq: DaqReceiver) -> None
         observation = f["observation_info"].attrs
         assert list(observation["substation_ids"]) == SUBSTATION_IDS
         assert observation["start_channel"] == START_CHANNEL
+
+
+def test_callback_keeps_values_above_the_int32_limit(daq: DaqReceiver) -> None:
+    """
+    Check that the callback reads visibilities that do not fit in int32.
+
+    With the default 917504 samples, a constant 100+0j gives an autocorrelation of
+    9175040000. The consumer adds its TCC launches in int64, so the callback must
+    read int64 values.
+
+    :param daq: the DaqReceiver under test.
+    """
+    _, external_callback = start_station_correlator(daq)
+    large = 917504 * 100 * 100
+    assert large > np.iinfo(np.int32).max
+    tcc_vis = np.full(
+        (NOF_CHANNELS, NOF_BASELINES, NOF_STOKES),
+        large - 3j * large,
+        dtype=np.complex128,
+    )
+
+    deliver(daq, tcc_vis, 1.7e9)
+
+    filename = external_callback.call_args[0][1]
+    with h5py.File(filename, "r") as f:
+        data = f["correlation_matrix"]["data"][:]
+    np.testing.assert_allclose(data.real, large, rtol=1e-7)
+    np.testing.assert_allclose(data.imag, -3 * large, rtol=1e-7)
 
 
 def test_component_manager_handles_station_correlator_data(

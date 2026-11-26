@@ -30,6 +30,26 @@ constexpr uint8_t STATION_CORRELATOR_NOF_POLS = 2;
 // Time samples in one TCC block for 8-bit input
 constexpr uint32_t STATION_CORRELATOR_TIMES_PER_BLOCK = 16;
 
+// Most samples that one TCC launch correlates. TCC adds the products in int32. One
+// product of complex 8-bit samples is at most 2 * 128 * 128 = 32768, so 32768
+// samples add up to at most 2^30, and cannot overflow. A longer integration is
+// correlated in chunks of at most this many samples, which are added in int64.
+constexpr uint32_t STATION_CORRELATOR_MAX_SAMPLES_PER_LAUNCH = 32768;
+
+// Return the samples in one chunk of an integration: the largest whole number of
+// packets that divides nof_samples and fits in one TCC launch. nof_samples must be
+// a multiple of STATION_CORRELATOR_SAMPLES_PER_PACKET, so a packet never spans two
+// chunks.
+inline uint32_t station_correlator_chunk_samples(uint32_t nof_samples)
+{
+    const uint32_t nof_packets = nof_samples / STATION_CORRELATOR_SAMPLES_PER_PACKET;
+    uint32_t packets_per_chunk = STATION_CORRELATOR_MAX_SAMPLES_PER_LAUNCH /
+                                 STATION_CORRELATOR_SAMPLES_PER_PACKET;
+    while (packets_per_chunk > 1 && nof_packets % packets_per_chunk != 0)
+        packets_per_chunk--;
+    return packets_per_chunk * STATION_CORRELATOR_SAMPLES_PER_PACKET;
+}
+
 // Index of an empty buffer. A packet counter can be 0, so 0 is not used.
 constexpr uint64_t STATION_CORRELATOR_EMPTY = UINT64_MAX;
 
@@ -67,8 +87,10 @@ struct StationCorrelatorBuffer
 };
 
 // Buffers between the packet thread and the GPU thread. The window logic is
-// from StationDoubleBuffer. The storage is from TccDoubleBuffer, with a channel
-// dimension. The layout is [C][T/16][R][P][16] of complex 8-bit samples.
+// from StationDoubleBuffer. The storage is from TccDoubleBuffer, with channel and
+// chunk dimensions. The layout is [Q][C][Tq/16][R][P][16] of complex 8-bit samples,
+// for Q chunks of Tq = station_correlator_chunk_samples(T) samples. Each chunk is
+// then one contiguous TCC input.
 class StationCorrelatorDoubleBuffer
 {
 public:
@@ -103,6 +125,7 @@ private:
     uint16_t nof_substations;
     uint16_t nof_channels;
     uint32_t nof_samples;
+    uint32_t chunk_samples;  // Samples in one chunk, see station_correlator_chunk_samples
     uint8_t nbuffers;
     size_t buffer_bytes_;
 
@@ -124,7 +147,9 @@ private:
 
 // -----------------------------------------------------------------------------
 
-// GPU thread. It copies each ready buffer to the GPU, correlates it and calls the callback.
+// GPU thread. It copies each ready buffer to the GPU, correlates it one chunk at a
+// time, adds the chunks in int64 and calls the callback. The callback data is
+// [C][B][P][P] of std::complex<int64_t>.
 class StationCrossCorrelator : public RealTimeThread
 {
 public:
@@ -143,28 +168,33 @@ protected:
 
 private:
     using SampleT = std::complex<int8_t>;
-    using VisT = std::complex<int32_t>;
+    using VisT = std::complex<int32_t>;     // TCC output for one chunk
+    using VisSumT = std::complex<int64_t>;  // Sum of the chunks of one integration
 
-    // CUDA objects must come first (context needs device)
+    // Sizes come first, because the members below use them
+    uint16_t nof_substations;
+    uint16_t nof_channels;
+    uint32_t chunk_samples;  // Samples in one TCC launch
+    uint32_t nof_chunks;     // TCC launches in one integration
+
+    // CUDA objects next (context needs device)
     cu::Device device_;
     cu::Context context_;
     cu::Stream stream_;
 
-    // Extents next (sizes used by buffers)
+    // Extents of one chunk (sizes used by buffers)
     multi_array::extent<5> samplesExt_;
     multi_array::extent<4> visExt_;
 
-    // Host/device buffers (need extents)
+    // Host/device buffers (need extents). devSamples_ holds every chunk.
     cu::HostMemory hostVis_;
     cu::DeviceMemory devSamples_;
     cu::DeviceMemory devVis_;
+    std::vector<VisSumT> visSum_;
 
     std::unique_ptr<tcc::Correlator> correlator_;
     DataCallbackDynamic callback{nullptr};
     StationCorrelatorMetadata metadata_template_{};
-
-    uint16_t nof_substations;
-    uint16_t nof_channels;
 
     struct timespec tic{}, toc{};
 };

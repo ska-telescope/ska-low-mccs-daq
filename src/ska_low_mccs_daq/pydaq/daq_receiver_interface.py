@@ -1071,7 +1071,7 @@ class DaqReceiver:
         metadata: ctypes.POINTER,
     ) -> None:
         """Write the correlated substation beams of one integration
-        :param data: Visibilities, [channel][baseline][pol][pol] of complex int32
+        :param data: Visibilities, [channel][baseline][pol][pol] of complex int64
         :param timestamp: Time of the first sample in the integration
         :param metadata: StationCorrelatorMetadata"""
 
@@ -1084,9 +1084,11 @@ class DaqReceiver:
         nof_baselines = nof_substations * (nof_substations + 1) // 2
         nof_stokes = 4  # Station beams are always dual polarisation
 
-        # Read the (re, im) interleaved int32 pairs and convert to complex64
+        # Read the (re, im) interleaved int64 pairs and convert to complex64. The
+        # consumer adds the int32 results of its TCC launches in int64, so a long
+        # integration of a strong signal does not wrap around.
         ints = self._get_numpy_from_ctypes(
-            data, np.int32, 2 * nof_channels * nof_baselines * nof_stokes
+            data, np.int64, 2 * nof_channels * nof_baselines * nof_stokes
         )
         values = (ints[0::2] + 1j * ints[1::2]).astype(np.complex64)
         values = np.reshape(values, (nof_channels, nof_baselines, nof_stokes))
