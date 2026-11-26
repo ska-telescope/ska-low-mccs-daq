@@ -2,7 +2,8 @@
     "name": "ska-low-mccs-daq devcontainer",
     "build": {
         "dockerfile": "../Dockerfile",
-        "context": ".."
+        "context": "..",
+        "target": "build"
     },
     "runArgs": [
         "--cap-add=NET_RAW",

@@ -1454,7 +1454,7 @@ version = "0.9.6"
 description = "Get MAC addresses of remote hosts and local interfaces"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-groups = ["main", "dev"]
+groups = ["dev"]
 files = [
     {file = "getmac-0.9.6-py2.py3-none-any.whl", hash = "sha256:9cf6acb26cb0110d799b8abd190dc7c44a75f2094a178bad5a7433efc925d370"},
     {file = "getmac-0.9.6.tar.gz", hash = "sha256:1539673e819e5856ea9707434f939355c9a9a043d3566224addf52976d804103"},
@@ -4299,7 +4299,7 @@ version = "2.8.0"
 description = "Scapy: interactive packet manipulation tool"
 optional = false
 python-versions = "<4,>=3.7"
-groups = ["main", "dev"]
+groups = ["dev"]
 files = [
     {file = "scapy-2.8.0-py3-none-any.whl", hash = "sha256:abf855145ee829a42b2eb28983cd6a0a52b12a31d3f861cb7be36791195ed9aa"},
     {file = "scapy-2.8.0.tar.gz", hash = "sha256:0eacd1f940d115611c1b8a4696f315b4b80caf2951e546893a3d0cd7f6bfd6fd"},
@@ -5254,4 +5254,4 @@ reference = "PyPI-public"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.12"
-content-hash = "5dc01ec727de4c4a4789a66065350bb42bc41cb3099ac9fa2975dccdbcd97d97"
+content-hash = "ce14f0a601071567af6b04616f54424410868272b7446399ba1d07ba6282f542"

@@ -5,6 +5,8 @@
 * [THORN-810] Use the MccsBaseDevice method publish_health for pushing health events.
 * [THORN-810] Update ska-low-mccs-common to 4.11.0.
 * [THORN-815] Use integer accumulators for each packet in the station beam consumer, so the compiler vectorises the loop.
+* Build the runtime image on the CUDA 11.8 base image. It holds only the CUDA runtime, NVRTC, python3.10 and the DAQ files, with no compiler and none of the other CUDA libraries. The devcontainer builds the `build` stage.
+* Install only the main dependency group in the image. scapy and getmac, which only the tests use, are now dev dependencies only.
 
 ## 10.2.2
 
