@@ -5,6 +5,8 @@
 * [THORN-810] Use the MccsBaseDevice method publish_health for pushing health events.
 * [THORN-810] Update ska-low-mccs-common to 4.11.0.
 * [THORN-815] Use integer accumulators for each packet in the station beam consumer, so the compiler vectorises the loop.
+* [THORN-824] Build a slim runtime image on the CUDA 11.8 base image. The devcontainer uses the `build` stage.
+* [THORN-824] Make scapy and getmac dev dependencies.
 
 ## 10.2.2
 
