@@ -11,6 +11,7 @@ This module contains pytest fixtures other test setups.
 These are common to all ska-low-mccs tests: unit, integration and
 functional (BDD).
 """
+
 from __future__ import annotations
 
 import json

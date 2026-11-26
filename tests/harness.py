@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """This module provides a flexible test harness for testing Tango devices."""
+
 from __future__ import annotations
 
 import time
@@ -172,7 +173,7 @@ class SpsTangoTestHarness:
             host = "localhost"
 
         else:
-            (host, _) = address
+            host, _ = address
 
         self._tango_test_harness.add_device(
             get_lmc_daq_name(self._station_label),
@@ -187,7 +188,7 @@ class SpsTangoTestHarness:
             NumberOfTiles=number_of_tiles,
         )
 
-    def set_bandpass_daq_device(  # pylint: disable=too-many-arguments
+    def set_bandpass_daq_device(
         self: SpsTangoTestHarness,
         daq_id: int,
         address: tuple[str, int] | None,
@@ -215,7 +216,7 @@ class SpsTangoTestHarness:
             host = "localhost"
 
         else:
-            (host, _) = address
+            host, _ = address
 
         self._tango_test_harness.add_device(
             get_bandpass_daq_name(self._station_label),

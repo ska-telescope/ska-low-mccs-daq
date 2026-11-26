@@ -7,7 +7,6 @@
 # See LICENSE for more info.
 """This subpackage implements Daq Receiver functionality for MCCS."""
 
-
 __all__ = [
     "DaqComponentManager",
     "DaqSimulator",
