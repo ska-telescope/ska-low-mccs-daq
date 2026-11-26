@@ -53,7 +53,9 @@ USER daqqer
 # Runtime stage.
 FROM nvidia/cuda:11.8.0-base-ubuntu22.04
 
+# The upgrade is needed because NVIDIA does not rebuild its image tags.
 RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates cuda-nvrtc-11-8 libcap2-bin libgomp1 python3.10 \
     && rm -rf /var/lib/apt/lists/* \
