@@ -11,7 +11,6 @@ This module provides functionality to replay PCAP files using scapy.
 
 """
 
-
 import logging
 import os
 import socket

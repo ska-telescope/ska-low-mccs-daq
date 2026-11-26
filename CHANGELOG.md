@@ -7,6 +7,11 @@
 * [THORN-815] Use integer accumulators for each packet in the station beam consumer, so the compiler vectorises the loop.
 * Build the runtime image on the CUDA 11.8 base image. It holds only the CUDA runtime, NVRTC, python3.10 and the DAQ files, with no compiler and none of the other CUDA libraries. The devcontainer builds the `build` stage.
 * Install only the main dependency group in the image. scapy and getmac, which only the tests use, are now dev dependencies only.
+* Remove matplotlib, and with it pillow, from the dependencies. The DAQ device does not use it. The offline `daq_plotter.py` script needs matplotlib installed separately.
+* Update black to 26.10.1, which fixes CVE-2024-21503 and three later advisories, and reformat the code to match.
+* Remove filelock and the unused pre-commit from the dev dependencies. The lock for the exclusive tests uses `fcntl.flock`.
+* Remove gnupg and pip from the runtime image. The DAQ does not use them.
+* Update pytest to 9.1.1, pytest-bdd to 9.0.1 and pylint to 4.1.4, which fix their advisories, in the lock file and in the functional test requirements. pytest stays below 9.2, because pytest-forked fails every test on 9.2. Two feature files use Gherkin comments in place of Python docstrings.
 
 ## 10.2.2
 

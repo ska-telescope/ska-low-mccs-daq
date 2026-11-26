@@ -291,6 +291,9 @@ Plotting
 --------
 The final library in pydaq is the plotting library, which provides a useful script that can plot any type of data in several ways. This script is pydaq/daq_plotter.py, and can be used with a variety of options:
 
+.. note::
+   The script needs matplotlib, which the package does not install. Install it first, for example with ``pip install matplotlib``.
+
 - Type of data to plot (-R for raw data, -C for burst channelised data, -X for continuous channel data, -B for beam data, -D for integrated channelised data, -I for integrated beam data, -S for station beam data and -K for correlated data)
 - ``-f FILE``, the file to plot
 - ``-d DIRECTORY``, data directory from which to get the file to be plotted (this is used for when there are multiple files that need to be combined or there are different acquisitions and you want to be able to use timestamps to determine which to plot. If you want to plot a specific file, use -f)

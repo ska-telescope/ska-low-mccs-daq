@@ -1,4 +1,5 @@
 """Test the DaqReceiver class."""
+
 import logging
 import os
 import socket

@@ -310,10 +310,8 @@ def poll_until_state_change(
         return
 
     if no_of_iters == 1:
-        pytest.fail(
-            f"device not in desired state, \
-        wanted: {wanted_state}, actual: {device.state()}"
-        )
+        pytest.fail(f"device not in desired state, \
+        wanted: {wanted_state}, actual: {device.state()}")
 
     sleep(2)
     return poll_until_state_change(device, wanted_state, no_of_iters - 1)

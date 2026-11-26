@@ -1,10 +1,12 @@
 # Build stage, also the devcontainer target.
 FROM artefact.skao.int/ska-build-cuda-11:1.1.4 AS build
 
-# CUDA_ARCH is the xGPU target.
+# CUDA_ARCH is the xGPU target. The venv has no pip, because the runtime image does
+# not need it.
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
     POETRY_VIRTUALENVS_CREATE=1 \
+    POETRY_VIRTUALENVS_OPTIONS_NO_PIP=1 \
     VIRTUAL_ENV=/src/.venv \
     PATH="/src/.venv/bin:$PATH" \
     DEBIAN_FRONTEND=noninteractive \
@@ -53,8 +55,10 @@ USER daqqer
 # Runtime stage.
 FROM nvidia/cuda:11.8.0-base-ubuntu22.04
 
-# The upgrade is needed because NVIDIA does not rebuild its image tags.
+# The base image uses gnupg only to add the NVIDIA apt key, and apt needs only
+# gpgv. The upgrade is needed because NVIDIA does not rebuild its image tags.
 RUN apt-get update \
+    && apt-get purge -y --auto-remove gnupg2 gnupg \
     && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates cuda-nvrtc-11-8 libcap2-bin libgomp1 python3.10 \
