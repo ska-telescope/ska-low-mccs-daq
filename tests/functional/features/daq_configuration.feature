@@ -5,7 +5,7 @@
 #
 # Distributed under the terms of the BSD 3-clause new license.
 # See LICENSE for more info.
-"""This module contains the features and scenarios for the daq configuration test."""
+# This module contains the features and scenarios for the daq configuration test.
 
 Feature: Daq Configuration
   As a developer,

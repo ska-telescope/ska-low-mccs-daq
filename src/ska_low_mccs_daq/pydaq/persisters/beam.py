@@ -3,7 +3,6 @@ import time
 from builtins import range, str
 
 import numpy
-from matplotlib import pyplot as plt
 
 from .aavs_file import *
 

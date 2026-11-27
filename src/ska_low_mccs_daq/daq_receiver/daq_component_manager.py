@@ -331,8 +331,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
                 self._daq_client.initialise_daq()
                 self._receiver_started = True
                 self._initialised = True
-            # pylint: disable=broad-except
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 self.logger.error(
                     "Caught exception in `DaqHandler.initialise`: %s", e
                 )  # noqa: E501
@@ -573,8 +572,7 @@ class DaqComponentManager(TaskExecutorComponentManager):
             self.logger.info("Daq successfully reconfigured.")
             return ResultCode.OK, "Configure command completed OK"
 
-        # pylint: disable=broad-except
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error(f"Caught exception in DaqHandler.configure: {e}")
             return ResultCode.FAILED, f"Caught exception: {e}"
 

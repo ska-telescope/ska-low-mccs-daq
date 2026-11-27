@@ -4,6 +4,7 @@ disable=
     fixme,
     invalid-name,  # conflicts with Tango naming conventions
     logging-fstring-interpolation,
+    too-many-positional-arguments,  # the device and component manager APIs are positional
 
 enable=
     useless-suppression,

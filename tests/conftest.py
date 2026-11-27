@@ -11,8 +11,10 @@ This module contains pytest fixtures other test setups.
 These are common to all ska-low-mccs tests: unit, integration and
 functional (BDD).
 """
+
 from __future__ import annotations
 
+import fcntl
 import logging
 import os
 from pathlib import Path
@@ -20,7 +22,6 @@ from typing import Generator
 
 import pytest
 import tango
-from filelock import FileLock
 
 from tests.harness import get_bandpass_daq_name, get_lmc_daq_name
 
@@ -88,7 +89,9 @@ def global_test_lock_fixture(tmp_path_factory: pytest.TempPathFactory) -> Genera
     """
     shared_tmp_dir = tmp_path_factory.getbasetemp().parent
     lock_file_path = shared_tmp_dir / "exclusive_tests.lock"
-    with FileLock(str(lock_file_path)):
+    # Closing the file releases the lock.
+    with open(lock_file_path, "w", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
         yield
 
 

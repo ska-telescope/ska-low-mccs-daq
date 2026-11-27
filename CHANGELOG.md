@@ -5,6 +5,10 @@
 * [THORN-810] Use the MccsBaseDevice method publish_health for pushing health events.
 * [THORN-810] Update ska-low-mccs-common to 4.11.0.
 * [THORN-815] Use integer accumulators for each packet in the station beam consumer, so the compiler vectorises the loop.
+* [THORN-824] Build a slim runtime image on the CUDA 11.8 base image. The devcontainer uses the `build` stage.
+* [THORN-824] Make scapy and getmac dev dependencies.
+* [THORN-824] Remove matplotlib (and with it pillow), filelock, pre-commit, gnupg and pip, which the DAQ does not use.
+* [THORN-824] Update black to 26.10.1, pytest to 9.1.1, pytest-bdd to 9.0.1 and pylint to 4.1.4 to fix advisories.
 
 ## 10.2.2
 

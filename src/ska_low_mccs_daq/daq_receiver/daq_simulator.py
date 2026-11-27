@@ -9,6 +9,7 @@ This module implements a simple DAQ receiver.
 
 It exists to allow MccsDaqReceiver to be unit tested.
 """
+
 from __future__ import annotations
 
 import functools
